@@ -6,6 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { useProfile } from "@/hooks/useProfile";
+import NewsCarousel from "@/components/ai/NewsCarousel";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
 import camaraLogo from "@/assets/camara-logo.png";
 
@@ -142,6 +143,11 @@ const Home = () => {
               />
             ))}
           </div>
+        </div>
+
+        {/* Novidades */}
+        <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
+          <NewsCarousel />
         </div>
 
         {/* Bottom Cards with Large Icons */}

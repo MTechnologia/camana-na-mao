@@ -3,7 +3,6 @@ import AIHeader from "@/components/ai/AIHeader";
 import AIAvatar from "@/components/ai/AIAvatar";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
 import AIWelcome from "@/components/ai/AIWelcome";
-import NewsCarousel from "@/components/ai/NewsCarousel";
 import InteractionButtons from "@/components/ai/InteractionButtons";
 import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
 import SessionResume from "@/components/ai/SessionResume";
@@ -125,12 +124,9 @@ const IA = () => {
           />
         )}
 
-        {/* News and Interaction Buttons - Only on initial screen */}
+        {/* Interaction Buttons - Only on initial screen */}
         {messages.length === 0 && (
-          <>
-            <NewsCarousel />
-            <InteractionButtons onSelect={handleInteractionSelect} />
-          </>
+          <InteractionButtons onSelect={handleInteractionSelect} />
         )}
 
         {/* Chat Messages */}
