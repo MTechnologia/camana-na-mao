@@ -14,6 +14,137 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversations: {
+        Row: {
+          context: string | null
+          created_at: string
+          id: string
+          last_message_at: string
+          messages: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          messages?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          messages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiencia_inscricoes: {
+        Row: {
+          audiencia_id: string
+          created_at: string
+          id: string
+          notified: boolean | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          audiencia_id: string
+          created_at?: string
+          id?: string
+          notified?: boolean | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          audiencia_id?: string
+          created_at?: string
+          id?: string
+          notified?: boolean | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audiencia_inscricoes_audiencia_id_fkey"
+            columns: ["audiencia_id"]
+            isOneToOne: false
+            referencedRelation: "audiencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audiencia_inscricoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiencias: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string | null
+          documentos: Json | null
+          hora: string
+          id: string
+          inscricoes_abertas: boolean | null
+          link_transmissao: string | null
+          local: string
+          status: string
+          tema: string
+          titulo: string
+          updated_at: string
+          vagas_disponiveis: number | null
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao?: string | null
+          documentos?: Json | null
+          hora: string
+          id?: string
+          inscricoes_abertas?: boolean | null
+          link_transmissao?: string | null
+          local: string
+          status?: string
+          tema: string
+          titulo: string
+          updated_at?: string
+          vagas_disponiveis?: number | null
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string | null
+          documentos?: Json | null
+          hora?: string
+          id?: string
+          inscricoes_abertas?: boolean | null
+          link_transmissao?: string | null
+          local?: string
+          status?: string
+          tema?: string
+          titulo?: string
+          updated_at?: string
+          vagas_disponiveis?: number | null
+        }
+        Relationships: []
+      }
       dashboards: {
         Row: {
           config: Json
@@ -85,6 +216,148 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      noticias: {
+        Row: {
+          autor: string | null
+          categoria: string
+          conteudo: string
+          created_at: string
+          data_publicacao: string
+          destaque: boolean | null
+          fonte: string | null
+          id: string
+          imagem_url: string | null
+          resumo: string | null
+          tags: string[] | null
+          titulo: string
+        }
+        Insert: {
+          autor?: string | null
+          categoria: string
+          conteudo: string
+          created_at?: string
+          data_publicacao?: string
+          destaque?: boolean | null
+          fonte?: string | null
+          id?: string
+          imagem_url?: string | null
+          resumo?: string | null
+          tags?: string[] | null
+          titulo: string
+        }
+        Update: {
+          autor?: string | null
+          categoria?: string
+          conteudo?: string
+          created_at?: string
+          data_publicacao?: string
+          destaque?: boolean | null
+          fonte?: string | null
+          id?: string
+          imagem_url?: string | null
+          resumo?: string | null
+          tags?: string[] | null
+          titulo?: string
+        }
+        Relationships: []
+      }
+      notification_settings: {
+        Row: {
+          categories_enabled: string[] | null
+          created_at: string
+          email_enabled: boolean | null
+          id: string
+          max_daily_notifications: number | null
+          push_enabled: boolean | null
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categories_enabled?: string[] | null
+          created_at?: string
+          email_enabled?: boolean | null
+          id?: string
+          max_daily_notifications?: number | null
+          push_enabled?: boolean | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categories_enabled?: string[] | null
+          created_at?: string
+          email_enabled?: boolean | null
+          id?: string
+          max_daily_notifications?: number | null
+          push_enabled?: boolean | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          priority: string
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          priority?: string
+          read_at?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          priority?: string
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profile_completion_progress: {
         Row: {
