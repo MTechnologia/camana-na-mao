@@ -11,7 +11,7 @@ import AIMessage from "@/components/ai/AIMessage";
 import OfflineMode from "@/components/ai/OfflineMode";
 import ChatInput from "@/components/ai/ChatInput";
 import JourneyHeader from "@/components/ai/JourneyHeader";
-import MinimizedConversationBanner from "@/components/ai/MinimizedConversationBanner";
+import MinimizedConversationsList from "@/components/ai/MinimizedConversationsList";
 import { useFirstAccess } from "@/hooks/useFirstAccess";
 import { useSessionContext } from "@/hooks/useSessionContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
@@ -31,23 +31,23 @@ const IA = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [minimizedConversation, setMinimizedConversation] = useState<{
+  const [minimizedConversations, setMinimizedConversations] = useState<{
     conversationId: string;
     journeyId: string;
-  } | null>(() => {
+  }[]>(() => {
     // Restaurar do localStorage ao inicializar
-    const saved = localStorage.getItem('minimizedConversation');
-    return saved ? JSON.parse(saved) : null;
+    const saved = localStorage.getItem('minimizedConversations');
+    return saved ? JSON.parse(saved) : [];
   });
 
-  // Persistir minimizedConversation no localStorage
+  // Persistir minimizedConversations no localStorage
   useEffect(() => {
-    if (minimizedConversation) {
-      localStorage.setItem('minimizedConversation', JSON.stringify(minimizedConversation));
+    if (minimizedConversations.length > 0) {
+      localStorage.setItem('minimizedConversations', JSON.stringify(minimizedConversations));
     } else {
-      localStorage.removeItem('minimizedConversation');
+      localStorage.removeItem('minimizedConversations');
     }
-  }, [minimizedConversation]);
+  }, [minimizedConversations]);
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -111,9 +111,10 @@ const IA = () => {
     
     // Se veio da navbar (view=hub) e tem conversa ativa, auto-minimizar
     if (viewParam === 'hub' && currentJourney && currentConversationId) {
-      setMinimizedConversation({
-        conversationId: currentConversationId,
-        journeyId: currentJourney.id,
+      setMinimizedConversations(prev => {
+        const exists = prev.some(c => c.conversationId === currentConversationId);
+        if (exists) return prev;
+        return [...prev, { conversationId: currentConversationId, journeyId: currentJourney.id }];
       });
       clearJourney();
       
@@ -146,6 +147,17 @@ const IA = () => {
   const handleInteractionSelect = async (journeyId: string) => {
     const journey = getJourneyById(journeyId);
     if (!journey) return;
+
+    // Auto-minimizar conversa atual se existir e for diferente
+    if (currentJourney && currentConversationId && currentJourney.id !== journeyId) {
+      setMinimizedConversations(prev => {
+        const exists = prev.some(c => c.conversationId === currentConversationId);
+        if (exists) return prev;
+        return [...prev, { conversationId: currentConversationId, journeyId: currentJourney.id }];
+      });
+      clearJourney();
+      clearMessages();
+    }
 
     // Verifica se já existe conversa ativa dessa jornada
     const existingConversations = conversationsByJourney[journeyId] || [];
@@ -214,32 +226,46 @@ const IA = () => {
   const handleClearJourney = () => {
     clearJourney();
     clearMessages();
-    setMinimizedConversation(null);
+    // NÃO limpa minimizedConversations aqui - mantém conversas em andamento
     navigate("/ia");
   };
 
   const handleMinimizeConversation = () => {
     if (currentJourney && currentConversationId) {
-      setMinimizedConversation({
-        conversationId: currentConversationId,
-        journeyId: currentJourney.id,
+      setMinimizedConversations(prev => {
+        const exists = prev.some(c => c.conversationId === currentConversationId);
+        if (exists) return prev;
+        return [...prev, { conversationId: currentConversationId, journeyId: currentJourney.id }];
       });
       clearJourney();
     }
   };
 
-  const handleResumeMinimized = () => {
-    if (minimizedConversation) {
-      const journey = getJourneyById(minimizedConversation.journeyId);
-      if (journey) {
-        setJourney(journey, minimizedConversation.conversationId);
-        setMinimizedConversation(null);
-      }
+  const handleResumeMinimized = (conversationId: string, journeyId: string) => {
+    // Auto-minimiza conversa atual (se existir)
+    if (currentJourney && currentConversationId) {
+      setMinimizedConversations(prev => {
+        const exists = prev.some(c => c.conversationId === currentConversationId);
+        if (exists) return prev;
+        return [...prev, { conversationId: currentConversationId, journeyId: currentJourney.id }];
+      });
+    }
+    
+    // Abre a selecionada
+    const journey = getJourneyById(journeyId);
+    if (journey) {
+      setJourney(journey, conversationId);
+      // Remove da lista de minimizadas
+      setMinimizedConversations(prev => 
+        prev.filter(c => c.conversationId !== conversationId)
+      );
     }
   };
 
-  const handleDismissMinimized = () => {
-    setMinimizedConversation(null);
+  const handleDismissMinimized = (conversationId: string) => {
+    setMinimizedConversations(prev => 
+      prev.filter(c => c.conversationId !== conversationId)
+    );
   };
 
   const handleArchiveCurrentConversation = async () => {
@@ -292,19 +318,16 @@ const IA = () => {
       {/* Header with AI Avatar - Only show when no journey is active */}
       {!currentJourney && (
         <div className="pt-20 pb-4 px-6">
-          {/* Minimized Conversation Banner */}
-          {minimizedConversation && (() => {
-            const conv = conversations.find((c) => c.id === minimizedConversation.conversationId);
-            const journey = getJourneyById(minimizedConversation.journeyId);
-            return conv && journey ? (
-              <MinimizedConversationBanner
-                conversation={conv}
-                journey={journey}
-                onContinue={handleResumeMinimized}
-                onDismiss={handleDismissMinimized}
-              />
-            ) : null;
-          })()}
+          {/* Minimized Conversations List */}
+          {minimizedConversations.length > 0 && (
+            <MinimizedConversationsList
+              conversations={conversations}
+              minimizedConversations={minimizedConversations}
+              onContinue={handleResumeMinimized}
+              onDismiss={handleDismissMinimized}
+              getJourneyById={getJourneyById}
+            />
+          )}
           
           <div className="flex flex-col items-center">
             <AIAvatar />
@@ -334,7 +357,7 @@ const IA = () => {
               onRestore={restoreConversation}
               onDelete={deleteConversation}
               isLoading={isLoadingConversations}
-              activeConversationId={minimizedConversation?.conversationId}
+              activeConversationId={currentConversationId || undefined}
             />
           </div>
         )}
