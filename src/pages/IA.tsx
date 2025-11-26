@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AIHeader from "@/components/ai/AIHeader";
 import AIAvatar from "@/components/ai/AIAvatar";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
@@ -10,15 +10,19 @@ import SessionResume from "@/components/ai/SessionResume";
 import AIMessage from "@/components/ai/AIMessage";
 import OfflineMode from "@/components/ai/OfflineMode";
 import ChatInput from "@/components/ai/ChatInput";
+import JourneyHeader from "@/components/ai/JourneyHeader";
 import { useFirstAccess } from "@/hooks/useFirstAccess";
 import { useSessionContext } from "@/hooks/useSessionContext";
-import { useAIChat } from "@/hooks/useAIChat";
+import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { getJourneyById } from "@/config/aiJourneys";
 
 const IA = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -28,7 +32,8 @@ const IA = () => {
   const { profile } = useProfile();
   const { isFirstAccess, completeOnboarding } = useFirstAccess();
   const { hasActiveSession, sessionData, clearSession, getTimeAgo } = useSessionContext();
-  const { messages, isLoading: isChatLoading, sendMessage } = useAIChat();
+  const { currentJourney, setJourney, clearJourney } = useAIJourney();
+  const { messages, isLoading: isChatLoading, sendMessage } = useUnifiedAIChat(currentJourney);
 
   // Get user's first name or fallback to "Cidadão"
   const userName = profile?.full_name?.split(" ")[0] || user?.user_metadata?.full_name?.split(" ")[0] || "Cidadão";
@@ -40,6 +45,20 @@ const IA = () => {
     
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+
+    // Check for journey parameter
+    const journeyParam = searchParams.get("journey");
+    if (journeyParam) {
+      const journey = getJourneyById(journeyParam);
+      if (journey) {
+        setJourney(journey);
+        if (journey.initialMessage) {
+          setTimeout(() => {
+            sendMessage(journey.initialMessage!);
+          }, 500);
+        }
+      }
+    }
 
     // Loading simulation
     const timer = setTimeout(() => {
@@ -54,7 +73,7 @@ const IA = () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [isFirstAccess]);
+  }, [isFirstAccess, searchParams]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -66,23 +85,13 @@ const IA = () => {
     completeOnboarding();
   };
 
-  const handleInteractionSelect = (action: string) => {
-    if (action === "evaluate") {
-      navigate("/avaliar");
-      return;
-    }
-    
-    const actionMessages = {
-      share: "Quero contar uma coisa",
-      plan: "Ajude-me a me planejar",
-      services: "Conhecer serviços disponíveis",
-    };
-    const message = actionMessages[action as keyof typeof actionMessages];
-    if (message) {
-      sendMessage(message);
-    } else if (action === "transport") {
-      navigate("/transporte/novo");
-    }
+  const handleInteractionSelect = (journeyId: string) => {
+    navigate(`/ia?journey=${journeyId}`);
+  };
+
+  const handleClearJourney = () => {
+    clearJourney();
+    navigate("/ia");
   };
 
   const handleSendMessage = (message: string) => {
@@ -113,20 +122,29 @@ const IA = () => {
       {/* Header with escape route */}
       <AIHeader />
 
-      {/* Header with AI Avatar */}
-      <div className="pt-20 pb-8 px-6">
-        <div className="flex flex-col items-center">
-          <AIAvatar />
-          <div className="mt-6 w-full">
-            <AIWelcome userName={userName} />
+      {/* Journey Header - Shows when a journey is active */}
+      {currentJourney && (
+        <div className="pt-16">
+          <JourneyHeader journey={currentJourney} onClear={handleClearJourney} />
+        </div>
+      )}
+
+      {/* Header with AI Avatar - Only show when no journey is active */}
+      {!currentJourney && (
+        <div className="pt-20 pb-8 px-6">
+          <div className="flex flex-col items-center">
+            <AIAvatar />
+            <div className="mt-6 w-full">
+              <AIWelcome userName={userName} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
-      <div className="px-6 -mt-6">
-        {/* Session Resume */}
-        {hasActiveSession && sessionData && (
+      <div className={`px-6 ${currentJourney ? 'pt-4' : '-mt-6'}`}>
+        {/* Session Resume - Only show when no journey is active */}
+        {!currentJourney && hasActiveSession && sessionData && (
           <SessionResume
             lastTopic={sessionData.lastTopic}
             timeAgo={getTimeAgo()}
@@ -140,8 +158,8 @@ const IA = () => {
           />
         )}
 
-        {/* Interaction Carousel - Only on initial screen */}
-        {messages.length === 0 && (
+        {/* Interaction Carousel - Only show when no journey is active and no messages */}
+        {!currentJourney && messages.length === 0 && (
           <InteractionCarousel onSelect={handleInteractionSelect} />
         )}
 

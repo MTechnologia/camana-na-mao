@@ -1,49 +1,29 @@
-import { MessageCircle, Calendar, Search, Star, Bus } from "lucide-react";
+import { MessageCircle, Calendar, Search, Star, Bus, MessageSquare, MapPin, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
+import { AI_JOURNEYS } from "@/config/aiJourneys";
 
 interface InteractionCarouselProps {
   onSelect: (action: string) => void;
 }
 
 const InteractionCarousel = ({ onSelect }: InteractionCarouselProps) => {
-  const cards = [
-    {
-      id: "share",
-      icon: MessageCircle,
-      label: "Quero contar uma coisa",
-      description: "Compartilhe suas experiências e opiniões",
-      color: "from-pink-500 to-rose-500",
-    },
-    {
-      id: "plan",
-      icon: Calendar,
-      label: "Ajude-me a me planejar",
-      description: "Organize suas visitas e atividades",
-      color: "from-purple-500 to-indigo-500",
-    },
-    {
-      id: "services",
-      icon: Search,
-      label: "Conhecer serviços disponíveis",
-      description: "Descubra serviços públicos próximos",
-      color: "from-blue-500 to-cyan-500",
-    },
-    {
-      id: "evaluate",
-      icon: Star,
-      label: "Avaliar um serviço",
-      description: "Compartilhe sua experiência em serviços",
-      color: "from-amber-500 to-orange-500",
-    },
-    {
-      id: "transport",
-      icon: Bus,
-      label: "Relatar problema no transporte",
-      description: "Reporte problemas no transporte público",
-      color: "from-green-500 to-emerald-500",
-    },
-  ];
+  const iconMap = {
+    MessageSquare,
+    Bus,
+    Star,
+    Calendar,
+    MapPin,
+    Sparkles,
+  };
+
+  const cards = Object.values(AI_JOURNEYS).map(journey => ({
+    id: journey.id,
+    icon: iconMap[journey.icon as keyof typeof iconMap] || MessageSquare,
+    label: journey.label,
+    description: journey.initialMessage || "",
+    color: journey.color,
+  }));
 
   return (
     <div className="mb-6">
