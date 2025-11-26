@@ -1,5 +1,6 @@
 import { FileText, Vote, Calendar, Bus, Palette, Heart, BookOpen, Leaf } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
 
 type NewsCategory = 'legislativo' | 'mobilidade' | 'cultura' | 'saude' | 'educacao' | 'ambiente';
 
@@ -12,6 +13,7 @@ interface NewsItem {
   isNew: boolean;
   source: string;
   category: NewsCategory;
+  link: string;
 }
 
 const categoryConfig: Record<NewsCategory, { label: string; color: string }> = {
@@ -24,6 +26,8 @@ const categoryConfig: Record<NewsCategory, { label: string; color: string }> = {
 };
 
 const NewsCarousel = () => {
+  const navigate = useNavigate();
+  
   const news: NewsItem[] = [
     {
       id: 1,
@@ -34,6 +38,7 @@ const NewsCarousel = () => {
       isNew: true,
       source: "Portal da Câmara",
       category: "legislativo",
+      link: "/institucional/noticias",
     },
     {
       id: 2,
@@ -44,6 +49,7 @@ const NewsCarousel = () => {
       isNew: true,
       source: "SPTrans",
       category: "mobilidade",
+      link: "/transporte",
     },
     {
       id: 3,
@@ -54,6 +60,7 @@ const NewsCarousel = () => {
       isNew: true,
       source: "Secretaria de Cultura",
       category: "cultura",
+      link: "/institucional/noticias",
     },
     {
       id: 4,
@@ -64,6 +71,7 @@ const NewsCarousel = () => {
       isNew: false,
       source: "Secretaria de Saúde",
       category: "saude",
+      link: "/servicos-proximos",
     },
     {
       id: 5,
@@ -74,6 +82,7 @@ const NewsCarousel = () => {
       isNew: false,
       source: "Secretaria de Educação",
       category: "educacao",
+      link: "/institucional/noticias",
     },
     {
       id: 6,
@@ -84,6 +93,7 @@ const NewsCarousel = () => {
       isNew: false,
       source: "Secretaria do Verde",
       category: "ambiente",
+      link: "/institucional/noticias",
     },
   ];
 
@@ -101,26 +111,26 @@ const NewsCarousel = () => {
           return (
             <div
               key={item.id}
-              className="flex-shrink-0 w-64 bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow"
+              onClick={() => navigate(item.link)}
+              className="flex-shrink-0 w-64 bg-card rounded-xl border border-border p-4 hover:shadow-md hover:border-primary/20 transition-all cursor-pointer relative"
               style={{ animationDelay: `${index * 100}ms` }}
             >
+              {item.isNew && (
+                <Badge variant="secondary" className="absolute top-3 right-3 text-xs">
+                  NOVO
+                </Badge>
+              )}
+              
               <div className="flex items-start gap-3 mb-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <IconComponent className="w-5 h-5 text-primary" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  {item.isNew && (
-                    <Badge variant="secondary" className="text-xs w-fit">
-                      NOVO
-                    </Badge>
-                  )}
-                  <Badge 
-                    variant="outline" 
-                    className={`text-[10px] w-fit border ${categoryStyle.color}`}
-                  >
-                    {categoryStyle.label}
-                  </Badge>
-                </div>
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] border ${categoryStyle.color}`}
+                >
+                  {categoryStyle.label}
+                </Badge>
               </div>
               
               <h4 className="font-semibold text-foreground mb-1 text-sm">
