@@ -160,7 +160,7 @@ const Home = () => {
         {/* Quick Access Shortcuts Carousel */}
         <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
           <h2 className="text-sm font-medium text-gray-500 mb-3">Acesso Rápido</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">
+          <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-2 scrollbar-hide -mx-6 px-6 pt-2">
             {shortcuts.map((shortcut) => {
               const IconComponent = shortcut.icon;
               return (
