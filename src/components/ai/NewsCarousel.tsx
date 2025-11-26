@@ -90,7 +90,7 @@ const NewsCarousel = () => {
   return (
     <div className="mb-6">
       <h3 className="text-sm font-semibold text-foreground mb-3">
-        📰 Novidades
+        Novidades
       </h3>
       
       <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">

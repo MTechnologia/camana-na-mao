@@ -104,7 +104,7 @@ const ChatInput = ({ onSendMessage, disabled }: ChatInputProps) => {
             placeholder="O que você precisa?"
             disabled={disabled}
             rows={1}
-            className="w-full rounded-2xl border-2 border-border bg-card pl-4 pr-12 py-3.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 border-l-4 border-l-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
+            className="w-full rounded-2xl border-2 border-border bg-card pl-4 pr-12 py-3.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
             style={{ maxHeight: "120px" }}
           />
           
