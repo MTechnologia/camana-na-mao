@@ -33,7 +33,14 @@ const IA = () => {
   const { isFirstAccess, completeOnboarding } = useFirstAccess();
   const { hasActiveSession, sessionData, clearSession, getTimeAgo } = useSessionContext();
   const { currentJourney, setJourney, clearJourney } = useAIJourney();
-  const { messages, isLoading: isChatLoading, sendMessage } = useUnifiedAIChat(currentJourney);
+  const { messages, isLoading: isChatLoading, sendMessage, clearMessages, addAssistantMessage } = useUnifiedAIChat(currentJourney);
+
+  // Display initial message when journey is set
+  useEffect(() => {
+    if (currentJourney?.initialMessage && messages.length === 0) {
+      addAssistantMessage(currentJourney.initialMessage, "CMSP Connect");
+    }
+  }, [currentJourney, messages.length, addAssistantMessage]);
 
   // Get user's first name or fallback to "Cidadão"
   const userName = profile?.full_name?.split(" ")[0] || user?.user_metadata?.full_name?.split(" ")[0] || "Cidadão";
@@ -45,20 +52,6 @@ const IA = () => {
     
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
-    // Check for journey parameter
-    const journeyParam = searchParams.get("journey");
-    if (journeyParam) {
-      const journey = getJourneyById(journeyParam);
-      if (journey) {
-        setJourney(journey);
-        if (journey.initialMessage) {
-          setTimeout(() => {
-            sendMessage(journey.initialMessage!);
-          }, 500);
-        }
-      }
-    }
 
     // Loading simulation
     const timer = setTimeout(() => {
@@ -73,7 +66,18 @@ const IA = () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [isFirstAccess, searchParams]);
+  }, [isFirstAccess]);
+
+  // Handle journey parameter
+  useEffect(() => {
+    const journeyParam = searchParams.get("journey");
+    if (journeyParam && !currentJourney) {
+      const journey = getJourneyById(journeyParam);
+      if (journey) {
+        setJourney(journey);
+      }
+    }
+  }, [searchParams, currentJourney, setJourney]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -91,6 +95,7 @@ const IA = () => {
 
   const handleClearJourney = () => {
     clearJourney();
+    clearMessages();
     navigate("/ia");
   };
 

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, TrendingUp, FileText } from 'lucide-react';
+import { Bus, TrendingUp, FileText, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
 import FloatingNavbar from '@/components/FloatingNavbar';
@@ -9,6 +9,15 @@ export default function TransportReportPage() {
   const navigate = useNavigate();
 
   const options = [
+    {
+      id: 'ai-diagnosis',
+      title: 'Diagnóstico com IA',
+      description: 'Converse com a IA para relatar e analisar problemas',
+      icon: MessageSquare,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-50',
+      path: '/ia?journey=transport',
+    },
     {
       id: 'new-report',
       title: 'Relatar Problema',
