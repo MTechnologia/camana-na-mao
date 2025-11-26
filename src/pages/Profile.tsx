@@ -77,14 +77,25 @@ const Profile = () => {
       <PageHeader title="Meu Perfil" backTo="/home" />
 
       <div className="p-6">
-        {/* Avatar Upload */}
+        {/* Avatar Section */}
         {user && (
-          <div className="mb-8">
-            <AvatarUpload
-              userId={user.id}
-              currentAvatarUrl={profile.avatarUrl}
-              onAvatarUpdated={(url) => setProfile(prev => ({ ...prev, avatarUrl: url }))}
-            />
+          <div className="mb-8 flex flex-col items-center">
+            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-8 w-full flex flex-col items-center">
+              <AvatarUpload
+                userId={user.id}
+                userName={profile.fullName}
+                currentAvatarUrl={profile.avatarUrl}
+                onAvatarUpdated={(url) => setProfile(prev => ({ ...prev, avatarUrl: url }))}
+              />
+              <div className="mt-4 text-center">
+                <h2 className="text-2xl font-bold text-foreground">
+                  {profile.fullName || "Sem nome"}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {user.email}
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
