@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail, Megaphone } from "lucide-react";
+import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail, Megaphone, Heart } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
@@ -9,10 +9,13 @@ import { useProfile } from "@/hooks/useProfile";
 import NewsCarousel from "@/components/ai/NewsCarousel";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
 import camaraLogo from "@/assets/camara-logo.png";
+import { useFavorites } from "@/contexts/FavoritesContext";
+import { Card } from "@/components/ui/card";
 
 const Home = () => {
   const navigate = useNavigate();
   const { profile, loading, getInitials } = useProfile();
+  const { favorites } = useFavorites();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
 
@@ -101,6 +104,46 @@ const Home = () => {
             })}
           </div>
         </div>
+
+        {/* Favorites Section */}
+        {favorites.length > 0 && (
+          <div className="animate-fade-in" style={{ animationDelay: "75ms" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Heart className="h-4 w-4 text-pink-500 fill-pink-500" />
+              <h2 className="text-sm font-medium text-gray-500">Meus Favoritos</h2>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">
+              {favorites.map((favorite) => (
+                <Card
+                  key={favorite.id}
+                  onClick={() => navigate(favorite.path)}
+                  className="flex-shrink-0 w-48 p-3 bg-white hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100"
+                >
+                  <div className="flex items-start gap-3">
+                    {favorite.image && (
+                      <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarImage src={favorite.image} alt={favorite.title} />
+                        <AvatarFallback className="bg-pink-50 text-pink-600 text-xs">
+                          {favorite.title.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
+                        {favorite.title}
+                      </h3>
+                      {favorite.subtitle && (
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                          {favorite.subtitle}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Carousel Highlights with Bullets */}
         <div className="relative animate-fade-in" style={{ animationDelay: "100ms" }}>

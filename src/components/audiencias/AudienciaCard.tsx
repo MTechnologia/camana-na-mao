@@ -1,7 +1,8 @@
-import { Calendar, MapPin, Users, Clock } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Audiencia } from "@/pages/Audiencias";
+import { useFavorites } from "@/contexts/FavoritesContext";
 
 interface AudienciaCardProps {
   audiencia: Audiencia;
@@ -18,6 +19,8 @@ const themeColors: Record<string, string> = {
 };
 
 const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
+  const { toggleFavorite, isFavorited } = useFavorites();
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -25,9 +28,32 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
 
   return (
     <Card
-      className="p-4 bg-card border-border cursor-pointer hover:shadow-md hover:border-primary/20 transition-all"
+      className="p-4 bg-card border-border cursor-pointer hover:shadow-md hover:border-primary/20 transition-all relative"
       onClick={onClick}
     >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleFavorite({
+            id: `audiencia-${audiencia.id}`,
+            type: 'audiencia',
+            title: audiencia.title,
+            subtitle: audiencia.theme,
+            path: `/audiencias/${audiencia.id}`,
+            metadata: { date: audiencia.date, time: audiencia.time },
+          });
+        }}
+        className="absolute top-3 right-3 p-2 hover:bg-muted/50 rounded-full transition-colors z-10"
+        aria-label="Favoritar audiência"
+      >
+        <Heart
+          className={`h-5 w-5 ${
+            isFavorited(`audiencia-${audiencia.id}`)
+              ? "fill-pink-500 text-pink-500"
+              : "text-muted-foreground"
+          }`}
+        />
+      </button>
       <div className="flex gap-4">
         {/* Date Badge */}
         <div className="flex-shrink-0">

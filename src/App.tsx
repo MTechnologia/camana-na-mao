@@ -1,4 +1,3 @@
-import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { AIProvider } from "@/contexts/AIContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
 import Login from "./pages/Login";
@@ -84,9 +84,11 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <MenuProvider>
-            <AIProvider>
-              <AppContent />
-            </AIProvider>
+            <FavoritesProvider>
+              <AIProvider>
+                <AppContent />
+              </AIProvider>
+            </FavoritesProvider>
           </MenuProvider>
         </AuthProvider>
       </BrowserRouter>

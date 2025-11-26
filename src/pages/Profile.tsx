@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PageHeader from "@/components/ui/page-header";
 import AvatarUpload from "@/components/profile/AvatarUpload";
-import { User, MapPin, BarChart3, Settings, ChevronRight } from "lucide-react";
+import { User, MapPin, BarChart3, ChevronRight } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -68,13 +68,6 @@ const Profile = () => {
       description: 'CEP, rua e complemento',
       icon: MapPin,
       path: '/profile/address',
-    },
-    {
-      id: 'preferences',
-      title: 'Configurações',
-      description: 'Notificações e privacidade',
-      icon: Settings,
-      path: '/profile/preferences',
     },
   ];
 
