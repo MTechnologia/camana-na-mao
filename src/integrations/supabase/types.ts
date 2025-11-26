@@ -607,6 +607,33 @@ export type Database = {
           },
         ]
       }
+      search_history: {
+        Row: {
+          created_at: string
+          id: string
+          result_count: number | null
+          search_query: string
+          search_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          result_count?: number | null
+          search_query: string
+          search_type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          result_count?: number | null
+          search_query?: string
+          search_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       service_alerts: {
         Row: {
           alert_type: string

@@ -59,6 +59,7 @@ import ExportLogs from "./pages/admin/ExportLogs";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
 import NotFound from "./pages/NotFound";
+import SearchPage from "./pages/Search";
 
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
@@ -78,6 +79,7 @@ const AppContent = () => {
         <Route path="/profile/address" element={<AddressPage />} />
         <Route path="/profile/preferences" element={<PreferencesPage />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/ia" element={<IA />} />
         <Route path="/conversa" element={<Conversa />} />
         <Route path="/voz" element={<Voz />} />

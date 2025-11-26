@@ -16,7 +16,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { supabase } from "@/integrations/supabase/client";
 import NextAudienciaBanner from "@/components/home/NextAudienciaBanner";
 import LocationPrompt from "@/components/home/LocationPrompt";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
+
 import { AvatarWithProgress } from "@/components/home/AvatarWithProgress";
 
 const Home = () => {
@@ -28,7 +28,7 @@ const Home = () => {
   const { latitude, longitude, refetch: requestLocation } = useGeolocation();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
-  const [searchOpen, setSearchOpen] = useState(false);
+  
   const [unreadCount, setUnreadCount] = useState(0);
   const [nextAudiencia, setNextAudiencia] = useState<any>(null);
 
@@ -109,7 +109,7 @@ const Home = () => {
             {/* Search Bar */}
             <div 
               className="flex-1 max-w-md relative cursor-pointer"
-              onClick={() => setSearchOpen(true)}
+              onClick={() => navigate("/search")}
             >
               <input
                 type="text"
@@ -269,9 +269,6 @@ const Home = () => {
       </div>
 
       <FloatingNavbar />
-
-      {/* Global Search Modal */}
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 };
