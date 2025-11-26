@@ -1,0 +1,158 @@
+import { useState } from "react";
+import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
+import ContentArticle from "@/components/institucional/ContentArticle";
+import GlobalSearch from "@/components/institucional/GlobalSearch";
+import { Calendar, Clock, MapPin, Users } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface AgendaItem {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  type: "sessao" | "comissao" | "audiencia";
+  participants?: string[];
+}
+
+const mockAgenda: AgendaItem[] = [
+  {
+    id: "1",
+    title: "Sessão Plenária Ordinária",
+    date: "2024-12-15",
+    time: "14:00",
+    location: "Plenário Juscelino Kubitschek",
+    type: "sessao",
+    participants: ["47 Vereadores"],
+  },
+  {
+    id: "2",
+    title: "Comissão de Mobilidade e Transporte",
+    date: "2024-12-16",
+    time: "10:00",
+    location: "Sala das Comissões 1",
+    type: "comissao",
+    participants: ["7 Vereadores", "Especialistas convidados"],
+  },
+  {
+    id: "3",
+    title: "Audiência Pública - Educação Integral",
+    date: "2024-12-18",
+    time: "15:00",
+    location: "Auditório Prestes Maia",
+    type: "audiencia",
+    participants: ["Cidadãos", "Comissão de Educação"],
+  },
+];
+
+const typeLabels = {
+  sessao: { label: "Sessão Plenária", color: "bg-blue-500/10 text-blue-600" },
+  comissao: { label: "Comissão", color: "bg-purple-500/10 text-purple-600" },
+  audiencia: { label: "Audiência Pública", color: "bg-green-500/10 text-green-600" },
+};
+
+const AgendaCMSP = () => {
+  const [showSearch, setShowSearch] = useState(false);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("pt-BR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  };
+
+  return (
+    <>
+      <InstitutionalLayout
+        title="Agenda CMSP"
+        category="Institucional"
+        onSearch={() => setShowSearch(true)}
+      >
+        <ContentArticle
+          title="Agenda da Câmara Municipal"
+          date="Atualizado hoje às 10:30"
+          readTime="Verificação a cada 15 minutos"
+        >
+          <p className="text-muted-foreground">
+            Acompanhe todas as atividades legislativas da Câmara Municipal de São Paulo.
+            Sessões plenárias, reuniões de comissões e audiências públicas.
+          </p>
+
+          <Tabs defaultValue="proximos" className="mt-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="proximos">Próximos</TabsTrigger>
+              <TabsTrigger value="mes">Este mês</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="proximos" className="space-y-4 mt-4">
+              {mockAgenda.map((item) => {
+                const typeInfo = typeLabels[item.type];
+                return (
+                  <Card key={item.id} className="p-4 hover:shadow-md transition-shadow">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-foreground flex-1">
+                          {item.title}
+                        </h3>
+                        <Badge
+                          variant="outline"
+                          className={`shrink-0 ${typeInfo.color}`}
+                        >
+                          {typeInfo.label}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span className="capitalize">{formatDate(item.date)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span>{item.time}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          <span>{item.location}</span>
+                        </div>
+
+                        {item.participants && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Users className="h-4 w-4" />
+                            <span>{item.participants.join(", ")}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </TabsContent>
+
+            <TabsContent value="mes" className="mt-4">
+              <p className="text-center text-muted-foreground py-8">
+                Visualização mensal em desenvolvimento
+              </p>
+            </TabsContent>
+          </Tabs>
+
+          <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+            <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
+            <p><strong>Atualização:</strong> A cada 15 minutos</p>
+            <p><strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.</p>
+          </div>
+        </ContentArticle>
+      </InstitutionalLayout>
+
+      <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
+    </>
+  );
+};
+
+export default AgendaCMSP;

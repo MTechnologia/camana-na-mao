@@ -25,6 +25,12 @@ import Voz from "./pages/Voz";
 import Audiencias from "./pages/Audiencias";
 import AudienciaDetailPage from "./pages/audiencias/AudienciaDetailPage";
 import ParticipacaoPage from "./pages/audiencias/ParticipacaoPage";
+import AgendaCMSP from "./pages/institucional/AgendaCMSP";
+import Vereadores from "./pages/institucional/Vereadores";
+import ConhecaCamara from "./pages/institucional/ConhecaCamara";
+import CamaraExplica from "./pages/institucional/CamaraExplica";
+import EscolaParlamento from "./pages/institucional/EscolaParlamento";
+import Noticias from "./pages/institucional/Noticias";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import { useMenu } from "@/contexts/MenuContext";
@@ -53,6 +59,12 @@ const AppContent = () => {
           <Route path="/audiencias" element={<Audiencias />} />
           <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
           <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
+          <Route path="/institucional/agenda" element={<AgendaCMSP />} />
+          <Route path="/institucional/vereadores" element={<Vereadores />} />
+          <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
+          <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
+          <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
+          <Route path="/institucional/noticias" element={<Noticias />} />
         <Route path="/notifications" element={<Notifications />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
