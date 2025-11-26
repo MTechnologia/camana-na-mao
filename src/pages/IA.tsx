@@ -1,105 +1,224 @@
-import { MessageCircle, Mic } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Mic } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import FloatingNavbar from "@/components/FloatingNavbar";
+import AIAvatar from "@/components/ai/AIAvatar";
+import AILoadingScreen from "@/components/ai/AILoadingScreen";
+import AIWelcome from "@/components/ai/AIWelcome";
+import LegislativeNews from "@/components/ai/LegislativeNews";
+import InteractionButtons from "@/components/ai/InteractionButtons";
+import ModeToggle from "@/components/ai/ModeToggle";
+import AccessibilityPanel from "@/components/ai/AccessibilityPanel";
+import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
+import SessionResume from "@/components/ai/SessionResume";
+import AIMessage from "@/components/ai/AIMessage";
+import OfflineMode from "@/components/ai/OfflineMode";
+import { useFirstAccess } from "@/hooks/useFirstAccess";
+import { useSessionContext } from "@/hooks/useSessionContext";
+import { useAIChat } from "@/hooks/useAIChat";
+import { useToast } from "@/hooks/use-toast";
 
 const IA = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [mode, setMode] = useState<"text" | "voice">("text");
+  const [inputValue, setInputValue] = useState("");
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const suggestions = [
-    "Como protocolar um documento?",
-    "Consultar andamento de processo",
-    "Agenda de sessões",
-    "Projetos em votação",
-  ];
+  const { isFirstAccess, completeOnboarding } = useFirstAccess();
+  const { hasActiveSession, sessionData, clearSession, getTimeAgo } = useSessionContext();
+  const { messages, isLoading: isChatLoading, sendMessage } = useAIChat();
 
-  const recentChats = [
-    { id: 1, title: "Protocolo de documento", time: "Há 2 horas" },
-    { id: 2, title: "Consulta de processo", time: "Ontem" },
-    { id: 3, title: "Agendamento de atendimento", time: "2 dias atrás" },
-  ];
+  useEffect(() => {
+    // Check online status
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Loading simulation
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      if (isFirstAccess) {
+        setShowOnboarding(true);
+      }
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [isFirstAccess]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    completeOnboarding();
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboarding(false);
+    completeOnboarding();
+  };
+
+  const handleInteractionSelect = (action: string) => {
+    const actionMessages = {
+      share: "Quero contar uma coisa",
+      plan: "Ajude-me a me planejar",
+      services: "Conhecer serviços disponíveis",
+    };
+    const message = actionMessages[action as keyof typeof actionMessages];
+    if (message) {
+      sendMessage(message);
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (!inputValue.trim()) return;
+    sendMessage(inputValue);
+    setInputValue("");
+  };
+
+  const handleVoiceMode = () => {
+    if (mode === "voice") {
+      toast({
+        title: "Erro no microfone",
+        description: "Não foi possível acessar o microfone. Tente o modo texto.",
+        variant: "destructive",
+      });
+      setMode("text");
+      navigate("/voz");
+    } else {
+      navigate("/voz");
+    }
+  };
+
+  if (!isOnline) {
+    return <OfflineMode />;
+  }
+
+  if (isLoading) {
+    return <AILoadingScreen />;
+  }
+
+  if (showOnboarding) {
+    return (
+      <OnboardingTutorial
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header with gradient avatar */}
-      <div className="relative h-64 bg-gradient-to-br from-ai-start to-ai-end flex items-center justify-center">
-        <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/40">
-          <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center">
-            <svg className="w-12 h-12 text-primary" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background pb-32">
+      {/* Header with AI Avatar */}
+      <div className="bg-gradient-to-br from-primary/10 to-secondary/10 pt-8 pb-12 px-6">
+        <AIAvatar />
+        <AIWelcome userName="Luana" />
       </div>
 
       {/* Content */}
-      <div className="px-6 -mt-8 relative z-10">
-        {/* Intro Card */}
-        <div className="bg-card rounded-2xl p-6 mb-6 shadow-lg border border-border">
-          <h2 className="text-xl font-bold text-foreground mb-2">
-            Todo um um lugar especial no mundo
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Estou aqui para ajudar você com informações sobre a Câmara Municipal de São Paulo
-          </p>
-        </div>
+      <div className="px-6 -mt-6">
+        {/* Session Resume */}
+        {hasActiveSession && sessionData && (
+          <SessionResume
+            lastTopic={sessionData.lastTopic}
+            timeAgo={getTimeAgo()}
+            onContinue={() => {
+              toast({
+                title: "Continuando conversa",
+                description: "Retomando seu contexto anterior...",
+              });
+            }}
+            onNewChat={clearSession}
+          />
+        )}
 
-        {/* Suggestions */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Sugestões</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                onClick={() => navigate("/conversa")}
-                className="bg-secondary rounded-xl p-4 text-left text-sm text-foreground hover:bg-secondary/80 transition-colors border border-border"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Legislative News */}
+        <LegislativeNews />
 
-        {/* Recent Chats */}
-        <div className="mb-6">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Conversas recentes</h3>
-          <div className="space-y-2">
-            {recentChats.map((chat) => (
-              <button
-                key={chat.id}
-                onClick={() => navigate("/conversa")}
-                className="w-full bg-card rounded-xl p-4 text-left hover:bg-secondary transition-colors border border-border"
-              >
-                <p className="text-foreground font-medium mb-1">{chat.title}</p>
-                <p className="text-xs text-muted-foreground">{chat.time}</p>
-              </button>
+        {/* Interaction Buttons */}
+        {messages.length === 0 && (
+          <InteractionButtons onSelect={handleInteractionSelect} />
+        )}
+
+        {/* Chat Messages */}
+        {messages.length > 0 && (
+          <div className="mb-6 space-y-4">
+            {messages.map((message) => (
+              <div key={message.id}>
+                {message.role === "user" ? (
+                  <div className="flex justify-end">
+                    <div className="bg-primary text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[80%]">
+                      <p className="text-sm">{message.content}</p>
+                      <span className="text-xs opacity-70 mt-1 block">
+                        {message.timestamp}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <AIMessage
+                    content={message.content}
+                    source={message.source || "Portal da Câmara"}
+                    timestamp={message.timestamp}
+                  />
+                )}
+              </div>
             ))}
+            {isChatLoading && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                <span className="text-sm ml-2">Digitando...</span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* Mode Toggle */}
+        <ModeToggle mode={mode} onModeChange={setMode} />
 
         {/* Input Area */}
-        <div className="fixed bottom-24 left-0 right-0 px-6">
-          <div className="bg-card rounded-full border border-border shadow-lg p-2 flex items-center gap-2 max-w-md mx-auto">
+        <div className="fixed bottom-24 left-0 right-0 px-6 bg-gradient-to-t from-background via-background to-transparent pt-4">
+          <div className="bg-card rounded-full border border-border shadow-lg p-2 flex items-center gap-2 max-w-2xl mx-auto">
             <input
               type="text"
-              placeholder="O que você quer perguntar?"
+              placeholder={mode === "text" ? "Digite sua mensagem..." : "Clique no microfone para falar"}
               className="flex-1 bg-transparent border-none outline-none px-4 text-foreground placeholder:text-muted-foreground"
-              onFocus={() => navigate("/conversa")}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+              disabled={mode === "voice"}
             />
-            <button 
-              onClick={() => navigate("/voz")}
-              className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors"
-            >
-              <Mic size={20} />
-            </button>
-            <button 
-              onClick={() => navigate("/conversa")}
-              className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:bg-foreground/90 transition-colors"
-            >
-              <MessageCircle size={20} />
-            </button>
+            {mode === "text" ? (
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isChatLoading}
+                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Enviar mensagem"
+              >
+                <Send size={20} />
+              </button>
+            ) : (
+              <button
+                onClick={handleVoiceMode}
+                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors"
+                aria-label="Gravar áudio"
+              >
+                <Mic size={20} />
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Accessibility Panel */}
+      <AccessibilityPanel />
 
       <FloatingNavbar />
     </div>

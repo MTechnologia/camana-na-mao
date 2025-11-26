@@ -48,8 +48,8 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         ai: {
-          start: "hsl(var(--ai-gradient-start))",
-          end: "hsl(var(--ai-gradient-end))",
+          start: "hsl(var(--ai-start))",
+          end: "hsl(var(--ai-end))",
         },
         voice: {
           start: "hsl(var(--voice-gradient-start))",
