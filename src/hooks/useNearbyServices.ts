@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { servicosProximos, type SearchResult } from "@/data/searchData";
 
@@ -81,25 +80,16 @@ export const useNearbyServices = ({
     setError(null);
 
     try {
-      let query = supabase
-        .from("public_services")
-        .select("*");
+      // Usar apenas dados mockados (simulação)
+      let mockedData = servicosProximos.map(convertMockedToService);
 
+      // Filtrar por tipo de serviço se especificado
       if (serviceType && serviceType !== "all") {
-        query = query.eq("service_type", serviceType);
+        mockedData = mockedData.filter(service => service.service_type === serviceType);
       }
 
-      const { data, error: fetchError } = await query;
-
-      if (fetchError) throw fetchError;
-
-      // Use mocked data as fallback if Supabase is empty
-      const sourceData = data && data.length > 0 
-        ? data 
-        : servicosProximos.map(convertMockedToService);
-
-      // Filter by distance and calculate distances
-      const servicesWithDistance = sourceData
+      // Calcular distância e filtrar por raio
+      const servicesWithDistance = mockedData
         .map(service => ({
           ...service,
           distance: calculateDistance(
