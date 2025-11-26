@@ -23,6 +23,8 @@ import IA from "./pages/IA";
 import Conversa from "./pages/Conversa";
 import Voz from "./pages/Voz";
 import Audiencias from "./pages/Audiencias";
+import AudienciaDetailPage from "./pages/audiencias/AudienciaDetailPage";
+import ParticipacaoPage from "./pages/audiencias/ParticipacaoPage";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import { useMenu } from "@/contexts/MenuContext";
@@ -48,7 +50,9 @@ const AppContent = () => {
         <Route path="/ia" element={<IA />} />
         <Route path="/conversa" element={<Conversa />} />
         <Route path="/voz" element={<Voz />} />
-        <Route path="/audiencias" element={<Audiencias />} />
+          <Route path="/audiencias" element={<Audiencias />} />
+          <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
+          <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
         <Route path="/notifications" element={<Notifications />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
