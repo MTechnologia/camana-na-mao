@@ -1,7 +1,5 @@
-import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
 import { Calendar, Clock, MapPin, Users, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +53,6 @@ const typeLabels = {
 };
 
 const AgendaCMSP = () => {
-  const [showSearch, setShowSearch] = useState(false);
   const { toggleFavorite, isFavorited } = useFavorites();
 
   const formatDate = (dateStr: string) => {
@@ -68,12 +65,10 @@ const AgendaCMSP = () => {
   };
 
   return (
-    <>
-      <InstitutionalLayout
-        title="Agenda CMSP"
-        category="Institucional"
-        onSearch={() => setShowSearch(true)}
-      >
+    <InstitutionalLayout
+      title="Agenda CMSP"
+      category="Institucional"
+    >
         <ContentArticle
           title="Agenda da Câmara Municipal"
           date="Atualizado hoje às 10:30"
@@ -172,9 +167,6 @@ const AgendaCMSP = () => {
           </div>
         </ContentArticle>
       </InstitutionalLayout>
-
-      <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
-    </>
   );
 };
 

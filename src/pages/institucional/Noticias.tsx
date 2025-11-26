@@ -1,6 +1,4 @@
-import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
 import { Clock, Eye, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,7 +66,6 @@ const categoryColors: Record<string, string> = {
 };
 
 const Noticias = () => {
-  const [showSearch, setShowSearch] = useState(false);
   const { toggleFavorite, isFavorited } = useFavorites();
 
   const formatDate = (dateStr: string) => {
@@ -88,12 +85,10 @@ const Noticias = () => {
   };
 
   return (
-    <>
-      <InstitutionalLayout
-        title="Notícias"
-        category="Comunicação"
-        onSearch={() => setShowSearch(true)}
-      >
+    <InstitutionalLayout
+      title="Notícias"
+      category="Comunicação"
+    >
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -183,9 +178,6 @@ const Noticias = () => {
           </div>
         </div>
       </InstitutionalLayout>
-
-      <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
-    </>
   );
 };
 

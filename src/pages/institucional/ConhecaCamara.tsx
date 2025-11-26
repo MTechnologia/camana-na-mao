@@ -1,18 +1,12 @@
-import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
 
 const ConhecaCamara = () => {
-  const [showSearch, setShowSearch] = useState(false);
-
   return (
-    <>
-      <InstitutionalLayout
-        title="Conheça a Câmara"
-        category="Institucional"
-        onSearch={() => setShowSearch(true)}
-      >
+    <InstitutionalLayout
+      title="Conheça a Câmara"
+      category="Institucional"
+    >
         <ContentArticle
           title="História da Câmara Municipal de São Paulo"
           author="Assessoria de Comunicação"
@@ -95,9 +89,6 @@ const ConhecaCamara = () => {
           </div>
         </ContentArticle>
       </InstitutionalLayout>
-
-      <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
-    </>
   );
 };
 

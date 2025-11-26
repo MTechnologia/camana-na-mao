@@ -1,6 +1,5 @@
 import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
 import { Search, MapPin, Phone, Mail, Heart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -10,7 +9,6 @@ import { vereadores } from "@/data/vereadores";
 import { useFavorites } from "@/contexts/FavoritesContext";
 
 const Vereadores = () => {
-  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { toggleFavorite, isFavorited } = useFavorites();
 
@@ -22,12 +20,10 @@ const Vereadores = () => {
   );
 
   return (
-    <>
-      <InstitutionalLayout
-        title="Vereadores"
-        category="Institucional"
-        onSearch={() => setShowGlobalSearch(true)}
-      >
+    <InstitutionalLayout
+      title="Vereadores"
+      category="Institucional"
+    >
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -134,9 +130,6 @@ const Vereadores = () => {
           </div>
         </div>
       </InstitutionalLayout>
-
-      <GlobalSearch open={showGlobalSearch} onOpenChange={setShowGlobalSearch} />
-    </>
   );
 };
 

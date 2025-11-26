@@ -1,19 +1,13 @@
-import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const CamaraExplica = () => {
-  const [showSearch, setShowSearch] = useState(false);
-
   return (
-    <>
-      <InstitutionalLayout
-        title="Câmara Explica"
-        category="Educação Legislativa"
-        onSearch={() => setShowSearch(true)}
-      >
+    <InstitutionalLayout
+      title="Câmara Explica"
+      category="Educação Legislativa"
+    >
         <ContentArticle
           title="Como funciona a Câmara Municipal?"
           readTime="10 min de leitura"
@@ -141,9 +135,6 @@ const CamaraExplica = () => {
           </div>
         </ContentArticle>
       </InstitutionalLayout>
-
-      <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
-    </>
   );
 };
 

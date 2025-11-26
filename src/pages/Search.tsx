@@ -119,7 +119,7 @@ const SearchPage = () => {
       
       <div className="pt-[60px] pb-20">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-          {/* Search Input Premium */}
+          {/* Search Input */}
           <div className="relative">
             <div className="relative">
               <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary transition-colors" />
@@ -129,7 +129,7 @@ const SearchPage = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch(query)}
-                className="pl-12 pr-12 py-6 text-base rounded-3xl border-gray-200 bg-white shadow-lg focus:border-primary focus:ring-primary focus:shadow-xl transition-all"
+                className="pl-12 pr-12 py-6 text-base rounded-xl border-gray-200 bg-white shadow-sm focus:border-primary focus:ring-primary transition-all"
                 autoFocus
               />
               {query && (
@@ -146,11 +146,11 @@ const SearchPage = () => {
           {/* Card do Agente da Câmara de SP */}
           <div 
             onClick={handleAIHelp}
-            className="bg-gradient-to-br from-white to-gray-50 rounded-3xl p-5 shadow-lg border border-gray-100 cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
+            className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-all duration-300"
           >
             <div className="flex items-start gap-4">
               <div className="relative flex-shrink-0">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
                   <Sparkles className="h-7 w-7 text-white" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse" />
@@ -173,9 +173,9 @@ const SearchPage = () => {
             </div>
           </div>
 
-          {/* Suggestions Refinadas */}
+          {/* Suggestions */}
           {suggestions.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
               <div className="p-4 border-b border-gray-100 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-gray-700">Sugestões</span>
@@ -185,9 +185,9 @@ const SearchPage = () => {
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(suggestion)}
-                    className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 text-left group"
+                    className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                   >
-                    <span className="text-2xl transition-transform group-hover:scale-110">{suggestion.icon}</span>
+                    <span className="text-2xl">{suggestion.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {suggestion.text}
@@ -196,16 +196,16 @@ const SearchPage = () => {
                         {suggestion.type}
                       </span>
                     </div>
-                    <SearchIcon className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-primary transition-colors" />
+                    <SearchIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Search History Refinado */}
+          {/* Search History */}
           {!query && history.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
               <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-primary" />
@@ -215,7 +215,7 @@ const SearchPage = () => {
                   variant="ghost"
                   size="sm"
                   onClick={clearHistory}
-                  className="text-gray-500 hover:text-primary transition-colors"
+                  className="text-gray-500 hover:text-primary"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -225,23 +225,23 @@ const SearchPage = () => {
                   <button
                     key={item.id}
                     onClick={() => handleHistoryClick(item.search_query)}
-                    className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-all duration-200 hover:-translate-y-0.5 text-left group"
+                    className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                   >
-                    <Clock className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-primary transition-colors" />
-                    <span className="text-sm text-gray-700 flex-1 truncate group-hover:text-gray-900 font-medium transition-colors">
+                    <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 flex-1 truncate">
                       {item.search_query}
                     </span>
-                    <SearchIcon className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-primary transition-colors" />
+                    <SearchIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Empty State Elegante */}
+          {/* Empty State */}
           {!query && history.length === 0 && !loading && (
             <div className="text-center py-12">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <SearchIcon className="h-10 w-10 text-primary" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -255,25 +255,25 @@ const SearchPage = () => {
               <div className="flex flex-wrap gap-2 justify-center max-w-md mx-auto">
                 <button
                   onClick={() => setQuery("Vereadores")}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary hover:shadow-md transition-all duration-200"
+                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
                 >
                   Vereadores
                 </button>
                 <button
                   onClick={() => setQuery("Audiências")}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary hover:shadow-md transition-all duration-200"
+                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
                 >
                   Audiências
                 </button>
                 <button
                   onClick={() => setQuery("Serviços de saúde")}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary hover:shadow-md transition-all duration-200"
+                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
                 >
                   Serviços de saúde
                 </button>
                 <button
                   onClick={() => setQuery("Transporte")}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary hover:shadow-md transition-all duration-200"
+                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
                 >
                   Transporte
                 </button>

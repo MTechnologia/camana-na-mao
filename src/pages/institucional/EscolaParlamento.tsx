@@ -1,6 +1,4 @@
-import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import GlobalSearch from "@/components/institucional/GlobalSearch";
 import { GraduationCap, Clock, Users, BookOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,15 +64,11 @@ const levelLabels = {
 };
 
 const EscolaParlamento = () => {
-  const [showSearch, setShowSearch] = useState(false);
-
   return (
-    <>
-      <InstitutionalLayout
-        title="Escola do Parlamento"
-        category="Educação"
-        onSearch={() => setShowSearch(true)}
-      >
+    <InstitutionalLayout
+      title="Escola do Parlamento"
+      category="Educação"
+    >
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -190,9 +184,6 @@ const EscolaParlamento = () => {
           </div>
         </div>
       </InstitutionalLayout>
-
-      <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
-    </>
   );
 };
 
