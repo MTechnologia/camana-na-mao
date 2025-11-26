@@ -13,6 +13,60 @@ export interface SearchResult {
 // Serviços Públicos (Perto de Mim)
 export const servicosProximos: SearchResult[] = [
   {
+    id: "ubs-centro",
+    type: "servico",
+    title: "UBS Sé",
+    description: "Rua Dr. Falcão, 98 - Sé",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ubs-centro",
+    metadata: {
+      serviceType: "ubs",
+      district: "Sé",
+      rating: 4.1,
+      totalRatings: 87,
+      phone: "(11) 3106-0600",
+      latitude: -23.5489,
+      longitude: -46.6358
+    }
+  },
+  {
+    id: "ama-se",
+    type: "servico",
+    title: "AMA Sé",
+    description: "Praça da Sé, 108 - Sé",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ama-se",
+    metadata: {
+      serviceType: "hospital",
+      district: "Sé",
+      rating: 4.0,
+      totalRatings: 134,
+      phone: "(11) 3106-0700",
+      latitude: -23.5495,
+      longitude: -46.6345
+    }
+  },
+  {
+    id: "escola-centro",
+    type: "servico",
+    title: "EMEF Centro",
+    description: "Rua Boa Vista, 200 - Centro",
+    icon: "🏫",
+    category: "Educação",
+    path: "/servico/escola-centro",
+    metadata: {
+      serviceType: "school",
+      district: "Centro",
+      rating: 3.9,
+      totalRatings: 156,
+      phone: "(11) 3113-7800",
+      latitude: -23.5521,
+      longitude: -46.6301
+    }
+  },
+  {
     id: "ubs-1",
     type: "servico",
     title: "UBS Vila Mariana",

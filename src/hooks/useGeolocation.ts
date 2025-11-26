@@ -18,12 +18,12 @@ interface GeolocationState {
 
 export const useGeolocation = () => {
   const [state, setState] = useState<GeolocationState>({
-    latitude: null,
-    longitude: null,
+    latitude: SIMULATED_LOCATION.latitude,
+    longitude: SIMULATED_LOCATION.longitude,
     error: null,
-    loading: true,
+    loading: false,
     permissionGranted: false,
-    isSimulated: false,
+    isSimulated: true,
   });
 
   const requestLocation = () => {
