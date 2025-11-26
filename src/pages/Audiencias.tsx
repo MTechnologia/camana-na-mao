@@ -8,6 +8,7 @@ import PageHeader from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import AudienciaCard from "@/components/audiencias/AudienciaCard";
 import AudienciaFilters from "@/components/audiencias/AudienciaFilters";
+import FloatingNavbar from "@/components/FloatingNavbar";
 
 export interface Audiencia {
   id: string;
@@ -221,6 +222,8 @@ const Audiencias = () => {
         filters={filters}
         onFiltersChange={setFilters}
       />
+
+      <FloatingNavbar />
     </div>
   );
 };
