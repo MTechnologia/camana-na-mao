@@ -43,10 +43,10 @@ const Home = () => {
   ];
 
   const shortcuts = [
-    { id: 1, title: "Audiências", icon: Megaphone, color: "text-pink-500", bgColor: "bg-pink-50", path: "/audiencias" },
-    { id: 2, title: "Perto de Você", icon: Navigation, color: "text-blue-500", bgColor: "bg-blue-50", path: "/servicos-proximos" },
-    { id: 3, title: "Transporte", icon: Bus, color: "text-orange-500", bgColor: "bg-orange-50", path: "/transporte" },
-    { id: 4, title: "Relato Urbano", icon: MessageSquare, color: "text-cyan-500", bgColor: "bg-cyan-50", path: "/relato-urbano" },
+    { id: 1, title: "Relato Urbano", icon: MessageSquare, color: "text-cyan-500", bgColor: "bg-cyan-50", path: "/meus-relatos-urbanos" },
+    { id: 2, title: "Audiências", icon: Megaphone, color: "text-pink-500", bgColor: "bg-pink-50", path: "/audiencias" },
+    { id: 3, title: "Perto de Você", icon: Navigation, color: "text-blue-500", bgColor: "bg-blue-50", path: "/servicos-proximos" },
+    { id: 4, title: "Transporte", icon: Bus, color: "text-orange-500", bgColor: "bg-orange-50", path: "/transporte" },
     { id: 5, title: "Recomendações", icon: Sparkles, color: "text-purple-500", bgColor: "bg-purple-50", path: "/recomendacoes" },
     { id: 6, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50", path: "/institucional/vereadores" },
     { id: 7, title: "Favoritos", icon: Heart, color: "text-red-500", bgColor: "bg-red-50", path: "/favoritos", badge: favorites.length > 0 ? favorites.length : undefined },

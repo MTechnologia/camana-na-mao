@@ -1061,6 +1061,70 @@ export type Database = {
           },
         ]
       }
+      urban_report_comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          id: string
+          report_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          id?: string
+          report_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "urban_report_comments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "urban_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      urban_report_likes: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "urban_report_likes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "urban_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       urban_reports: {
         Row: {
           ai_classification: Json | null
