@@ -9,6 +9,9 @@ import { useProfile } from "@/hooks/useProfile";
 import NewsCarousel from "@/components/ai/NewsCarousel";
 import { PendingRatingsBanner } from "@/components/evaluation/PendingRatingsBanner";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
+import bannerParticipacao from "@/assets/banner-participacao.jpg";
+import bannerCidadeDigital from "@/assets/banner-cidade-digital.jpg";
+import bannerAudiencias from "@/assets/banner-audiencias.jpg";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
@@ -34,8 +37,9 @@ const Home = () => {
 
   const highlights = [
     { id: 1, image: camaraAbertaBg, title: "Câmara Aberta" },
-    { id: 2, image: camaraAbertaBg, title: "Transparência Total" },
-    { id: 3, image: camaraAbertaBg, title: "Participe das Decisões" },
+    { id: 2, image: bannerParticipacao, title: "Transparência e Participação" },
+    { id: 3, image: bannerCidadeDigital, title: "São Paulo Digital" },
+    { id: 4, image: bannerAudiencias, title: "Audiências Públicas" },
   ];
 
   const shortcuts = [
