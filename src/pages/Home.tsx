@@ -28,11 +28,11 @@ const Home = () => {
 
   const shortcuts = [
     { id: 1, title: "Audiências", icon: Megaphone, color: "text-pink-500", bgColor: "bg-pink-50", path: "/audiencias" },
-    { id: 2, title: "Agenda", icon: Calendar, color: "text-purple-500", bgColor: "bg-purple-50" },
-    { id: 3, title: "Documentos", icon: FileText, color: "text-blue-500", bgColor: "bg-blue-50" },
-    { id: 4, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50" },
-    { id: 5, title: "Votações", icon: Vote, color: "text-orange-500", bgColor: "bg-orange-50" },
-    { id: 6, title: "Notificações", icon: Bell, color: "text-cyan-500", bgColor: "bg-cyan-50" },
+    { id: 2, title: "Perto de Você", icon: Navigation, color: "text-blue-500", bgColor: "bg-blue-50", path: "/servicos-proximos" },
+    { id: 3, title: "Transporte", icon: Bus, color: "text-orange-500", bgColor: "bg-orange-50", path: "/transporte" },
+    { id: 4, title: "Agenda", icon: Calendar, color: "text-purple-500", bgColor: "bg-purple-50" },
+    { id: 5, title: "Documentos", icon: FileText, color: "text-teal-500", bgColor: "bg-teal-50" },
+    { id: 6, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50" },
     { id: 7, title: "Favoritos", icon: Heart, color: "text-red-500", bgColor: "bg-red-50", path: "/favoritos", badge: favorites.length > 0 ? favorites.length : undefined },
     { id: 8, title: "Avaliar", icon: Star, color: "text-amber-500", bgColor: "bg-amber-50", path: "/avaliar", badge: pendingRatings.length > 0 ? pendingRatings.length : undefined },
   ];
