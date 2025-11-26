@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import PageHeader from '@/components/ui/page-header';
+import FloatingNavbar from '@/components/FloatingNavbar';
 import { CouncilMemberSuggestion } from '@/components/transport/CouncilMemberSuggestion';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -82,42 +83,34 @@ export default function ReferralPage() {
   const suggestedMembers = vereadores.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="flex items-center gap-4 p-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/transporte/meus-relatos')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="font-bold text-lg">Encaminhar Relato</h1>
-            <p className="text-xs text-muted-foreground">Escolha um vereador</p>
-          </div>
+    <>
+      <PageHeader title="Encaminhar Relato" backTo="/transporte/meus-relatos" />
+      <div className="min-h-screen bg-gray-50 pt-[60px] pb-24">
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
+          {loading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : (
+            <>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold mb-2">Vereadores sugeridos</h2>
+                <p className="text-sm text-muted-foreground">
+                  Baseado no problema relatado e na região da linha
+                </p>
+              </div>
+
+              {suggestedMembers.map((member) => (
+                <CouncilMemberSuggestion
+                  key={member.id}
+                  member={member}
+                  reason="Atua na Comissão de Trânsito, Transporte, Atividade Econômica, Turismo, Lazer e Gastronomia"
+                  onForward={() => handleForward(member)}
+                />
+              ))}
+            </>
+          )}
         </div>
       </div>
-
-      <div className="p-4 space-y-4">
-        {loading ? (
-          <Skeleton className="h-48 w-full" />
-        ) : (
-          <>
-            <div className="mb-6">
-              <h2 className="text-xl font-bold mb-2">Vereadores sugeridos</h2>
-              <p className="text-sm text-muted-foreground">
-                Baseado no problema relatado e na região da linha
-              </p>
-            </div>
-
-            {suggestedMembers.map((member) => (
-              <CouncilMemberSuggestion
-                key={member.id}
-                member={member}
-                reason="Atua na Comissão de Trânsito, Transporte, Atividade Econômica, Turismo, Lazer e Gastronomia"
-                onForward={() => handleForward(member)}
-              />
-            ))}
-          </>
-        )}
-      </div>
-    </div>
+      <FloatingNavbar />
+    </>
   );
 }

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Clock } from 'lucide-react';
+import { FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/ui/page-header';
+import FloatingNavbar from '@/components/FloatingNavbar';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -42,27 +44,17 @@ export default function MyReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="flex items-center gap-4 p-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/transporte')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="font-bold text-lg">Meus Relatos</h1>
-            <p className="text-xs text-muted-foreground">Acompanhe seus relatos</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-4">
+    <>
+      <PageHeader title="Meus Relatos" backTo="/transporte" />
+      <div className="min-h-screen bg-gray-50 pt-[60px] pb-24">
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-24 w-full" />
-              </CardContent>
-            </Card>
+              <Card key={i} className="border-border">
+                <CardContent className="p-4">
+                  <Skeleton className="h-24 w-full" />
+                </CardContent>
+              </Card>
           ))
         ) : reports.length === 0 ? (
           <div className="text-center py-12">
@@ -76,7 +68,7 @@ export default function MyReportsPage() {
             const statusInfo = getStatusLabel(report.status);
             
             return (
-              <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow border-border">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>
@@ -119,7 +111,9 @@ export default function MyReportsPage() {
             );
           })
         )}
+        </div>
       </div>
-    </div>
+      <FloatingNavbar />
+    </>
   );
 }
