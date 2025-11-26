@@ -89,25 +89,23 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Logo Header */}
-      <div className="flex items-center justify-center gap-3 pt-12 pb-8 px-6">
-        <img src={brasaoSP} alt="Brasão São Paulo" className="w-16 h-16" />
-        <div className="text-left">
-          <p className="text-xs text-gray-600">CÂMARA MUNICIPAL DE</p>
-          <p className="text-lg font-bold text-gray-900">SÃO PAULO</p>
-        </div>
-      </div>
-
-      {/* Header Text */}
-      <div className="px-6 pb-6">
+      {/* Header com botão de voltar */}
+      <div className="px-6 pt-8 pb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/")}
+          className="mb-4 -ml-2"
+        >
+          <ArrowLeft size={20} className="mr-2" />
+          Voltar
+        </Button>
         {currentStep === 1 ? (
-          <>
-            <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-              Olá!<br />
-              queremos<br />
-              te conhecer!
-            </h1>
-          </>
+          <h1 className="text-4xl font-bold text-gray-900 leading-tight">
+            Olá!<br />
+            queremos<br />
+            te conhecer!
+          </h1>
         ) : (
           <>
             <Button
@@ -117,7 +115,7 @@ const Register = () => {
               className="mb-4 -ml-2"
             >
               <ArrowLeft size={20} className="mr-2" />
-              Voltar
+              Voltar para dados
             </Button>
             <h1 className="text-4xl font-bold text-gray-900 leading-tight">
               Quase lá!<br />
