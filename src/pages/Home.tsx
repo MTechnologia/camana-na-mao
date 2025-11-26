@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail } from "lucide-react";
+import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail, Megaphone } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
@@ -23,12 +23,12 @@ const Home = () => {
   ];
 
   const shortcuts = [
-    { id: 1, title: "Agenda", icon: Calendar, color: "text-pink-500", bgColor: "bg-pink-50" },
-    { id: 2, title: "Documentos", icon: FileText, color: "text-purple-500", bgColor: "bg-purple-50" },
-    { id: 3, title: "Vereadores", icon: Users, color: "text-blue-500", bgColor: "bg-blue-50" },
-    { id: 4, title: "Votações", icon: Vote, color: "text-green-500", bgColor: "bg-green-50" },
-    { id: 5, title: "Notificações", icon: Bell, color: "text-orange-500", bgColor: "bg-orange-50" },
-    { id: 6, title: "Contato", icon: Mail, color: "text-cyan-500", bgColor: "bg-cyan-50" },
+    { id: 1, title: "Audiências", icon: Megaphone, color: "text-pink-500", bgColor: "bg-pink-50", path: "/audiencias" },
+    { id: 2, title: "Agenda", icon: Calendar, color: "text-purple-500", bgColor: "bg-purple-50" },
+    { id: 3, title: "Documentos", icon: FileText, color: "text-blue-500", bgColor: "bg-blue-50" },
+    { id: 4, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50" },
+    { id: 5, title: "Votações", icon: Vote, color: "text-orange-500", bgColor: "bg-orange-50" },
+    { id: 6, title: "Notificações", icon: Bell, color: "text-cyan-500", bgColor: "bg-cyan-50" },
   ];
 
   useEffect(() => {
@@ -89,6 +89,7 @@ const Home = () => {
               return (
                 <button
                   key={shortcut.id}
+                  onClick={() => shortcut.path && navigate(shortcut.path)}
                   className="flex-shrink-0 flex flex-col items-center gap-2 p-4 w-24 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group"
                 >
                   <div className={`${shortcut.bgColor} p-3 rounded-full group-hover:scale-110 transition-transform duration-200`}>
