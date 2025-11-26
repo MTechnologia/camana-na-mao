@@ -94,12 +94,12 @@ const IA = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-primary/10 via-primary/5 to-background pb-24">
       {/* Header with escape route */}
       <AIHeader />
 
       {/* Header with AI Avatar */}
-      <div className="bg-gradient-to-br from-primary/10 to-secondary/10 pt-20 pb-8 px-6">
+      <div className="pt-20 pb-8 px-6">
         <div className="flex flex-col items-center">
           <AIAvatar />
           <div className="mt-6 w-full">
