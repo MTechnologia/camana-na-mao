@@ -6,11 +6,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ReportFilters } from "@/components/urban/ReportFilters";
+import { ReportInteractions } from "@/components/urban/ReportInteractions";
+import { ReportComments } from "@/components/urban/ReportComments";
 
 interface Report {
   id: string;
@@ -21,6 +26,17 @@ interface Report {
   status: string | null;
   location_address: string | null;
   created_at: string;
+  user_id: string;
+  profiles?: {
+    full_name: string;
+    avatar_url: string | null;
+  };
+}
+
+interface Filters {
+  category: string | null;
+  severity: string | null;
+  district: string | null;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -49,12 +65,23 @@ const severityLabels: Record<string, string> = {
 export default function ReportHistoryPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [reports, setReports] = useState<Report[]>([]);
+  const [myReports, setMyReports] = useState<Report[]>([]);
+  const [allReports, setAllReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<Filters>({
+    category: null,
+    severity: null,
+    district: null,
+  });
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   useEffect(() => {
     loadReports();
   }, []);
+
+  useEffect(() => {
+    loadAllReports();
+  }, [filters]);
 
   const loadReports = async () => {
     if (!user) return;
@@ -68,11 +95,65 @@ export default function ReportHistoryPage() {
 
       if (error) throw error;
 
-      setReports(data || []);
+      // Buscar perfis separadamente
+      const userIds = [...new Set(data?.map(r => r.user_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+
+      const reportsWithProfiles = data?.map(report => ({
+        ...report,
+        profiles: profilesMap.get(report.user_id)
+      })) || [];
+
+      setMyReports(reportsWithProfiles);
     } catch (error) {
-      console.error("Erro ao carregar relatos:", error);
+      console.error("Erro ao carregar meus relatos:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllReports = async () => {
+    try {
+      let query = supabase
+        .from("urban_reports")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (filters.category) {
+        query = query.eq("category", filters.category);
+      }
+
+      if (filters.severity) {
+        query = query.eq("severity", filters.severity);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Buscar perfis separadamente
+      const userIds = [...new Set(data?.map(r => r.user_id) || [])];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+
+      const reportsWithProfiles = data?.map(report => ({
+        ...report,
+        profiles: profilesMap.get(report.user_id)
+      })) || [];
+
+      setAllReports(reportsWithProfiles);
+    } catch (error) {
+      console.error("Erro ao carregar todos os relatos:", error);
     }
   };
 
@@ -89,10 +170,79 @@ export default function ReportHistoryPage() {
     }
   };
 
+  const renderReportCard = (report: Report, showAuthor: boolean = false) => {
+    const statusInfo = statusLabels[report.status || "pending"];
+
+    return (
+      <Card key={report.id} className="hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-foreground">
+                  {categoryLabels[report.category] || report.category}
+                </h3>
+                {report.subcategory && (
+                  <Badge variant="outline" className="text-xs">
+                    {report.subcategory}
+                  </Badge>
+                )}
+              </div>
+
+              {showAuthor && report.profiles && (
+                <p className="text-xs text-muted-foreground mb-1">
+                  Por {report.profiles.full_name}
+                </p>
+              )}
+
+              {report.severity && (
+                <p className="text-xs text-muted-foreground mb-2">
+                  Gravidade: {severityLabels[report.severity]}
+                </p>
+              )}
+            </div>
+
+            <Badge variant={statusInfo.variant} className="flex items-center gap-1">
+              {getStatusIcon(report.status)}
+              {statusInfo.label}
+            </Badge>
+          </div>
+
+          {report.description && (
+            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+              {report.description}
+            </p>
+          )}
+
+          <div className="space-y-1 mb-3">
+            {report.location_address && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3" />
+                <span className="line-clamp-1">{report.location_address}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Calendar className="w-3 h-3" />
+              <span>
+                {format(new Date(report.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+              </span>
+            </div>
+          </div>
+
+          <ReportInteractions
+            reportId={report.id}
+            onCommentClick={() => setSelectedReport(report)}
+          />
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Meus Relatos" />
+        <PageHeader title="Relatos Urbanos" />
         <div className="p-4 space-y-3">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-32 w-full" />
@@ -105,85 +255,80 @@ export default function ReportHistoryPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Meus Relatos" />
-      
+      <PageHeader title="Relatos Urbanos" />
+
       <div className="p-4">
-        {reports.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">📝</div>
-            <h3 className="font-semibold text-foreground mb-1">
-              Nenhum relato encontrado
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Comece a relatar problemas urbanos para melhorar sua cidade
-            </p>
-            <Button onClick={() => navigate("/relato-urbano")}>
-              <Plus className="w-4 h-4 mr-2" />
-              Fazer Relato
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {reports.map((report) => {
-              const statusInfo = statusLabels[report.status || "pending"];
-              
-              return (
-                <Card key={report.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground">
-                            {categoryLabels[report.category] || report.category}
-                          </h3>
-                          {report.subcategory && (
-                            <Badge variant="outline" className="text-xs">
-                              {report.subcategory}
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {report.severity && (
-                          <p className="text-xs text-muted-foreground mb-2">
-                            Gravidade: {severityLabels[report.severity]}
-                          </p>
-                        )}
-                      </div>
-                      
-                      <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-                        {getStatusIcon(report.status)}
-                        {statusInfo.label}
-                      </Badge>
-                    </div>
+        <Tabs defaultValue="my-reports" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="my-reports">Meus Relatos</TabsTrigger>
+            <TabsTrigger value="all-reports">Todos os Relatos</TabsTrigger>
+          </TabsList>
 
-                    {report.description && (
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                        {report.description}
-                      </p>
-                    )}
+          <TabsContent value="my-reports" className="space-y-4">
+            {myReports.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">📝</div>
+                <h3 className="font-semibold text-foreground mb-1">
+                  Nenhum relato encontrado
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Comece a relatar problemas urbanos para melhorar sua cidade
+                </p>
+                <Button onClick={() => navigate("/relato-urbano")}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Fazer Relato
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myReports.map((report) => renderReportCard(report, false))}
+              </div>
+            )}
+          </TabsContent>
 
-                    <div className="space-y-1">
-                      {report.location_address && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <MapPin className="w-3 h-3" />
-                          <span className="line-clamp-1">{report.location_address}</span>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          {format(new Date(report.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+          <TabsContent value="all-reports" className="space-y-4">
+            <ReportFilters filters={filters} onFilterChange={setFilters} />
+
+            {allReports.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-3">🔍</div>
+                <h3 className="font-semibold text-foreground mb-1">
+                  Nenhum relato encontrado
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Tente ajustar os filtros
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allReports.map((report) => renderReportCard(report, true))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Dialog de Comentários */}
+      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Comentários</DialogTitle>
+          </DialogHeader>
+          {selectedReport && (
+            <div className="space-y-4">
+              <div className="pb-4 border-b border-border">
+                <h4 className="font-semibold mb-1">
+                  {categoryLabels[selectedReport.category] || selectedReport.category}
+                </h4>
+                {selectedReport.description && (
+                  <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
+                )}
+              </div>
+              <ReportComments reportId={selectedReport.id} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <FloatingNavbar />
     </div>
