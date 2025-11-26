@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MessageSquare, X } from "lucide-react";
@@ -21,18 +21,6 @@ const MinimizedConversationBanner = ({
   onContinue,
   onDismiss,
 }: MinimizedConversationBannerProps) => {
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-      onDismiss();
-    }, 8000);
-
-    return () => clearTimeout(timer);
-  }, [onDismiss]);
-
-  if (!isVisible) return null;
 
   return (
     <Card className="relative border-l-4 border-l-gray-400 bg-gray-100 dark:bg-gray-800/50 mb-4 sticky top-0 z-20 shadow-md overflow-hidden">
@@ -67,7 +55,7 @@ const MinimizedConversationBanner = ({
           </Button>
         </div>
       </div>
-      <div className="absolute bottom-0 left-0 h-1 bg-gray-300 dark:bg-gray-600 animate-shrink-width" />
+      
     </Card>
   );
 };
