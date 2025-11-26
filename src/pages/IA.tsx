@@ -94,7 +94,7 @@ const IA = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary/10 via-primary/5 to-background pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-primary/10 via-primary/5 via-30% to-transparent pb-24">
       {/* Header with escape route */}
       <AIHeader />
 
