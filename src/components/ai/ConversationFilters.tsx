@@ -25,45 +25,55 @@ import { useState } from "react";
 interface ConversationFiltersProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  statusFilter: "active" | "archived";
+  onStatusChange: (status: "active" | "archived") => void;
+  activeCount: number;
+  archivedCount: number;
   periodFilter: string;
   onPeriodChange: (period: string) => void;
   journeyFilter: string;
   onJourneyChange: (journey: string) => void;
   availableJourneys: { id: string; label: string }[];
-  activeFiltersCount: number;
   onClearFilters: () => void;
 }
 
 const ConversationFilters = ({
   searchQuery,
   onSearchChange,
+  statusFilter,
+  onStatusChange,
+  activeCount,
+  archivedCount,
   periodFilter,
   onPeriodChange,
   journeyFilter,
   onJourneyChange,
   availableJourneys,
-  activeFiltersCount,
   onClearFilters,
 }: ConversationFiltersProps) => {
   const [open, setOpen] = useState(false);
+  const [tempStatus, setTempStatus] = useState(statusFilter);
   const [tempPeriod, setTempPeriod] = useState(periodFilter);
   const [tempJourney, setTempJourney] = useState(journeyFilter);
 
   const handleApplyFilters = () => {
+    onStatusChange(tempStatus);
     onPeriodChange(tempPeriod);
     onJourneyChange(tempJourney);
     setOpen(false);
   };
 
   const handleClearAll = () => {
+    setTempStatus("active");
     setTempPeriod("all");
     setTempJourney("all");
     onClearFilters();
     setOpen(false);
   };
 
-  // Count filters excluding search (period and journey only)
+  // Count active filters (status, period, journey)
   const filterBadgeCount = [
+    statusFilter !== "active",
     periodFilter !== "all",
     journeyFilter !== "all",
   ].filter(Boolean).length;
@@ -106,15 +116,34 @@ const ConversationFilters = ({
               )}
             </Button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-[400px]">
+          <SheetContent side="bottom" className="h-[500px]">
             <SheetHeader>
               <SheetTitle>Filtros</SheetTitle>
               <SheetDescription>
-                Refine suas conversas por período e tema
+                Refine suas conversas por status, período e tema
               </SheetDescription>
             </SheetHeader>
 
             <div className="space-y-6 py-6">
+              {/* Status Filter */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold">Status</Label>
+                <RadioGroup value={tempStatus} onValueChange={(value) => setTempStatus(value as "active" | "archived")}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="active" id="status-active" />
+                    <Label htmlFor="status-active" className="font-normal cursor-pointer">
+                      Ativas ({activeCount})
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="archived" id="status-archived" />
+                    <Label htmlFor="status-archived" className="font-normal cursor-pointer">
+                      Arquivadas ({archivedCount})
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               {/* Period Filter */}
               <div className="space-y-3">
                 <Label className="text-sm font-semibold">Período</Label>

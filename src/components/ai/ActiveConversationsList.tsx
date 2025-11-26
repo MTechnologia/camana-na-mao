@@ -117,12 +117,15 @@ const ActiveConversationsList = ({
       <ConversationFilters
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        statusFilter="active"
+        onStatusChange={() => {}}
+        activeCount={filteredConversations.length}
+        archivedCount={0}
         periodFilter={periodFilter}
         onPeriodChange={setPeriodFilter}
         journeyFilter={journeyFilter}
         onJourneyChange={setJourneyFilter}
         availableJourneys={availableJourneys}
-        activeFiltersCount={activeFiltersCount}
         onClearFilters={handleClearFilters}
       />
 
