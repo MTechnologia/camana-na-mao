@@ -80,7 +80,7 @@ const Login = () => {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
               <Input
                 type="email"
-                placeholder="rodrigo.aniteli@gmail.com"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-14 rounded-xl pl-12 pr-12 bg-gray-50 border-gray-200"
@@ -96,7 +96,7 @@ const Login = () => {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder="12345"
+                placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-14 rounded-xl pl-12 pr-12 bg-gray-50 border-gray-200"
