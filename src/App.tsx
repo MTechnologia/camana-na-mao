@@ -44,6 +44,8 @@ import UrgentReportPage from "./pages/transport/UrgentReportPage";
 import PatternsPage from "./pages/transport/PatternsPage";
 import MyReportsPage from "./pages/transport/MyReportsPage";
 import ReferralPage from "./pages/transport/ReferralPage";
+import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
+import AdvancedAnalytics from "./pages/analytics/AdvancedAnalytics";
 import { useMenu } from "@/contexts/MenuContext";
 import NotFound from "./pages/NotFound";
 
@@ -89,6 +91,8 @@ const AppContent = () => {
         <Route path="/transporte/padroes" element={<PatternsPage />} />
         <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
         <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
+        <Route path="/analytics" element={<AnalyticsDashboard />} />
+        <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
