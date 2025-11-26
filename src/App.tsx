@@ -33,8 +33,12 @@ import CamaraExplica from "./pages/institucional/CamaraExplica";
 import EscolaParlamento from "./pages/institucional/EscolaParlamento";
 import Noticias from "./pages/institucional/Noticias";
 import Notifications from "./pages/Notifications";
+import NearbyServicesPage from "./pages/NearbyServicesPage";
+import ServiceDetailPage from "./pages/ServiceDetailPage";
+import EvaluationPage from "./pages/EvaluationPage";
 import NotFound from "./pages/NotFound";
 import { useMenu } from "@/contexts/MenuContext";
+import { EvaluationProvider } from "@/contexts/EvaluationContext";
 
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
@@ -68,6 +72,10 @@ const AppContent = () => {
           <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
           <Route path="/institucional/noticias" element={<Noticias />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
+        <Route path="/servico/:id" element={<ServiceDetailPage />} />
+        <Route path="/avaliar" element={<EvaluationPage />} />
+        <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -87,9 +95,11 @@ const App = () => (
         <AuthProvider>
           <MenuProvider>
             <FavoritesProvider>
-              <AIProvider>
-                <AppContent />
-              </AIProvider>
+              <EvaluationProvider>
+                <AIProvider>
+                  <AppContent />
+                </AIProvider>
+              </EvaluationProvider>
             </FavoritesProvider>
           </MenuProvider>
         </AuthProvider>

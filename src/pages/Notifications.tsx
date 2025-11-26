@@ -1,5 +1,6 @@
 import FloatingNavbar from "@/components/FloatingNavbar";
 import PageHeader from "@/components/ui/page-header";
+import { PendingRatingsBanner } from "@/components/evaluation/PendingRatingsBanner";
 
 const Notifications = () => {
 
@@ -37,6 +38,10 @@ const Notifications = () => {
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
       <PageHeader title="Notificações" />
+
+      <div className="p-4">
+        <PendingRatingsBanner />
+      </div>
 
       {/* Notifications List */}
       <div className="divide-y divide-border">
