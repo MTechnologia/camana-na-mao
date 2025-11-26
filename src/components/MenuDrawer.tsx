@@ -25,7 +25,7 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor } = useUserRole();
+  const { isAdmin, isGestor, loading } = useUserRole();
   const {
     fontSize,
     readingMode,
@@ -34,6 +34,8 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     toggleReadingMode,
     toggleTextSpacing,
   } = useAccessibility();
+
+  console.log('MenuDrawer - isAdmin:', isAdmin, 'isGestor:', isGestor, 'loading:', loading);
 
   const menuOptions = [
     { 
