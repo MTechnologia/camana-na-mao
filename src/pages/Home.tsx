@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Megaphone, Heart, Star, MessageSquare, Sparkles } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -16,9 +15,9 @@ import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { supabase } from "@/integrations/supabase/client";
 import NextAudienciaBanner from "@/components/home/NextAudienciaBanner";
-import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import LocationPrompt from "@/components/home/LocationPrompt";
 import GlobalSearch from "@/components/institucional/GlobalSearch";
+import { AvatarWithProgress } from "@/components/home/AvatarWithProgress";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -139,18 +138,13 @@ const Home = () => {
               </button>
             </div>
 
-            {/* Avatar */}
-            <Avatar 
-              className="h-10 w-10 ring-2 ring-gray-100 cursor-pointer hover:ring-pink-500 transition-all"
+            {/* Avatar with Progress */}
+            <AvatarWithProgress
+              avatarUrl={profile?.avatar_url || null}
+              userName={profile?.full_name || "Usuário"}
+              percentage={profileStatus?.percentage || 0}
               onClick={() => navigate('/profile')}
-            >
-              {profile?.avatar_url ? (
-                <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
-              ) : null}
-              <AvatarFallback className="bg-pink-500 text-white font-medium">
-                {profile ? getInitials(profile.full_name) : "U"}
-              </AvatarFallback>
-            </Avatar>
+            />
           </div>
         </div>
       </header>
@@ -199,13 +193,6 @@ const Home = () => {
 
         {/* Pending Ratings Banner */}
         <PendingRatingsBanner />
-
-        {/* Profile Completion Card */}
-        {!profileLoading && profileStatus && (
-          <div className="animate-fade-in" style={{ animationDelay: "75ms" }}>
-            <ProfileCompletionCard status={profileStatus} />
-          </div>
-        )}
 
         {/* Next Audiência Banner */}
         {nextAudiencia && (
