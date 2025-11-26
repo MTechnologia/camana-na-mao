@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Megaphone, Heart, Star, MessageSquare, Sparkles } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { useProfile } from "@/hooks/useProfile";
@@ -11,14 +12,26 @@ import { PendingRatingsBanner } from "@/components/evaluation/PendingRatingsBann
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
+import { useProfileCompletion } from "@/hooks/useProfileCompletion";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { supabase } from "@/integrations/supabase/client";
+import NextAudienciaBanner from "@/components/home/NextAudienciaBanner";
+import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
+import LocationPrompt from "@/components/home/LocationPrompt";
+import GlobalSearch from "@/components/institucional/GlobalSearch";
 
 const Home = () => {
   const navigate = useNavigate();
   const { profile, loading, getInitials } = useProfile();
   const { favorites } = useFavorites();
   const { pendingRatings } = usePendingRatings();
+  const { status: profileStatus, loading: profileLoading } = useProfileCompletion();
+  const { latitude, longitude, refetch: requestLocation } = useGeolocation();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [nextAudiencia, setNextAudiencia] = useState<any>(null);
 
   const highlights = [
     { id: 1, image: camaraAbertaBg, title: "Câmara Aberta" },
@@ -32,7 +45,7 @@ const Home = () => {
     { id: 3, title: "Transporte", icon: Bus, color: "text-orange-500", bgColor: "bg-orange-50", path: "/transporte" },
     { id: 4, title: "Relato Urbano", icon: MessageSquare, color: "text-cyan-500", bgColor: "bg-cyan-50", path: "/relato-urbano" },
     { id: 5, title: "Recomendações", icon: Sparkles, color: "text-purple-500", bgColor: "bg-purple-50", path: "/recomendacoes" },
-    { id: 6, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50" },
+    { id: 6, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50", path: "/institucional/vereadores" },
     { id: 7, title: "Favoritos", icon: Heart, color: "text-red-500", bgColor: "bg-red-50", path: "/favoritos", badge: favorites.length > 0 ? favorites.length : undefined },
     { id: 8, title: "Avaliar", icon: Star, color: "text-amber-500", bgColor: "bg-amber-50", path: "/avaliar", badge: pendingRatings.length > 0 ? pendingRatings.length : undefined },
   ];
@@ -46,6 +59,48 @@ const Home = () => {
     });
   }, [api]);
 
+  // Fetch unread notifications count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { count } = await supabase
+          .from("notifications")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("is_read", false);
+        setUnreadCount(count || 0);
+      }
+    };
+    fetchUnreadCount();
+  }, []);
+
+  // Fetch next audiência
+  useEffect(() => {
+    const fetchNextAudiencia = async () => {
+      const { data } = await supabase
+        .from("audiencias")
+        .select("*")
+        .eq("status", "upcoming")
+        .order("data", { ascending: true })
+        .limit(1)
+        .single();
+      
+      if (data) {
+        setNextAudiencia({
+          id: data.id,
+          title: data.titulo,
+          date: data.data,
+          time: data.hora,
+          location: data.local,
+          theme: data.tema,
+          participants: 0,
+        });
+      }
+    };
+    fetchNextAudiencia();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Simplified Header */}
@@ -53,13 +108,35 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Search Bar */}
-            <div className="flex-1 max-w-md relative">
+            <div 
+              className="flex-1 max-w-md relative cursor-pointer"
+              onClick={() => setSearchOpen(true)}
+            >
               <input
                 type="text"
                 placeholder="Buscar..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all duration-200 outline-none"
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-200 transition-all duration-200 outline-none cursor-pointer"
+                readOnly
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+
+            {/* Notifications Badge */}
+            <div className="relative">
+              <button
+                onClick={() => navigate("/notifications")}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Bell className="h-5 w-5 text-gray-700" />
+                {unreadCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Badge>
+                )}
+              </button>
             </div>
 
             {/* Avatar */}
@@ -113,8 +190,29 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Location Prompt */}
+        {!latitude && !longitude && (
+          <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
+            <LocationPrompt onRequestLocation={requestLocation} />
+          </div>
+        )}
+
         {/* Pending Ratings Banner */}
         <PendingRatingsBanner />
+
+        {/* Profile Completion Card */}
+        {!profileLoading && profileStatus && (
+          <div className="animate-fade-in" style={{ animationDelay: "75ms" }}>
+            <ProfileCompletionCard status={profileStatus} />
+          </div>
+        )}
+
+        {/* Next Audiência Banner */}
+        {nextAudiencia && (
+          <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
+            <NextAudienciaBanner audiencia={nextAudiencia} />
+          </div>
+        )}
 
         {/* Carousel Highlights with Bullets */}
         <div className="relative animate-fade-in" style={{ animationDelay: "100ms" }}>
@@ -204,6 +302,9 @@ const Home = () => {
       </div>
 
       <FloatingNavbar />
+
+      {/* Global Search Modal */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 };
