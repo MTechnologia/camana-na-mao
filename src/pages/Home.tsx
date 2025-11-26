@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { Search, MapPin, HelpCircle, Wifi, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import FloatingNavbar from "@/components/FloatingNavbar";
-import MenuDrawer from "@/components/MenuDrawer";
+import { useMenu } from "@/contexts/MenuContext";
 import camaraLogo from "@/assets/camara-logo.png";
 import avatarLuana from "@/assets/avatar-luana.jpg";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
@@ -12,7 +11,7 @@ import mapLocation from "@/assets/map-location.png";
 import busSptrans from "@/assets/bus-sptrans.png";
 
 const Home = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { openMenu } = useMenu();
 
   const shortcuts = [
     { id: 1, title: "Atalho para" },
@@ -46,7 +45,7 @@ const Home = () => {
 
           {/* Avatar */}
           <button 
-            onClick={() => setIsMenuOpen(true)}
+            onClick={openMenu}
             className="w-10 h-10 rounded-full overflow-hidden"
           >
             <img src={avatarLuana} alt="Luana" className="w-full h-full object-cover" />
@@ -146,7 +145,6 @@ const Home = () => {
       </div>
 
       <FloatingNavbar />
-      <MenuDrawer isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </div>
   );
 };
