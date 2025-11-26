@@ -112,6 +112,7 @@ const AppContent = () => {
           <Route path="/relato-urbano/chat" element={<ChatReportPage />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
+          <Route path="/meus-relatos-urbanos" element={<ReportHistoryPage />} />
           <Route path="/recomendacoes" element={<ServiceRecommendationsPage />} />
           
           {/* Admin Routes */}
