@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AIProvider } from "@/contexts/AIContext";
+import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
@@ -144,9 +145,11 @@ const App = () => (
               <TransportProvider>
                 <EvaluationProvider>
                   <AIProvider>
-                    <NotificationsProvider>
-                      <AppContent />
-                    </NotificationsProvider>
+                    <AIJourneyProvider>
+                      <NotificationsProvider>
+                        <AppContent />
+                      </NotificationsProvider>
+                    </AIJourneyProvider>
                   </AIProvider>
                 </EvaluationProvider>
               </TransportProvider>
