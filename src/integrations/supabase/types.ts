@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      dashboards: {
+        Row: {
+          config: Json
+          created_at: string | null
+          description: string | null
+          id: string
+          is_approved: boolean | null
+          is_public: boolean | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_public?: boolean | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_approved?: boolean | null
+          is_public?: boolean | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      export_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          export_type: string
+          filters: Json | null
+          format: string
+          id: string
+          row_count: number | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          export_type: string
+          filters?: Json | null
+          format: string
+          id?: string
+          row_count?: number | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          export_type?: string
+          filters?: Json | null
+          format?: string
+          id?: string
+          row_count?: number | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profile_completion_progress: {
         Row: {
           completed_at: string
@@ -711,14 +783,46 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "gestor" | "vereador" | "assessor" | "cidadao"
       referral_status: "pending" | "sent" | "acknowledged" | "resolved"
       service_type:
         | "ubs"
@@ -856,6 +960,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "gestor", "vereador", "assessor", "cidadao"],
       referral_status: ["pending", "sent", "acknowledged", "resolved"],
       service_type: [
         "ubs",
