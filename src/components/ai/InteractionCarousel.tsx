@@ -1,22 +1,12 @@
 import { MessageCircle, Calendar, Search, Star, Bus } from "lucide-react";
 import { motion } from "framer-motion";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface InteractionCarouselProps {
   onSelect: (action: string) => void;
 }
 
 const InteractionCarousel = ({ onSelect }: InteractionCarouselProps) => {
-  const isMobile = useIsMobile();
-  
   const cards = [
     {
       id: "share",
@@ -61,68 +51,41 @@ const InteractionCarousel = ({ onSelect }: InteractionCarouselProps) => {
         O que você gostaria?
       </h3>
       
-      <Carousel
-        opts={{
-          align: "start",
-          loop: false,
-          dragFree: isMobile,
-        }}
-        className="w-full"
-      >
-        <CarouselContent className="-ml-2 md:-ml-4">
-          {cards.map((card, index) => {
-            const IconComponent = card.icon;
-            return (
-              <CarouselItem key={card.id} className="pl-2 md:pl-4 basis-[85%] md:basis-1/2 lg:basis-1/3">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card 
-                    className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 overflow-hidden"
-                    onClick={() => onSelect(card.id)}
-                  >
-                    <CardContent className="p-0">
-                      <div className={`h-full bg-gradient-to-br ${card.color} p-6 text-white`}>
-                        <div className="flex flex-col h-full min-h-[160px]">
-                          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <IconComponent className="w-7 h-7" />
-                          </div>
-                          <h4 className="font-semibold text-base mb-2 leading-tight">
-                            {card.label}
-                          </h4>
-                          <p className="text-sm text-white/80 leading-snug">
-                            {card.description}
-                          </p>
-                        </div>
+      <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-2 scrollbar-hide -mx-6 px-6 pt-2">
+        {cards.map((card, index) => {
+          const IconComponent = card.icon;
+          return (
+            <motion.div
+              key={card.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="flex-shrink-0 w-[280px] md:w-[320px]"
+            >
+              <Card 
+                className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-0 overflow-hidden"
+                onClick={() => onSelect(card.id)}
+              >
+                <CardContent className="p-0">
+                  <div className={`h-full bg-gradient-to-br ${card.color} p-6 text-white`}>
+                    <div className="flex flex-col h-full min-h-[160px]">
+                      <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <IconComponent className="w-7 h-7" />
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              </CarouselItem>
-            );
-          })}
-        </CarouselContent>
-        
-        {!isMobile && (
-          <div className="flex justify-center gap-2 mt-4">
-            <CarouselPrevious className="static translate-y-0" />
-            <CarouselNext className="static translate-y-0" />
-          </div>
-        )}
-        
-        {isMobile && (
-          <div className="flex justify-center gap-1.5 mt-4">
-            {cards.map((card, idx) => (
-              <div 
-                key={`dot-${card.id}`}
-                className="w-1.5 h-1.5 rounded-full bg-muted transition-colors"
-              />
-            ))}
-          </div>
-        )}
-      </Carousel>
+                      <h4 className="font-semibold text-base mb-2 leading-tight">
+                        {card.label}
+                      </h4>
+                      <p className="text-sm text-white/80 leading-snug">
+                        {card.description}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 };
