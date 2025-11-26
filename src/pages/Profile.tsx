@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import PageHeader from "@/components/ui/page-header";
 import DemographicsForm from "@/components/profile/DemographicsForm";
 import AddressForm from "@/components/profile/AddressForm";
+import AvatarUpload from "@/components/profile/AvatarUpload";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -15,6 +16,7 @@ const Profile = () => {
   const [profile, setProfile] = useState({
     fullName: "",
     phone: "",
+    avatarUrl: null as string | null,
   });
 
   useEffect(() => {
@@ -39,6 +41,7 @@ const Profile = () => {
         setProfile({
           fullName: data.full_name || "",
           phone: data.phone || "",
+          avatarUrl: data.avatar_url,
         });
       }
     } catch (error: any) {
@@ -74,6 +77,17 @@ const Profile = () => {
       <PageHeader title="Meu Perfil" backTo="/home" />
 
       <div className="p-6">
+        {/* Avatar Upload */}
+        {user && (
+          <div className="mb-8">
+            <AvatarUpload
+              userId={user.id}
+              currentAvatarUrl={profile.avatarUrl}
+              onAvatarUpdated={(url) => setProfile(prev => ({ ...prev, avatarUrl: url }))}
+            />
+          </div>
+        )}
+
         <Tabs defaultValue="personal" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="personal">Pessoal</TabsTrigger>
