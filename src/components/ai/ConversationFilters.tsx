@@ -31,9 +31,6 @@ interface ConversationFiltersProps {
   archivedCount: number;
   periodFilter: string;
   onPeriodChange: (period: string) => void;
-  journeyFilter: string;
-  onJourneyChange: (journey: string) => void;
-  availableJourneys: { id: string; label: string }[];
   onClearFilters: () => void;
 }
 
@@ -46,36 +43,29 @@ const ConversationFilters = ({
   archivedCount,
   periodFilter,
   onPeriodChange,
-  journeyFilter,
-  onJourneyChange,
-  availableJourneys,
   onClearFilters,
 }: ConversationFiltersProps) => {
   const [open, setOpen] = useState(false);
   const [tempStatus, setTempStatus] = useState(statusFilter);
   const [tempPeriod, setTempPeriod] = useState(periodFilter);
-  const [tempJourney, setTempJourney] = useState(journeyFilter);
 
   const handleApplyFilters = () => {
     onStatusChange(tempStatus);
     onPeriodChange(tempPeriod);
-    onJourneyChange(tempJourney);
     setOpen(false);
   };
 
   const handleClearAll = () => {
     setTempStatus("active");
     setTempPeriod("all");
-    setTempJourney("all");
     onClearFilters();
     setOpen(false);
   };
 
-  // Count active filters (status, period, journey)
+  // Count active filters (status, period)
   const filterBadgeCount = [
     statusFilter !== "active",
     periodFilter !== "all",
-    journeyFilter !== "all",
   ].filter(Boolean).length;
 
   return (
@@ -173,24 +163,6 @@ const ConversationFilters = ({
                     </Label>
                   </div>
                 </RadioGroup>
-              </div>
-
-              {/* Journey/Theme Filter */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold">Tema</Label>
-                <Select value={tempJourney} onValueChange={setTempJourney}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os temas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os temas</SelectItem>
-                    {availableJourneys.map((journey) => (
-                      <SelectItem key={journey.id} value={journey.id}>
-                        {journey.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 

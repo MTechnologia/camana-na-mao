@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageSquare, Bus, Star, Calendar, MapPin, Sparkles, MoreVertical, Archive, XCircle } from "lucide-react";
+import { MessageSquare, MoreVertical, Archive, XCircle } from "lucide-react";
 import { JourneyType } from "@/contexts/AIJourneyContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -11,21 +11,12 @@ interface JourneyHeaderProps {
   onMinimize?: () => void;
   onArchive?: () => void;
 }
-const iconMap = {
-  MessageSquare,
-  Bus,
-  Star,
-  Calendar,
-  MapPin,
-  Sparkles
-};
 const JourneyHeader = ({
   journey,
   onClear,
   onMinimize,
   onArchive
 }: JourneyHeaderProps) => {
-  const Icon = iconMap[journey.icon as keyof typeof iconMap] || MessageSquare;
   const [showEndDialog, setShowEndDialog] = useState(false);
   const handleEndConversation = () => {
     if (onArchive) {
@@ -38,7 +29,7 @@ const JourneyHeader = ({
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className={`p-2 rounded-full bg-gradient-to-br ${journey.color}`}>
-            <Icon className="w-4 h-4 text-white" />
+            <MessageSquare className="w-4 h-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <Badge variant="secondary" className="mb-1">
@@ -61,7 +52,7 @@ const JourneyHeader = ({
                 e.stopPropagation();
                 onMinimize();
               }}>
-                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    <MessageSquare className="w-4 h-4 mr-2" />
                     Voltar ao Hub
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

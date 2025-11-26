@@ -34,7 +34,6 @@ export default function ConversationHub({
 }: ConversationHubProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
-  const [journeyFilter, setJourneyFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [conversationToDelete, setConversationToDelete] = useState<AIConversation | null>(null);
 
@@ -54,11 +53,6 @@ export default function ConversationHub({
         return false;
       }
 
-      // Filter by journey (if showAllJourneys)
-      if (showAllJourneys && journeyFilter !== "all" && conv.journeyId !== journeyFilter) {
-        return false;
-      }
-
       // Filter by period
       if (periodFilter !== "all") {
         const lastMessageDate = new Date(conv.lastMessageAt);
@@ -69,7 +63,7 @@ export default function ConversationHub({
 
       return true;
     });
-  }, [conversations, searchQuery, periodFilter, journeyFilter, activeTab, filterJourney, showAllJourneys]);
+  }, [conversations, searchQuery, periodFilter, activeTab, filterJourney]);
 
   // Group by journey if showing all
   const groupedConversations = useMemo(() => {
@@ -88,20 +82,10 @@ export default function ConversationHub({
   const activeCount = conversations.filter(c => c.status === "active").length;
   const archivedCount = conversations.filter(c => c.status === "archived").length;
 
-  // Available journeys for filter
-  const availableJourneys = useMemo(() => {
-    const journeys = Array.from(new Set(conversations.map(c => c.journeyId)));
-    return journeys.map(id => ({
-      id,
-      label: AI_JOURNEYS[id]?.label || id,
-    }));
-  }, [conversations]);
-
   const handleClearFilters = () => {
     setSearchQuery("");
     setActiveTab("active");
     setPeriodFilter("all");
-    setJourneyFilter("all");
   };
 
   const handleDeleteClick = (conversation: AIConversation) => {
@@ -139,9 +123,6 @@ export default function ConversationHub({
         archivedCount={archivedCount}
         periodFilter={periodFilter}
         onPeriodChange={setPeriodFilter}
-        journeyFilter={journeyFilter}
-        onJourneyChange={setJourneyFilter}
-        availableJourneys={availableJourneys}
         onClearFilters={handleClearFilters}
       />
 
@@ -155,7 +136,7 @@ export default function ConversationHub({
           <div className="text-center py-12">
             <div className="text-4xl mb-4">{activeTab === "archived" ? "📦" : "💬"}</div>
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              {searchQuery || periodFilter !== "all" || journeyFilter !== "all"
+              {searchQuery || periodFilter !== "all"
                 ? "Nenhuma conversa encontrada"
                 : activeTab === "archived"
                 ? "Nenhuma conversa arquivada"
@@ -164,13 +145,13 @@ export default function ConversationHub({
                 : "Comece uma conversa escolhendo um tema"}
             </h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery || periodFilter !== "all" || journeyFilter !== "all"
+              {searchQuery || periodFilter !== "all"
                 ? "Tente ajustar os filtros"
                 : activeTab === "archived"
                 ? "Conversas arquivadas aparecem aqui"
                 : "Clique em 'Nova Conversa' para começar"}
             </p>
-            {(searchQuery || periodFilter !== "all" || journeyFilter !== "all") && (
+            {(searchQuery || periodFilter !== "all") && (
               <Button variant="outline" onClick={handleClearFilters}>
                 Limpar Filtros
               </Button>
