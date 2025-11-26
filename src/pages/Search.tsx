@@ -158,17 +158,6 @@ const SearchPage = () => {
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900 text-base">Agente da Câmara de SP</h3>
                 <p className="text-sm text-gray-500 mt-0.5">Seu assistente virtual inteligente</p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <span className="px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-full font-medium">
-                    Encontrar vereadores
-                  </span>
-                  <span className="px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-full font-medium">
-                    Explicar projetos
-                  </span>
-                  <span className="px-3 py-1.5 text-xs bg-primary/10 text-primary rounded-full font-medium">
-                    Serviços próximos
-                  </span>
-                </div>
               </div>
             </div>
           </div>
