@@ -114,7 +114,7 @@ Extraia informações estruturadas das respostas do usuário.`;
     if (userText.includes('localização') || userText.includes('localizacao')) {
       const coordMatch = userText.match(/-?\d+\.\d+,\s*-?\d+\.\d+/);
       if (coordMatch) {
-        const [lat, lng] = coordMatch[0].split(',').map(s => parseFloat(s.trim()));
+        const [lat, lng] = coordMatch[0].split(',').map((s: string) => parseFloat(s.trim()));
         updatedReportData.latitude = lat;
         updatedReportData.longitude = lng;
         updatedReportData.location = coordMatch[0];
