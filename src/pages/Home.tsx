@@ -1,21 +1,22 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail, Megaphone, Heart } from "lucide-react";
+import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Megaphone, Heart, Star } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { useProfile } from "@/hooks/useProfile";
 import NewsCarousel from "@/components/ai/NewsCarousel";
+import { PendingRatingsBanner } from "@/components/evaluation/PendingRatingsBanner";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
-import camaraLogo from "@/assets/camara-logo.png";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { Card } from "@/components/ui/card";
+import { usePendingRatings } from "@/hooks/usePendingRatings";
 
 const Home = () => {
   const navigate = useNavigate();
   const { profile, loading, getInitials } = useProfile();
   const { favorites } = useFavorites();
+  const { pendingRatings } = usePendingRatings();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
 
@@ -33,6 +34,7 @@ const Home = () => {
     { id: 5, title: "Votações", icon: Vote, color: "text-orange-500", bgColor: "bg-orange-50" },
     { id: 6, title: "Notificações", icon: Bell, color: "text-cyan-500", bgColor: "bg-cyan-50" },
     { id: 7, title: "Favoritos", icon: Heart, color: "text-red-500", bgColor: "bg-red-50", path: "/favoritos", badge: favorites.length > 0 ? favorites.length : undefined },
+    { id: 8, title: "Avaliar", icon: Star, color: "text-amber-500", bgColor: "bg-amber-50", path: "/avaliar", badge: pendingRatings.length > 0 ? pendingRatings.length : undefined },
   ];
 
   useEffect(() => {
@@ -111,6 +113,8 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Pending Ratings Banner */}
+        <PendingRatingsBanner />
 
         {/* Carousel Highlights with Bullets */}
         <div className="relative animate-fade-in" style={{ animationDelay: "100ms" }}>
@@ -164,7 +168,10 @@ const Home = () => {
         {/* Bottom Cards with Large Icons */}
         <div className="grid grid-cols-2 gap-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
           {/* Perto de mim Card */}
-          <div className="relative h-40 rounded-2xl overflow-hidden cursor-pointer group bg-white shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+          <div 
+            className="relative h-40 rounded-2xl overflow-hidden cursor-pointer group bg-white shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200"
+            onClick={() => navigate('/servicos-proximos')}
+          >
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
               <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-400/10 flex items-center justify-center relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full blur-xl opacity-20" />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AIHeader from "@/components/ai/AIHeader";
 import AIAvatar from "@/components/ai/AIAvatar";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
@@ -15,6 +16,7 @@ import { useAIChat } from "@/hooks/useAIChat";
 import { useToast } from "@/hooks/use-toast";
 
 const IA = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -58,6 +60,11 @@ const IA = () => {
   };
 
   const handleInteractionSelect = (action: string) => {
+    if (action === "evaluate") {
+      navigate("/avaliar");
+      return;
+    }
+    
     const actionMessages = {
       share: "Quero contar uma coisa",
       plan: "Ajude-me a me planejar",

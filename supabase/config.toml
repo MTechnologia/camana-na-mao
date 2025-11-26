@@ -1,1 +1,4 @@
 project_id = "vzkwkcypkfrpfhhsghwn"
+
+[functions.evaluate-service]
+verify_jwt = true
