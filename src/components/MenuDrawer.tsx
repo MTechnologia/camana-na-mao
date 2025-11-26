@@ -215,104 +215,101 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
             </>
           )}
 
-          <div className="my-4 border-t border-border" />
-
-          {/* Configurações com Acessibilidade */}
-          <div className="mb-4">
-            <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
-              <CollapsibleTrigger asChild>
-                <button className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
-                    <Settings className="text-primary" size={16} />
-                  </div>
-                  <span className="text-foreground font-medium text-sm flex-1 text-left">Configurações</span>
-                  {configOpen ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-              </CollapsibleTrigger>
-              
-              <CollapsibleContent className="mt-2 ml-10 space-y-3 border-l-2 border-border pl-3">
-                {/* Acessibilidade */}
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Acessibilidade
-                  </h4>
-
-                  {/* Tamanho da fonte */}
-                  <div>
-                    <p className="text-xs font-medium mb-2 text-foreground">Tamanho da fonte</p>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setFontSize("small")}
-                        className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
-                          fontSize === "small"
-                            ? "border-primary bg-primary/10 text-primary font-semibold"
-                            : "border-border text-foreground hover:border-primary/50"
-                        }`}
-                      >
-                        <span className="text-xs">A</span>
-                      </button>
-                      <button
-                        onClick={() => setFontSize("medium")}
-                        className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
-                          fontSize === "medium"
-                            ? "border-primary bg-primary/10 text-primary font-semibold"
-                            : "border-border text-foreground hover:border-primary/50"
-                        }`}
-                      >
-                        <span className="text-sm">A</span>
-                      </button>
-                      <button
-                        onClick={() => setFontSize("large")}
-                        className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
-                          fontSize === "large"
-                            ? "border-primary bg-primary/10 text-primary font-semibold"
-                            : "border-border text-foreground hover:border-primary/50"
-                        }`}
-                      >
-                        <span className="text-base">A</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Modo de leitura */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">📖</span>
-                      <span className="text-xs font-medium">Modo Leitura</span>
-                    </div>
-                    <Switch checked={readingMode} onCheckedChange={toggleReadingMode} />
-                  </div>
-
-                  {/* Espaçamento de texto */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">↔️</span>
-                      <span className="text-xs font-medium">Espaçamento</span>
-                    </div>
-                    <Switch checked={textSpacing} onCheckedChange={toggleTextSpacing} />
-                  </div>
-                </div>
-
-                {/* Link para preferências */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-xs h-8"
-                  onClick={() => handleMenuClick('/profile/preferences')}
-                >
-                  Ver todas as preferências
-                </Button>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
         </div>
 
         {/* Bottom Options - Fixed */}
-        <div className="px-4 pb-6 pt-3 space-y-2 border-t border-border shrink-0">
+        <div className="px-4 pb-4 pt-2 space-y-1 border-t border-border shrink-0">
+          {/* Configurações com Acessibilidade */}
+          <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
+            <CollapsibleTrigger asChild>
+              <button className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                  <Settings className="text-primary" size={16} />
+                </div>
+                <span className="text-foreground font-medium text-sm flex-1 text-left">Configurações</span>
+                {configOpen ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="mt-2 ml-10 space-y-3 border-l-2 border-border pl-3 pb-1">
+              {/* Acessibilidade */}
+              <div className="space-y-3">
+                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Acessibilidade
+                </h4>
+
+                {/* Tamanho da fonte */}
+                <div>
+                  <p className="text-xs font-medium mb-2 text-foreground">Tamanho da fonte</p>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setFontSize("small")}
+                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
+                        fontSize === "small"
+                          ? "border-primary bg-primary/10 text-primary font-semibold"
+                          : "border-border text-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      <span className="text-xs">A</span>
+                    </button>
+                    <button
+                      onClick={() => setFontSize("medium")}
+                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
+                        fontSize === "medium"
+                          ? "border-primary bg-primary/10 text-primary font-semibold"
+                          : "border-border text-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      <span className="text-sm">A</span>
+                    </button>
+                    <button
+                      onClick={() => setFontSize("large")}
+                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
+                        fontSize === "large"
+                          ? "border-primary bg-primary/10 text-primary font-semibold"
+                          : "border-border text-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      <span className="text-base">A</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modo de leitura */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📖</span>
+                    <span className="text-xs font-medium">Modo Leitura</span>
+                  </div>
+                  <Switch checked={readingMode} onCheckedChange={toggleReadingMode} />
+                </div>
+
+                {/* Espaçamento de texto */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">↔️</span>
+                    <span className="text-xs font-medium">Espaçamento</span>
+                  </div>
+                  <Switch checked={textSpacing} onCheckedChange={toggleTextSpacing} />
+                </div>
+              </div>
+
+              {/* Link para preferências */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs h-8"
+                onClick={() => handleMenuClick('/profile/preferences')}
+              >
+                Ver todas as preferências
+              </Button>
+            </CollapsibleContent>
+          </Collapsible>
+
           {bottomOptions.map((option) => {
             const Icon = option.icon;
             return (
