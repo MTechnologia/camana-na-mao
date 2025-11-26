@@ -11,3 +11,15 @@ verify_jwt = true
 
 [functions.recommend-services]
 verify_jwt = true
+
+[functions.ai-chat]
+verify_jwt = true
+
+[functions.voice-to-text]
+verify_jwt = true
+
+[functions.text-to-voice]
+verify_jwt = true
+
+[functions.send-notification]
+verify_jwt = true

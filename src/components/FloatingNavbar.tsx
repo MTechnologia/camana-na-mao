@@ -3,16 +3,18 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, MessageSquare, Bell, Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMenu } from "@/contexts/MenuContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 const FloatingNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { openMenu } = useMenu();
+  const { unreadCount } = useNotifications();
 
   const menuItems = [
     { name: "Home", icon: Home, path: "/home" },
     { name: "Chat", icon: MessageSquare, path: "/ia" },
-    { name: "Notificações", icon: Bell, path: "/notifications", badge: 6 },
+    { name: "Notificações", icon: Bell, path: "/notifications", badge: unreadCount },
     { name: "Menu", icon: Menu, path: "/menu", isMenuButton: true },
   ];
 
