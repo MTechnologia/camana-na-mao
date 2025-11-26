@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Home, MessageSquare, Bell, Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useMenu } from "@/contexts/MenuContext";
 
 const FloatingNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openMenu } = useMenu();
 
   const menuItems = [
     { name: "Home", icon: Home, path: "/home" },
     { name: "Chat", icon: MessageSquare, path: "/ia" },
     { name: "Notificações", icon: Bell, path: "/notifications", badge: 6 },
-    { name: "Menu", icon: Menu, path: "/menu" },
+    { name: "Menu", icon: Menu, path: "/menu", isMenuButton: true },
   ];
 
   const getActiveIndex = () => {
@@ -21,9 +23,18 @@ const FloatingNavbar = () => {
 
   const [activeIndex, setActiveIndex] = useState(getActiveIndex());
 
-  const handleItemClick = (index: number, path: string) => {
-    setActiveIndex(index);
-    navigate(path);
+  useEffect(() => {
+    setActiveIndex(getActiveIndex());
+  }, [location.pathname]);
+
+  const handleItemClick = (index: number, path: string, isMenuButton?: boolean) => {
+    if (isMenuButton) {
+      openMenu();
+      setActiveIndex(index);
+    } else {
+      setActiveIndex(index);
+      navigate(path);
+    }
   };
 
   return (
@@ -37,7 +48,7 @@ const FloatingNavbar = () => {
           return (
             <button
               key={item.name}
-              onClick={() => handleItemClick(index, item.path)}
+              onClick={() => handleItemClick(index, item.path, item.isMenuButton)}
               className={`
                 flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300
                 ${isActive 
