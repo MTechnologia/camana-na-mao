@@ -11,6 +11,7 @@ import AIMessage from "@/components/ai/AIMessage";
 import OfflineMode from "@/components/ai/OfflineMode";
 import ChatInput from "@/components/ai/ChatInput";
 import JourneyHeader from "@/components/ai/JourneyHeader";
+import MinimizedConversationBanner from "@/components/ai/MinimizedConversationBanner";
 import { useFirstAccess } from "@/hooks/useFirstAccess";
 import { useSessionContext } from "@/hooks/useSessionContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
@@ -30,6 +31,10 @@ const IA = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [minimizedConversation, setMinimizedConversation] = useState<{
+    conversationId: string;
+    journeyId: string;
+  } | null>(null);
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -193,7 +198,39 @@ const IA = () => {
   const handleClearJourney = () => {
     clearJourney();
     clearMessages();
+    setMinimizedConversation(null);
     navigate("/ia");
+  };
+
+  const handleMinimizeConversation = () => {
+    if (currentJourney && currentConversationId) {
+      setMinimizedConversation({
+        conversationId: currentConversationId,
+        journeyId: currentJourney.id,
+      });
+      clearJourney();
+    }
+  };
+
+  const handleResumeMinimized = () => {
+    if (minimizedConversation) {
+      const journey = getJourneyById(minimizedConversation.journeyId);
+      if (journey) {
+        setJourney(journey, minimizedConversation.conversationId);
+        setMinimizedConversation(null);
+      }
+    }
+  };
+
+  const handleDismissMinimized = () => {
+    setMinimizedConversation(null);
+  };
+
+  const handleArchiveCurrentConversation = async () => {
+    if (currentConversationId) {
+      await archiveConversation(currentConversationId);
+      handleClearJourney();
+    }
   };
 
   const handleSendMessage = (message: string) => {
@@ -230,6 +267,8 @@ const IA = () => {
           <JourneyHeader
             journey={currentJourney}
             onClear={handleClearJourney}
+            onMinimize={handleMinimizeConversation}
+            onArchive={handleArchiveCurrentConversation}
             conversations={conversations}
             currentConversationId={currentConversationId}
             onSelectConversation={handleResumeFromSwitcher}
@@ -241,6 +280,20 @@ const IA = () => {
       {/* Header with AI Avatar - Only show when no journey is active */}
       {!currentJourney && (
         <div className="pt-20 pb-4 px-6">
+          {/* Minimized Conversation Banner */}
+          {minimizedConversation && (() => {
+            const conv = conversations.find((c) => c.id === minimizedConversation.conversationId);
+            const journey = getJourneyById(minimizedConversation.journeyId);
+            return conv && journey ? (
+              <MinimizedConversationBanner
+                conversation={conv}
+                journey={journey}
+                onContinue={handleResumeMinimized}
+                onDismiss={handleDismissMinimized}
+              />
+            ) : null;
+          })()}
+          
           <div className="flex flex-col items-center">
             <AIAvatar />
             <div className="mt-6 w-full">
@@ -269,6 +322,7 @@ const IA = () => {
               onRestore={restoreConversation}
               onDelete={deleteConversation}
               isLoading={isLoadingConversations}
+              activeConversationId={minimizedConversation?.conversationId}
             />
           </div>
         )}

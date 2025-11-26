@@ -17,6 +17,7 @@ import { ptBR } from "date-fns/locale";
 interface ConversationPreviewCardProps {
   conversation: AIConversation;
   showJourneyBadge?: boolean;
+  isActive?: boolean;
   onSelect: () => void;
   onArchive?: () => void;
   onRestore?: () => void;
@@ -26,6 +27,7 @@ interface ConversationPreviewCardProps {
 export default function ConversationPreviewCard({
   conversation,
   showJourneyBadge = true,
+  isActive = false,
   onSelect,
   onArchive,
   onRestore,
@@ -38,7 +40,7 @@ export default function ConversationPreviewCard({
     <Card
       className={`p-4 cursor-pointer hover:shadow-md transition-all border-l-4 ${
         isArchived ? "opacity-60" : ""
-      }`}
+      } ${isActive ? "bg-accent/30 shadow-lg ring-2 ring-primary/50" : ""}`}
       style={{
         borderLeftColor: journey?.color
           ? `hsl(var(--${journey.color.split("-")[1]}-500))`
@@ -57,6 +59,11 @@ export default function ConversationPreviewCard({
                 className={`text-xs bg-gradient-to-r ${journey.color} text-white`}
               >
                 {journey.label}
+              </Badge>
+            )}
+            {isActive && (
+              <Badge variant="default" className="text-xs bg-primary text-primary-foreground">
+                Em andamento
               </Badge>
             )}
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
