@@ -1,12 +1,14 @@
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Archive, Clock } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isToday, isThisWeek, isThisMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AIConversation } from "@/hooks/useAIConversations";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion } from "framer-motion";
+import ConversationFilters from "./ConversationFilters";
 
 interface ActiveConversationsListProps {
   conversations: Record<string, AIConversation[]>;
@@ -19,9 +21,86 @@ const ActiveConversationsList = ({
   onResume,
   onArchive,
 }: ActiveConversationsListProps) => {
-  const journeyEntries = Object.entries(conversations);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("all");
+  const [journeyFilter, setJourneyFilter] = useState("all");
 
-  if (journeyEntries.length === 0) {
+  // Flatten all conversations for filtering
+  const allConversations = useMemo(() => {
+    return Object.entries(conversations).flatMap(([journeyId, convs]) =>
+      convs.map((conv) => ({ ...conv, journeyId }))
+    );
+  }, [conversations]);
+
+  // Get available journeys
+  const availableJourneys = useMemo(() => {
+    const journeyIds = Object.keys(conversations);
+    return journeyIds
+      .map((id) => ({ id, label: AI_JOURNEYS[id]?.label || id }))
+      .filter((j) => j.label);
+  }, [conversations]);
+
+  // Apply filters
+  const filteredConversations = useMemo(() => {
+    let filtered = allConversations;
+
+    // Text search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (conv) =>
+          conv.title?.toLowerCase().includes(query) ||
+          conv.lastMessage.toLowerCase().includes(query)
+      );
+    }
+
+    // Period filter
+    if (periodFilter !== "all") {
+      filtered = filtered.filter((conv) => {
+        const date = conv.lastMessageAt;
+        if (periodFilter === "today") return isToday(date);
+        if (periodFilter === "week") return isThisWeek(date, { weekStartsOn: 0 });
+        if (periodFilter === "month") return isThisMonth(date);
+        return true;
+      });
+    }
+
+    // Journey filter
+    if (journeyFilter !== "all") {
+      filtered = filtered.filter((conv) => conv.journeyId === journeyFilter);
+    }
+
+    return filtered;
+  }, [allConversations, searchQuery, periodFilter, journeyFilter]);
+
+  // Group filtered conversations by journey
+  const groupedConversations = useMemo(() => {
+    return filteredConversations.reduce((acc, conv) => {
+      if (!acc[conv.journeyId]) {
+        acc[conv.journeyId] = [];
+      }
+      acc[conv.journeyId].push(conv);
+      return acc;
+    }, {} as Record<string, AIConversation[]>);
+  }, [filteredConversations]);
+
+  const journeyEntries = Object.entries(groupedConversations);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (periodFilter !== "all") count++;
+    if (journeyFilter !== "all") count++;
+    return count;
+  }, [searchQuery, periodFilter, journeyFilter]);
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setPeriodFilter("all");
+    setJourneyFilter("all");
+  };
+
+  if (allConversations.length === 0) {
     return null;
   }
 
@@ -30,7 +109,38 @@ const ActiveConversationsList = ({
       <div className="flex items-center gap-2 mb-4">
         <MessageSquare className="w-5 h-5 text-primary" />
         <h2 className="text-lg font-semibold">Conversas Ativas</h2>
+        <Badge variant="secondary" className="ml-auto">
+          {filteredConversations.length}
+        </Badge>
       </div>
+
+      <ConversationFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        periodFilter={periodFilter}
+        onPeriodChange={setPeriodFilter}
+        journeyFilter={journeyFilter}
+        onJourneyChange={setJourneyFilter}
+        availableJourneys={availableJourneys}
+        activeFiltersCount={activeFiltersCount}
+        onClearFilters={handleClearFilters}
+      />
+
+      {journeyEntries.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">Nenhuma conversa encontrada</p>
+          {activeFiltersCount > 0 && (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={handleClearFilters}
+              className="mt-2"
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+      )}
 
       {journeyEntries.map(([journeyId, journeyConversations]) => {
         const journey = AI_JOURNEYS[journeyId];
@@ -38,7 +148,7 @@ const ActiveConversationsList = ({
 
         return (
           <div key={journeyId} className="space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-2">
               <div className={`h-1 w-8 rounded-full bg-gradient-to-r ${journey.color}`} />
               <h3 className="text-sm font-medium text-muted-foreground">
                 {journey.label}
