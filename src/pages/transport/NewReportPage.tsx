@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,21 +8,37 @@ import { ProblemTypeSelector } from '@/components/transport/ProblemTypeSelector'
 import { SeveritySlider } from '@/components/transport/SeveritySlider';
 import { ReportSummaryCard } from '@/components/transport/ReportSummaryCard';
 import { ReportSuccessCard } from '@/components/transport/ReportSuccessCard';
+import { PatternAlert } from '@/components/transport/PatternAlert';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import PageHeader from '@/components/ui/page-header';
+import FloatingNavbar from '@/components/FloatingNavbar';
 import { useTransportReport } from '@/hooks/useTransportReport';
+import { useReportPatterns } from '@/hooks/useReportPatterns';
 import { severityLevels } from '@/data/transportProblems';
 
 export default function NewReportPage() {
   const navigate = useNavigate();
   const { submitReport, submitting } = useTransportReport();
+  const { patterns } = useReportPatterns();
   const [step, setStep] = useState(1);
   const [reportData, setReportData] = useState<any>({
     severity: 1,
   });
   const [success, setSuccess] = useState(false);
   const [reportId, setReportId] = useState('');
+  const [relatedPattern, setRelatedPattern] = useState<any>(null);
+
+  useEffect(() => {
+    if (reportData.line_id && reportData.report_type) {
+      const pattern = patterns.find(p => 
+        p.line_id === reportData.line_id && 
+        p.pattern_type === reportData.report_type
+      );
+      setRelatedPattern(pattern);
+    }
+  }, [reportData.line_id, reportData.report_type, patterns]);
 
   const totalSteps = 6;
   const progress = (step / totalSteps) * 100;
@@ -58,34 +74,40 @@ export default function NewReportPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background p-4 flex items-center justify-center">
-        <div className="max-w-md w-full">
-          <ReportSuccessCard
-            reportId={reportId}
-            onViewPatterns={() => navigate('/transporte/padroes')}
-            onNewReport={() => window.location.reload()}
-          />
+      <>
+        <PageHeader title="Novo Relato" backTo="/transporte" />
+        <div className="min-h-screen bg-gray-50 pt-[60px] p-4 pb-24 flex items-center justify-center">
+          <div className="max-w-md w-full">
+            <ReportSuccessCard
+              reportId={reportId}
+              onViewPatterns={() => navigate('/transporte/padroes')}
+              onNewReport={() => window.location.reload()}
+            />
+          </div>
         </div>
-      </div>
+        <FloatingNavbar />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="flex items-center gap-4 p-4">
-          <Button variant="ghost" size="icon" onClick={handleBack} disabled={step === 1}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex-1">
-            <p className="text-sm text-muted-foreground">Passo {step} de {totalSteps}</p>
-            <Progress value={progress} className="mt-1" />
-          </div>
+    <>
+      <PageHeader 
+        title={`Passo ${step} de ${totalSteps}`}
+        onBack={step > 1 ? handleBack : undefined}
+        backTo={step === 1 ? '/transporte' : undefined}
+      />
+      <div className="min-h-screen bg-gray-50 pt-[60px] pb-24">
+        <div className="sticky top-[60px] z-10 bg-gray-50 border-b px-4 py-2">
+          <Progress value={progress} />
         </div>
-      </div>
 
-      <div className="p-4 space-y-6">
-        {step === 1 && (
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-6 animate-fade-in">
+          {relatedPattern && (
+            <PatternAlert pattern={relatedPattern} />
+          )}
+          
+          {step === 1 && (
           <div className="space-y-4">
             <div>
               <h2 className="text-2xl font-bold mb-2">Qual linha?</h2>
@@ -218,7 +240,9 @@ export default function NewReportPage() {
             />
           </div>
         )}
+        </div>
       </div>
-    </div>
+      <FloatingNavbar />
+    </>
   );
 }

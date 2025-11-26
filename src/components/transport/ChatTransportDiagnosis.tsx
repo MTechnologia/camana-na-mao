@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import AIAvatar from '@/components/ai/AIAvatar';
 import { cn } from '@/lib/utils';
 
@@ -22,10 +24,13 @@ interface ChatTransportDiagnosisProps {
 }
 
 export const ChatTransportDiagnosis = ({ onComplete, initialData }: ChatTransportDiagnosisProps) => {
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Olá! Vou te ajudar a relatar o problema no transporte. Vamos começar?',
+      content: initialData?.line_code 
+        ? `Ótimo! Você selecionou a linha ${initialData.line_code}${initialData.line_name ? ` - ${initialData.line_name}` : ''}. Que tipo de problema você enfrentou?`
+        : 'Olá! Vou te ajudar a relatar um problema no transporte. Para começar, qual linha de ônibus ou metrô você utilizou?',
     },
   ]);
   const [input, setInput] = useState('');
@@ -45,16 +50,67 @@ export const ChatTransportDiagnosis = ({ onComplete, initialData }: ChatTranspor
     setInput('');
     setLoading(true);
 
-    // Simular resposta da IA (aqui você integraria com a edge function)
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.functions.invoke('diagnose-transport', {
+        body: { 
+          messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
+          action: 'chat'
+        }
+      });
+
+      if (error) {
+        if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+          toast({
+            variant: 'destructive',
+            title: 'Limite de requisições excedido',
+            description: 'Por favor, aguarde alguns minutos e tente novamente.',
+          });
+        } else if (error.message?.includes('402') || error.message?.includes('credits')) {
+          toast({
+            variant: 'destructive',
+            title: 'Créditos insuficientes',
+            description: 'Adicione créditos na sua workspace do Lovable.',
+          });
+        } else {
+          throw error;
+        }
+        setLoading(false);
+        return;
+      }
+
       const aiResponse: Message = {
         role: 'assistant',
-        content: 'Entendi. Pode me dar mais detalhes sobre o que aconteceu?',
-        options: ['Foi um atraso longo', 'Estava muito cheio', 'Problema de segurança'],
+        content: data.message,
       };
       setMessages(prev => [...prev, aiResponse]);
+
+      // Após algumas trocas de mensagens, tentar analisar
+      if (messages.length >= 6) {
+        const { data: classificationData, error: classError } = await supabase.functions.invoke('diagnose-transport', {
+          body: { 
+            messages: [...messages, userMessage, aiResponse].map(m => ({ role: m.role, content: m.content })),
+            action: 'analyze'
+          }
+        });
+
+        if (!classError && classificationData?.classification) {
+          onComplete({
+            ...initialData,
+            ...classificationData.classification,
+            conversation: [...messages, userMessage, aiResponse]
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error calling diagnose-transport:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao processar mensagem',
+        description: 'Tente novamente em alguns instantes.',
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

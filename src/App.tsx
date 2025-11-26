@@ -3,10 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { MenuProvider } from "@/contexts/MenuContext";
-import { AIProvider } from "@/contexts/AIContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AIProvider } from "@/contexts/AIContext";
+import { MenuProvider } from "@/contexts/MenuContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
+import { TransportProvider } from "@/contexts/TransportContext";
+import { EvaluationProvider } from "@/contexts/EvaluationContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
 import Login from "./pages/Login";
@@ -42,9 +44,8 @@ import UrgentReportPage from "./pages/transport/UrgentReportPage";
 import PatternsPage from "./pages/transport/PatternsPage";
 import MyReportsPage from "./pages/transport/MyReportsPage";
 import ReferralPage from "./pages/transport/ReferralPage";
-import NotFound from "./pages/NotFound";
 import { useMenu } from "@/contexts/MenuContext";
-import { EvaluationProvider } from "@/contexts/EvaluationContext";
+import NotFound from "./pages/NotFound";
 
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
@@ -107,11 +108,13 @@ const App = () => (
         <AuthProvider>
           <MenuProvider>
             <FavoritesProvider>
-              <EvaluationProvider>
-                <AIProvider>
-                  <AppContent />
-                </AIProvider>
-              </EvaluationProvider>
+              <TransportProvider>
+                <EvaluationProvider>
+                  <AIProvider>
+                    <AppContent />
+                  </AIProvider>
+                </EvaluationProvider>
+              </TransportProvider>
             </FavoritesProvider>
           </MenuProvider>
         </AuthProvider>
