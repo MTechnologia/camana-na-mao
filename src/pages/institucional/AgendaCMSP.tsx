@@ -2,10 +2,11 @@ import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
 import GlobalSearch from "@/components/institucional/GlobalSearch";
-import { Calendar, Clock, MapPin, Users } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFavorites } from "@/contexts/FavoritesContext";
 
 interface AgendaItem {
   id: string;
@@ -55,6 +56,7 @@ const typeLabels = {
 
 const AgendaCMSP = () => {
   const [showSearch, setShowSearch] = useState(false);
+  const { toggleFavorite, isFavorited } = useFavorites();
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -92,19 +94,40 @@ const AgendaCMSP = () => {
               {mockAgenda.map((item) => {
                 const typeInfo = typeLabels[item.type];
                 return (
-                  <Card key={item.id} className="p-4 hover:shadow-md transition-shadow">
+                  <Card key={item.id} className="p-4 hover:shadow-md transition-shadow relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite({
+                          id: `agenda-${item.id}`,
+                          type: 'agenda',
+                          title: item.title,
+                          subtitle: typeInfo.label,
+                          path: `/institucional/agenda`,
+                          metadata: { date: item.date, time: item.time, location: item.location },
+                        });
+                      }}
+                      className="absolute top-3 right-3 p-2 hover:bg-muted/50 rounded-full transition-colors z-10"
+                      aria-label="Favoritar evento da agenda"
+                    >
+                      <Heart
+                        className={`h-5 w-5 ${
+                          isFavorited(`agenda-${item.id}`)
+                            ? "fill-pink-500 text-pink-500"
+                            : "text-muted-foreground"
+                        }`}
+                      />
+                    </button>
                     <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-foreground flex-1">
-                          {item.title}
-                        </h3>
-                        <Badge
-                          variant="outline"
-                          className={`shrink-0 ${typeInfo.color}`}
-                        >
-                          {typeInfo.label}
-                        </Badge>
-                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`mb-2 inline-block ${typeInfo.color}`}
+                      >
+                        {typeInfo.label}
+                      </Badge>
+                      <h3 className="font-semibold text-foreground mb-2">
+                        {item.title}
+                      </h3>
 
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">

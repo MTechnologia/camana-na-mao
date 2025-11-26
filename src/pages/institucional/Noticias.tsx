@@ -1,9 +1,10 @@
 import { useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import GlobalSearch from "@/components/institucional/GlobalSearch";
-import { Clock, Eye } from "lucide-react";
+import { Clock, Eye, Heart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useFavorites } from "@/contexts/FavoritesContext";
 
 interface Noticia {
   id: string;
@@ -68,6 +69,7 @@ const categoryColors: Record<string, string> = {
 
 const Noticias = () => {
   const [showSearch, setShowSearch] = useState(false);
+  const { toggleFavorite, isFavorited } = useFavorites();
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -107,20 +109,41 @@ const Noticias = () => {
             {mockNoticias.map((noticia) => (
               <Card
                 key={noticia.id}
-                className="p-5 hover:shadow-md transition-shadow cursor-pointer"
+                className="p-5 hover:shadow-md transition-shadow cursor-pointer relative"
               >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite({
+                      id: `noticia-${noticia.id}`,
+                      type: 'noticia',
+                      title: noticia.title,
+                      subtitle: noticia.category,
+                      path: `/institucional/noticias`,
+                      metadata: { date: noticia.date, views: noticia.views },
+                    });
+                  }}
+                  className="absolute top-4 right-4 p-2 hover:bg-muted/50 rounded-full transition-colors z-10"
+                  aria-label="Favoritar notícia"
+                >
+                  <Heart
+                    className={`h-5 w-5 ${
+                      isFavorited(`noticia-${noticia.id}`)
+                        ? "fill-pink-500 text-pink-500"
+                        : "text-muted-foreground"
+                    }`}
+                  />
+                </button>
                 <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-foreground flex-1 leading-tight">
-                      {noticia.title}
-                    </h3>
-                    <Badge
-                      variant="outline"
-                      className={`shrink-0 ${categoryColors[noticia.category] || ""}`}
-                    >
-                      {noticia.category}
-                    </Badge>
-                  </div>
+                  <Badge
+                    variant="outline"
+                    className={`mb-2 inline-block ${categoryColors[noticia.category] || ""}`}
+                  >
+                    {noticia.category}
+                  </Badge>
+                  <h3 className="font-semibold text-foreground leading-tight mb-2">
+                    {noticia.title}
+                  </h3>
 
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {noticia.excerpt}

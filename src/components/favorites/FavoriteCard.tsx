@@ -77,7 +77,7 @@ const FavoriteCard = ({ favorite, onRemove }: FavoriteCardProps) => {
       onClick={handleClick}
     >
       {/* Badge do tipo */}
-      <Badge variant={config.badgeVariant} className="mb-3 text-xs">
+      <Badge variant={config.badgeVariant} className="mb-2 text-xs">
         <Icon className="w-3 h-3 mr-1" />
         {config.label}
       </Badge>
