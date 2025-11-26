@@ -35,6 +35,7 @@ import ConhecaCamara from "./pages/institucional/ConhecaCamara";
 import CamaraExplica from "./pages/institucional/CamaraExplica";
 import EscolaParlamento from "./pages/institucional/EscolaParlamento";
 import Noticias from "./pages/institucional/Noticias";
+import NoticiaDetailPage from "./pages/institucional/NoticiaDetailPage";
 import Notifications from "./pages/Notifications";
 import EvaluationPage from "./pages/EvaluationPage";
 import ServiceDetailPage from "./pages/ServiceDetailPage";
@@ -93,6 +94,7 @@ const AppContent = () => {
           <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
           <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
           <Route path="/institucional/noticias" element={<Noticias />} />
+          <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
         <Route path="/servico/:id" element={<ServiceDetailPage />} />
