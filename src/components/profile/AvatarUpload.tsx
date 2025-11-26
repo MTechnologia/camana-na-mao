@@ -10,17 +10,27 @@ import { readFile, validateImageFile, createCroppedImage } from "@/lib/imageUtil
 
 interface AvatarUploadProps {
   userId: string;
+  userName?: string;
   currentAvatarUrl?: string | null;
   onAvatarUpdated: (url: string) => void;
 }
 
-const AvatarUpload = ({ userId, currentAvatarUrl, onAvatarUpdated }: AvatarUploadProps) => {
+const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: AvatarUploadProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
 
   const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -118,11 +128,11 @@ const AvatarUpload = ({ userId, currentAvatarUrl, onAvatarUpdated }: AvatarUploa
               alt="Avatar"
               className="w-full h-full object-cover"
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-4xl font-bold">
-              {userId.charAt(0).toUpperCase()}
-            </div>
-          )}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-4xl font-bold">
+            {userName ? getInitials(userName) : userId.charAt(0).toUpperCase()}
+          </div>
+        )}
         </div>
 
         <label
