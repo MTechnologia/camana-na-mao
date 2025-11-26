@@ -27,6 +27,7 @@ interface InstitutionalLayoutProps {
   category?: string;
   onSearch?: () => void;
   showOfflineIndicator?: boolean;
+  backTo?: string;
 }
 
 const InstitutionalLayout = ({
@@ -35,6 +36,7 @@ const InstitutionalLayout = ({
   category,
   onSearch,
   showOfflineIndicator = false,
+  backTo = "/home",
 }: InstitutionalLayoutProps) => {
   const navigate = useNavigate();
   const { fontSize, setFontSize, readingMode, toggleReadingMode } = useAccessibility();
@@ -68,7 +70,7 @@ const InstitutionalLayout = ({
 
   return (
     <div className={`min-h-screen bg-background ${readingMode ? 'reading-mode' : ''}`}>
-      <PageHeader title={title} />
+      <PageHeader title={title} backTo={backTo} />
 
       {/* Toolbar */}
       <div className="fixed top-[60px] left-0 right-0 z-30 bg-background border-b border-border">
