@@ -1,30 +1,24 @@
 import { useState, useEffect } from "react";
-import { Send, Mic } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import FloatingNavbar from "@/components/FloatingNavbar";
+import AIHeader from "@/components/ai/AIHeader";
 import AIAvatar from "@/components/ai/AIAvatar";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
 import AIWelcome from "@/components/ai/AIWelcome";
 import LegislativeNews from "@/components/ai/LegislativeNews";
 import InteractionButtons from "@/components/ai/InteractionButtons";
-import ModeToggle from "@/components/ai/ModeToggle";
-import AccessibilityPanel from "@/components/ai/AccessibilityPanel";
 import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
 import SessionResume from "@/components/ai/SessionResume";
 import AIMessage from "@/components/ai/AIMessage";
 import OfflineMode from "@/components/ai/OfflineMode";
+import ChatInput from "@/components/ai/ChatInput";
 import { useFirstAccess } from "@/hooks/useFirstAccess";
 import { useSessionContext } from "@/hooks/useSessionContext";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useToast } from "@/hooks/use-toast";
 
 const IA = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [mode, setMode] = useState<"text" | "voice">("text");
-  const [inputValue, setInputValue] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const { isFirstAccess, completeOnboarding } = useFirstAccess();
@@ -76,23 +70,9 @@ const IA = () => {
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-    sendMessage(inputValue);
-    setInputValue("");
-  };
-
-  const handleVoiceMode = () => {
-    if (mode === "voice") {
-      toast({
-        title: "Erro no microfone",
-        description: "Não foi possível acessar o microfone. Tente o modo texto.",
-        variant: "destructive",
-      });
-      setMode("text");
-      navigate("/voz");
-    } else {
-      navigate("/voz");
+  const handleSendMessage = (message: string) => {
+    if (message.trim()) {
+      sendMessage(message.trim());
     }
   };
 
@@ -114,9 +94,12 @@ const IA = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-24">
+      {/* Header with escape route */}
+      <AIHeader />
+
       {/* Header with AI Avatar */}
-      <div className="bg-gradient-to-br from-primary/10 to-secondary/10 pt-8 pb-12 px-6">
+      <div className="bg-gradient-to-br from-primary/10 to-secondary/10 pt-20 pb-12 px-6">
         <AIAvatar />
         <AIWelcome userName="Luana" />
       </div>
@@ -180,47 +163,11 @@ const IA = () => {
           </div>
         )}
 
-        {/* Mode Toggle */}
-        <ModeToggle mode={mode} onModeChange={setMode} />
+        {/* Mode Toggle removed - now handled in ChatInput */}
 
-        {/* Input Area */}
-        <div className="fixed bottom-24 left-0 right-0 px-6 bg-gradient-to-t from-background via-background to-transparent pt-4">
-          <div className="bg-card rounded-full border border-border shadow-lg p-2 flex items-center gap-2 max-w-2xl mx-auto">
-            <input
-              type="text"
-              placeholder={mode === "text" ? "Digite sua mensagem..." : "Clique no microfone para falar"}
-              className="flex-1 bg-transparent border-none outline-none px-4 text-foreground placeholder:text-muted-foreground"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-              disabled={mode === "voice"}
-            />
-            {mode === "text" ? (
-              <button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isChatLoading}
-                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Enviar mensagem"
-              >
-                <Send size={20} />
-              </button>
-            ) : (
-              <button
-                onClick={handleVoiceMode}
-                className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors"
-                aria-label="Gravar áudio"
-              >
-                <Mic size={20} />
-              </button>
-            )}
-          </div>
-        </div>
+        {/* Chat Input */}
+        <ChatInput onSendMessage={handleSendMessage} disabled={isChatLoading} />
       </div>
-
-      {/* Accessibility Panel */}
-      <AccessibilityPanel />
-
-      <FloatingNavbar />
     </div>
   );
 };
