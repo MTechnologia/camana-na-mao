@@ -12,9 +12,13 @@ export interface JourneyType {
 interface AIJourneyContextType {
   currentJourney: JourneyType | null;
   currentConversationId: string | null;
+  backgroundConversation: { journeyId: string; conversationId: string } | null;
   setJourney: (journey: JourneyType, conversationId?: string, context?: Record<string, any>) => void;
   journeyContext: Record<string, any>;
   clearJourney: () => void;
+  minimizeToBackground: () => void;
+  restoreFromBackground: () => void;
+  clearBackground: () => void;
 }
 
 const AIJourneyContext = createContext<AIJourneyContextType | undefined>(undefined);
@@ -23,6 +27,7 @@ export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
   const [currentJourney, setCurrentJourney] = useState<JourneyType | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [journeyContext, setJourneyContext] = useState<Record<string, any>>({});
+  const [backgroundConversation, setBackgroundConversation] = useState<{ journeyId: string; conversationId: string } | null>(null);
 
   const setJourney = (journey: JourneyType, conversationId?: string, context: Record<string, any> = {}) => {
     setCurrentJourney(journey);
@@ -36,8 +41,39 @@ export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
     setJourneyContext({});
   };
 
+  const minimizeToBackground = () => {
+    if (currentJourney && currentConversationId) {
+      setBackgroundConversation({
+        journeyId: currentJourney.id,
+        conversationId: currentConversationId,
+      });
+      clearJourney();
+    }
+  };
+
+  const restoreFromBackground = () => {
+    if (backgroundConversation) {
+      setCurrentConversationId(backgroundConversation.conversationId);
+      setBackgroundConversation(null);
+    }
+  };
+
+  const clearBackground = () => {
+    setBackgroundConversation(null);
+  };
+
   return (
-    <AIJourneyContext.Provider value={{ currentJourney, currentConversationId, setJourney, journeyContext, clearJourney }}>
+    <AIJourneyContext.Provider value={{ 
+      currentJourney, 
+      currentConversationId, 
+      backgroundConversation,
+      setJourney, 
+      journeyContext, 
+      clearJourney,
+      minimizeToBackground,
+      restoreFromBackground,
+      clearBackground
+    }}>
       {children}
     </AIJourneyContext.Provider>
   );

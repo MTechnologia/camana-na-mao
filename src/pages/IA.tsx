@@ -34,7 +34,20 @@ const IA = () => {
   const [minimizedConversation, setMinimizedConversation] = useState<{
     conversationId: string;
     journeyId: string;
-  } | null>(null);
+  } | null>(() => {
+    // Restaurar do localStorage ao inicializar
+    const saved = localStorage.getItem('minimizedConversation');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // Persistir minimizedConversation no localStorage
+  useEffect(() => {
+    if (minimizedConversation) {
+      localStorage.setItem('minimizedConversation', JSON.stringify(minimizedConversation));
+    } else {
+      localStorage.removeItem('minimizedConversation');
+    }
+  }, [minimizedConversation]);
 
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -91,6 +104,23 @@ const IA = () => {
       window.removeEventListener("offline", handleOffline);
     };
   }, [isFirstAccess]);
+
+  // Handle navigation from navbar - auto-minimize active conversation
+  useEffect(() => {
+    const viewParam = searchParams.get("view");
+    
+    // Se veio da navbar (view=hub) e tem conversa ativa, auto-minimizar
+    if (viewParam === 'hub' && currentJourney && currentConversationId) {
+      setMinimizedConversation({
+        conversationId: currentConversationId,
+        journeyId: currentJourney.id,
+      });
+      clearJourney();
+      
+      // Limpar o parâmetro da URL
+      navigate('/ia', { replace: true });
+    }
+  }, [searchParams, currentJourney, currentConversationId, clearJourney, navigate]);
 
   // Handle journey parameter
   useEffect(() => {
