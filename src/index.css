@@ -110,6 +110,16 @@ All colors MUST be HSL.
     animation: glow 2s ease-in-out infinite;
   }
 
+  /* Banner auto-dismiss animation */
+  @keyframes shrink-width {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+
+  .animate-shrink-width {
+    animation: shrink-width 8s linear forwards;
+  }
+
   /* Gradient borders */
   .gradient-border {
     @apply relative;
