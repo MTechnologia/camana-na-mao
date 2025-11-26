@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, MessageSquare, Bell, Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMenu } from "@/contexts/MenuContext";
+import { supabase } from "@/integrations/supabase/client";
 
 const FloatingNavbar = () => {
   const navigate = useNavigate();
@@ -14,7 +15,6 @@ const FloatingNavbar = () => {
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
