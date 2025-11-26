@@ -74,8 +74,9 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const bottomOptions = [
     { 
       id: 1, 
-      label: "Configurar notificações",
-      icon: Settings
+      label: "Configurações",
+      icon: Settings,
+      route: "/profile/preferences"
     },
     { 
       id: 2, 
@@ -90,9 +91,9 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   ];
 
   const handleMenuClick = (route?: string) => {
+    onClose();
     if (route) {
       navigate(route);
-      onClose();
     }
   };
 
@@ -242,6 +243,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
             return (
               <button
                 key={option.id}
+                onClick={() => handleMenuClick(option.route)}
                 className="w-full text-left py-2 text-muted-foreground hover:text-foreground transition-colors text-base flex items-center gap-3"
               >
                 <Icon size={18} />
