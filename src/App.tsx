@@ -46,6 +46,11 @@ import MyReportsPage from "./pages/transport/MyReportsPage";
 import ReferralPage from "./pages/transport/ReferralPage";
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
 import AdvancedAnalytics from "./pages/analytics/AdvancedAnalytics";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import UserManagement from "./pages/admin/UserManagement";
+import DashboardManagement from "./pages/admin/DashboardManagement";
+import ExportLogs from "./pages/admin/ExportLogs";
+import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
 import NotFound from "./pages/NotFound";
 
@@ -91,8 +96,16 @@ const AppContent = () => {
         <Route path="/transporte/padroes" element={<PatternsPage />} />
         <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
         <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
-        <Route path="/analytics" element={<AnalyticsDashboard />} />
-        <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
+          <Route path="/analytics" element={<AnalyticsDashboard />} />
+          <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/analytics" element={<ProtectedAdminRoute><AnalyticsDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/analytics/advanced" element={<ProtectedAdminRoute><AdvancedAnalytics /></ProtectedAdminRoute>} />
+          <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/dashboards" element={<ProtectedAdminRoute><DashboardManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
