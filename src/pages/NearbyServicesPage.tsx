@@ -21,7 +21,7 @@ export default function NearbyServicesPage() {
   const [radiusMeters, setRadiusMeters] = useState(5000);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   
-  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation } = useGeolocation();
+  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
   const { services, loading: servicesLoading } = useNearbyServices({
     latitude,
     longitude,
@@ -37,7 +37,21 @@ export default function NearbyServicesPage() {
       <PageHeader title="Perto de Você" />
       
       <div className="p-4 space-y-4">
-        {geoError && (
+        {isSimulated && (
+          <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground mb-1">
+                Modo Demonstração
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Usando localização simulada (Centro de São Paulo) com dados mockados para demonstração
+              </p>
+            </div>
+          </div>
+        )}
+
+        {geoError && !isSimulated && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div className="flex-1">

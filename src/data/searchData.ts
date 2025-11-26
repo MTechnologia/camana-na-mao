@@ -191,6 +191,96 @@ export const servicosProximos: SearchResult[] = [
       latitude: -23.6698,
       longitude: -46.7812
     }
+  },
+  {
+    id: "biblioteca-1",
+    type: "servico",
+    title: "Biblioteca Mário de Andrade",
+    description: "Rua da Consolação, 94 - República",
+    icon: "📚",
+    category: "Cultura",
+    path: "/servico/biblioteca-1",
+    metadata: {
+      serviceType: "library",
+      district: "República",
+      rating: 4.8,
+      totalRatings: 412,
+      phone: "(11) 3775-0002",
+      latitude: -23.5464,
+      longitude: -46.6450
+    }
+  },
+  {
+    id: "biblioteca-2",
+    type: "servico",
+    title: "Biblioteca Parque Villa-Lobos",
+    description: "Av. Queiroz Filho, 1205 - Alto de Pinheiros",
+    icon: "📚",
+    category: "Cultura",
+    path: "/servico/biblioteca-2",
+    metadata: {
+      serviceType: "library",
+      district: "Alto de Pinheiros",
+      rating: 4.7,
+      totalRatings: 289,
+      phone: "(11) 3024-2500",
+      latitude: -23.5456,
+      longitude: -46.7189
+    }
+  },
+  {
+    id: "esporte-1",
+    type: "servico",
+    title: "CDC Parque São Jorge",
+    description: "Rua São Jorge, 425 - Tatuapé",
+    icon: "⚽",
+    category: "Esporte",
+    path: "/servico/esporte-1",
+    metadata: {
+      serviceType: "sports_center",
+      district: "Tatuapé",
+      rating: 4.4,
+      totalRatings: 178,
+      phone: "(11) 2295-3344",
+      latitude: -23.5389,
+      longitude: -46.5678
+    }
+  },
+  {
+    id: "esporte-2",
+    type: "servico",
+    title: "CEE Ibirapuera",
+    description: "Av. Pedro Álvares Cabral, s/n - Ibirapuera",
+    icon: "⚽",
+    category: "Esporte",
+    path: "/servico/esporte-2",
+    metadata: {
+      serviceType: "sports_center",
+      district: "Ibirapuera",
+      rating: 4.5,
+      totalRatings: 234,
+      phone: "(11) 5574-8139",
+      latitude: -23.5875,
+      longitude: -46.6572
+    }
+  },
+  {
+    id: "ceu-2",
+    type: "servico",
+    title: "CEU Butantã",
+    description: "Av. Engenheiro Heitor Antônio Eiras Garcia, 1870",
+    icon: "🎭",
+    category: "Educação",
+    path: "/servico/ceu-2",
+    metadata: {
+      serviceType: "ceu",
+      district: "Butantã",
+      rating: 4.6,
+      totalRatings: 198,
+      phone: "(11) 3768-5601",
+      latitude: -23.5734,
+      longitude: -46.7289
+    }
   }
 ];
 

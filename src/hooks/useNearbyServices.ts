@@ -71,10 +71,9 @@ export const useNearbyServices = ({
   const [error, setError] = useState<string | null>(null);
 
   const fetchNearbyServices = async () => {
-    if (!latitude || !longitude) {
-      setServices([]);
-      return;
-    }
+    // Usar localização simulada padrão se não houver coordenadas
+    const userLat = latitude || -23.5505; // Praça da Sé
+    const userLng = longitude || -46.6333;
 
     setLoading(true);
     setError(null);
@@ -93,8 +92,8 @@ export const useNearbyServices = ({
         .map(service => ({
           ...service,
           distance: calculateDistance(
-            latitude,
-            longitude,
+            userLat,
+            userLng,
             Number(service.latitude),
             Number(service.longitude)
           ),
