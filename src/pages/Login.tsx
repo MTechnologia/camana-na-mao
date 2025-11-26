@@ -50,9 +50,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col justify-between">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header com botão de voltar */}
-      <div className="px-6 pt-8">
+      <div className="px-6 pt-6">
         <Button
           variant="ghost"
           size="sm"
@@ -64,8 +64,8 @@ const Login = () => {
         </Button>
       </div>
       
-      {/* Logo Header - mais espaçamento superior */}
-      <div className="flex items-center justify-center gap-4 pb-12 px-6">
+      {/* Logo Header */}
+      <div className="flex items-center justify-center gap-4 pt-8 pb-8 px-6">
         <img src={brasaoSP} alt="Brasão São Paulo" className="w-20 h-20" />
         <div className="text-left">
           <p className="text-xs text-gray-600 mb-1">CÂMARA MUNICIPAL DE</p>
@@ -73,9 +73,9 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Form - centralizado */}
-      <div className="flex-1 flex flex-col justify-center pb-12">
-        <div className="bg-white rounded-t-[32px] px-6 pt-8 pb-8">
+      {/* Form */}
+      <div className="mt-auto">
+        <div className="bg-white rounded-t-[32px] px-6 pt-10 pb-6">
           <form onSubmit={handleLogin} className="space-y-4 mb-6">
             {/* Email Input */}
             <div className="relative">
@@ -114,7 +114,7 @@ const Login = () => {
             </div>
 
             {/* Manter Logado e Esqueci a senha */}
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-2">
                 <Checkbox 
                   id="keep-logged" 
@@ -140,14 +140,14 @@ const Login = () => {
           </form>
 
           {/* Divisor */}
-          <div className="flex items-center gap-4 my-6">
+          <div className="flex items-center gap-4 my-5">
             <div className="flex-1 h-px bg-gray-200"></div>
             <span className="text-sm text-gray-400">ou</span>
             <div className="flex-1 h-px bg-gray-200"></div>
           </div>
 
           {/* Social Login */}
-          <div className="flex justify-center gap-6 mb-8">
+          <div className="flex justify-center gap-6 mb-6">
             <button type="button" className="w-16 h-16 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
               <svg className="w-8 h-8" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
