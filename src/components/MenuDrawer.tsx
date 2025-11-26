@@ -1,5 +1,7 @@
 import { X, HelpCircle } from "lucide-react";
 import avatarLuana from "@/assets/avatar-luana.jpg";
+import { useAccessibility } from "@/hooks/useAccessibility";
+import { Switch } from "@/components/ui/switch";
 
 interface MenuDrawerProps {
   isOpen: boolean;
@@ -7,6 +9,15 @@ interface MenuDrawerProps {
 }
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
+  const {
+    fontSize,
+    readingMode,
+    textSpacing,
+    setFontSize,
+    toggleReadingMode,
+    toggleTextSpacing,
+  } = useAccessibility();
+
   const menuOptions = [
     { id: 1, label: "Menu" },
     { id: 2, label: "Menu" },
@@ -74,6 +85,81 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
               <span className="text-foreground font-medium text-base">{option.label}</span>
             </button>
           ))}
+
+          {/* Accessibility Section */}
+          <div className="mt-8 pt-6 border-t border-border">
+            <h3 className="text-foreground font-semibold text-base mb-4 flex items-center gap-2">
+              ♿ Acessibilidade
+            </h3>
+            
+            {/* Font Size */}
+            <div className="mb-6">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                Tamanho da fonte
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFontSize("small")}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
+                    fontSize === "small"
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border text-foreground hover:border-primary/50"
+                  }`}
+                  aria-label="Fonte pequena"
+                >
+                  <span className="text-sm">A</span>
+                </button>
+                <button
+                  onClick={() => setFontSize("medium")}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
+                    fontSize === "medium"
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border text-foreground hover:border-primary/50"
+                  }`}
+                  aria-label="Fonte média"
+                >
+                  <span className="text-base">A</span>
+                </button>
+                <button
+                  onClick={() => setFontSize("large")}
+                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
+                    fontSize === "large"
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border text-foreground hover:border-primary/50"
+                  }`}
+                  aria-label="Fonte grande"
+                >
+                  <span className="text-lg">A</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Reading Mode */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📖</span>
+                <span className="text-foreground font-medium">Modo Leitura</span>
+              </div>
+              <Switch
+                checked={readingMode}
+                onCheckedChange={toggleReadingMode}
+                aria-label="Ativar modo leitura"
+              />
+            </div>
+
+            {/* Text Spacing */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">↔️</span>
+                <span className="text-foreground font-medium">Espaçamento</span>
+              </div>
+              <Switch
+                checked={textSpacing}
+                onCheckedChange={toggleTextSpacing}
+                aria-label="Aumentar espaçamento"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Bottom Options */}
