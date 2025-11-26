@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   X, 
@@ -8,15 +9,21 @@ import {
   GraduationCap, 
   Newspaper,
   Settings,
-  Phone,
   Shield,
   LogOut,
-  Lock
+  Lock,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import avatarLuana from "@/assets/avatar-luana.jpg";
 import { useAccessibility } from "@/hooks/useAccessibility";
 import { Switch } from "@/components/ui/switch";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
 
 interface MenuDrawerProps {
   isOpen: boolean;
@@ -26,6 +33,9 @@ interface MenuDrawerProps {
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
   const { isAdmin, isGestor, loading } = useUserRole();
+  const { profile, loading: profileLoading, getInitials } = useProfile();
+  const { user, signOut } = useAuth();
+  const [configOpen, setConfigOpen] = useState(false);
   const {
     fontSize,
     readingMode,
@@ -35,7 +45,22 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     toggleTextSpacing,
   } = useAccessibility();
 
-  console.log('MenuDrawer - isAdmin:', isAdmin, 'isGestor:', isGestor, 'loading:', loading);
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Bom dia";
+    if (hour < 18) return "Boa tarde";
+    return "Boa noite";
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/login");
+      onClose();
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
+  };
 
   const menuOptions = [
     { 
@@ -79,17 +104,6 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const bottomOptions = [
     { 
       id: 1, 
-      label: "Configurações",
-      icon: Settings,
-      route: "/profile/preferences"
-    },
-    { 
-      id: 2, 
-      label: "Central de Atendimento",
-      icon: Phone
-    },
-    { 
-      id: 3, 
       label: "Política de privacidade",
       icon: Shield
     },
@@ -119,32 +133,47 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
         }`}
       >
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-border shrink-0">
+        <div className="p-4 pb-3 border-b border-border shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 text-foreground hover:text-foreground/70"
+            className="absolute top-4 right-4 text-foreground hover:text-foreground/70"
             aria-label="Fechar menu"
           >
-            <X size={28} strokeWidth={2} />
+            <X size={24} strokeWidth={2} />
           </button>
 
-          <div className="flex items-center gap-4">
-            <img 
-              src={avatarLuana} 
-              alt="Luana Oliveira" 
-              className="w-16 h-16 rounded-full object-cover"
-            />
-            <div>
-              <h2 className="font-bold text-lg text-foreground">Luana Oliveira</h2>
-              <p className="text-sm text-foreground/70">Olá, seja bem vinda</p>
-            </div>
+          <div className="flex items-center gap-3">
+            {profileLoading ? (
+              <>
+                <Skeleton className="w-12 h-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </>
+            ) : (
+              <>
+                <Avatar className="w-12 h-12">
+                  <AvatarImage src={profile?.avatar_url || undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {profile?.full_name ? getInitials(profile.full_name) : "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="font-semibold text-base text-foreground">
+                    {profile?.full_name || user?.email || "Visitante"}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">{getGreeting()}!</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Menu Items - Scrollable */}
-        <div className="flex-1 overflow-y-auto py-6 px-6">
+        <div className="flex-1 overflow-y-auto py-4 px-4">
           <div className="mb-4">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Navegação Institucional
             </h3>
             
@@ -154,122 +183,160 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                 <button
                   key={option.id}
                   onClick={() => handleMenuClick(option.route)}
-                  className="w-full py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors rounded-lg px-2 -mx-2"
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
                 >
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Icon className="text-primary" size={20} />
+                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                    <Icon className="text-primary" size={16} />
                   </div>
-                  <span className="text-foreground font-medium text-base">{option.label}</span>
+                  <span className="text-foreground font-medium text-sm">{option.label}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Accessibility Section */}
-          <div className="mt-8 pt-6 border-t border-border">
-            <h3 className="text-foreground font-semibold text-base mb-4 flex items-center gap-2">
-              ♿ Acessibilidade
-            </h3>
-            
-            {/* Font Size */}
-            <div className="mb-6">
-              <label className="text-sm text-muted-foreground mb-2 block">
-                Tamanho da fonte
-              </label>
-              <div className="flex gap-2">
+          {/* Admin Area */}
+          {(isAdmin || isGestor) && (
+            <>
+              <div className="my-4 border-t border-border" />
+              <div className="mb-4">
+                <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+                  Área Administrativa
+                </h3>
                 <button
-                  onClick={() => setFontSize("small")}
-                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
-                    fontSize === "small"
-                      ? "border-primary bg-primary/10 text-primary font-semibold"
-                      : "border-border text-foreground hover:border-primary/50"
-                  }`}
-                  aria-label="Fonte pequena"
+                  onClick={() => handleMenuClick('/admin')}
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
                 >
-                  <span className="text-sm">A</span>
-                </button>
-                <button
-                  onClick={() => setFontSize("medium")}
-                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
-                    fontSize === "medium"
-                      ? "border-primary bg-primary/10 text-primary font-semibold"
-                      : "border-border text-foreground hover:border-primary/50"
-                  }`}
-                  aria-label="Fonte média"
-                >
-                  <span className="text-base">A</span>
-                </button>
-                <button
-                  onClick={() => setFontSize("large")}
-                  className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
-                    fontSize === "large"
-                      ? "border-primary bg-primary/10 text-primary font-semibold"
-                      : "border-border text-foreground hover:border-primary/50"
-                  }`}
-                  aria-label="Fonte grande"
-                >
-                  <span className="text-lg">A</span>
+                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                    <Lock className="text-primary" size={16} />
+                  </div>
+                  <span className="text-foreground font-medium text-sm">Dashboard Admin</span>
                 </button>
               </div>
-            </div>
+            </>
+          )}
 
-            {/* Reading Mode */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📖</span>
-                <span className="text-foreground font-medium">Modo Leitura</span>
-              </div>
-              <Switch
-                checked={readingMode}
-                onCheckedChange={toggleReadingMode}
-                aria-label="Ativar modo leitura"
-              />
-            </div>
+          <div className="my-4 border-t border-border" />
 
-            {/* Text Spacing */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">↔️</span>
-                <span className="text-foreground font-medium">Espaçamento</span>
-              </div>
-              <Switch
-                checked={textSpacing}
-                onCheckedChange={toggleTextSpacing}
-                aria-label="Aumentar espaçamento"
-              />
-            </div>
+          {/* Configurações com Acessibilidade */}
+          <div className="mb-4">
+            <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
+              <CollapsibleTrigger asChild>
+                <button className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                    <Settings className="text-primary" size={16} />
+                  </div>
+                  <span className="text-foreground font-medium text-sm flex-1 text-left">Configurações</span>
+                  {configOpen ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-2 ml-10 space-y-3 border-l-2 border-border pl-3">
+                {/* Acessibilidade */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Acessibilidade
+                  </h4>
+
+                  {/* Tamanho da fonte */}
+                  <div>
+                    <p className="text-xs font-medium mb-2 text-foreground">Tamanho da fonte</p>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setFontSize("small")}
+                        className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
+                          fontSize === "small"
+                            ? "border-primary bg-primary/10 text-primary font-semibold"
+                            : "border-border text-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <span className="text-xs">A</span>
+                      </button>
+                      <button
+                        onClick={() => setFontSize("medium")}
+                        className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
+                          fontSize === "medium"
+                            ? "border-primary bg-primary/10 text-primary font-semibold"
+                            : "border-border text-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <span className="text-sm">A</span>
+                      </button>
+                      <button
+                        onClick={() => setFontSize("large")}
+                        className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
+                          fontSize === "large"
+                            ? "border-primary bg-primary/10 text-primary font-semibold"
+                            : "border-border text-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <span className="text-base">A</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Modo de leitura */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📖</span>
+                      <span className="text-xs font-medium">Modo Leitura</span>
+                    </div>
+                    <Switch checked={readingMode} onCheckedChange={toggleReadingMode} />
+                  </div>
+
+                  {/* Espaçamento de texto */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">↔️</span>
+                      <span className="text-xs font-medium">Espaçamento</span>
+                    </div>
+                    <Switch checked={textSpacing} onCheckedChange={toggleTextSpacing} />
+                  </div>
+                </div>
+
+                {/* Link para preferências */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs h-8"
+                  onClick={() => handleMenuClick('/profile/preferences')}
+                >
+                  Ver todas as preferências
+                </Button>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </div>
 
         {/* Bottom Options - Fixed */}
-        <div className="px-6 pb-8 pt-4 space-y-3 border-t border-border shrink-0">
-          {(isAdmin || isGestor) && (
-            <button
-              onClick={() => handleMenuClick('/admin')}
-              className="w-full text-left py-2 text-primary font-semibold hover:text-primary/80 transition-colors text-base flex items-center gap-3 mb-3"
-            >
-              <Lock size={18} />
-              <span>Área Administrativa</span>
-            </button>
-          )}
-          
+        <div className="px-4 pb-6 pt-3 space-y-2 border-t border-border shrink-0">
           {bottomOptions.map((option) => {
             const Icon = option.icon;
             return (
               <button
                 key={option.id}
-                onClick={() => handleMenuClick(option.route)}
-                className="w-full text-left py-2 text-muted-foreground hover:text-foreground transition-colors text-base flex items-center gap-3"
+                onClick={onClose}
+                className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
               >
-                <Icon size={18} />
-                <span>{option.label}</span>
+                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                  <Icon className="text-primary" size={16} />
+                </div>
+                <span className="text-foreground font-medium text-sm">{option.label}</span>
               </button>
             );
           })}
           
-          <button className="w-full text-left py-2 text-foreground font-semibold hover:text-primary transition-colors text-base flex items-center gap-3">
-            <LogOut size={18} />
-            <span>Sair do App Câmara SP</span>
+          <button 
+            onClick={handleLogout}
+            className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+              <LogOut className="text-primary" size={16} />
+            </div>
+            <span className="text-foreground font-medium text-sm">Sair</span>
           </button>
         </div>
       </div>
