@@ -3,13 +3,58 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Home, MessageSquare, Bell, Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMenu } from "@/contexts/MenuContext";
-import { useNotifications } from "@/contexts/NotificationsContext";
 
 const FloatingNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { openMenu } = useMenu();
-  const { unreadCount } = useNotifications();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Buscar contador de notificações não lidas
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { count } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('is_read', false);
+          
+          setUnreadCount(count || 0);
+
+          // Setup realtime
+          const channel = supabase
+            .channel('notifications-count')
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${user.id}`,
+              },
+              () => {
+                // Refetch count on any change
+                fetchUnreadCount();
+              }
+            )
+            .subscribe();
+
+          return () => {
+            supabase.removeChannel(channel);
+          };
+        }
+      } catch (error) {
+        console.error('Erro ao buscar notificações:', error);
+      }
+    };
+
+    fetchUnreadCount();
+  }, []);
 
   const menuItems = [
     { name: "Home", icon: Home, path: "/home" },
