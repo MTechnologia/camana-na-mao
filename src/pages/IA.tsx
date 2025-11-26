@@ -4,7 +4,7 @@ import AIHeader from "@/components/ai/AIHeader";
 import AIAvatar from "@/components/ai/AIAvatar";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
 import AIWelcome from "@/components/ai/AIWelcome";
-import InteractionButtons from "@/components/ai/InteractionButtons";
+import InteractionCarousel from "@/components/ai/InteractionCarousel";
 import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
 import SessionResume from "@/components/ai/SessionResume";
 import AIMessage from "@/components/ai/AIMessage";
@@ -14,6 +14,8 @@ import { useFirstAccess } from "@/hooks/useFirstAccess";
 import { useSessionContext } from "@/hooks/useSessionContext";
 import { useAIChat } from "@/hooks/useAIChat";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 
 const IA = () => {
   const navigate = useNavigate();
@@ -22,9 +24,14 @@ const IA = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const { isFirstAccess, completeOnboarding } = useFirstAccess();
   const { hasActiveSession, sessionData, clearSession, getTimeAgo } = useSessionContext();
   const { messages, isLoading: isChatLoading, sendMessage } = useAIChat();
+
+  // Get user's first name or fallback to "Cidadão"
+  const userName = profile?.full_name?.split(" ")[0] || user?.user_metadata?.full_name?.split(" ")[0] || "Cidadão";
 
   useEffect(() => {
     // Check online status
@@ -111,7 +118,7 @@ const IA = () => {
         <div className="flex flex-col items-center">
           <AIAvatar />
           <div className="mt-6 w-full">
-            <AIWelcome userName="Luana" />
+            <AIWelcome userName={userName} />
           </div>
         </div>
       </div>
@@ -133,9 +140,9 @@ const IA = () => {
           />
         )}
 
-        {/* Interaction Buttons - Only on initial screen */}
+        {/* Interaction Carousel - Only on initial screen */}
         {messages.length === 0 && (
-          <InteractionButtons onSelect={handleInteractionSelect} />
+          <InteractionCarousel onSelect={handleInteractionSelect} />
         )}
 
         {/* Chat Messages */}
