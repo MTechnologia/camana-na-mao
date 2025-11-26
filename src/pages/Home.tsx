@@ -164,21 +164,19 @@ const Home = () => {
             {shortcuts.map((shortcut) => {
               const IconComponent = shortcut.icon;
               return (
-                <button
-                  key={shortcut.id}
-                  onClick={() => shortcut.path && navigate(shortcut.path)}
-                  className="flex-shrink-0 flex flex-col items-center gap-2 p-4 w-24 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group relative"
-                >
-                  {shortcut.badge && (
-                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10">
-                      {shortcut.badge}
-                    </div>
-                  )}
-                  <div className={`${shortcut.bgColor} p-3 rounded-full group-hover:scale-110 transition-transform duration-200`}>
-                    <IconComponent className={`h-6 w-6 ${shortcut.color}`} />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 text-center">{shortcut.title}</span>
-                </button>
+            <button
+              key={shortcut.id}
+              onClick={() => shortcut.path && navigate(shortcut.path)}
+              className="flex-shrink-0 flex items-center gap-3 px-4 py-3 min-w-[140px] bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group relative"
+            >
+              {shortcut.badge && (
+                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10">
+                  {shortcut.badge}
+                </div>
+              )}
+              <IconComponent className={`h-5 w-5 ${shortcut.color} flex-shrink-0 group-hover:scale-110 transition-transform duration-200`} />
+              <span className="text-xs font-medium text-gray-700 whitespace-nowrap">{shortcut.title}</span>
+            </button>
               );
             })}
           </div>
