@@ -10,6 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MapPin, Phone, Clock, Star, Bell } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { MapboxMap } from "@/components/map/MapboxMap";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 export default function ServiceDetailPage() {
   const { id } = useParams();
@@ -18,6 +20,7 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const { latitude, longitude } = useGeolocation();
 
   useEffect(() => {
     loadService();
@@ -146,13 +149,21 @@ export default function ServiceDetailPage() {
       <PageHeader title={service.name} />
       
       <div className="p-4 space-y-4">
-        {/* Map placeholder */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="h-48 bg-secondary flex items-center justify-center">
-              <MapPin className="w-12 h-12 text-muted-foreground" />
-            </div>
-          </CardContent>
+        {/* Map Section */}
+        <Card className="p-4">
+          <h3 className="font-semibold text-foreground mb-4">Localização</h3>
+          <MapboxMap
+            userLocation={latitude && longitude ? { latitude, longitude } : null}
+            services={[{
+              id: service.id,
+              name: service.name,
+              service_type: service.service_type,
+              latitude: service.latitude,
+              longitude: service.longitude,
+              address: service.address,
+            }]}
+            onServiceClick={() => {}}
+          />
         </Card>
 
         {/* Info Card */}
