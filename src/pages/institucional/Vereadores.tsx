@@ -89,15 +89,13 @@ const Vereadores = () => {
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 min-w-0 pr-8">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-foreground">
-                        {vereador.name}
-                      </h3>
-                      <Badge variant="outline" className="shrink-0">
-                        {vereador.party}
-                      </Badge>
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <Badge variant="outline" className="mb-2 inline-block">
+                      {vereador.party}
+                    </Badge>
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {vereador.name}
+                    </h3>
 
                     <div className="space-y-1.5 text-sm text-muted-foreground">
                       {vereador.region && (

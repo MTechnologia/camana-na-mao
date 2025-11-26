@@ -69,17 +69,15 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className="font-semibold text-foreground line-clamp-2">
-              {audiencia.title}
-            </h3>
-            <Badge
-              variant="outline"
-              className={`text-xs border flex-shrink-0 ${themeColors[audiencia.theme] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
-            >
-              {audiencia.theme}
-            </Badge>
-          </div>
+          <Badge
+            variant="outline"
+            className={`text-xs border mb-2 inline-block ${themeColors[audiencia.theme] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
+          >
+            {audiencia.theme}
+          </Badge>
+          <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
+            {audiencia.title}
+          </h3>
 
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
             {audiencia.description}
