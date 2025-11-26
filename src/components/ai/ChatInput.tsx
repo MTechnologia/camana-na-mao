@@ -101,7 +101,7 @@ const ChatInput = ({ onSendMessage, disabled }: ChatInputProps) => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="O que você precisa?"
+            placeholder="Pergunte qualquer coisa ou selecione um tema acima"
             disabled={disabled}
             rows={1}
             className="w-full rounded-2xl border-2 border-border bg-card pl-4 pr-12 py-3.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"

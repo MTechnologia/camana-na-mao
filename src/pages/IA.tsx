@@ -291,10 +291,22 @@ const IA = () => {
     }
   };
 
-  const handleSendMessage = (message: string) => {
-    if (message.trim()) {
-      sendMessage(message.trim());
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
+    
+    // Se não tem jornada ativa, auto-criar com 'general'
+    if (!currentJourney) {
+      const generalJourney = AI_JOURNEYS.general;
+      const newConvId = await createConversation('general');
+      if (newConvId) {
+        setJourney(generalJourney, newConvId);
+        // Aguardar um tick para o estado atualizar
+        setTimeout(() => sendMessage(message.trim()), 100);
+        return;
+      }
     }
+    
+    sendMessage(message.trim());
   };
 
   if (!isOnline) {
