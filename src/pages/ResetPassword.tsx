@@ -6,7 +6,6 @@ import { Mail, ArrowLeft, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { z } from "zod";
-import brasaoSP from "@/assets/brasao-sp.png";
 
 const emailSchema = z.object({
   email: z.string().email("Email inválido").min(1, "Email é obrigatório"),
@@ -102,15 +101,6 @@ const ResetPassword = () => {
           <ArrowLeft size={20} className="mr-2" />
           Voltar
         </Button>
-      </div>
-
-      {/* Logo Header */}
-      <div className="flex items-center justify-center gap-3 pb-8 px-6">
-        <img src={brasaoSP} alt="Brasão São Paulo" className="w-16 h-16" />
-        <div className="text-left">
-          <p className="text-xs text-gray-600">CÂMARA MUNICIPAL DE</p>
-          <p className="text-lg font-bold text-gray-900">SÃO PAULO</p>
-        </div>
       </div>
 
       {/* Header Text */}
