@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, ArrowLeft, Check } from "lucide-react";
+import { Mail, ChevronLeft, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -49,17 +49,15 @@ const ResetPassword = () => {
   if (emailSent) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
-        <div className="px-6 pt-8 pb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/login")}
-            className="-ml-2"
-          >
-            <ArrowLeft size={20} className="mr-2" />
-            Voltar para login
-          </Button>
-        </div>
+      <div className="px-6 pt-8 pb-6">
+        <button
+          onClick={() => navigate("/login")}
+          className="-ml-2 text-foreground hover:text-primary transition-colors"
+          aria-label="Voltar"
+        >
+          <ChevronLeft size={24} strokeWidth={2} />
+        </button>
+      </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 pb-12">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center">
@@ -92,15 +90,13 @@ const ResetPassword = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header com botão de voltar */}
       <div className="px-6 pt-8 pb-2">
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => navigate("/login")}
-          className="-ml-2"
+          className="-ml-2 text-foreground hover:text-primary transition-colors"
+          aria-label="Voltar"
         >
-          <ArrowLeft size={20} className="mr-2" />
-          Voltar
-        </Button>
+          <ChevronLeft size={24} strokeWidth={2} />
+        </button>
       </div>
 
       {/* Header Text */}

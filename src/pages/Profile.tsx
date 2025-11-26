@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import PageHeader from "@/components/ui/page-header";
 
 const Profile = () => {
-  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({
@@ -70,20 +68,8 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-white dark:bg-background shadow-sm" style={{ height: '60px' }}>
-        <div className="flex items-center justify-between px-4 h-full">
-          <button
-            onClick={() => navigate("/home")}
-            className="text-foreground hover:text-primary transition-colors"
-          >
-            <ChevronLeft size={28} strokeWidth={2} />
-          </button>
-          <h1 className="text-sm font-medium text-foreground">Meu Perfil</h1>
-          <div className="w-7" />
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pt-[60px]">
+      <PageHeader title="Meu Perfil" backTo="/home" />
 
       <div className="p-6">
         <Tabs defaultValue="personal" className="w-full">
@@ -127,7 +113,7 @@ const Profile = () => {
             <Button
               onClick={handleSaveProfile}
               disabled={loading}
-              className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-full"
+              className="w-full h-12 bg-foreground text-background hover:bg-foreground/90"
             >
               {loading ? "Salvando..." : "Salvar Alterações"}
             </Button>
@@ -150,7 +136,7 @@ const Profile = () => {
           <Button
             onClick={signOut}
             variant="destructive"
-            className="w-full h-12 rounded-full"
+            className="w-full h-12"
           >
             Sair da Conta
           </Button>

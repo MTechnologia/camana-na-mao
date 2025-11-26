@@ -100,7 +100,7 @@ const Onboarding = () => {
       <Button
         onClick={handleContinue}
         disabled={selectedInterests.length < 3 || loading}
-        className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-full"
+        className="w-full h-12 bg-foreground text-background hover:bg-foreground/90"
       >
         {loading ? "Salvando..." : "Continuar"}
       </Button>

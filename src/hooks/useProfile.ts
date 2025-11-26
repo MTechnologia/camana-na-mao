@@ -1,0 +1,58 @@
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Profile {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  avatar_url: string | null;
+}
+
+export const useProfile = () => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadProfile = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      setProfile(data);
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, [user]);
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
+
+  return {
+    profile,
+    loading,
+    refetch: loadProfile,
+    getInitials,
+  };
+};

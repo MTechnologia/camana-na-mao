@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
-import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import avatarLuana from "@/assets/avatar-luana.jpg";
+import { useProfile } from "@/hooks/useProfile";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
 import camaraLogo from "@/assets/camara-logo.png";
 
 const Home = () => {
+  const navigate = useNavigate();
+  const { profile, loading, getInitials } = useProfile();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
 
@@ -47,14 +50,22 @@ const Home = () => {
               <input
                 type="text"
                 placeholder="Buscar..."
-                className="w-full pl-10 pr-4 py-2 rounded-full bg-gray-50 border border-gray-200 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all duration-200 outline-none"
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all duration-200 outline-none"
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             </div>
 
             {/* Avatar */}
-            <Avatar className="h-10 w-10 ring-2 ring-gray-100">
-              <AvatarImage src={avatarLuana} alt="Luana" />
+            <Avatar 
+              className="h-10 w-10 ring-2 ring-gray-100 cursor-pointer hover:ring-pink-500 transition-all"
+              onClick={() => navigate('/profile')}
+            >
+              {profile?.avatar_url ? (
+                <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+              ) : null}
+              <AvatarFallback className="bg-pink-500 text-white font-medium">
+                {profile ? getInitials(profile.full_name) : "U"}
+              </AvatarFallback>
             </Avatar>
           </div>
         </div>
@@ -64,7 +75,7 @@ const Home = () => {
         {/* Simplified Greeting */}
         <div className="animate-fade-in">
           <h1 className="text-2xl font-medium text-gray-900">
-            Olá, <span className="text-pink-500">Luana</span>
+            Olá, <span className="text-pink-500">{profile?.full_name.split(' ')[0] || "Usuário"}</span>
           </h1>
         </div>
 
