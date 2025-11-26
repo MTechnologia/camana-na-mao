@@ -11,7 +11,8 @@ export interface JourneyType {
 
 interface AIJourneyContextType {
   currentJourney: JourneyType | null;
-  setJourney: (journey: JourneyType, context?: Record<string, any>) => void;
+  currentConversationId: string | null;
+  setJourney: (journey: JourneyType, conversationId?: string, context?: Record<string, any>) => void;
   journeyContext: Record<string, any>;
   clearJourney: () => void;
 }
@@ -20,20 +21,23 @@ const AIJourneyContext = createContext<AIJourneyContextType | undefined>(undefin
 
 export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
   const [currentJourney, setCurrentJourney] = useState<JourneyType | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [journeyContext, setJourneyContext] = useState<Record<string, any>>({});
 
-  const setJourney = (journey: JourneyType, context: Record<string, any> = {}) => {
+  const setJourney = (journey: JourneyType, conversationId?: string, context: Record<string, any> = {}) => {
     setCurrentJourney(journey);
+    setCurrentConversationId(conversationId || null);
     setJourneyContext(context);
   };
 
   const clearJourney = () => {
     setCurrentJourney(null);
+    setCurrentConversationId(null);
     setJourneyContext({});
   };
 
   return (
-    <AIJourneyContext.Provider value={{ currentJourney, setJourney, journeyContext, clearJourney }}>
+    <AIJourneyContext.Provider value={{ currentJourney, currentConversationId, setJourney, journeyContext, clearJourney }}>
       {children}
     </AIJourneyContext.Provider>
   );

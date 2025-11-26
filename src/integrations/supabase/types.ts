@@ -19,8 +19,11 @@ export type Database = {
           context: string | null
           created_at: string
           id: string
+          journey_id: string | null
           last_message_at: string
           messages: Json
+          status: string | null
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -28,8 +31,11 @@ export type Database = {
           context?: string | null
           created_at?: string
           id?: string
+          journey_id?: string | null
           last_message_at?: string
           messages?: Json
+          status?: string | null
+          title?: string | null
           updated_at?: string
           user_id: string
         }
@@ -37,8 +43,11 @@ export type Database = {
           context?: string | null
           created_at?: string
           id?: string
+          journey_id?: string | null
           last_message_at?: string
           messages?: Json
+          status?: string | null
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
