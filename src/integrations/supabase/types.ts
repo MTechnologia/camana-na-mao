@@ -70,6 +70,240 @@ export type Database = {
         }
         Relationships: []
       }
+      public_services: {
+        Row: {
+          address: string
+          average_rating: number | null
+          city: string
+          created_at: string | null
+          district: string
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          opening_hours: Json | null
+          phone: string | null
+          service_type: Database["public"]["Enums"]["service_type"]
+          state: string
+          total_ratings: number | null
+          updated_at: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address: string
+          average_rating?: number | null
+          city?: string
+          created_at?: string | null
+          district: string
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          opening_hours?: Json | null
+          phone?: string | null
+          service_type: Database["public"]["Enums"]["service_type"]
+          state?: string
+          total_ratings?: number | null
+          updated_at?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string
+          average_rating?: number | null
+          city?: string
+          created_at?: string | null
+          district?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          opening_hours?: Json | null
+          phone?: string | null
+          service_type?: Database["public"]["Enums"]["service_type"]
+          state?: string
+          total_ratings?: number | null
+          updated_at?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      rating_referrals: {
+        Row: {
+          council_member_name: string
+          council_member_party: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          rating_id: string
+          status: Database["public"]["Enums"]["referral_status"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          council_member_name: string
+          council_member_party?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          rating_id: string
+          status?: Database["public"]["Enums"]["referral_status"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          council_member_name?: string
+          council_member_party?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          rating_id?: string
+          status?: Database["public"]["Enums"]["referral_status"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rating_referrals_rating_id_fkey"
+            columns: ["rating_id"]
+            isOneToOne: false
+            referencedRelation: "service_ratings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_ratings: {
+        Row: {
+          anonymized_at: string | null
+          created_at: string | null
+          id: string
+          is_anonymous: boolean | null
+          rating_stars: number
+          rating_text: string | null
+          sentiment: string | null
+          service_id: string
+          updated_at: string | null
+          user_id: string
+          visit_id: string
+        }
+        Insert: {
+          anonymized_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_anonymous?: boolean | null
+          rating_stars: number
+          rating_text?: string | null
+          sentiment?: string | null
+          service_id: string
+          updated_at?: string | null
+          user_id: string
+          visit_id: string
+        }
+        Update: {
+          anonymized_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_anonymous?: boolean | null
+          rating_stars?: number
+          rating_text?: string | null
+          sentiment?: string | null
+          service_id?: string
+          updated_at?: string | null
+          user_id?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_ratings_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_ratings_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "service_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_subscriptions: {
+        Row: {
+          created_at: string | null
+          id: string
+          service_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          service_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          service_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_subscriptions_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_visits: {
+        Row: {
+          created_at: string | null
+          detected_at: string
+          expires_at: string
+          id: string
+          rating_requested_at: string | null
+          service_id: string
+          status: Database["public"]["Enums"]["visit_status"]
+          updated_at: string | null
+          user_id: string
+          visited_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          detected_at?: string
+          expires_at: string
+          id?: string
+          rating_requested_at?: string | null
+          service_id: string
+          status?: Database["public"]["Enums"]["visit_status"]
+          updated_at?: string | null
+          user_id: string
+          visited_at?: string
+        }
+        Update: {
+          created_at?: string | null
+          detected_at?: string
+          expires_at?: string
+          id?: string
+          rating_requested_at?: string | null
+          service_id?: string
+          status?: Database["public"]["Enums"]["visit_status"]
+          updated_at?: string | null
+          user_id?: string
+          visited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_visits_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_addresses: {
         Row: {
           city: string
@@ -257,7 +491,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      referral_status: "pending" | "sent" | "acknowledged" | "resolved"
+      service_type:
+        | "ubs"
+        | "school"
+        | "ceu"
+        | "hospital"
+        | "library"
+        | "sports_center"
+        | "other"
+      visit_status: "pending" | "completed" | "expired" | "skipped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -384,6 +627,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      referral_status: ["pending", "sent", "acknowledged", "resolved"],
+      service_type: [
+        "ubs",
+        "school",
+        "ceu",
+        "hospital",
+        "library",
+        "sports_center",
+        "other",
+      ],
+      visit_status: ["pending", "completed", "expired", "skipped"],
+    },
   },
 } as const
