@@ -167,7 +167,7 @@ const Home = () => {
             <button
               key={shortcut.id}
               onClick={() => shortcut.path && navigate(shortcut.path)}
-              className="flex-shrink-0 flex flex-col items-start gap-2 p-4 w-28 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group relative overflow-visible"
+              className="flex-shrink-0 flex flex-col items-start justify-between p-4 w-32 h-28 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group relative overflow-visible"
             >
               {shortcut.badge && (
                 <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10">
@@ -175,7 +175,7 @@ const Home = () => {
                 </div>
               )}
               <IconComponent className={`h-6 w-6 ${shortcut.color} group-hover:scale-110 transition-transform duration-200`} />
-              <span className="text-xs font-medium text-gray-700">{shortcut.title}</span>
+              <span className="text-xs font-medium text-gray-700 text-left leading-tight">{shortcut.title}</span>
             </button>
               );
             })}
