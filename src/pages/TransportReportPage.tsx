@@ -1,49 +1,23 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, TrendingUp, FileText } from 'lucide-react';
+import { Bus, TrendingUp, FileText, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
 import FloatingNavbar from '@/components/FloatingNavbar';
 import busSptrans from '@/assets/bus-sptrans.png';
-import { useAIConversations } from "@/hooks/useAIConversations";
-import { useAIJourney } from "@/contexts/AIJourneyContext";
-import { getJourneyById } from "@/config/aiJourneys";
-import ConversationHub from "@/components/ai/ConversationHub";
 
 export default function TransportReportPage() {
   const navigate = useNavigate();
-  const { setJourney } = useAIJourney();
-  const {
-    conversations,
-    isLoading,
-    createConversation,
-    resumeConversation,
-    archiveConversation,
-    deleteConversation,
-  } = useAIConversations();
-
-  const handleSelectConversation = async (id: string, journeyId: string) => {
-    const conv = await resumeConversation(id);
-    if (conv) {
-      const journey = getJourneyById(journeyId);
-      if (journey) {
-        setJourney(journey, id);
-        navigate("/ia");
-      }
-    }
-  };
-
-  const handleNewConversation = async (journeyId: string) => {
-    const conversationId = await createConversation(journeyId);
-    if (conversationId) {
-      const journey = getJourneyById(journeyId);
-      if (journey) {
-        setJourney(journey, conversationId);
-        navigate("/ia");
-      }
-    }
-  };
 
   const options = [
+    {
+      id: 'ai-chat',
+      title: 'Conversar com IA',
+      description: 'Relate problemas de transporte com ajuda da IA',
+      icon: MessageSquare,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-50',
+      path: '/ia?journey=transport',
+    },
     {
       id: 'new-report',
       title: 'Relatar Problema',
@@ -86,21 +60,6 @@ export default function TransportReportPage() {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 py-6 -mt-8">
-          {/* AI Conversations Hub */}
-          <div className="mb-6">
-            <ConversationHub
-              conversations={conversations}
-              filterJourney="transport"
-              showAllJourneys={false}
-              onSelectConversation={handleSelectConversation}
-              onNewConversation={handleNewConversation}
-              onArchive={archiveConversation}
-              onDelete={deleteConversation}
-              isLoading={isLoading}
-            />
-          </div>
-
-          {/* Other Options */}
           <div className="space-y-3 animate-fade-in">
             {options.map((option) => {
               const Icon = option.icon;
