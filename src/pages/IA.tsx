@@ -19,8 +19,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { getJourneyById, AI_JOURNEYS } from "@/config/aiJourneys";
-import ActiveConversationsList from "@/components/ai/ActiveConversationsList";
 import ContinueConversationModal from "@/components/ai/ContinueConversationModal";
+import ConversationHub from "@/components/ai/ConversationHub";
 import { useAIConversations } from "@/hooks/useAIConversations";
 
 const IA = () => {
@@ -48,7 +48,10 @@ const IA = () => {
     createConversation,
     resumeConversation,
     archiveConversation,
-    isLoading: conversationsLoading,
+    restoreConversation,
+    deleteConversation,
+    loadConversations,
+    isLoading: isLoadingConversations,
   } = useAIConversations();
 
   // Display initial message when journey is set
@@ -140,6 +143,31 @@ const IA = () => {
 
   const handleArchiveConversation = async (conversationId: string) => {
     await archiveConversation(conversationId);
+    toast({
+      title: "Conversa arquivada",
+      description: "A conversa foi arquivada com sucesso.",
+    });
+  };
+
+  const handleResumeFromSwitcher = async (conversationId: string) => {
+    const conv = await resumeConversation(conversationId);
+    if (conv) {
+      const journey = getJourneyById(conv.journey_id);
+      if (journey) {
+        setJourney(journey, conversationId);
+      }
+    }
+  };
+
+  const handleViewAllConversations = () => {
+    clearJourney();
+  };
+
+  const handleStartNewConversation = async (journeyId: string) => {
+    const journey = getJourneyById(journeyId);
+    if (journey) {
+      await startNewConversation(journeyId, journey);
+    }
   };
 
   const handleContinueExisting = () => {
@@ -199,7 +227,14 @@ const IA = () => {
       {/* Journey Header - Shows when a journey is active */}
       {currentJourney && (
         <div className="pt-16">
-          <JourneyHeader journey={currentJourney} onClear={handleClearJourney} />
+          <JourneyHeader
+            journey={currentJourney}
+            onClear={handleClearJourney}
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={handleResumeFromSwitcher}
+            onViewAll={handleViewAllConversations}
+          />
         </div>
       )}
 
@@ -217,18 +252,25 @@ const IA = () => {
 
       {/* Content */}
       <div className={`px-6 ${currentJourney ? 'pt-4' : ''}`}>
-        {/* Lista de conversas ativas - apenas quando não há jornada ativa */}
-        {!currentJourney && !conversationsLoading && Object.keys(conversationsByJourney).length > 0 && (
-          <ActiveConversationsList
-            conversations={conversationsByJourney}
-            onResume={handleResumeConversation}
-            onArchive={handleArchiveConversation}
-          />
-        )}
-
         {/* Interaction Carousel - sempre visível quando não há jornada */}
         {!currentJourney && (
           <InteractionCarousel onSelect={handleInteractionSelect} />
+        )}
+
+        {/* Conversation Hub - All Journeys */}
+        {!currentJourney && (
+          <div className="pb-24">
+            <ConversationHub
+              conversations={conversations}
+              showAllJourneys={true}
+              onSelectConversation={handleResumeConversation}
+              onNewConversation={handleStartNewConversation}
+              onArchive={archiveConversation}
+              onRestore={restoreConversation}
+              onDelete={deleteConversation}
+              isLoading={isLoadingConversations}
+            />
+          </div>
         )}
 
         {/* Chat Messages */}

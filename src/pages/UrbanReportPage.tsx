@@ -1,23 +1,48 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Card } from "@/components/ui/card";
 import { MessageSquare, FileText, History } from "lucide-react";
+import { useAIConversations } from "@/hooks/useAIConversations";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { getJourneyById } from "@/config/aiJourneys";
+import ConversationHub from "@/components/ai/ConversationHub";
 
 export default function UrbanReportPage() {
   const navigate = useNavigate();
+  const { setJourney } = useAIJourney();
+  const {
+    conversations,
+    isLoading,
+    createConversation,
+    resumeConversation,
+    archiveConversation,
+    deleteConversation,
+  } = useAIConversations();
+
+  const handleSelectConversation = async (id: string, journeyId: string) => {
+    const conv = await resumeConversation(id);
+    if (conv) {
+      const journey = getJourneyById(journeyId);
+      if (journey) {
+        setJourney(journey, id);
+        navigate("/ia");
+      }
+    }
+  };
+
+  const handleNewConversation = async (journeyId: string) => {
+    const conversationId = await createConversation(journeyId);
+    if (conversationId) {
+      const journey = getJourneyById(journeyId);
+      if (journey) {
+        setJourney(journey, conversationId);
+        navigate("/ia");
+      }
+    }
+  };
 
   const options = [
-    {
-      id: 1,
-      title: "Novo Relato com IA",
-      description: "Converse com a IA e relate problemas urbanos de forma guiada",
-      icon: MessageSquare,
-      color: "text-pink-500",
-      bgColor: "bg-pink-50",
-      path: "/ia?journey=urban_report"
-    },
     {
       id: 2,
       title: "Relato Manual",
@@ -56,7 +81,19 @@ export default function UrbanReportPage() {
           </div>
         </Card>
 
-        {/* Options */}
+        {/* AI Conversations Hub */}
+        <ConversationHub
+          conversations={conversations}
+          filterJourney="urban_report"
+          showAllJourneys={false}
+          onSelectConversation={handleSelectConversation}
+          onNewConversation={handleNewConversation}
+          onArchive={archiveConversation}
+          onDelete={deleteConversation}
+          isLoading={isLoading}
+        />
+
+        {/* Other Options */}
         <div className="space-y-3">
           {options.map((option) => {
             const IconComponent = option.icon;

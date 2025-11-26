@@ -6,8 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 export interface AIConversation {
   id: string;
   journeyId: string;
-  title: string | null;
+  title: string;
   lastMessage: string;
+  lastMessagePreview: string;
   lastMessageAt: Date;
   messageCount: number;
   status: 'active' | 'archived';
@@ -28,7 +29,6 @@ export const useAIConversations = () => {
         .from('ai_conversations')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'active')
         .order('last_message_at', { ascending: false });
 
       if (error) throw error;
@@ -36,12 +36,14 @@ export const useAIConversations = () => {
       const formatted: AIConversation[] = (data || []).map((conv) => {
         const messages = (conv.messages as any[]) || [];
         const lastMsg = messages[messages.length - 1];
+        const lastMsgContent = lastMsg?.content || '';
         
         return {
           id: conv.id,
           journeyId: conv.journey_id || 'general',
           title: conv.title || 'Conversa sem título',
-          lastMessage: lastMsg?.content || '',
+          lastMessage: lastMsgContent,
+          lastMessagePreview: lastMsgContent.length > 100 ? lastMsgContent.substring(0, 100) + '...' : lastMsgContent,
           lastMessageAt: new Date(conv.last_message_at),
           messageCount: messages.length,
           status: conv.status as 'active' | 'archived',
@@ -131,11 +133,14 @@ export const useAIConversations = () => {
   };
 
   const archiveConversation = async (conversationId: string) => {
+    if (!user) return;
+
     try {
       const { error } = await supabase
         .from('ai_conversations')
         .update({ status: 'archived' })
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
@@ -154,12 +159,68 @@ export const useAIConversations = () => {
     }
   };
 
+  const restoreConversation = async (conversationId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('ai_conversations')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      await loadConversations();
+      toast({
+        title: 'Conversa restaurada',
+        description: 'A conversa foi restaurada com sucesso.',
+      });
+    } catch (error: any) {
+      console.error('Error restoring conversation:', error);
+      toast({
+        title: 'Erro ao restaurar',
+        description: 'Não foi possível restaurar a conversa.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteConversation = async (conversationId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('ai_conversations')
+        .delete()
+        .eq('id', conversationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      await loadConversations();
+      toast({
+        title: 'Conversa deletada',
+        description: 'A conversa foi deletada permanentemente.',
+      });
+    } catch (error: any) {
+      console.error('Error deleting conversation:', error);
+      toast({
+        title: 'Erro ao deletar',
+        description: 'Não foi possível deletar a conversa.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return {
     conversations,
     conversationsByJourney,
     createConversation,
     resumeConversation,
     archiveConversation,
+    restoreConversation,
+    deleteConversation,
     loadConversations,
     isLoading,
   };
