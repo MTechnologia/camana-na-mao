@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, Clock, Trash2, Sparkles, X, TrendingUp } from "lucide-react";
+import { Search as SearchIcon, Clock, Trash2, Sparkles, X, TrendingUp, MapPin } from "lucide-react";
 import PageHeader from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { useDebounce } from "@/hooks/useDebounce";
+import {
+  SearchResult,
+  searchAll,
+  filterCategories,
+  typeLabels,
+} from "@/data/searchData";
 
 interface SearchSuggestion {
   text: string;
@@ -21,72 +28,92 @@ const SearchPage = () => {
   const initialQuery = searchParams.get("q") || "";
   
   const [query, setQuery] = useState(initialQuery);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [activeFilter, setActiveFilter] = useState<string>("all");
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const { history, loading, addToHistory, clearHistory } = useSearchHistory();
   
   const debouncedQuery = useDebounce(query, 300);
 
-  // Fetch intelligent suggestions when user types
+  // Fetch search results when user types
   useEffect(() => {
     if (debouncedQuery.length >= 2) {
-      fetchSuggestions(debouncedQuery);
+      performSearch(debouncedQuery);
     } else {
+      setResults([]);
       setSuggestions([]);
     }
-  }, [debouncedQuery]);
+  }, [debouncedQuery, activeFilter]);
 
-  const fetchSuggestions = async (searchQuery: string) => {
+  const performSearch = async (searchQuery: string) => {
     setLoadingSuggestions(true);
     try {
-      // Buscar em diferentes tabelas para sugestões inteligentes
-      const [vereadores, audiencias, servicos] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("full_name")
-          .ilike("full_name", `%${searchQuery}%`)
-          .limit(3),
-        supabase
-          .from("audiencias")
-          .select("titulo, tema")
-          .or(`titulo.ilike.%${searchQuery}%,tema.ilike.%${searchQuery}%`)
-          .limit(3),
-        supabase
-          .from("public_services")
-          .select("name, service_type")
-          .ilike("name", `%${searchQuery}%`)
-          .limit(3)
-      ]);
-
-      const newSuggestions: SearchSuggestion[] = [];
-
-      vereadores.data?.forEach(v => {
-        newSuggestions.push({
-          text: v.full_name,
-          type: "Vereador",
-          icon: "👤"
-        });
-      });
-
-      audiencias.data?.forEach(a => {
-        newSuggestions.push({
-          text: a.titulo,
-          type: "Audiência",
-          icon: "📢"
-        });
-      });
-
-      servicos.data?.forEach(s => {
-        newSuggestions.push({
-          text: s.name,
-          type: s.service_type.toUpperCase(),
-          icon: "📍"
-        });
-      });
-
+      // Buscar nos dados mockados
+      let mockResults = searchAll(searchQuery);
+      
+      // Buscar em notícias do Supabase
+      const { data: noticias } = await supabase
+        .from("noticias")
+        .select("*")
+        .or(`titulo.ilike.%${searchQuery}%,conteudo.ilike.%${searchQuery}%`)
+        .limit(5);
+      
+      const noticiasResults: SearchResult[] = (noticias || []).map((noticia) => ({
+        id: noticia.id,
+        type: "noticia" as const,
+        title: noticia.titulo,
+        description: noticia.resumo || noticia.conteudo.substring(0, 100),
+        icon: "📰",
+        category: noticia.categoria,
+        path: `/noticias/${noticia.id}`,
+        metadata: {
+          date: noticia.data_publicacao,
+          author: noticia.autor,
+        },
+      }));
+      
+      // Buscar em audiências do Supabase
+      const { data: audiencias } = await supabase
+        .from("audiencias")
+        .select("*")
+        .or(`titulo.ilike.%${searchQuery}%,tema.ilike.%${searchQuery}%`)
+        .limit(5);
+      
+      const audienciasResults: SearchResult[] = (audiencias || []).map((audiencia) => ({
+        id: audiencia.id,
+        type: "audiencia" as const,
+        title: audiencia.titulo,
+        description: `${audiencia.tema} - ${audiencia.local}`,
+        icon: "🎙️",
+        category: "Audiência Pública",
+        path: `/audiencias/${audiencia.id}`,
+        metadata: {
+          date: audiencia.data,
+          status: audiencia.status,
+        },
+      }));
+      
+      // Combinar resultados
+      const allResults = [...mockResults, ...noticiasResults, ...audienciasResults];
+      
+      // Filtrar por tipo se não for 'all'
+      const filteredResults =
+        activeFilter === "all"
+          ? allResults
+          : allResults.filter((r) => r.type === activeFilter);
+      
+      setResults(filteredResults);
+      
+      // Criar sugestões para o autocomplete (primeiros 5 resultados)
+      const newSuggestions = filteredResults.slice(0, 5).map((result) => ({
+        text: result.title,
+        type: result.category,
+        icon: result.icon,
+      }));
       setSuggestions(newSuggestions);
     } catch (error) {
-      console.error("Error fetching suggestions:", error);
+      console.error("Error searching:", error);
     } finally {
       setLoadingSuggestions(false);
     }
@@ -95,8 +122,6 @@ const SearchPage = () => {
   const handleSearch = (searchQuery: string) => {
     if (!searchQuery.trim()) return;
     addToHistory(searchQuery);
-    // Aqui você pode navegar para resultados ou abrir modal de resultados
-    console.log("Searching for:", searchQuery);
   };
 
   const handleAIHelp = () => {
@@ -112,6 +137,23 @@ const SearchPage = () => {
     setQuery(suggestion.text);
     handleSearch(suggestion.text);
   };
+
+  const handleResultClick = (result: SearchResult) => {
+    navigate(result.path);
+  };
+
+  const handleFilterClick = (filterId: string) => {
+    setActiveFilter(filterId);
+  };
+
+  // Agrupar resultados por tipo
+  const groupedResults = results.reduce((acc, result) => {
+    if (!acc[result.type]) {
+      acc[result.type] = [];
+    }
+    acc[result.type].push(result);
+    return acc;
+  }, {} as Record<string, SearchResult[]>);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -162,32 +204,109 @@ const SearchPage = () => {
             </div>
           </div>
 
-          {/* Suggestions */}
-          {suggestions.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-gray-700">Sugestões</span>
+          {/* Filter Pills */}
+          {query && results.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {filterCategories.map((filter) => (
+                <button
+                  key={filter.id}
+                  onClick={() => handleFilterClick(filter.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    activeFilter === filter.id
+                      ? "bg-primary text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  <span className="mr-1">{filter.icon}</span>
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Search Results */}
+          {query && Object.keys(groupedResults).length > 0 && (
+            <div className="space-y-6">
+              {Object.entries(groupedResults).map(([type, items]) => (
+                <div key={type} className="space-y-3">
+                  <div className="flex items-center gap-2 px-1">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {typeLabels[type] || type}
+                    </h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {items.length}
+                    </Badge>
+                  </div>
+                  {items.map((result) => (
+                    <Card
+                      key={result.id}
+                      className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => handleResultClick(result)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl flex-shrink-0">{result.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-gray-900 text-base">
+                            {result.title}
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                            {result.description}
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs">
+                              {result.category}
+                            </Badge>
+                            {result.metadata?.district && (
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {result.metadata.district}
+                              </span>
+                            )}
+                            {result.metadata?.distance && (
+                              <span className="text-xs text-gray-500">
+                                {result.metadata.distance}
+                              </span>
+                            )}
+                            {result.metadata?.rating && (
+                              <span className="text-xs text-gray-500 flex items-center gap-1">
+                                ⭐ {result.metadata.rating}
+                              </span>
+                            )}
+                            {result.metadata?.status && (
+                              <Badge
+                                variant={
+                                  result.metadata.status === "operando"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {result.metadata.status}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* No Results */}
+          {query && results.length === 0 && !loadingSuggestions && (
+            <div className="text-center py-12 space-y-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                <SearchIcon className="w-8 h-8 text-gray-400" />
               </div>
-              <div className="divide-y divide-gray-100">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    className="w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <span className="text-2xl">{suggestion.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {suggestion.text}
-                      </p>
-                      <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                        {suggestion.type}
-                      </span>
-                    </div>
-                    <SearchIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  </button>
-                ))}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Nenhum resultado encontrado
+                </h3>
+                <p className="text-gray-500 mt-1">
+                  Tente buscar por outros termos ou explore as categorias
+                </p>
               </div>
             </div>
           )}
@@ -243,28 +362,28 @@ const SearchPage = () => {
               {/* Buscas Populares */}
               <div className="flex flex-wrap gap-2 justify-center max-w-md mx-auto">
                 <button
-                  onClick={() => setQuery("Vereadores")}
+                  onClick={() => setQuery("UBS")}
                   className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
                 >
-                  Vereadores
-                </button>
-                <button
-                  onClick={() => setQuery("Audiências")}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
-                >
-                  Audiências
-                </button>
-                <button
-                  onClick={() => setQuery("Serviços de saúde")}
-                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
-                >
-                  Serviços de saúde
+                  UBS próximas
                 </button>
                 <button
                   onClick={() => setQuery("Transporte")}
                   className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
                 >
                   Transporte
+                </button>
+                <button
+                  onClick={() => setQuery("Buraco")}
+                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
+                >
+                  Relatos urbanos
+                </button>
+                <button
+                  onClick={() => setQuery("Recomendações")}
+                  className="px-4 py-2 text-sm bg-white border border-gray-200 text-gray-700 rounded-full hover:border-primary hover:text-primary transition-all"
+                >
+                  Recomendações
                 </button>
               </div>
             </div>
