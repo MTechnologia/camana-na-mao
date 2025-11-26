@@ -48,7 +48,6 @@ const JourneyHeader = ({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {onMinimize}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">

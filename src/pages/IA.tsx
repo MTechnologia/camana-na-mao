@@ -130,10 +130,15 @@ const IA = () => {
       const journey = getJourneyById(journeyParam);
       if (journey) {
         clearMessages();
-        setJourney(journey);
+        // Criar conversa automaticamente para garantir conversationId
+        createConversation(journeyParam).then(newConvId => {
+          if (newConvId) {
+            setJourney(journey, newConvId);
+          }
+        });
       }
     }
-  }, [searchParams, currentJourney, setJourney, clearMessages]);
+  }, [searchParams, currentJourney, setJourney, clearMessages, createConversation]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -242,6 +247,10 @@ const IA = () => {
         return [...prev, { conversationId: currentConversationId, journeyId: currentJourney.id }];
       });
       clearJourney();
+      toast({
+        title: "Conversa minimizada",
+        description: "Você pode continuar essa conversa a qualquer momento.",
+      });
     }
   };
 
