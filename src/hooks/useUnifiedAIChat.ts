@@ -17,11 +17,25 @@ export const useUnifiedAIChat = (journey: JourneyType | null) => {
   const conversationIdRef = useRef<string | null>(null);
   const { toast } = useToast();
 
+  const addAssistantMessage = (content: string, source: string = "CMSP Connect") => {
+    const newMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content,
+      timestamp: new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      source,
+    };
+    setMessages((prev) => [...prev, newMessage]);
+  };
+
   const sendMessage = async (content: string) => {
     if (!journey) {
       toast({
         title: "Erro",
-        description: "Nenhuma jornada ativa",
+        description: "Nenhuma jornada ativa. Por favor, selecione uma jornada primeiro.",
         variant: "destructive",
       });
       return;
@@ -166,5 +180,6 @@ export const useUnifiedAIChat = (journey: JourneyType | null) => {
     isLoading,
     sendMessage,
     clearMessages,
+    addAssistantMessage,
   };
 };
