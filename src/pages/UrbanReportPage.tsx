@@ -3,46 +3,20 @@ import PageHeader from "@/components/ui/page-header";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Card } from "@/components/ui/card";
 import { MessageSquare, FileText, History } from "lucide-react";
-import { useAIConversations } from "@/hooks/useAIConversations";
-import { useAIJourney } from "@/contexts/AIJourneyContext";
-import { getJourneyById } from "@/config/aiJourneys";
-import ConversationHub from "@/components/ai/ConversationHub";
 
 export default function UrbanReportPage() {
   const navigate = useNavigate();
-  const { setJourney } = useAIJourney();
-  const {
-    conversations,
-    isLoading,
-    createConversation,
-    resumeConversation,
-    archiveConversation,
-    deleteConversation,
-  } = useAIConversations();
-
-  const handleSelectConversation = async (id: string, journeyId: string) => {
-    const conv = await resumeConversation(id);
-    if (conv) {
-      const journey = getJourneyById(journeyId);
-      if (journey) {
-        setJourney(journey, id);
-        navigate("/ia");
-      }
-    }
-  };
-
-  const handleNewConversation = async (journeyId: string) => {
-    const conversationId = await createConversation(journeyId);
-    if (conversationId) {
-      const journey = getJourneyById(journeyId);
-      if (journey) {
-        setJourney(journey, conversationId);
-        navigate("/ia");
-      }
-    }
-  };
 
   const options = [
+    {
+      id: 1,
+      title: "Conversar com IA",
+      description: "Relate problemas urbanos com ajuda inteligente da IA",
+      icon: MessageSquare,
+      color: "text-purple-500",
+      bgColor: "bg-purple-50",
+      path: "/ia?journey=urban_report"
+    },
     {
       id: 2,
       title: "Relato Manual",
@@ -57,8 +31,8 @@ export default function UrbanReportPage() {
       title: "Meus Relatos",
       description: "Visualize e acompanhe seus relatos anteriores",
       icon: History,
-      color: "text-purple-500",
-      bgColor: "bg-purple-50",
+      color: "text-orange-500",
+      bgColor: "bg-orange-50",
       path: "/relato-urbano/historico"
     }
   ];
@@ -81,19 +55,7 @@ export default function UrbanReportPage() {
           </div>
         </Card>
 
-        {/* AI Conversations Hub */}
-        <ConversationHub
-          conversations={conversations}
-          filterJourney="urban_report"
-          showAllJourneys={false}
-          onSelectConversation={handleSelectConversation}
-          onNewConversation={handleNewConversation}
-          onArchive={archiveConversation}
-          onDelete={deleteConversation}
-          isLoading={isLoading}
-        />
-
-        {/* Other Options */}
+        {/* Options */}
         <div className="space-y-3">
           {options.map((option) => {
             const IconComponent = option.icon;
