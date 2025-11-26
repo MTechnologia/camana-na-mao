@@ -334,6 +334,163 @@ export type Database = {
           },
         ]
       }
+      service_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          scheduled_for: string | null
+          sent_at: string | null
+          service_id: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          scheduled_for?: string | null
+          sent_at?: string | null
+          service_id?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          scheduled_for?: string | null
+          sent_at?: string | null
+          service_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_alerts_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_corrections: {
+        Row: {
+          created_at: string | null
+          current_value: string | null
+          field_name: string
+          id: string
+          service_id: string
+          status: string | null
+          suggested_value: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_value?: string | null
+          field_name: string
+          id?: string
+          service_id: string
+          status?: string | null
+          suggested_value: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_value?: string | null
+          field_name?: string
+          id?: string
+          service_id?: string
+          status?: string | null
+          suggested_value?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_corrections_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_plan_items: {
+        Row: {
+          estimated_duration: number | null
+          id: string
+          notes: string | null
+          order_index: number | null
+          plan_id: string
+          service_id: string | null
+        }
+        Insert: {
+          estimated_duration?: number | null
+          id?: string
+          notes?: string | null
+          order_index?: number | null
+          plan_id: string
+          service_id?: string | null
+        }
+        Update: {
+          estimated_duration?: number | null
+          id?: string
+          notes?: string | null
+          order_index?: number | null
+          plan_id?: string
+          service_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "service_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_plan_items_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_plans: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          planned_date: string | null
+          planned_time: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          planned_date?: string | null
+          planned_time?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          planned_date?: string | null
+          planned_time?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       service_ratings: {
         Row: {
           anonymized_at: string | null
@@ -603,6 +760,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      urban_reports: {
+        Row: {
+          ai_classification: Json | null
+          category: string
+          created_at: string | null
+          description: string | null
+          id: string
+          latitude: number | null
+          location_address: string | null
+          longitude: number | null
+          photos: string[] | null
+          severity: string | null
+          status: string | null
+          subcategory: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_classification?: Json | null
+          category: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          latitude?: number | null
+          location_address?: string | null
+          longitude?: number | null
+          photos?: string[] | null
+          severity?: string | null
+          status?: string | null
+          subcategory?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_classification?: Json | null
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          latitude?: number | null
+          location_address?: string | null
+          longitude?: number | null
+          photos?: string[] | null
+          severity?: string | null
+          status?: string | null
+          subcategory?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_addresses: {
         Row: {
