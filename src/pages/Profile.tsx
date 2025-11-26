@@ -6,11 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PageHeader from "@/components/ui/page-header";
 import AvatarUpload from "@/components/profile/AvatarUpload";
+import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
+import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { User, MapPin, BarChart3, ChevronRight } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { status: profileStatus } = useProfileCompletion();
   const [profile, setProfile] = useState({
     fullName: "",
     phone: "",
@@ -95,6 +98,13 @@ const Profile = () => {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Profile Completion Card */}
+        {profileStatus.percentage < 100 && (
+          <div className="mb-6">
+            <ProfileCompletionCard status={profileStatus} />
           </div>
         )}
 
