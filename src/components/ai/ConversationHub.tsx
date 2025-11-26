@@ -1,8 +1,5 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Archive, Inbox } from "lucide-react";
 import { AIConversation } from "@/hooks/useAIConversations";
 import ConversationPreviewCard from "./ConversationPreviewCard";
 import ConversationFilters from "./ConversationFilters";
@@ -42,7 +39,7 @@ export default function ConversationHub({
   // Filter conversations
   const filteredConversations = useMemo(() => {
     return conversations.filter((conv) => {
-      // Filter by status (active/archived)
+      // Filter by status
       if (activeTab === "active" && conv.status !== "active") return false;
       if (activeTab === "archived" && conv.status !== "archived") return false;
 
@@ -100,15 +97,10 @@ export default function ConversationHub({
 
   const handleClearFilters = () => {
     setSearchQuery("");
+    setActiveTab("active");
     setPeriodFilter("all");
     setJourneyFilter("all");
   };
-
-  const activeFiltersCount = [
-    searchQuery !== "",
-    periodFilter !== "all",
-    journeyFilter !== "all",
-  ].filter(Boolean).length;
 
   return (
     <div className="space-y-4">
@@ -124,139 +116,95 @@ export default function ConversationHub({
         </p>
       </div>
 
-      {/* Tabs for Active/Archived */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active" className="gap-2">
-            <Inbox className="w-4 h-4" />
-            Ativas
-            {activeCount > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {activeCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="archived" className="gap-2">
-            <Archive className="w-4 h-4" />
-            Arquivadas
-            {archivedCount > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {archivedCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+      {/* Filters */}
+      <ConversationFilters
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        statusFilter={activeTab}
+        onStatusChange={setActiveTab}
+        activeCount={activeCount}
+        archivedCount={archivedCount}
+        periodFilter={periodFilter}
+        onPeriodChange={setPeriodFilter}
+        journeyFilter={journeyFilter}
+        onJourneyChange={setJourneyFilter}
+        availableJourneys={availableJourneys}
+        onClearFilters={handleClearFilters}
+      />
 
-        {/* Filters */}
-        {showAllJourneys && (
-          <ConversationFilters
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            periodFilter={periodFilter}
-            onPeriodChange={setPeriodFilter}
-            journeyFilter={journeyFilter}
-            onJourneyChange={setJourneyFilter}
-            availableJourneys={availableJourneys}
-            activeFiltersCount={activeFiltersCount}
-            onClearFilters={handleClearFilters}
-          />
-        )}
-
-        {/* Active Conversations */}
-        <TabsContent value="active" className="mt-4 space-y-4">
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Carregando conversas...
-            </div>
-          ) : filteredConversations.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4">💬</div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {searchQuery || activeFiltersCount > 0
-                  ? "Nenhuma conversa encontrada"
-                  : filterJourney
-                  ? "Você ainda não tem conversas sobre este tema"
-                  : "Comece uma conversa escolhendo um tema"}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery || activeFiltersCount > 0
-                  ? "Tente ajustar os filtros"
-                  : "Clique em 'Nova Conversa' para começar"}
-              </p>
-              {(searchQuery || activeFiltersCount > 0) && (
-                <Button variant="outline" onClick={handleClearFilters}>
-                  Limpar Filtros
-                </Button>
-              )}
-            </div>
-          ) : showAllJourneys ? (
-            // Grouped by journey
-            Object.entries(groupedConversations).map(([journeyId, convs]) => (
-              <div key={journeyId} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-2 h-2 rounded-full bg-gradient-to-r ${AI_JOURNEYS[journeyId]?.color || "from-primary to-primary/80"}`}
-                  />
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {AI_JOURNEYS[journeyId]?.label || journeyId}
-                  </h3>
-                  <Badge variant="secondary">{convs.length}</Badge>
-                </div>
-                {convs.map((conv) => (
-                  <ConversationPreviewCard
-                    key={conv.id}
-                    conversation={conv}
-                    showJourneyBadge={false}
-                    isActive={conv.id === activeConversationId}
-                    onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
-                    onArchive={onArchive ? () => onArchive(conv.id) : undefined}
-                    onDelete={onDelete ? () => onDelete(conv.id) : undefined}
-                  />
-                ))}
+      {/* Conversations List */}
+      <div className="mt-4 space-y-4">
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">
+            Carregando conversas...
+          </div>
+        ) : filteredConversations.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-4">{activeTab === "archived" ? "📦" : "💬"}</div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              {searchQuery || periodFilter !== "all" || journeyFilter !== "all"
+                ? "Nenhuma conversa encontrada"
+                : activeTab === "archived"
+                ? "Nenhuma conversa arquivada"
+                : filterJourney
+                ? "Você ainda não tem conversas sobre este tema"
+                : "Comece uma conversa escolhendo um tema"}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {searchQuery || periodFilter !== "all" || journeyFilter !== "all"
+                ? "Tente ajustar os filtros"
+                : activeTab === "archived"
+                ? "Conversas arquivadas aparecem aqui"
+                : "Clique em 'Nova Conversa' para começar"}
+            </p>
+            {(searchQuery || periodFilter !== "all" || journeyFilter !== "all") && (
+              <Button variant="outline" onClick={handleClearFilters}>
+                Limpar Filtros
+              </Button>
+            )}
+          </div>
+        ) : showAllJourneys ? (
+          // Grouped by journey
+          Object.entries(groupedConversations).map(([journeyId, convs]) => (
+            <div key={journeyId} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full bg-gradient-to-r ${AI_JOURNEYS[journeyId]?.color || "from-primary to-primary/80"}`}
+                />
+                <h3 className="text-sm font-semibold text-foreground">
+                  {AI_JOURNEYS[journeyId]?.label || journeyId}
+                </h3>
               </div>
-            ))
-          ) : (
-            // Simple list for filtered journey
-            filteredConversations.map((conv) => (
-              <ConversationPreviewCard
-                key={conv.id}
-                conversation={conv}
-                showJourneyBadge={false}
-                isActive={conv.id === activeConversationId}
-                onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
-                onArchive={onArchive ? () => onArchive(conv.id) : undefined}
-                onDelete={onDelete ? () => onDelete(conv.id) : undefined}
-              />
-            ))
-          )}
-        </TabsContent>
-
-        {/* Archived Conversations */}
-        <TabsContent value="archived" className="mt-4 space-y-4">
-          {filteredConversations.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4">📦</div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Nenhuma conversa arquivada
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Conversas arquivadas aparecem aqui
-              </p>
+              {convs.map((conv) => (
+                <ConversationPreviewCard
+                  key={conv.id}
+                  conversation={conv}
+                  showJourneyBadge={false}
+                  isActive={conv.id === activeConversationId}
+                  onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
+                  onArchive={activeTab === "active" && onArchive ? () => onArchive(conv.id) : undefined}
+                  onRestore={activeTab === "archived" && onRestore ? () => onRestore(conv.id) : undefined}
+                  onDelete={onDelete ? () => onDelete(conv.id) : undefined}
+                />
+              ))}
             </div>
-          ) : (
-            filteredConversations.map((conv) => (
-              <ConversationPreviewCard
-                key={conv.id}
-                conversation={conv}
-                showJourneyBadge={showAllJourneys}
-                onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
-                onRestore={onRestore ? () => onRestore(conv.id) : undefined}
-                onDelete={onDelete ? () => onDelete(conv.id) : undefined}
-              />
-            ))
-          )}
-        </TabsContent>
-      </Tabs>
+          ))
+        ) : (
+          // Simple list for filtered journey
+          filteredConversations.map((conv) => (
+            <ConversationPreviewCard
+              key={conv.id}
+              conversation={conv}
+              showJourneyBadge={showAllJourneys}
+              isActive={conv.id === activeConversationId}
+              onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
+              onArchive={activeTab === "active" && onArchive ? () => onArchive(conv.id) : undefined}
+              onRestore={activeTab === "archived" && onRestore ? () => onRestore(conv.id) : undefined}
+              onDelete={onDelete ? () => onDelete(conv.id) : undefined}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
