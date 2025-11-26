@@ -5,9 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { AIProvider } from "@/contexts/AIContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Onboarding from "./pages/Onboarding";
+import Profile from "./pages/Profile";
 import Home from "./pages/Home";
 import IA from "./pages/IA";
 import Conversa from "./pages/Conversa";
@@ -25,6 +29,9 @@ const AppContent = () => {
         <Route path="/" element={<Navigate to="/splash" replace />} />
         <Route path="/splash" element={<Splash />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/home" element={<Home />} />
         <Route path="/ia" element={<IA />} />
         <Route path="/conversa" element={<Conversa />} />
@@ -46,11 +53,13 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <MenuProvider>
-          <AIProvider>
-            <AppContent />
-          </AIProvider>
-        </MenuProvider>
+        <AuthProvider>
+          <MenuProvider>
+            <AIProvider>
+              <AppContent />
+            </AIProvider>
+          </MenuProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

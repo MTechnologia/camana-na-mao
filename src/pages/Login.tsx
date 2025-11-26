@@ -1,17 +1,47 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { loginSchema } from "@/lib/validations";
+import { toast } from "sonner";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { signIn, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    navigate("/home");
+  useEffect(() => {
+    if (user) {
+      navigate("/home");
+    }
+  }, [user, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const validated = loginSchema.parse({ email, password });
+      setLoading(true);
+
+      const { error } = await signIn(validated.email, validated.password);
+
+      if (!error) {
+        navigate("/home");
+      }
+    } catch (error: any) {
+      if (error.errors) {
+        error.errors.forEach((err: any) => {
+          toast.error(err.message);
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,7 +63,7 @@ const Login = () => {
 
       {/* Form */}
       <div className="flex-1 px-6">
-        <div className="space-y-4 mb-6">
+        <form onSubmit={handleLogin} className="space-y-4 mb-6">
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">E-mail</label>
             <Input
@@ -42,15 +72,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="h-12"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-muted-foreground mb-1 block">CPF(11)</label>
-            <Input
-              type="text"
-              placeholder="000.000.000-00"
-              className="h-12"
+              required
             />
           </div>
 
@@ -63,6 +85,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12 pr-10"
+                required
               />
               <button
                 type="button"
@@ -73,14 +96,15 @@ const Login = () => {
               </button>
             </div>
           </div>
-        </div>
 
-        <Button
-          onClick={handleLogin}
-          className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-full mb-8"
-        >
-          Continuar
-        </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-full mb-4"
+          >
+            {loading ? "Entrando..." : "Continuar"}
+          </Button>
+        </form>
 
         {/* Social Login */}
         <div className="flex justify-center gap-4 mb-6">
@@ -107,8 +131,10 @@ const Login = () => {
         </div>
 
         <p className="text-center text-sm text-muted-foreground mb-4">
-          Não está com sua senha?{" "}
-          <button className="text-foreground font-medium">Solicite ela</button>
+          Não tem uma conta?{" "}
+          <Link to="/register" className="text-foreground font-medium">
+            Criar conta
+          </Link>
         </p>
       </div>
     </div>
