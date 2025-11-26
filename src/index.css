@@ -49,6 +49,10 @@ All colors MUST be HSL.
     --gradient-purple: 270 100% 75%;
     --gradient-blue: 220 100% 65%;
     --gradient-orange: 25 95% 55%;
+    
+    /* AI specific gradients */
+    --ai-start: 345 100% 65%;
+    --ai-end: 330 81% 60%;
   }
 }
 
@@ -118,5 +122,23 @@ All colors MUST be HSL.
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+  }
+
+  /* Accessibility - Reading Mode (High Contrast) */
+  .reading-mode {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 85%;
+    --border: 0 0% 30%;
+  }
+
+  /* Accessibility - Text Spacing */
+  .text-spacing * {
+    letter-spacing: 0.12em !important;
+    word-spacing: 0.16em !important;
+    line-height: 1.8 !important;
   }
 }

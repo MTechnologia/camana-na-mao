@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MenuProvider } from "@/contexts/MenuContext";
+import { AIProvider } from "@/contexts/AIContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
 import Login from "./pages/Login";
@@ -46,7 +47,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <MenuProvider>
-          <AppContent />
+          <AIProvider>
+            <AppContent />
+          </AIProvider>
         </MenuProvider>
       </BrowserRouter>
     </TooltipProvider>
