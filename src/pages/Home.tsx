@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Navigation, Bus } from "lucide-react";
+import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Mail } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
@@ -16,6 +16,15 @@ const Home = () => {
     { id: 1, image: camaraAbertaBg, title: "Câmara Aberta" },
     { id: 2, image: camaraAbertaBg, title: "Transparência Total" },
     { id: 3, image: camaraAbertaBg, title: "Participe das Decisões" },
+  ];
+
+  const shortcuts = [
+    { id: 1, title: "Agenda", icon: Calendar, color: "text-pink-500", bgColor: "bg-pink-50" },
+    { id: 2, title: "Documentos", icon: FileText, color: "text-purple-500", bgColor: "bg-purple-50" },
+    { id: 3, title: "Vereadores", icon: Users, color: "text-blue-500", bgColor: "bg-blue-50" },
+    { id: 4, title: "Votações", icon: Vote, color: "text-green-500", bgColor: "bg-green-50" },
+    { id: 5, title: "Notificações", icon: Bell, color: "text-orange-500", bgColor: "bg-orange-50" },
+    { id: 6, title: "Contato", icon: Mail, color: "text-cyan-500", bgColor: "bg-cyan-50" },
   ];
 
   useEffect(() => {
@@ -57,6 +66,27 @@ const Home = () => {
           <h1 className="text-2xl font-medium text-gray-900">
             Olá, <span className="text-pink-500">Luana</span>
           </h1>
+        </div>
+
+        {/* Quick Access Shortcuts */}
+        <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
+          <h2 className="text-sm font-medium text-gray-500 mb-3">Acesso Rápido</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {shortcuts.map((shortcut) => {
+              const IconComponent = shortcut.icon;
+              return (
+                <button
+                  key={shortcut.id}
+                  className="flex flex-col items-center gap-2 p-4 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group"
+                >
+                  <div className={`${shortcut.bgColor} p-3 rounded-full group-hover:scale-110 transition-transform duration-200`}>
+                    <IconComponent className={`h-6 w-6 ${shortcut.color}`} />
+                  </div>
+                  <span className="text-xs font-medium text-gray-700">{shortcut.title}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Carousel Highlights with Bullets */}
