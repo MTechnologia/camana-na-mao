@@ -10,6 +10,7 @@ import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
 import Home from "./pages/Home";
@@ -30,6 +31,7 @@ const AppContent = () => {
         <Route path="/splash" element={<Splash />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/home" element={<Home />} />
