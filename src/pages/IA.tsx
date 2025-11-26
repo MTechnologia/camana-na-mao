@@ -18,7 +18,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
-import { getJourneyById } from "@/config/aiJourneys";
+import { getJourneyById, AI_JOURNEYS } from "@/config/aiJourneys";
+import ActiveConversationsList from "@/components/ai/ActiveConversationsList";
+import ContinueConversationModal from "@/components/ai/ContinueConversationModal";
+import { useAIConversations } from "@/hooks/useAIConversations";
 
 const IA = () => {
   const navigate = useNavigate();
@@ -32,8 +35,21 @@ const IA = () => {
   const { profile } = useProfile();
   const { isFirstAccess, completeOnboarding } = useFirstAccess();
   const { hasActiveSession, sessionData, clearSession, getTimeAgo } = useSessionContext();
-  const { currentJourney, setJourney, clearJourney } = useAIJourney();
-  const { messages, isLoading: isChatLoading, sendMessage, clearMessages, addAssistantMessage } = useUnifiedAIChat(currentJourney);
+  const { currentJourney, currentConversationId, setJourney, clearJourney } = useAIJourney();
+  const { messages, isLoading: isChatLoading, sendMessage, clearMessages, addAssistantMessage } = useUnifiedAIChat(currentJourney, currentConversationId);
+  const [showContinueModal, setShowContinueModal] = useState<{
+    journeyId: string;
+    conversation: any;
+  } | null>(null);
+
+  const {
+    conversations,
+    conversationsByJourney,
+    createConversation,
+    resumeConversation,
+    archiveConversation,
+    isLoading: conversationsLoading,
+  } = useAIConversations();
 
   // Display initial message when journey is set
   useEffect(() => {
@@ -89,8 +105,61 @@ const IA = () => {
     completeOnboarding();
   };
 
-  const handleInteractionSelect = (journeyId: string) => {
-    navigate(`/ia?journey=${journeyId}`);
+  const handleInteractionSelect = async (journeyId: string) => {
+    const journey = getJourneyById(journeyId);
+    if (!journey) return;
+
+    // Verifica se já existe conversa ativa dessa jornada
+    const existingConversations = conversationsByJourney[journeyId] || [];
+    const activeConversation = existingConversations[0]; // Pega a mais recente
+
+    if (activeConversation) {
+      // Mostrar modal perguntando se quer continuar
+      setShowContinueModal({ journeyId, conversation: activeConversation });
+    } else {
+      // Criar nova conversa diretamente
+      await startNewConversation(journeyId, journey);
+    }
+  };
+
+  const startNewConversation = async (journeyId: string, journey: any) => {
+    clearMessages();
+    const newConvId = await createConversation(journeyId);
+    setJourney(journey, newConvId);
+  };
+
+  const handleResumeConversation = async (conversationId: string, journeyId: string) => {
+    const journey = getJourneyById(journeyId);
+    if (!journey) return;
+
+    const conversationData = await resumeConversation(conversationId);
+    if (conversationData) {
+      setJourney(journey, conversationId);
+    }
+  };
+
+  const handleArchiveConversation = async (conversationId: string) => {
+    await archiveConversation(conversationId);
+  };
+
+  const handleContinueExisting = () => {
+    if (!showContinueModal) return;
+    
+    const journey = getJourneyById(showContinueModal.journeyId);
+    if (journey) {
+      setJourney(journey, showContinueModal.conversation.id);
+    }
+    setShowContinueModal(null);
+  };
+
+  const handleStartNew = async () => {
+    if (!showContinueModal) return;
+    
+    const journey = getJourneyById(showContinueModal.journeyId);
+    if (journey) {
+      await startNewConversation(showContinueModal.journeyId, journey);
+    }
+    setShowContinueModal(null);
   };
 
   const handleClearJourney = () => {
@@ -136,7 +205,7 @@ const IA = () => {
 
       {/* Header with AI Avatar - Only show when no journey is active */}
       {!currentJourney && (
-        <div className="pt-20 pb-8 px-6">
+        <div className="pt-20 pb-4 px-6">
           <div className="flex flex-col items-center">
             <AIAvatar />
             <div className="mt-6 w-full">
@@ -147,24 +216,18 @@ const IA = () => {
       )}
 
       {/* Content */}
-      <div className={`px-6 ${currentJourney ? 'pt-4' : '-mt-6'}`}>
-        {/* Session Resume - Only show when no journey is active */}
-        {!currentJourney && hasActiveSession && sessionData && (
-          <SessionResume
-            lastTopic={sessionData.lastTopic}
-            timeAgo={getTimeAgo()}
-            onContinue={() => {
-              toast({
-                title: "Continuando conversa",
-                description: "Retomando seu contexto anterior...",
-              });
-            }}
-            onNewChat={clearSession}
+      <div className={`px-6 ${currentJourney ? 'pt-4' : ''}`}>
+        {/* Lista de conversas ativas - apenas quando não há jornada ativa */}
+        {!currentJourney && !conversationsLoading && Object.keys(conversationsByJourney).length > 0 && (
+          <ActiveConversationsList
+            conversations={conversationsByJourney}
+            onResume={handleResumeConversation}
+            onArchive={handleArchiveConversation}
           />
         )}
 
-        {/* Interaction Carousel - Only show when no journey is active and no messages */}
-        {!currentJourney && messages.length === 0 && (
+        {/* Interaction Carousel - sempre visível quando não há jornada */}
+        {!currentJourney && (
           <InteractionCarousel onSelect={handleInteractionSelect} />
         )}
 
@@ -207,6 +270,20 @@ const IA = () => {
         {/* Chat Input */}
         <ChatInput onSendMessage={handleSendMessage} disabled={isChatLoading} />
       </div>
+
+      {/* Modal de continuação de conversa */}
+      <ContinueConversationModal
+        isOpen={!!showContinueModal}
+        conversation={showContinueModal?.conversation}
+        journeyLabel={
+          showContinueModal
+            ? AI_JOURNEYS[showContinueModal.journeyId]?.label || ""
+            : ""
+        }
+        onContinue={handleContinueExisting}
+        onStartNew={handleStartNew}
+        onClose={() => setShowContinueModal(null)}
+      />
     </div>
   );
 };
