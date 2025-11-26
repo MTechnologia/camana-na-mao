@@ -1,19 +1,15 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PageHeader from "@/components/ui/page-header";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface PersonalInfoDialogProps {
-  userId: string;
-  userEmail: string;
-  isOpen: boolean;
-  onClose: () => void;
-  onUpdate: () => void;
-}
-
-const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: PersonalInfoDialogProps) => {
+const PersonalInfoPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -21,17 +17,19 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
   });
 
   useEffect(() => {
-    if (isOpen) {
+    if (user) {
       loadData();
     }
-  }, [isOpen, userId]);
+  }, [user]);
 
   const loadData = async () => {
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', user.id)
         .single();
 
       if (error) throw error;
@@ -48,6 +46,8 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
   };
 
   const handleSave = async () => {
+    if (!user) return;
+
     setLoading(true);
     try {
       const { error } = await supabase
@@ -56,13 +56,12 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
           full_name: formData.fullName,
           phone: formData.phone,
         })
-        .eq('id', userId);
+        .eq('id', user.id);
 
       if (error) throw error;
 
       toast.success("Informações atualizadas!");
-      onUpdate();
-      onClose();
+      navigate("/profile");
     } catch (error: any) {
       toast.error(error.message || "Erro ao atualizar");
     } finally {
@@ -71,13 +70,11 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Informações Pessoais</DialogTitle>
-        </DialogHeader>
+    <div className="min-h-screen bg-background pt-[60px]">
+      <PageHeader title="Informações Pessoais" backTo="/profile" />
 
-        <div className="space-y-4 mt-4">
+      <div className="p-6">
+        <div className="space-y-4">
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">Nome Completo</label>
             <Input
@@ -92,7 +89,7 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
             <label className="text-sm text-muted-foreground mb-1 block">E-mail</label>
             <Input
               type="email"
-              value={userEmail}
+              value={user?.email || ""}
               disabled
               className="h-12 bg-muted"
             />
@@ -111,7 +108,7 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
           <div className="flex gap-2 pt-4">
             <Button
               variant="outline"
-              onClick={onClose}
+              onClick={() => navigate("/profile")}
               className="flex-1"
               disabled={loading}
             >
@@ -126,9 +123,9 @@ const PersonalInfoDialog = ({ userId, userEmail, isOpen, onClose, onUpdate }: Pe
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
-export default PersonalInfoDialog;
+export default PersonalInfoPage;

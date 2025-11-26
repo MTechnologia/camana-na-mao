@@ -14,6 +14,10 @@ import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
 import Onboarding from "./pages/Onboarding";
 import Profile from "./pages/Profile";
+import PersonalInfoPage from "./pages/profile/PersonalInfoPage";
+import DemographicsPage from "./pages/profile/DemographicsPage";
+import AddressPage from "./pages/profile/AddressPage";
+import PreferencesPage from "./pages/profile/PreferencesPage";
 import Home from "./pages/Home";
 import IA from "./pages/IA";
 import Conversa from "./pages/Conversa";
@@ -35,6 +39,10 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/personal" element={<PersonalInfoPage />} />
+        <Route path="/profile/demographics" element={<DemographicsPage />} />
+        <Route path="/profile/address" element={<AddressPage />} />
+        <Route path="/profile/preferences" element={<PreferencesPage />} />
         <Route path="/home" element={<Home />} />
         <Route path="/ia" element={<IA />} />
         <Route path="/conversa" element={<Conversa />} />
