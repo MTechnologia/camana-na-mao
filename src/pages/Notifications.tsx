@@ -1,9 +1,7 @@
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import FloatingNavbar from "@/components/FloatingNavbar";
+import PageHeader from "@/components/ui/page-header";
 
 const Notifications = () => {
-  const navigate = useNavigate();
 
   const notifications = [
     {
@@ -37,14 +35,8 @@ const Notifications = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <header className="bg-card border-b border-border px-4 py-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-foreground">
-          <ArrowLeft size={24} />
-        </button>
-        <h1 className="text-xl font-semibold text-foreground">Notificações</h1>
-      </header>
+    <div className="min-h-screen bg-background pb-24 pt-[60px]">
+      <PageHeader title="Notificações" />
 
       {/* Notifications List */}
       <div className="divide-y divide-border">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerStep1Schema, registerStep2Schema } from "@/lib/validations";
 import { toast } from "sonner";
@@ -91,15 +91,13 @@ const Register = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header com botão de voltar */}
       <div className="px-6 pt-8 pb-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/")}
-          className="mb-4 -ml-2"
+        <button
+          onClick={currentStep === 1 ? () => navigate("/login") : () => setCurrentStep(1)}
+          className="mb-4 -ml-2 text-foreground hover:text-primary transition-colors"
+          aria-label="Voltar"
         >
-          <ArrowLeft size={20} className="mr-2" />
-          Voltar
-        </Button>
+          <ChevronLeft size={24} strokeWidth={2} />
+        </button>
         {currentStep === 1 ? (
           <h1 className="text-4xl font-bold text-gray-900 leading-tight">
             Olá!<br />
@@ -107,21 +105,10 @@ const Register = () => {
             te conhecer!
           </h1>
         ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentStep(1)}
-              className="mb-4 -ml-2"
-            >
-              <ArrowLeft size={20} className="mr-2" />
-              Voltar para dados
-            </Button>
-            <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-              Quase lá!<br />
-              Crie sua senha
-            </h1>
-          </>
+          <h1 className="text-4xl font-bold text-gray-900 leading-tight">
+            Quase lá!<br />
+            Crie sua senha
+          </h1>
         )}
       </div>
 

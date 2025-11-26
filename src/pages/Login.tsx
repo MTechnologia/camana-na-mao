@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Lock, Eye, EyeOff, Check, ArrowLeft } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Check, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { loginSchema } from "@/lib/validations";
 import { toast } from "sonner";
@@ -53,15 +53,13 @@ const Login = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header com botão de voltar */}
       <div className="px-6 pt-6">
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
           onClick={() => navigate("/")}
-          className="-ml-2"
+          className="-ml-2 text-foreground hover:text-primary transition-colors"
+          aria-label="Voltar"
         >
-          <ArrowLeft size={20} className="mr-2" />
-          Voltar
-        </Button>
+          <ChevronLeft size={24} strokeWidth={2} />
+        </button>
       </div>
       
       {/* Logo Header */}
