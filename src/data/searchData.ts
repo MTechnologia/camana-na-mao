@@ -19,12 +19,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Domingos de Morais, 2187 - Vila Mariana",
     icon: "🏥",
     category: "Saúde",
-    path: "/servicos/ubs-1",
+    path: "/servico/ubs-1",
     metadata: {
       serviceType: "ubs",
       district: "Vila Mariana",
       rating: 4.2,
-      distance: "500m"
+      totalRatings: 156,
+      phone: "(11) 5549-1234",
+      latitude: -23.5876,
+      longitude: -46.6385
     }
   },
   {
@@ -34,12 +37,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Nossa Senhora do Bom Conselho, 59",
     icon: "🏥",
     category: "Saúde",
-    path: "/servicos/ubs-2",
+    path: "/servico/ubs-2",
     metadata: {
       serviceType: "ubs",
       district: "Jardim São Luís",
       rating: 4.5,
-      distance: "1.2km"
+      totalRatings: 89,
+      phone: "(11) 5831-7890",
+      latitude: -23.6542,
+      longitude: -46.7456
     }
   },
   {
@@ -49,12 +55,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Vergueiro, 3001 - Vila Mariana",
     icon: "🏫",
     category: "Educação",
-    path: "/servicos/escola-1",
+    path: "/servico/escola-1",
     metadata: {
       serviceType: "school",
       district: "Vila Mariana",
       rating: 4.0,
-      distance: "800m"
+      totalRatings: 203,
+      phone: "(11) 5574-3456",
+      latitude: -23.5812,
+      longitude: -46.6421
     }
   },
   {
@@ -64,12 +73,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Av. Aricanduva, 5555 - Jardim Aricanduva",
     icon: "🏫",
     category: "Educação",
-    path: "/servicos/escola-2",
+    path: "/servico/escola-2",
     metadata: {
       serviceType: "ceu",
       district: "Aricanduva",
       rating: 4.7,
-      distance: "2km"
+      totalRatings: 312,
+      phone: "(11) 2723-4567",
+      latitude: -23.5456,
+      longitude: -46.5089
     }
   },
   {
@@ -79,12 +91,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Guaicurus, 1000 - Lapa",
     icon: "🏫",
     category: "Educação",
-    path: "/servicos/escola-3",
+    path: "/servico/escola-3",
     metadata: {
       serviceType: "school",
       district: "Lapa",
       rating: 3.8,
-      distance: "1.5km"
+      totalRatings: 145,
+      phone: "(11) 3832-5678",
+      latitude: -23.5123,
+      longitude: -46.7012
     }
   },
   {
@@ -94,12 +109,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Santa Cruz, 81 - Vila Mariana",
     icon: "🏥",
     category: "Saúde",
-    path: "/servicos/hospital-1",
+    path: "/servico/hospital-1",
     metadata: {
       serviceType: "hospital",
       district: "Vila Mariana",
       rating: 4.3,
-      distance: "600m"
+      totalRatings: 178,
+      phone: "(11) 5084-5678",
+      latitude: -23.5891,
+      longitude: -46.6352
     }
   },
   {
@@ -109,12 +127,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Dr. José Guilherme Eiras, 123 - São Miguel",
     icon: "🏥",
     category: "Saúde",
-    path: "/servicos/hospital-2",
+    path: "/servico/hospital-2",
     metadata: {
       serviceType: "hospital",
       district: "São Miguel Paulista",
       rating: 4.1,
-      distance: "3km"
+      totalRatings: 267,
+      phone: "(11) 2297-6789",
+      latitude: -23.4923,
+      longitude: -46.4512
     }
   },
   {
@@ -124,12 +145,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Armando Lopes de Castro, 40",
     icon: "🏥",
     category: "Saúde",
-    path: "/servicos/ubs-3",
+    path: "/servico/ubs-3",
     metadata: {
       serviceType: "ubs",
       district: "Parque Bristol",
       rating: 3.9,
-      distance: "2.5km"
+      totalRatings: 98,
+      phone: "(11) 5666-8901",
+      latitude: -23.6012,
+      longitude: -46.6789
     }
   },
   {
@@ -139,12 +163,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Av. Marechal Tito, 3012 - São Miguel",
     icon: "🏢",
     category: "Assistência Social",
-    path: "/servicos/cras-1",
+    path: "/servico/cras-1",
     metadata: {
       serviceType: "other",
       district: "Jardim Helena",
       rating: 4.4,
-      distance: "1.8km"
+      totalRatings: 134,
+      phone: "(11) 2557-8901",
+      latitude: -23.4856,
+      longitude: -46.4389
     }
   },
   {
@@ -154,12 +181,15 @@ export const servicosProximos: SearchResult[] = [
     description: "Rua Cassiano dos Santos, 474",
     icon: "🏥",
     category: "Saúde",
-    path: "/servicos/ubs-4",
+    path: "/servico/ubs-4",
     metadata: {
       serviceType: "ubs",
       district: "Capão Redondo",
       rating: 4.6,
-      distance: "4km"
+      totalRatings: 221,
+      phone: "(11) 5819-0123",
+      latitude: -23.6698,
+      longitude: -46.7812
     }
   }
 ];
