@@ -8,12 +8,15 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface InteractionCarouselProps {
   onSelect: (action: string) => void;
 }
 
 const InteractionCarousel = ({ onSelect }: InteractionCarouselProps) => {
+  const isMobile = useIsMobile();
+  
   const cards = [
     {
       id: "share",
@@ -62,6 +65,7 @@ const InteractionCarousel = ({ onSelect }: InteractionCarouselProps) => {
         opts={{
           align: "start",
           loop: false,
+          dragFree: isMobile,
         }}
         className="w-full"
       >
@@ -100,10 +104,24 @@ const InteractionCarousel = ({ onSelect }: InteractionCarouselProps) => {
             );
           })}
         </CarouselContent>
-        <div className="flex justify-center gap-2 mt-4">
-          <CarouselPrevious className="static translate-y-0" />
-          <CarouselNext className="static translate-y-0" />
-        </div>
+        
+        {!isMobile && (
+          <div className="flex justify-center gap-2 mt-4">
+            <CarouselPrevious className="static translate-y-0" />
+            <CarouselNext className="static translate-y-0" />
+          </div>
+        )}
+        
+        {isMobile && (
+          <div className="flex justify-center gap-1.5 mt-4">
+            {cards.map((card, idx) => (
+              <div 
+                key={`dot-${card.id}`}
+                className="w-1.5 h-1.5 rounded-full bg-muted transition-colors"
+              />
+            ))}
+          </div>
+        )}
       </Carousel>
     </div>
   );
