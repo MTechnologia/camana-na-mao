@@ -2,3 +2,6 @@ project_id = "vzkwkcypkfrpfhhsghwn"
 
 [functions.evaluate-service]
 verify_jwt = true
+
+[functions.diagnose-transport]
+verify_jwt = true

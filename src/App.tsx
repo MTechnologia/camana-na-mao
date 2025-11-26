@@ -33,6 +33,15 @@ import CamaraExplica from "./pages/institucional/CamaraExplica";
 import EscolaParlamento from "./pages/institucional/EscolaParlamento";
 import Noticias from "./pages/institucional/Noticias";
 import Notifications from "./pages/Notifications";
+import EvaluationPage from "./pages/EvaluationPage";
+import ServiceDetailPage from "./pages/ServiceDetailPage";
+import NearbyServicesPage from "./pages/NearbyServicesPage";
+import TransportReportPage from "./pages/TransportReportPage";
+import NewReportPage from "./pages/transport/NewReportPage";
+import UrgentReportPage from "./pages/transport/UrgentReportPage";
+import PatternsPage from "./pages/transport/PatternsPage";
+import MyReportsPage from "./pages/transport/MyReportsPage";
+import ReferralPage from "./pages/transport/ReferralPage";
 import NearbyServicesPage from "./pages/NearbyServicesPage";
 import ServiceDetailPage from "./pages/ServiceDetailPage";
 import EvaluationPage from "./pages/EvaluationPage";
@@ -76,6 +85,12 @@ const AppContent = () => {
         <Route path="/servico/:id" element={<ServiceDetailPage />} />
         <Route path="/avaliar" element={<EvaluationPage />} />
         <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
+        <Route path="/transporte" element={<TransportReportPage />} />
+        <Route path="/transporte/novo" element={<NewReportPage />} />
+        <Route path="/transporte/urgente" element={<UrgentReportPage />} />
+        <Route path="/transporte/padroes" element={<PatternsPage />} />
+        <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
+        <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -1,4 +1,4 @@
-import { MessageCircle, Calendar, Search, Star } from "lucide-react";
+import { MessageCircle, Calendar, Search, Star, Bus } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface InteractionButtonsProps {
@@ -34,6 +34,13 @@ const InteractionButtons = ({ onSelect }: InteractionButtonsProps) => {
       label: "Avaliar um serviço",
       color: "from-amber-500 to-orange-500",
       hoverColor: "hover:shadow-amber-500/50",
+    },
+    {
+      id: "transport",
+      icon: Bus,
+      label: "Relatar problema no transporte",
+      color: "from-green-500 to-emerald-500",
+      hoverColor: "hover:shadow-green-500/50",
     },
   ];
 
