@@ -129,10 +129,11 @@ const IA = () => {
     if (journeyParam && !currentJourney) {
       const journey = getJourneyById(journeyParam);
       if (journey) {
+        clearMessages();
         setJourney(journey);
       }
     }
-  }, [searchParams, currentJourney, setJourney]);
+  }, [searchParams, currentJourney, setJourney, clearMessages]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -206,6 +207,9 @@ const IA = () => {
   const handleContinueExisting = () => {
     if (!showContinueModal) return;
     
+    // Clear messages before continuing
+    clearMessages();
+    
     const journey = getJourneyById(showContinueModal.journeyId);
     if (journey) {
       setJourney(journey, showContinueModal.conversation.id);
@@ -250,6 +254,9 @@ const IA = () => {
         return [...prev, { conversationId: currentConversationId, journeyId: currentJourney.id }];
       });
     }
+    
+    // Clear messages before restoring
+    clearMessages();
     
     // Abre a selecionada
     const journey = getJourneyById(journeyId);

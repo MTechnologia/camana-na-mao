@@ -19,9 +19,17 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Sync conversationIdRef with prop changes
+  useEffect(() => {
+    conversationIdRef.current = conversationId || null;
+  }, [conversationId]);
+
   // Carregar mensagens do banco quando há conversationId
   useEffect(() => {
     const loadConversationMessages = async () => {
+      // Clear old messages first
+      setMessages([]);
+      
       if (!conversationId || !user) return;
 
       try {
