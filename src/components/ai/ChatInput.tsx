@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Mic, Volume2, Send } from "lucide-react";
+import { Mic, AudioWaveform } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -93,63 +93,51 @@ const ChatInput = ({ onSendMessage, disabled }: ChatInputProps) => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border p-4 z-30">
-      <div className="max-w-4xl mx-auto flex items-end gap-2">
-        {/* Main Input Container */}
+    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 z-30">
+      <div className="max-w-4xl mx-auto flex items-center gap-3">
+        {/* Input with blue accent line */}
         <div className="flex-1 relative">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Digite sua mensagem..."
+            placeholder="O que você precisa?"
             disabled={disabled}
             rows={1}
-            className="w-full resize-none rounded-2xl border border-border bg-background px-4 py-3 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ minHeight: "48px", maxHeight: "120px" }}
+            className="w-full rounded-2xl border-2 border-border bg-card pl-4 pr-12 py-3.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 border-l-4 border-l-primary disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
+            style={{ maxHeight: "120px" }}
           />
           
-          {/* Dictation Button (inside input) */}
+          {/* Microphone button for dictation - outline style */}
           <button
             onClick={toggleDictation}
             disabled={disabled}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors ${
-              isRecording
-                ? "bg-red-500 text-white animate-pulse"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all ${
+              isRecording 
+                ? "text-red-500 bg-red-50 animate-pulse" 
+                : "text-muted-foreground hover:text-primary hover:bg-accent"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             aria-label="Ditado por voz"
-            title="Clique para ditar sua mensagem"
+            title="Clique para ditar"
           >
-            <Mic size={20} />
+            <Mic className="w-5 h-5" strokeWidth={2} />
           </button>
         </div>
 
-        {/* Voice Mode Button */}
+        {/* Voice mode button - dark rounded square */}
         <Button
           onClick={handleVoiceMode}
-          variant="outline"
           size="icon"
-          className="h-12 w-12 rounded-full shrink-0"
+          className="h-12 w-12 rounded-xl bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-800 dark:hover:bg-gray-700 shrink-0"
           aria-label="Modo conversa por voz"
           title="Conversa completa por voz"
         >
-          <Volume2 size={20} />
-        </Button>
-
-        {/* Send Button */}
-        <Button
-          onClick={handleSend}
-          disabled={!inputValue.trim() || disabled}
-          size="icon"
-          className="h-12 w-12 rounded-full shrink-0"
-          aria-label="Enviar mensagem"
-        >
-          <Send size={20} />
+          <AudioWaveform className="w-5 h-5" />
         </Button>
       </div>
 
       {isRecording && (
-        <p className="text-center text-sm text-red-500 mt-2 animate-pulse">
+        <p className="text-center text-xs text-red-500 mt-2 animate-pulse">
           🎤 Gravando... Fale agora
         </p>
       )}
