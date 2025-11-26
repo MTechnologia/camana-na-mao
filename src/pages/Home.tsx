@@ -36,10 +36,10 @@ const Home = () => {
   const [nextAudiencia, setNextAudiencia] = useState<any>(null);
 
   const highlights = [
-    { id: 1, image: camaraAbertaBg, title: "Câmara Aberta", path: "/institucional/conheca-camara" },
-    { id: 2, image: bannerParticipacao, title: "Transparência e Participação", path: "/audiencias/participacao" },
-    { id: 3, image: bannerCidadeDigital, title: "São Paulo Digital", path: "/ia" },
-    { id: 4, image: bannerAudiencias, title: "Audiências Públicas", path: "/audiencias" },
+    { id: 1, image: camaraAbertaBg, title: "Câmara Aberta", path: "/institucional/noticias/1" },
+    { id: 2, image: bannerParticipacao, title: "Transparência e Participação", path: "/institucional/noticias/3" },
+    { id: 3, image: bannerCidadeDigital, title: "São Paulo Digital", path: "/institucional/noticias/5" },
+    { id: 4, image: bannerAudiencias, title: "Audiências Públicas", path: "/institucional/noticias/4" },
   ];
 
   const shortcuts = [
