@@ -10,11 +10,13 @@ import {
   Settings,
   Phone,
   Shield,
-  LogOut
+  LogOut,
+  Lock
 } from "lucide-react";
 import avatarLuana from "@/assets/avatar-luana.jpg";
 import { useAccessibility } from "@/hooks/useAccessibility";
 import { Switch } from "@/components/ui/switch";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface MenuDrawerProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
+  const { isAdmin, isGestor } = useUserRole();
   const {
     fontSize,
     readingMode,
@@ -238,6 +241,16 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
 
         {/* Bottom Options - Fixed */}
         <div className="px-6 pb-8 pt-4 space-y-3 border-t border-border shrink-0">
+          {(isAdmin || isGestor) && (
+            <button
+              onClick={() => handleMenuClick('/admin')}
+              className="w-full text-left py-2 text-primary font-semibold hover:text-primary/80 transition-colors text-base flex items-center gap-3 mb-3"
+            >
+              <Lock size={18} />
+              <span>Área Administrativa</span>
+            </button>
+          )}
+          
           {bottomOptions.map((option) => {
             const Icon = option.icon;
             return (
