@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { loginSchema } from "@/lib/validations";
 import { toast } from "sonner";
+import brasaoSP from "@/assets/brasao-sp.png";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -45,19 +46,26 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Logo */}
-      <div className="flex justify-center pt-16 pb-8">
-        <div className="flex flex-col items-center">
-          <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center mb-2">
-            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
-            </svg>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">CÂMARA MUNICIPAL DE</p>
-            <p className="text-sm font-bold text-foreground">SÃO PAULO</p>
-          </div>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Header com botão de voltar */}
+      <div className="px-6 pt-8 pb-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/")}
+          className="-ml-2"
+        >
+          <ArrowLeft size={20} className="mr-2" />
+          Voltar
+        </Button>
+      </div>
+      
+      {/* Logo Header */}
+      <div className="flex items-center justify-center gap-3 pb-8 px-6">
+        <img src={brasaoSP} alt="Brasão São Paulo" className="w-16 h-16" />
+        <div className="text-left">
+          <p className="text-xs text-gray-600">CÂMARA MUNICIPAL DE</p>
+          <p className="text-lg font-bold text-gray-900">SÃO PAULO</p>
         </div>
       </div>
 
