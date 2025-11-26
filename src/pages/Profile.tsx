@@ -9,6 +9,7 @@ import PageHeader from "@/components/ui/page-header";
 import DemographicsForm from "@/components/profile/DemographicsForm";
 import AddressForm from "@/components/profile/AddressForm";
 import AvatarUpload from "@/components/profile/AvatarUpload";
+import PreferencesForm from "@/components/profile/PreferencesForm";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -100,10 +101,11 @@ const Profile = () => {
         )}
 
         <Tabs defaultValue="personal" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="personal">Pessoal</TabsTrigger>
             <TabsTrigger value="demographics">Demografia</TabsTrigger>
             <TabsTrigger value="address">Endereço</TabsTrigger>
+            <TabsTrigger value="preferences">Configurações</TabsTrigger>
           </TabsList>
 
           <TabsContent value="personal" className="space-y-4">
@@ -152,6 +154,10 @@ const Profile = () => {
 
           <TabsContent value="address">
             {user && <AddressForm userId={user.id} />}
+          </TabsContent>
+
+          <TabsContent value="preferences">
+            {user && <PreferencesForm userId={user.id} />}
           </TabsContent>
         </Tabs>
 
