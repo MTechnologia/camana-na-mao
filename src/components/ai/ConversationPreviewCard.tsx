@@ -108,10 +108,16 @@ export default function ConversationPreviewCard({
               <MoreVertical className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="bg-background border z-[100]">
             {!isArchived && onArchive && (
               <>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(); }}>
+                <DropdownMenuItem 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    onArchive(); 
+                  }}
+                >
                   <Archive className="w-4 h-4 mr-2" />
                   Arquivar
                 </DropdownMenuItem>
@@ -120,7 +126,13 @@ export default function ConversationPreviewCard({
             )}
             {isArchived && onRestore && (
               <>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRestore(); }}>
+                <DropdownMenuItem 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    onRestore(); 
+                  }}
+                >
                   <ArchiveRestore className="w-4 h-4 mr-2" />
                   Restaurar
                 </DropdownMenuItem>
@@ -129,7 +141,11 @@ export default function ConversationPreviewCard({
             )}
             {onDelete && (
               <DropdownMenuItem
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  e.stopPropagation(); 
+                  onDelete(); 
+                }}
                 className="text-destructive"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
