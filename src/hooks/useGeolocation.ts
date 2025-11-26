@@ -1,12 +1,19 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
+// Localização simulada padrão (Praça da Sé, São Paulo - Centro)
+const SIMULATED_LOCATION = {
+  latitude: -23.5505,
+  longitude: -46.6333,
+};
+
 interface GeolocationState {
   latitude: number | null;
   longitude: number | null;
   error: string | null;
   loading: boolean;
   permissionGranted: boolean;
+  isSimulated: boolean;
 }
 
 export const useGeolocation = () => {
@@ -16,16 +23,21 @@ export const useGeolocation = () => {
     error: null,
     loading: true,
     permissionGranted: false,
+    isSimulated: false,
   });
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
-      setState(prev => ({
-        ...prev,
-        error: "Geolocalização não é suportada pelo seu navegador",
+      // Usar localização simulada se geolocalização não for suportada
+      setState({
+        latitude: SIMULATED_LOCATION.latitude,
+        longitude: SIMULATED_LOCATION.longitude,
+        error: null,
         loading: false,
-      }));
-      toast.error("Geolocalização não disponível");
+        permissionGranted: false,
+        isSimulated: true,
+      });
+      toast.info("Usando localização simulada (Centro SP)");
       return;
     }
 
@@ -39,6 +51,7 @@ export const useGeolocation = () => {
           error: null,
           loading: false,
           permissionGranted: true,
+          isSimulated: false,
         });
       },
       (error) => {
@@ -46,24 +59,26 @@ export const useGeolocation = () => {
         
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Permissão de localização negada";
+            errorMessage = "Permissão negada - usando localização simulada";
             break;
           case error.POSITION_UNAVAILABLE:
-            errorMessage = "Localização não disponível";
+            errorMessage = "Localização indisponível - usando localização simulada";
             break;
           case error.TIMEOUT:
-            errorMessage = "Tempo de espera esgotado";
+            errorMessage = "Tempo esgotado - usando localização simulada";
             break;
         }
 
+        // Usar localização simulada quando houver erro
         setState({
-          latitude: null,
-          longitude: null,
-          error: errorMessage,
+          latitude: SIMULATED_LOCATION.latitude,
+          longitude: SIMULATED_LOCATION.longitude,
+          error: null,
           loading: false,
           permissionGranted: false,
+          isSimulated: true,
         });
-        toast.error(errorMessage);
+        toast.info(errorMessage);
       },
       {
         enableHighAccuracy: true,
