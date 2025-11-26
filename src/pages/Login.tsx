@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Lock, Eye, EyeOff, Check } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Check, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { loginSchema } from "@/lib/validations";
 import { toast } from "sonner";
@@ -51,8 +51,21 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-between">
+      {/* Header com botão de voltar */}
+      <div className="px-6 pt-8">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/")}
+          className="-ml-2"
+        >
+          <ArrowLeft size={20} className="mr-2" />
+          Voltar
+        </Button>
+      </div>
+      
       {/* Logo Header - mais espaçamento superior */}
-      <div className="flex items-center justify-center gap-4 pt-24 pb-12 px-6">
+      <div className="flex items-center justify-center gap-4 pb-12 px-6">
         <img src={brasaoSP} alt="Brasão São Paulo" className="w-20 h-20" />
         <div className="text-left">
           <p className="text-xs text-gray-600 mb-1">CÂMARA MUNICIPAL DE</p>
