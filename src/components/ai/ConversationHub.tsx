@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { AIConversation } from "@/hooks/useAIConversations";
 import ConversationPreviewCard from "./ConversationPreviewCard";
 import ConversationFilters from "./ConversationFilters";
+import DeleteConversationDialog from "./DeleteConversationDialog";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { isToday, isThisWeek, isThisMonth } from "date-fns";
 
@@ -35,6 +36,7 @@ export default function ConversationHub({
   const [periodFilter, setPeriodFilter] = useState<string>("all");
   const [journeyFilter, setJourneyFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+  const [conversationToDelete, setConversationToDelete] = useState<AIConversation | null>(null);
 
   // Filter conversations
   const filteredConversations = useMemo(() => {
@@ -100,6 +102,17 @@ export default function ConversationHub({
     setActiveTab("active");
     setPeriodFilter("all");
     setJourneyFilter("all");
+  };
+
+  const handleDeleteClick = (conversation: AIConversation) => {
+    setConversationToDelete(conversation);
+  };
+
+  const handleConfirmDelete = () => {
+    if (conversationToDelete && onDelete) {
+      onDelete(conversationToDelete.id);
+      setConversationToDelete(null);
+    }
   };
 
   return (
@@ -184,7 +197,7 @@ export default function ConversationHub({
                   onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
                   onArchive={activeTab === "active" && onArchive ? () => onArchive(conv.id) : undefined}
                   onRestore={activeTab === "archived" && onRestore ? () => onRestore(conv.id) : undefined}
-                  onDelete={onDelete ? () => onDelete(conv.id) : undefined}
+                  onDelete={onDelete ? () => handleDeleteClick(conv) : undefined}
                 />
               ))}
             </div>
@@ -200,11 +213,19 @@ export default function ConversationHub({
               onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
               onArchive={activeTab === "active" && onArchive ? () => onArchive(conv.id) : undefined}
               onRestore={activeTab === "archived" && onRestore ? () => onRestore(conv.id) : undefined}
-              onDelete={onDelete ? () => onDelete(conv.id) : undefined}
+              onDelete={onDelete ? () => handleDeleteClick(conv) : undefined}
             />
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConversationDialog
+        conversation={conversationToDelete}
+        open={!!conversationToDelete}
+        onOpenChange={(open) => !open && setConversationToDelete(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
