@@ -1,13 +1,61 @@
-import { useState } from "react";
-import { ArrowLeft, Mic, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Mic, X, Volume2, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useVoiceChat } from "@/hooks/useVoiceChat";
+import { useAIChat } from "@/hooks/useAIChat";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Voz = () => {
   const navigate = useNavigate();
-  const [isRecording, setIsRecording] = useState(false);
+  const { user } = useAuth();
+  const [currentText, setCurrentText] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  
+  const { 
+    isRecording, 
+    isProcessing, 
+    isPlaying,
+    startRecording, 
+    stopRecording, 
+    playAudio 
+  } = useVoiceChat();
+  
+  const { sendMessage, messages } = useAIChat();
 
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
+  const handleMicClick = async () => {
+    if (isRecording) {
+      try {
+        const transcribedText = await stopRecording();
+        setCurrentText(transcribedText);
+        
+        // Send to AI
+        if (transcribedText) {
+          await sendMessage(transcribedText);
+        }
+      } catch (error) {
+        console.error('Erro ao parar gravação:', error);
+      }
+    } else {
+      setCurrentText("");
+      setAiResponse("");
+      await startRecording();
+    }
+  };
+
+  // Play AI response when available
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'assistant' && lastMessage.content && lastMessage.content !== aiResponse) {
+      setAiResponse(lastMessage.content);
+      playAudio(lastMessage.content);
+    }
+  }, [messages]);
+
+  const getStatusText = () => {
+    if (isRecording) return "Estou te ouvindo...";
+    if (isProcessing) return "Processando...";
+    if (isPlaying) return "Respondendo...";
+    return "No que posso te ajudar?";
   };
 
   return (
@@ -28,9 +76,11 @@ const Voz = () => {
         <div className="mb-8 relative">
           <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/40">
             <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center">
-              <svg className="w-12 h-12 text-accent" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
+              {isProcessing || isPlaying ? (
+                <Loader2 size={48} className="text-accent animate-spin" />
+              ) : (
+                <Volume2 size={48} className="text-accent" />
+              )}
             </div>
           </div>
 
@@ -52,19 +102,38 @@ const Voz = () => {
         </div>
 
         {/* Text */}
-        <div className="text-center mb-12 mt-12">
-          <h1 className="text-white text-2xl font-bold mb-2">Olá, Luana</h1>
-          <p className="text-white/80">
-            {isRecording ? "Estou te ouvindo..." : "No que posso te ajudar?"}
+        <div className="text-center mb-12 mt-12 max-w-md">
+          <h1 className="text-white text-2xl font-bold mb-2">
+            Olá, {user?.user_metadata?.full_name?.split(' ')[0] || 'Cidadão'}
+          </h1>
+          <p className="text-white/80 mb-4">
+            {getStatusText()}
           </p>
+          
+          {currentText && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-4">
+              <p className="text-white text-sm">
+                <strong>Você disse:</strong> {currentText}
+              </p>
+            </div>
+          )}
+          
+          {aiResponse && !isPlaying && (
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+              <p className="text-white text-sm">
+                <strong>Resposta:</strong> {aiResponse}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Mic Button */}
         <button
-          onClick={toggleRecording}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+          onClick={handleMicClick}
+          disabled={isProcessing || isPlaying}
+          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
             isRecording
-              ? "bg-white/30 scale-110"
+              ? "bg-red-500 scale-110 animate-pulse"
               : "bg-white/20 hover:bg-white/30"
           }`}
         >
@@ -73,7 +142,9 @@ const Voz = () => {
 
         {/* Hint */}
         <p className="text-white/60 text-sm mt-8 text-center px-8">
-          Toque no microfone e comece a falar
+          {isRecording 
+            ? "Toque novamente para parar" 
+            : "Toque no microfone e comece a falar"}
         </p>
       </div>
     </div>
