@@ -171,6 +171,97 @@ export type Database = {
           },
         ]
       }
+      report_patterns: {
+        Row: {
+          average_severity: string | null
+          description: string
+          first_detected_at: string | null
+          id: string
+          last_occurrence_at: string | null
+          line_id: string | null
+          occurrence_count: number | null
+          pattern_type: string
+          status: string | null
+          suggested_action: string | null
+        }
+        Insert: {
+          average_severity?: string | null
+          description: string
+          first_detected_at?: string | null
+          id?: string
+          last_occurrence_at?: string | null
+          line_id?: string | null
+          occurrence_count?: number | null
+          pattern_type: string
+          status?: string | null
+          suggested_action?: string | null
+        }
+        Update: {
+          average_severity?: string | null
+          description?: string
+          first_detected_at?: string | null
+          id?: string
+          last_occurrence_at?: string | null
+          line_id?: string | null
+          occurrence_count?: number | null
+          pattern_type?: string
+          status?: string | null
+          suggested_action?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_patterns_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "transport_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_referrals: {
+        Row: {
+          council_member_name: string
+          council_member_party: string | null
+          created_at: string | null
+          id: string
+          reason: string | null
+          report_id: string
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          council_member_name: string
+          council_member_party?: string | null
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          report_id: string
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          council_member_name?: string
+          council_member_party?: string | null
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          report_id?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_referrals_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_ratings: {
         Row: {
           anonymized_at: string | null
@@ -300,6 +391,143 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transport_lines: {
+        Row: {
+          created_at: string | null
+          id: string
+          line_code: string
+          line_name: string
+          line_type: string
+          regions: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          line_code: string
+          line_name: string
+          line_type?: string
+          regions?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          line_code?: string
+          line_name?: string
+          line_type?: string
+          regions?: string[] | null
+        }
+        Relationships: []
+      }
+      transport_reports: {
+        Row: {
+          ai_category: string | null
+          ai_pattern_detected: boolean | null
+          ai_sentiment: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          impact_description: string | null
+          line_code_custom: string | null
+          line_id: string | null
+          location: string | null
+          occurrence_date: string
+          occurrence_time: string | null
+          report_type: string
+          severity: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_category?: string | null
+          ai_pattern_detected?: boolean | null
+          ai_sentiment?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_description?: string | null
+          line_code_custom?: string | null
+          line_id?: string | null
+          location?: string | null
+          occurrence_date: string
+          occurrence_time?: string | null
+          report_type: string
+          severity?: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_category?: string | null
+          ai_pattern_detected?: boolean | null
+          ai_sentiment?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_description?: string | null
+          line_code_custom?: string | null
+          line_id?: string | null
+          location?: string | null
+          occurrence_date?: string
+          occurrence_time?: string | null
+          report_type?: string
+          severity?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_reports_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "transport_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transport_subscriptions: {
+        Row: {
+          created_at: string | null
+          id: string
+          line_id: string | null
+          pattern_id: string | null
+          subscription_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          line_id?: string | null
+          pattern_id?: string | null
+          subscription_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          line_id?: string | null
+          pattern_id?: string | null
+          subscription_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_subscriptions_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "transport_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_subscriptions_pattern_id_fkey"
+            columns: ["pattern_id"]
+            isOneToOne: false
+            referencedRelation: "report_patterns"
             referencedColumns: ["id"]
           },
         ]

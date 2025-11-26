@@ -73,6 +73,8 @@ const IA = () => {
     const message = actionMessages[action as keyof typeof actionMessages];
     if (message) {
       sendMessage(message);
+    } else if (action === "transport") {
+      navigate("/transporte/novo");
     }
   };
 

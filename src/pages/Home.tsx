@@ -185,7 +185,10 @@ const Home = () => {
           </div>
 
           {/* SP Trans Card */}
-          <div className="relative h-40 rounded-2xl overflow-hidden cursor-pointer group bg-white shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+          <div 
+            className="relative h-40 rounded-2xl overflow-hidden cursor-pointer group bg-white shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200"
+            onClick={() => navigate('/transporte')}
+          >
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
               <div className="h-16 w-16 rounded-full bg-gradient-to-br from-green-500/10 to-emerald-400/10 flex items-center justify-center relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-400 rounded-full blur-xl opacity-20" />
