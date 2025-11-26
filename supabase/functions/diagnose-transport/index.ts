@@ -172,7 +172,7 @@ Quando tiver todas as informações, resuma o relato e confirme com o usuário.`
   } catch (error) {
     console.error('Error in diagnose-transport function:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: (error as Error).message || 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
