@@ -1,6 +1,22 @@
 import { z } from "zod";
 
-// Auth validations
+// Auth validations - Step 1 (Personal Data)
+export const registerStep1Schema = z.object({
+  fullName: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
+  email: z.string().email("E-mail inválido"),
+  phone: z.string().min(10, "Telefone inválido"),
+});
+
+// Auth validations - Step 2 (Password)
+export const registerStep2Schema = z.object({
+  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
+});
+
+// Complete registration schema
 export const registerSchema = z.object({
   fullName: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
   email: z.string().email("E-mail inválido"),
@@ -37,6 +53,8 @@ export const addressSchema = z.object({
   longitude: z.number().optional(),
 });
 
+export type RegisterStep1Input = z.infer<typeof registerStep1Schema>;
+export type RegisterStep2Input = z.infer<typeof registerStep2Schema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type DemographicsInput = z.infer<typeof demographicsSchema>;

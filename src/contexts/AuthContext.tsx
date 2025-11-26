@@ -4,6 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+const translateError = (message: string): string => {
+  const translations: Record<string, string> = {
+    "Invalid login credentials": "E-mail ou senha incorretos",
+    "Email not confirmed": "E-mail não confirmado. Verifique sua caixa de entrada",
+    "User already registered": "Este e-mail já está cadastrado",
+    "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
+    "Invalid email": "E-mail inválido",
+    "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos",
+    "Signup requires a valid password": "Senha inválida",
+    "Unable to validate email address": "Não foi possível validar o e-mail",
+    "signup_disabled": "Cadastro desabilitado pelo administrador",
+    "email_exists": "Este e-mail já está cadastrado",
+  };
+  return translations[message] || message;
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -83,7 +99,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Conta criada com sucesso!");
       return { error: null };
     } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
+      const translatedMessage = translateError(error.message);
+      toast.error(translatedMessage || "Erro ao criar conta");
       return { error };
     }
   };
@@ -100,7 +117,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Login realizado com sucesso!");
       return { error: null };
     } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login");
+      const translatedMessage = translateError(error.message);
+      toast.error(translatedMessage || "Erro ao fazer login");
       return { error };
     }
   };
@@ -111,7 +129,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Logout realizado com sucesso!");
       navigate('/login');
     } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer logout");
+      const translatedMessage = translateError(error.message);
+      toast.error(translatedMessage || "Erro ao fazer logout");
     }
   };
 
@@ -126,7 +145,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("E-mail de recuperação enviado!");
       return { error: null };
     } catch (error: any) {
-      toast.error(error.message || "Erro ao enviar e-mail");
+      const translatedMessage = translateError(error.message);
+      toast.error(translatedMessage || "Erro ao enviar e-mail");
       return { error };
     }
   };
