@@ -19,6 +19,7 @@ interface ConversationHubProps {
   onRestore?: (id: string) => void;
   onDelete?: (id: string) => void;
   isLoading?: boolean;
+  activeConversationId?: string;
 }
 
 export default function ConversationHub({
@@ -31,6 +32,7 @@ export default function ConversationHub({
   onRestore,
   onDelete,
   isLoading = false,
+  activeConversationId,
 }: ConversationHubProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [periodFilter, setPeriodFilter] = useState<string>("all");
@@ -214,6 +216,7 @@ export default function ConversationHub({
                     key={conv.id}
                     conversation={conv}
                     showJourneyBadge={false}
+                    isActive={conv.id === activeConversationId}
                     onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
                     onArchive={onArchive ? () => onArchive(conv.id) : undefined}
                     onDelete={onDelete ? () => onDelete(conv.id) : undefined}
@@ -228,6 +231,7 @@ export default function ConversationHub({
                 key={conv.id}
                 conversation={conv}
                 showJourneyBadge={false}
+                isActive={conv.id === activeConversationId}
                 onSelect={() => onSelectConversation(conv.id, conv.journeyId)}
                 onArchive={onArchive ? () => onArchive(conv.id) : undefined}
                 onDelete={onDelete ? () => onDelete(conv.id) : undefined}
