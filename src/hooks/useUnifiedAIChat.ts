@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { JourneyType } from "@/contexts/AIJourneyContext";
+import { AI_JOURNEYS } from "@/config/aiJourneys";
 
 interface Message {
   id: string;
@@ -66,14 +67,8 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   };
 
   const sendMessage = async (content: string) => {
-    if (!journey) {
-      toast({
-        title: "Erro",
-        description: "Nenhuma jornada ativa. Por favor, selecione uma jornada primeiro.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Use fallback para jornada 'general' se nenhuma estiver ativa
+    const activeJourney = journey || AI_JOURNEYS.general;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -127,7 +122,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
       };
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${journey.edgeFunction}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${activeJourney.edgeFunction}`,
         {
           method: "POST",
           headers: {
