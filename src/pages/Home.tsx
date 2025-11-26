@@ -68,21 +68,21 @@ const Home = () => {
           </h1>
         </div>
 
-        {/* Quick Access Shortcuts */}
+        {/* Quick Access Shortcuts Carousel */}
         <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
           <h2 className="text-sm font-medium text-gray-500 mb-3">Acesso Rápido</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">
             {shortcuts.map((shortcut) => {
               const IconComponent = shortcut.icon;
               return (
                 <button
                   key={shortcut.id}
-                  className="flex flex-col items-center gap-2 p-4 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group"
+                  className="flex-shrink-0 flex flex-col items-center gap-2 p-4 w-24 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group"
                 >
                   <div className={`${shortcut.bgColor} p-3 rounded-full group-hover:scale-110 transition-transform duration-200`}>
                     <IconComponent className={`h-6 w-6 ${shortcut.color}`} />
                   </div>
-                  <span className="text-xs font-medium text-gray-700">{shortcut.title}</span>
+                  <span className="text-xs font-medium text-gray-700 text-center">{shortcut.title}</span>
                 </button>
               );
             })}
