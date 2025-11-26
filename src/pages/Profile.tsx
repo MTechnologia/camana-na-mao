@@ -6,6 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PageHeader from "@/components/ui/page-header";
+import DemographicsForm from "@/components/profile/DemographicsForm";
+import AddressForm from "@/components/profile/AddressForm";
 
 const Profile = () => {
   const { user, signOut } = useAuth();
@@ -120,15 +122,11 @@ const Profile = () => {
           </TabsContent>
 
           <TabsContent value="demographics">
-            <p className="text-center text-muted-foreground py-8">
-              Funcionalidade em desenvolvimento
-            </p>
+            {user && <DemographicsForm userId={user.id} />}
           </TabsContent>
 
           <TabsContent value="address">
-            <p className="text-center text-muted-foreground py-8">
-              Funcionalidade em desenvolvimento
-            </p>
+            {user && <AddressForm userId={user.id} />}
           </TabsContent>
         </Tabs>
 

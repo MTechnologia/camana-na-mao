@@ -35,22 +35,21 @@ export const loginSchema = z.object({
 
 // Profile validations
 export const demographicsSchema = z.object({
-  birthDate: z.string().optional(),
-  gender: z.string().optional(),
-  race: z.string().optional(),
-  socialClass: z.string().optional(),
+  birthDate: z.date().optional().nullable(),
+  gender: z.string().min(1, "Gênero é obrigatório"),
+  race: z.string().min(1, "Raça/Cor é obrigatória"),
+  socialClass: z.string().min(1, "Classe social é obrigatória"),
 });
 
 export const addressSchema = z.object({
-  street: z.string().min(3, "Rua é obrigatória"),
-  number: z.string().min(1, "Número é obrigatório"),
-  complement: z.string().optional(),
-  neighborhood: z.string().min(2, "Bairro é obrigatório"),
-  city: z.string().min(2, "Cidade é obrigatória"),
-  state: z.string().length(2, "Estado deve ter 2 caracteres"),
-  zipCode: z.string().length(8, "CEP deve ter 8 dígitos"),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  street: z.string().min(3, "Rua é obrigatória").max(255, "Rua muito longa"),
+  number: z.string().min(1, "Número é obrigatório").max(10, "Número muito longo"),
+  complement: z.string().max(100, "Complemento muito longo").optional(),
+  neighborhood: z.string().min(2, "Bairro é obrigatório").max(100, "Bairro muito longo"),
+  city: z.string().min(2, "Cidade é obrigatória").max(100, "Cidade muito longa"),
+  state: z.string().length(2, "Estado deve ter 2 caracteres (ex: SP)"),
+  zipCode: z.string().regex(/^\d{8}$/, "CEP deve conter apenas 8 dígitos"),
+  isPrimary: z.boolean().default(false),
 });
 
 export type RegisterStep1Input = z.infer<typeof registerStep1Schema>;
