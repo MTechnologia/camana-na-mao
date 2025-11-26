@@ -149,11 +149,11 @@ const Home = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {/* Simplified Greeting */}
         <div className="animate-fade-in">
           <h1 className="text-2xl font-medium text-gray-900">
-            Olá, <span className="text-pink-500">{profile?.full_name.split(' ')[0] || "Usuário"}</span>
+            Olá, <span className="text-primary">{profile?.full_name.split(' ')[0] || "Usuário"}</span>
           </h1>
         </div>
 
@@ -235,7 +235,7 @@ const Home = () => {
                 key={index}
                 onClick={() => api?.scrollTo(index)}
                 className={`h-2 rounded-full transition-all duration-300 ${
-                  current === index ? "w-8 bg-pink-500" : "w-2 bg-gray-300"
+                  current === index ? "w-8 bg-primary" : "w-2 bg-gray-300"
                 }`}
                 aria-label={`Go to slide ${index + 1}`}
               />

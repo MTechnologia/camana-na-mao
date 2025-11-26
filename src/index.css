@@ -17,8 +17,9 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 13%;
 
-    --primary: 348 95% 43%;
+    --primary: 358 93% 35%;
     --primary-foreground: 0 0% 100%;
+    --primary-hover: 358 93% 35% / 0.1;
 
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 13%;
@@ -26,7 +27,7 @@ All colors MUST be HSL.
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 330 81% 60%;
+    --accent: 358 93% 45%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -34,25 +35,25 @@ All colors MUST be HSL.
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 348 95% 43%;
+    --ring: 358 93% 35%;
 
     --radius: 1rem;
 
-    --ai-gradient-start: 345 100% 65%;
-    --ai-gradient-end: 330 81% 60%;
+    --ai-gradient-start: 358 93% 45%;
+    --ai-gradient-end: 358 93% 55%;
     
     --voice-gradient-start: 270 100% 75%;
-    --voice-gradient-end: 330 81% 60%;
+    --voice-gradient-end: 358 93% 45%;
 
     /* Gradient colors for shortcuts */
-    --gradient-pink: 348 95% 43%;
+    --gradient-pink: 358 93% 35%;
     --gradient-purple: 270 100% 75%;
     --gradient-blue: 220 100% 65%;
     --gradient-orange: 25 95% 55%;
     
     /* AI specific gradients */
-    --ai-start: 345 100% 65%;
-    --ai-end: 330 81% 60%;
+    --ai-start: 358 93% 45%;
+    --ai-end: 358 93% 55%;
   }
 }
 
