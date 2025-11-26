@@ -2,8 +2,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageSquare, Bus, Star, Calendar, MapPin, Sparkles, MoreVertical, Archive, XCircle } from "lucide-react";
 import { JourneyType } from "@/contexts/AIJourneyContext";
-import ConversationSwitcher from "./ConversationSwitcher";
-import { AIConversation } from "@/hooks/useAIConversations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,10 +26,6 @@ interface JourneyHeaderProps {
   onClear: () => void;
   onMinimize?: () => void;
   onArchive?: () => void;
-  conversations?: AIConversation[];
-  currentConversationId?: string | null;
-  onSelectConversation?: (id: string) => void;
-  onViewAll?: () => void;
 }
 
 const iconMap = {
@@ -48,18 +42,9 @@ const JourneyHeader = ({
   onClear,
   onMinimize,
   onArchive,
-  conversations = [],
-  currentConversationId,
-  onSelectConversation,
-  onViewAll,
 }: JourneyHeaderProps) => {
   const Icon = iconMap[journey.icon as keyof typeof iconMap] || MessageSquare;
   const [showEndDialog, setShowEndDialog] = useState(false);
-
-  // Filter conversations by current journey
-  const journeyConversations = conversations.filter(
-    (c) => c.journeyId === journey.id && c.status === "active"
-  );
 
   const handleEndConversation = () => {
     if (onArchive) {
@@ -82,15 +67,6 @@ const JourneyHeader = ({
             </Badge>
             <h2 className="text-sm font-semibold">{journey.label}</h2>
           </div>
-          {/* Conversation Switcher */}
-          {journeyConversations.length > 1 && onSelectConversation && onViewAll && (
-            <ConversationSwitcher
-              conversations={journeyConversations}
-              currentConversationId={currentConversationId || null}
-              onSelectConversation={onSelectConversation}
-              onViewAll={onViewAll}
-            />
-          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {onMinimize && (

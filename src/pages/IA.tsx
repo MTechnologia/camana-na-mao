@@ -184,20 +184,6 @@ const IA = () => {
     });
   };
 
-  const handleResumeFromSwitcher = async (conversationId: string) => {
-    const conv = await resumeConversation(conversationId);
-    if (conv) {
-      const journey = getJourneyById(conv.journey_id);
-      if (journey) {
-        setJourney(journey, conversationId);
-      }
-    }
-  };
-
-  const handleViewAllConversations = () => {
-    clearJourney();
-  };
-
   const handleStartNewConversation = async (journeyId: string) => {
     const journey = getJourneyById(journeyId);
     if (journey) {
@@ -299,10 +285,6 @@ const IA = () => {
             onClear={handleClearJourney}
             onMinimize={handleMinimizeConversation}
             onArchive={handleArchiveCurrentConversation}
-            conversations={conversations}
-            currentConversationId={currentConversationId}
-            onSelectConversation={handleResumeFromSwitcher}
-            onViewAll={handleViewAllConversations}
           />
         </div>
       )}
