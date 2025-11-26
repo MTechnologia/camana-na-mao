@@ -80,7 +80,12 @@ const FloatingNavbar = () => {
       setActiveIndex(index);
     } else {
       setActiveIndex(index);
-      navigate(path);
+      // Se for navegação para /ia, adicionar parâmetro view=hub
+      if (path === '/ia') {
+        navigate('/ia?view=hub');
+      } else {
+        navigate(path);
+      }
     }
   };
 
