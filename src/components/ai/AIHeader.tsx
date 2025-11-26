@@ -5,23 +5,21 @@ const AIHeader = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-background/95 to-background/80 backdrop-blur-md border-b border-border/50">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-transparent">
       <div className="flex items-center justify-between px-4 py-3">
         <button
           onClick={() => navigate("/home")}
-          className="flex items-center gap-2 text-foreground hover:text-primary transition-colors"
+          className="text-foreground hover:text-primary transition-colors"
           aria-label="Voltar para Home"
         >
           <ArrowLeft size={24} />
-          <span className="text-sm font-medium">Voltar</span>
         </button>
 
-        <h1 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <span className="text-2xl">🤖</span>
+        <h1 className="text-sm font-medium text-foreground">
           Assistente IA
         </h1>
 
-        <div className="w-20" /> {/* Spacer for centering */}
+        <div className="w-6" /> {/* Spacer for centering */}
       </div>
     </header>
   );

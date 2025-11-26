@@ -33,7 +33,7 @@ const InteractionButtons = ({ onSelect }: InteractionButtonsProps) => {
   return (
     <div className="space-y-3 mb-6">
       <h3 className="text-sm font-semibold text-foreground mb-3">
-        🎯 O que você gostaria?
+        O que você gostaria?
       </h3>
       
       {buttons.map((button, index) => {

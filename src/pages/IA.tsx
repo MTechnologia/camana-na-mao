@@ -99,9 +99,13 @@ const IA = () => {
       <AIHeader />
 
       {/* Header with AI Avatar */}
-      <div className="bg-gradient-to-br from-primary/10 to-secondary/10 pt-20 pb-12 px-6">
-        <AIAvatar />
-        <AIWelcome userName="Luana" />
+      <div className="bg-gradient-to-br from-primary/10 to-secondary/10 pt-20 pb-8 px-6">
+        <div className="flex flex-col items-center">
+          <AIAvatar />
+          <div className="mt-6 w-full">
+            <AIWelcome userName="Luana" />
+          </div>
+        </div>
       </div>
 
       {/* Content */}
