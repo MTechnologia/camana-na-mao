@@ -32,6 +32,7 @@ const Home = () => {
     { id: 4, title: "Vereadores", icon: Users, color: "text-green-500", bgColor: "bg-green-50" },
     { id: 5, title: "Votações", icon: Vote, color: "text-orange-500", bgColor: "bg-orange-50" },
     { id: 6, title: "Notificações", icon: Bell, color: "text-cyan-500", bgColor: "bg-cyan-50" },
+    { id: 7, title: "Favoritos", icon: Heart, color: "text-red-500", bgColor: "bg-red-50", path: "/favoritos", badge: favorites.length > 0 ? favorites.length : undefined },
   ];
 
   useEffect(() => {
@@ -93,8 +94,13 @@ const Home = () => {
                 <button
                   key={shortcut.id}
                   onClick={() => shortcut.path && navigate(shortcut.path)}
-                  className="flex-shrink-0 flex flex-col items-center gap-2 p-4 w-24 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group"
+                  className="flex-shrink-0 flex flex-col items-center gap-2 p-4 w-24 bg-white rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all duration-200 group relative"
                 >
+                  {shortcut.badge && (
+                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10">
+                      {shortcut.badge}
+                    </div>
+                  )}
                   <div className={`${shortcut.bgColor} p-3 rounded-full group-hover:scale-110 transition-transform duration-200`}>
                     <IconComponent className={`h-6 w-6 ${shortcut.color}`} />
                   </div>
@@ -105,45 +111,6 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Favorites Section */}
-        {favorites.length > 0 && (
-          <div className="animate-fade-in" style={{ animationDelay: "75ms" }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Heart className="h-4 w-4 text-pink-500 fill-pink-500" />
-              <h2 className="text-sm font-medium text-gray-500">Meus Favoritos</h2>
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6">
-              {favorites.map((favorite) => (
-                <Card
-                  key={favorite.id}
-                  onClick={() => navigate(favorite.path)}
-                  className="flex-shrink-0 w-48 p-3 bg-white hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100"
-                >
-                  <div className="flex items-start gap-3">
-                    {favorite.image && (
-                      <Avatar className="h-10 w-10 flex-shrink-0">
-                        <AvatarImage src={favorite.image} alt={favorite.title} />
-                        <AvatarFallback className="bg-pink-50 text-pink-600 text-xs">
-                          {favorite.title.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
-                        {favorite.title}
-                      </h3>
-                      {favorite.subtitle && (
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-                          {favorite.subtitle}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Carousel Highlights with Bullets */}
         <div className="relative animate-fade-in" style={{ animationDelay: "100ms" }}>

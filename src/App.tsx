@@ -24,6 +24,7 @@ import Conversa from "./pages/Conversa";
 import Voz from "./pages/Voz";
 import Audiencias from "./pages/Audiencias";
 import AudienciaDetailPage from "./pages/audiencias/AudienciaDetailPage";
+import FavoritesPage from "./pages/FavoritesPage";
 import ParticipacaoPage from "./pages/audiencias/ParticipacaoPage";
 import AgendaCMSP from "./pages/institucional/AgendaCMSP";
 import Vereadores from "./pages/institucional/Vereadores";
@@ -56,6 +57,7 @@ const AppContent = () => {
         <Route path="/ia" element={<IA />} />
         <Route path="/conversa" element={<Conversa />} />
         <Route path="/voz" element={<Voz />} />
+        <Route path="/favoritos" element={<FavoritesPage />} />
           <Route path="/audiencias" element={<Audiencias />} />
           <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
           <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
