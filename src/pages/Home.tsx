@@ -1,211 +1,136 @@
-import { Search, MapPin, Calendar, FileText, Users, Compass, Wifi, Wrench } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { Search, Navigation, Bus } from "lucide-react";
 import FloatingNavbar from "@/components/FloatingNavbar";
-import { useMenu } from "@/contexts/MenuContext";
-import { useState, useEffect } from "react";
-import camaraLogo from "@/assets/camara-logo.png";
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 import avatarLuana from "@/assets/avatar-luana.jpg";
 import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
-import camaraAbertaLogo from "@/assets/camara-aberta-logo.png";
-import mapLocation from "@/assets/map-location.png";
-import busSptrans from "@/assets/bus-sptrans.png";
+import camaraLogo from "@/assets/camara-logo.png";
 
 const Home = () => {
-  const { openMenu } = useMenu();
-  const [greeting, setGreeting] = useState("");
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
 
-  // Dynamic greeting based on time
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Bom dia");
-    else if (hour < 18) setGreeting("Boa tarde");
-    else setGreeting("Boa noite");
-  }, []);
-
-  const shortcuts = [
-    { 
-      id: 1, 
-      title: "Agenda e Eventos",
-      icon: Calendar,
-      gradient: "from-pink-500 to-rose-400",
-      shadow: "shadow-pink-500/20"
-    },
-    { 
-      id: 2, 
-      title: "Documentos",
-      icon: FileText,
-      gradient: "from-purple-500 to-pink-400",
-      shadow: "shadow-purple-500/20"
-    },
-    { 
-      id: 3, 
-      title: "Vereadores",
-      icon: Users,
-      gradient: "from-blue-500 to-cyan-400",
-      shadow: "shadow-blue-500/20"
-    },
-    { 
-      id: 4, 
-      title: "Localizações",
-      icon: Compass,
-      gradient: "from-orange-500 to-amber-400",
-      shadow: "shadow-orange-500/20"
-    },
+  const highlights = [
+    { id: 1, image: camaraAbertaBg, title: "Câmara Aberta" },
+    { id: 2, image: camaraAbertaBg, title: "Transparência Total" },
+    { id: 3, image: camaraAbertaBg, title: "Participe das Decisões" },
   ];
 
+  useEffect(() => {
+    if (!api) return;
+
+    setCurrent(api.selectedScrollSnap());
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
+
   return (
-    <div className="min-h-screen pb-24">
-      {/* Header with Glassmorphism */}
-      <header className="glass sticky top-0 z-50 px-4 pt-4 pb-4 shadow-sm shadow-primary/5">
-        <div className="flex items-center gap-3 animate-fade-in">
-          {/* Logo */}
-          <img src={camaraLogo} alt="Câmara SP" className="w-12 h-12 transition-transform hover:scale-110 duration-300" />
-          
-          {/* Search Bar */}
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" size={18} />
-            <Input
-              placeholder="O que você procura?"
-              className="pl-10 h-10 rounded-full bg-secondary/50 border border-transparent text-sm transition-all duration-300 focus:border-primary/30 focus:shadow-lg focus:shadow-primary/10"
-            />
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Simplified Header */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            {/* Search Bar */}
+            <div className="flex-1 max-w-md relative">
+              <input
+                type="text"
+                placeholder="Buscar..."
+                className="w-full pl-10 pr-4 py-2 rounded-full bg-gray-50 border border-gray-200 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition-all duration-200 outline-none"
+              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            </div>
+
+            {/* Avatar */}
+            <Avatar className="h-10 w-10 ring-2 ring-gray-100">
+              <AvatarImage src={avatarLuana} alt="Luana" />
+            </Avatar>
           </div>
-
-          {/* Location Icon */}
-          <button className="w-10 h-10 flex items-center justify-center transition-all hover:scale-110 hover:text-primary duration-300">
-            <MapPin className="text-muted-foreground hover:text-primary transition-colors" size={22} />
-          </button>
-
-          {/* Avatar with animated ring */}
-          <button 
-            onClick={openMenu}
-            className="w-10 h-10 rounded-full overflow-hidden avatar-ring transition-transform hover:scale-110 duration-300"
-          >
-            <img src={avatarLuana} alt="Luana" className="w-full h-full object-cover" />
-          </button>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="px-4 pt-5">
-        {/* Dynamic Greeting with Animation */}
-        <div className="mb-5 animate-slide-up">
-          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            {greeting}, <span className="gradient-text">Luana</span>
-            <span className="inline-block animate-wave origin-bottom-right text-2xl">👋</span>
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-8">
+        {/* Simplified Greeting */}
+        <div className="animate-fade-in">
+          <h1 className="text-2xl font-medium text-gray-900">
+            Olá, <span className="text-pink-500">Luana</span>
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Ficamos felizes por voltar!</p>
         </div>
 
-        {/* Shortcuts Carousel with Gradients */}
-        <div className="mb-6">
-          <h2 className="text-base font-semibold text-foreground mb-3">Atalhos</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {shortcuts.map((shortcut, index) => {
-              const Icon = shortcut.icon;
-              return (
-                <div
-                  key={shortcut.id}
-                  className="min-w-[140px] h-[100px] rounded-2xl glass-strong p-3 flex flex-col justify-between transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer group relative overflow-hidden"
-                  style={{ 
-                    animationDelay: `${index * 100}ms`,
-                    boxShadow: `0 10px 30px -10px var(--tw-shadow-color)`
-                  }}
-                >
-                  {/* Gradient background overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${shortcut.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
-                  
-                  <div className="relative z-10">
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${shortcut.gradient} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                      <Icon className="text-white" size={20} />
+        {/* Carousel Highlights with Bullets */}
+        <div className="relative animate-fade-in" style={{ animationDelay: "100ms" }}>
+          <Carousel
+            opts={{ loop: true }}
+            plugins={[Autoplay({ delay: 4000, stopOnInteraction: true })]}
+            setApi={setApi}
+            className="w-full"
+          >
+            <CarouselContent>
+              {highlights.map((highlight) => (
+                <CarouselItem key={highlight.id}>
+                  <div className="relative h-48 rounded-2xl overflow-hidden shadow-sm">
+                    <img
+                      src={highlight.image}
+                      alt={highlight.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute bottom-6 left-6">
+                      <h2 className="text-2xl font-semibold text-white drop-shadow-lg">
+                        {highlight.title}
+                      </h2>
                     </div>
                   </div>
-                  
-                  <p className="relative z-10 text-xs font-semibold text-foreground leading-tight">{shortcut.title}</p>
-                </div>
-              );
-            })}
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+
+          {/* Bullets/Dots */}
+          <div className="flex justify-center gap-2 mt-4">
+            {highlights.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => api?.scrollTo(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  current === index ? "w-8 bg-pink-500" : "w-2 bg-gray-300"
+                }`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
 
-        {/* Main Highlight - Câmara Aberta */}
-        <div className="mb-4">
-          <h2 className="text-base font-semibold text-foreground mb-3">Destaques</h2>
-          <div className="rounded-2xl overflow-hidden shadow-xl shadow-primary/10 relative group gradient-border">
-            {/* Background Image with Zoom */}
-            <div className="relative h-48 overflow-hidden">
-              <img
-                src={camaraAbertaBg}
-                alt="Câmara Aberta"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              
-              {/* Dark gradient overlay for better contrast */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-              
-              {/* Overlay Content */}
-              <div className="absolute inset-0 flex flex-col justify-between p-4">
-                {/* Logo and Banner */}
-                <div className="animate-slide-up">
-                  <img 
-                    src={camaraAbertaLogo} 
-                    alt="Câmara Aberta" 
-                    className="h-16 mb-2 drop-shadow-2xl" 
-                    style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}
-                  />
-                  <div className="glass-strong text-foreground text-xs font-semibold px-3 py-1.5 rounded-full inline-block border border-white/20">
-                    Conheça o Hotsite
-                  </div>
-                </div>
-                
-                {/* Bottom Section */}
-                <div className="flex items-end justify-between gap-2">
-                  <div className="glass-strong px-3 py-2 rounded-lg border border-white/20">
-                    <p className="text-xs font-medium text-foreground">
-                      Visita Guiada aos fins de semana
-                    </p>
-                  </div>
-                  <Button 
-                    size="sm"
-                    className="bg-primary hover:bg-primary/90 text-white font-semibold rounded-full px-4 h-8 text-xs shadow-lg shadow-primary/30 transition-all hover:scale-105 animate-pulse-soft"
-                  >
-                    SAIBA MAIS
-                  </Button>
-                </div>
+        {/* Bottom Cards with Large Icons */}
+        <div className="grid grid-cols-2 gap-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
+          {/* Perto de mim Card */}
+          <div className="relative h-40 rounded-2xl overflow-hidden cursor-pointer group bg-white shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
+              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500/10 to-cyan-400/10 flex items-center justify-center relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full blur-xl opacity-20" />
+                <Navigation className="h-8 w-8 text-blue-500 relative z-10" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-base font-medium text-gray-900">Perto de mim</h3>
+                <p className="text-xs text-gray-500 mt-1">Encontre locais próximos</p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Small Highlight Cards with Glass Effect */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Perto de mim */}
-          <div className="glass-strong rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 cursor-pointer relative overflow-hidden group gradient-border">
-            <div className="absolute top-3 right-3 w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-400 rounded-full flex items-center justify-center shadow-lg shadow-pink-500/30 group-hover:scale-110 transition-transform">
-              <Wifi className="text-white" size={16} />
+          {/* SP Trans Card */}
+          <div className="relative h-40 rounded-2xl overflow-hidden cursor-pointer group bg-white shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
+              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-green-500/10 to-emerald-400/10 flex items-center justify-center relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-400 rounded-full blur-xl opacity-20" />
+                <Bus className="h-8 w-8 text-green-500 relative z-10" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-base font-medium text-gray-900">SP Trans</h3>
+                <p className="text-xs text-gray-500 mt-1">Consulte linhas e horários</p>
+              </div>
             </div>
-            <h3 className="font-bold text-foreground text-sm mb-1">Perto de mim</h3>
-            <p className="text-xs text-primary font-medium mb-3">Serviços</p>
-            <img 
-              src={mapLocation} 
-              alt="Map" 
-              className="w-16 h-16 object-contain ml-auto animate-float opacity-90" 
-            />
-          </div>
-
-          {/* SP Trans */}
-          <div className="glass-strong rounded-2xl p-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 cursor-pointer relative overflow-hidden group gradient-border">
-            <div className="absolute top-3 right-3 w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">
-              <Wrench className="text-white" size={16} />
-            </div>
-            <h3 className="font-bold text-foreground text-sm mb-1">SP Trans</h3>
-            <p className="text-xs text-primary font-medium mb-3">Fique por dentro</p>
-            <img 
-              src={busSptrans} 
-              alt="Bus" 
-              className="w-20 h-12 object-contain ml-auto animate-float opacity-90" 
-              style={{ animationDelay: '1s' }}
-            />
           </div>
         </div>
       </div>
