@@ -4,7 +4,6 @@ import AIHeader from "@/components/ai/AIHeader";
 import AIAvatar from "@/components/ai/AIAvatar";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
 import AIWelcome from "@/components/ai/AIWelcome";
-import InteractionCarousel from "@/components/ai/InteractionCarousel";
 import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
 import SessionResume from "@/components/ai/SessionResume";
 import AIMessage from "@/components/ai/AIMessage";
@@ -368,11 +367,6 @@ const IA = () => {
 
       {/* Content */}
       <div className={`px-6 ${currentJourney ? 'pt-4' : ''}`}>
-        {/* Interaction Carousel - sempre visível quando não há jornada */}
-        {!currentJourney && (
-          <InteractionCarousel onSelect={handleInteractionSelect} />
-        )}
-
         {/* Conversation Hub - All Journeys */}
         {!currentJourney && (
           <div className="pb-24">

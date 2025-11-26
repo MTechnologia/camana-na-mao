@@ -23,21 +23,12 @@ const ActiveConversationsList = ({
 }: ActiveConversationsListProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [periodFilter, setPeriodFilter] = useState("all");
-  const [journeyFilter, setJourneyFilter] = useState("all");
 
   // Flatten all conversations for filtering
   const allConversations = useMemo(() => {
     return Object.entries(conversations).flatMap(([journeyId, convs]) =>
       convs.map((conv) => ({ ...conv, journeyId }))
     );
-  }, [conversations]);
-
-  // Get available journeys
-  const availableJourneys = useMemo(() => {
-    const journeyIds = Object.keys(conversations);
-    return journeyIds
-      .map((id) => ({ id, label: AI_JOURNEYS[id]?.label || id }))
-      .filter((j) => j.label);
   }, [conversations]);
 
   // Apply filters
@@ -65,13 +56,8 @@ const ActiveConversationsList = ({
       });
     }
 
-    // Journey filter
-    if (journeyFilter !== "all") {
-      filtered = filtered.filter((conv) => conv.journeyId === journeyFilter);
-    }
-
     return filtered;
-  }, [allConversations, searchQuery, periodFilter, journeyFilter]);
+  }, [allConversations, searchQuery, periodFilter]);
 
   // Group filtered conversations by journey
   const groupedConversations = useMemo(() => {
@@ -90,14 +76,12 @@ const ActiveConversationsList = ({
     let count = 0;
     if (searchQuery.trim()) count++;
     if (periodFilter !== "all") count++;
-    if (journeyFilter !== "all") count++;
     return count;
-  }, [searchQuery, periodFilter, journeyFilter]);
+  }, [searchQuery, periodFilter]);
 
   const handleClearFilters = () => {
     setSearchQuery("");
     setPeriodFilter("all");
-    setJourneyFilter("all");
   };
 
   if (allConversations.length === 0) {
@@ -123,9 +107,6 @@ const ActiveConversationsList = ({
         archivedCount={0}
         periodFilter={periodFilter}
         onPeriodChange={setPeriodFilter}
-        journeyFilter={journeyFilter}
-        onJourneyChange={setJourneyFilter}
-        availableJourneys={availableJourneys}
         onClearFilters={handleClearFilters}
       />
 
