@@ -36,10 +36,10 @@ const Home = () => {
   const [nextAudiencia, setNextAudiencia] = useState<any>(null);
 
   const highlights = [
-    { id: 1, image: camaraAbertaBg, title: "Câmara Aberta" },
-    { id: 2, image: bannerParticipacao, title: "Transparência e Participação" },
-    { id: 3, image: bannerCidadeDigital, title: "São Paulo Digital" },
-    { id: 4, image: bannerAudiencias, title: "Audiências Públicas" },
+    { id: 1, image: camaraAbertaBg, title: "Câmara Aberta", path: "/institucional/conheca-camara" },
+    { id: 2, image: bannerParticipacao, title: "Transparência e Participação", path: "/audiencias/participacao" },
+    { id: 3, image: bannerCidadeDigital, title: "São Paulo Digital", path: "/ia" },
+    { id: 4, image: bannerAudiencias, title: "Audiências Públicas", path: "/audiencias" },
   ];
 
   const shortcuts = [
@@ -195,7 +195,10 @@ const Home = () => {
             <CarouselContent>
               {highlights.map((highlight) => (
                 <CarouselItem key={highlight.id}>
-                  <div className="relative h-48 rounded-2xl overflow-hidden shadow-sm">
+                  <div 
+                    className="relative h-48 rounded-2xl overflow-hidden shadow-sm cursor-pointer hover:shadow-md transition-all duration-200"
+                    onClick={() => navigate(highlight.path)}
+                  >
                     <img
                       src={highlight.image}
                       alt={highlight.title}
