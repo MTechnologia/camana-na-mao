@@ -8,7 +8,7 @@ interface InstitutionalLayoutProps {
   title: string;
   children: ReactNode;
   category?: string;
-  onSearch?: () => void;
+  showSearch?: boolean;
   showOfflineIndicator?: boolean;
   backTo?: string;
 }
@@ -17,10 +17,12 @@ const InstitutionalLayout = ({
   title,
   children,
   category,
-  onSearch,
+  showSearch = true,
   showOfflineIndicator = false,
   backTo = "/home",
 }: InstitutionalLayoutProps) => {
+  const navigate = useNavigate();
+  
   return (
     <div className="min-h-screen bg-background">
       <PageHeader title={title} backTo={backTo} />
@@ -42,9 +44,9 @@ const InstitutionalLayout = ({
           </div>
           
           <div className="flex items-center gap-1">
-            {onSearch && (
+            {showSearch && (
               <button
-                onClick={onSearch}
+                onClick={() => navigate("/search")}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
                 aria-label="Buscar"
               >
