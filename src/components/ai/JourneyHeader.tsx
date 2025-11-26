@@ -114,10 +114,16 @@ const JourneyHeader = ({
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-background border z-50">
+            <DropdownMenuContent align="end" className="w-48 bg-background border z-[100]">
               {onMinimize && (
                 <>
-                  <DropdownMenuItem onClick={onMinimize}>
+                  <DropdownMenuItem 
+                    onClick={(e) => { 
+                      e.preventDefault(); 
+                      e.stopPropagation(); 
+                      onMinimize(); 
+                    }}
+                  >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Voltar ao Hub
                   </DropdownMenuItem>
@@ -125,13 +131,23 @@ const JourneyHeader = ({
                 </>
               )}
               {onArchive && (
-                <DropdownMenuItem onClick={onArchive}>
+                <DropdownMenuItem 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    onArchive(); 
+                  }}
+                >
                   <Archive className="w-4 h-4 mr-2" />
                   Arquivar Conversa
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
-                onClick={() => setShowEndDialog(true)}
+                onClick={(e) => { 
+                  e.preventDefault(); 
+                  e.stopPropagation(); 
+                  setShowEndDialog(true); 
+                }}
                 className="text-destructive focus:text-destructive"
               >
                 <XCircle className="w-4 h-4 mr-2" />

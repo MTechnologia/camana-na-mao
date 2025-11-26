@@ -112,25 +112,16 @@ export default function ConversationHub({
 
   return (
     <div className="space-y-4">
-      {/* Header with New Conversation Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-foreground">
-            {filterJourney ? "Minhas Conversas" : "Todas as Conversas"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {filterJourney
-              ? `Conversas sobre ${AI_JOURNEYS[filterJourney]?.label || "este tema"}`
-              : "Gerencie todas as suas conversas com IA"}
-          </p>
-        </div>
-        <Button
-          onClick={() => onNewConversation(filterJourney || "general")}
-          className="gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Conversa
-        </Button>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">
+          {filterJourney ? "Minhas Conversas" : "Todas as Conversas"}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {filterJourney
+            ? `Conversas sobre ${AI_JOURNEYS[filterJourney]?.label || "este tema"}`
+            : "Gerencie todas as suas conversas com IA"}
+        </p>
       </div>
 
       {/* Tabs for Active/Archived */}
