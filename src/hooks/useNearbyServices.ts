@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { servicosProximos, type SearchResult } from "@/data/searchData";
 
 interface NearbyService {
   id: string;
@@ -24,6 +25,20 @@ interface UseNearbyServicesProps {
   radiusMeters?: number;
   serviceType?: ServiceType;
 }
+
+// Convert mocked SearchResult to NearbyService format
+const convertMockedToService = (item: SearchResult): NearbyService => ({
+  id: item.id,
+  name: item.title,
+  service_type: (item.metadata?.serviceType || "other") as any,
+  address: item.description,
+  district: item.metadata?.district || "",
+  latitude: item.metadata?.latitude || 0,
+  longitude: item.metadata?.longitude || 0,
+  phone: item.metadata?.phone || null,
+  average_rating: item.metadata?.rating || 0,
+  total_ratings: item.metadata?.totalRatings || 0,
+});
 
 // Haversine formula to calculate distance between two points
 const calculateDistance = (
@@ -78,8 +93,13 @@ export const useNearbyServices = ({
 
       if (fetchError) throw fetchError;
 
+      // Use mocked data as fallback if Supabase is empty
+      const sourceData = data && data.length > 0 
+        ? data 
+        : servicosProximos.map(convertMockedToService);
+
       // Filter by distance and calculate distances
-      const servicesWithDistance = (data || [])
+      const servicesWithDistance = sourceData
         .map(service => ({
           ...service,
           distance: calculateDistance(
