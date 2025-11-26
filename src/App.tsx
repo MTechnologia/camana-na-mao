@@ -46,6 +46,11 @@ import MyReportsPage from "./pages/transport/MyReportsPage";
 import ReferralPage from "./pages/transport/ReferralPage";
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
 import AdvancedAnalytics from "./pages/analytics/AdvancedAnalytics";
+import UrbanReportPage from "./pages/UrbanReportPage";
+import ChatReportPage from "./pages/urban/ChatReportPage";
+import ManualReportPage from "./pages/urban/ManualReportPage";
+import ReportHistoryPage from "./pages/urban/ReportHistoryPage";
+import ServiceRecommendationsPage from "./pages/ServiceRecommendationsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import DashboardManagement from "./pages/admin/DashboardManagement";
@@ -98,6 +103,11 @@ const AppContent = () => {
         <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
+          <Route path="/relato-urbano" element={<UrbanReportPage />} />
+          <Route path="/relato-urbano/chat" element={<ChatReportPage />} />
+          <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
+          <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
+          <Route path="/recomendacoes" element={<ServiceRecommendationsPage />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />

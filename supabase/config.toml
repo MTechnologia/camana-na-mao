@@ -5,3 +5,9 @@ verify_jwt = true
 
 [functions.diagnose-transport]
 verify_jwt = true
+
+[functions.urban-report-chat]
+verify_jwt = true
+
+[functions.recommend-services]
+verify_jwt = true
