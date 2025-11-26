@@ -79,7 +79,7 @@ const Login = () => {
               placeholder="nome@email.com.br"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-12"
+              className="h-12 rounded-xl"
               required
             />
           </div>
@@ -92,7 +92,7 @@ const Login = () => {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 pr-10"
+                className="h-12 rounded-xl pr-10"
                 required
               />
               <button
@@ -108,7 +108,7 @@ const Login = () => {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-full mb-4"
+            className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl mb-4"
           >
             {loading ? "Entrando..." : "Continuar"}
           </Button>

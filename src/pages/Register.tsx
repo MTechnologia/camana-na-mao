@@ -141,7 +141,7 @@ const Register = () => {
                   placeholder="Digite seu nome completo"
                   value={formData.fullName}
                   onChange={(e) => handleChange("fullName", e.target.value)}
-                  className="h-14 bg-gray-50 border-gray-200"
+                  className="h-14 bg-gray-50 border-gray-200 rounded-xl"
                   required
                 />
               </div>
@@ -155,7 +155,7 @@ const Register = () => {
                   placeholder="seuemail@exemplo.com"
                   value={formData.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  className="h-14 bg-gray-50 border-gray-200"
+                  className="h-14 bg-gray-50 border-gray-200 rounded-xl"
                   required
                 />
               </div>
@@ -169,14 +169,14 @@ const Register = () => {
                   placeholder="(11) 98765-4321"
                   value={formData.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
-                  className="h-14 bg-gray-50 border-gray-200"
+                  className="h-14 bg-gray-50 border-gray-200 rounded-xl"
                   required
                 />
               </div>
 
               <Button
                 type="submit"
-                className="w-full h-14 bg-gray-900 text-white hover:bg-gray-800 rounded-full text-base font-medium mt-6"
+                className="w-full h-14 bg-gray-900 text-white hover:bg-gray-800 rounded-xl text-base font-medium mt-6"
               >
                 Continuar
               </Button>
@@ -197,7 +197,7 @@ const Register = () => {
                     placeholder="Digite sua senha"
                     value={formData.password}
                     onChange={(e) => handleChange("password", e.target.value)}
-                    className="h-14 bg-gray-50 border-gray-200 pr-12"
+                    className="h-14 bg-gray-50 border-gray-200 rounded-xl pr-12"
                     required
                   />
                   <button
@@ -208,27 +208,7 @@ const Register = () => {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                
-                {formData.password && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-gray-600">Força da senha:</span>
-                      <span className={`text-xs font-medium ${
-                        passwordStrength.strength === 33 ? "text-red-500" :
-                        passwordStrength.strength === 66 ? "text-yellow-500" :
-                        "text-green-500"
-                      }`}>
-                        {passwordStrength.label}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-300 ${passwordStrength.color}`}
-                        style={{ width: `${passwordStrength.strength}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+...
               </div>
 
               <div>
@@ -241,7 +221,7 @@ const Register = () => {
                     placeholder="Digite sua senha novamente"
                     value={formData.confirmPassword}
                     onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                    className="h-14 bg-gray-50 border-gray-200 pr-12"
+                    className="h-14 bg-gray-50 border-gray-200 rounded-xl pr-12"
                     required
                   />
                   <button
@@ -257,7 +237,7 @@ const Register = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-14 bg-gray-900 text-white hover:bg-gray-800 rounded-full text-base font-medium mt-6"
+                className="w-full h-14 bg-gray-900 text-white hover:bg-gray-800 rounded-xl text-base font-medium mt-6"
               >
                 {loading ? "Criando conta..." : "Criar Conta"}
               </Button>
