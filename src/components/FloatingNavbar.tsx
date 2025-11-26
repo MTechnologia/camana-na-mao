@@ -106,12 +106,12 @@ const FloatingNavbar = () => {
             >
               <div className="relative">
                 <Icon size={20} />
-                {item.badge && !isActive && (
+                {item.badge !== undefined && item.badge > 0 && !isActive && (
                   <Badge 
                     variant="destructive" 
-                    className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full"
+                    className="absolute -top-1.5 -right-1.5 min-w-[16px] min-h-[16px] h-4 w-4 p-0 flex items-center justify-center text-[10px] leading-none rounded-full"
                   >
-                    {item.badge}
+                    {item.badge > 99 ? '99+' : item.badge}
                   </Badge>
                 )}
               </div>
