@@ -122,10 +122,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       });
 
       const byStatus = [
-        { status: 'Pendente', count: statusCounts.get('pending') || 0, color: 'hsl(var(--chart-2))' },
-        { status: 'Em Análise', count: statusCounts.get('in_progress') || 0, color: 'hsl(var(--chart-3))' },
-        { status: 'Resolvido', count: statusCounts.get('resolved') || 0, color: 'hsl(var(--chart-1))' },
-        { status: 'Rejeitado', count: statusCounts.get('rejected') || 0, color: 'hsl(var(--chart-5))' },
+        { status: 'Pendente', count: statusCounts.get('pending') || 0, color: 'hsl(var(--chart-3))' },     // Yellow
+        { status: 'Em Análise', count: statusCounts.get('in_progress') || 0, color: 'hsl(var(--chart-2))' }, // Blue
+        { status: 'Resolvido', count: statusCounts.get('resolved') || 0, color: 'hsl(var(--chart-1))' },   // Green
+        { status: 'Rejeitado', count: statusCounts.get('rejected') || 0, color: 'hsl(var(--chart-5))' },   // Red
       ];
 
       // Calculate categories
@@ -150,10 +150,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       const criticalScore = total > 0 ? (critical / total) * 100 : 0;
 
       const bySeverity = [
-        { severity: 'Crítico', count: critical, percentage: criticalScore },
-        { severity: 'Alto', count: severityCounts.get('high') || 0, percentage: total > 0 ? ((severityCounts.get('high') || 0) / total) * 100 : 0 },
-        { severity: 'Médio', count: severityCounts.get('medium') || 0, percentage: total > 0 ? ((severityCounts.get('medium') || 0) / total) * 100 : 0 },
-        { severity: 'Baixo', count: severityCounts.get('low') || 0, percentage: total > 0 ? ((severityCounts.get('low') || 0) / total) * 100 : 0 },
+        { severity: 'Crítico', count: critical, percentage: criticalScore, color: 'hsl(var(--chart-5))' },   // Red
+        { severity: 'Alto', count: severityCounts.get('high') || 0, percentage: total > 0 ? ((severityCounts.get('high') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-3))' },      // Yellow
+        { severity: 'Médio', count: severityCounts.get('medium') || 0, percentage: total > 0 ? ((severityCounts.get('medium') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-2))' },     // Blue
+        { severity: 'Baixo', count: severityCounts.get('low') || 0, percentage: total > 0 ? ((severityCounts.get('low') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-1))' },     // Green
       ];
 
       // Calculate engagement metrics
@@ -187,10 +187,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       const resolved = statusCounts.get('resolved') || 0;
 
       const conversionFunnel: FunnelStep[] = [
-        { label: 'Relatos Criados', count: total, percentage: 100 },
-        { label: 'Com Interação', count: withInteraction, percentage: total > 0 ? (withInteraction / total) * 100 : 0 },
-        { label: 'Apoiados', count: withLikes, percentage: total > 0 ? (withLikes / total) * 100 : 0 },
-        { label: 'Resolvidos', count: resolved, percentage: total > 0 ? (resolved / total) * 100 : 0 },
+        { label: 'Relatos Criados', count: total, percentage: 100, color: 'hsl(var(--chart-2))' },
+        { label: 'Com Interação', count: withInteraction, percentage: total > 0 ? (withInteraction / total) * 100 : 0, color: 'hsl(var(--chart-6))' },
+        { label: 'Apoiados', count: withLikes, percentage: total > 0 ? (withLikes / total) * 100 : 0, color: 'hsl(var(--chart-3))' },
+        { label: 'Resolvidos', count: resolved, percentage: total > 0 ? (resolved / total) * 100 : 0, color: 'hsl(var(--chart-1))' },
       ];
 
       // Mock demographics (would need to join with user data in real implementation)

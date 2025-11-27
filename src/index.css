@@ -54,6 +54,16 @@ All colors MUST be HSL.
     /* AI specific gradients */
     --ai-start: 358 93% 45%;
     --ai-end: 358 93% 55%;
+
+    /* Chart colors - modern vibrant palette */
+    --chart-1: 142 76% 36%;    /* Green success - #22c55e */
+    --chart-2: 221 83% 53%;    /* Blue primary - #3b82f6 */
+    --chart-3: 38 92% 50%;     /* Yellow/orange - #f59e0b */
+    --chart-4: 262 83% 58%;    /* Purple - #8b5cf6 */
+    --chart-5: 0 84% 60%;      /* Red alert - #ef4444 */
+    --chart-6: 187 96% 42%;    /* Cyan - #06b6d4 */
+    --chart-7: 330 81% 60%;    /* Pink - #ec4899 */
+    --chart-8: 45 93% 47%;     /* Gold - #eab308 */
   }
 }
 

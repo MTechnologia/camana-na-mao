@@ -14,10 +14,18 @@ interface StatusDonutProps {
 }
 
 export const StatusDonut = ({ data, total, onSegmentClick }: StatusDonutProps) => {
+  // Semantic colors for status
+  const statusColorMap: Record<string, string> = {
+    'Pendente': 'hsl(var(--chart-3))',     // Yellow
+    'Em Análise': 'hsl(var(--chart-2))',   // Blue
+    'Resolvido': 'hsl(var(--chart-1))',    // Green
+    'Rejeitado': 'hsl(var(--chart-5))',    // Red
+  };
+
   const chartData = data.map(item => ({
     name: item.status,
     value: item.count,
-    color: item.color,
+    color: item.color || statusColorMap[item.status] || 'hsl(var(--chart-4))',
     percentage: ((item.count / total) * 100).toFixed(1)
   }));
 
