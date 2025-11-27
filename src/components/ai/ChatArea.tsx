@@ -24,13 +24,12 @@ const ChatArea = () => {
     localConversationId
   );
   const { createConversation } = useAIConversations();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, createdReport]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading, createdReport]);
 
   const hasMessages = messages.length > 0;
 
@@ -77,7 +76,7 @@ const ChatArea = () => {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Messages Area */}
-      <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 px-4">
         <div className="max-w-4xl mx-auto py-8">
           {!hasMessages ? (
             <ChatEmptyState onSuggestionClick={handleSendMessage} />
@@ -101,6 +100,9 @@ const ChatArea = () => {
                   <span className="text-sm">Pensando...</span>
                 </div>
               )}
+              
+              {/* Invisible element to scroll to */}
+              <div ref={messagesEndRef} />
             </div>
           )}
         </div>

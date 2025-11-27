@@ -289,25 +289,43 @@ serve(async (req) => {
       }
     }
 
-    // Se não há tool call, fazer streaming normal da resposta
-    const streamResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-15)
-        ],
-        stream: true,
-      }),
-    });
+    // Se não há tool call, fazer streaming normal da resposta com retry
+    let streamResponse: Response | null = null;
+    let retries = 3;
+    
+    while (retries > 0) {
+      streamResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.slice(-15)
+          ],
+          stream: true,
+        }),
+      });
 
-    if (!streamResponse.ok) {
+      if (streamResponse.ok) break;
+      
+      if (streamResponse.status === 503 || streamResponse.status === 500) {
+        retries--;
+        if (retries > 0) {
+          console.log(`AI gateway returned ${streamResponse.status}, retrying... (${retries} left)`);
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+      }
+      
       throw new Error(`AI gateway streaming error: ${streamResponse.status}`);
+    }
+
+    if (!streamResponse || !streamResponse.ok) {
+      throw new Error('Failed to get streaming response after retries');
     }
 
     return new Response(streamResponse.body, {
