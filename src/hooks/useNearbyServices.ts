@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 import { servicosProximos, type SearchResult } from "@/data/searchData";
 
 interface NearbyService {
@@ -13,7 +12,7 @@ interface NearbyService {
   phone: string | null;
   average_rating: number;
   total_ratings: number;
-  distance?: number; // in meters
+  distance?: number;
 }
 
 type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "other" | "all";
@@ -29,7 +28,7 @@ interface UseNearbyServicesProps {
 const convertMockedToService = (item: SearchResult): NearbyService => ({
   id: item.id,
   name: item.title,
-  service_type: (item.metadata?.serviceType || "other") as any,
+  service_type: (item.metadata?.serviceType || "other") as string,
   address: item.description,
   district: item.metadata?.district || "",
   latitude: item.metadata?.latitude || 0,
@@ -60,94 +59,44 @@ const calculateDistance = (
   return R * c;
 };
 
-// Helper to get initial services with simulated location
-const getInitialServices = (
-  radiusMeters: number = 5000,
-  serviceType?: ServiceType
-): NearbyService[] => {
-  const userLat = -23.5505; // Praça da Sé
-  const userLng = -46.6333;
-  
-  let mockedData = servicosProximos.map(convertMockedToService);
-  
-  if (serviceType && serviceType !== "all") {
-    mockedData = mockedData.filter(service => service.service_type === serviceType);
-  }
-  
-  return mockedData
-    .map(service => ({
-      ...service,
-      distance: calculateDistance(
-        userLat,
-        userLng,
-        Number(service.latitude),
-        Number(service.longitude)
-      ),
-    }))
-    .filter(service => service.distance <= radiusMeters)
-    .sort((a, b) => a.distance - b.distance);
-};
-
 export const useNearbyServices = ({
   latitude,
   longitude,
   radiusMeters = 5000,
   serviceType,
 }: UseNearbyServicesProps) => {
-  const [services, setServices] = useState<NearbyService[]>(() => 
-    getInitialServices(radiusMeters, serviceType)
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Usar localização padrão (Praça da Sé) se não fornecida
+  const userLat = latitude ?? -23.5505;
+  const userLng = longitude ?? -46.6333;
 
-  const fetchNearbyServices = () => {
-    // SEMPRE usar localização simulada padrão
-    const userLat = latitude ?? -23.5505; // Praça da Sé
-    const userLng = longitude ?? -46.6333;
+  // Memoizar o cálculo dos serviços - só recalcula quando os filtros mudam
+  const services = useMemo(() => {
+    let mockedData = servicosProximos.map(convertMockedToService);
 
-    setError(null);
-
-    try {
-      // Usar apenas dados mockados (simulação)
-      let mockedData = servicosProximos.map(convertMockedToService);
-
-      // Filtrar por tipo de serviço se especificado
-      if (serviceType && serviceType !== "all") {
-        mockedData = mockedData.filter(service => service.service_type === serviceType);
-      }
-
-      // Calcular distância e filtrar por raio
-      const servicesWithDistance = mockedData
-        .map(service => ({
-          ...service,
-          distance: calculateDistance(
-            userLat,
-            userLng,
-            Number(service.latitude),
-            Number(service.longitude)
-          ),
-        }))
-        .filter(service => service.distance <= radiusMeters)
-        .sort((a, b) => a.distance - b.distance);
-
-      setServices(servicesWithDistance);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Erro ao buscar serviços";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    // Filtrar por tipo de serviço
+    if (serviceType && serviceType !== "all") {
+      mockedData = mockedData.filter(service => service.service_type === serviceType);
     }
-  };
 
-  useEffect(() => {
-    fetchNearbyServices();
-  }, [latitude, longitude, radiusMeters, serviceType]);
+    // Calcular distância e filtrar por raio
+    return mockedData
+      .map(service => ({
+        ...service,
+        distance: calculateDistance(
+          userLat,
+          userLng,
+          Number(service.latitude),
+          Number(service.longitude)
+        ),
+      }))
+      .filter(service => service.distance <= radiusMeters)
+      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+  }, [userLat, userLng, radiusMeters, serviceType]);
 
   return {
     services,
-    loading,
-    error,
-    refetch: fetchNearbyServices,
+    loading: false,
+    error: null,
+    refetch: () => {},
   };
 };
