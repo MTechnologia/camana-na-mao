@@ -37,7 +37,7 @@ Perguntas obrigatórias:
 Mantenha tom acolhedor e profissional. Faça uma pergunta por vez.
 Quando tiver todas as informações, resuma o relato e confirme com o usuário.`;
 
-    // Realizar análise com IA
+    // Realizar análise com IA (tool calling - não usa streaming)
     if (action === 'analyze') {
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -129,7 +129,7 @@ Quando tiver todas as informações, resuma o relato e confirme com o usuário.`
       );
     }
 
-    // Chat conversacional padrão
+    // Chat conversacional com STREAMING SSE
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -142,6 +142,7 @@ Quando tiver todas as informações, resuma o relato e confirme com o usuário.`
           { role: 'system', content: systemPrompt },
           ...messages,
         ],
+        stream: true,
       }),
     });
 
@@ -161,13 +162,15 @@ Quando tiver todas as informações, resuma o relato e confirme com o usuário.`
       throw new Error(`AI API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    const aiMessage = data.choices[0].message.content;
-
-    return new Response(
-      JSON.stringify({ message: aiMessage }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Retorna streaming SSE diretamente
+    return new Response(response.body, {
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      },
+    });
 
   } catch (error) {
     console.error('Error in diagnose-transport function:', error);

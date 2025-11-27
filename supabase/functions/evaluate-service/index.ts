@@ -1,26 +1,17 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface EvaluationRequest {
-  messages: Message[];
-  serviceId: string;
-  visitId?: string;
-}
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, serviceId }: EvaluationRequest = await req.json();
+    const { messages } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
     if (!LOVABLE_API_KEY) {
@@ -47,6 +38,7 @@ Formato de resposta:
 - Mantenha o tom conversacional e acolhedor
 - Se detectar problema grave, mostre empatia e ofereça ajuda`;
 
+    // Chat conversacional com STREAMING SSE
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -59,7 +51,7 @@ Formato de resposta:
           { role: 'system', content: systemPrompt },
           ...messages
         ],
-        temperature: 0.7,
+        stream: true,
       }),
     });
 
@@ -84,30 +76,15 @@ Formato de resposta:
       throw new Error('AI Gateway error');
     }
 
-    const data = await response.json();
-    const aiMessage = data.choices[0].message.content;
-
-    // Análise básica de sentimento
-    const lastUserMessage = messages[messages.length - 1]?.content.toLowerCase() || '';
-    let sentiment = 'neutral';
-    
-    const negativeWords = ['ruim', 'péssimo', 'horrível', 'demora', 'sujo', 'mal atendido'];
-    const positiveWords = ['bom', 'ótimo', 'excelente', 'rápido', 'limpo', 'bem atendido'];
-    
-    if (negativeWords.some(word => lastUserMessage.includes(word))) {
-      sentiment = 'negative';
-    } else if (positiveWords.some(word => lastUserMessage.includes(word))) {
-      sentiment = 'positive';
-    }
-
-    return new Response(
-      JSON.stringify({
-        message: aiMessage,
-        sentiment,
-        isComplete: messages.length >= 6, // Após 6 mensagens, considerar completo
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Retorna streaming SSE diretamente
+    return new Response(response.body, {
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      },
+    });
 
   } catch (error) {
     console.error('Error in evaluate-service:', error);
