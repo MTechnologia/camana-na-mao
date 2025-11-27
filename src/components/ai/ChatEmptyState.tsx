@@ -35,7 +35,7 @@ const suggestions = [
 
 const ChatEmptyState = ({ onSuggestionClick }: ChatEmptyStateProps) => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 pb-8">
       <AIAvatar />
       
       <h2 className="mt-6 text-2xl font-semibold text-center">
@@ -52,16 +52,16 @@ const ChatEmptyState = ({ onSuggestionClick }: ChatEmptyStateProps) => {
           return (
             <Card
               key={suggestion.title}
-              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors group"
+              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors group overflow-visible"
               onClick={() => onSuggestionClick(suggestion.message)}
             >
               <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg bg-muted group-hover:scale-110 transition-transform ${suggestion.color}`}>
+                <div className={`p-2 rounded-lg bg-muted group-hover:scale-110 transition-transform shrink-0 ${suggestion.color}`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-sm mb-1">{suggestion.title}</h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
+                  <p className="text-xs text-muted-foreground break-words">
                     {suggestion.message}
                   </p>
                 </div>
