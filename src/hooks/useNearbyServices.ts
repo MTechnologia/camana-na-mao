@@ -69,8 +69,13 @@ export const useNearbyServices = ({
   const userLat = latitude ?? -23.5505;
   const userLng = longitude ?? -46.6333;
 
-  // Memoizar o cálculo dos serviços - só recalcula quando os filtros mudam
+  // Memoizar o cálculo dos serviços
   const services = useMemo(() => {
+    if (!servicosProximos || servicosProximos.length === 0) {
+      return [];
+    }
+
+    // Converter todos os dados mockados
     let mockedData = servicosProximos.map(convertMockedToService);
 
     // Filtrar por tipo de serviço
@@ -78,19 +83,28 @@ export const useNearbyServices = ({
       mockedData = mockedData.filter(service => service.service_type === serviceType);
     }
 
-    // Calcular distância e filtrar por raio
-    return mockedData
-      .map(service => ({
-        ...service,
-        distance: calculateDistance(
-          userLat,
-          userLng,
-          Number(service.latitude),
-          Number(service.longitude)
-        ),
-      }))
-      .filter(service => service.distance <= radiusMeters)
-      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+    // Calcular distância e adicionar aos serviços
+    const withDistance = mockedData.map(service => {
+      const serviceLat = service.latitude;
+      const serviceLng = service.longitude;
+      
+      // Se coordenadas inválidas, usar distância grande
+      if (!serviceLat || !serviceLng || (serviceLat === 0 && serviceLng === 0)) {
+        return { ...service, distance: 999999 };
+      }
+
+      const distance = calculateDistance(userLat, userLng, serviceLat, serviceLng);
+      return { ...service, distance };
+    });
+
+    // Filtrar por raio de busca
+    const filtered = withDistance.filter(service => {
+      const d = service.distance;
+      return d !== undefined && d <= radiusMeters;
+    });
+
+    // Ordenar por distância
+    return filtered.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
   }, [userLat, userLng, radiusMeters, serviceType]);
 
   return {
