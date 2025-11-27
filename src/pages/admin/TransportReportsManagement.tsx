@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Bus, Search, Download, MessageSquare, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Bus, Search, Download, MessageSquare, AlertCircle, CheckCircle2, Eye, Trash2, List, LayoutGrid } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransportReportsAdmin } from '@/hooks/useTransportReportsAdmin';
@@ -14,6 +14,7 @@ import { KPICard } from '@/components/analytics/KPICard';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { TransportReportDetailModal } from '@/components/admin/TransportReportDetailModal';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
+import { TransportKanbanBoard } from '@/components/admin/TransportKanbanBoard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const TransportReportsManagement = () => {
@@ -46,6 +47,7 @@ const TransportReportsManagement = () => {
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteType, setDeleteType] = useState<'single' | 'bulk'>('single');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -84,6 +86,17 @@ const TransportReportsManagement = () => {
       setSelectedReports([]);
     }
     setDeleteDialogOpen(false);
+  };
+
+  const handleViewDetails = (report: any) => {
+    setSelectedReport(report);
+    setDetailModalOpen(true);
+  };
+
+  const handleDeleteReport = (report: any) => {
+    setSelectedReport(report);
+    setDeleteType('single');
+    setDeleteDialogOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -134,10 +147,33 @@ const TransportReportsManagement = () => {
               Gerencie e monitore relatos sobre transporte público
             </p>
           </div>
-          <Button onClick={exportToCSV} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Toggle de visualização */}
+            <div className="flex items-center border rounded-lg p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8"
+              >
+                <List className="h-4 w-4 mr-1" />
+                Lista
+              </Button>
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('kanban')}
+                className="h-8"
+              >
+                <LayoutGrid className="h-4 w-4 mr-1" />
+                Kanban
+              </Button>
+            </div>
+            <Button onClick={exportToCSV} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
+          </div>
         </div>
 
         {/* KPIs */}
@@ -262,7 +298,7 @@ const TransportReportsManagement = () => {
         </Card>
 
         {/* Barra de ações em lote */}
-        {selectedReports.length > 0 && (
+        {selectedReports.length > 0 && viewMode === 'list' && (
           <BulkActionsBar
             selectedCount={selectedReports.length}
             onMarkInProgress={() => handleBulkAction('in_progress')}
@@ -273,87 +309,132 @@ const TransportReportsManagement = () => {
           />
         )}
 
-        {/* Lista de Relatórios */}
-        <div className="space-y-4">
-          {loading ? (
-            [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32" />)
-          ) : reports.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Bus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-lg font-medium">Nenhum relatório encontrado</p>
-              <p className="text-sm text-muted-foreground">
-                Tente ajustar os filtros de busca
-              </p>
-            </Card>
+        {/* Visualização Kanban */}
+        {viewMode === 'kanban' ? (
+          loading ? (
+            <div className="grid grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-[500px]" />
+              ))}
+            </div>
           ) : (
-            reports.map((report) => (
-              <Card
-                key={report.id}
-                className="p-6 hover:shadow-md transition-all cursor-pointer"
-                onClick={() => {
-                  setSelectedReport(report);
-                  setDetailModalOpen(true);
-                }}
-              >
-                <div className="flex items-start gap-4">
-                  <Checkbox
-                    checked={selectedReports.includes(report.id)}
-                    onCheckedChange={(checked) =>
-                      handleSelectReport(report.id, checked as boolean)
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <div className="flex-1 space-y-3">
-                        <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-lg">
-                            {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)}
-                          </h3>
-                          <Badge variant="outline" className={getSeverityColor(report.severity)}>
-                            {getSeverityLabel(report.severity)}
-                          </Badge>
-                          <Badge variant="outline" className={getStatusColor(report.status)}>
-                            {getStatusLabel(report.status)}
-                          </Badge>
-                          {report.responded_at ? (
-                            <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Respondido
+            <TransportKanbanBoard
+              reports={reports}
+              onStatusChange={updateReportStatus}
+              onViewDetails={handleViewDetails}
+              onDelete={handleDeleteReport}
+            />
+          )
+        ) : (
+          /* Lista de Relatórios */
+          <div className="space-y-4">
+            {loading ? (
+              [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32" />)
+            ) : reports.length === 0 ? (
+              <Card className="p-12 text-center">
+                <Bus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-lg font-medium">Nenhum relatório encontrado</p>
+                <p className="text-sm text-muted-foreground">
+                  Tente ajustar os filtros de busca
+                </p>
+              </Card>
+            ) : (
+              reports.map((report) => (
+                <Card key={report.id} className="p-6 hover:shadow-md transition-all">
+                  <div className="flex items-start gap-4">
+                    <Checkbox
+                      checked={selectedReports.includes(report.id)}
+                      onCheckedChange={(checked) =>
+                        handleSelectReport(report.id, checked as boolean)
+                      }
+                    />
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-lg">
+                              {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)}
+                            </h3>
+                            <Badge variant="outline" className={getSeverityColor(report.severity)}>
+                              {getSeverityLabel(report.severity)}
                             </Badge>
-                          ) : (
-                            <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Aguardando
+                            <Badge variant="outline" className={getStatusColor(report.status)}>
+                              {getStatusLabel(report.status)}
                             </Badge>
+                            {report.responded_at ? (
+                              <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Respondido
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Aguardando
+                              </Badge>
+                            )}
+                          </div>
+                          {report.transport_lines && (
+                            <p className="text-sm text-muted-foreground">
+                              Linha: {report.transport_lines.line_code} - {report.transport_lines.line_name}
+                            </p>
                           )}
                         </div>
-                        {report.transport_lines && (
-                          <p className="text-sm text-muted-foreground">
-                            Linha: {report.transport_lines.line_code} - {report.transport_lines.line_name}
-                          </p>
-                        )}
+                      </div>
+                      {report.description && (
+                        <p className="text-sm text-foreground line-clamp-2">{report.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>
+                          {format(new Date(report.occurrence_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </span>
+                        {report.location && <span>• {report.location}</span>}
+                        {report.author && <span>• Por: {report.author.full_name}</span>}
                       </div>
                     </div>
-                    {report.description && (
-                      <p className="text-sm text-foreground line-clamp-2">{report.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>
-                        {format(new Date(report.occurrence_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                      </span>
-                      {report.location && <span>• {report.location}</span>}
-                      {report.author && <span>• Por: {report.author.full_name}</span>}
+
+                    {/* Ações do lado direito */}
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(report)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver Detalhes
+                      </Button>
+
+                      {report.status === 'pending' && (
+                        <Select onValueChange={(value) => updateReportStatus(report.id, value)}>
+                          <SelectTrigger className="w-full h-9">
+                            <SelectValue placeholder="Ações" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="in_progress">Em Andamento</SelectItem>
+                            <SelectItem value="resolved">Resolver</SelectItem>
+                            <SelectItem value="rejected">Rejeitar</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteReport(report)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Excluir
+                      </Button>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
+                </Card>
+              ))
+            )}
+          </div>
+        )}
 
-        {/* Paginação */}
-        {totalPages > 1 && (
+        {/* Paginação - apenas no modo lista */}
+        {viewMode === 'list' && totalPages > 1 && (
           <div className="flex justify-center gap-2">
             <Button
               variant="outline"
