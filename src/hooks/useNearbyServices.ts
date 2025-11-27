@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { servicosProximos, type SearchResult } from "@/data/searchData";
 
 interface NearbyService {
@@ -24,18 +24,22 @@ interface UseNearbyServicesProps {
   serviceType?: ServiceType;
 }
 
+// Coordenadas padrão: Praça da Sé, centro de São Paulo
+const CENTRO_SP = { lat: -23.5505, lng: -46.6333 };
+
 // Convert mocked SearchResult to NearbyService format
 const convertMockedToService = (item: SearchResult): NearbyService => ({
   id: item.id,
   name: item.title,
-  service_type: (item.metadata?.serviceType || "other") as string,
+  service_type: (item.metadata?.serviceType ?? "other") as string,
   address: item.description,
-  district: item.metadata?.district || "",
-  latitude: item.metadata?.latitude || 0,
-  longitude: item.metadata?.longitude || 0,
-  phone: item.metadata?.phone || null,
-  average_rating: item.metadata?.rating || 0,
-  total_ratings: item.metadata?.totalRatings || 0,
+  district: item.metadata?.district ?? "",
+  // Usar ?? para fallback seguro (|| trata 0 como falsy)
+  latitude: item.metadata?.latitude ?? CENTRO_SP.lat,
+  longitude: item.metadata?.longitude ?? CENTRO_SP.lng,
+  phone: item.metadata?.phone ?? null,
+  average_rating: item.metadata?.rating ?? 0,
+  total_ratings: item.metadata?.totalRatings ?? 0,
 });
 
 // Haversine formula to calculate distance between two points
@@ -59,15 +63,28 @@ const calculateDistance = (
   return R * c;
 };
 
+// Verificação robusta de coordenada válida
+const isValidCoordinate = (value: unknown): value is number => {
+  return typeof value === 'number' && !isNaN(value) && isFinite(value);
+};
+
 export const useNearbyServices = ({
   latitude,
   longitude,
   radiusMeters = 5000,
   serviceType,
 }: UseNearbyServicesProps) => {
-  // Usar localização padrão (Praça da Sé) se não fornecida
-  const userLat = latitude ?? -23.5505;
-  const userLng = longitude ?? -46.6333;
+  // useRef para manter última localização válida e evitar recálculos desnecessários
+  const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
+
+  // Atualizar ref apenas se receber localização válida
+  if (isValidCoordinate(latitude) && isValidCoordinate(longitude)) {
+    lastValidLocation.current = { lat: latitude, lng: longitude };
+  }
+
+  // Sempre usar localização válida (atual ou última conhecida)
+  const userLat = lastValidLocation.current.lat;
+  const userLng = lastValidLocation.current.lng;
 
   // Memoizar o cálculo dos serviços
   const services = useMemo(() => {
@@ -87,9 +104,12 @@ export const useNearbyServices = ({
     const withDistance = mockedData.map(service => {
       const serviceLat = service.latitude;
       const serviceLng = service.longitude;
-      
-      // Se coordenadas inválidas, usar distância grande
-      if (!serviceLat || !serviceLng || (serviceLat === 0 && serviceLng === 0)) {
+
+      // Verificação robusta: usar typeof e isNaN
+      const isValidLat = isValidCoordinate(serviceLat);
+      const isValidLng = isValidCoordinate(serviceLng);
+
+      if (!isValidLat || !isValidLng) {
         return { ...service, distance: 999999 };
       }
 
@@ -100,7 +120,7 @@ export const useNearbyServices = ({
     // Filtrar por raio de busca
     const filtered = withDistance.filter(service => {
       const d = service.distance;
-      return d !== undefined && d <= radiusMeters;
+      return isValidCoordinate(d) && d <= radiusMeters;
     });
 
     // Ordenar por distância
