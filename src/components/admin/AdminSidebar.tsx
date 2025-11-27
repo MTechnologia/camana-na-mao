@@ -70,7 +70,15 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         },
         { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
-        { title: 'Gestão de Painéis', icon: FileBarChart, href: '/admin/dashboards' },
+        {
+          title: 'Gestão de Painéis',
+          icon: FileBarChart,
+          submenu: [
+            { title: 'Aprovar Painéis', href: '/admin/dashboards' },
+            { title: 'Criar Painel', href: '/analytics/criar-painel' },
+            { title: 'Galeria Pública', href: '/analytics/paineis-publicos' },
+          ],
+        },
       ],
     },
   ];
