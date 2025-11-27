@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, TrendingUp, FileText, MessageSquare, Route } from 'lucide-react';
+import { Bus, TrendingUp, FileText, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
 
@@ -63,7 +63,7 @@ export default function TransportReportPage() {
               <div className="relative w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm 
                               border border-white/30 flex items-center justify-center
                               shadow-lg">
-                <Route className="w-10 h-10 text-white" />
+                <Bus className="w-10 h-10 text-white" />
               </div>
             </div>
             
