@@ -12,6 +12,7 @@ import { MapPin, Send, Mic, MicOff, Camera, X, Image as ImageIcon } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 import { useVoiceChat } from "@/hooks/useVoiceChat";
 
 const categories = [
@@ -73,6 +74,7 @@ const sendToN8N = async (reportData: any) => {
 export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceChat();
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -218,7 +220,12 @@ export default function ManualReportPage() {
         id: insertedReport.id,
         ...reportPayload,
         created_at: insertedReport.created_at,
-        categoryLabel: categories.find(c => c.value === formData.category)?.label
+        categoryLabel: categories.find(c => c.value === formData.category)?.label,
+        user: {
+          id: user.id,
+          name: profile?.full_name || 'Não informado',
+          email: user.email || 'Não informado'
+        }
       });
 
       navigate("/relato-urbano/historico");
