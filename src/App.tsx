@@ -112,6 +112,7 @@ const AppContent = () => {
           <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
+        <Route path="/perto-de-mim" element={<Navigate to="/servicos-proximos" replace />} />
         <Route path="/servico/:id" element={<ServiceDetailPage />} />
         <Route path="/avaliar" element={<EvaluationPage />} />
         <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
