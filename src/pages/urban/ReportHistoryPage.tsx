@@ -235,17 +235,12 @@ export default function ReportHistoryPage() {
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-foreground">
-                  {categoryLabels[report.category] || report.category}
+              {report.subcategory && (
+                <h3 className="font-semibold text-foreground mb-1">
+                  {report.subcategory}
                 </h3>
-                {report.subcategory && (
-                  <Badge variant="outline" className="text-xs">
-                    {report.subcategory}
-                  </Badge>
-                )}
-              </div>
-
+              )}
+              
               {showAuthor && report.profiles && (
                 <p className="text-xs text-muted-foreground mb-1">
                   Por {report.profiles.full_name}
@@ -253,23 +248,29 @@ export default function ReportHistoryPage() {
               )}
 
               {report.severity && (
-                <p className="text-xs text-muted-foreground mb-2">
+                <p className="text-xs text-muted-foreground">
                   Gravidade: {severityLabels[report.severity]}
                 </p>
               )}
             </div>
 
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setReportToDelete(report)}
-                disabled={deleting}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                {categoryLabels[report.category] || report.category}
+              </Badge>
+              
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setReportToDelete(report)}
+                  disabled={deleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {report.description && (
