@@ -12,6 +12,7 @@ import camaraAbertaBg from "@/assets/camara-aberta-bg.jpg";
 import bannerParticipacao from "@/assets/banner-participacao.jpg";
 import bannerCidadeDigital from "@/assets/banner-cidade-digital.jpg";
 import bannerAudiencias from "@/assets/banner-audiencias.jpg";
+import camaraLogo from "@/assets/camara-logo.png";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
@@ -114,6 +115,14 @@ const Home = () => {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between gap-4">
+            {/* Logo da Câmara */}
+            <img 
+              src={camaraLogo} 
+              alt="Câmara Municipal de São Paulo" 
+              className="h-10 w-auto object-contain cursor-pointer flex-shrink-0"
+              onClick={() => navigate('/home')}
+            />
+
             {/* Search Bar */}
             <div 
               className="flex-1 max-w-md relative cursor-pointer"
