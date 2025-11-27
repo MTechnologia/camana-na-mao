@@ -69,6 +69,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           ],
         },
         { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
+        { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
+        { title: 'Gestão de Painéis', icon: FileBarChart, href: '/admin/dashboards' },
       ],
     },
   ];

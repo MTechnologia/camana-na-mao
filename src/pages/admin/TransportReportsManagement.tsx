@@ -1,170 +1,197 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
-import { Bus, Search, AlertTriangle, Calendar } from 'lucide-react';
-import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Bus, Search, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-interface TransportReport {
-  id: string;
-  report_type: string;
-  description: string | null;
-  severity: string;
-  status: string;
-  occurrence_date: string;
-  location: string | null;
-  line_id: string | null;
-  line_code_custom: string | null;
-  created_at: string;
-  transport_lines?: {
-    line_code: string;
-    line_name: string;
-  };
-}
+import { useTransportReportsAdmin } from '@/hooks/useTransportReportsAdmin';
+import { KPICard } from '@/components/analytics/KPICard';
+import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
+import { ReportDetailModal } from '@/components/admin/ReportDetailModal';
+import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Pagination } from '@/components/ui/pagination';
 
 const TransportReportsManagement = () => {
-  const [reports, setReports] = useState<TransportReport[]>([]);
-  const [filteredReports, setFilteredReports] = useState<TransportReport[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const {
+    reports,
+    loading,
+    kpis,
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter,
+    severityFilter,
+    setSeverityFilter,
+    typeFilter,
+    setTypeFilter,
+    page,
+    setPage,
+    totalPages,
+    updateReportStatus,
+    updateBulkStatus,
+    deleteReport,
+    deleteBulkReports,
+    exportToCSV,
+  } = useTransportReportsAdmin();
 
-  useEffect(() => {
-    fetchReports();
-  }, []);
+  const [selectedReports, setSelectedReports] = useState<string[]>([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteType, setDeleteType] = useState<'single' | 'bulk'>('single');
 
-  useEffect(() => {
-    filterReports();
-  }, [reports, searchTerm, statusFilter, severityFilter]);
-
-  const fetchReports = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('transport_reports')
-        .select(`
-          *,
-          transport_lines (
-            line_code,
-            line_name
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setReports(data || []);
-    } catch (error) {
-      console.error('Error fetching reports:', error);
-      toast.error('Erro ao carregar relatos');
-    } finally {
-      setLoading(false);
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedReports(reports.map(r => r.id));
+    } else {
+      setSelectedReports([]);
     }
   };
 
-  const filterReports = () => {
-    let filtered = [...reports];
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (r) =>
-          r.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r.transport_lines?.line_name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  const handleSelectReport = (reportId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedReports([...selectedReports, reportId]);
+    } else {
+      setSelectedReports(selectedReports.filter(id => id !== reportId));
     }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((r) => r.status === statusFilter);
-    }
-
-    if (severityFilter !== 'all') {
-      filtered = filtered.filter((r) => r.severity === severityFilter);
-    }
-
-    setFilteredReports(filtered);
   };
 
-  const updateReportStatus = async (reportId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('transport_reports')
-        .update({ status: newStatus })
-        .eq('id', reportId);
+  const handleBulkAction = (action: string) => {
+    if (selectedReports.length === 0) return;
 
-      if (error) throw error;
-      
-      toast.success('Status atualizado com sucesso');
-      fetchReports();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Erro ao atualizar status');
+    if (action === 'delete') {
+      setDeleteType('bulk');
+      setDeleteDialogOpen(true);
+    } else {
+      updateBulkStatus(selectedReports, action);
+      setSelectedReports([]);
     }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteType === 'single' && selectedReport) {
+      await deleteReport(selectedReport.id);
+      setDetailModalOpen(false);
+    } else if (deleteType === 'bulk') {
+      await deleteBulkReports(selectedReports);
+      setSelectedReports([]);
+    }
+    setDeleteDialogOpen(false);
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
-      case 'in_progress': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-      case 'resolved': return 'bg-green-500/10 text-green-600 border-green-500/20';
-      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-500/20';
-      default: return 'bg-muted text-muted-foreground';
-    }
+    const colors = {
+      pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+      in_progress: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+      resolved: 'bg-green-500/10 text-green-600 border-green-500/20',
+      rejected: 'bg-red-500/10 text-red-600 border-red-500/20',
+    };
+    return colors[status as keyof typeof colors] || 'bg-muted text-foreground';
   };
 
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'critical': return 'bg-red-500/10 text-red-600 border-red-500/20';
-      case 'high': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
-      case 'medium': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
-      case 'low': return 'bg-green-500/10 text-green-600 border-green-500/20';
-      default: return 'bg-muted text-muted-foreground';
-    }
+    const colors = {
+      low: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+      medium: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+      high: 'bg-red-500/10 text-red-600 border-red-500/20',
+    };
+    return colors[severity as keyof typeof colors] || 'bg-muted text-foreground';
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Pendente';
-      case 'in_progress': return 'Em Andamento';
-      case 'resolved': return 'Resolvido';
-      case 'rejected': return 'Rejeitado';
-      default: return 'Desconhecido';
-    }
+    const labels = {
+      pending: 'Pendente',
+      in_progress: 'Em Andamento',
+      resolved: 'Resolvido',
+      rejected: 'Rejeitado',
+    };
+    return labels[status as keyof typeof labels] || status;
   };
 
   const getSeverityLabel = (severity: string) => {
-    switch (severity) {
-      case 'critical': return 'Crítica';
-      case 'high': return 'Alta';
-      case 'medium': return 'Média';
-      case 'low': return 'Baixa';
-      default: return 'Não definida';
-    }
+    const labels = {
+      low: 'Baixa',
+      medium: 'Média',
+      high: 'Alta',
+    };
+    return labels[severity as keyof typeof labels] || severity;
   };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Gestão de Relatos de Transporte</h1>
-          <p className="text-muted-foreground">Gerencie relatos do sistema de transporte público</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Gestão de Relatos de Transporte</h1>
+            <p className="text-muted-foreground">
+              Gerencie e monitore relatos sobre transporte público
+            </p>
+          </div>
+          <Button onClick={exportToCSV} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Exportar CSV
+          </Button>
         </div>
+
+        {/* KPIs */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <KPICard
+              title="Total"
+              value={kpis.total}
+              icon={Bus}
+              trend={{ value: Math.abs(kpis.totalTrend), direction: kpis.totalTrend >= 0 ? 'up' : 'down' }}
+            />
+            <KPICard
+              title="Pendentes"
+              value={kpis.pending}
+              icon={Bus}
+              trend={{ value: Math.abs(kpis.pendingTrend), direction: kpis.pendingTrend >= 0 ? 'up' : 'down' }}
+              className="border-yellow-500/20"
+            />
+            <KPICard
+              title="Em Andamento"
+              value={kpis.inProgress}
+              icon={Bus}
+              className="border-blue-500/20"
+            />
+            <KPICard
+              title="Resolvidos"
+              value={kpis.resolved}
+              icon={Bus}
+              className="border-green-500/20"
+            />
+            <KPICard
+              title="Rejeitados"
+              value={kpis.rejected}
+              icon={Bus}
+              className="border-red-500/20"
+            />
+          </div>
+        )}
 
         {/* Filtros */}
         <Card className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por descrição, linha ou local..."
+                placeholder="Buscar relatos..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+                className="pl-10"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -173,10 +200,10 @@ const TransportReportsManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="pending">Pendentes</SelectItem>
                 <SelectItem value="in_progress">Em Andamento</SelectItem>
-                <SelectItem value="resolved">Resolvido</SelectItem>
-                <SelectItem value="rejected">Rejeitado</SelectItem>
+                <SelectItem value="resolved">Resolvidos</SelectItem>
+                <SelectItem value="rejected">Rejeitados</SelectItem>
               </SelectContent>
             </Select>
             <Select value={severityFilter} onValueChange={setSeverityFilter}>
@@ -184,78 +211,144 @@ const TransportReportsManagement = () => {
                 <SelectValue placeholder="Severidade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas Severidades</SelectItem>
-                <SelectItem value="critical">Crítica</SelectItem>
-                <SelectItem value="high">Alta</SelectItem>
-                <SelectItem value="medium">Média</SelectItem>
+                <SelectItem value="all">Todas as Severidades</SelectItem>
                 <SelectItem value="low">Baixa</SelectItem>
+                <SelectItem value="medium">Média</SelectItem>
+                <SelectItem value="high">Alta</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Tipos</SelectItem>
+                <SelectItem value="atraso">Atraso</SelectItem>
+                <SelectItem value="lotacao">Lotação</SelectItem>
+                <SelectItem value="manutencao">Manutenção</SelectItem>
+                <SelectItem value="seguranca">Segurança</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </Card>
 
-        {/* Lista de Relatos */}
-        <div className="grid gap-4">
+        {/* Barra de ações em lote */}
+        {selectedReports.length > 0 && (
+          <BulkActionsBar
+            selectedCount={selectedReports.length}
+            onMarkInProgress={() => handleBulkAction('in_progress')}
+            onMarkResolved={() => handleBulkAction('resolved')}
+            onMarkRejected={() => handleBulkAction('rejected')}
+            onDelete={() => handleBulkAction('delete')}
+            onClear={() => setSelectedReports([])}
+          />
+        )}
+
+        {/* Lista de Relatórios */}
+        <div className="space-y-4">
           {loading ? (
-            <Card className="p-6">
-              <p className="text-center text-muted-foreground">Carregando relatos...</p>
-            </Card>
-          ) : filteredReports.length === 0 ? (
-            <Card className="p-6">
-              <p className="text-center text-muted-foreground">Nenhum relato encontrado</p>
+            [...Array(5)].map((_, i) => <Skeleton key={i} className="h-32" />)
+          ) : reports.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Bus className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-lg font-medium">Nenhum relatório encontrado</p>
+              <p className="text-sm text-muted-foreground">
+                Tente ajustar os filtros de busca
+              </p>
             </Card>
           ) : (
-            filteredReports.map((report) => (
-              <Card key={report.id} className="p-4 hover:border-primary/50 transition-colors">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={getSeverityColor(report.severity)}>
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        {getSeverityLabel(report.severity)}
-                      </Badge>
-                      <Badge className={getStatusColor(report.status)}>
-                        {getStatusLabel(report.status)}
-                      </Badge>
-                      <Badge variant="outline">{report.report_type}</Badge>
-                      {report.transport_lines && (
-                        <Badge variant="secondary" className="flex items-center gap-1">
-                          <Bus className="h-3 w-3" />
-                          {report.transport_lines.line_code} - {report.transport_lines.line_name}
-                        </Badge>
-                      )}
+            reports.map((report) => (
+              <Card
+                key={report.id}
+                className="p-6 hover:shadow-md transition-all cursor-pointer"
+                onClick={() => {
+                  setSelectedReport(report);
+                  setDetailModalOpen(true);
+                }}
+              >
+                <div className="flex items-start gap-4">
+                  <Checkbox
+                    checked={selectedReports.includes(report.id)}
+                    onCheckedChange={(checked) =>
+                      handleSelectReport(report.id, checked as boolean)
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-lg">
+                            {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)}
+                          </h3>
+                          <Badge variant="outline" className={getSeverityColor(report.severity)}>
+                            {getSeverityLabel(report.severity)}
+                          </Badge>
+                          <Badge variant="outline" className={getStatusColor(report.status)}>
+                            {getStatusLabel(report.status)}
+                          </Badge>
+                        </div>
+                        {report.transport_lines && (
+                          <p className="text-sm text-muted-foreground">
+                            Linha: {report.transport_lines.line_code} - {report.transport_lines.line_name}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm line-clamp-2">{report.description}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      {report.location && (
-                        <span>{report.location}</span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(report.occurrence_date), "dd 'de' MMM, yyyy", { locale: ptBR })}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    {report.status === 'pending' && (
-                      <Select onValueChange={(value) => updateReportStatus(report.id, value)}>
-                        <SelectTrigger className="w-full sm:w-40">
-                          <SelectValue placeholder="Ações" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="in_progress">Em Andamento</SelectItem>
-                          <SelectItem value="resolved">Resolver</SelectItem>
-                          <SelectItem value="rejected">Rejeitar</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    {report.description && (
+                      <p className="text-sm text-foreground line-clamp-2">{report.description}</p>
                     )}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>
+                        {format(new Date(report.occurrence_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </span>
+                      {report.location && <span>• {report.location}</span>}
+                      {report.author && <span>• Por: {report.author.full_name}</span>}
+                    </div>
                   </div>
                 </div>
               </Card>
             ))
           )}
         </div>
+
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex justify-center">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Modal de Detalhes */}
+      {selectedReport && (
+        <ReportDetailModal
+          open={detailModalOpen}
+          onClose={() => {
+            setDetailModalOpen(false);
+            setSelectedReport(null);
+          }}
+          report={selectedReport}
+          onStatusChange={updateReportStatus}
+          onDelete={() => {
+            setDeleteType('single');
+            setDeleteDialogOpen(true);
+          }}
+        />
+      )}
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <DeleteReportConfirmDialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        reportCount={deleteType === 'bulk' ? selectedReports.length : 1}
+      />
     </AdminLayout>
   );
 };
