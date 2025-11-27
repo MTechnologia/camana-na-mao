@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Search, AlertTriangle, Calendar as CalendarIcon, Eye, Download, RefreshCw, Heart, MessageSquare, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { MapPin, Search, AlertTriangle, Calendar as CalendarIcon, Eye, Download, RefreshCw, Heart, MessageSquare, ChevronLeft, ChevronRight, Trash2, List, Kanban } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useUrbanReportsAdmin } from '@/hooks/useUrbanReportsAdmin';
@@ -17,6 +17,7 @@ import { ReportKPIs } from '@/components/admin/ReportKPIs';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { ReportDetailModal } from '@/components/admin/ReportDetailModal';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
+import { UrbanKanbanBoard } from '@/components/admin/UrbanKanbanBoard';
 import { cn } from '@/lib/utils';
 
 const UrbanReportsManagement = () => {
@@ -46,6 +47,7 @@ const UrbanReportsManagement = () => {
     refetch,
   } = useUrbanReportsAdmin();
 
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [selectedReport, setSelectedReport] = useState<typeof reports[0] | null>(null);
@@ -130,6 +132,24 @@ const UrbanReportsManagement = () => {
             <p className="text-muted-foreground">Gerencie e acompanhe relatos da cidade</p>
           </div>
           <div className="flex gap-2">
+            <div className="flex gap-1 border rounded-md p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4 mr-1" />
+                Lista
+              </Button>
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('kanban')}
+              >
+                <Kanban className="h-4 w-4 mr-1" />
+                Kanban
+              </Button>
+            </div>
             <Button variant="outline" size="sm" onClick={refetch}>
               <RefreshCw className="h-4 w-4 mr-1" />
               Atualizar
@@ -247,7 +267,7 @@ const UrbanReportsManagement = () => {
           }}
         />
 
-        {/* Reports List */}
+        {/* Reports */}
         <div className="space-y-4">
           {loading ? (
             <Card className="p-6">
@@ -257,6 +277,19 @@ const UrbanReportsManagement = () => {
             <Card className="p-6">
               <p className="text-center text-muted-foreground">Nenhum relato encontrado</p>
             </Card>
+          ) : viewMode === 'kanban' ? (
+            <UrbanKanbanBoard
+              reports={reports}
+              onStatusChange={updateReportStatus}
+              onViewDetails={(report) => {
+                setSelectedReport(report as typeof reports[0]);
+                setDetailsOpen(true);
+              }}
+              onDelete={(report) => {
+                setReportToDelete(report.id);
+                setDeleteDialogOpen(true);
+              }}
+            />
           ) : (
             <>
               {/* Select All */}
@@ -378,8 +411,8 @@ const UrbanReportsManagement = () => {
           )}
         </div>
 
-        {/* Pagination */}
-        {totalCount > pageSize && (
+        {/* Pagination - only show in list mode */}
+        {viewMode === 'list' && totalCount > pageSize && (
           <Card className="p-4">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
