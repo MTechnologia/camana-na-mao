@@ -63,6 +63,7 @@ import AuditLogs from "./pages/admin/AuditLogs";
 import UrbanReportsManagement from "./pages/admin/UrbanReportsManagement";
 import TransportReportsManagement from "./pages/admin/TransportReportsManagement";
 import ReportsAnalytics from "./pages/admin/ReportsAnalytics";
+import SentimentAnalysis from "./pages/admin/SentimentAnalysis";
 import NotificationsManagement from "./pages/admin/NotificationsManagement";
 import N8NIntegration from "./pages/admin/settings/N8NIntegration";
 import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings";
@@ -136,6 +137,7 @@ const AppContent = () => {
           <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
+          <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
           <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />

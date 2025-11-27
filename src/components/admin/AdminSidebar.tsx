@@ -51,6 +51,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             { title: 'Relatos Urbanos', href: '/admin/urban-reports', badge: stats.pendingUrbanReports },
             { title: 'Relatos de Transporte', href: '/admin/transport-reports', badge: stats.pendingTransportReports },
             { title: 'Análise de Relatos', href: '/admin/reports-analytics' },
+            { title: 'Análise de Sentimento', href: '/admin/sentiment-analysis' },
           ],
         },
         { title: 'Gestão de Notificações', icon: Bell, href: '/admin/notifications' },
