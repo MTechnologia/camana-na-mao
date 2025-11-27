@@ -77,7 +77,7 @@ export const useProfileCompletion = () => {
       const completed = {
         basic: !!(profile?.full_name && profile?.phone),
         interests: (interests?.length || 0) >= 3,
-        demographics: !!(demographics?.birth_date && demographics?.gender),
+        demographics: !!(demographics?.gender && demographics?.race && demographics?.social_class),
         address: !!address,
       };
 
