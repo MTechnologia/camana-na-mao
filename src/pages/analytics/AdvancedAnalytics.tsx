@@ -5,7 +5,6 @@ import PageHeader from '@/components/ui/page-header';
 import FloatingNavbar from '@/components/FloatingNavbar';
 import { ChartCard } from '@/components/analytics/ChartCard';
 import { FilterBar } from '@/components/analytics/FilterBar';
-import { DrillDownDrawer } from '@/components/analytics/DrillDownDrawer';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -194,39 +193,6 @@ const AdvancedAnalytics = () => {
       </div>
 
       <FloatingNavbar />
-
-      {/* Drill Down Drawer */}
-      <DrillDownDrawer
-        isOpen={drillOpen}
-        onClose={() => setDrillOpen(false)}
-        breadcrumbs={drillPath}
-        onNavigate={(index) => setDrillPath(drillPath.slice(0, index + 1))}
-        title="Detalhamento da Análise"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Explorando: {drillPath[drillPath.length - 1]?.value}
-          </p>
-          
-          {/* Mock detailed data */}
-          <div className="grid gap-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="bg-muted rounded-lg p-4 cursor-pointer hover:bg-muted/80 transition-colors"
-                onClick={() => {
-                  setDrillPath([...drillPath, { label: 'Bairro', value: `Bairro ${i}` }]);
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Subdivisão {i}</span>
-                  <Badge variant="secondary">{Math.floor(Math.random() * 100)} relatos</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </DrillDownDrawer>
 
       {/* Export Dialog */}
       <ExportDialog
