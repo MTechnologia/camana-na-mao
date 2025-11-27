@@ -51,12 +51,15 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
         const savedMessages = (data.messages as any[]) || [];
         
+        // Determinar a jornada: usar a passada ou buscar pelo journey_id da conversa
+        const effectiveJourney = journey || (data.journey_id ? AI_JOURNEYS[data.journey_id] : null);
+        
         // Fallback: Se não há mensagens mas há jornada com initialMessage, adicionar
-        if (savedMessages.length === 0 && journey?.initialMessage) {
+        if (savedMessages.length === 0 && effectiveJourney?.initialMessage) {
           const initialMsg: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: journey.initialMessage,
+            content: effectiveJourney.initialMessage,
             timestamp: new Date().toLocaleTimeString("pt-BR", {
               hour: "2-digit",
               minute: "2-digit",
