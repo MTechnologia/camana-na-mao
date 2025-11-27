@@ -23,6 +23,53 @@ const categories = [
   { value: "outro", label: "Outro" }
 ];
 
+// Buscar configurações do N8N
+const getN8NSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('n8n_settings')
+      .select('webhook_url, secret_key, enabled_events')
+      .limit(1)
+      .single();
+    
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+// Enviar relato para N8N em background
+const sendToN8N = async (reportData: any) => {
+  try {
+    const settings = await getN8NSettings();
+    if (!settings || !settings.webhook_url) return;
+
+    // Verificar se o evento urban_report_created está habilitado
+    const events = (settings.enabled_events as any[]) || [];
+    const isEnabled = events.find((e: any) => e.key === 'urban_report_created')?.enabled;
+    if (!isEnabled) return;
+
+    // Enviar para N8N via edge function
+    await supabase.functions.invoke('n8n-webhook', {
+      body: {
+        webhookUrl: settings.webhook_url,
+        secretKey: settings.secret_key,
+        payload: {
+          event: 'urban_report_created',
+          timestamp: new Date().toISOString(),
+          data: reportData
+        }
+      }
+    });
+    
+    console.log('✅ Relato enviado para N8N');
+  } catch (error) {
+    // Log silencioso - não bloquear o fluxo do usuário
+    console.error('⚠️ Erro ao enviar para N8N (não crítico):', error);
+  }
+};
+
 export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -143,24 +190,37 @@ export default function ManualReportPage() {
         photoUrl = await uploadPhoto(user.id);
       }
 
-      const { error } = await supabase
+      const reportPayload = {
+        user_id: user.id,
+        category: formData.category,
+        subcategory: formData.title,
+        description: formData.description,
+        severity: "medium",
+        location_address: formData.location || null,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        photos: photoUrl ? [photoUrl] : null,
+        status: "pending"
+      };
+
+      const { data: insertedReport, error } = await supabase
         .from("urban_reports")
-        .insert({
-          user_id: user.id,
-          category: formData.category,
-          subcategory: formData.title,
-          description: formData.description,
-          severity: "medium",
-          location_address: formData.location || null,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          photos: photoUrl ? [photoUrl] : null,
-          status: "pending"
-        });
+        .insert(reportPayload)
+        .select()
+        .single();
 
       if (error) throw error;
 
       toast.success("Relato enviado com sucesso!");
+
+      // Enviar para N8N em background (não-bloqueante)
+      sendToN8N({
+        id: insertedReport.id,
+        ...reportPayload,
+        created_at: insertedReport.created_at,
+        categoryLabel: categories.find(c => c.value === formData.category)?.label
+      });
+
       navigate("/relato-urbano/historico");
     } catch (error) {
       console.error("Erro ao enviar relato:", error);
