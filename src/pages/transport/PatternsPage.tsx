@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -17,7 +16,7 @@ export default function PatternsPage() {
   return (
     <>
       <PageHeader title="Padrões Detectados" backTo="/transporte" />
-      <div className="min-h-screen bg-gray-50 pt-[60px] pb-24">
+      <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => (
@@ -85,7 +84,6 @@ export default function PatternsPage() {
           )}
         </div>
       </div>
-      <FloatingNavbar />
     </>
   );
 }

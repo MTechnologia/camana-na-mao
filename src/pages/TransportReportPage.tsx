@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { Bus, TrendingUp, FileText, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
 import busSptrans from '@/assets/bus-sptrans.png';
 
 export default function TransportReportPage() {
@@ -50,7 +49,7 @@ export default function TransportReportPage() {
   return (
     <>
       <PageHeader title="Diagnóstico de Transporte" backTo="/home" />
-      <div className="min-h-screen bg-gray-50 pt-[60px] pb-24">
+      <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="relative h-48 bg-gradient-to-br from-green-500 to-emerald-600">
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
             <img src={busSptrans} alt="SP Trans" className="w-20 h-20 mb-2" />
@@ -86,7 +85,6 @@ export default function TransportReportPage() {
           </div>
         </div>
       </div>
-      <FloatingNavbar />
     </>
   );
 }

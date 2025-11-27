@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
 import { severityLevels } from '@/data/transportProblems';
@@ -76,7 +75,7 @@ export default function NewReportPage() {
     return (
       <>
         <PageHeader title="Novo Relato" backTo="/transporte" />
-        <div className="min-h-screen bg-gray-50 pt-[60px] p-4 pb-24 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 pt-[60px] p-4 pb-6 flex items-center justify-center">
           <div className="max-w-md w-full">
             <ReportSuccessCard
               reportId={reportId}
@@ -85,7 +84,6 @@ export default function NewReportPage() {
             />
           </div>
         </div>
-        <FloatingNavbar />
       </>
     );
   }
@@ -97,7 +95,7 @@ export default function NewReportPage() {
         onBack={step > 1 ? handleBack : undefined}
         backTo={step === 1 ? '/transporte' : undefined}
       />
-      <div className="min-h-screen bg-gray-50 pt-[60px] pb-24">
+      <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="sticky top-[60px] z-10 bg-gray-50 border-b px-4 py-2">
           <Progress value={progress} />
         </div>
@@ -242,7 +240,6 @@ export default function NewReportPage() {
         )}
         </div>
       </div>
-      <FloatingNavbar />
     </>
   );
 }
