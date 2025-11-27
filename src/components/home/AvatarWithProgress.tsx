@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AvatarWithProgressProps {
@@ -90,6 +91,13 @@ export const AvatarWithProgress = ({
           </AvatarFallback>
         )}
       </Avatar>
+
+      {/* Badge de Check quando completo */}
+      {isComplete && (
+        <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 rounded-full p-0.5 border-2 border-background shadow-sm z-10">
+          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+        </div>
+      )}
     </div>
   );
 };
