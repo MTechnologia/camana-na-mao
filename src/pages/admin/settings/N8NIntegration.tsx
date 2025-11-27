@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2 } from 'lucide-react';
+import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface EventConfig {
@@ -17,6 +19,15 @@ interface EventConfig {
   label: string;
   enabled: boolean;
 }
+
+type Environment = 'test' | 'production' | 'unknown';
+
+const detectEnvironment = (url: string): Environment => {
+  if (!url) return 'unknown';
+  if (url.includes('/webhook-test/')) return 'test';
+  if (url.includes('/webhook/')) return 'production';
+  return 'unknown';
+};
 
 const N8NIntegration = () => {
   const { user } = useAuth();
@@ -26,6 +37,9 @@ const N8NIntegration = () => {
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  
+  const environment = detectEnvironment(webhookUrl);
   
   const [events, setEvents] = useState<EventConfig[]>([
     { key: 'urban_report_created', label: 'Novo relato urbano criado', enabled: true },
@@ -193,7 +207,7 @@ const N8NIntegration = () => {
 
         {/* Status da Conexão */}
         <Card className="p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-lg ${isConnected ? 'bg-green-500/10' : 'bg-muted'}`}>
                 {isConnected ? (
@@ -209,12 +223,41 @@ const N8NIntegration = () => {
                 </p>
               </div>
             </div>
-            {isConnected && (
-              <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
-                Ativo
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {isConnected && (
+                <Badge variant="secondary" className="bg-green-500/10 text-green-600 border-green-500/20">
+                  Ativo
+                </Badge>
+              )}
+              {environment === 'test' && (
+                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/30">
+                  🟡 TESTE
+                </Badge>
+              )}
+              {environment === 'production' && (
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                  🟢 PRODUÇÃO
+                </Badge>
+              )}
+            </div>
           </div>
+          
+          {/* Aviso para Ambiente de Teste */}
+          {environment === 'test' && (
+            <Alert className="bg-yellow-500/5 border-yellow-500/30">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-sm">
+                <strong>Ambiente de Teste Detectado</strong>
+                <p className="mt-1">
+                  Para que o webhook funcione, você precisa <strong>executar manualmente o workflow</strong> no N8N cada vez que fizer um teste. 
+                  URLs de teste não ficam ativas permanentemente.
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  💡 Para uso em produção, remova <code className="bg-muted px-1 rounded">/webhook-test/</code> da URL e use <code className="bg-muted px-1 rounded">/webhook/</code>
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
         </Card>
 
         {/* Configuração do Webhook */}
@@ -225,7 +268,7 @@ const N8NIntegration = () => {
           </div>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="webhook-url">URL do Webhook N8N</Label>
+              <Label htmlFor="webhook-url">URL do Webhook N8N *</Label>
               <Input
                 id="webhook-url"
                 type="url"
@@ -234,25 +277,54 @@ const N8NIntegration = () => {
                 onChange={(e) => setWebhookUrl(e.target.value)}
                 className="font-mono text-sm"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Cole o URL do webhook gerado no seu workflow N8N
-              </p>
+              <div className="flex flex-col gap-1 mt-2">
+                <p className="text-xs text-muted-foreground">
+                  Cole o URL do webhook gerado no seu workflow N8N
+                </p>
+                {environment === 'test' && (
+                  <p className="text-xs text-yellow-600 flex items-center gap-1">
+                    <TestTube className="h-3 w-3" />
+                    URL de teste - requer execução manual no N8N
+                  </p>
+                )}
+                {environment === 'production' && (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    URL de produção - workflow sempre ativo
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <Label htmlFor="secret-key">Secret Key (Opcional)</Label>
-              <Input
-                id="secret-key"
-                type="password"
-                placeholder="••••••••••••"
-                value={secretKey}
-                onChange={(e) => setSecretKey(e.target.value)}
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Adicione uma chave secreta para autenticação do webhook
-              </p>
-            </div>
-            <div className="flex gap-2">
+
+            {/* Configurações Avançadas - Colapsável */}
+            <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    <ChevronDown className={`h-4 w-4 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+                    Configurações Avançadas (opcional)
+                  </span>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4">
+                <div>
+                  <Label htmlFor="secret-key">Secret Key</Label>
+                  <Input
+                    id="secret-key"
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={secretKey}
+                    onChange={(e) => setSecretKey(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Adicione uma chave secreta apenas se você configurou autenticação no seu webhook N8N
+                  </p>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <div className="flex gap-2 pt-2">
               <Button 
                 onClick={saveSettings} 
                 disabled={isSaving}
