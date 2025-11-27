@@ -163,13 +163,13 @@ const ReportsAnalytics = () => {
         <FilterBar onFilterChange={setFilters} activeFilters={filters} />
 
         <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="geral">Geral</TabsTrigger>
-            <TabsTrigger value="sentimento">Sentimento</TabsTrigger>
-            <TabsTrigger value="demografia">Demografia</TabsTrigger>
-            <TabsTrigger value="engajamento">Engajamento</TabsTrigger>
-            <TabsTrigger value="tema">Tema</TabsTrigger>
-            <TabsTrigger value="criticidade">Criticidade</TabsTrigger>
+          <TabsList className="flex flex-wrap md:grid md:grid-cols-6 w-full h-auto gap-1 p-1">
+            <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
+            <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
+            <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
+            <TabsTrigger value="engajamento" className="flex-1 min-w-[110px]">Engajamento</TabsTrigger>
+            <TabsTrigger value="tema" className="flex-1 min-w-[80px]">Tema</TabsTrigger>
+            <TabsTrigger value="criticidade" className="flex-1 min-w-[100px]">Criticidade</TabsTrigger>
           </TabsList>
 
           {/* ABA GERAL */}
@@ -199,10 +199,10 @@ const ReportsAnalytics = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Status dos Relatos</h3>
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <StatusDonut 
                     data={stats.byStatus} 
                     total={stats.total}
@@ -213,7 +213,7 @@ const ReportsAnalytics = () => {
 
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Top Categorias</h3>
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <CategoryBarChart 
                     data={stats.categories}
                     onBarClick={handleCategoryClick}
@@ -249,7 +249,7 @@ const ReportsAnalytics = () => {
               <Skeleton className="h-96 w-full" />
             ) : (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   <div className="bg-card rounded-lg border border-border p-6">
                     <SentimentGauge 
                       score={sentimentStats.overallScore} 
@@ -259,7 +259,7 @@ const ReportsAnalytics = () => {
 
                   <div className="bg-card rounded-lg border border-border p-6">
                     <h3 className="text-lg font-semibold mb-4">Distribuição</h3>
-                    <div className="h-80">
+                    <div className="h-64 md:h-80">
                       <SentimentDonut 
                         data={sentimentStats.distribution}
                         total={stats.total}
@@ -269,7 +269,7 @@ const ReportsAnalytics = () => {
 
                   <div className="bg-card rounded-lg border border-border p-6">
                     <h3 className="text-lg font-semibold mb-4">Palavras-Chave</h3>
-                    <div className="h-80">
+                    <div className="h-64 md:h-80">
                       <WordCloud words={sentimentStats.keywords} />
                     </div>
                   </div>
@@ -277,7 +277,7 @@ const ReportsAnalytics = () => {
 
                 <div className="bg-card rounded-lg border border-border p-6">
                   <h3 className="text-lg font-semibold mb-4">Tendência Temporal</h3>
-                  <div className="h-80">
+                  <div className="h-64 md:h-80">
                     <SentimentTrend data={sentimentStats.timeline} />
                   </div>
                 </div>
@@ -292,9 +292,9 @@ const ReportsAnalytics = () => {
 
           {/* ABA DEMOGRAFIA */}
           <TabsContent value="demografia" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="bg-card rounded-lg border border-border p-6">
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <DemographicsPieChart 
                     data={stats.demographics.byGender}
                     title="Por Gênero"
@@ -303,7 +303,7 @@ const ReportsAnalytics = () => {
               </div>
 
               <div className="bg-card rounded-lg border border-border p-6">
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <DemographicsPieChart 
                     data={stats.demographics.byRace}
                     title="Por Raça"
@@ -313,7 +313,7 @@ const ReportsAnalytics = () => {
 
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Pirâmide Etária</h3>
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <AgePyramid data={stats.demographics.byAgeGroup.map(g => ({
                     ageGroup: g.label,
                     count: g.count,
@@ -323,7 +323,7 @@ const ReportsAnalytics = () => {
               </div>
 
               <div className="bg-card rounded-lg border border-border p-6">
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <DemographicsPieChart 
                     data={stats.demographics.bySocialClass}
                     title="Por Classe Social"
@@ -386,10 +386,10 @@ const ReportsAnalytics = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Urbano vs Transporte</h3>
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <ComparisonChart
                     data={[
                       { label: 'Relatos', value1: stats.urban, value2: stats.transport }
@@ -402,7 +402,7 @@ const ReportsAnalytics = () => {
 
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Top Categorias</h3>
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <CategoryBarChart data={stats.categories.slice(0, 5)} />
                 </div>
               </div>
@@ -411,14 +411,14 @@ const ReportsAnalytics = () => {
 
           {/* ABA CRITICIDADE */}
           <TabsContent value="criticidade" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               <div className="bg-card rounded-lg border border-border p-6">
                 <CriticalityGauge score={stats.criticality.criticalScore} />
               </div>
 
-              <div className="lg:col-span-2 bg-card rounded-lg border border-border p-6">
+              <div className="md:col-span-2 bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Distribuição por Severidade</h3>
-                <div className="h-80">
+                <div className="h-64 md:h-80">
                   <StatusDonut 
                     data={stats.criticality.bySeverity.map(s => ({
                       status: s.severity,
