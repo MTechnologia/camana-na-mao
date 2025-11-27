@@ -117,15 +117,10 @@ export const useNearbyServices = ({
       return { ...service, distance };
     });
 
-    // Filtrar por raio de busca
-    const filtered = withDistance.filter(service => {
-      const d = service.distance;
-      return isValidCoordinate(d) && d <= radiusMeters;
-    });
-
-    // Ordenar por distância
-    return filtered.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-  }, [userLat, userLng, radiusMeters, serviceType]);
+    // Para dados MOCK: NÃO filtrar por raio, apenas ordenar por distância
+    // Todos os serviços sempre visíveis
+    return withDistance.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+  }, [userLat, userLng, serviceType]);
 
   return {
     services,
