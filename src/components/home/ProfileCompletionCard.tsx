@@ -22,7 +22,7 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
 
   const steps = [
     { key: 'basic', label: 'Informações básicas', icon: User, completed: status.basic, path: '/profile/personal' },
-    { key: 'interests', label: 'Interesses', icon: Heart, completed: status.interests, path: '/profile/preferences' },
+    { key: 'interests', label: 'Interesses', icon: Heart, completed: status.interests, path: '/profile/interests' },
     { key: 'demographics', label: 'Dados demográficos', icon: Settings, completed: status.demographics, path: '/profile/demographics' },
     { key: 'address', label: 'Endereço', icon: MapPin, completed: status.address, path: '/profile/address' },
   ];

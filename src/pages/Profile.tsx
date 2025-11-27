@@ -8,7 +8,7 @@ import PageHeader from "@/components/ui/page-header";
 import AvatarUpload from "@/components/profile/AvatarUpload";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
-import { User, MapPin, BarChart3, ChevronRight } from "lucide-react";
+import { User, MapPin, BarChart3, ChevronRight, Heart } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -60,6 +60,13 @@ const Profile = () => {
       description: 'Nome, email e telefone',
       icon: User,
       path: '/profile/personal',
+    },
+    {
+      id: 'interests',
+      title: 'Interesses',
+      description: 'Áreas de interesse e preferências',
+      icon: Heart,
+      path: '/profile/interests',
     },
     {
       id: 'demographics',
