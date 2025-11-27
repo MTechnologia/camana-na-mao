@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Search, AlertTriangle, Calendar as CalendarIcon, Eye, Download, RefreshCw, Heart, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Search, AlertTriangle, Calendar as CalendarIcon, Eye, Download, RefreshCw, Heart, MessageSquare, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useUrbanReportsAdmin } from '@/hooks/useUrbanReportsAdmin';
 import { ReportKPIs } from '@/components/admin/ReportKPIs';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { ReportDetailModal } from '@/components/admin/ReportDetailModal';
+import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
 import { cn } from '@/lib/utils';
 
 const UrbanReportsManagement = () => {
@@ -39,6 +40,8 @@ const UrbanReportsManagement = () => {
     kpis,
     updateReportStatus,
     updateBulkStatus,
+    deleteReport,
+    deleteBulkReports,
     exportToCSV,
     refetch,
   } = useUrbanReportsAdmin();
@@ -47,6 +50,9 @@ const UrbanReportsManagement = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [selectedReport, setSelectedReport] = useState<typeof reports[0] | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const getStatusColor = (status: string | null) => {
     switch (status) {
@@ -234,6 +240,7 @@ const UrbanReportsManagement = () => {
           onMarkInProgress={() => handleBulkAction('in_progress')}
           onMarkResolved={() => handleBulkAction('resolved')}
           onMarkRejected={() => handleBulkAction('rejected')}
+          onDelete={() => setBulkDeleteDialogOpen(true)}
           onClear={() => {
             setSelectedIds([]);
             setSelectAll(false);
@@ -351,6 +358,18 @@ const UrbanReportsManagement = () => {
                           </SelectContent>
                         </Select>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setReportToDelete(report.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Excluir
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -412,6 +431,33 @@ const UrbanReportsManagement = () => {
           open={detailsOpen}
           onOpenChange={setDetailsOpen}
           onStatusChange={updateReportStatus}
+          onDelete={deleteReport}
+        />
+
+        {/* Delete Confirmation Dialogs */}
+        <DeleteReportConfirmDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={() => {
+            if (reportToDelete) {
+              deleteReport(reportToDelete);
+              setDeleteDialogOpen(false);
+              setReportToDelete(null);
+            }
+          }}
+          reportDescription={reports.find(r => r.id === reportToDelete)?.description || undefined}
+        />
+
+        <DeleteReportConfirmDialog
+          open={bulkDeleteDialogOpen}
+          onOpenChange={setBulkDeleteDialogOpen}
+          onConfirm={() => {
+            deleteBulkReports(selectedIds);
+            setBulkDeleteDialogOpen(false);
+            setSelectedIds([]);
+            setSelectAll(false);
+          }}
+          reportCount={selectedIds.length}
         />
       </div>
     </AdminLayout>

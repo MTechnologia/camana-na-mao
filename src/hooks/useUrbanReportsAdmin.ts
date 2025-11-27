@@ -329,6 +329,52 @@ export const useUrbanReportsAdmin = () => {
     fetchKPIs();
   }, []);
 
+  const deleteReport = async (reportId: string) => {
+    try {
+      // Primeiro, deletar dados relacionados (likes, comments)
+      await supabase.from('urban_report_likes').delete().eq('report_id', reportId);
+      await supabase.from('urban_report_comments').delete().eq('report_id', reportId);
+      
+      // Depois, deletar o relato
+      const { error } = await supabase
+        .from('urban_reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      toast.success('Relato excluído com sucesso');
+      fetchReports();
+      fetchKPIs();
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      toast.error('Erro ao excluir relato');
+    }
+  };
+
+  const deleteBulkReports = async (reportIds: string[]) => {
+    try {
+      // Deletar dados relacionados
+      await supabase.from('urban_report_likes').delete().in('report_id', reportIds);
+      await supabase.from('urban_report_comments').delete().in('report_id', reportIds);
+      
+      // Deletar relatos
+      const { error } = await supabase
+        .from('urban_reports')
+        .delete()
+        .in('id', reportIds);
+
+      if (error) throw error;
+
+      toast.success(`${reportIds.length} relato(s) excluído(s)`);
+      fetchReports();
+      fetchKPIs();
+    } catch (error) {
+      console.error('Error deleting reports:', error);
+      toast.error('Erro ao excluir relatos');
+    }
+  };
+
   return {
     reports,
     loading,
@@ -349,6 +395,8 @@ export const useUrbanReportsAdmin = () => {
     kpis,
     updateReportStatus,
     updateBulkStatus,
+    deleteReport,
+    deleteBulkReports,
     exportToCSV,
     refetch: fetchReports,
   };
