@@ -4,13 +4,15 @@ import PageHeader from "@/components/ui/page-header";
 import FloatingNavbar from "@/components/FloatingNavbar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Send } from "lucide-react";
+import { MapPin, Send, Mic, MicOff, Camera, X, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVoiceChat } from "@/hooks/useVoiceChat";
 
 const categories = [
   { value: "iluminacao", label: "Iluminação Pública" },
@@ -21,26 +23,56 @@ const categories = [
   { value: "outro", label: "Outro" }
 ];
 
-const severities = [
-  { value: "low", label: "Baixa" },
-  { value: "medium", label: "Média" },
-  { value: "high", label: "Alta" },
-  { value: "critical", label: "Crítica" }
-];
-
 export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceChat();
   const [loading, setLoading] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     category: "",
-    subcategory: "",
+    title: "",
     description: "",
-    severity: "medium",
     location: "",
     latitude: null as number | null,
     longitude: null as number | null
   });
+
+  const handleVoiceInput = async () => {
+    if (isRecording) {
+      const text = await stopRecording();
+      if (text) {
+        setFormData(prev => ({
+          ...prev,
+          description: prev.description + (prev.description ? ' ' : '') + text
+        }));
+      }
+    } else {
+      await startRecording();
+    }
+  };
+
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Foto muito grande. Máximo 5MB.");
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const removePhoto = () => {
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setPhotoFile(null);
+    setPhotoPreview(null);
+  };
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
@@ -65,6 +97,28 @@ export default function ManualReportPage() {
     );
   };
 
+  const uploadPhoto = async (userId: string): Promise<string | null> => {
+    if (!photoFile) return null;
+
+    const fileExt = photoFile.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('urban-reports')
+      .upload(fileName, photoFile);
+
+    if (error) {
+      console.error("Erro ao fazer upload da foto:", error);
+      throw error;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('urban-reports')
+      .getPublicUrl(fileName);
+
+    return publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -74,7 +128,7 @@ export default function ManualReportPage() {
       return;
     }
 
-    if (!formData.category || !formData.description) {
+    if (!formData.category || !formData.title || !formData.description) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -82,17 +136,25 @@ export default function ManualReportPage() {
     setLoading(true);
 
     try {
+      let photoUrl: string | null = null;
+      
+      // Upload da foto se existir
+      if (photoFile) {
+        photoUrl = await uploadPhoto(user.id);
+      }
+
       const { error } = await supabase
         .from("urban_reports")
         .insert({
           user_id: user.id,
           category: formData.category,
-          subcategory: formData.subcategory || null,
+          subcategory: formData.title,
           description: formData.description,
-          severity: formData.severity,
+          severity: "medium",
           location_address: formData.location || null,
           latitude: formData.latitude,
           longitude: formData.longitude,
+          photos: photoUrl ? [photoUrl] : null,
           status: "pending"
         });
 
@@ -139,68 +201,129 @@ export default function ManualReportPage() {
                 </Select>
               </div>
 
-              {/* Subcategoria */}
+              {/* Título */}
               <div className="space-y-2">
-                <Label htmlFor="subcategory">Subcategoria (opcional)</Label>
-                <Textarea
-                  id="subcategory"
-                  value={formData.subcategory}
-                  onChange={(e) => setFormData(prev => ({ ...prev, subcategory: e.target.value }))}
-                  placeholder="Ex: Poste apagado, buraco grande, etc."
-                  rows={2}
-                />
-              </div>
-
-              {/* Descrição */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Descreva detalhadamente o problema..."
-                  rows={4}
+                <Label htmlFor="title">Título do Problema *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Buraco na calçada, Poste apagado..."
                   required
                 />
               </div>
 
-              {/* Gravidade */}
+              {/* Descrição com Ditado */}
               <div className="space-y-2">
-                <Label htmlFor="severity">Gravidade</Label>
-                <Select
-                  value={formData.severity}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, severity: value }))}
-                >
-                  <SelectTrigger id="severity">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {severities.map((sev) => (
-                      <SelectItem key={sev.value} value={sev.value}>
-                        {sev.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="description">Descrição *</Label>
+                <div className="relative">
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descreva detalhadamente o problema ou use o microfone..."
+                    rows={4}
+                    required
+                    className="pr-12"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 bottom-2"
+                    onClick={handleVoiceInput}
+                    disabled={isProcessing}
+                  >
+                    {isRecording ? (
+                      <MicOff className="w-5 h-5 text-destructive" />
+                    ) : (
+                      <Mic className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
+                {isRecording && (
+                  <p className="text-xs text-muted-foreground animate-pulse">
+                    🔴 Gravando... Clique novamente para parar
+                  </p>
+                )}
+              </div>
+
+              {/* Upload de Foto */}
+              <div className="space-y-2">
+                <Label>Foto</Label>
+                {!photoPreview ? (
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoCapture}
+                      className="hidden"
+                      id="photo-camera"
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoCapture}
+                      className="hidden"
+                      id="photo-gallery"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('photo-camera')?.click()}
+                        className="flex-1"
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Tirar Foto
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => document.getElementById('photo-gallery')?.click()}
+                        className="flex-1"
+                      >
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        Galeria
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative rounded-lg overflow-hidden border">
+                    <img
+                      src={photoPreview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={removePhoto}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Localização */}
               <div className="space-y-2">
                 <Label>Localização</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={requestLocation}
-                    className="flex-1"
-                  >
-                    <MapPin className="w-4 h-4 mr-2" />
-                    {formData.latitude ? "Localização Capturada" : "Capturar Localização"}
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={requestLocation}
+                  className="w-full"
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  {formData.latitude ? "Localização Capturada ✓" : "Capturar Localização"}
+                </Button>
                 {formData.location && (
                   <p className="text-xs text-muted-foreground">
-                    {formData.location}
+                    📍 {formData.location}
                   </p>
                 )}
               </div>
