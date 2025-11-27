@@ -32,7 +32,7 @@ const ChatConversationItem = ({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+        "group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
         isActive
           ? "bg-primary/10 text-primary font-medium"
           : "hover:bg-muted text-foreground"
@@ -40,19 +40,19 @@ const ChatConversationItem = ({
       onClick={onClick}
     >
       <MessageSquare className="h-4 w-4 shrink-0 opacity-70" />
-      <span className="flex-1 text-sm truncate">{conversation.title}</span>
+      <span className="flex-1 text-sm truncate pr-2">{conversation.title}</span>
       
       <AlertDialog>
         <AlertDialogTrigger asChild onClick={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </AlertDialogTrigger>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-card z-50">
           <AlertDialogHeader>
             <AlertDialogTitle>Deletar conversa?</AlertDialogTitle>
             <AlertDialogDescription>
