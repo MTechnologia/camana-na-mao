@@ -70,19 +70,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
   return (
     <div className="flex flex-col h-full w-full">
-      {/* New Chat Button */}
-      <div className="p-3 border-b border-border">
-        <Button
-          onClick={handleNewChat}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          size="lg"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Nova Conversa
-        </Button>
-      </div>
-
-      {/* Search */}
+      {/* Search - Top */}
       <div className="p-3 border-b border-border">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -95,7 +83,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
         </div>
       </div>
 
-      {/* Conversations List */}
+      {/* Conversations List - Center with scroll */}
       <ScrollArea className="flex-1">
         <div className="p-2">
           {Object.entries(groupedConversations).map(([group, convs]) => {
@@ -127,6 +115,18 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
           )}
         </div>
       </ScrollArea>
+
+      {/* New Chat Button - Footer */}
+      <div className="p-3 border-t border-border mt-auto">
+        <Button
+          onClick={handleNewChat}
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+          size="lg"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Nova Conversa
+        </Button>
+      </div>
     </div>
   );
 };

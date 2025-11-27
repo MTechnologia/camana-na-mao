@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Menu } from "lucide-react";
+import { ChevronLeft, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import ChatSidebar from "./ChatSidebar";
 import ChatArea from "./ChatArea";
-import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 const ChatLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -18,21 +19,27 @@ const ChatLayout = () => {
 
       {/* Main Chat Area */}
       <main className="flex flex-col flex-1 min-w-0">
-        {/* Header with Menu Toggle */}
-        <header className="flex items-center h-14 px-4 border-b border-border bg-card">
-          {/* Mobile Sidebar Sheet */}
+        {/* Header with Back and Conversations */}
+        <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card">
+          {/* Back Button - Left */}
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Title - Center */}
+          <h1 className="text-lg font-semibold">Assistente IA</h1>
+          
+          {/* Conversations Menu - Right */}
           <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
             <SheetTrigger asChild className="lg:hidden">
               <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
+                <MessageSquare className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[280px] p-0">
+            <SheetContent side="right" className="w-[280px] p-0">
               <ChatSidebar onConversationClick={() => setSidebarOpen(false)} />
             </SheetContent>
           </Sheet>
-          
-          <h1 className="ml-2 text-lg font-semibold">CMSP Connect - Assistente IA</h1>
         </header>
 
         {/* Chat Area */}
