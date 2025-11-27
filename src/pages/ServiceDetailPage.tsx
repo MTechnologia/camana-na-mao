@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { MapboxMap } from "@/components/map/MapboxMap";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { servicosProximos } from "@/data/searchData";
 
 export default function ServiceDetailPage() {
   const { id } = useParams();
@@ -20,33 +21,80 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [realServiceId, setRealServiceId] = useState<string | null>(null);
   const { latitude, longitude } = useGeolocation();
 
   useEffect(() => {
     loadService();
-    if (user) checkSubscription();
-  }, [id, user]);
+  }, [id]);
+
+  useEffect(() => {
+    if (user && realServiceId) checkSubscription();
+  }, [user, realServiceId]);
+
+  const isUUID = (str: string) => {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+  };
 
   const loadService = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("public_services")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+    if (!id) {
+      toast.error("ID do serviço não encontrado");
+      navigate("/servicos-proximos");
+      return;
+    }
 
-      if (error) {
-        console.error("Error loading service:", error);
-        throw error;
+    try {
+      // Se é UUID, busca direto no Supabase
+      if (isUUID(id)) {
+        const { data, error } = await supabase
+          .from("public_services")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        if (data) {
+          setService(data);
+          setRealServiceId(data.id);
+          return;
+        }
       }
 
-      if (!data) {
-        toast.error("Serviço não encontrado");
-        navigate("/");
+      // Busca nos dados mockados
+      const mockedService = servicosProximos.find(s => s.id === id);
+      if (mockedService && mockedService.metadata) {
+        // Converter formato mockado para formato esperado
+        const serviceData = {
+          id: mockedService.id,
+          name: mockedService.title,
+          service_type: mockedService.metadata.serviceType || "other",
+          address: mockedService.description,
+          district: mockedService.metadata.district || "",
+          latitude: mockedService.metadata.latitude,
+          longitude: mockedService.metadata.longitude,
+          phone: mockedService.metadata.phone,
+          average_rating: mockedService.metadata.rating || 0,
+          total_ratings: mockedService.metadata.totalRatings || 0,
+          city: "São Paulo",
+          state: "SP",
+          opening_hours: null,
+        };
+        setService(serviceData);
+
+        // Verifica se já existe no banco pelo nome
+        const { data: existingService } = await supabase
+          .from("public_services")
+          .select("id")
+          .eq("name", mockedService.title)
+          .maybeSingle();
+
+        if (existingService) {
+          setRealServiceId(existingService.id);
+        }
         return;
       }
 
-      setService(data);
+      toast.error("Serviço não encontrado");
+      navigate("/servicos-proximos");
     } catch (error) {
       console.error("Error loading service:", error);
       toast.error("Erro ao carregar serviço");
@@ -56,23 +104,68 @@ export default function ServiceDetailPage() {
   };
 
   const checkSubscription = async () => {
-    if (!user || !id) return;
+    if (!user || !realServiceId) return;
     
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("service_subscriptions")
         .select("id")
         .eq("user_id", user.id)
-        .eq("service_id", id)
+        .eq("service_id", realServiceId)
         .maybeSingle();
-
-      if (error) {
-        console.error("Error checking subscription:", error);
-      }
 
       setIsSubscribed(!!data);
     } catch (error) {
-      // Not subscribed
+      console.error("Error checking subscription:", error);
+    }
+  };
+
+  const ensureServiceInDatabase = async (): Promise<string | null> => {
+    if (!service) return null;
+
+    // Se já temos o ID real, retorna ele
+    if (realServiceId) return realServiceId;
+
+    // Se o ID atual é UUID, pode ser que já exista
+    if (id && isUUID(id)) return id;
+
+    try {
+      // Verifica se já existe pelo nome
+      const { data: existingService } = await supabase
+        .from("public_services")
+        .select("id")
+        .eq("name", service.name)
+        .maybeSingle();
+
+      if (existingService) {
+        setRealServiceId(existingService.id);
+        return existingService.id;
+      }
+
+      // Cria o serviço no banco
+      const { data: newService, error } = await supabase
+        .from("public_services")
+        .insert({
+          name: service.name,
+          service_type: service.service_type,
+          address: service.address,
+          district: service.district,
+          latitude: service.latitude,
+          longitude: service.longitude,
+          phone: service.phone,
+          city: "São Paulo",
+          state: "SP"
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setRealServiceId(newService.id);
+      return newService.id;
+    } catch (error) {
+      console.error("Error ensuring service in database:", error);
+      return null;
     }
   };
 
@@ -83,19 +176,25 @@ export default function ServiceDetailPage() {
     }
 
     try {
+      const serviceId = await ensureServiceInDatabase();
+      if (!serviceId) {
+        toast.error("Erro ao processar serviço");
+        return;
+      }
+
       if (isSubscribed) {
         await supabase
           .from("service_subscriptions")
           .delete()
           .eq("user_id", user.id)
-          .eq("service_id", id);
+          .eq("service_id", serviceId);
         
         setIsSubscribed(false);
         toast.success("Você não receberá mais atualizações");
       } else {
         await supabase
           .from("service_subscriptions")
-          .insert({ user_id: user.id, service_id: id });
+          .insert({ user_id: user.id, service_id: serviceId });
         
         setIsSubscribed(true);
         toast.success("Você receberá atualizações sobre este serviço");
@@ -113,6 +212,13 @@ export default function ServiceDetailPage() {
     }
 
     try {
+      // Garante que o serviço existe no banco
+      const serviceId = await ensureServiceInDatabase();
+      if (!serviceId) {
+        toast.error("Erro ao processar serviço para avaliação");
+        return;
+      }
+
       // Criar uma visita para avaliar
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
@@ -121,7 +227,7 @@ export default function ServiceDetailPage() {
         .from("service_visits")
         .insert({
           user_id: user.id,
-          service_id: id,
+          service_id: serviceId,
           expires_at: expiresAt.toISOString(),
           status: "pending"
         })
