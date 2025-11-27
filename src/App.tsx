@@ -83,18 +83,17 @@ import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
   const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
-  // Global tutorial overlay
-  if (!onboardingLoading && showTutorial) {
-    return (
-      <AppOnboardingTutorial 
-        onComplete={completeTutorial}
-        onSkip={completeTutorial}
-      />
-    );
-  }
 
   return (
     <>
+      {/* Global tutorial overlay - aparece acima do conteúdo */}
+      {!onboardingLoading && showTutorial && (
+        <AppOnboardingTutorial 
+          onComplete={completeTutorial}
+          onSkip={completeTutorial}
+        />
+      )}
+      
       <Routes>
         <Route path="/" element={<Navigate to="/splash" replace />} />
         <Route path="/splash" element={<Splash />} />
