@@ -29,20 +29,20 @@ const ChatConversationItem = ({
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+        "group flex items-start gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors",
         isActive
           ? "bg-primary/10 text-primary font-medium"
           : "hover:bg-muted text-foreground"
       )}
       onClick={onClick}
     >
-      <MessageSquare className="h-4 w-4 shrink-0 opacity-70" />
-      <span className="flex-1 text-sm truncate pr-2">{conversation.title}</span>
+      <MessageSquare className="h-4 w-4 shrink-0 opacity-70 mt-0.5" />
+      <span className="flex-1 text-sm line-clamp-2 pr-1">{conversation.title}</span>
       
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
         onClick={(e) => {
           e.stopPropagation();
           setDeleteDialogOpen(true);
