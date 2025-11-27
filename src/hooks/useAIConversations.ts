@@ -79,16 +79,29 @@ export const useAIConversations = () => {
     return grouped;
   }, [conversations]);
 
-  const createConversation = async (journeyId: string, title?: string) => {
+  const generateTitle = (firstMessage: string): string => {
+    const maxLength = 50;
+    const cleaned = firstMessage.trim();
+    
+    if (cleaned.length <= maxLength) {
+      return cleaned;
+    }
+    
+    return cleaned.substring(0, maxLength) + '...';
+  };
+
+  const createConversation = async (journeyId: string, firstMessage?: string) => {
     if (!user) return null;
 
     try {
+      const title = firstMessage ? generateTitle(firstMessage) : 'Nova conversa';
+      
       const { data, error } = await supabase
         .from('ai_conversations')
         .insert({
           user_id: user.id,
           journey_id: journeyId,
-          title: title || null,
+          title,
           messages: [],
           status: 'active',
           context: journeyId,

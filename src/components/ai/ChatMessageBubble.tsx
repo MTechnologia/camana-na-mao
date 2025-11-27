@@ -1,0 +1,86 @@
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { User, Bot } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string | Date;
+  source?: string;
+}
+
+interface ChatMessageBubbleProps {
+  message: ChatMessage;
+}
+
+const ChatMessageBubble = ({ message }: ChatMessageBubbleProps) => {
+  const isUser = message.role === "user";
+
+  return (
+    <div
+      className={cn(
+        "flex gap-3 items-start",
+        isUser ? "flex-row-reverse" : "flex-row"
+      )}
+    >
+      {/* Avatar */}
+      <div
+        className={cn(
+          "shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
+          isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+        )}
+      >
+        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+      </div>
+
+      {/* Message Content */}
+      <div
+        className={cn(
+          "flex flex-col gap-1 max-w-[75%]",
+          isUser ? "items-end" : "items-start"
+        )}
+      >
+        <div
+          className={cn(
+            "px-4 py-3 rounded-2xl",
+            isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-foreground"
+          )}
+        >
+          {isUser ? (
+            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                  ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                  ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                  li: ({ children }) => <li className="mb-1">{children}</li>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em className="italic">{children}</em>,
+                  code: ({ children }) => (
+                    <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
+                      {children}
+                    </code>
+                  ),
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground px-2">
+          {typeof message.timestamp === 'string' ? message.timestamp : format(message.timestamp, "HH:mm", { locale: ptBR })}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export default ChatMessageBubble;

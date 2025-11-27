@@ -12,8 +12,10 @@ export interface JourneyType {
 interface AIJourneyContextType {
   currentJourney: JourneyType | null;
   currentConversationId: string | null;
+  activeConversationId: string | null;
   backgroundConversation: { journeyId: string; conversationId: string } | null;
   setJourney: (journey: JourneyType, conversationId?: string, context?: Record<string, any>) => void;
+  setActiveConversationId: (id: string | null) => void;
   journeyContext: Record<string, any>;
   clearJourney: () => void;
   minimizeToBackground: () => void;
@@ -26,6 +28,7 @@ const AIJourneyContext = createContext<AIJourneyContextType | undefined>(undefin
 export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
   const [currentJourney, setCurrentJourney] = useState<JourneyType | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [journeyContext, setJourneyContext] = useState<Record<string, any>>({});
   const [backgroundConversation, setBackgroundConversation] = useState<{ journeyId: string; conversationId: string } | null>(null);
 
@@ -65,9 +68,11 @@ export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AIJourneyContext.Provider value={{ 
       currentJourney, 
-      currentConversationId, 
+      currentConversationId,
+      activeConversationId,
       backgroundConversation,
-      setJourney, 
+      setJourney,
+      setActiveConversationId,
       journeyContext, 
       clearJourney,
       minimizeToBackground,
