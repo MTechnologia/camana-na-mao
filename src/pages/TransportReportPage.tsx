@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, TrendingUp, FileText, MessageSquare, Route, Sparkles } from 'lucide-react';
+import { Bus, TrendingUp, FileText, MessageSquare, Route } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
 
@@ -74,18 +74,10 @@ export default function TransportReportPage() {
             <p className="text-sm text-white/80 font-light mt-1">
               Colabore para melhorar o transporte público
             </p>
-            
-            {/* AI Badge */}
-            <div className="flex items-center gap-2 mt-3 px-3 py-1.5 
-                            bg-white/20 backdrop-blur-sm rounded-full 
-                            border border-white/30">
-              <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span className="text-xs font-medium text-white/90">Powered by IA</span>
-            </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-6 -mt-8">
+        <div className="max-w-7xl mx-auto px-6 py-6 -mt-16 relative z-10">
           <div className="space-y-3 animate-fade-in">
             {options.map((option) => {
               const Icon = option.icon;
