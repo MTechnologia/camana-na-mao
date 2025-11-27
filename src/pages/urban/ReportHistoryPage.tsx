@@ -259,23 +259,17 @@ export default function ReportHistoryPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-                {getStatusIcon(report.status)}
-                {statusInfo.label}
-              </Badge>
-              {canDelete && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => setReportToDelete(report)}
-                  disabled={deleting}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setReportToDelete(report)}
+                disabled={deleting}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
 
           {report.description && (
@@ -300,10 +294,17 @@ export default function ReportHistoryPage() {
             </div>
           </div>
 
-          <ReportInteractions
-            reportId={report.id}
-            onCommentClick={() => setSelectedReport(report)}
-          />
+          <div className="flex items-center justify-between">
+            <ReportInteractions
+              reportId={report.id}
+              onCommentClick={() => setSelectedReport(report)}
+            />
+            
+            <Badge variant={statusInfo.variant} className="flex items-center gap-1">
+              {getStatusIcon(report.status)}
+              {statusInfo.label}
+            </Badge>
+          </div>
         </CardContent>
       </Card>
     );
