@@ -1,28 +1,16 @@
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { useAdminUsers } from '@/hooks/useAdminUsers';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Search, Filter } from 'lucide-react';
 import { useState } from 'react';
+import { AdminLayout } from '@/layouts/AdminLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Search } from 'lucide-react';
+import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { UserRoleModal } from '@/components/admin/UserRoleModal';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
 import { AdminUser } from '@/hooks/useAdminUsers';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 const roleColors: Record<string, string> = {
   admin: 'bg-red-500/10 text-red-500 border-red-500/20',
@@ -48,106 +36,135 @@ export default function UserManagement() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Gestão de Usuários
-          </h1>
-          <p className="text-muted-foreground">
-            Gerencie roles e permissões dos usuários do sistema.
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Usuários</h1>
+          <p className="text-muted-foreground mt-2 text-sm md:text-base">
+            Gerencie roles e permissões dos usuários do sistema
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome ou email..."
+              placeholder="Buscar por nome..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-9"
             />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <Filter className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Filtrar por role" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="gestor">Gestor</SelectItem>
-              <SelectItem value="vereador">Vereador</SelectItem>
-              <SelectItem value="assessor">Assessor</SelectItem>
-              <SelectItem value="cidadao">Cidadão</SelectItem>
+              <SelectItem value="all">Todas as Roles</SelectItem>
+              {Object.entries(roleLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
+        {/* Table */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando usuários...</p>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
         ) : (
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuário</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Roles</TableHead>
-                  <TableHead>Cadastro</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={user.avatar_url || undefined} />
-                          <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{user.full_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {user.email || 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-2">
-                        {user.roles.length > 0 ? (
-                          user.roles.map((role) => (
-                            <Badge
-                              key={role}
-                              variant="outline"
-                              className={roleColors[role] || ''}
-                            >
-                              {roleLabels[role] || role}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Sem role</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
+          <ResponsiveTable
+            data={users}
+            keyExtractor={(user) => user.id}
+            columns={[
+              {
+                header: 'Usuário',
+                accessor: (user) => (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.avatar_url || undefined} />
+                      <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{user.full_name}</span>
+                  </div>
+                ),
+              },
+              {
+                header: 'Email',
+                accessor: (user) => user.email || 'N/A',
+                hideOnMobile: true,
+              },
+              {
+                header: 'Roles',
+                accessor: (user) => (
+                  <div className="flex flex-wrap gap-1">
+                    {user.roles.length > 0 ? (
+                      user.roles.map((role) => (
+                        <Badge key={role} variant="outline" className={roleColors[role]}>
+                          {roleLabels[role]}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Sem role</span>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                header: 'Cadastro',
+                accessor: (user) => new Date(user.created_at).toLocaleDateString('pt-BR'),
+                hideOnMobile: true,
+              },
+              {
+                header: 'Ações',
+                accessor: (user) => (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedUser(user)}
+                  >
+                    Editar Roles
+                  </Button>
+                ),
+              },
+            ]}
+            renderMobileCard={(user) => (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.avatar_url || undefined} />
+                    <AvatarFallback>{user.full_name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{user.full_name}</p>
+                    <p className="text-sm text-muted-foreground">
                       {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedUser(user)}
-                      >
-                        Editar Roles
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {user.roles.length > 0 ? (
+                    user.roles.map((role) => (
+                      <Badge key={role} variant="outline" className={roleColors[role]}>
+                        {roleLabels[role]}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Sem role</span>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setSelectedUser(user)}
+                >
+                  Editar Roles
+                </Button>
+              </div>
+            )}
+          />
         )}
 
         {selectedUser && (
