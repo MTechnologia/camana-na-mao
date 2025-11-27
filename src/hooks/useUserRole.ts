@@ -19,7 +19,10 @@ export const useUserRole = () => {
   const fetchUserRoles = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('🔍 [useUserRole] User ID:', user?.id);
+      
       if (!user) {
+        console.log('❌ [useUserRole] No user found');
         setLoading(false);
         return;
       }
@@ -29,17 +32,24 @@ export const useUserRole = () => {
         .select('role')
         .eq('user_id', user.id);
 
+      console.log('📋 [useUserRole] Roles data:', data);
+      console.log('⚠️ [useUserRole] Error:', error);
+
       if (error) throw error;
 
       const userRoles = (data || []).map(r => r.role as UserRole);
+      console.log('✅ [useUserRole] Parsed roles:', userRoles);
+      
       setRoles(userRoles);
       setIsAdmin(userRoles.includes('admin'));
       setIsGestor(userRoles.includes('gestor'));
       setIsVereador(userRoles.includes('vereador'));
       setIsAssessor(userRoles.includes('assessor'));
       setIsCidadao(userRoles.includes('cidadao'));
+      
+      console.log('🎯 [useUserRole] isAdmin:', userRoles.includes('admin'));
     } catch (error) {
-      console.error('Error fetching user roles:', error);
+      console.error('❌ [useUserRole] Error fetching user roles:', error);
     } finally {
       setLoading(false);
     }
