@@ -15,7 +15,6 @@ import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { ReportDetailModal } from '@/components/admin/ReportDetailModal';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Pagination } from '@/components/ui/pagination';
 
 const TransportReportsManagement = () => {
   const {
@@ -315,12 +314,36 @@ const TransportReportsManagement = () => {
 
         {/* Paginação */}
         {totalPages > 1 && (
-          <div className="flex justify-center">
-            <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-            />
+          <div className="flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+            >
+              Anterior
+            </Button>
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <Button
+                  key={pageNum}
+                  variant={page === pageNum ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPage(pageNum)}
+                  className="min-w-[40px]"
+                >
+                  {pageNum}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page === totalPages}
+            >
+              Próxima
+            </Button>
           </div>
         )}
       </div>
@@ -329,13 +352,13 @@ const TransportReportsManagement = () => {
       {selectedReport && (
         <ReportDetailModal
           open={detailModalOpen}
-          onClose={() => {
-            setDetailModalOpen(false);
-            setSelectedReport(null);
+          onOpenChange={(open) => {
+            setDetailModalOpen(open);
+            if (!open) setSelectedReport(null);
           }}
           report={selectedReport}
           onStatusChange={updateReportStatus}
-          onDelete={() => {
+          onDelete={(reportId) => {
             setDeleteType('single');
             setDeleteDialogOpen(true);
           }}
@@ -345,7 +368,7 @@ const TransportReportsManagement = () => {
       {/* Dialog de Confirmação de Exclusão */}
       <DeleteReportConfirmDialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         reportCount={deleteType === 'bulk' ? selectedReports.length : 1}
       />
