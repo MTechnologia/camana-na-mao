@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, MessageCircle } from "lucide-react";
+import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, MessageCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -16,6 +16,8 @@ import { ptBR } from "date-fns/locale";
 import { ReportFilters } from "@/components/urban/ReportFilters";
 import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
+import { DeleteReportDialog } from "@/components/urban/DeleteReportDialog";
+import { toast } from "@/hooks/use-toast";
 
 interface Report {
   id: string;
@@ -27,6 +29,7 @@ interface Report {
   location_address: string | null;
   created_at: string;
   user_id: string;
+  photos?: string[] | null;
   profiles?: {
     full_name: string;
     avatar_url: string | null;
@@ -74,6 +77,8 @@ export default function ReportHistoryPage() {
     district: null,
   });
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadReports();
@@ -157,6 +162,54 @@ export default function ReportHistoryPage() {
     }
   };
 
+  const handleDeleteReport = async () => {
+    if (!reportToDelete) return;
+
+    try {
+      setDeleting(true);
+
+      // Se houver fotos, excluir do storage primeiro
+      if (reportToDelete.photos?.length) {
+        const photoPaths = reportToDelete.photos.map((url) => {
+          const urlParts = url.split("/");
+          return urlParts[urlParts.length - 1];
+        });
+
+        for (const path of photoPaths) {
+          await supabase.storage
+            .from("urban-reports")
+            .remove([`${reportToDelete.user_id}/${path}`]);
+        }
+      }
+
+      // Excluir o relato
+      const { error } = await supabase
+        .from("urban_reports")
+        .delete()
+        .eq("id", reportToDelete.id);
+
+      if (error) throw error;
+
+      // Atualizar lista local
+      setMyReports((prev) => prev.filter((r) => r.id !== reportToDelete.id));
+
+      toast({
+        title: "Relato excluído",
+        description: "Seu relato foi excluído com sucesso.",
+      });
+      setReportToDelete(null);
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o relato. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getStatusIcon = (status: string | null) => {
     switch (status) {
       case "resolved":
@@ -170,7 +223,11 @@ export default function ReportHistoryPage() {
     }
   };
 
-  const renderReportCard = (report: Report, showAuthor: boolean = false) => {
+  const renderReportCard = (
+    report: Report,
+    showAuthor: boolean = false,
+    canDelete: boolean = false
+  ) => {
     const statusInfo = statusLabels[report.status || "pending"];
 
     return (
@@ -202,10 +259,23 @@ export default function ReportHistoryPage() {
               )}
             </div>
 
-            <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-              {getStatusIcon(report.status)}
-              {statusInfo.label}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={statusInfo.variant} className="flex items-center gap-1">
+                {getStatusIcon(report.status)}
+                {statusInfo.label}
+              </Badge>
+              {canDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setReportToDelete(report)}
+                  disabled={deleting}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {report.description && (
@@ -281,7 +351,7 @@ export default function ReportHistoryPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {myReports.map((report) => renderReportCard(report, false))}
+                {myReports.map((report) => renderReportCard(report, false, true))}
               </div>
             )}
           </TabsContent>
@@ -329,6 +399,13 @@ export default function ReportHistoryPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <DeleteReportDialog
+        report={reportToDelete}
+        open={!!reportToDelete}
+        onOpenChange={(open) => !open && setReportToDelete(null)}
+        onConfirm={handleDeleteReport}
+      />
 
       <FloatingNavbar />
     </div>
