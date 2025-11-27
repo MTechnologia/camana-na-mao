@@ -196,6 +196,91 @@ export type Database = {
         }
         Relationships: []
       }
+      council_member_referrals: {
+        Row: {
+          acknowledged_at: string | null
+          citizen_message: string | null
+          council_member_id: string
+          council_member_name: string
+          council_member_party: string | null
+          created_at: string | null
+          id: string
+          match_reasons: string[] | null
+          match_score: number | null
+          resolved_at: string | null
+          response_text: string | null
+          sent_at: string | null
+          service_rating_id: string | null
+          status: string
+          transport_report_id: string | null
+          updated_at: string | null
+          urban_report_id: string | null
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          citizen_message?: string | null
+          council_member_id: string
+          council_member_name: string
+          council_member_party?: string | null
+          created_at?: string | null
+          id?: string
+          match_reasons?: string[] | null
+          match_score?: number | null
+          resolved_at?: string | null
+          response_text?: string | null
+          sent_at?: string | null
+          service_rating_id?: string | null
+          status?: string
+          transport_report_id?: string | null
+          updated_at?: string | null
+          urban_report_id?: string | null
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          citizen_message?: string | null
+          council_member_id?: string
+          council_member_name?: string
+          council_member_party?: string | null
+          created_at?: string | null
+          id?: string
+          match_reasons?: string[] | null
+          match_score?: number | null
+          resolved_at?: string | null
+          response_text?: string | null
+          sent_at?: string | null
+          service_rating_id?: string | null
+          status?: string
+          transport_report_id?: string | null
+          updated_at?: string | null
+          urban_report_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "council_member_referrals_service_rating_id_fkey"
+            columns: ["service_rating_id"]
+            isOneToOne: false
+            referencedRelation: "service_ratings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "council_member_referrals_transport_report_id_fkey"
+            columns: ["transport_report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "council_member_referrals_urban_report_id_fkey"
+            columns: ["urban_report_id"]
+            isOneToOne: false
+            referencedRelation: "urban_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dashboards: {
         Row: {
           config: Json
