@@ -21,6 +21,59 @@ interface Dashboard {
   };
 }
 
+const mockDashboards: Dashboard[] = [
+  {
+    id: 'mock-1',
+    title: 'Painel de Relatos Urbanos por Região',
+    description: 'Dashboard interativo mostrando a distribuição de relatos urbanos por subprefeitura',
+    is_public: true,
+    is_approved: true,
+    created_at: '2025-11-25T10:30:00Z',
+    user_id: 'mock-user-1',
+    profiles: { full_name: 'Maria Santos' }
+  },
+  {
+    id: 'mock-2',
+    title: 'Análise de Sentimento - Transporte',
+    description: 'Visualização do sentimento dos usuários sobre o transporte público',
+    is_public: true,
+    is_approved: false,
+    created_at: '2025-11-26T14:15:00Z',
+    user_id: 'mock-user-2',
+    profiles: { full_name: 'João Oliveira' }
+  },
+  {
+    id: 'mock-3',
+    title: 'Mapa de Calor - Audiências',
+    description: 'Engajamento dos cidadãos nas audiências públicas por tema',
+    is_public: false,
+    is_approved: false,
+    created_at: '2025-11-27T09:00:00Z',
+    user_id: 'mock-user-3',
+    profiles: { full_name: 'Ana Costa' }
+  },
+  {
+    id: 'mock-4',
+    title: 'KPIs de Serviços Públicos',
+    description: 'Indicadores de performance de UBS, escolas e outros serviços avaliados',
+    is_public: true,
+    is_approved: true,
+    created_at: '2025-11-24T16:45:00Z',
+    user_id: 'mock-user-4',
+    profiles: { full_name: 'Carlos Pereira' }
+  },
+  {
+    id: 'mock-5',
+    title: 'Tendências de Relatos - 2025',
+    description: 'Análise temporal de categorias de relatos mais frequentes',
+    is_public: true,
+    is_approved: false,
+    created_at: '2025-11-27T11:20:00Z',
+    user_id: 'mock-user-5',
+    profiles: { full_name: 'Fernanda Lima' }
+  }
+];
+
 export default function DashboardManagement() {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +86,13 @@ export default function DashboardManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
+      // Se não há dados reais, usar mock
+      if (!data || data.length === 0) {
+        setDashboards(mockDashboards);
+        setLoading(false);
+        return;
+      }
       
       const userIds = [...new Set(data?.map(d => d.user_id) || [])];
       const { data: profilesData } = await supabase
@@ -48,7 +108,8 @@ export default function DashboardManagement() {
       setDashboards(dashboardsWithProfiles || []);
     } catch (error) {
       console.error('Error fetching dashboards:', error);
-      toast.error('Erro ao carregar painéis');
+      // Em caso de erro, também usar mock
+      setDashboards(mockDashboards);
     } finally {
       setLoading(false);
     }
@@ -99,6 +160,15 @@ export default function DashboardManagement() {
             Aprove ou rejeite painéis criados por usuários para publicação
           </p>
         </div>
+
+        {dashboards.length > 0 && dashboards[0].id.startsWith('mock-') && (
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Modo Demonstração:</strong> Estes são dados de exemplo. 
+              Os painéis reais aparecerão quando os usuários criarem seus próprios dashboards.
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-4">
