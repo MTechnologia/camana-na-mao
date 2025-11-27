@@ -95,6 +95,16 @@ export const useAIConversations = () => {
 
     try {
       const title = firstMessage ? generateTitle(firstMessage) : 'Nova conversa';
+      const messages = [];
+      
+      // Se há mensagem inicial, adicionar como mensagem do assistente
+      if (firstMessage) {
+        messages.push({ 
+          role: "assistant", 
+          content: firstMessage, 
+          timestamp: new Date().toISOString() 
+        });
+      }
       
       const { data, error } = await supabase
         .from('ai_conversations')
@@ -102,7 +112,7 @@ export const useAIConversations = () => {
           user_id: user.id,
           journey_id: journeyId,
           title,
-          messages: [],
+          messages,
           status: 'active',
           context: journeyId,
         })
@@ -224,10 +234,6 @@ export const useAIConversations = () => {
       if (error) throw error;
 
       await loadConversations();
-      toast({
-        title: 'Conversa deletada',
-        description: 'A conversa foi deletada permanentemente.',
-      });
     } catch (error: any) {
       console.error('Error deleting conversation:', error);
       toast({

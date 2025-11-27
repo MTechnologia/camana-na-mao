@@ -8,6 +8,7 @@ import ChatConversationItem from "./ChatConversationItem";
 import { useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChatSidebarProps {
   onConversationClick?: () => void;
@@ -15,12 +16,28 @@ interface ChatSidebarProps {
 
 const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   const { conversations, deleteConversation } = useAIConversations();
-  const { clearJourney, setActiveConversationId } = useAIJourney();
+  const { clearJourney, setActiveConversationId, activeConversationId } = useAIJourney();
   const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
 
   const handleNewChat = () => {
     clearJourney();
     setActiveConversationId(null);
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    await deleteConversation(conversationId);
+    
+    // Se deletou a conversa ativa, limpar estado e voltar para seleção de jornada
+    if (activeConversationId === conversationId) {
+      setActiveConversationId(null);
+      clearJourney();
+    }
+    
+    toast({
+      title: "Conversa excluída",
+      description: "A conversa foi removida com sucesso.",
+    });
   };
 
   const filteredConversations = useMemo(() => {
@@ -69,8 +86,8 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full w-full">
-      {/* Search - Top */}
+    <div className="flex flex-col h-full w-full pt-12">
+      {/* Search - Top com padding para não sobrepor o X */}
       <div className="p-3 border-b border-border">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -100,7 +117,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
                       key={conv.id}
                       conversation={conv}
                       onClick={() => handleConversationClick(conv.id)}
-                      onDelete={() => deleteConversation(conv.id)}
+                      onDelete={() => handleDeleteConversation(conv.id)}
                     />
                   ))}
                 </div>
