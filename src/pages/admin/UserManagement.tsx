@@ -5,12 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search } from 'lucide-react';
-import { useAdminUsers } from '@/hooks/useAdminUsers';
+import { Search, Trash2 } from 'lucide-react';
+import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
 import { UserRoleModal } from '@/components/admin/UserRoleModal';
+import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
-import { AdminUser } from '@/hooks/useAdminUsers';
 
 const roleColors: Record<string, string> = {
   admin: 'bg-red-500/10 text-red-500 border-red-500/20',
@@ -29,8 +29,23 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function UserManagement() {
-  const { users, loading, searchTerm, setSearchTerm, roleFilter, setRoleFilter } = useAdminUsers();
+  const { users, loading, searchTerm, setSearchTerm, roleFilter, setRoleFilter, updateUserRoles, deleteUser } = useAdminUsers();
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteUser(userToDelete.id);
+      setUserToDelete(null);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -119,13 +134,23 @@ export default function UserManagement() {
               {
                 header: 'Ações',
                 accessor: (user) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedUser(user)}
-                  >
-                    Editar Roles
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      Editar Roles
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setUserToDelete(user)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ),
               },
             ]}
@@ -154,14 +179,24 @@ export default function UserManagement() {
                     <span className="text-sm text-muted-foreground">Sem role</span>
                   )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setSelectedUser(user)}
-                >
-                  Editar Roles
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setSelectedUser(user)}
+                  >
+                    Editar Roles
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setUserToDelete(user)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
           />
@@ -172,8 +207,17 @@ export default function UserManagement() {
             user={selectedUser}
             open={!!selectedUser}
             onClose={() => setSelectedUser(null)}
+            onUpdateRoles={updateUserRoles}
           />
         )}
+
+        <DeleteUserDialog
+          open={!!userToDelete}
+          onClose={() => setUserToDelete(null)}
+          onConfirm={handleDeleteUser}
+          userName={userToDelete?.full_name || ''}
+          loading={deleting}
+        />
       </div>
     </AdminLayout>
   );
