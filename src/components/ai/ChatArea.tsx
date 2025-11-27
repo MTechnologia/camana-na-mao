@@ -39,7 +39,8 @@ const ChatArea = () => {
     // Se não tem conversa ativa, criar uma nova primeiro
     if (!localConversationId) {
       const journeyToUse = currentJourney || AI_JOURNEYS.general;
-      const newConvId = await createConversation(journeyToUse.id);
+      // Passar mensagem inicial da jornada para criar a conversa
+      const newConvId = await createConversation(journeyToUse.id, journeyToUse.initialMessage);
       
       if (newConvId) {
         // Atualizar estados locais e globais

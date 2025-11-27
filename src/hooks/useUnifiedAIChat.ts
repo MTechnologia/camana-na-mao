@@ -43,21 +43,46 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
       try {
         const { data, error } = await supabase
           .from('ai_conversations')
-          .select('messages')
+          .select('messages, journey_id')
           .eq('id', conversationId)
           .single();
 
         if (error) throw error;
 
         const savedMessages = (data.messages as any[]) || [];
-        setMessages(savedMessages);
+        
+        // Fallback: Se não há mensagens mas há jornada com initialMessage, adicionar
+        if (savedMessages.length === 0 && journey?.initialMessage) {
+          const initialMsg: Message = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: journey.initialMessage,
+            timestamp: new Date().toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            source: "IA CMSP Connect",
+          };
+          setMessages([initialMsg]);
+          
+          // Salvar a mensagem inicial no banco também
+          await supabase
+            .from('ai_conversations')
+            .update({
+              messages: [{ ...initialMsg }],
+              last_message_at: new Date().toISOString(),
+            })
+            .eq('id', conversationId);
+        } else {
+          setMessages(savedMessages);
+        }
       } catch (error) {
         console.error('Error loading conversation messages:', error);
       }
     };
 
     loadConversationMessages();
-  }, [conversationId, user?.id]);
+  }, [conversationId, user?.id, journey?.initialMessage]);
 
   const addAssistantMessage = (content: string, source: string = "CMSP Connect") => {
     const newMessage: Message = {
