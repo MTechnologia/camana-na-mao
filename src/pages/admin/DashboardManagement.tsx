@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { Check, X, Eye, CheckCircle, XCircle, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
 import {
@@ -85,6 +86,7 @@ const mockDashboards: Dashboard[] = [
 ];
 
 export default function DashboardManagement() {
+  const navigate = useNavigate();
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewDashboard, setPreviewDashboard] = useState<Dashboard | null>(null);
@@ -165,11 +167,20 @@ export default function DashboardManagement() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Painéis Públicos</h1>
-          <p className="text-muted-foreground mt-2 text-sm md:text-base">
-            Aprove ou rejeite painéis criados por usuários para publicação
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Painéis Públicos</h1>
+            <p className="text-muted-foreground mt-2 text-sm md:text-base">
+              Aprove ou rejeite painéis criados por usuários para publicação
+            </p>
+          </div>
+          <Button 
+            onClick={() => navigate('/analytics/criar-painel')}
+            className="gap-2 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Criar Novo Painel
+          </Button>
         </div>
 
         {dashboards.length > 0 && dashboards[0].id.startsWith('mock-') && (

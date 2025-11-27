@@ -8,6 +8,7 @@ import {
   Download,
   BarChart3,
   Settings,
+  Plus,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 import FloatingNavbar from '@/components/FloatingNavbar';
@@ -117,6 +118,14 @@ const AnalyticsDashboard = () => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-foreground">Visão Geral</h2>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/analytics/criar-painel')}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Criar Painel
+            </Button>
             {canAccessAdvancedAnalytics && (
               <Button
                 variant="outline"
