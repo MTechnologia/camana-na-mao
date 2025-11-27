@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,9 +13,15 @@ interface Message {
   source?: string;
 }
 
+interface CreatedReport {
+  type: 'urban_report';
+  id: string;
+}
+
 export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -31,6 +37,11 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   if (conversationId && conversationId !== conversationIdRef.current) {
     conversationIdRef.current = conversationId;
   }
+
+  // Reset createdReport when conversation changes
+  useEffect(() => {
+    setCreatedReport(null);
+  }, [conversationId]);
 
   // Carregar mensagens do banco quando há conversationId
   useEffect(() => {
@@ -78,6 +89,15 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
             .eq('id', conversationId);
         } else {
           setMessages(savedMessages);
+          
+          // Check if any message contains a report creation marker
+          for (const msg of savedMessages) {
+            const match = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
+            if (match) {
+              setCreatedReport({ type: 'urban_report', id: match[1] });
+              break;
+            }
+          }
         }
       } catch (error) {
         console.error('Error loading conversation messages:', error);
@@ -100,6 +120,10 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     };
     setMessages((prev) => [...prev, newMessage]);
   };
+
+  const clearCreatedReport = useCallback(() => {
+    setCreatedReport(null);
+  }, []);
 
   const sendMessage = async (content: string) => {
     // Use fallback para jornada 'general' se nenhuma estiver ativa
@@ -215,12 +239,28 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
               if (content) {
                 assistantMessage += content;
+                
+                // Check for report creation marker
+                const reportMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
+                if (reportMatch) {
+                  setCreatedReport({ type: 'urban_report', id: reportMatch[1] });
+                  
+                  // Show toast notification
+                  toast({
+                    title: "Relato criado!",
+                    description: "Seu relato urbano foi registrado com sucesso.",
+                  });
+                }
+                
+                // Remove marker from displayed message
+                const displayMessage = assistantMessage.replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '').trim();
+                
                 setMessages((prev) => {
                   const lastMsg = prev[prev.length - 1];
                   if (lastMsg?.role === "assistant" && lastMsg.id === assistantMessageId) {
                     return prev.slice(0, -1).concat({
                       ...lastMsg,
-                      content: assistantMessage,
+                      content: displayMessage,
                     });
                   }
                   return [
@@ -228,7 +268,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
                     {
                       id: assistantMessageId,
                       role: "assistant",
-                      content: assistantMessage,
+                      content: displayMessage,
                       timestamp: new Date().toLocaleTimeString("pt-BR", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -262,7 +302,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
             const finalAssistantMsg = {
               id: assistantMessageId,
               role: "assistant",
-              content: assistantMessage,
+              content: assistantMessage, // Save full message with marker for history
               timestamp: new Date().toLocaleTimeString("pt-BR", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -298,6 +338,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
   const clearMessages = () => {
     setMessages([]);
+    setCreatedReport(null);
     conversationIdRef.current = null;
   };
 
@@ -307,5 +348,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     sendMessage,
     clearMessages,
     addAssistantMessage,
+    createdReport,
+    clearCreatedReport,
   };
 };
