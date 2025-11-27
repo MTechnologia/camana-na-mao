@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Bus, Search, Download, Trash2 } from 'lucide-react';
+import { Bus, Search, Download, MessageSquare, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransportReportsAdmin } from '@/hooks/useTransportReportsAdmin';
 import { KPICard } from '@/components/analytics/KPICard';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
-import { ReportDetailModal } from '@/components/admin/ReportDetailModal';
+import { TransportReportDetailModal } from '@/components/admin/TransportReportDetailModal';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -29,6 +29,8 @@ const TransportReportsManagement = () => {
     setSeverityFilter,
     typeFilter,
     setTypeFilter,
+    responseFilter,
+    setResponseFilter,
     page,
     setPage,
     totalPages,
@@ -140,13 +142,13 @@ const TransportReportsManagement = () => {
 
         {/* KPIs */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-32" />
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-28" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
             <KPICard
               title="Total"
               value={kpis.total}
@@ -157,7 +159,6 @@ const TransportReportsManagement = () => {
               title="Pendentes"
               value={kpis.pending}
               icon={Bus}
-              trend={{ value: Math.abs(kpis.pendingTrend), direction: kpis.pendingTrend >= 0 ? 'up' : 'down' }}
               className="border-yellow-500/20"
             />
             <KPICard
@@ -178,12 +179,30 @@ const TransportReportsManagement = () => {
               icon={Bus}
               className="border-red-500/20"
             />
+            <KPICard
+              title="Com Resposta"
+              value={kpis.responded}
+              icon={CheckCircle2}
+              className="border-green-500/20"
+            />
+            <KPICard
+              title="Sem Resposta"
+              value={kpis.notResponded}
+              icon={AlertCircle}
+              className="border-orange-500/20"
+            />
+            <KPICard
+              title="Taxa Resposta"
+              value={`${kpis.responseRate}%`}
+              icon={MessageSquare}
+              className="border-primary/20"
+            />
           </div>
         )}
 
         {/* Filtros */}
         <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -227,6 +246,16 @@ const TransportReportsManagement = () => {
                 <SelectItem value="manutencao">Manutenção</SelectItem>
                 <SelectItem value="seguranca">Segurança</SelectItem>
                 <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={responseFilter} onValueChange={setResponseFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Resposta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Respostas</SelectItem>
+                <SelectItem value="responded">Com Resposta</SelectItem>
+                <SelectItem value="not_responded">Sem Resposta</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -275,7 +304,7 @@ const TransportReportsManagement = () => {
                     onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-lg">
@@ -287,6 +316,17 @@ const TransportReportsManagement = () => {
                           <Badge variant="outline" className={getStatusColor(report.status)}>
                             {getStatusLabel(report.status)}
                           </Badge>
+                          {report.responded_at ? (
+                            <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Respondido
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Aguardando
+                            </Badge>
+                          )}
                         </div>
                         {report.transport_lines && (
                           <p className="text-sm text-muted-foreground">
@@ -350,7 +390,7 @@ const TransportReportsManagement = () => {
 
       {/* Modal de Detalhes */}
       {selectedReport && (
-        <ReportDetailModal
+        <TransportReportDetailModal
           open={detailModalOpen}
           onOpenChange={(open) => {
             setDetailModalOpen(open);
