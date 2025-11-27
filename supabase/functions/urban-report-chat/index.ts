@@ -11,71 +11,74 @@ const tools = [
     type: "function",
     function: {
       name: "create_urban_report",
-      description: "Cria um relato urbano no banco de dados quando todas as informações necessárias foram coletadas e o usuário confirmou explicitamente o envio. NUNCA chame esta função sem confirmação explícita do usuário.",
+      description: "Cria um relato urbano quando o usuário descreveu um problema e confirmou o envio. Inferir a categoria automaticamente do contexto da conversa.",
       parameters: {
         type: "object",
         properties: {
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "lixo", "area_verde", "outro"],
-            description: "Categoria do problema urbano: iluminacao (postes, lâmpadas), calcada (buracos, irregularidades), via_publica (asfalto, sinalização), lixo (descarte irregular, lixeiras), area_verde (praças, árvores), outro"
+            description: "Inferir automaticamente do contexto: iluminacao (poste, luz, lâmpada, escuro), calcada (buraco, calçada, passeio, rampa), via_publica (asfalto, rua, sinalização, semáforo, trânsito), lixo (lixo, entulho, descarte, lixeira), area_verde (praça, árvore, mato, parque, jardim), outro (problemas não listados)"
           },
           subcategory: {
             type: "string",
-            description: "Subcategoria específica do problema (ex: poste apagado, buraco na calçada, etc)"
+            description: "Tipo específico do problema extraído da descrição do usuário (ex: poste apagado, buraco grande, mato alto)"
           },
           description: {
             type: "string",
-            description: "Descrição detalhada do problema relatado pelo usuário, incluindo detalhes relevantes"
-          },
-          severity: {
-            type: "string",
-            enum: ["baixa", "media", "alta", "critica"],
-            description: "Gravidade do problema: baixa (incômodo menor), media (problema significativo), alta (risco à segurança), critica (perigo iminente)"
+            description: "Resumo completo do problema com todos os detalhes mencionados pelo usuário na conversa"
           },
           location_address: {
             type: "string",
-            description: "Endereço ou localização do problema (rua, número, bairro, ponto de referência)"
+            description: "Localização mencionada pelo usuário (rua, bairro, ponto de referência, número)"
           }
         },
-        required: ["category", "description", "severity"],
+        required: ["category", "description"],
         additionalProperties: false
       }
     }
   }
 ];
 
-const systemPrompt = `Você é um assistente especializado em coletar relatos de problemas urbanos em São Paulo para a Câmara Municipal.
+const systemPrompt = `Você é Luana, assistente da Câmara Municipal de São Paulo, ajudando cidadãos a registrar problemas urbanos de forma natural e amigável.
 
-Sua função é fazer perguntas claras e objetivas para coletar informações sobre problemas urbanos:
+COMO CONVERSAR:
+- Seja acolhedora e empática, como uma vizinha prestativa
+- Deixe o cidadão contar o problema do jeito dele
+- NÃO faça perguntas sequenciais como um formulário
+- Extraia as informações naturalmente do que ele já disse
+- Se faltar a localização, pergunte de forma natural: "E onde fica isso?" ou "Pode me dizer o endereço ou um ponto de referência?"
 
-1. **Categoria do problema** (obrigatório):
-   - iluminacao: postes apagados, lâmpadas queimadas
-   - calcada: buracos, irregularidades, falta de rampa
-   - via_publica: asfalto danificado, sinalização, semáforos
-   - lixo: descarte irregular, lixeiras transbordando
-   - area_verde: praças abandonadas, árvores caídas, mato alto
-   - outro: problemas não listados
+INFERIR AUTOMATICAMENTE:
+- **Categoria**: Detecte pelo contexto do que o cidadão fala:
+  • Poste apagado, luz queimada, escuro, lâmpada → "iluminacao"
+  • Buraco na calçada, passeio quebrado, rampa → "calcada"  
+  • Asfalto, rua esburacada, semáforo, sinalização → "via_publica"
+  • Lixo, entulho, lixeira cheia, descarte → "lixo"
+  • Praça, árvore, mato alto, parque abandonado → "area_verde"
+  • Outros problemas → "outro"
 
-2. **Descrição detalhada** (obrigatório): Detalhes específicos do problema
+- **Subcategoria**: Extraia o tipo específico (ex: "poste apagado", "buraco grande", "mato alto")
 
-3. **Gravidade** (obrigatório):
-   - baixa: incômodo menor, não urgente
-   - media: problema significativo que precisa atenção
-   - alta: risco à segurança ou acessibilidade
-   - critica: perigo iminente à vida ou propriedade
+O QUE COLETAR:
+1. Entender o problema (obrigatório) - deixe o cidadão descrever livremente
+2. Localização (importante) - pergunte naturalmente se não mencionou
+3. Detalhes extras - só se fizer sentido na conversa
 
-4. **Localização** (opcional mas importante): Endereço, rua, bairro, ponto de referência
+FLUXO IDEAL:
+1. Cidadão descreve o problema
+2. Você demonstra que entendeu e pede localização se necessário
+3. Resume de forma amigável: "Entendi! Então tem [problema] na [localização]. Posso registrar seu relato?"
+4. Aguarda confirmação (sim, pode, ok, manda, etc)
+5. Chama create_urban_report com os dados inferidos
 
 REGRAS IMPORTANTES:
-- Seja empático, objetivo e direto
-- Faça uma pergunta por vez
-- Extraia informações das respostas naturalmente
-- Quando tiver TODAS as informações necessárias (categoria, descrição, gravidade), faça um RESUMO claro do relato
-- Pergunte: "Posso registrar seu relato?" ou similar
-- SOMENTE chame a função create_urban_report após o usuário confirmar explicitamente (sim, pode, confirmo, etc)
-- NUNCA crie o relato sem confirmação explícita do usuário
-- Após criar o relato, agradeça e informe que o cidadão pode acompanhar pelo histórico`;
+- NUNCA pergunte sobre gravidade ou criticidade - isso será definido pela equipe
+- NUNCA faça várias perguntas de uma vez
+- NUNCA pareça um formulário ou questionário
+- SEMPRE confirme antes de criar o relato
+- Use linguagem simples e acessível
+- Seja breve nas respostas`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -180,12 +183,13 @@ serve(async (req) => {
             category: reportData.category,
             subcategory: reportData.subcategory || null,
             description: reportData.description,
-            severity: reportData.severity,
+            severity: 'media', // Valor padrão - será avaliado pela equipe
             location_address: reportData.location_address || null,
             status: 'pending',
             ai_classification: {
               collected_via: 'chat',
               tool_call: true,
+              inferred_category: true,
               original_data: reportData
             }
           })
@@ -209,8 +213,8 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash',
             messages: [
-              { role: 'system', content: 'Você acabou de criar com sucesso um relato urbano para o cidadão. Agradeça brevemente, confirme que o relato foi registrado, e informe que ele pode acompanhar o status pelo histórico de relatos. Seja conciso e simpático.' },
-              { role: 'user', content: `Relato criado com sucesso. Dados: categoria=${reportData.category}, descrição=${reportData.description}, gravidade=${reportData.severity}, endereço=${reportData.location_address || 'não informado'}` }
+              { role: 'system', content: 'Você acabou de criar com sucesso um relato urbano para o cidadão. Agradeça de forma breve e simpática, confirme que o relato foi registrado, e informe que ele pode acompanhar o status pelo histórico de relatos. Seja conciso (2-3 frases no máximo).' },
+              { role: 'user', content: `Relato criado com sucesso. Dados: categoria=${reportData.category}, descrição=${reportData.description}, endereço=${reportData.location_address || 'não informado'}` }
             ],
             stream: true,
           }),
@@ -218,7 +222,7 @@ serve(async (req) => {
 
         if (!confirmationResponse.ok) {
           // Se falhar, retornar mensagem estática
-          const staticMessage = `✅ Relato registrado com sucesso!\n\nSeu relato sobre "${reportData.description.slice(0, 50)}..." foi enviado para análise. Você pode acompanhar o status na seção "Meus Relatos".\n\n[REPORT_CREATED:${report.id}]`;
+          const staticMessage = `✅ Pronto! Seu relato foi registrado com sucesso.\n\nVocê pode acompanhar o andamento na seção "Meus Relatos".\n\n[REPORT_CREATED:${report.id}]`;
           
           const encoder = new TextEncoder();
           const stream = new ReadableStream({
