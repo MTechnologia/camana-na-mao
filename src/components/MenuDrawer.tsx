@@ -14,12 +14,14 @@ import {
   Lock,
   ChevronDown,
   ChevronRight,
+  HelpCircle,
 } from "lucide-react";
 import { useAccessibility } from "@/hooks/useAccessibility";
 import { Switch } from "@/components/ui/switch";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -35,6 +37,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const { isAdmin, isGestor, loading } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
+  const { triggerTutorial } = useOnboarding();
   const [configOpen, setConfigOpen] = useState(false);
   const {
     fontSize,
@@ -297,6 +300,20 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                   <Switch checked={textSpacing} onCheckedChange={toggleTextSpacing} />
                 </div>
               </div>
+
+              {/* Rever Tutorial */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs h-8"
+                onClick={() => {
+                  triggerTutorial();
+                  onClose();
+                }}
+              >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Rever Tutorial de Primeiros Passos
+              </Button>
 
               {/* Link para preferências */}
               <Button
