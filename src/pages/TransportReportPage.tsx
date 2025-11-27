@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, TrendingUp, FileText, MessageSquare } from 'lucide-react';
+import { Bus, TrendingUp, FileText, MessageSquare, Route, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
-import busSptrans from '@/assets/bus-sptrans.png';
 
 export default function TransportReportPage() {
   const navigate = useNavigate();
@@ -50,11 +49,39 @@ export default function TransportReportPage() {
     <>
       <PageHeader title="Diagnóstico de Transporte" backTo="/home" />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
-        <div className="relative h-48 bg-gradient-to-br from-green-500 to-emerald-600">
+        <div className="relative h-52 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-500 overflow-hidden">
+          {/* Background decorations */}
+          <div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+          <div className="absolute bottom-4 left-4 w-24 h-24 bg-cyan-400/20 rounded-full blur-xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-400/10 rounded-full blur-3xl" />
+          
+          {/* Content */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-            <img src={busSptrans} alt="SP Trans" className="w-20 h-20 mb-2" />
-            <h1 className="text-2xl font-bold">Diagnóstico de Transporte</h1>
-            <p className="text-sm text-white/90">Colabore para melhorar o transporte público</p>
+            {/* Icon with glassmorphism */}
+            <div className="relative mb-4">
+              <div className="absolute inset-0 bg-white/30 rounded-2xl blur-xl animate-pulse" />
+              <div className="relative w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm 
+                              border border-white/30 flex items-center justify-center
+                              shadow-lg">
+                <Route className="w-10 h-10 text-white" />
+              </div>
+            </div>
+            
+            {/* Title */}
+            <h1 className="text-2xl font-bold tracking-tight drop-shadow-lg">
+              Diagnóstico de Transporte
+            </h1>
+            <p className="text-sm text-white/80 font-light mt-1">
+              Colabore para melhorar o transporte público
+            </p>
+            
+            {/* AI Badge */}
+            <div className="flex items-center gap-2 mt-3 px-3 py-1.5 
+                            bg-white/20 backdrop-blur-sm rounded-full 
+                            border border-white/30">
+              <Sparkles className="w-4 h-4 text-yellow-300" />
+              <span className="text-xs font-medium text-white/90">Powered by IA</span>
+            </div>
           </div>
         </div>
 
