@@ -16,11 +16,11 @@ export const WordCloud = ({ words, onWordClick }: WordCloudProps) => {
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
       case 'positive':
-        return 'text-chart-1';
+        return 'text-chart-1'; // Green
       case 'negative':
-        return 'text-chart-5';
+        return 'text-chart-5'; // Red
       default:
-        return 'text-chart-3';
+        return 'text-chart-3'; // Yellow
     }
   };
 

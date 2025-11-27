@@ -15,11 +15,19 @@ interface EngagementFunnelProps {
 export const EngagementFunnel = ({ steps }: EngagementFunnelProps) => {
   const maxCount = steps[0]?.count || 1;
 
+  // Gradient colors for funnel stages
+  const colors = [
+    'hsl(var(--chart-2))',  // Blue - Created
+    'hsl(var(--chart-6))',  // Cyan - With Interaction
+    'hsl(var(--chart-3))',  // Yellow - Supported
+    'hsl(var(--chart-1))',  // Green - Resolved
+  ];
+
   return (
     <div className="w-full space-y-3">
       {steps.map((step, index) => {
         const width = (step.count / maxCount) * 100;
-        const color = step.color || `hsl(var(--chart-${(index % 5) + 1}))`;
+        const color = step.color || colors[index % colors.length];
         
         return (
           <motion.div
