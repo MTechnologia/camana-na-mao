@@ -1,6 +1,7 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/contexts/AuthContext';
 import { ChevronRight, Menu, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,9 @@ interface AdminHeaderProps {
 
 export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { profile } = useProfile();
+  const { signOut } = useAuth();
   
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const breadcrumbs = pathSegments.map((_, index) => {
@@ -112,10 +115,19 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Perfil</DropdownMenuItem>
-              <DropdownMenuItem>Configurações</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
+                Perfil
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/admin/settings/accessibility')}>
+                Configurações
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">Sair</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive"
+                onClick={() => signOut()}
+              >
+                Sair
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
