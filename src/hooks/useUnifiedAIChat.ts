@@ -20,10 +20,17 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Sync conversationIdRef with prop changes
+  // Sync conversationIdRef with prop changes imediatamente
   useEffect(() => {
-    conversationIdRef.current = conversationId || null;
+    if (conversationId !== conversationIdRef.current) {
+      conversationIdRef.current = conversationId || null;
+    }
   }, [conversationId]);
+
+  // Sync síncrono também para garantir
+  if (conversationId && conversationId !== conversationIdRef.current) {
+    conversationIdRef.current = conversationId;
+  }
 
   // Carregar mensagens do banco quando há conversationId
   useEffect(() => {

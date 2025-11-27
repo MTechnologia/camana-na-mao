@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
@@ -11,9 +11,16 @@ import { AI_JOURNEYS } from "@/config/aiJourneys";
 
 const ChatArea = () => {
   const { currentJourney, activeConversationId, setJourney, setActiveConversationId } = useAIJourney();
+  const [localConversationId, setLocalConversationId] = useState<string | null>(activeConversationId);
+  
+  // Sincronizar ID local com o contexto
+  useEffect(() => {
+    setLocalConversationId(activeConversationId);
+  }, [activeConversationId]);
+
   const { messages, isLoading, sendMessage } = useUnifiedAIChat(
-    currentJourney,
-    activeConversationId
+    currentJourney || AI_JOURNEYS.general,
+    localConversationId
   );
   const { createConversation } = useAIConversations();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -29,16 +36,21 @@ const ChatArea = () => {
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    // Se não tem conversa ativa, criar uma nova com a jornada 'general'
-    if (!activeConversationId && !currentJourney) {
-      const generalJourney = AI_JOURNEYS.general;
-      const newConvId = await createConversation('general', content);
+    // Se não tem conversa ativa, criar uma nova primeiro
+    if (!localConversationId) {
+      const journeyToUse = currentJourney || AI_JOURNEYS.general;
+      const newConvId = await createConversation(journeyToUse.id);
       
       if (newConvId) {
-        setJourney(generalJourney, newConvId);
+        // Atualizar estados locais e globais
+        setLocalConversationId(newConvId);
+        setJourney(journeyToUse, newConvId);
         setActiveConversationId(newConvId);
-        // Aguardar um tick para o estado atualizar
-        setTimeout(() => sendMessage(content.trim()), 100);
+        
+        // Enviar mensagem após um pequeno delay para garantir que o estado atualize
+        setTimeout(() => {
+          sendMessage(content.trim());
+        }, 50);
         return;
       }
     }

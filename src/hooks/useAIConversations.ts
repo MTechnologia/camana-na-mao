@@ -90,21 +90,11 @@ export const useAIConversations = () => {
     return cleaned.substring(0, maxLength) + '...';
   };
 
-  const createConversation = async (journeyId: string, firstMessage?: string) => {
+  const createConversation = async (journeyId: string, initialTitle?: string) => {
     if (!user) return null;
 
     try {
-      const title = firstMessage ? generateTitle(firstMessage) : 'Nova conversa';
-      const messages = [];
-      
-      // Se há mensagem inicial, adicionar como mensagem do assistente
-      if (firstMessage) {
-        messages.push({ 
-          role: "assistant", 
-          content: firstMessage, 
-          timestamp: new Date().toISOString() 
-        });
-      }
+      const title = initialTitle ? generateTitle(initialTitle) : 'Nova conversa';
       
       const { data, error } = await supabase
         .from('ai_conversations')
@@ -112,7 +102,7 @@ export const useAIConversations = () => {
           user_id: user.id,
           journey_id: journeyId,
           title,
-          messages,
+          messages: [],
           status: 'active',
           context: journeyId,
         })
