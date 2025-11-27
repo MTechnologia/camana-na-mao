@@ -7,11 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Phone, Clock, Star, Bell } from "lucide-react";
+import { Phone, Clock, Star, Bell, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { MapboxMap } from "@/components/map/MapboxMap";
-import { useGeolocation } from "@/hooks/useGeolocation";
 import { servicosProximos } from "@/data/searchData";
 
 export default function ServiceDetailPage() {
@@ -22,7 +20,6 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
-  const { latitude, longitude } = useGeolocation();
 
   useEffect(() => {
     loadService();
@@ -269,23 +266,6 @@ export default function ServiceDetailPage() {
       <PageHeader title={service.name} />
       
       <div className="p-4 space-y-4">
-        {/* Map Section */}
-        <Card className="p-4">
-          <h3 className="font-semibold text-foreground mb-4">Localização</h3>
-          <MapboxMap
-            userLocation={latitude && longitude ? { latitude, longitude } : null}
-            services={[{
-              id: service.id,
-              name: service.name,
-              service_type: service.service_type,
-              latitude: service.latitude,
-              longitude: service.longitude,
-              address: service.address,
-            }]}
-            onServiceClick={() => {}}
-          />
-        </Card>
-
         {/* Info Card */}
         <Card>
           <CardContent className="p-4 space-y-3">
