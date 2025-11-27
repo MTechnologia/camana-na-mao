@@ -1062,6 +1062,47 @@ export type Database = {
         }
         Relationships: []
       }
+      transport_report_responses: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_public: boolean | null
+          report_id: string
+          responder_id: string
+          response_text: string
+          response_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_public?: boolean | null
+          report_id: string
+          responder_id: string
+          response_text: string
+          response_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_public?: boolean | null
+          report_id?: string
+          responder_id?: string
+          response_text?: string
+          response_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_report_responses_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transport_reports: {
         Row: {
           ai_category: string | null
@@ -1069,6 +1110,7 @@ export type Database = {
           ai_sentiment: string | null
           created_at: string | null
           description: string | null
+          first_response_time: unknown
           id: string
           impact_description: string | null
           line_code_custom: string | null
@@ -1077,6 +1119,7 @@ export type Database = {
           occurrence_date: string
           occurrence_time: string | null
           report_type: string
+          responded_at: string | null
           severity: string
           status: string
           updated_at: string | null
@@ -1088,6 +1131,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
+          first_response_time?: unknown
           id?: string
           impact_description?: string | null
           line_code_custom?: string | null
@@ -1096,6 +1140,7 @@ export type Database = {
           occurrence_date: string
           occurrence_time?: string | null
           report_type: string
+          responded_at?: string | null
           severity?: string
           status?: string
           updated_at?: string | null
@@ -1107,6 +1152,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
+          first_response_time?: unknown
           id?: string
           impact_description?: string | null
           line_code_custom?: string | null
@@ -1115,6 +1161,7 @@ export type Database = {
           occurrence_date?: string
           occurrence_time?: string | null
           report_type?: string
+          responded_at?: string | null
           severity?: string
           status?: string
           updated_at?: string | null

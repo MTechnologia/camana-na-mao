@@ -18,6 +18,8 @@ interface TransportReportFull {
   created_at: string;
   updated_at: string;
   user_id: string;
+  responded_at: string | null;
+  first_response_time: string | null;
   transport_lines: {
     line_code: string;
     line_name: string;
@@ -40,6 +42,9 @@ interface KPIs {
   inProgress: number;
   resolved: number;
   rejected: number;
+  responded: number;
+  notResponded: number;
+  responseRate: number;
   totalTrend: number;
   pendingTrend: number;
 }
@@ -56,6 +61,9 @@ export const useTransportReportsAdmin = () => {
     inProgress: 0,
     resolved: 0,
     rejected: 0,
+    responded: 0,
+    notResponded: 0,
+    responseRate: 0,
     totalTrend: 0,
     pendingTrend: 0,
   });
@@ -66,6 +74,7 @@ export const useTransportReportsAdmin = () => {
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ start: null, end: null });
+  const [responseFilter, setResponseFilter] = useState<string>('all');
 
   const ITEMS_PER_PAGE = 20;
 
@@ -101,6 +110,8 @@ export const useTransportReportsAdmin = () => {
 
       const reportsWithAuthors: TransportReportFull[] = (data || []).map(report => ({
         ...report,
+        responded_at: report.responded_at as string | null,
+        first_response_time: report.first_response_time as string | null,
         author: profilesMap.get(report.user_id) || null,
       }));
 
@@ -140,6 +151,21 @@ export const useTransportReportsAdmin = () => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'rejected');
 
+      // KPIs de resposta
+      const { count: responded } = await supabase
+        .from('transport_reports')
+        .select('*', { count: 'exact', head: true })
+        .not('responded_at', 'is', null);
+
+      const { count: notResponded } = await supabase
+        .from('transport_reports')
+        .select('*', { count: 'exact', head: true })
+        .is('responded_at', null);
+
+      const responseRate = total && total > 0 
+        ? Math.round(((responded || 0) / total) * 100) 
+        : 0;
+
       // Tendências (últimos 7 dias vs 7 dias anteriores)
       const today = new Date();
       const sevenDaysAgo = new Date(today);
@@ -168,6 +194,9 @@ export const useTransportReportsAdmin = () => {
         inProgress: inProgress || 0,
         resolved: resolved || 0,
         rejected: rejected || 0,
+        responded: responded || 0,
+        notResponded: notResponded || 0,
+        responseRate,
         totalTrend,
         pendingTrend: pending || 0 > 0 ? 15 : -5,
       });
@@ -217,6 +246,13 @@ export const useTransportReportsAdmin = () => {
       filtered = filtered.filter(
         (report) => new Date(report.created_at) <= new Date(dateRange.end!)
       );
+    }
+
+    // Filtro de resposta
+    if (responseFilter === 'responded') {
+      filtered = filtered.filter((report) => report.responded_at !== null);
+    } else if (responseFilter === 'not_responded') {
+      filtered = filtered.filter((report) => report.responded_at === null);
     }
 
     setFilteredReports(filtered);
@@ -360,7 +396,7 @@ export const useTransportReportsAdmin = () => {
 
   useEffect(() => {
     filterReports();
-  }, [reports, searchTerm, statusFilter, severityFilter, typeFilter, dateRange]);
+  }, [reports, searchTerm, statusFilter, severityFilter, typeFilter, dateRange, responseFilter]);
 
   useEffect(() => {
     // Subscribe para atualizações em tempo real
@@ -398,6 +434,8 @@ export const useTransportReportsAdmin = () => {
     setSeverityFilter,
     typeFilter,
     setTypeFilter,
+    responseFilter,
+    setResponseFilter,
     dateRange,
     setDateRange,
     page,
