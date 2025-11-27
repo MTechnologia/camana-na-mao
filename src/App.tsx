@@ -50,6 +50,8 @@ import MyReportsPage from "./pages/transport/MyReportsPage";
 import ReferralPage from "./pages/transport/ReferralPage";
 import AnalyticsDashboard from "./pages/analytics/AnalyticsDashboard";
 import AdvancedAnalytics from "./pages/analytics/AdvancedAnalytics";
+import CreateDashboard from "./pages/analytics/CreateDashboard";
+import PublicDashboards from "./pages/analytics/PublicDashboards";
 import UrbanReportPage from "./pages/UrbanReportPage";
 import ChatReportPage from "./pages/urban/ChatReportPage";
 import ManualReportPage from "./pages/urban/ManualReportPage";
@@ -119,6 +121,8 @@ const AppContent = () => {
         <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
+          <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
+          <Route path="/analytics/galeria" element={<PublicDashboards />} />
           <Route path="/relato-urbano" element={<UrbanReportPage />} />
           <Route path="/relato-urbano/chat" element={<ChatReportPage />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />

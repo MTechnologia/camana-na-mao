@@ -3,10 +3,19 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, X, Eye } from 'lucide-react';
+import { Check, X, Eye, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { DashboardPreview } from '@/components/analytics/DashboardPreview';
 
 interface Dashboard {
   id: string;
@@ -16,6 +25,7 @@ interface Dashboard {
   is_approved: boolean;
   created_at: string;
   user_id: string;
+  config?: any;
   profiles?: {
     full_name: string;
   };
@@ -77,6 +87,7 @@ const mockDashboards: Dashboard[] = [
 export default function DashboardManagement() {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewDashboard, setPreviewDashboard] = useState<Dashboard | null>(null);
 
   const fetchDashboards = async () => {
     try {
@@ -228,7 +239,11 @@ export default function DashboardManagement() {
                 header: 'Ações',
                 accessor: (dashboard) => (
                   <div className="flex gap-2 flex-wrap">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setPreviewDashboard(dashboard)}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     {!dashboard.is_approved && (
@@ -278,7 +293,12 @@ export default function DashboardManagement() {
                   </Badge>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => setPreviewDashboard(dashboard)}
+                  >
                     <Eye className="h-4 w-4 mr-2" />
                     Ver
                   </Button>
@@ -308,6 +328,55 @@ export default function DashboardManagement() {
           />
         )}
       </div>
+
+      {/* Preview Modal */}
+      <Dialog open={!!previewDashboard} onOpenChange={() => setPreviewDashboard(null)}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>{previewDashboard?.title}</DialogTitle>
+            <DialogDescription>
+              {previewDashboard?.description || 'Sem descrição disponível'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 my-4">
+            <DashboardPreview config={previewDashboard?.config} />
+          </div>
+
+          <DialogFooter>
+            {previewDashboard && !previewDashboard.is_approved && (
+              <div className="flex gap-2 w-full">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    handleReject(previewDashboard.id);
+                    setPreviewDashboard(null);
+                  }}
+                  className="flex-1"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Rejeitar
+                </Button>
+                <Button
+                  onClick={() => {
+                    handleApprove(previewDashboard.id);
+                    setPreviewDashboard(null);
+                  }}
+                  className="flex-1"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Aprovar
+                </Button>
+              </div>
+            )}
+            {previewDashboard?.is_approved && (
+              <Button variant="outline" onClick={() => setPreviewDashboard(null)}>
+                Fechar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
