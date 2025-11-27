@@ -67,7 +67,7 @@ export const useNearbyServices = ({
   serviceType,
 }: UseNearbyServicesProps) => {
   const [services, setServices] = useState<NearbyService[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchNearbyServices = () => {
@@ -75,7 +75,6 @@ export const useNearbyServices = ({
     const userLat = latitude ?? -23.5505; // Praça da Sé
     const userLng = longitude ?? -46.6333;
 
-    setLoading(true);
     setError(null);
 
     try {

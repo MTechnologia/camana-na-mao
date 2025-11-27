@@ -29,7 +29,7 @@ export default function NearbyServicesPage() {
     serviceType: selectedType === "all" ? undefined : selectedType
   });
 
-  const isLoading = geoLoading || servicesLoading;
+  const isLoading = servicesLoading && services.length === 0;
   const userLocation = latitude && longitude ? { latitude, longitude } : null;
 
   return (
