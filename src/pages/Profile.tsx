@@ -34,9 +34,12 @@ const Profile = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading profile:", error);
+        throw error;
+      }
 
       if (data) {
         setProfile({

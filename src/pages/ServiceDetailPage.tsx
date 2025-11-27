@@ -33,9 +33,19 @@ export default function ServiceDetailPage() {
         .from("public_services")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading service:", error);
+        throw error;
+      }
+
+      if (!data) {
+        toast.error("Serviço não encontrado");
+        navigate("/");
+        return;
+      }
+
       setService(data);
     } catch (error) {
       console.error("Error loading service:", error);
@@ -49,12 +59,16 @@ export default function ServiceDetailPage() {
     if (!user || !id) return;
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("service_subscriptions")
         .select("id")
         .eq("user_id", user.id)
         .eq("service_id", id)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking subscription:", error);
+      }
 
       setIsSubscribed(!!data);
     } catch (error) {

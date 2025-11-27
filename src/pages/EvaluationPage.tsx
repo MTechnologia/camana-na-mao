@@ -40,9 +40,19 @@ export default function EvaluationPage() {
         `)
         .eq("id", visitId)
         .eq("user_id", user?.id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading visit:", error);
+        throw error;
+      }
+
+      if (!data) {
+        toast.error("Visita não encontrada");
+        navigate("/");
+        return;
+      }
+
       setVisit(data);
     } catch (error) {
       console.error("Error loading visit:", error);
