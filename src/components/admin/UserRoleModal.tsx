@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { AdminUser } from '@/hooks/useAdminUsers';
-import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { Badge } from '@/components/ui/badge';
 import { Database } from '@/integrations/supabase/types';
 
@@ -21,6 +20,7 @@ interface UserRoleModalProps {
   user: AdminUser;
   open: boolean;
   onClose: () => void;
+  onUpdateRoles: (userId: string, roles: UserRole[]) => Promise<void>;
 }
 
 const availableRoles: Array<{ value: UserRole; label: string; description: string; color: string }> = [
@@ -31,10 +31,9 @@ const availableRoles: Array<{ value: UserRole; label: string; description: strin
   { value: 'cidadao', label: 'Cidadão', description: 'Acesso público padrão', color: 'bg-gray-500' },
 ];
 
-export const UserRoleModal = ({ user, open, onClose }: UserRoleModalProps) => {
+export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleModalProps) => {
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(user.roles);
   const [loading, setLoading] = useState(false);
-  const { updateUserRoles } = useAdminUsers();
 
   const handleToggleRole = (role: UserRole) => {
     setSelectedRoles((prev) =>
@@ -45,7 +44,7 @@ export const UserRoleModal = ({ user, open, onClose }: UserRoleModalProps) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      await updateUserRoles(user.id, selectedRoles);
+      await onUpdateRoles(user.id, selectedRoles);
       onClose();
     } catch (error) {
       console.error('Error updating roles:', error);

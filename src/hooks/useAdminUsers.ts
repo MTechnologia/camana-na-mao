@@ -90,10 +90,37 @@ export const useAdminUsers = () => {
       }
 
       toast.success('Roles atualizados com sucesso');
-      fetchUsers();
+      await fetchUsers();
     } catch (error) {
       console.error('Error updating roles:', error);
       toast.error('Erro ao atualizar roles');
+      throw error;
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    try {
+      // Delete user roles first
+      const { error: rolesError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (rolesError) throw rolesError;
+
+      // Delete user profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      toast.success('Usuário excluído com sucesso');
+      await fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Erro ao excluir usuário');
       throw error;
     }
   };
@@ -113,6 +140,7 @@ export const useAdminUsers = () => {
     roleFilter,
     setRoleFilter,
     updateUserRoles,
+    deleteUser,
     refetch: fetchUsers,
   };
 };
