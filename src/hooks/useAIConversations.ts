@@ -90,11 +90,26 @@ export const useAIConversations = () => {
     return cleaned.substring(0, maxLength) + '...';
   };
 
-  const createConversation = async (journeyId: string, initialTitle?: string) => {
+  const createConversation = async (journeyId: string, initialMessage?: string) => {
     if (!user) return null;
 
     try {
-      const title = initialTitle ? generateTitle(initialTitle) : 'Nova conversa';
+      const title = initialMessage ? generateTitle(initialMessage) : 'Nova conversa';
+      
+      // Criar array de mensagens com a mensagem inicial do assistente
+      const messages = [];
+      if (initialMessage) {
+        messages.push({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: initialMessage,
+          timestamp: new Date().toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          source: "IA CMSP Connect",
+        });
+      }
       
       const { data, error } = await supabase
         .from('ai_conversations')
@@ -102,7 +117,7 @@ export const useAIConversations = () => {
           user_id: user.id,
           journey_id: journeyId,
           title,
-          messages: [],
+          messages,
           status: 'active',
           context: journeyId,
         })
