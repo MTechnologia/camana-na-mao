@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { AI_JOURNEYS, getJourneyIcon } from "@/config/aiJourneys";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { useAIConversations } from "@/hooks/useAIConversations";
 import { motion } from "framer-motion";
 
 interface JourneySelectorProps {
@@ -8,12 +9,21 @@ interface JourneySelectorProps {
 }
 
 const JourneySelector = ({ onSelect }: JourneySelectorProps) => {
-  const { setJourney } = useAIJourney();
+  const { setJourney, setActiveConversationId } = useAIJourney();
+  const { createConversation } = useAIConversations();
 
-  const handleSelectJourney = (journeyId: string) => {
+  const handleSelectJourney = async (journeyId: string) => {
     const journey = AI_JOURNEYS[journeyId];
     if (journey) {
-      setJourney(journey);
+      // Criar nova conversa com mensagem inicial
+      const newConvId = await createConversation(journeyId, journey.initialMessage);
+      
+      if (newConvId) {
+        // Setar jornada e conversa ativa
+        setJourney(journey, newConvId);
+        setActiveConversationId(newConvId);
+      }
+      
       onSelect?.();
     }
   };

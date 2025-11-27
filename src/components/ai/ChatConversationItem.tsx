@@ -3,17 +3,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import type { AIConversation } from "@/hooks/useAIConversations";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import DeleteConversationDialog from "./DeleteConversationDialog";
+import { useState } from "react";
 
 interface ChatConversationItemProps {
   conversation: AIConversation;
@@ -28,6 +19,12 @@ const ChatConversationItem = ({
 }: ChatConversationItemProps) => {
   const { activeConversationId } = useAIJourney();
   const isActive = activeConversationId === conversation.id;
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleDelete = () => {
+    onDelete();
+    setDeleteDialogOpen(false);
+  };
 
   return (
     <div
@@ -42,31 +39,24 @@ const ChatConversationItem = ({
       <MessageSquare className="h-4 w-4 shrink-0 opacity-70" />
       <span className="flex-1 text-sm truncate pr-2">{conversation.title}</span>
       
-      <AlertDialog>
-        <AlertDialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent className="bg-card z-50">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deletar conversa?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A conversa será permanentemente excluída.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Deletar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => {
+          e.stopPropagation();
+          setDeleteDialogOpen(true);
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+
+      <DeleteConversationDialog
+        conversation={conversation}
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };
