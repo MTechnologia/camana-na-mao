@@ -5,14 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, X, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
 
 interface Dashboard {
   id: string;
@@ -40,7 +34,6 @@ export default function DashboardManagement() {
 
       if (error) throw error;
       
-      // Fetch profiles separately
       const userIds = [...new Set(data?.map(d => d.user_id) || [])];
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -101,104 +94,148 @@ export default function DashboardManagement() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Gestão de Painéis Públicos
-          </h1>
-          <p className="text-muted-foreground">
-            Aprove ou rejeite painéis criados por usuários para publicação.
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Painéis Públicos</h1>
+          <p className="text-muted-foreground mt-2 text-sm md:text-base">
+            Aprove ou rejeite painéis criados por usuários para publicação
           </p>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando painéis...</p>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
         ) : dashboards.length === 0 ? (
-          <div className="text-center py-12 bg-card rounded-xl border border-border">
+          <div className="text-center py-12 border rounded-lg bg-muted/20">
             <p className="text-muted-foreground">Nenhum painel criado ainda</p>
           </div>
         ) : (
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Criado por</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboards.map((dashboard) => (
-                  <TableRow key={dashboard.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{dashboard.title}</p>
-                        {dashboard.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {dashboard.description}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {dashboard.profiles?.full_name || 'Usuário desconhecido'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(dashboard.created_at).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {dashboard.is_public && (
-                          <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
-                            Público
-                          </Badge>
-                        )}
-                        {dashboard.is_approved ? (
-                          <Badge variant="outline" className="bg-green-500/10 text-green-500">
-                            Aprovado
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500">
-                            Pendente
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
+          <ResponsiveTable
+            data={dashboards}
+            keyExtractor={(dashboard) => dashboard.id}
+            columns={[
+              {
+                header: 'Título',
+                accessor: (dashboard) => (
+                  <div>
+                    <p className="font-medium">{dashboard.title}</p>
+                    {dashboard.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-1">
+                        {dashboard.description}
+                      </p>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                header: 'Criador',
+                accessor: (dashboard) => dashboard.profiles?.full_name || 'Usuário desconhecido',
+                hideOnMobile: true,
+              },
+              {
+                header: 'Data',
+                accessor: (dashboard) => new Date(dashboard.created_at).toLocaleDateString('pt-BR'),
+                hideOnMobile: true,
+              },
+              {
+                header: 'Status',
+                accessor: (dashboard) => (
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant={dashboard.is_public ? 'default' : 'secondary'} className="text-xs">
+                      {dashboard.is_public ? 'Público' : 'Privado'}
+                    </Badge>
+                    <Badge
+                      variant={dashboard.is_approved ? 'default' : 'outline'}
+                      className="text-xs"
+                    >
+                      {dashboard.is_approved ? 'Aprovado' : 'Pendente'}
+                    </Badge>
+                  </div>
+                ),
+              },
+              {
+                header: 'Ações',
+                accessor: (dashboard) => (
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    {!dashboard.is_approved && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleApprove(dashboard.id)}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <Check className="h-4 w-4" />
                         </Button>
-                        {!dashboard.is_approved && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleApprove(dashboard.id)}
-                              className="text-green-600 hover:text-green-700"
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleReject(dashboard.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleReject(dashboard.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ),
+              },
+            ]}
+            renderMobileCard={(dashboard) => (
+              <div className="space-y-3">
+                <div>
+                  <p className="font-medium">{dashboard.title}</p>
+                  {dashboard.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                      {dashboard.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{dashboard.profiles?.full_name || 'Usuário desconhecido'}</span>
+                  <span>{new Date(dashboard.created_at).toLocaleDateString('pt-BR')}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant={dashboard.is_public ? 'default' : 'secondary'}>
+                    {dashboard.is_public ? 'Público' : 'Privado'}
+                  </Badge>
+                  <Badge variant={dashboard.is_approved ? 'default' : 'outline'}>
+                    {dashboard.is_approved ? 'Aprovado' : 'Pendente'}
+                  </Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver
+                  </Button>
+                  {!dashboard.is_approved && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleApprove(dashboard.id)}
+                        className="text-green-600"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleReject(dashboard.id)}
+                        className="text-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          />
         )}
       </div>
     </AdminLayout>
