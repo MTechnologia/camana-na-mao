@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface AdminStats {
   pendingUrbanReports: number;
   pendingTransportReports: number;
+  pendingReferrals: number;
   unreadNotifications: number;
   loading: boolean;
 }
@@ -12,6 +13,7 @@ export const useAdminStats = () => {
   const [stats, setStats] = useState<AdminStats>({
     pendingUrbanReports: 0,
     pendingTransportReports: 0,
+    pendingReferrals: 0,
     unreadNotifications: 0,
     loading: true,
   });
@@ -37,9 +39,16 @@ export const useAdminStats = () => {
           .select('*', { count: 'exact', head: true })
           .eq('is_read', false);
 
+        // Count pending referrals
+        const { count: referralCount } = await supabase
+          .from('council_member_referrals')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+
         setStats({
           pendingUrbanReports: urbanCount || 0,
           pendingTransportReports: transportCount || 0,
+          pendingReferrals: referralCount || 0,
           unreadNotifications: notificationCount || 0,
           loading: false,
         });

@@ -19,6 +19,7 @@ interface TransportReport {
   severity: string;
   status: string;
   occurrence_date: string;
+  location: string | null;
   responded_at: string | null;
   transport_lines: TransportLine | null;
   author: Author | null;
