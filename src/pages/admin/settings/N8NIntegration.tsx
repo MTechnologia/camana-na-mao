@@ -8,45 +8,123 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { Link2, CheckCircle2, XCircle, TestTube, Activity } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface EventConfig {
+  key: string;
+  label: string;
+  enabled: boolean;
+}
+
 const N8NIntegration = () => {
+  const { user } = useAuth();
   const [webhookUrl, setWebhookUrl] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
-  const [events, setEvents] = useState({
-    urban_report_created: true,
-    transport_report_created: true,
-    report_critical: true,
-    report_resolved: false,
-    pattern_detected: false,
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [settingsId, setSettingsId] = useState<string | null>(null);
+  
+  const [events, setEvents] = useState<EventConfig[]>([
+    { key: 'urban_report_created', label: 'Novo relato urbano criado', enabled: true },
+    { key: 'transport_report_created', label: 'Novo relato de transporte criado', enabled: true },
+    { key: 'report_critical', label: 'Relato marcado como crítico', enabled: true },
+    { key: 'report_resolved', label: 'Relato resolvido', enabled: false },
+    { key: 'pattern_detected', label: 'Padrão detectado pela IA', enabled: false },
+  ]);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    if (user) {
+      loadSettings();
+    }
+  }, [user]);
 
-  const loadSettings = () => {
-    // Load from localStorage (in production, this would come from Supabase)
-    const savedUrl = localStorage.getItem('n8n_webhook_url');
-    const savedSecret = localStorage.getItem('n8n_secret_key');
-    const savedEvents = localStorage.getItem('n8n_events');
-    
-    if (savedUrl) setWebhookUrl(savedUrl);
-    if (savedSecret) setSecretKey(savedSecret);
-    if (savedEvents) setEvents(JSON.parse(savedEvents));
-    
-    setIsConnected(!!savedUrl);
+  const loadSettings = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('n8n_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      if (data) {
+        setSettingsId(data.id);
+        setWebhookUrl(data.webhook_url);
+        setSecretKey(data.secret_key || '');
+        setIsConnected(data.is_connected);
+        
+        // Parse enabled_events do JSONB
+        if (Array.isArray(data.enabled_events)) {
+          setEvents(data.enabled_events as unknown as EventConfig[]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading N8N settings:', error);
+      toast.error('Erro ao carregar configurações');
+    }
   };
 
-  const saveSettings = () => {
-    localStorage.setItem('n8n_webhook_url', webhookUrl);
-    localStorage.setItem('n8n_secret_key', secretKey);
-    localStorage.setItem('n8n_events', JSON.stringify(events));
-    setIsConnected(true);
-    toast.success('Configurações salvas com sucesso');
+  const saveSettings = async () => {
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return;
+    }
+
+    if (!webhookUrl) {
+      toast.error('URL do webhook é obrigatória');
+      return;
+    }
+
+    // Validar URL
+    try {
+      new URL(webhookUrl);
+    } catch {
+      toast.error('URL inválida');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const payload = {
+        user_id: user.id,
+        webhook_url: webhookUrl,
+        secret_key: secretKey || null,
+        is_connected: isConnected,
+        enabled_events: events as unknown as any,
+      };
+
+      if (settingsId) {
+        const { error } = await supabase
+          .from('n8n_settings')
+          .update(payload)
+          .eq('id', settingsId);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('n8n_settings')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) setSettingsId(data.id);
+      }
+
+      toast.success('Configurações salvas com sucesso!');
+    } catch (error) {
+      console.error('Error saving N8N settings:', error);
+      toast.error('Erro ao salvar configurações');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const testConnection = async () => {
@@ -56,47 +134,53 @@ const N8NIntegration = () => {
     }
 
     setIsTesting(true);
+
     try {
       const testPayload = {
-        event: 'test_connection',
+        event: 'test.connection',
         timestamp: new Date().toISOString(),
         data: {
           message: 'Teste de conexão do CMSP Connect',
-        },
+          app_version: '1.0.0',
+        }
       };
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(secretKey && { 'X-Secret-Key': secretKey }),
+      // Usar a Edge Function como proxy para evitar CORS
+      const { data, error } = await supabase.functions.invoke('n8n-webhook', {
+        body: {
+          webhookUrl,
+          payload: testPayload,
+          secretKey: secretKey || undefined,
         },
-        body: JSON.stringify(testPayload),
       });
 
-      if (response.ok) {
-        toast.success('Conexão testada com sucesso!');
+      if (error) throw error;
+
+      if (data.success) {
+        setIsConnected(true);
+        toast.success('Conexão estabelecida com sucesso!');
+        
+        // Salvar automaticamente após conexão bem-sucedida
+        await saveSettings();
       } else {
-        toast.error(`Erro na conexão: ${response.status}`);
+        setIsConnected(false);
+        toast.error(data.message || 'Falha na conexão');
       }
     } catch (error) {
-      console.error('Error testing connection:', error);
-      toast.error('Erro ao testar conexão');
+      setIsConnected(false);
+      toast.error('Erro ao testar conexão. Verifique a URL e tente novamente.');
+      console.error('Connection test error:', error);
     } finally {
       setIsTesting(false);
     }
   };
 
   const toggleEvent = (eventKey: string) => {
-    setEvents((prev) => ({ ...prev, [eventKey]: !prev[eventKey as keyof typeof prev] }));
-  };
-
-  const eventLabels = {
-    urban_report_created: 'Novo relato urbano criado',
-    transport_report_created: 'Novo relato de transporte criado',
-    report_critical: 'Relato marcado como crítico',
-    report_resolved: 'Relato resolvido',
-    pattern_detected: 'Padrão detectado pela IA',
+    setEvents((prev) =>
+      prev.map((event) =>
+        event.key === eventKey ? { ...event, enabled: !event.enabled } : event
+      )
+    );
   };
 
   return (
@@ -169,7 +253,12 @@ const N8NIntegration = () => {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button onClick={saveSettings} className="flex-1">
+              <Button 
+                onClick={saveSettings} 
+                disabled={isSaving}
+                className="flex-1"
+              >
+                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Salvar Configurações
               </Button>
               <Button
@@ -178,8 +267,17 @@ const N8NIntegration = () => {
                 disabled={isTesting || !webhookUrl}
                 className="flex-1"
               >
-                <TestTube className="h-4 w-4 mr-2" />
-                {isTesting ? 'Testando...' : 'Testar Conexão'}
+                {isTesting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Testando...
+                  </>
+                ) : (
+                  <>
+                    <TestTube className="h-4 w-4 mr-2" />
+                    Testar Conexão
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -195,15 +293,15 @@ const N8NIntegration = () => {
             Selecione quais eventos devem disparar notificações para o N8N
           </p>
           <div className="space-y-3">
-            {Object.entries(eventLabels).map(([key, label]) => (
-              <div key={key} className="flex items-center justify-between p-3 rounded-lg border">
-                <Label htmlFor={key} className="cursor-pointer">
-                  {label}
+            {events.map((event) => (
+              <div key={event.key} className="flex items-center justify-between p-3 rounded-lg border">
+                <Label htmlFor={event.key} className="cursor-pointer">
+                  {event.label}
                 </Label>
                 <Switch
-                  id={key}
-                  checked={events[key as keyof typeof events]}
-                  onCheckedChange={() => toggleEvent(key)}
+                  id={event.key}
+                  checked={event.enabled}
+                  onCheckedChange={() => toggleEvent(event.key)}
                 />
               </div>
             ))}

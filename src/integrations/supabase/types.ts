@@ -268,6 +268,39 @@ export type Database = {
         }
         Relationships: []
       }
+      n8n_settings: {
+        Row: {
+          created_at: string | null
+          enabled_events: Json | null
+          id: string
+          is_connected: boolean | null
+          secret_key: string | null
+          updated_at: string | null
+          user_id: string | null
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          enabled_events?: Json | null
+          id?: string
+          is_connected?: boolean | null
+          secret_key?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string | null
+          enabled_events?: Json | null
+          id?: string
+          is_connected?: boolean | null
+          secret_key?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       noticias: {
         Row: {
           autor: string | null
@@ -974,6 +1007,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       transport_lines: {
         Row: {
