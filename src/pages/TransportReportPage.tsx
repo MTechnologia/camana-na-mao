@@ -56,7 +56,7 @@ export default function TransportReportPage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-400/10 rounded-full blur-3xl" />
           
           {/* Content */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white pb-8">
             {/* Icon with glassmorphism */}
             <div className="relative mb-4">
               <div className="absolute inset-0 bg-white/30 rounded-2xl blur-xl animate-pulse" />
@@ -77,14 +77,18 @@ export default function TransportReportPage() {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-6 -mt-16 relative z-10">
-          <div className="space-y-3 animate-fade-in">
-            {options.map((option) => {
+        <div className="max-w-7xl mx-auto px-6 pt-2 -mt-8 relative z-10">
+          <div className="space-y-3">
+            {options.map((option, index) => {
               const Icon = option.icon;
               return (
                 <Card
                   key={option.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow border-border"
+                  className="cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border animate-fade-in opacity-0"
+                  style={{ 
+                    animationDelay: `${index * 100}ms`,
+                    animationFillMode: 'forwards'
+                  }}
                   onClick={() => navigate(option.path)}
                 >
                   <CardContent className="p-4">
