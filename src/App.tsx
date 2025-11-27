@@ -11,6 +11,7 @@ import { MenuProvider } from "@/contexts/MenuContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { TransportProvider } from "@/contexts/TransportContext";
 import { EvaluationProvider } from "@/contexts/EvaluationContext";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
 import Login from "./pages/Login";
@@ -178,19 +179,21 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <MenuProvider>
-            <FavoritesProvider>
-              <TransportProvider>
-                <EvaluationProvider>
-                  <AIProvider>
-                    <AIJourneyProvider>
-                      <NotificationsProvider>
-                        <AppContent />
-                      </NotificationsProvider>
-                    </AIJourneyProvider>
-                  </AIProvider>
-                </EvaluationProvider>
-              </TransportProvider>
-            </FavoritesProvider>
+            <OnboardingProvider>
+              <FavoritesProvider>
+                <TransportProvider>
+                  <EvaluationProvider>
+                    <AIProvider>
+                      <AIJourneyProvider>
+                        <NotificationsProvider>
+                          <AppContent />
+                        </NotificationsProvider>
+                      </AIJourneyProvider>
+                    </AIProvider>
+                  </EvaluationProvider>
+                </TransportProvider>
+              </FavoritesProvider>
+            </OnboardingProvider>
           </MenuProvider>
         </AuthProvider>
       </BrowserRouter>
