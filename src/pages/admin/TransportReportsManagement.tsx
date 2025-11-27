@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Bus, Search, Download, MessageSquare, AlertCircle, CheckCircle2, Eye, Trash2, List, LayoutGrid } from 'lucide-react';
+import { Bus, Search, Download, MessageSquare, AlertCircle, CheckCircle2, Eye, Trash2, List, LayoutGrid, Send, AlertTriangle } from 'lucide-react';
+import { ReferralDialog } from '@/components/referral/ReferralDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTransportReportsAdmin } from '@/hooks/useTransportReportsAdmin';
@@ -48,6 +49,8 @@ const TransportReportsManagement = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteType, setDeleteType] = useState<'single' | 'bulk'>('single');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
+  const [referralDialogOpen, setReferralDialogOpen] = useState(false);
+  const [reportForReferral, setReportForReferral] = useState<any>(null);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -351,11 +354,12 @@ const TransportReportsManagement = () => {
                     <div className="flex-1 space-y-3">
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-lg">
                               {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)}
                             </h3>
-                            <Badge variant="outline" className={getSeverityColor(report.severity)}>
+                            <Badge className={getSeverityColor(report.severity)}>
+                              <AlertTriangle className="h-3 w-3 mr-1" />
                               {getSeverityLabel(report.severity)}
                             </Badge>
                             <Badge variant="outline" className={getStatusColor(report.status)}>
@@ -416,6 +420,26 @@ const TransportReportsManagement = () => {
                         </Select>
                       )}
 
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setReportForReferral({
+                            id: report.id,
+                            type: 'transport' as const,
+                            title: report.report_type,
+                            description: report.description,
+                            category: report.report_type,
+                            location: report.location,
+                            severity: report.severity,
+                            report_type: report.report_type,
+                          });
+                          setReferralDialogOpen(true);
+                        }}
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        Encaminhar
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -492,6 +516,14 @@ const TransportReportsManagement = () => {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
         reportCount={deleteType === 'bulk' ? selectedReports.length : 1}
+      />
+
+      {/* Referral Dialog */}
+      <ReferralDialog
+        open={referralDialogOpen}
+        onOpenChange={setReferralDialogOpen}
+        report={reportForReferral}
+        onComplete={() => setReportForReferral(null)}
       />
     </AdminLayout>
   );

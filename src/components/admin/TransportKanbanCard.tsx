@@ -1,8 +1,10 @@
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash2, CheckCircle2, AlertCircle, GripVertical } from 'lucide-react';
+import { Eye, Trash2, AlertTriangle, GripVertical, Bus, MapPin, CheckCircle2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface TransportLine {
   line_code: string;
@@ -20,6 +22,7 @@ interface TransportReport {
   severity: string;
   status: string;
   occurrence_date: string;
+  location: string | null;
   responded_at: string | null;
   transport_lines: TransportLine | null;
   author: Author | null;
@@ -32,22 +35,22 @@ interface TransportKanbanCardProps {
   onDelete: (report: TransportReport) => void;
 }
 
-const getSeverityColor = (severity: string) => {
-  const colors: Record<string, string> = {
-    low: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-    medium: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-    high: 'bg-red-500/10 text-red-600 border-red-500/20',
-  };
-  return colors[severity] || 'bg-muted text-foreground';
+const getSeverityColor = (severity: string): string => {
+  switch (severity) {
+    case 'high': return 'bg-red-500/10 text-red-600 border-red-500/20';
+    case 'medium': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
+    case 'low': return 'bg-green-500/10 text-green-600 border-green-500/20';
+    default: return 'bg-muted text-muted-foreground';
+  }
 };
 
-const getSeverityLabel = (severity: string) => {
-  const labels: Record<string, string> = {
-    low: 'Baixa',
-    medium: 'Média',
-    high: 'Alta',
-  };
-  return labels[severity] || severity;
+const getSeverityLabel = (severity: string): string => {
+  switch (severity) {
+    case 'high': return 'Alta';
+    case 'medium': return 'Média';
+    case 'low': return 'Baixa';
+    default: return 'N/D';
+  }
 };
 
 export const TransportKanbanCard = ({
@@ -60,20 +63,27 @@ export const TransportKanbanCard = ({
     <Card
       draggable
       onDragStart={(e) => onDragStart(e, report.id)}
-      className="p-3 cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all bg-card"
+      className="p-3 cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors bg-card"
     >
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <Badge variant="outline" className={getSeverityColor(report.severity)}>
+            <Badge className={getSeverityColor(report.severity)}>
+              <AlertTriangle className="h-3 w-3 mr-1" />
               {getSeverityLabel(report.severity)}
             </Badge>
           </div>
           {report.responded_at ? (
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Respondido
+            </Badge>
           ) : (
-            <AlertCircle className="h-4 w-4 text-orange-500" />
+            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+              <Clock className="h-3 w-3 mr-1" />
+              Aguardando
+            </Badge>
           )}
         </div>
 
@@ -82,7 +92,8 @@ export const TransportKanbanCard = ({
         </h4>
 
         {report.transport_lines && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <Bus className="h-3 w-3" />
             {report.transport_lines.line_code} - {report.transport_lines.line_name}
           </p>
         )}
@@ -93,9 +104,16 @@ export const TransportKanbanCard = ({
           </p>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-border">
+        {report.location && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            <span className="line-clamp-1">{report.location}</span>
+          </p>
+        )}
+
+        <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-xs text-muted-foreground">
-            {format(new Date(report.occurrence_date), 'dd/MM/yyyy')}
+            {format(new Date(report.occurrence_date), 'dd/MM', { locale: ptBR })}
           </span>
           <div className="flex gap-1">
             <Button

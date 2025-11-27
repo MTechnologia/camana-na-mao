@@ -71,6 +71,7 @@ import SentimentAnalysis from "./pages/admin/SentimentAnalysis";
 import NotificationsManagement from "./pages/admin/NotificationsManagement";
 import N8NIntegration from "./pages/admin/settings/N8NIntegration";
 import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings";
+import ReferralsManagement from "./pages/admin/ReferralsManagement";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
 import NotFound from "./pages/NotFound";
@@ -145,6 +146,7 @@ const AppContent = () => {
           <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
           <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
           <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />

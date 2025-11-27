@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Search, AlertTriangle, Calendar as CalendarIcon, Eye, Download, RefreshCw, Heart, MessageSquare, ChevronLeft, ChevronRight, Trash2, List, Kanban } from 'lucide-react';
+import { MapPin, Search, AlertTriangle, Calendar as CalendarIcon, Eye, Download, RefreshCw, Heart, MessageSquare, ChevronLeft, ChevronRight, Trash2, List, Kanban, Send } from 'lucide-react';
+import { ReferralDialog } from '@/components/referral/ReferralDialog';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useUrbanReportsAdmin } from '@/hooks/useUrbanReportsAdmin';
@@ -55,6 +56,8 @@ const UrbanReportsManagement = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [referralDialogOpen, setReferralDialogOpen] = useState(false);
+  const [reportForReferral, setReportForReferral] = useState<any>(null);
 
   const getStatusColor = (status: string | null) => {
     switch (status) {
@@ -392,6 +395,25 @@ const UrbanReportsManagement = () => {
                         </Select>
                       )}
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setReportForReferral({
+                            id: report.id,
+                            type: 'urban' as const,
+                            title: report.category,
+                            description: report.description,
+                            category: report.subcategory,
+                            location: report.location_address,
+                            severity: report.severity,
+                          });
+                          setReferralDialogOpen(true);
+                        }}
+                      >
+                        <Send className="h-4 w-4 mr-1" />
+                        Encaminhar
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => {
@@ -491,6 +513,14 @@ const UrbanReportsManagement = () => {
             setSelectAll(false);
           }}
           reportCount={selectedIds.length}
+        />
+
+        {/* Referral Dialog */}
+        <ReferralDialog
+          open={referralDialogOpen}
+          onOpenChange={setReferralDialogOpen}
+          report={reportForReferral}
+          onComplete={() => setReportForReferral(null)}
         />
       </div>
     </AdminLayout>

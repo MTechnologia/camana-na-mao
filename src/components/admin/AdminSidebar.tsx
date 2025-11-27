@@ -50,6 +50,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           submenu: [
             { title: 'Relatos Urbanos', href: '/admin/urban-reports', badge: stats.pendingUrbanReports },
             { title: 'Relatos de Transporte', href: '/admin/transport-reports', badge: stats.pendingTransportReports },
+            { title: 'Encaminhamentos', href: '/admin/referrals', badge: stats.pendingReferrals },
             { title: 'Análise de Relatos', href: '/admin/reports-analytics' },
             { title: 'Análise de Sentimento', href: '/admin/sentiment-analysis' },
           ],
