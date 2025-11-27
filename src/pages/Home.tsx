@@ -20,8 +20,6 @@ import { supabase } from "@/integrations/supabase/client";
 import NextAudienciaBanner from "@/components/home/NextAudienciaBanner";
 import LocationPrompt from "@/components/home/LocationPrompt";
 import { AvatarWithProgress } from "@/components/home/AvatarWithProgress";
-import { useOnboarding } from "@/contexts/OnboardingContext";
-import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -30,22 +28,11 @@ const Home = () => {
   const { pendingRatings } = usePendingRatings();
   const { status: profileStatus, loading: profileLoading } = useProfileCompletion();
   const { latitude, longitude, refetch: requestLocation } = useGeolocation();
-  const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
   
   const [unreadCount, setUnreadCount] = useState(0);
   const [nextAudiencia, setNextAudiencia] = useState<any>(null);
-
-  // Show tutorial for first access
-  if (!onboardingLoading && showTutorial) {
-    return (
-      <AppOnboardingTutorial 
-        onComplete={completeTutorial}
-        onSkip={completeTutorial}
-      />
-    );
-  }
 
   const highlights = [
     { id: 1, image: camaraAbertaBg, title: "Câmara Aberta", path: "/institucional/noticias/1" },
@@ -184,22 +171,22 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Next Audiência Banner - logo após os atalhos */}
+        {nextAudiencia && (
+          <div className="animate-fade-in" style={{ animationDelay: "75ms" }}>
+            <NextAudienciaBanner audiencia={nextAudiencia} />
+          </div>
+        )}
+
         {/* Location Prompt */}
         {!latitude && !longitude && (
-          <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
             <LocationPrompt onRequestLocation={requestLocation} />
           </div>
         )}
 
         {/* Pending Ratings Banner */}
         <PendingRatingsBanner />
-
-        {/* Next Audiência Banner */}
-        {nextAudiencia && (
-          <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
-            <NextAudienciaBanner audiencia={nextAudiencia} />
-          </div>
-        )}
 
         {/* Carousel Highlights with Bullets */}
         <div className="relative animate-fade-in" style={{ animationDelay: "100ms" }}>
