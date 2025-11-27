@@ -75,12 +75,24 @@ import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings"
 import ReferralsManagement from "./pages/admin/ReferralsManagement";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import NotFound from "./pages/NotFound";
 import SearchPage from "./pages/Search";
+import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
 
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
-  
+  const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
+  // Global tutorial overlay
+  if (!onboardingLoading && showTutorial) {
+    return (
+      <AppOnboardingTutorial 
+        onComplete={completeTutorial}
+        onSkip={completeTutorial}
+      />
+    );
+  }
+
   return (
     <>
       <Routes>
