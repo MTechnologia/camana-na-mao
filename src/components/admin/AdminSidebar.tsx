@@ -152,12 +152,12 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
                         <button
                           className={cn(
                             'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
-                            'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
+                            'hover:bg-muted text-muted-foreground hover:text-foreground',
                             'group'
                           )}
                         >
-                          <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 transition-colors">
-                            <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-primary transition-colors" />
+                          <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                            <item.icon className="h-4 w-4 flex-shrink-0 transition-colors" />
                           </div>
                           {!collapsed && (
                             <>
@@ -178,8 +178,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
                               onClick={() => handleNavigate(subitem.href)}
                               className={cn(
                                 'w-full flex items-center gap-3 px-3 py-2 ml-6 rounded-lg transition-all text-sm',
-                                'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
-                                isActive(subitem.href) && 'bg-accent text-foreground font-medium'
+                                'hover:bg-muted text-muted-foreground hover:text-foreground',
+                                isActive(subitem.href) && 'bg-muted text-foreground font-medium'
                               )}
                             >
                               <span className="flex-1 text-left">{subitem.title}</span>
@@ -198,13 +198,13 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
                       onClick={() => item.href && handleNavigate(item.href)}
                       className={cn(
                         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
-                        'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
+                        'hover:bg-muted text-muted-foreground hover:text-foreground',
                         'group',
-                        item.href && isActive(item.href) && 'bg-accent text-foreground font-medium'
+                        item.href && isActive(item.href) && 'bg-muted text-foreground font-medium'
                       )}
                     >
-                      <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 transition-colors">
-                        <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-primary transition-colors" />
+                      <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                        <item.icon className="h-4 w-4 flex-shrink-0 transition-colors" />
                       </div>
                       {!collapsed && (
                         <span className="flex-1 text-left text-sm">{item.title}</span>
