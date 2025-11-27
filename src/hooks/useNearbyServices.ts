@@ -60,13 +60,43 @@ const calculateDistance = (
   return R * c;
 };
 
+// Helper to get initial services with simulated location
+const getInitialServices = (
+  radiusMeters: number = 5000,
+  serviceType?: ServiceType
+): NearbyService[] => {
+  const userLat = -23.5505; // Praça da Sé
+  const userLng = -46.6333;
+  
+  let mockedData = servicosProximos.map(convertMockedToService);
+  
+  if (serviceType && serviceType !== "all") {
+    mockedData = mockedData.filter(service => service.service_type === serviceType);
+  }
+  
+  return mockedData
+    .map(service => ({
+      ...service,
+      distance: calculateDistance(
+        userLat,
+        userLng,
+        Number(service.latitude),
+        Number(service.longitude)
+      ),
+    }))
+    .filter(service => service.distance <= radiusMeters)
+    .sort((a, b) => a.distance - b.distance);
+};
+
 export const useNearbyServices = ({
   latitude,
   longitude,
   radiusMeters = 5000,
   serviceType,
 }: UseNearbyServicesProps) => {
-  const [services, setServices] = useState<NearbyService[]>([]);
+  const [services, setServices] = useState<NearbyService[]>(() => 
+    getInitialServices(radiusMeters, serviceType)
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
