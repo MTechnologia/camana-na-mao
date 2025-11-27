@@ -59,6 +59,13 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import DashboardManagement from "./pages/admin/DashboardManagement";
 import ExportLogs from "./pages/admin/ExportLogs";
+import AuditLogs from "./pages/admin/AuditLogs";
+import UrbanReportsManagement from "./pages/admin/UrbanReportsManagement";
+import TransportReportsManagement from "./pages/admin/TransportReportsManagement";
+import ReportsAnalytics from "./pages/admin/ReportsAnalytics";
+import NotificationsManagement from "./pages/admin/NotificationsManagement";
+import N8NIntegration from "./pages/admin/settings/N8NIntegration";
+import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
 import NotFound from "./pages/NotFound";
@@ -125,6 +132,13 @@ const AppContent = () => {
           <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/dashboards" element={<ProtectedAdminRoute><DashboardManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
+          <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
+          <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
+          <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
+          <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

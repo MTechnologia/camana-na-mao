@@ -1,45 +1,26 @@
-import { NavLink } from '@/components/NavLink';
-import { LayoutDashboard, Users, FileBarChart, Download, ChevronLeft, Home, X, Building2 } from 'lucide-react';
+import { LayoutDashboard, Users, FileBarChart, Download, ChevronLeft, Home, X, Building2, FileText, Bell, Settings, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useAdminStats } from '@/hooks/useAdminStats';
 
-const menuItems = [
-  {
-    title: 'Dashboard',
-    icon: LayoutDashboard,
-    href: '/admin',
-    badge: null,
-  },
-  {
-    title: 'Analytics',
-    icon: FileBarChart,
-    href: '/admin/analytics',
-    badge: null,
-  },
-  {
-    title: 'Gestão de Usuários',
-    icon: Users,
-    href: '/admin/users',
-    badge: null,
-  },
-  {
-    title: 'Painéis Públicos',
-    icon: LayoutDashboard,
-    href: '/admin/dashboards',
-    badge: null,
-  },
-  {
-    title: 'Logs de Exportação',
-    icon: Download,
-    href: '/admin/exports',
-    badge: null,
-  },
-];
+interface MenuItem {
+  title: string;
+  icon: any;
+  href?: string;
+  badge?: number | null;
+  submenu?: Array<{ title: string; href: string; badge?: number }>;
+}
+
+interface MenuSection {
+  section: string | null;
+  items: MenuItem[];
+}
 
 interface AdminSidebarProps {
   mobileOpen: boolean;
@@ -49,7 +30,47 @@ interface AdminSidebarProps {
 
 export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSidebarProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [openSubmenus, setOpenSubmenus] = useState<string[]>(['relatos', 'configuracoes']);
+  const stats = useAdminStats();
+
+  const menuSections: MenuSection[] = [
+    {
+      section: null,
+      items: [{ title: 'Dashboard', icon: LayoutDashboard, href: '/admin' }],
+    },
+    {
+      section: 'GESTÃO',
+      items: [
+        { title: 'Gestão de Usuários', icon: Users, href: '/admin/users' },
+        {
+          title: 'Gestão de Relatos',
+          icon: FileText,
+          submenu: [
+            { title: 'Relatos Urbanos', href: '/admin/urban-reports', badge: stats.pendingUrbanReports },
+            { title: 'Relatos de Transporte', href: '/admin/transport-reports', badge: stats.pendingTransportReports },
+            { title: 'Análise de Relatos', href: '/admin/reports-analytics' },
+          ],
+        },
+        { title: 'Gestão de Notificações', icon: Bell, href: '/admin/notifications' },
+      ],
+    },
+    {
+      section: 'SISTEMA',
+      items: [
+        {
+          title: 'Configurações',
+          icon: Settings,
+          submenu: [
+            { title: 'Integração N8N', href: '/admin/settings/n8n' },
+            { title: 'Acessibilidade', href: '/admin/settings/accessibility' },
+          ],
+        },
+        { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
+      ],
+    },
+  ];
 
   const handleNavigate = (href: string) => {
     navigate(href);
@@ -57,6 +78,14 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       setMobileOpen(false);
     }
   };
+
+  const toggleSubmenu = (title: string) => {
+    setOpenSubmenus((prev) =>
+      prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
+    );
+  };
+
+  const isActive = (href: string) => location.pathname === href;
 
   const SidebarContent = () => (
     <>
@@ -99,30 +128,99 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         )}
       </div>
 
-      <nav className="p-4 space-y-1 flex-1">
-        {menuItems.map((item) => (
-          <button
-            key={item.href}
-            onClick={() => handleNavigate(item.href)}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
-              'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
-              'hover:scale-[1.02] active:scale-[0.98]',
-              'group'
+      <nav className="p-4 space-y-2 flex-1">
+        {menuSections.map((section, sectionIdx) => (
+          <div key={sectionIdx}>
+            {section.section && (
+              <div className="px-3 py-2">
+                {!collapsed && (
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {section.section}
+                  </p>
+                )}
+              </div>
             )}
-          >
-            <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 transition-colors">
-              <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-primary transition-colors" />
+            <div className="space-y-1">
+              {section.items.map((item) => (
+                <div key={item.title}>
+                  {item.submenu ? (
+                    <Collapsible
+                      open={openSubmenus.includes(item.title.toLowerCase().split(' ')[0])}
+                      onOpenChange={() => toggleSubmenu(item.title.toLowerCase().split(' ')[0])}
+                    >
+                      <CollapsibleTrigger asChild>
+                        <button
+                          className={cn(
+                            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
+                            'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
+                            'group'
+                          )}
+                        >
+                          <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                            <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-primary transition-colors" />
+                          </div>
+                          {!collapsed && (
+                            <>
+                              <span className="flex-1 text-left text-sm">{item.title}</span>
+                              <ChevronDown className={cn(
+                                "h-4 w-4 transition-transform",
+                                openSubmenus.includes(item.title.toLowerCase().split(' ')[0]) && "rotate-180"
+                              )} />
+                            </>
+                          )}
+                        </button>
+                      </CollapsibleTrigger>
+                      {!collapsed && (
+                        <CollapsibleContent className="space-y-1 mt-1">
+                          {item.submenu.map((subitem) => (
+                            <button
+                              key={subitem.href}
+                              onClick={() => handleNavigate(subitem.href)}
+                              className={cn(
+                                'w-full flex items-center gap-3 px-3 py-2 ml-6 rounded-lg transition-all text-sm',
+                                'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
+                                isActive(subitem.href) && 'bg-accent text-foreground font-medium'
+                              )}
+                            >
+                              <span className="flex-1 text-left">{subitem.title}</span>
+                              {subitem.badge !== undefined && subitem.badge > 0 && (
+                                <Badge variant="secondary" className="ml-auto">
+                                  {subitem.badge}
+                                </Badge>
+                              )}
+                            </button>
+                          ))}
+                        </CollapsibleContent>
+                      )}
+                    </Collapsible>
+                  ) : (
+                    <button
+                      onClick={() => item.href && handleNavigate(item.href)}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all',
+                        'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
+                        'group',
+                        item.href && isActive(item.href) && 'bg-accent text-foreground font-medium'
+                      )}
+                    >
+                      <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-primary/10 transition-colors">
+                        <item.icon className="h-4 w-4 flex-shrink-0 group-hover:text-primary transition-colors" />
+                      </div>
+                      {!collapsed && (
+                        <span className="flex-1 text-left text-sm">{item.title}</span>
+                      )}
+                      {!collapsed && item.badge && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-            {!collapsed && (
-              <span className="flex-1 text-left text-sm">{item.title}</span>
-            )}
-            {!collapsed && item.badge && (
-              <Badge variant="secondary" className="ml-auto">
-                {item.badge}
-              </Badge>
-            )}
-          </button>
+            {sectionIdx < menuSections.length - 1 && <Separator className="my-2" />}
+          </div>
         ))}
       </nav>
 
