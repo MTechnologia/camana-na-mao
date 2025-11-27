@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Clock, Send } from 'lucide-react';
+import { FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,28 +11,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { transportProblems } from '@/data/transportProblems';
-import { ReferralDialog } from '@/components/referral/ReferralDialog';
-
-interface ReportSummary {
-  id: string;
-  type: 'transport' | 'urban' | 'service';
-  title: string;
-  description?: string;
-  category?: string;
-  location?: string;
-  date?: string;
-  severity?: string;
-  region?: string;
-  report_type?: string;
-}
 
 export default function MyReportsPage() {
   const navigate = useNavigate();
   const { getMyReports } = useTransportReport();
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [referralOpen, setReferralOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<ReportSummary | null>(null);
 
   useEffect(() => {
     loadReports();
@@ -57,25 +41,6 @@ export default function MyReportsPage() {
       resolved: { text: 'Resolvido', variant: 'outline' },
     };
     return labels[status] || labels.pending;
-  };
-
-  const handleReferral = (report: any) => {
-    const problem = transportProblems.find(p => p.id === report.report_type);
-    setSelectedReport({
-      id: report.id,
-      type: 'transport',
-      title: problem?.label || report.report_type,
-      description: report.description,
-      category: problem?.label,
-      location: report.location,
-      date: report.occurrence_date 
-        ? format(new Date(report.occurrence_date), 'dd/MM/yyyy', { locale: ptBR })
-        : undefined,
-      severity: report.severity,
-      region: report.line?.regions?.[0],
-      report_type: report.report_type
-    });
-    setReferralOpen(true);
   };
 
   return (
@@ -136,22 +101,10 @@ export default function MyReportsPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      {report.occurrence_date && format(new Date(report.occurrence_date), 'dd/MM/yyyy', { locale: ptBR })}
-                      {report.occurrence_time && ` às ${report.occurrence_time}`}
-                    </div>
-
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleReferral(report)}
-                      className="text-xs"
-                    >
-                      <Send className="w-3 h-3 mr-1" />
-                      Encaminhar para Vereador
-                    </Button>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
+                    <Clock className="w-3 h-3" />
+                    {report.occurrence_date && format(new Date(report.occurrence_date), 'dd/MM/yyyy', { locale: ptBR })}
+                    {report.occurrence_time && ` às ${report.occurrence_time}`}
                   </div>
                 </CardContent>
               </Card>
@@ -160,13 +113,6 @@ export default function MyReportsPage() {
         )}
         </div>
       </div>
-
-      <ReferralDialog
-        open={referralOpen}
-        onOpenChange={setReferralOpen}
-        report={selectedReport}
-        onComplete={loadReports}
-      />
 
       <FloatingNavbar />
     </>

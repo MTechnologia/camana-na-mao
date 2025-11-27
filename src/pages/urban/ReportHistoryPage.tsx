@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, MessageCircle, Trash2, Send } from "lucide-react";
+import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -17,7 +17,6 @@ import { ReportFilters } from "@/components/urban/ReportFilters";
 import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportDialog } from "@/components/urban/DeleteReportDialog";
-import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { toast } from "@/hooks/use-toast";
 
 interface Report {
@@ -66,19 +65,6 @@ const severityLabels: Record<string, string> = {
   critical: "Crítica"
 };
 
-interface ReportForReferral {
-  id: string;
-  type: 'transport' | 'urban' | 'service';
-  title: string;
-  description?: string;
-  category?: string;
-  location?: string;
-  date?: string;
-  severity?: string;
-  region?: string;
-  report_type?: string;
-}
-
 export default function ReportHistoryPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -93,22 +79,6 @@ export default function ReportHistoryPage() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [referralOpen, setReferralOpen] = useState(false);
-  const [reportForReferral, setReportForReferral] = useState<ReportForReferral | null>(null);
-
-  const handleReferral = (report: Report) => {
-    setReportForReferral({
-      id: report.id,
-      type: 'urban',
-      title: report.subcategory || categoryLabels[report.category] || report.category,
-      description: report.description || undefined,
-      category: categoryLabels[report.category] || report.category,
-      location: report.location_address || undefined,
-      date: format(new Date(report.created_at), "dd/MM/yyyy", { locale: ptBR }),
-      severity: report.severity || undefined,
-    });
-    setReferralOpen(true);
-  };
 
   useEffect(() => {
     loadReports();
@@ -331,26 +301,10 @@ export default function ReportHistoryPage() {
               onCommentClick={() => setSelectedReport(report)}
             />
             
-            <div className="flex items-center gap-2">
-              {canDelete && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleReferral(report);
-                  }}
-                  className="text-xs"
-                >
-                  <Send className="w-3 h-3 mr-1" />
-                  Encaminhar
-                </Button>
-              )}
-              <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-                {getStatusIcon(report.status)}
-                {statusInfo.label}
-              </Badge>
-            </div>
+            <Badge variant={statusInfo.variant} className="flex items-center gap-1">
+              {getStatusIcon(report.status)}
+              {statusInfo.label}
+            </Badge>
           </div>
         </CardContent>
       </Card>
@@ -453,13 +407,6 @@ export default function ReportHistoryPage() {
         open={!!reportToDelete}
         onOpenChange={(open) => !open && setReportToDelete(null)}
         onConfirm={handleDeleteReport}
-      />
-
-      <ReferralDialog
-        open={referralOpen}
-        onOpenChange={setReferralOpen}
-        report={reportForReferral}
-        onComplete={loadReports}
       />
 
       <FloatingNavbar />
