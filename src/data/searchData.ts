@@ -335,6 +335,226 @@ export const servicosProximos: SearchResult[] = [
       latitude: -23.5734,
       longitude: -46.7289
     }
+  },
+  // === NOVOS SERVIÇOS PRÓXIMOS AO CENTRO (Praça da Sé) ===
+  // UBS - Unidades Básicas de Saúde
+  {
+    id: "ubs-republica",
+    type: "servico",
+    title: "UBS República",
+    description: "R. do Arouche, 20 - República",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ubs-republica",
+    metadata: {
+      serviceType: "ubs",
+      district: "República",
+      rating: 4.3,
+      totalRatings: 142,
+      phone: "(11) 3221-1234",
+      latitude: -23.5415,
+      longitude: -46.6458
+    }
+  },
+  {
+    id: "ubs-bom-retiro",
+    type: "servico",
+    title: "UBS Bom Retiro",
+    description: "R. Prates, 165 - Bom Retiro",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ubs-bom-retiro",
+    metadata: {
+      serviceType: "ubs",
+      district: "Bom Retiro",
+      rating: 4.0,
+      totalRatings: 98,
+      phone: "(11) 3311-5678",
+      latitude: -23.5285,
+      longitude: -46.6378
+    }
+  },
+  {
+    id: "ubs-bela-vista",
+    type: "servico",
+    title: "UBS Bela Vista",
+    description: "R. Santo Amaro, 701 - Bela Vista",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ubs-bela-vista",
+    metadata: {
+      serviceType: "ubs",
+      district: "Bela Vista",
+      rating: 4.5,
+      totalRatings: 167,
+      phone: "(11) 3105-4321",
+      latitude: -23.5598,
+      longitude: -46.6452
+    }
+  },
+  {
+    id: "ubs-bras",
+    type: "servico",
+    title: "UBS Brás",
+    description: "R. Visconde de Parnaíba, 2290 - Brás",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ubs-bras",
+    metadata: {
+      serviceType: "ubs",
+      district: "Brás",
+      rating: 3.8,
+      totalRatings: 112,
+      phone: "(11) 3315-8765",
+      latitude: -23.5445,
+      longitude: -46.6098
+    }
+  },
+  {
+    id: "ubs-liberdade",
+    type: "servico",
+    title: "UBS Liberdade",
+    description: "R. Galvão Bueno, 257 - Liberdade",
+    icon: "🏥",
+    category: "Saúde",
+    path: "/servico/ubs-liberdade",
+    metadata: {
+      serviceType: "ubs",
+      district: "Liberdade",
+      rating: 4.2,
+      totalRatings: 189,
+      phone: "(11) 3208-9012",
+      latitude: -23.5589,
+      longitude: -46.6345
+    }
+  },
+  // Escolas - EMEFs
+  {
+    id: "emef-infante-dom-henrique",
+    type: "servico",
+    title: "EMEF Infante Dom Henrique",
+    description: "Pça da Sé, s/n - Sé",
+    icon: "🏫",
+    category: "Educação",
+    path: "/servico/emef-infante-dom-henrique",
+    metadata: {
+      serviceType: "school",
+      district: "Sé",
+      rating: 4.1,
+      totalRatings: 234,
+      phone: "(11) 3104-5678",
+      latitude: -23.5505,
+      longitude: -46.6338
+    }
+  },
+  {
+    id: "emef-duque-caxias",
+    type: "servico",
+    title: "EMEF Duque de Caxias",
+    description: "R. Conselheiro Furtado, 654 - Liberdade",
+    icon: "🏫",
+    category: "Educação",
+    path: "/servico/emef-duque-caxias",
+    metadata: {
+      serviceType: "school",
+      district: "Liberdade",
+      rating: 4.4,
+      totalRatings: 178,
+      phone: "(11) 3209-1234",
+      latitude: -23.5612,
+      longitude: -46.6289
+    }
+  },
+  {
+    id: "emef-padre-anchieta",
+    type: "servico",
+    title: "EMEF Padre Anchieta",
+    description: "R. São Joaquim, 381 - Liberdade",
+    icon: "🏫",
+    category: "Educação",
+    path: "/servico/emef-padre-anchieta",
+    metadata: {
+      serviceType: "school",
+      district: "Liberdade",
+      rating: 4.0,
+      totalRatings: 156,
+      phone: "(11) 3207-5678",
+      latitude: -23.5578,
+      longitude: -46.6298
+    }
+  },
+  {
+    id: "emef-republica-paraguai",
+    type: "servico",
+    title: "EMEF República do Paraguai",
+    description: "Al. Glete, 601 - Santa Cecília",
+    icon: "🏫",
+    category: "Educação",
+    path: "/servico/emef-republica-paraguai",
+    metadata: {
+      serviceType: "school",
+      district: "Santa Cecília",
+      rating: 3.9,
+      totalRatings: 145,
+      phone: "(11) 3223-9012",
+      latitude: -23.5356,
+      longitude: -46.6545
+    }
+  },
+  // CEUs - Centros Educacionais Unificados
+  {
+    id: "ceu-caminho-mar",
+    type: "servico",
+    title: "CEU Caminho do Mar",
+    description: "R. Caminho do Mar, 600 - Ipiranga",
+    icon: "🎭",
+    category: "Educação",
+    path: "/servico/ceu-caminho-mar",
+    metadata: {
+      serviceType: "ceu",
+      district: "Ipiranga",
+      rating: 4.5,
+      totalRatings: 267,
+      phone: "(11) 2063-1234",
+      latitude: -23.5812,
+      longitude: -46.6078
+    }
+  },
+  {
+    id: "ceu-consolacao",
+    type: "servico",
+    title: "CEU Consolação",
+    description: "R. da Consolação, 1024 - Consolação",
+    icon: "🎭",
+    category: "Educação",
+    path: "/servico/ceu-consolacao",
+    metadata: {
+      serviceType: "ceu",
+      district: "Consolação",
+      rating: 4.7,
+      totalRatings: 312,
+      phone: "(11) 3256-5678",
+      latitude: -23.5512,
+      longitude: -46.6567
+    }
+  },
+  {
+    id: "ceu-pari",
+    type: "servico",
+    title: "CEU Pari",
+    description: "R. Silva Teles, 150 - Pari",
+    icon: "🎭",
+    category: "Educação",
+    path: "/servico/ceu-pari",
+    metadata: {
+      serviceType: "ceu",
+      district: "Pari",
+      rating: 4.3,
+      totalRatings: 198,
+      phone: "(11) 3315-9012",
+      latitude: -23.5234,
+      longitude: -46.6189
+    }
   }
 ];
 
