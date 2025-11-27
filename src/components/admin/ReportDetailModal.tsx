@@ -1,22 +1,28 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Calendar, Heart, MessageSquare, Download } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MapPin, Calendar, Heart, MessageSquare, Download, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { UrbanReportFull } from '@/hooks/useUrbanReportsAdmin';
 import { toast } from 'sonner';
+import { DeleteReportConfirmDialog } from './DeleteReportConfirmDialog';
 
 interface ReportDetailModalProps {
   report: UrbanReportFull | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (reportId: string, status: string) => void;
+  onDelete: (reportId: string) => void;
 }
 
-export const ReportDetailModal = ({ report, open, onOpenChange, onStatusChange }: ReportDetailModalProps) => {
+export const ReportDetailModal = ({ report, open, onOpenChange, onStatusChange, onDelete }: ReportDetailModalProps) => {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
   if (!report) return null;
 
   const getStatusColor = (status: string | null) => {
@@ -84,13 +90,15 @@ export const ReportDetailModal = ({ report, open, onOpenChange, onStatusChange }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Detalhes do Relato</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <ScrollArea className="max-h-[80vh] pr-4">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Relato</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-6">
+          <div className="space-y-6">
           {/* Status and Actions */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -238,21 +246,51 @@ export const ReportDetailModal = ({ report, open, onOpenChange, onStatusChange }
             </div>
           )}
 
-          {/* Metadata */}
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p className="flex items-center gap-2">
-              <Calendar className="h-3 w-3" />
-              Criado: {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </p>
-            {report.updated_at && report.updated_at !== report.created_at && (
+            {/* Metadata */}
+            <div className="text-xs text-muted-foreground space-y-1">
               <p className="flex items-center gap-2">
                 <Calendar className="h-3 w-3" />
-                Atualizado: {format(new Date(report.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                Criado: {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </p>
-            )}
+              {report.updated_at && report.updated_at !== report.created_at && (
+                <p className="flex items-center gap-2">
+                  <Calendar className="h-3 w-3" />
+                  Atualizado: {format(new Date(report.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              )}
+            </div>
+
+            {/* Delete Button */}
+            <Separator />
+            <div className="pt-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="w-full"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir Relato Permanentemente
+              </Button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteReportConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={() => {
+          if (report) {
+            onDelete(report.id);
+            setDeleteDialogOpen(false);
+            onOpenChange(false);
+          }
+        }}
+        reportDescription={report?.description || undefined}
+      />
+    </>
   );
 };

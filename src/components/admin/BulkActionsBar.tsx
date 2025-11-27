@@ -1,13 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Clock, X } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, X, Trash2 } from 'lucide-react';
 
 interface BulkActionsBarProps {
   selectedCount: number;
   onMarkInProgress: () => void;
   onMarkResolved: () => void;
   onMarkRejected: () => void;
+  onDelete: () => void;
   onClear: () => void;
 }
 
@@ -16,6 +17,7 @@ export const BulkActionsBar = ({
   onMarkInProgress,
   onMarkResolved,
   onMarkRejected,
+  onDelete,
   onClear,
 }: BulkActionsBarProps) => {
   if (selectedCount === 0) return null;
@@ -55,6 +57,14 @@ export const BulkActionsBar = ({
           >
             <XCircle className="h-4 w-4 mr-1" />
             Rejeitar
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Excluir
           </Button>
           <Button
             variant="ghost"
