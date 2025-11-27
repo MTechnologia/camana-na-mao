@@ -5,10 +5,23 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import ChatSidebar from "./ChatSidebar";
 import ChatArea from "./ChatArea";
 import { useNavigate } from "react-router-dom";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
 
 const ChatLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const { activeConversationId, clearJourney, setActiveConversationId } = useAIJourney();
+
+  const handleBack = () => {
+    if (activeConversationId) {
+      // Se tem conversa ativa, volta para o hub (seleção de jornadas)
+      clearJourney();
+      setActiveConversationId(null);
+    } else {
+      // Se já está no hub, volta para página anterior
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -22,7 +35,7 @@ const ChatLayout = () => {
         {/* Header with Back and Conversations */}
         <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card">
           {/* Back Button - Left */}
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={handleBack}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
           

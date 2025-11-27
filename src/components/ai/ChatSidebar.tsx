@@ -4,10 +4,9 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { getJourneyById } from "@/config/aiJourneys";
 import ChatConversationItem from "./ChatConversationItem";
 import { useMemo, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatSidebarProps {
@@ -16,7 +15,7 @@ interface ChatSidebarProps {
 
 const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   const { conversations, deleteConversation } = useAIConversations();
-  const { clearJourney, setActiveConversationId, activeConversationId } = useAIJourney();
+  const { clearJourney, setActiveConversationId, activeConversationId, setJourney } = useAIJourney();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
@@ -80,7 +79,12 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
     return groups;
   }, [filteredConversations]);
 
-  const handleConversationClick = (conversationId: string) => {
+  const handleConversationClick = (conversationId: string, journeyId: string) => {
+    // Restaurar a jornada correta da conversa
+    const journey = getJourneyById(journeyId);
+    if (journey) {
+      setJourney(journey, conversationId);
+    }
     setActiveConversationId(conversationId);
     onConversationClick?.();
   };
@@ -116,7 +120,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
                     <ChatConversationItem
                       key={conv.id}
                       conversation={conv}
-                      onClick={() => handleConversationClick(conv.id)}
+                      onClick={(journeyId) => handleConversationClick(conv.id, journeyId)}
                       onDelete={() => handleDeleteConversation(conv.id)}
                     />
                   ))}
