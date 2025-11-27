@@ -60,6 +60,8 @@ import ServiceRecommendationsPage from "./pages/ServiceRecommendationsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import DashboardManagement from "./pages/admin/DashboardManagement";
+import AdminCreateDashboard from "./pages/admin/AdminCreateDashboard";
+import AdminPublicDashboards from "./pages/admin/AdminPublicDashboards";
 import ExportLogs from "./pages/admin/ExportLogs";
 import AuditLogs from "./pages/admin/AuditLogs";
 import UrbanReportsManagement from "./pages/admin/UrbanReportsManagement";
@@ -136,6 +138,8 @@ const AppContent = () => {
           <Route path="/admin/analytics/advanced" element={<ProtectedAdminRoute><AdvancedAnalytics /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/dashboards" element={<ProtectedAdminRoute><DashboardManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/dashboards/create" element={<ProtectedAdminRoute><AdminCreateDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/dashboards/gallery" element={<ProtectedAdminRoute><AdminPublicDashboards /></ProtectedAdminRoute>} />
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
@@ -153,7 +157,15 @@ const AppContent = () => {
   );
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutos
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

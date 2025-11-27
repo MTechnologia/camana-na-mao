@@ -75,8 +75,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           icon: FileBarChart,
           submenu: [
             { title: 'Aprovar Painéis', href: '/admin/dashboards' },
-            { title: 'Criar Painel', href: '/analytics/criar-painel' },
-            { title: 'Galeria Pública', href: '/analytics/paineis-publicos' },
+            { title: 'Criar Painel', href: '/admin/dashboards/create' },
+            { title: 'Galeria Pública', href: '/admin/dashboards/gallery' },
           ],
         },
       ],
