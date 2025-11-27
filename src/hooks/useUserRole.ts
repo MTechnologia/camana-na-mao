@@ -14,6 +14,25 @@ export const useUserRole = () => {
 
   useEffect(() => {
     fetchUserRoles();
+
+    // Listen to auth state changes and refetch roles
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      console.log('🔄 [useUserRole] Auth state changed:', event);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        console.log('♻️ [useUserRole] Refetching roles after auth change');
+        fetchUserRoles();
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 [useUserRole] Clearing roles after sign out');
+        setRoles([]);
+        setIsAdmin(false);
+        setIsGestor(false);
+        setIsVereador(false);
+        setIsAssessor(false);
+        setIsCidadao(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const fetchUserRoles = async () => {
