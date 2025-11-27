@@ -20,15 +20,126 @@ import { SentimentDonut } from '@/components/analytics/SentimentDonut';
 import { SentimentTrend } from '@/components/analytics/SentimentTrend';
 import { WordCloud } from '@/components/analytics/WordCloud';
 import { SentimentDrivers } from '@/components/analytics/SentimentDrivers';
+import { DrillDownDrawer } from '@/components/analytics/DrillDownDrawer';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, TrendingUp, Users, Activity } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const ReportsAnalytics = () => {
   const [filters, setFilters] = useState({});
   const { stats, isLoading, refresh } = useReportsAnalytics(filters);
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics(filters);
+  
+  // Drill-down state
+  const [drillDown, setDrillDown] = useState<{
+    open: boolean;
+    reports: any[];
+    title: string;
+    subtitle: string;
+    filterContext: {
+      type: 'status' | 'category' | 'severity' | 'region' | 'sentiment';
+      value: string;
+    };
+  }>({
+    open: false,
+    reports: [],
+    title: '',
+    subtitle: '',
+    filterContext: { type: 'status', value: '' },
+  });
+
+  // Fetch reports based on drill-down filter
+  const fetchDrillDownReports = async (
+    type: 'status' | 'category' | 'severity' | 'region' | 'sentiment',
+    value: string
+  ) => {
+    try {
+      let urbanQuery = supabase.from('urban_reports').select('*');
+      let transportQuery = supabase.from('transport_reports').select('*');
+
+      // Apply filters based on type
+      if (type === 'status') {
+        urbanQuery = urbanQuery.eq('status', value.toLowerCase());
+        transportQuery = transportQuery.eq('status', value.toLowerCase());
+      } else if (type === 'category') {
+        urbanQuery = urbanQuery.eq('category', value);
+      } else if (type === 'severity') {
+        urbanQuery = urbanQuery.eq('severity', value.toLowerCase());
+        transportQuery = transportQuery.eq('severity', value.toLowerCase());
+      }
+
+      // Apply existing filters
+      if ((filters as any).startDate) {
+        urbanQuery = urbanQuery.gte('created_at', (filters as any).startDate);
+        transportQuery = transportQuery.gte('created_at', (filters as any).startDate);
+      }
+      if ((filters as any).endDate) {
+        urbanQuery = urbanQuery.lte('created_at', (filters as any).endDate);
+        transportQuery = transportQuery.lte('created_at', (filters as any).endDate);
+      }
+
+      const [{ data: urbanReports }, { data: transportReports }] = await Promise.all([
+        urbanQuery,
+        transportQuery,
+      ]);
+
+      const allReports = [...(urbanReports || []), ...(transportReports || [])];
+      
+      return allReports.map((report: any) => ({
+        id: report.id,
+        category: report.category || 'Transporte',
+        description: report.description || report.impact_description || 'Sem descrição',
+        status: report.status,
+        severity: report.severity,
+        location_address: report.location_address || report.location,
+        created_at: report.created_at,
+        user_id: report.user_id,
+      }));
+    } catch (error) {
+      console.error('Error fetching drill-down reports:', error);
+      toast.error('Erro ao carregar relatos');
+      return [];
+    }
+  };
+
+  // Handle click on status donut
+  const handleStatusClick = async (status: string) => {
+    const reports = await fetchDrillDownReports('status', status);
+    setDrillDown({
+      open: true,
+      reports,
+      title: `Relatos: ${status}`,
+      subtitle: `Visualizando todos os relatos com status "${status}"`,
+      filterContext: { type: 'status', value: status },
+    });
+  };
+
+  // Handle click on category bar
+  const handleCategoryClick = async (category: string) => {
+    const reports = await fetchDrillDownReports('category', category);
+    setDrillDown({
+      open: true,
+      reports,
+      title: `Relatos: ${category}`,
+      subtitle: `Visualizando todos os relatos da categoria "${category}"`,
+      filterContext: { type: 'category', value: category },
+    });
+  };
+
+  // Handle click on severity
+  const handleSeverityClick = async (severity: string) => {
+    const reports = await fetchDrillDownReports('severity', severity);
+    setDrillDown({
+      open: true,
+      reports,
+      title: `Relatos: Severidade ${severity}`,
+      subtitle: `Visualizando todos os relatos com severidade "${severity}"`,
+      filterContext: { type: 'severity', value: severity },
+    });
+  };
 
   if (isLoading || !stats) {
     return (
@@ -95,6 +206,7 @@ const ReportsAnalytics = () => {
                   <StatusDonut 
                     data={stats.byStatus} 
                     total={stats.total}
+                    onSegmentClick={handleStatusClick}
                   />
                 </div>
               </div>
@@ -102,7 +214,10 @@ const ReportsAnalytics = () => {
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Top Categorias</h3>
                 <div className="h-80">
-                  <CategoryBarChart data={stats.categories} />
+                  <CategoryBarChart 
+                    data={stats.categories}
+                    onBarClick={handleCategoryClick}
+                  />
                 </div>
               </div>
             </div>
@@ -309,10 +424,11 @@ const ReportsAnalytics = () => {
                       status: s.severity,
                       count: s.count,
                       color: s.severity === 'Crítico' ? 'hsl(var(--chart-5))' : 
-                             s.severity === 'Alto' ? 'hsl(var(--chart-4))' :
-                             s.severity === 'Médio' ? 'hsl(var(--chart-3))' : 'hsl(var(--chart-1))'
+                             s.severity === 'Alto' ? 'hsl(var(--chart-3))' :
+                             s.severity === 'Médio' ? 'hsl(var(--chart-2))' : 'hsl(var(--chart-1))'
                     }))}
                     total={stats.total}
+                    onSegmentClick={(severity) => handleSeverityClick(severity)}
                   />
                 </div>
               </div>
@@ -326,6 +442,16 @@ const ReportsAnalytics = () => {
             )}
           </TabsContent>
         </Tabs>
+
+        {/* Drill-Down Drawer */}
+        <DrillDownDrawer
+          open={drillDown.open}
+          onClose={() => setDrillDown({ ...drillDown, open: false })}
+          reports={drillDown.reports}
+          title={drillDown.title}
+          subtitle={drillDown.subtitle}
+          filterContext={drillDown.filterContext}
+        />
       </div>
     </AdminLayout>
   );
