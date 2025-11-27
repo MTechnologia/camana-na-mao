@@ -175,7 +175,7 @@ export default function DashboardManagement() {
             </p>
           </div>
           <Button 
-            onClick={() => navigate('/analytics/criar-painel')}
+            onClick={() => navigate('/admin/dashboards/create')}
             className="gap-2 shrink-0"
           >
             <Plus className="w-4 h-4" />

@@ -32,7 +32,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const [openSubmenus, setOpenSubmenus] = useState<string[]>(['relatos', 'configuracoes']);
+  const [openSubmenus, setOpenSubmenus] = useState<string[]>(['gestão', 'relatos', 'configuracoes']);
   const stats = useAdminStats();
 
   const menuSections: MenuSection[] = [
@@ -54,6 +54,15 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             { title: 'Análise de Sentimento', href: '/admin/sentiment-analysis' },
           ],
         },
+        {
+          title: 'Gestão de Painéis',
+          icon: FileBarChart,
+          submenu: [
+            { title: 'Aprovar Painéis', href: '/admin/dashboards' },
+            { title: 'Criar Painel', href: '/admin/dashboards/create' },
+            { title: 'Galeria Pública', href: '/admin/dashboards/gallery' },
+          ],
+        },
         { title: 'Gestão de Notificações', icon: Bell, href: '/admin/notifications' },
       ],
     },
@@ -70,15 +79,6 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         },
         { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
-        {
-          title: 'Gestão de Painéis',
-          icon: FileBarChart,
-          submenu: [
-            { title: 'Aprovar Painéis', href: '/admin/dashboards' },
-            { title: 'Criar Painel', href: '/admin/dashboards/create' },
-            { title: 'Galeria Pública', href: '/admin/dashboards/gallery' },
-          ],
-        },
       ],
     },
   ];

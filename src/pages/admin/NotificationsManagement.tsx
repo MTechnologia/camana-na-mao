@@ -40,6 +40,7 @@ const NotificationsManagement = () => {
     message: '',
     type: 'info',
     priority: 'normal',
+    action_url: '',
   });
 
   useEffect(() => {
@@ -112,6 +113,7 @@ const NotificationsManagement = () => {
         message: newNotification.message,
         type: newNotification.type,
         priority: newNotification.priority,
+        action_url: newNotification.action_url || null,
       }));
 
       const { error: insertError } = await supabase
@@ -122,7 +124,7 @@ const NotificationsManagement = () => {
 
       toast.success(`Notificação enviada para ${profiles.length} usuários`);
       setDialogOpen(false);
-      setNewNotification({ title: '', message: '', type: 'info', priority: 'normal' });
+      setNewNotification({ title: '', message: '', type: 'info', priority: 'normal', action_url: '' });
       fetchNotifications();
       fetchStats();
     } catch (error) {
@@ -205,6 +207,18 @@ const NotificationsManagement = () => {
                     placeholder="Conteúdo da notificação"
                     rows={4}
                   />
+                </div>
+                <div>
+                  <Label htmlFor="action_url">URL de Ação (opcional)</Label>
+                  <Input
+                    id="action_url"
+                    value={newNotification.action_url}
+                    onChange={(e) => setNewNotification({ ...newNotification, action_url: e.target.value })}
+                    placeholder="/audiencias ou https://exemplo.com"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Link para onde o usuário será direcionado ao clicar na notificação
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
