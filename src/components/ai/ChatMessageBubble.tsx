@@ -76,7 +76,12 @@ const ChatMessageBubble = ({ message }: ChatMessageBubbleProps) => {
           )}
         </div>
         <span className="text-xs text-muted-foreground px-2">
-          {typeof message.timestamp === 'string' ? message.timestamp : format(message.timestamp, "HH:mm", { locale: ptBR })}
+          {typeof message.timestamp === 'string' 
+            ? message.timestamp 
+            : message.timestamp instanceof Date 
+              ? format(message.timestamp, "HH:mm", { locale: ptBR })
+              : new Date(message.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+          }
         </span>
       </div>
     </div>
