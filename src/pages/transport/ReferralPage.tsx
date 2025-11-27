@@ -29,9 +29,22 @@ export default function ReferralPage() {
         .from('transport_reports')
         .select('*, line:transport_lines(*)')
         .eq('id', reportId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading report:', error);
+        throw error;
+      }
+
+      if (!data) {
+        toast({
+          variant: 'destructive',
+          title: 'Relato não encontrado',
+        });
+        navigate('/transporte/meus-relatos');
+        return;
+      }
+
       setReport(data);
     } catch (err) {
       console.error('Error loading report:', err);

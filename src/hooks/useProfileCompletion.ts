@@ -35,11 +35,15 @@ export const useProfileCompletion = () => {
 
     try {
       // Check basic profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('full_name, phone')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError);
+      }
 
       // Check interests
       const { data: interests } = await supabase
@@ -48,19 +52,27 @@ export const useProfileCompletion = () => {
         .eq('user_id', user.id);
 
       // Check demographics
-      const { data: demographics } = await supabase
+      const { data: demographics, error: demographicsError } = await supabase
         .from('user_demographics')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+
+      if (demographicsError) {
+        console.error("Error fetching demographics:", demographicsError);
+      }
 
       // Check address
-      const { data: address } = await supabase
+      const { data: address, error: addressError } = await supabase
         .from('user_addresses')
         .select('id')
         .eq('user_id', user.id)
         .eq('is_primary', true)
-        .single();
+        .maybeSingle();
+
+      if (addressError) {
+        console.error("Error fetching address:", addressError);
+      }
 
       const completed = {
         basic: !!(profile?.full_name && profile?.phone),

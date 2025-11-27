@@ -130,9 +130,21 @@ export const useAIConversations = () => {
         .from('ai_conversations')
         .select('*')
         .eq('id', conversationId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error resuming conversation:', error);
+        throw error;
+      }
+
+      if (!data) {
+        toast({
+          title: 'Conversa não encontrada',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
       return data;
     } catch (error: any) {
       console.error('Error resuming conversation:', error);

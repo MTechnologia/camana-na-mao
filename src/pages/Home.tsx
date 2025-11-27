@@ -81,13 +81,18 @@ const Home = () => {
   // Fetch next audiência
   useEffect(() => {
     const fetchNextAudiencia = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("audiencias")
         .select("*")
         .eq("status", "upcoming")
         .order("data", { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error fetching audiência:", error);
+        return;
+      }
       
       if (data) {
         setNextAudiencia({
