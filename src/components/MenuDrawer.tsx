@@ -15,6 +15,9 @@ import {
   ChevronDown,
   ChevronRight,
   HelpCircle,
+  User,
+  Bell,
+  MessageSquare,
 } from "lucide-react";
 import { useAccessibility } from "@/hooks/useAccessibility";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +29,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 interface MenuDrawerProps {
   isOpen: boolean;
@@ -38,6 +43,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
   const { triggerTutorial } = useOnboarding();
+  const { unreadCount } = useNotifications();
   const [configOpen, setConfigOpen] = useState(false);
   const {
     fontSize,
@@ -64,6 +70,28 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       console.error("Erro ao fazer logout:", error);
     }
   };
+
+  const accountOptions = [
+    { 
+      id: 1, 
+      label: "Meu Perfil", 
+      icon: User,
+      route: "/profile"
+    },
+    { 
+      id: 2, 
+      label: "Notificações", 
+      icon: Bell,
+      route: "/notifications",
+      badge: unreadCount > 0 ? unreadCount : undefined
+    },
+    { 
+      id: 3, 
+      label: "Minhas Conversas", 
+      icon: MessageSquare,
+      route: "/ia"
+    },
+  ];
 
   const menuOptions = [
     { 
@@ -175,6 +203,37 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
 
         {/* Menu Items - Scrollable */}
         <div className="flex-1 overflow-y-auto py-4 px-4">
+          {/* Minha Conta Section */}
+          <div className="mb-4">
+            <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+              Minha Conta
+            </h3>
+            
+            {accountOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleMenuClick(option.route)}
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                    <Icon className="text-primary" size={16} />
+                  </div>
+                  <span className="text-foreground font-medium text-sm flex-1 text-left">{option.label}</span>
+                  {option.badge && (
+                    <Badge variant="secondary" className="text-xs">
+                      {option.badge > 99 ? '99+' : option.badge}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="my-4 border-t border-border" />
+
+          {/* Navegação Institucional */}
           <div className="mb-4">
             <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Navegação Institucional
