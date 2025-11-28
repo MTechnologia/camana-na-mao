@@ -228,7 +228,7 @@ const ConversationsPage = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
                             onClick={(e) => handleDeleteClick(e, conversation)}
                           >
                             <Trash2 className="h-4 w-4" />
