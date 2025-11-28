@@ -444,7 +444,7 @@ const TransportReportsManagement = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteReport(report)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
                       >
                         <Trash2 className="h-4 w-4 mr-1" />
                         Excluir
