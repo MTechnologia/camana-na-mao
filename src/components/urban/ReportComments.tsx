@@ -90,7 +90,7 @@ export const ReportComments = ({ reportId }: ReportCommentsProps) => {
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteComment(comment.id)}
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>

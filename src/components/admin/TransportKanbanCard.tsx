@@ -130,7 +130,7 @@ export const TransportKanbanCard = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-destructive hover:text-destructive"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(report);
