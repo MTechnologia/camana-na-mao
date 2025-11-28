@@ -3,7 +3,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import iaIcone from "@/assets/ia-icone.png";
+import AnimatedAIAvatar from "./AnimatedAIAvatar";
 
 const ContextualGreeting = () => {
   const { profile } = useProfile();
@@ -81,19 +81,10 @@ const ContextualGreeting = () => {
       transition={{ duration: 0.4 }}
       className="flex flex-col items-center justify-center text-center w-full px-4 py-4"
     >
-      {/* Agent Avatar */}
-      <motion.div
-        className="relative w-16 h-16 sm:w-20 sm:h-20 mb-4"
-        animate={{ scale: [1, 1.02, 1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary via-secondary to-accent opacity-20 blur-xl" />
-        <div className="relative w-full h-full rounded-full bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 p-1 shadow-lg">
-          <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
-            <img src={iaIcone} alt="Câmara SP" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
-          </div>
-        </div>
-      </motion.div>
+      {/* Agent Avatar com ondas animadas */}
+      <div className="mb-4">
+        <AnimatedAIAvatar size="md" />
+      </div>
 
       {/* Greeting */}
       <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
