@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell, MessageSquare, Settings, User } from "lucide-react";
+import { Menu, Bell, MessageSquare, Settings, User, LogOut, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,16 +13,19 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useMenu } from "@/contexts/MenuContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AgentHeaderProps {
   onOpenConversations?: () => void;
+  onBackToHub?: () => void;
 }
 
-const AgentHeader = ({ onOpenConversations }: AgentHeaderProps) => {
+const AgentHeader = ({ onOpenConversations, onBackToHub }: AgentHeaderProps) => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
   const { profile, getInitials } = useProfile();
+  const { signOut } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch unread notifications count
@@ -71,8 +74,15 @@ const AgentHeader = ({ onOpenConversations }: AgentHeaderProps) => {
         <Menu className="h-5 w-5" />
       </Button>
       
-      {/* Agent Name - Center */}
-      <h1 className="text-lg font-semibold text-foreground">Câmara SP</h1>
+      {/* Agent Name - Center (clickable to go back to hub) */}
+      <Button 
+        variant="ghost" 
+        className="flex items-center gap-2 hover:bg-accent/50"
+        onClick={onBackToHub}
+      >
+        <Home className="h-4 w-4 text-muted-foreground" />
+        <span className="text-lg font-semibold text-foreground">Câmara SP</span>
+      </Button>
       
       {/* Avatar with Dropdown - Right */}
       <DropdownMenu>
@@ -116,6 +126,14 @@ const AgentHeader = ({ onOpenConversations }: AgentHeaderProps) => {
           <DropdownMenuItem onClick={() => navigate('/profile/preferences')} className="cursor-pointer">
             <Settings className="h-4 w-4 mr-2" />
             <span>Configurações</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={() => signOut()} 
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            <span>Sair</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -66,11 +66,23 @@ const AgentChatArea = () => {
     clearJourney();
   };
 
-  const handleStartJourney = (journeyId: string) => {
-    // Clear any existing conversation to start fresh
-    setLocalConversationId(null);
-    setActiveConversationId(null);
+  const handleStartJourney = async (journeyId: string) => {
+    // Get the journey config
+    const journey = AI_JOURNEYS[journeyId as keyof typeof AI_JOURNEYS];
+    if (!journey) return;
+
+    // Clear any existing state
     clearMessages();
+    
+    // Create a new conversation with the initial message
+    const newConvId = await createConversation(journey.id, journey.initialMessage);
+    
+    if (newConvId) {
+      // Set the journey and conversation in context
+      setLocalConversationId(newConvId);
+      setJourney(journey, newConvId);
+      setActiveConversationId(newConvId);
+    }
   };
 
   return (
