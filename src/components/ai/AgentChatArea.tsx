@@ -33,7 +33,7 @@ const AgentChatArea = () => {
   }, [messages, isLoading, createdReport]);
 
   const hasMessages = messages.length > 0;
-  const showWelcome = !hasMessages && !activeConversationId;
+  const showWelcome = !hasMessages && !activeConversationId && !currentJourney;
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
@@ -63,33 +63,30 @@ const AgentChatArea = () => {
     clearMessages();
     setLocalConversationId(null);
     setActiveConversationId(null);
-    
-    const urbanJourney = AI_JOURNEYS.urban_report;
-    if (urbanJourney) {
-      setJourney(urbanJourney);
-    }
+    clearJourney();
   };
 
   const handleStartJourney = (journeyId: string) => {
-    // Journey is already set in QuickActionsCarousel
-    // Just scroll down to input
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Clear any existing conversation to start fresh
+    setLocalConversationId(null);
+    setActiveConversationId(null);
+    clearMessages();
   };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <ScrollArea className="flex-1">
-        <div className="max-w-4xl mx-auto pb-4">
+        <div className="w-full max-w-2xl mx-auto pb-4">
           {showWelcome ? (
-            <div className="flex flex-col min-h-[calc(100dvh-8rem)]">
-              {/* Contextual Greeting */}
+            <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-10rem)]">
+              {/* Contextual Greeting - centered */}
               <ContextualGreeting />
               
               {/* Quick Actions Carousel */}
               <QuickActionsCarousel onStartJourney={handleStartJourney} />
 
-              {/* Hint Text */}
-              <div className="text-center px-6 py-4 mt-auto">
+              {/* Hint Text - centered */}
+              <div className="w-full text-center px-6 py-4">
                 <p className="text-xs text-muted-foreground">
                   Digite sua mensagem ou escolha uma opção acima
                 </p>
@@ -125,11 +122,11 @@ const AgentChatArea = () => {
       {/* Input Area */}
       {!createdReport && (
         <div className="border-t border-border bg-card p-3 sm:p-4 shrink-0">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-2xl mx-auto">
             <ChatInput 
               onSendMessage={handleSendMessage} 
               disabled={isLoading}
-              placeholder="Digite sua mensagem..."
+              placeholder={currentJourney ? `Fale sobre ${currentJourney.label.toLowerCase()}...` : "Digite sua mensagem..."}
             />
           </div>
         </div>

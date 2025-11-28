@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
 export interface JourneyType {
-  id: 'general' | 'urban_report' | 'transport' | 'evaluate' | 'plan' | 'services';
+  id: string;
   label: string;
   edgeFunction: string;
   initialMessage?: string;
