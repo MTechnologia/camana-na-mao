@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { MessageSquare } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import AgentHeader from "./AgentHeader";
 import ChatSidebar from "./ChatSidebar";
 import AgentChatArea from "./AgentChatArea";
@@ -10,31 +8,22 @@ const AgentChatLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-[280px] border-r border-border bg-muted/30">
+      <aside className="hidden lg:flex lg:w-[280px] border-r border-border bg-muted/30 shrink-0">
         <ChatSidebar onConversationClick={() => {}} />
       </aside>
 
       {/* Main Chat Area */}
-      <main className="flex flex-col flex-1 min-w-0">
+      <main className="flex flex-col flex-1 min-w-0 h-full">
         {/* Minimalist Header */}
-        <AgentHeader />
+        <AgentHeader onOpenConversations={() => setSidebarOpen(true)} />
 
         {/* Chat Area */}
         <AgentChatArea />
 
-        {/* Mobile Conversations Button - Fixed */}
+        {/* Mobile Conversations Sheet */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger asChild className="lg:hidden">
-            <Button 
-              variant="secondary" 
-              size="icon" 
-              className="fixed bottom-24 right-4 rounded-full shadow-lg z-40 h-12 w-12"
-            >
-              <MessageSquare className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
           <SheetContent side="right" className="w-[280px] p-0">
             <ChatSidebar onConversationClick={() => setSidebarOpen(false)} />
           </SheetContent>

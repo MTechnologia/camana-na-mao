@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import splashBg from "@/assets/splash-bg.png";
 
 const Splash = () => {
   const navigate = useNavigate();
@@ -9,22 +8,18 @@ const Splash = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       navigate("/login");
-    }, 3000);
+    }, 2500);
 
     return () => clearTimeout(timer);
   }, [navigate]);
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{
-        backgroundImage: `url(${splashBg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      {/* Overlay escuro para melhor legibilidade */}
-      <div className="absolute inset-0 bg-black/20"></div>
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-400">
+      {/* Decorative elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-white/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-rose-800/20 rounded-full blur-3xl" />
+      </div>
 
       {/* Conteúdo */}
       <div className="relative z-10 flex flex-col items-center px-8">

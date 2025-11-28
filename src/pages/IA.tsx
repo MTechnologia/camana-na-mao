@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { useFirstAccess } from "@/hooks/useFirstAccess";
-import AILoadingScreen from "@/components/ai/AILoadingScreen";
-import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
 import OfflineMode from "@/components/ai/OfflineMode";
 import AgentChatLayout from "@/components/ai/AgentChatLayout";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
@@ -11,9 +8,6 @@ import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 const IA = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { isFirstAccess, completeOnboarding } = useFirstAccess();
-  const [isLoading, setIsLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -21,16 +15,7 @@ const IA = () => {
       navigate("/login");
       return;
     }
-
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-      if (isFirstAccess) {
-        setShowOnboarding(true);
-      }
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [user, navigate, isFirstAccess]);
+  }, [user, navigate]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -45,26 +30,8 @@ const IA = () => {
     };
   }, []);
 
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-    completeOnboarding();
-  };
-
-  const handleOnboardingSkip = () => {
-    setShowOnboarding(false);
-    completeOnboarding();
-  };
-
   if (!isOnline) {
     return <OfflineMode />;
-  }
-
-  if (isLoading) {
-    return <AILoadingScreen />;
-  }
-
-  if (showOnboarding) {
-    return <OnboardingTutorial onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />;
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell } from "lucide-react";
+import { Menu, Bell, MessageSquare, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,11 @@ import { useMenu } from "@/contexts/MenuContext";
 import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 
-const AgentHeader = () => {
+interface AgentHeaderProps {
+  onOpenConversations?: () => void;
+}
+
+const AgentHeader = ({ onOpenConversations }: AgentHeaderProps) => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
   const { profile, getInitials } = useProfile();
@@ -90,11 +94,12 @@ const AgentHeader = () => {
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={() => navigate('/profile')}>
+        <DropdownMenuContent align="end" className="w-52 bg-popover border border-border shadow-lg z-50">
+          <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
+            <User className="h-4 w-4 mr-2" />
             <span>Meu Perfil</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => navigate('/notifications')}>
+          <DropdownMenuItem onClick={() => navigate('/notifications')} className="cursor-pointer">
             <Bell className="h-4 w-4 mr-2" />
             <span>Notificações</span>
             {unreadCount > 0 && (
@@ -103,8 +108,13 @@ const AgentHeader = () => {
               </Badge>
             )}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={onOpenConversations} className="cursor-pointer lg:hidden">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            <span>Conversas</span>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate('/profile/preferences')}>
+          <DropdownMenuItem onClick={() => navigate('/profile/preferences')} className="cursor-pointer">
+            <Settings className="h-4 w-4 mr-2" />
             <span>Configurações</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
