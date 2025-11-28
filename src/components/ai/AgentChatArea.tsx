@@ -9,7 +9,7 @@ import ChatInput from "./ChatInput";
 import ReportSuccessCard from "./ReportSuccessCard";
 import ContextualGreeting from "./ContextualGreeting";
 import QuickActionsCarousel from "./QuickActionsCarousel";
-import { Loader2 } from "lucide-react";
+import TypingIndicator from "./TypingIndicator";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -187,14 +187,12 @@ const AgentChatArea = () => {
                 )}
                 
                 {isLoading && !createdReport && (
-                  <motion.div 
-                    className="flex items-center gap-2 text-muted-foreground"
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Pensando...</span>
+                    <TypingIndicator />
                   </motion.div>
                 )}
                 
