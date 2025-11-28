@@ -1,21 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useProfile } from "@/hooks/useProfile";
+import { useToast } from "@/hooks/use-toast";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
 import ReportSuccessCard from "./ReportSuccessCard";
 import ContextualGreeting from "./ContextualGreeting";
 import QuickActionsCarousel from "./QuickActionsCarousel";
-import { Loader2 } from "lucide-react";
+import { Loader2, MoreVertical, Plus, X } from "lucide-react";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 
 const AgentChatArea = () => {
   const { currentJourney, activeConversationId, setJourney, setActiveConversationId, clearJourney } = useAIJourney();
   const [localConversationId, setLocalConversationId] = useState<string | null>(activeConversationId);
+  const [showEndDialog, setShowEndDialog] = useState(false);
   const { profile, getInitials } = useProfile();
+  const { toast } = useToast();
   
   // Sync local ID with context
   useEffect(() => {
@@ -99,6 +120,33 @@ const AgentChatArea = () => {
     }
   };
 
+  const handleNewConversation = () => {
+    clearMessages();
+    setLocalConversationId(null);
+    setActiveConversationId(null);
+    clearJourney();
+    toast({
+      title: "Nova conversa",
+      description: "Uma nova conversa foi iniciada.",
+    });
+  };
+
+  const handleEndConversation = () => {
+    setShowEndDialog(true);
+  };
+
+  const confirmEndConversation = () => {
+    clearMessages();
+    setLocalConversationId(null);
+    setActiveConversationId(null);
+    clearJourney();
+    setShowEndDialog(false);
+    toast({
+      title: "Conversa encerrada",
+      description: "A conversa foi encerrada com sucesso.",
+    });
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {showWelcome ? (
@@ -115,6 +163,33 @@ const AgentChatArea = () => {
       ) : (
         // Chat state - needs scroll
         <ScrollArea className="flex-1">
+          {/* Contextual Kebab Menu - only shows when there are messages */}
+          {hasMessages && (
+            <div className="flex justify-end px-4 py-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleNewConversation}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova conversa
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={handleEndConversation}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Encerrar conversa
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
           <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-4">
             {messages.map((msg) => (
               <ChatMessageBubble 
@@ -156,6 +231,24 @@ const AgentChatArea = () => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Encerrar conversa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A conversa atual será encerrada e você voltará para a tela inicial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEndConversation}>
+              Encerrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
