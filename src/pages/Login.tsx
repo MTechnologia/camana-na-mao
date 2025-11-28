@@ -22,7 +22,7 @@ const Login = () => {
 
   useEffect(() => {
     if (user) {
-      navigate("/home");
+      navigate("/ia");
     }
   }, [user, navigate]);
 
@@ -36,7 +36,7 @@ const Login = () => {
       const { error } = await signIn(validated.email, validated.password);
 
       if (!error) {
-        navigate("/home");
+        navigate("/ia");
       }
     } catch (error: any) {
       if (error.errors) {

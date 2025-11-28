@@ -336,11 +336,11 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     }
   };
 
-  const clearMessages = () => {
+  const clearMessages = useCallback(() => {
     setMessages([]);
     setCreatedReport(null);
     conversationIdRef.current = null;
-  };
+  }, []);
 
   return {
     messages,

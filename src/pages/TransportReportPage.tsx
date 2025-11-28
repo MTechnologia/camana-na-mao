@@ -47,7 +47,7 @@ export default function TransportReportPage() {
 
   return (
     <>
-      <PageHeader title="Diagnóstico de Transporte" backTo="/home" />
+      <PageHeader title="Diagnóstico de Transporte" backTo="/ia" />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="relative h-52 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-500 overflow-hidden">
           {/* Background decorations */}

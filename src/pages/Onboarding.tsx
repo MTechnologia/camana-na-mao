@@ -52,7 +52,7 @@ const Onboarding = () => {
       if (error) throw error;
 
       toast.success("Interesses salvos com sucesso!");
-      navigate("/home");
+      navigate("/ia");
     } catch (error: any) {
       toast.error(error.message || "Erro ao salvar interesses");
     } finally {

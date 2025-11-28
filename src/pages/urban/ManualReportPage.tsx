@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
-import { useVoiceChat } from "@/hooks/useVoiceChat";
+import { useWebSpeechChat } from "@/hooks/useWebSpeechChat";
 
 const categories = [
   { value: "iluminacao", label: "Iluminação Pública" },
@@ -75,7 +75,7 @@ export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useProfile();
-  const { isRecording, isProcessing, startRecording, stopRecording } = useVoiceChat();
+  const { isRecording, isProcessing, startRecording, stopRecording, isSupported } = useWebSpeechChat();
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -299,7 +299,7 @@ export default function ManualReportPage() {
                     size="icon"
                     className="absolute right-2 bottom-2"
                     onClick={handleVoiceInput}
-                    disabled={isProcessing}
+                    disabled={isProcessing || !isSupported}
                   >
                     {isRecording ? (
                       <MicOff className="w-5 h-5 text-destructive" />
