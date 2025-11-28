@@ -1,19 +1,29 @@
 import { useState, useEffect } from "react";
-import { Bell, Menu } from "lucide-react";
+import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { useMenu } from "@/contexts/MenuContext";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getJourneyIcon } from "@/config/aiJourneys";
+import { cn } from "@/lib/utils";
 
-interface AgentHeaderProps {
-  onBackToHub?: () => void;
-}
-
-const AgentHeader = ({ onBackToHub }: AgentHeaderProps) => {
+const AgentHeader = () => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
+  const { currentJourney, activeConversationId, clearJourney, setActiveConversationId } = useAIJourney();
+  const { toast } = useToast();
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const isInConversation = !!currentJourney || !!activeConversationId;
 
   // Fetch unread notifications count
   useEffect(() => {
@@ -54,22 +64,96 @@ const AgentHeader = ({ onBackToHub }: AgentHeaderProps) => {
     fetchUnreadCount();
   }, []);
 
+  const handleBack = () => {
+    clearJourney();
+    setActiveConversationId(null);
+  };
+
+  const handleNewConversation = () => {
+    clearJourney();
+    setActiveConversationId(null);
+    toast({
+      title: "Nova conversa",
+      description: "Uma nova conversa foi iniciada.",
+    });
+  };
+
+  const handleViewHistory = () => {
+    navigate('/conversas');
+  };
+
+  // Active Conversation Header
+  if (isInConversation && currentJourney) {
+    const JourneyIcon = getJourneyIcon(currentJourney.icon);
+    
+    return (
+      <header className={cn(
+        "relative flex items-center justify-between h-14 px-4 shrink-0 overflow-hidden",
+        "bg-gradient-to-r",
+        currentJourney.color
+      )}>
+        {/* Soft overlay for subtle effect */}
+        <div className="absolute inset-0 bg-background/20" />
+        
+        {/* Content */}
+        <div className="relative z-10 flex items-center justify-between w-full">
+          {/* Back Button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleBack}
+            className="text-white hover:bg-white/20"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          
+          {/* Journey Icon + Label */}
+          <div className="flex items-center gap-2 text-white">
+            <JourneyIcon className="h-5 w-5" />
+            <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
+              {currentJourney.label}
+            </span>
+          </div>
+          
+          {/* Kebab Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="text-white hover:bg-white/20"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleNewConversation}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova conversa
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleViewHistory}>
+                <History className="h-4 w-4 mr-2" />
+                Ver histórico
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+    );
+  }
+
+  // Hub Header (default)
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0">
-      {/* Left: Hamburger */}
+      {/* Hamburger Menu */}
       <Button variant="ghost" size="icon" onClick={openMenu}>
         <Menu className="h-5 w-5" />
       </Button>
       
-      {/* Center: Agent Name (clickable to go back to hub) */}
-      <button 
-        className="text-lg font-semibold text-foreground"
-        onClick={onBackToHub}
-      >
-        Câmara SP
-      </button>
+      {/* Title */}
+      <span className="text-lg font-semibold text-foreground">Câmara SP</span>
       
-      {/* Right: Notifications */}
+      {/* Notifications */}
       <Button 
         variant="ghost" 
         size="icon" 
