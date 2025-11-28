@@ -14,7 +14,7 @@ export const AI_JOURNEYS: Record<string, JourneyType> = {
   transport: {
     id: 'transport',
     label: 'Diagnóstico de Transporte',
-    edgeFunction: 'ai-chat',
+    edgeFunction: 'diagnose-transport',
     initialMessage: 'Olá! Vou ajudar você a registrar um problema no transporte público. Qual linha você utiliza e qual problema está enfrentando?',
     color: 'from-green-500 to-green-600',
     icon: 'Bus',
@@ -23,7 +23,7 @@ export const AI_JOURNEYS: Record<string, JourneyType> = {
   urban_report: {
     id: 'urban_report',
     label: 'Relato Urbano',
-    edgeFunction: 'ai-chat',
+    edgeFunction: 'urban-report-chat',
     initialMessage: 'Olá! Vou ajudar você a registrar um problema urbano. Pode me descrever o que está acontecendo e onde?',
     color: 'from-orange-500 to-orange-600',
     icon: 'Construction',
@@ -32,7 +32,7 @@ export const AI_JOURNEYS: Record<string, JourneyType> = {
   evaluate: {
     id: 'evaluate',
     label: 'Avaliação de Serviço',
-    edgeFunction: 'ai-chat',
+    edgeFunction: 'evaluate-service',
     initialMessage: 'Olá! Vou ajudar você a avaliar o serviço público que você utilizou. Qual serviço você gostaria de avaliar?',
     color: 'from-blue-500 to-blue-600',
     icon: 'Star',

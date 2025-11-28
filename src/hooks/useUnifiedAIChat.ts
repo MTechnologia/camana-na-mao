@@ -14,7 +14,7 @@ interface Message {
 }
 
 interface CreatedReport {
-  type: 'urban_report';
+  type: 'urban_report' | 'transport' | 'rating';
   id: string;
 }
 
@@ -92,9 +92,19 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
           
           // Check if any message contains a report creation marker
           for (const msg of savedMessages) {
-            const match = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
-            if (match) {
-              setCreatedReport({ type: 'urban_report', id: match[1] });
+            const urbanMatch = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
+            if (urbanMatch) {
+              setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
+              break;
+            }
+            const transportMatch = msg.content?.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
+            if (transportMatch) {
+              setCreatedReport({ type: 'transport', id: transportMatch[1] });
+              break;
+            }
+            const ratingMatch = msg.content?.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
+            if (ratingMatch) {
+              setCreatedReport({ type: 'rating', id: ratingMatch[1] });
               break;
             }
           }
@@ -240,20 +250,42 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
               if (content) {
                 assistantMessage += content;
                 
-                // Check for report creation marker
-                const reportMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
-                if (reportMatch) {
-                  setCreatedReport({ type: 'urban_report', id: reportMatch[1] });
-                  
-                  // Show toast notification
+                // Check for urban report creation marker
+                const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
+                if (urbanMatch && !createdReport) {
+                  setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
                   toast({
                     title: "Relato criado!",
                     description: "Seu relato urbano foi registrado com sucesso.",
                   });
                 }
                 
-                // Remove marker from displayed message
-                const displayMessage = assistantMessage.replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '').trim();
+                // Check for transport report creation marker
+                const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
+                if (transportMatch && !createdReport) {
+                  setCreatedReport({ type: 'transport', id: transportMatch[1] });
+                  toast({
+                    title: "Relato registrado!",
+                    description: "Seu relato de transporte foi registrado com sucesso.",
+                  });
+                }
+                
+                // Check for rating creation marker
+                const ratingMatch = assistantMessage.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
+                if (ratingMatch && !createdReport) {
+                  setCreatedReport({ type: 'rating', id: ratingMatch[1] });
+                  toast({
+                    title: "Avaliação registrada!",
+                    description: "Sua avaliação foi registrada com sucesso.",
+                  });
+                }
+                
+                // Remove all markers from displayed message
+                const displayMessage = assistantMessage
+                  .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
+                  .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
+                  .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
+                  .trim();
                 
                 setMessages((prev) => {
                   const lastMsg = prev[prev.length - 1];
