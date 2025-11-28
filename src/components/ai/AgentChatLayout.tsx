@@ -3,16 +3,9 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import AgentHeader from "./AgentHeader";
 import ChatSidebar from "./ChatSidebar";
 import AgentChatArea from "./AgentChatArea";
-import { useAIJourney } from "@/contexts/AIJourneyContext";
 
 const AgentChatLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { clearJourney, setActiveConversationId } = useAIJourney();
-
-  const handleBackToHub = () => {
-    clearJourney();
-    setActiveConversationId(null);
-  };
 
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-background">
@@ -23,8 +16,8 @@ const AgentChatLayout = () => {
 
       {/* Main Chat Area */}
       <main className="flex flex-col flex-1 min-w-0 h-full">
-        {/* Minimalist Header */}
-        <AgentHeader onBackToHub={handleBackToHub} />
+        {/* Dynamic Header */}
+        <AgentHeader />
 
         {/* Chat Area */}
         <AgentChatArea />
