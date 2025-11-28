@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { useProfile } from "@/hooks/useProfile";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
 import ReportSuccessCard from "./ReportSuccessCard";
@@ -14,6 +15,7 @@ import { AI_JOURNEYS } from "@/config/aiJourneys";
 const AgentChatArea = () => {
   const { currentJourney, activeConversationId, setJourney, setActiveConversationId, clearJourney } = useAIJourney();
   const [localConversationId, setLocalConversationId] = useState<string | null>(activeConversationId);
+  const { profile, getInitials } = useProfile();
   
   // Sync local ID with context
   useEffect(() => {
@@ -42,6 +44,10 @@ const AgentChatArea = () => {
 
   const hasMessages = messages.length > 0;
   const showWelcome = !hasMessages && !activeConversationId && !currentJourney;
+
+  // User avatar data
+  const userAvatarUrl = profile?.avatar_url;
+  const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
@@ -111,7 +117,12 @@ const AgentChatArea = () => {
         <ScrollArea className="flex-1">
           <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-4">
             {messages.map((msg) => (
-              <ChatMessageBubble key={msg.id} message={msg} />
+              <ChatMessageBubble 
+                key={msg.id} 
+                message={msg}
+                userAvatarUrl={userAvatarUrl}
+                userInitials={userInitials}
+              />
             ))}
             
             {createdReport && createdReport.type === 'urban_report' && (

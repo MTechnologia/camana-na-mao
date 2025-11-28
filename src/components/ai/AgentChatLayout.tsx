@@ -7,12 +7,25 @@ import { useAIJourney } from "@/contexts/AIJourneyContext";
 
 const AgentChatLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { clearJourney, setActiveConversationId } = useAIJourney();
+  const { clearJourney, setActiveConversationId, activeConversationId, currentJourney } = useAIJourney();
 
   const handleBackToHub = () => {
     clearJourney();
     setActiveConversationId(null);
   };
+
+  const handleNewConversation = () => {
+    clearJourney();
+    setActiveConversationId(null);
+  };
+
+  const handleEndConversation = () => {
+    clearJourney();
+    setActiveConversationId(null);
+  };
+
+  // Check if there's an active conversation
+  const hasActiveConversation = !!(activeConversationId || currentJourney);
 
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-background">
@@ -27,6 +40,9 @@ const AgentChatLayout = () => {
         <AgentHeader 
           onOpenConversations={() => setSidebarOpen(true)} 
           onBackToHub={handleBackToHub}
+          onNewConversation={handleNewConversation}
+          onEndConversation={handleEndConversation}
+          hasActiveConversation={hasActiveConversation}
         />
 
         {/* Chat Area */}

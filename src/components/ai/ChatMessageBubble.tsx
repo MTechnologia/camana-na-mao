@@ -1,7 +1,8 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { User, Bot } from "lucide-react";
+import { Bot } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ReactMarkdown from "react-markdown";
 
 interface ChatMessage {
@@ -14,9 +15,11 @@ interface ChatMessage {
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
+  userAvatarUrl?: string | null;
+  userInitials?: string;
 }
 
-const ChatMessageBubble = ({ message }: ChatMessageBubbleProps) => {
+const ChatMessageBubble = ({ message, userAvatarUrl, userInitials }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
 
   return (
@@ -27,14 +30,18 @@ const ChatMessageBubble = ({ message }: ChatMessageBubbleProps) => {
       )}
     >
       {/* Avatar */}
-      <div
-        className={cn(
-          "shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted"
-        )}
-      >
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-      </div>
+      {isUser ? (
+        <Avatar className="shrink-0 h-8 w-8">
+          <AvatarImage src={userAvatarUrl || undefined} />
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {userInitials || "?"}
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+          <Bot className="h-4 w-4" />
+        </div>
+      )}
 
       {/* Message Content */}
       <div
