@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Bell, Menu } from "lucide-react";
+import { MessageSquare, Bell, Menu } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMenu } from "@/contexts/MenuContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +57,6 @@ const FloatingNavbar = () => {
   }, []);
 
   const menuItems = [
-    { name: "Home", icon: Home, path: "/home" },
     { name: "Chat", icon: MessageSquare, path: "/ia" },
     { name: "Notificações", icon: Bell, path: "/notifications", badge: unreadCount },
     { name: "Menu", icon: Menu, path: "/menu", isMenuButton: true },
@@ -80,12 +79,7 @@ const FloatingNavbar = () => {
       setActiveIndex(index);
     } else {
       setActiveIndex(index);
-      // Se for navegação para /ia, adicionar parâmetro view=hub
-      if (path === '/ia') {
-        navigate('/ia?view=hub');
-      } else {
-        navigate(path);
-      }
+      navigate(path);
     }
   };
 

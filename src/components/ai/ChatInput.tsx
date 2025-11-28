@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }
 
-const ChatInput = ({ onSendMessage, disabled }: ChatInputProps) => {
+const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer coisa..." }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -93,15 +94,15 @@ const ChatInput = ({ onSendMessage, disabled }: ChatInputProps) => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 z-30">
-      <div className="max-w-4xl mx-auto flex items-center gap-3">
+    <div className="w-full">
+      <div className="flex items-center gap-3">
         {/* Input with blue accent line */}
         <div className="flex-1 relative">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Pergunte qualquer coisa..."
+            placeholder={placeholder}
             disabled={disabled}
             rows={1}
             className="w-full rounded-2xl border-2 border-border bg-card pl-4 pr-12 py-3.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
