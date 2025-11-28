@@ -75,14 +75,13 @@ const AgentHeader = ({ onOpenConversations, onBackToHub }: AgentHeaderProps) => 
       </Button>
       
       {/* Agent Name - Center (clickable to go back to hub) */}
-      <Button 
-        variant="ghost" 
-        className="flex items-center gap-2 hover:bg-accent/50"
+      <button 
+        className="flex items-center gap-2"
         onClick={onBackToHub}
       >
         <Home className="h-4 w-4 text-muted-foreground" />
         <span className="text-lg font-semibold text-foreground">Câmara SP</span>
-      </Button>
+      </button>
       
       {/* Avatar with Dropdown - Right */}
       <DropdownMenu>

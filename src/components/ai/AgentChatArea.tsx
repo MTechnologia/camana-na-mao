@@ -27,6 +27,14 @@ const AgentChatArea = () => {
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Clear messages when returning to hub (both conversationId and journey are null)
+  useEffect(() => {
+    if (activeConversationId === null && !currentJourney) {
+      clearMessages();
+      setLocalConversationId(null);
+    }
+  }, [activeConversationId, currentJourney, clearMessages]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
