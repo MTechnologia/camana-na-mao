@@ -1,10 +1,11 @@
-import { ArrowLeft, HelpCircle, Settings } from "lucide-react";
+import { HelpCircle, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccessibility } from "@/hooks/useAccessibility";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import PageHeader from "@/components/ui/page-header";
 
 const AccessibilityPage = () => {
   const navigate = useNavigate();
@@ -24,23 +25,11 @@ const AccessibilityPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background border-b border-border">
-        <div className="flex items-center gap-3 p-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 -ml-2 hover:bg-accent rounded-full transition-colors"
-            aria-label="Voltar"
-          >
-            <ArrowLeft size={24} className="text-foreground" />
-          </button>
-          <h1 className="text-lg font-semibold text-foreground">Acessibilidade</h1>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pt-[60px]">
+      <PageHeader title="Acessibilidade" backTo="/profile" />
 
       {/* Content */}
-      <div className="p-4 space-y-4 pb-8">
+      <div className="p-6 space-y-4 pb-8">
         {/* Tamanho da Fonte */}
         <Card>
           <CardHeader className="pb-3">
