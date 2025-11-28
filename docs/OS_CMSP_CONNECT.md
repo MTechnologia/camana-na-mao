@@ -4,21 +4,33 @@
 
 ---
 
-## 1. IDENTIFICAÇÃO DO PROJETO
+## 1. IDENTIFICAÇÃO
 
-**Nome do Projeto:** CMSP Connect
-
-**Objeto:** Desenvolvimento de aplicativo móvel de participação cidadã que utiliza inteligência artificial para conectar munícipes, vereadores e serviços públicos da cidade de São Paulo.
-
-**Contratante:** Câmara Municipal de São Paulo
-
-**Período de Execução:** Dezembro de 2025 a Setembro de 2026 (10 meses)
-
-**Contexto:** Este projeto teve início em Outubro de 2025 com uma etapa de diagnóstico, seguida por uma etapa de arquitetura da informação e prototipação em Novembro de 2025. O presente documento descreve o escopo de execução para os 10 meses subsequentes.
+| Campo | Informação |
+|-------|------------|
+| **Contrato/Convênio de origem** | [A ser preenchido] |
+| **Número da OS** | [A ser preenchido] |
+| **Contratante** | Câmara Municipal de São Paulo |
+| **Contratada** | [A ser preenchido] |
+| **Objeto** | Desenvolvimento de aplicativo móvel de participação cidadã que utiliza inteligência artificial para conectar munícipes, vereadores e serviços públicos da cidade de São Paulo |
 
 ---
 
-## 2. JUSTIFICATIVA
+## 2. IDENTIFICAÇÃO DO OBJETO DA ORDEM DE SERVIÇO
+
+O objeto da presente Ordem de Serviço compreende:
+
+- Desenvolvimento de aplicativo móvel (PWA - Progressive Web App) para participação cidadã
+- Implementação de assistente virtual com inteligência artificial para atendimento ao cidadão
+- Criação de módulos de engajamento: audiências públicas, avaliação de serviços, relatos urbanos e de transporte
+- Desenvolvimento de mapa interativo de serviços públicos com geolocalização
+- Implementação de área administrativa para gestores da Câmara Municipal
+- Integração com sistemas da CMSP (Portal CMSP, SP Legis, Sistema de Audiências)
+- Documentação técnica, manuais de usuário e treinamento
+
+---
+
+## 3. JUSTIFICATIVA
 
 A Câmara Municipal de São Paulo busca fortalecer o vínculo entre o Legislativo e a população paulistana, promovendo maior transparência, participação cidadã e eficiência no atendimento às demandas da sociedade.
 
@@ -38,54 +50,211 @@ O aplicativo representa um avanço significativo na modernização do relacionam
 
 ---
 
-## 3. DESCRIÇÃO DO ESCOPO
+## 4. ESPECIFICAÇÃO DO SERVIÇO
 
-### 3.1 Objetivo Principal
+Conforme Termo de Referência, o serviço enquadra-se na seguinte categoria:
 
-Desenvolver e disponibilizar um aplicativo móvel (PWA - Progressive Web App) que sirva como principal canal de interação entre os munícipes de São Paulo e a Câmara Municipal, utilizando inteligência artificial como elemento central da experiência do usuário.
+- ( X ) Serviços de Desenvolvimento, Manutenção e Sustentação de Software Web e Mobile
 
-### 3.2 Públicos-Alvo
+---
 
-| Público | Descrição |
-|---------|-----------|
-| **Munícipes** | Cidadãos de São Paulo que desejam participar da vida política da cidade, relatar problemas, avaliar serviços públicos e acompanhar as atividades legislativas |
-| **Vereadores e Assessores** | Representantes eleitos e suas equipes, que receberão demandas encaminhadas e poderão acompanhar os relatos da população |
-| **Gestores da Câmara** | Equipe administrativa responsável por gerenciar o sistema, analisar dados e tomar decisões baseadas nas informações coletadas |
+## 5. ETAPAS MACRO DA PRESTAÇÃO DE SERVIÇOS
 
-### 3.3 Funcionalidades Principais
+1. Definição de arquitetura e fundação técnica
+2. Desenvolvimento da estrutura base e sistema de autenticação
+3. Implementação do assistente virtual com inteligência artificial
+4. Desenvolvimento dos módulos de participação cidadã (audiências, avaliações, relatos)
+5. Implementação do mapa de serviços públicos e conteúdo institucional
+6. Desenvolvimento da área administrativa completa
+7. Integração com sistemas da CMSP
+8. Testes, homologação e publicação
+9. Treinamento, documentação e acompanhamento pós-publicação
 
-O aplicativo será composto por dois ambientes principais:
+---
 
-**Ambiente do Cidadão:**
-- Assistente virtual conversacional com inteligência artificial
-- Consulta e inscrição em audiências públicas
-- Avaliação de serviços públicos (UBS, escolas, CEUs, entre outros)
-- Relatos de problemas urbanos e de transporte público
-- Mapa interativo de serviços públicos próximos
-- Acesso ao conteúdo institucional da Câmara
-- Notificações personalizadas
+## 6. CRONOGRAMA DE EXECUÇÃO DOS SERVIÇOS
 
-**Ambiente Administrativo:**
-- Painel de gestão de relatos e avaliações
-- Visualização analítica de dados e demandas
-- Gerenciamento de audiências públicas
-- Administração de usuários e permissões
-- Acompanhamento de encaminhamentos às Comissões
+### (i) Recursos profissionais a serem alocados
+
+| ITEM | CARGO / PERFIL | QT | Valor Unitário Mensal | Valor Total |
+|------|----------------|----|-----------------------|-------------|
+| 1 | Gerente de Projetos | | | |
+| 2 | Product Owner | | | |
+| 3 | UX/UI Designer | | | |
+| 4 | Desenvolvedor Front-End Sênior | | | |
+| 5 | Desenvolvedor Full-Stack Sênior | | | |
+| 6 | Desenvolvedor Back-End Sênior | | | |
+| 7 | Especialista em IA | | | |
+| 8 | Analista de Qualidade | | | |
+| | **TOTAL** | | | |
+
+### (ii) Entregas mensais previstas
+
+**Dezembro/2025 - 10% do escopo:**
+- Definição de arquitetura técnica do sistema
+- Definição de linguagens de programação e frameworks
+- Modelagem de dados e estrutura do banco de dados
+- Mapeamento de integrações com sistemas da CMSP (Portal CMSP, SP Legis, Sistema de Audiências)
+- Documentação técnica inicial
+
+**Janeiro/2026 - 10% do escopo:**
+- Estrutura base do aplicativo PWA
+- Sistema de autenticação e cadastro de usuários
+- Perfil de usuário com dados pessoais
+- Configurações de acessibilidade
+- Estrutura de notificações
+
+**Fevereiro/2026 - 10% do escopo:**
+- Assistente virtual conversacional com IA
+- Fluxos de orientação e acolhimento digital
+- Histórico de conversas
+- Integração inicial com base de conhecimento
+
+**Março/2026 - 10% do escopo:**
+- Módulo de audiências públicas
+- Sistema de inscrições e participação
+- Notificações e lembretes automáticos
+- Integração com Sistema de Audiências da CMSP
+
+**Abril/2026 - 10% do escopo:**
+- Módulo de avaliação de serviços públicos
+- Sistema de geolocalização e detecção de proximidade
+- Histórico de avaliações do usuário
+- Análise de sentimento das avaliações
+
+**Maio/2026 - 10% do escopo:**
+- Módulo de relatos urbanos via chatbot
+- Módulo de diagnóstico de transporte público
+- Sistema de encaminhamento às Comissões
+- Acompanhamento de relatos pelo cidadão
+
+**Junho/2026 - 10% do escopo:**
+- Mapa interativo de serviços públicos
+- Conteúdo institucional (integração com Portal CMSP e SP Legis)
+- Testes de qualidade e homologação
+- Correções e ajustes
+
+**Julho/2026 - 10% do escopo:**
+- Área administrativa completa (gestão de relatos, avaliações, audiências)
+- Painéis analíticos e dashboards
 - Módulo de logs e auditoria
-- Exportação de relatórios
+- **Publicação do aplicativo em produção**
 
-### 3.4 Integrações com Sistemas da CMSP
+**Agosto/2026 - 10% do escopo:**
+- Acompanhamento pós-publicação
+- Monitoramento de uso e performance
+- Documentação técnica completa
+- Treinamento da equipe da Câmara Municipal
 
-Os conteúdos de **notícias**, **audiências públicas**, **vereadores**, **comissões**, **agenda legislativa** e demais informações institucionais serão providos por meio de **integrações com sistemas da Câmara Municipal de São Paulo**, incluindo:
+**Setembro/2026 - 10% do escopo:**
+- Estabilização do sistema
+- Ajustes finos e correções
+- Entrega final de documentação
+- Encerramento formal do projeto
 
-- **Portal CMSP:** Notícias, comunicados e informações institucionais
-- **SP Legis:** Dados de vereadores, comissões, projetos de lei e tramitações
-- **Sistema de Audiências:** Agenda, pautas e inscrições em audiências públicas
-- **Outros sistemas conforme disponibilidade:** APIs e serviços de dados da CMSP
+### (iii) Indicadores de Aferição e Avaliação
 
-Essas integrações garantem que as informações apresentadas no aplicativo estejam sempre atualizadas e em conformidade com as fontes oficiais da Câmara.
+| Indicador | Meta | Forma de Acompanhamento | Periodicidade |
+|-----------|------|------------------------|---------------|
+| Entregas no prazo | 100% das entregas mensais | Verificação de artefatos entregues | Mensal |
+| Cobertura de funcionalidades | 100% dos casos de uso implementados | Checklist de funcionalidades | Por entrega |
+| Qualidade do código | Sem falhas críticas em homologação | Testes de qualidade | Por entrega |
+| Conformidade WCAG | Nível AA | Auditoria de acessibilidade | Trimestral |
+| Disponibilidade pós-publicação | 99% em horário comercial | Monitoramento de sistema | Contínuo |
 
-### 3.5 Proposta de Sitemap
+---
+
+## 7. PRODUTO FINAL
+
+Ao término do projeto, serão entregues:
+
+- **Aplicativo CMSP Connect:** Aplicativo móvel (PWA) completo e funcional, contemplando todas as funcionalidades descritas nos casos de uso, publicado e disponível para acesso pelos cidadãos de São Paulo.
+
+- **Área Administrativa:** Painel de gestão completo para a equipe da Câmara Municipal, permitindo gerenciamento de todas as informações e funcionalidades do sistema.
+
+- **Documentação Técnica:** Documentação completa do sistema, incluindo arquitetura, fluxos, integrações e procedimentos de manutenção.
+
+- **Manual do Usuário:** Guia de utilização do aplicativo para cidadãos e manual de operação da área administrativa para gestores.
+
+- **Treinamento:** Capacitação da equipe da Câmara Municipal para operação e gestão do sistema.
+
+---
+
+## 8. CRITÉRIO DE ACEITAÇÃO
+
+O projeto será considerado concluído mediante:
+
+- Disponibilização do aplicativo em ambiente de produção acessível ao público
+- Funcionamento de todas as funcionalidades descritas nos casos de uso (Anexo II)
+- Área administrativa operacional e acessível aos gestores designados
+- Atendimento aos requisitos de segurança, LGPD e acessibilidade (Anexo IV)
+- Entrega da documentação técnica e manuais de usuário
+- Realização dos treinamentos para a equipe da Câmara
+- Período de estabilização sem falhas críticas
+
+---
+
+## 9. VIGÊNCIA DA ORDEM DE SERVIÇO
+
+Prazo estimado: **300 (trezentos) dias corridos**, contados da assinatura desta Ordem de Serviço.
+
+Este documento descreve os serviços a serem executados no período de **Dezembro de 2025 a Setembro de 2026**, totalizando 10 meses de execução.
+
+O projeto completo compreende 12 meses, considerando:
+- **Outubro/2025:** Diagnóstico e levantamento de requisitos (concluído)
+- **Novembro/2025:** Arquitetura da informação e prototipação (concluído)
+- **Dezembro/2025 a Setembro/2026:** Desenvolvimento, testes, publicação e acompanhamento
+
+---
+
+## 10. CONDIÇÕES DE PAGAMENTO
+
+| Mês | Período | % do Escopo Esperado | % de Pagamento |
+|-----|---------|---------------------|----------------|
+| 1 | Dezembro/2025 | 10% | |
+| 2 | Janeiro/2026 | 10% | |
+| 3 | Fevereiro/2026 | 10% | |
+| 4 | Março/2026 | 10% | |
+| 5 | Abril/2026 | 10% | |
+| 6 | Maio/2026 | 10% | |
+| 7 | Junho/2026 | 10% | |
+| 8 | Julho/2026 | 10% | |
+| 9 | Agosto/2026 | 10% | |
+| 10 | Setembro/2026 | 10% | |
+| | **TOTAL** | **100%** | |
+
+---
+
+## 11. VALOR TOTAL DA ORDEM DE SERVIÇO
+
+| Descrição | Valor |
+|-----------|-------|
+| Valor Total da OS | R$ [A ser preenchido] |
+
+---
+
+## 12. ASSINATURAS
+
+| | |
+|---|---|
+| **CONTRATANTE** | **CONTRATADA** |
+| Câmara Municipal de São Paulo | [Nome da empresa] |
+| | |
+| _________________________________ | _________________________________ |
+| Nome: | Nome: |
+| Cargo: | Cargo: |
+| | |
+| Data: ___/___/______ | Data: ___/___/______ |
+
+---
+
+---
+
+# ANEXOS
+
+---
+
+## ANEXO I - PROPOSTA DE SITEMAP
 
 O diagrama abaixo representa uma proposta de organização das telas e funcionalidades do aplicativo. Esta estrutura é ilustrativa e tem como objetivo facilitar a compreensão do escopo. A implementação final poderá apresentar variações em quantidade e organização de telas, desde que atenda às funcionalidades descritas neste documento.
 
@@ -212,7 +381,7 @@ CMSP Connect
 
 ---
 
-## 4. CASOS DE USO
+## ANEXO II - DETALHAMENTO DOS CASOS DE USO
 
 ### CSU001 - Acolhimento Digital Personalizado
 
@@ -343,11 +512,11 @@ CMSP Connect
 
 ---
 
-## 5. ÁREA ADMINISTRATIVA
+## ANEXO III - DETALHAMENTO DA ÁREA ADMINISTRATIVA
 
 O sistema contará com uma área administrativa completa, destinada aos gestores da Câmara Municipal. Este ambiente permitirá o gerenciamento de todas as informações coletadas pelo aplicativo, bem como a administração de conteúdos e usuários.
 
-### 5.1 Gestão de Relatos
+### 1. Gestão de Relatos
 
 - Visualização de todos os relatos urbanos e de transporte
 - Filtros por categoria, região, período e status
@@ -356,7 +525,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Registro de respostas e providências
 - Visualização de histórico completo de cada relato
 
-### 5.2 Gestão de Avaliações
+### 2. Gestão de Avaliações
 
 - Consolidação das avaliações de serviços públicos
 - Análise por equipamento, região e período
@@ -364,7 +533,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Encaminhamento de situações relevantes às Comissões
 - Exportação de relatórios de avaliação
 
-### 5.3 Gestão de Audiências Públicas
+### 3. Gestão de Audiências Públicas
 
 - Cadastro e edição de audiências públicas
 - Gerenciamento de inscrições
@@ -372,7 +541,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Upload de documentos e materiais de apoio
 - Relatório de participação
 
-### 5.4 Gestão de Encaminhamentos
+### 4. Gestão de Encaminhamentos
 
 - Acompanhamento de todos os encaminhamentos às Comissões
 - Controle de status e prazos
@@ -380,7 +549,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Notificação automática aos cidadãos sobre atualizações
 - Relatório de encaminhamentos por Comissão
 
-### 5.5 Análises e Relatórios
+### 5. Análises e Relatórios
 
 - Painéis analíticos com indicadores consolidados
 - Relatórios por período, região e tema
@@ -388,14 +557,14 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Gráficos de tendências e comparativos
 - Métricas de engajamento e participação
 
-### 5.6 Gestão de Usuários
+### 6. Gestão de Usuários
 
 - Cadastro de usuários administrativos
 - Definição de perfis e permissões
 - Gerenciamento de acessos
 - Visualização de histórico de ações por usuário
 
-### 5.7 Módulo de Logs
+### 7. Módulo de Logs
 
 - Registro automático de todas as ações realizadas no sistema
 - Consulta de logs por usuário, período, tipo de ação e entidade
@@ -405,7 +574,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Políticas de retenção de dados conforme LGPD
 - Rastreabilidade completa para fins de compliance e auditoria
 
-### 5.8 Configurações
+### 8. Configurações
 
 - Parâmetros gerais do sistema
 - Configuração de notificações automáticas
@@ -414,9 +583,9 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 
 ---
 
-## 6. REQUISITOS NÃO FUNCIONAIS
+## ANEXO IV - REQUISITOS NÃO FUNCIONAIS
 
-### 6.1 Segurança da Informação
+### 1. Segurança da Informação
 
 - Criptografia de dados em trânsito e em repouso
 - Autenticação segura de usuários
@@ -425,7 +594,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Logs de auditoria para rastreabilidade de ações
 - Backup regular dos dados
 
-### 6.2 Conformidade com a LGPD
+### 2. Conformidade com a LGPD
 
 - Coleta de dados mediante consentimento expresso
 - Possibilidade de exclusão de dados pessoais pelo usuário
@@ -434,7 +603,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Retenção de dados apenas pelo período necessário
 - Canal para exercício de direitos do titular
 
-### 6.3 Acessibilidade
+### 3. Acessibilidade
 
 - Conformidade com diretrizes WCAG 2.1 nível AA
 - Compatibilidade com leitores de tela
@@ -444,7 +613,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Textos alternativos para imagens
 - Linguagem clara e objetiva
 
-### 6.4 Usabilidade
+### 4. Usabilidade
 
 - Interface intuitiva e de fácil aprendizado
 - Design responsivo para diferentes dispositivos
@@ -454,7 +623,7 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Ajuda contextual disponível
 - Tempo de aprendizado reduzido
 
-### 6.5 Performance
+### 5. Performance
 
 - Tempo de carregamento inicial inferior a 3 segundos
 - Resposta do assistente virtual em tempo adequado
@@ -462,75 +631,12 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 - Otimização de consumo de dados móveis
 - Cache de conteúdos para acesso offline parcial
 
-### 6.6 Disponibilidade
+### 6. Disponibilidade
 
 - Disponibilidade mínima de 99% em horário comercial
 - Plano de contingência para indisponibilidades
 - Monitoramento proativo do sistema
 - Procedimentos de recuperação documentados
-
----
-
-## 7. CRONOGRAMA DE EXECUÇÃO
-
-| Mês | Período | Entregas Previstas | Percentual |
-|-----|---------|-------------------|------------|
-| 1 | Dezembro/2025 | Fundação técnica: definição de arquitetura, linguagens e frameworks, modelagem de dados, mapeamento de integrações com sistemas da CMSP | 10% |
-| 2 | Janeiro/2026 | Estrutura base do aplicativo, sistema de autenticação, perfil de usuário | 10% |
-| 3 | Fevereiro/2026 | Assistente virtual conversacional, fluxos de orientação e ajuda | 10% |
-| 4 | Março/2026 | Módulo de audiências públicas, sistema de inscrições e notificações | 10% |
-| 5 | Abril/2026 | Módulo de avaliação de serviços, geolocalização, histórico de avaliações | 10% |
-| 6 | Maio/2026 | Módulo de relatos urbanos e de transporte, encaminhamentos | 10% |
-| 7 | Junho/2026 | Mapa de serviços públicos, conteúdo institucional, testes de qualidade | 10% |
-| 8 | Julho/2026 | Área administrativa completa, publicação do aplicativo | 10% |
-| 9 | Agosto/2026 | Acompanhamento pós-publicação, documentação, treinamento | 10% |
-| 10 | Setembro/2026 | Estabilização, ajustes finos e encerramento do projeto | 10% |
-
----
-
-## 8. PRODUTO FINAL
-
-Ao término do projeto, serão entregues:
-
-### 8.1 Aplicativo CMSP Connect
-Aplicativo móvel (PWA) completo e funcional, contemplando todas as funcionalidades descritas neste documento, publicado e disponível para acesso pelos cidadãos de São Paulo.
-
-### 8.2 Área Administrativa
-Painel de gestão completo para a equipe da Câmara Municipal, permitindo gerenciamento de todas as informações e funcionalidades do sistema.
-
-### 8.3 Documentação Técnica
-Documentação completa do sistema, incluindo arquitetura, fluxos, integrações e procedimentos de manutenção.
-
-### 8.4 Manual do Usuário
-Guia de utilização do aplicativo para cidadãos e manual de operação da área administrativa para gestores.
-
-### 8.5 Treinamento
-Capacitação da equipe da Câmara Municipal para operação e gestão do sistema.
-
----
-
-## 9. CRITÉRIOS DE ACEITAÇÃO
-
-O projeto será considerado concluído mediante:
-
-- Disponibilização do aplicativo em ambiente de produção acessível ao público
-- Funcionamento de todas as funcionalidades descritas nos casos de uso
-- Área administrativa operacional e acessível aos gestores designados
-- Atendimento aos requisitos de segurança, LGPD e acessibilidade
-- Entrega da documentação técnica e manuais de usuário
-- Realização dos treinamentos para a equipe da Câmara
-- Período de estabilização sem falhas críticas
-
----
-
-## 10. VIGÊNCIA
-
-Este documento descreve os serviços a serem executados no período de **Dezembro de 2025 a Setembro de 2026**, totalizando 10 meses de execução.
-
-O projeto completo compreende 12 meses, considerando:
-- **Outubro/2025:** Diagnóstico e levantamento de requisitos
-- **Novembro/2025:** Arquitetura da informação e prototipação
-- **Dezembro/2025 a Setembro/2026:** Desenvolvimento, testes, publicação e acompanhamento
 
 ---
 
