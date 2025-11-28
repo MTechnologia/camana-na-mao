@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Bell, MessageSquare, Settings, User, LogOut, Home } from "lucide-react";
+import { Menu, Bell, MessageSquare, Settings, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -76,11 +76,10 @@ const AgentHeader = ({ onOpenConversations, onBackToHub }: AgentHeaderProps) => 
       
       {/* Agent Name - Center (clickable to go back to hub) */}
       <button 
-        className="flex items-center gap-2"
+        className="text-lg font-semibold text-foreground"
         onClick={onBackToHub}
       >
-        <Home className="h-4 w-4 text-muted-foreground" />
-        <span className="text-lg font-semibold text-foreground">Câmara SP</span>
+        Câmara SP
       </button>
       
       {/* Avatar with Dropdown - Right */}
