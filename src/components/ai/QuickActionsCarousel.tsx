@@ -110,8 +110,8 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
   ];
 
   return (
-    <div className="w-full py-2">
-      <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide px-4 snap-x snap-mandatory">
+    <div className="w-full py-2 overflow-visible">
+      <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-2 pt-2 scrollbar-hide -mx-4 px-4">
         {actions.map((action) => {
           const IconComponent = action.icon;
           return (

@@ -79,7 +79,7 @@ const ContextualGreeting = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center justify-center text-center w-full px-4 py-6"
+      className="flex flex-col items-center justify-center text-center w-full px-4 py-4"
     >
       {/* Agent Avatar */}
       <motion.div

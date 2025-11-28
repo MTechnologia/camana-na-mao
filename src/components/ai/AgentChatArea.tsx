@@ -75,49 +75,43 @@ const AgentChatArea = () => {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      <ScrollArea className="flex-1">
-        <div className="w-full max-w-2xl mx-auto pb-4">
-          {showWelcome ? (
-            <div className="flex flex-col items-center justify-center min-h-[calc(100dvh-10rem)]">
-              {/* Contextual Greeting - centered */}
-              <ContextualGreeting />
-              
-              {/* Quick Actions Carousel */}
-              <QuickActionsCarousel onStartJourney={handleStartJourney} />
-
-              {/* Hint Text - centered */}
-              <div className="w-full text-center px-6 py-4">
-                <p className="text-xs text-muted-foreground">
-                  Digite sua mensagem ou escolha uma opção acima
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4 px-4 py-6">
-              {messages.map((msg) => (
-                <ChatMessageBubble key={msg.id} message={msg} />
-              ))}
-              
-              {/* Show success card when report is created */}
-              {createdReport && createdReport.type === 'urban_report' && (
-                <ReportSuccessCard 
-                  reportId={createdReport.id} 
-                  onNewReport={handleNewReport}
-                />
-              )}
-              
-              {isLoading && !createdReport && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Pensando...</span>
-                </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+      {showWelcome ? (
+        // Welcome state - no scroll needed, just center content
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="w-full max-w-md flex flex-col items-center">
+            <ContextualGreeting />
+            <QuickActionsCarousel onStartJourney={handleStartJourney} />
+            <p className="text-xs text-muted-foreground text-center mt-4">
+              Digite sua mensagem ou escolha uma opção acima
+            </p>
+          </div>
         </div>
-      </ScrollArea>
+      ) : (
+        // Chat state - needs scroll
+        <ScrollArea className="flex-1">
+          <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-4">
+            {messages.map((msg) => (
+              <ChatMessageBubble key={msg.id} message={msg} />
+            ))}
+            
+            {createdReport && createdReport.type === 'urban_report' && (
+              <ReportSuccessCard 
+                reportId={createdReport.id} 
+                onNewReport={handleNewReport}
+              />
+            )}
+            
+            {isLoading && !createdReport && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Pensando...</span>
+              </div>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+      )}
 
       {/* Input Area */}
       {!createdReport && (
