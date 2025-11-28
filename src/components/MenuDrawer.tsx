@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   X, 
@@ -8,29 +7,24 @@ import {
   BookOpen, 
   GraduationCap, 
   Newspaper,
-  Settings,
   Shield,
   LogOut,
   Lock,
-  ChevronDown,
-  ChevronRight,
-  HelpCircle,
   User,
-  Bell,
   MessageSquare,
+  Accessibility,
 } from "lucide-react";
-import { useAccessibility } from "@/hooks/useAccessibility";
-import { Switch } from "@/components/ui/switch";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useNotifications } from "@/contexts/NotificationsContext";
+import { Card } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
 
 interface MenuDrawerProps {
   isOpen: boolean;
@@ -39,20 +33,9 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, loading } = useUserRole();
+  const { isAdmin, isGestor } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
-  const { triggerTutorial } = useOnboarding();
-  const { unreadCount } = useNotifications();
-  const [configOpen, setConfigOpen] = useState(false);
-  const {
-    fontSize,
-    readingMode,
-    textSpacing,
-    setFontSize,
-    toggleReadingMode,
-    toggleTextSpacing,
-  } = useAccessibility();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -80,16 +63,15 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
     { 
       id: 2, 
-      label: "Notificações", 
-      icon: Bell,
-      route: "/notifications",
-      badge: unreadCount > 0 ? unreadCount : undefined
+      label: "Conversas", 
+      icon: MessageSquare,
+      route: "/ia"
     },
     { 
       id: 3, 
-      label: "Minhas Conversas", 
-      icon: MessageSquare,
-      route: "/ia"
+      label: "Acessibilidade", 
+      icon: Accessibility,
+      route: "/settings/accessibility"
     },
   ];
 
@@ -132,14 +114,6 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
   ];
 
-  const bottomOptions = [
-    { 
-      id: 1, 
-      label: "Política de privacidade",
-      icon: Shield
-    },
-  ];
-
   const handleMenuClick = (route?: string) => {
     onClose();
     if (route) {
@@ -159,7 +133,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-[85%] max-w-sm bg-white z-50 shadow-2xl transition-transform duration-300 rounded-l-3xl flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-[85%] max-w-sm bg-background z-50 shadow-2xl transition-transform duration-300 rounded-l-3xl flex flex-col ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -203,32 +177,40 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
 
         {/* Menu Items - Scrollable */}
         <div className="flex-1 overflow-y-auto py-4 px-4">
-          {/* Minha Conta Section */}
+          {/* Minha Conta Section - Carousel */}
           <div className="mb-4">
             <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Minha Conta
             </h3>
             
-            {accountOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => handleMenuClick(option.route)}
-                  className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
-                    <Icon className="text-primary" size={16} />
-                  </div>
-                  <span className="text-foreground font-medium text-sm flex-1 text-left">{option.label}</span>
-                  {option.badge && (
-                    <Badge variant="secondary" className="text-xs">
-                      {option.badge > 99 ? '99+' : option.badge}
-                    </Badge>
-                  )}
-                </button>
-              );
-            })}
+            <Carousel
+              opts={{
+                align: "start",
+                loop: false,
+              }}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-2">
+                {accountOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <CarouselItem key={option.id} className="pl-2 basis-1/3">
+                      <Card
+                        onClick={() => handleMenuClick(option.route)}
+                        className="p-3 cursor-pointer hover:bg-accent/50 transition-colors border-border h-[80px] flex flex-col items-center justify-center gap-2"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Icon className="text-primary" size={18} />
+                        </div>
+                        <span className="text-[11px] font-medium text-foreground text-center leading-tight">
+                          {option.label}
+                        </span>
+                      </Card>
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+            </Carousel>
           </div>
 
           <div className="my-4 border-t border-border" />
@@ -281,126 +263,15 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
 
         {/* Bottom Options - Fixed */}
         <div className="px-4 pb-4 pt-2 space-y-1 border-t border-border shrink-0">
-          {/* Configurações com Acessibilidade */}
-          <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
-            <CollapsibleTrigger asChild>
-              <button className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
-                  <Settings className="text-primary" size={16} />
-                </div>
-                <span className="text-foreground font-medium text-sm flex-1 text-left">Configurações</span>
-                {configOpen ? (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                )}
-              </button>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="mt-2 ml-10 space-y-3 border-l-2 border-border pl-3 pb-1">
-              {/* Acessibilidade */}
-              <div className="space-y-3">
-                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Acessibilidade
-                </h4>
-
-                {/* Tamanho da fonte */}
-                <div>
-                  <p className="text-xs font-medium mb-2 text-foreground">Tamanho da fonte</p>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => setFontSize("small")}
-                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
-                        fontSize === "small"
-                          ? "border-primary bg-primary/10 text-primary font-semibold"
-                          : "border-border text-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      <span className="text-xs">A</span>
-                    </button>
-                    <button
-                      onClick={() => setFontSize("medium")}
-                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
-                        fontSize === "medium"
-                          ? "border-primary bg-primary/10 text-primary font-semibold"
-                          : "border-border text-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      <span className="text-sm">A</span>
-                    </button>
-                    <button
-                      onClick={() => setFontSize("large")}
-                      className={`flex-1 py-2 px-2 rounded-lg border-2 transition-colors ${
-                        fontSize === "large"
-                          ? "border-primary bg-primary/10 text-primary font-semibold"
-                          : "border-border text-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      <span className="text-base">A</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Modo de leitura */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">📖</span>
-                    <span className="text-xs font-medium">Modo Leitura</span>
-                  </div>
-                  <Switch checked={readingMode} onCheckedChange={toggleReadingMode} />
-                </div>
-
-                {/* Espaçamento de texto */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">↔️</span>
-                    <span className="text-xs font-medium">Espaçamento</span>
-                  </div>
-                  <Switch checked={textSpacing} onCheckedChange={toggleTextSpacing} />
-                </div>
-              </div>
-
-              {/* Rever Tutorial */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-xs h-8"
-                onClick={() => {
-                  triggerTutorial();
-                  onClose();
-                }}
-              >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Rever Tutorial de Primeiros Passos
-              </Button>
-
-              {/* Link para preferências */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-xs h-8"
-                onClick={() => handleMenuClick('/profile/preferences')}
-              >
-                Ver todas as preferências
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {bottomOptions.map((option) => {
-            const Icon = option.icon;
-            return (
-              <button
-                key={option.id}
-                onClick={onClose}
-                className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
-              >
-                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
-                  <Icon className="text-primary" size={16} />
-                </div>
-                <span className="text-foreground font-medium text-sm">{option.label}</span>
-              </button>
-            );
-          })}
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+              <Shield className="text-primary" size={16} />
+            </div>
+            <span className="text-foreground font-medium text-sm">Política de privacidade</span>
+          </button>
           
           <button 
             onClick={handleLogout}

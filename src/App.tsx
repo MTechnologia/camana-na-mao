@@ -73,13 +73,13 @@ import NotificationsManagement from "./pages/admin/NotificationsManagement";
 import N8NIntegration from "./pages/admin/settings/N8NIntegration";
 import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings";
 import ReferralsManagement from "./pages/admin/ReferralsManagement";
+import AccessibilityPage from "./pages/settings/AccessibilityPage";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import NotFound from "./pages/NotFound";
 import SearchPage from "./pages/Search";
 import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
-
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
   const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
@@ -107,6 +107,7 @@ const AppContent = () => {
             <Route path="/profile/demographics" element={<DemographicsPage />} />
             <Route path="/profile/address" element={<AddressPage />} />
             <Route path="/profile/preferences" element={<PreferencesPage />} />
+        <Route path="/settings/accessibility" element={<AccessibilityPage />} />
         <Route path="/home" element={<Navigate to="/ia" replace />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/ia" element={<IA />} />
