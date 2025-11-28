@@ -72,7 +72,7 @@ const ContextualGreeting = () => {
     }
 
     if (messages.length === 0) {
-      return "Como posso ajudar você hoje? Faça um relato, busque serviços ou tire suas dúvidas.";
+      return "Como posso ajudar você hoje?";
     }
 
     return messages.join(' ');
@@ -82,30 +82,30 @@ const ContextualGreeting = () => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="flex flex-col items-center text-center px-6 pt-8 pb-4"
+      transition={{ duration: 0.4 }}
+      className="flex flex-col items-center text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-2"
     >
       {/* Agent Avatar */}
       <motion.div
-        className="relative w-20 h-20 mb-4"
+        className="relative w-16 h-16 sm:w-20 sm:h-20 mb-3 sm:mb-4"
         animate={{ scale: [1, 1.02, 1] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       >
         <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary via-secondary to-accent opacity-20 blur-xl" />
         <div className="relative w-full h-full rounded-full bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 p-1 shadow-lg">
           <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
-            <img src={iaIcone} alt="Câmara SP" className="w-16 h-16 object-contain" />
+            <img src={iaIcone} alt="Câmara SP" className="w-12 h-12 sm:w-16 sm:h-16 object-contain" />
           </div>
         </div>
       </motion.div>
 
       {/* Greeting */}
-      <h2 className="text-2xl font-semibold text-foreground mb-2">
+      <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-1 sm:mb-2">
         {getTimeGreeting()}, <span className="text-primary">{firstName}</span>!
       </h2>
 
       {/* Contextual Message */}
-      <p className="text-muted-foreground text-sm max-w-sm leading-relaxed">
+      <p className="text-muted-foreground text-xs sm:text-sm max-w-xs sm:max-w-sm leading-relaxed">
         {getContextualMessage()}
       </p>
     </motion.div>

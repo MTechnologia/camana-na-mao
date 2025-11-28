@@ -77,11 +77,11 @@ const AgentChatArea = () => {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <ScrollArea className="flex-1">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto pb-4">
           {showWelcome ? (
-            <>
+            <div className="flex flex-col min-h-[calc(100dvh-8rem)]">
               {/* Contextual Greeting */}
               <ContextualGreeting />
               
@@ -89,14 +89,14 @@ const AgentChatArea = () => {
               <QuickActionsCarousel onStartJourney={handleStartJourney} />
 
               {/* Hint Text */}
-              <div className="text-center px-6 py-8">
+              <div className="text-center px-6 py-4 mt-auto">
                 <p className="text-xs text-muted-foreground">
-                  Digite sua mensagem ou escolha uma opção acima para começar
+                  Digite sua mensagem ou escolha uma opção acima
                 </p>
               </div>
-            </>
+            </div>
           ) : (
-            <div className="space-y-6 px-4 py-8">
+            <div className="space-y-4 px-4 py-6">
               {messages.map((msg) => (
                 <ChatMessageBubble key={msg.id} message={msg} />
               ))}
@@ -124,12 +124,12 @@ const AgentChatArea = () => {
 
       {/* Input Area */}
       {!createdReport && (
-        <div className="border-t border-border bg-card p-4 shrink-0">
+        <div className="border-t border-border bg-card p-3 sm:p-4 shrink-0">
           <div className="max-w-4xl mx-auto">
             <ChatInput 
               onSendMessage={handleSendMessage} 
               disabled={isLoading}
-              placeholder="Digite sua mensagem ou busque algo..."
+              placeholder="Digite sua mensagem..."
             />
           </div>
         </div>

@@ -95,8 +95,8 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
 
   return (
     <div className="w-full">
-      <div className="flex items-center gap-3">
-        {/* Input with blue accent line */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Input with microphone */}
         <div className="flex-1 relative">
           <textarea
             value={inputValue}
@@ -105,15 +105,15 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
-            className="w-full rounded-2xl border-2 border-border bg-card pl-4 pr-12 py-3.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
+            className="w-full rounded-2xl border-2 border-border bg-card pl-3 sm:pl-4 pr-10 sm:pr-12 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
             style={{ maxHeight: "120px" }}
           />
           
-          {/* Microphone button for dictation - outline style */}
+          {/* Microphone button for dictation */}
           <button
             onClick={toggleDictation}
             disabled={disabled}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all ${
+            className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-full transition-all ${
               isRecording 
                 ? "text-red-500 bg-red-50 animate-pulse" 
                 : "text-muted-foreground hover:text-primary hover:bg-accent"
@@ -121,19 +121,19 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
             aria-label="Ditado por voz"
             title="Clique para ditar"
           >
-            <Mic className="w-5 h-5" strokeWidth={2} />
+            <Mic className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
           </button>
         </div>
 
-        {/* Voice mode button - dark rounded square */}
+        {/* Voice mode button */}
         <Button
           onClick={handleVoiceMode}
           size="icon"
-          className="h-12 w-12 rounded-xl bg-gray-900 hover:bg-gray-800 text-white dark:bg-gray-800 dark:hover:bg-gray-700 shrink-0"
+          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0"
           aria-label="Modo conversa por voz"
           title="Conversa completa por voz"
         >
-          <AudioWaveform className="w-5 h-5" />
+          <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
       </div>
 
