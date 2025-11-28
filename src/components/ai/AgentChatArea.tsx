@@ -11,6 +11,21 @@ import ContextualGreeting from "./ContextualGreeting";
 import QuickActionsCarousel from "./QuickActionsCarousel";
 import { Loader2 } from "lucide-react";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
+import { motion, AnimatePresence } from "framer-motion";
+
+const contentVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }
+  },
+  exit: { 
+    opacity: 0, 
+    y: -20,
+    transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const }
+  }
+};
 
 const AgentChatArea = () => {
   const { currentJourney, activeConversationId, setJourney, setActiveConversationId, clearJourney } = useAIJourney();
@@ -104,52 +119,100 @@ const AgentChatArea = () => {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-      {showWelcome ? (
-        // Welcome state - no scroll needed, just center content
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
-          <div className="w-full max-w-md flex flex-col items-center">
-            <ContextualGreeting />
-            <QuickActionsCarousel onStartJourney={handleStartJourney} />
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Digite sua mensagem ou escolha uma opção acima
-            </p>
-          </div>
-        </div>
-      ) : (
-        // Chat state - needs scroll
-        <ScrollArea className="flex-1">
-          <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-4">
-            {messages.map((msg) => (
-              <ChatMessageBubble 
-                key={msg.id} 
-                message={msg}
-                userAvatarUrl={userAvatarUrl}
-                userInitials={userInitials}
-              />
-            ))}
-            
-            {createdReport && createdReport.type === 'urban_report' && (
-              <ReportSuccessCard 
-                reportId={createdReport.id} 
-                onNewReport={handleNewReport}
-              />
-            )}
-            
-            {isLoading && !createdReport && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Pensando...</span>
+      <AnimatePresence mode="wait">
+        {showWelcome ? (
+          <motion.div
+            key="welcome"
+            variants={contentVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="flex-1 flex flex-col items-center justify-center px-4"
+          >
+            <motion.div 
+              className="w-full max-w-md flex flex-col items-center"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+            >
+              <ContextualGreeting />
+              <QuickActionsCarousel onStartJourney={handleStartJourney} />
+              <motion.p 
+                className="text-xs text-muted-foreground text-center mt-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.3 }}
+              >
+                Digite sua mensagem ou escolha uma opção acima
+              </motion.p>
+            </motion.div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="chat"
+            variants={contentVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="flex-1 min-h-0"
+          >
+            <ScrollArea className="h-full">
+              <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-4">
+                {messages.map((msg, index) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05, duration: 0.2 }}
+                  >
+                    <ChatMessageBubble 
+                      message={msg}
+                      userAvatarUrl={userAvatarUrl}
+                      userInitials={userInitials}
+                    />
+                  </motion.div>
+                ))}
+                
+                {createdReport && createdReport.type === 'urban_report' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <ReportSuccessCard 
+                      reportId={createdReport.id} 
+                      onNewReport={handleNewReport}
+                    />
+                  </motion.div>
+                )}
+                
+                {isLoading && !createdReport && (
+                  <motion.div 
+                    className="flex items-center gap-2 text-muted-foreground"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Pensando...</span>
+                  </motion.div>
+                )}
+                
+                <div ref={messagesEndRef} />
               </div>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
-      )}
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Input Area */}
       {!createdReport && (
-        <div className="border-t border-border bg-card p-3 sm:p-4 shrink-0">
+        <motion.div 
+          className="border-t border-border bg-card p-3 sm:p-4 shrink-0"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+        >
           <div className="max-w-2xl mx-auto">
             <ChatInput 
               onSendMessage={handleSendMessage} 
@@ -157,7 +220,7 @@ const AgentChatArea = () => {
               placeholder={currentJourney ? `Fale sobre ${currentJourney.label.toLowerCase()}...` : "Digite sua mensagem..."}
             />
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
