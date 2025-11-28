@@ -65,7 +65,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       id: 2, 
       label: "Conversas", 
       icon: MessageSquare,
-      route: "/ia"
+      route: "/conversas"
     },
     { 
       id: 3, 
