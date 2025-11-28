@@ -71,9 +71,21 @@ O aplicativo será composto por dois ambientes principais:
 - Gerenciamento de audiências públicas
 - Administração de usuários e permissões
 - Acompanhamento de encaminhamentos às Comissões
+- Módulo de logs e auditoria
 - Exportação de relatórios
 
-### 3.4 Proposta de Sitemap
+### 3.4 Integrações com Sistemas da CMSP
+
+Os conteúdos de **notícias**, **audiências públicas**, **vereadores**, **comissões**, **agenda legislativa** e demais informações institucionais serão providos por meio de **integrações com sistemas da Câmara Municipal de São Paulo**, incluindo:
+
+- **Portal CMSP:** Notícias, comunicados e informações institucionais
+- **SP Legis:** Dados de vereadores, comissões, projetos de lei e tramitações
+- **Sistema de Audiências:** Agenda, pautas e inscrições em audiências públicas
+- **Outros sistemas conforme disponibilidade:** APIs e serviços de dados da CMSP
+
+Essas integrações garantem que as informações apresentadas no aplicativo estejam sempre atualizadas e em conformidade com as fontes oficiais da Câmara.
+
+### 3.5 Proposta de Sitemap
 
 O diagrama abaixo representa uma proposta de organização das telas e funcionalidades do aplicativo. Esta estrutura é ilustrativa e tem como objetivo facilitar a compreensão do escopo. A implementação final poderá apresentar variações em quantidade e organização de telas, desde que atenda às funcionalidades descritas neste documento.
 
@@ -185,7 +197,12 @@ CMSP Connect
     ├── Gestão de Usuários
     │   ├── Lista de usuários
     │   ├── Perfis e permissões
-    │   └── Logs de auditoria
+    │   └── Histórico de ações
+    │
+    ├── Logs e Auditoria
+    │   ├── Registro de ações do sistema
+    │   ├── Consulta por usuário e período
+    │   └── Exportação para auditoria
     │
     └── Configurações
         ├── Parâmetros do sistema
@@ -201,7 +218,7 @@ CMSP Connect
 
 **Proposta de Valor:** Transformar o primeiro contato do cidadão com o aplicativo em uma experiência acolhedora e orientadora, garantindo que cada usuário compreenda rapidamente como o CMSP Connect pode ajudá-lo e se sinta motivado a participar ativamente da vida política de sua cidade.
 
-**Descrição:** Ao acessar o aplicativo pela primeira vez, o cidadão é recebido por um assistente virtual que se apresenta, explica as funcionalidades disponíveis e oferece orientação personalizada. O sistema identifica o contexto do usuário (localização, interesses declarados) para oferecer informações relevantes, como audiências públicas próximas, serviços disponíveis na região e temas legislativos de interesse.
+**História de Usuário:** Ao acessar o aplicativo pela primeira vez, o cidadão é recebido por um assistente virtual que se apresenta, explica as funcionalidades disponíveis e oferece orientação personalizada. O sistema identifica o contexto do usuário (localização, interesses declarados) para oferecer informações relevantes, como audiências públicas próximas, serviços disponíveis na região e temas legislativos de interesse.
 
 **Funcionalidades:**
 - Apresentação inicial do aplicativo e suas capacidades
@@ -216,7 +233,7 @@ CMSP Connect
 
 **Proposta de Valor:** Ampliar significativamente a participação popular nas audiências públicas da Câmara, removendo barreiras de informação e facilitando o engajamento de cidadãos que desejam contribuir com os debates legislativos, mas desconhecem como fazê-lo.
 
-**Descrição:** O sistema apresenta as audiências públicas agendadas de forma clara e acessível, permitindo que o cidadão visualize temas, datas, locais e formas de participação. O usuário pode se inscrever para participar, receber lembretes e acessar materiais de apoio. O assistente virtual auxilia na compreensão dos temas em discussão, utilizando linguagem simples.
+**História de Usuário:** O sistema apresenta as audiências públicas agendadas de forma clara e acessível, permitindo que o cidadão visualize temas, datas, locais e formas de participação. O usuário pode se inscrever para participar, receber lembretes e acessar materiais de apoio. O assistente virtual auxilia na compreensão dos temas em discussão, utilizando linguagem simples. As informações das audiências são obtidas por integração com os sistemas da CMSP.
 
 **Funcionalidades:**
 - Listagem de audiências públicas com filtros por tema, data e região
@@ -232,7 +249,7 @@ CMSP Connect
 
 **Proposta de Valor:** Aproximar o cidadão do Poder Legislativo municipal, oferecendo acesso fácil e compreensível às informações institucionais da Câmara, desmistificando o funcionamento do parlamento e promovendo a educação cívica.
 
-**Descrição:** O aplicativo oferece uma seção dedicada ao conteúdo institucional, com informações sobre a Câmara Municipal, seus vereadores, comissões, agenda de atividades e notícias. O assistente virtual está disponível para esclarecer dúvidas sobre o funcionamento do Legislativo, explicar termos técnicos e orientar o cidadão sobre como acompanhar temas de seu interesse.
+**História de Usuário:** O aplicativo oferece uma seção dedicada ao conteúdo institucional, com informações sobre a Câmara Municipal, seus vereadores, comissões, agenda de atividades e notícias. O assistente virtual está disponível para esclarecer dúvidas sobre o funcionamento do Legislativo, explicar termos técnicos e orientar o cidadão sobre como acompanhar temas de seu interesse. Todos os conteúdos institucionais são obtidos por integração com o Portal CMSP e SP Legis.
 
 **Funcionalidades:**
 - Apresentação da estrutura e funcionamento da Câmara
@@ -248,7 +265,7 @@ CMSP Connect
 
 **Proposta de Valor:** Empoderar o cidadão como agente ativo na melhoria dos serviços públicos, criando um canal estruturado para que suas experiências sejam registradas, analisadas e direcionadas às instâncias competentes, gerando impacto real na qualidade do atendimento à população.
 
-**Descrição:** O sistema permite que o cidadão avalie serviços públicos que utilizou, como UBS, escolas, CEUs e outros equipamentos municipais. A avaliação pode ser realizada através de conversa com o assistente virtual ou por formulário estruturado. O sistema utiliza a localização do usuário para identificar serviços próximos e sugerir avaliações. As avaliações são analisadas e podem ser encaminhadas às Comissões pertinentes da Câmara.
+**História de Usuário:** O sistema permite que o cidadão avalie serviços públicos que utilizou, como UBS, escolas, CEUs e outros equipamentos municipais. A avaliação pode ser realizada através de conversa com o assistente virtual ou por formulário estruturado. O sistema utiliza a localização do usuário para identificar serviços próximos e sugerir avaliações. As avaliações são analisadas e podem ser encaminhadas às Comissões pertinentes da Câmara.
 
 **Funcionalidades:**
 - Identificação de serviços públicos próximos ao usuário
@@ -264,7 +281,7 @@ CMSP Connect
 
 **Proposta de Valor:** Dar voz ao usuário do transporte público paulistano, permitindo que problemas recorrentes sejam documentados, identificados e encaminhados de forma estruturada, contribuindo para a fiscalização e melhoria do sistema de mobilidade urbana.
 
-**Descrição:** O cidadão pode relatar problemas relacionados ao transporte público (ônibus, metrô, trem, corredores) através de conversa com o assistente virtual ou formulário dedicado. O sistema coleta informações sobre a linha, tipo de problema, horário e local da ocorrência. Os relatos são categorizados e podem ser encaminhados às Comissões competentes. A área administrativa permite visualizar padrões e tendências nos relatos.
+**História de Usuário:** O cidadão pode relatar problemas relacionados ao transporte público (ônibus, metrô, trem, corredores) através de conversa com o assistente virtual ou formulário dedicado. O sistema coleta informações sobre a linha, tipo de problema, horário e local da ocorrência. Os relatos são categorizados e podem ser encaminhados às Comissões competentes. A área administrativa permite visualizar padrões e tendências nos relatos.
 
 **Funcionalidades:**
 - Registro de relatos sobre transporte público
@@ -280,7 +297,7 @@ CMSP Connect
 
 **Proposta de Valor:** Transformar o volume de interações dos cidadãos em inteligência estratégica para a Câmara Municipal, permitindo que gestores identifiquem tendências, priorizem ações e tomem decisões baseadas em dados reais da população.
 
-**Descrição:** A área administrativa conta com um painel analítico que consolida as informações coletadas pelo aplicativo. Gestores podem visualizar indicadores sobre relatos, avaliações, participação em audiências e engajamento geral. O painel oferece visualizações por período, região, tema e status, permitindo análises comparativas e identificação de padrões.
+**História de Usuário:** A área administrativa conta com um painel analítico que consolida as informações coletadas pelo aplicativo. Gestores podem visualizar indicadores sobre relatos, avaliações, participação em audiências e engajamento geral. O painel oferece visualizações por período, região, tema e status, permitindo análises comparativas e identificação de padrões.
 
 **Funcionalidades:**
 - Dashboard com indicadores principais
@@ -297,7 +314,7 @@ CMSP Connect
 
 **Proposta de Valor:** Facilitar o acesso do cidadão aos serviços públicos disponíveis em sua região, reduzindo barreiras de informação e orientando sobre localização, funcionamento e como chegar aos equipamentos municipais.
 
-**Descrição:** O aplicativo oferece um mapa interativo que exibe os serviços públicos próximos à localização do usuário. O cidadão pode filtrar por tipo de serviço (saúde, educação, cultura, esporte), visualizar detalhes de cada equipamento e obter orientações de como chegar. O sistema utiliza dados de geolocalização mediante autorização do usuário.
+**História de Usuário:** O aplicativo oferece um mapa interativo que exibe os serviços públicos próximos à localização do usuário. O cidadão pode filtrar por tipo de serviço (saúde, educação, cultura, esporte), visualizar detalhes de cada equipamento e obter orientações de como chegar. O sistema utiliza dados de geolocalização mediante autorização do usuário.
 
 **Funcionalidades:**
 - Mapa interativo com serviços públicos
@@ -313,7 +330,7 @@ CMSP Connect
 
 **Proposta de Valor:** Simplificar o processo de relato de problemas urbanos, permitindo que o cidadão descreva situações de forma natural e conversacional, sem necessidade de preencher formulários complexos, garantindo que sua contribuição chegue às instâncias adequadas da Câmara.
 
-**Descrição:** O cidadão pode relatar problemas urbanos (iluminação, calçadas, limpeza, entre outros) através de conversa com o assistente virtual. O sistema conduz um diálogo natural para coletar as informações necessárias (descrição do problema, localização, fotos opcionais) e categoriza automaticamente o relato. Os relatos são encaminhados às Comissões pertinentes e o cidadão pode acompanhar o andamento.
+**História de Usuário:** O cidadão pode relatar problemas urbanos (iluminação, calçadas, limpeza, entre outros) através de conversa com o assistente virtual. O sistema conduz um diálogo natural para coletar as informações necessárias (descrição do problema, localização, fotos opcionais) e categoriza automaticamente o relato. Os relatos são encaminhados às Comissões pertinentes e o cidadão pode acompanhar o andamento.
 
 **Funcionalidades:**
 - Coleta de relatos via conversa natural com assistente virtual
@@ -375,10 +392,20 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 
 - Cadastro de usuários administrativos
 - Definição de perfis e permissões
-- Logs de auditoria das ações realizadas
 - Gerenciamento de acessos
+- Visualização de histórico de ações por usuário
 
-### 5.7 Configurações
+### 5.7 Módulo de Logs
+
+- Registro automático de todas as ações realizadas no sistema
+- Consulta de logs por usuário, período, tipo de ação e entidade
+- Detalhamento de cada ação (valores anteriores e posteriores)
+- Filtros avançados para auditoria
+- Exportação de logs em formatos padrão (CSV, PDF)
+- Políticas de retenção de dados conforme LGPD
+- Rastreabilidade completa para fins de compliance e auditoria
+
+### 5.8 Configurações
 
 - Parâmetros gerais do sistema
 - Configuração de notificações automáticas
@@ -444,88 +471,45 @@ O sistema contará com uma área administrativa completa, destinada aos gestores
 
 ---
 
-## 7. ETAPAS DA PRESTAÇÃO DE SERVIÇOS
-
-### Etapa 1: Fundação e Autenticação
-Desenvolvimento da estrutura base do aplicativo, incluindo sistema de autenticação, perfil de usuário e infraestrutura de dados.
-
-### Etapa 2: Assistente Virtual
-Implementação do assistente conversacional com inteligência artificial, incluindo fluxos de orientação, esclarecimento de dúvidas e coleta de informações.
-
-### Etapa 3: Módulo de Audiências Públicas
-Desenvolvimento das funcionalidades de listagem, detalhamento, inscrição e notificações relacionadas às audiências públicas.
-
-### Etapa 4: Módulo de Avaliação de Serviços
-Implementação do sistema de avaliação de serviços públicos, incluindo identificação por geolocalização e histórico de avaliações.
-
-### Etapa 5: Módulo de Relatos
-Desenvolvimento das funcionalidades de relatos urbanos e de transporte, incluindo coleta via assistente virtual e acompanhamento.
-
-### Etapa 6: Mapa de Serviços
-Implementação do mapa interativo com serviços públicos, filtros e orientações de trajeto.
-
-### Etapa 7: Conteúdo Institucional
-Integração com conteúdos institucionais da Câmara e implementação das seções informativas.
-
-### Etapa 8: Área Administrativa
-Desenvolvimento do painel administrativo completo, incluindo gestão de relatos, avaliações, audiências, usuários e configurações.
-
-### Etapa 9: Análises e Relatórios
-Implementação dos painéis analíticos, dashboards e funcionalidades de exportação de dados.
-
-### Etapa 10: Testes e Ajustes
-Execução de testes de qualidade, segurança, acessibilidade e performance, com correção de problemas identificados.
-
-### Etapa 11: Publicação
-Disponibilização do aplicativo para o público, incluindo configuração de ambiente de produção e monitoramento.
-
-### Etapa 12: Documentação e Treinamento
-Elaboração de documentação técnica e de usuário, realização de treinamentos para a equipe da Câmara.
-
-### Etapa 13: Acompanhamento Pós-Publicação
-Período de suporte, monitoramento, ajustes finos e estabilização do sistema após a publicação.
-
----
-
-## 8. CRONOGRAMA DE EXECUÇÃO
+## 7. CRONOGRAMA DE EXECUÇÃO
 
 | Mês | Período | Entregas Previstas | Percentual |
 |-----|---------|-------------------|------------|
-| 1 | Dezembro/2025 | Fundação do aplicativo, sistema de autenticação, estrutura de perfil de usuário | 10% |
-| 2 | Janeiro/2026 | Assistente virtual conversacional, fluxos de orientação e ajuda | 10% |
-| 3 | Fevereiro/2026 | Módulo de audiências públicas, sistema de inscrições e notificações | 10% |
-| 4 | Março/2026 | Módulo de avaliação de serviços, geolocalização, histórico de avaliações | 10% |
-| 5 | Abril/2026 | Módulo de relatos urbanos e de transporte, encaminhamentos | 10% |
-| 6 | Maio/2026 | Mapa de serviços públicos, conteúdo institucional | 10% |
-| 7 | Junho/2026 | Área administrativa: gestão de relatos, avaliações e audiências | 10% |
-| 8 | Julho/2026 | Área administrativa: análises, relatórios, gestão de usuários | 10% |
-| 9 | Agosto/2026 | Testes de qualidade, segurança e acessibilidade, ajustes e publicação | 10% |
-| 10 | Setembro/2026 | Documentação, treinamento e acompanhamento pós-publicação | 10% |
+| 1 | Dezembro/2025 | Fundação técnica: definição de arquitetura, linguagens e frameworks, modelagem de dados, mapeamento de integrações com sistemas da CMSP | 10% |
+| 2 | Janeiro/2026 | Estrutura base do aplicativo, sistema de autenticação, perfil de usuário | 10% |
+| 3 | Fevereiro/2026 | Assistente virtual conversacional, fluxos de orientação e ajuda | 10% |
+| 4 | Março/2026 | Módulo de audiências públicas, sistema de inscrições e notificações | 10% |
+| 5 | Abril/2026 | Módulo de avaliação de serviços, geolocalização, histórico de avaliações | 10% |
+| 6 | Maio/2026 | Módulo de relatos urbanos e de transporte, encaminhamentos | 10% |
+| 7 | Junho/2026 | Mapa de serviços públicos, conteúdo institucional, testes de qualidade | 10% |
+| 8 | Julho/2026 | Área administrativa completa, publicação do aplicativo | 10% |
+| 9 | Agosto/2026 | Acompanhamento pós-publicação, documentação, treinamento | 10% |
+| 10 | Setembro/2026 | Estabilização, ajustes finos e encerramento do projeto | 10% |
 
 ---
 
-## 9. PRODUTO FINAL
+## 8. PRODUTO FINAL
 
 Ao término do projeto, serão entregues:
 
-### 9.1 Aplicativo CMSP Connect
+### 8.1 Aplicativo CMSP Connect
 Aplicativo móvel (PWA) completo e funcional, contemplando todas as funcionalidades descritas neste documento, publicado e disponível para acesso pelos cidadãos de São Paulo.
 
-### 9.2 Área Administrativa
+### 8.2 Área Administrativa
 Painel de gestão completo para a equipe da Câmara Municipal, permitindo gerenciamento de todas as informações e funcionalidades do sistema.
 
-### 9.3 Documentação Técnica
+### 8.3 Documentação Técnica
 Documentação completa do sistema, incluindo arquitetura, fluxos, integrações e procedimentos de manutenção.
 
-### 9.4 Manual do Usuário
+### 8.4 Manual do Usuário
 Guia de utilização do aplicativo para cidadãos e manual de operação da área administrativa para gestores.
 
-### 9.5 Treinamento
+### 8.5 Treinamento
 Capacitação da equipe da Câmara Municipal para operação e gestão do sistema.
 
 ---
 
-## 10. CRITÉRIOS DE ACEITAÇÃO
+## 9. CRITÉRIOS DE ACEITAÇÃO
 
 O projeto será considerado concluído mediante:
 
@@ -539,14 +523,14 @@ O projeto será considerado concluído mediante:
 
 ---
 
-## 11. VIGÊNCIA
+## 10. VIGÊNCIA
 
 Este documento descreve os serviços a serem executados no período de **Dezembro de 2025 a Setembro de 2026**, totalizando 10 meses de execução.
 
 O projeto completo compreende 12 meses, considerando:
 - **Outubro/2025:** Diagnóstico e levantamento de requisitos
 - **Novembro/2025:** Arquitetura da informação e prototipação
-- **Dezembro/2025 a Setembro/2026:** Desenvolvimento, testes, publicação e treinamento
+- **Dezembro/2025 a Setembro/2026:** Desenvolvimento, testes, publicação e acompanhamento
 
 ---
 
