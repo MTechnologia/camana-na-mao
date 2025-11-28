@@ -1,0 +1,141 @@
+import { useEffect, useRef, useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
+import { useAIConversations } from "@/hooks/useAIConversations";
+import ChatMessageBubble from "./ChatMessageBubble";
+import ChatInput from "./ChatInput";
+import ReportSuccessCard from "./ReportSuccessCard";
+import ContextualGreeting from "./ContextualGreeting";
+import QuickActionsCarousel from "./QuickActionsCarousel";
+import { Loader2 } from "lucide-react";
+import { AI_JOURNEYS } from "@/config/aiJourneys";
+
+const AgentChatArea = () => {
+  const { currentJourney, activeConversationId, setJourney, setActiveConversationId, clearJourney } = useAIJourney();
+  const [localConversationId, setLocalConversationId] = useState<string | null>(activeConversationId);
+  
+  // Sync local ID with context
+  useEffect(() => {
+    setLocalConversationId(activeConversationId);
+  }, [activeConversationId]);
+
+  const { messages, isLoading, sendMessage, createdReport, clearCreatedReport, clearMessages } = useUnifiedAIChat(
+    currentJourney || AI_JOURNEYS.general,
+    localConversationId
+  );
+  const { createConversation } = useAIConversations();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading, createdReport]);
+
+  const hasMessages = messages.length > 0;
+  const showWelcome = !hasMessages && !activeConversationId;
+
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return;
+
+    // If no active conversation, create one first
+    if (!localConversationId) {
+      const journeyToUse = currentJourney || AI_JOURNEYS.general;
+      const newConvId = await createConversation(journeyToUse.id, journeyToUse.initialMessage);
+      
+      if (newConvId) {
+        setLocalConversationId(newConvId);
+        setJourney(journeyToUse, newConvId);
+        setActiveConversationId(newConvId);
+        
+        setTimeout(() => {
+          sendMessage(content.trim());
+        }, 50);
+        return;
+      }
+    }
+
+    sendMessage(content.trim());
+  };
+
+  const handleNewReport = () => {
+    clearCreatedReport();
+    clearMessages();
+    setLocalConversationId(null);
+    setActiveConversationId(null);
+    
+    const urbanJourney = AI_JOURNEYS.urban_report;
+    if (urbanJourney) {
+      setJourney(urbanJourney);
+    }
+  };
+
+  const handleStartJourney = (journeyId: string) => {
+    // Journey is already set in QuickActionsCarousel
+    // Just scroll down to input
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <ScrollArea className="flex-1">
+        <div className="max-w-4xl mx-auto">
+          {showWelcome ? (
+            <>
+              {/* Contextual Greeting */}
+              <ContextualGreeting />
+              
+              {/* Quick Actions Carousel */}
+              <QuickActionsCarousel onStartJourney={handleStartJourney} />
+
+              {/* Hint Text */}
+              <div className="text-center px-6 py-8">
+                <p className="text-xs text-muted-foreground">
+                  Digite sua mensagem ou escolha uma opção acima para começar
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-6 px-4 py-8">
+              {messages.map((msg) => (
+                <ChatMessageBubble key={msg.id} message={msg} />
+              ))}
+              
+              {/* Show success card when report is created */}
+              {createdReport && createdReport.type === 'urban_report' && (
+                <ReportSuccessCard 
+                  reportId={createdReport.id} 
+                  onNewReport={handleNewReport}
+                />
+              )}
+              
+              {isLoading && !createdReport && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Pensando...</span>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Input Area */}
+      {!createdReport && (
+        <div className="border-t border-border bg-card p-4 shrink-0">
+          <div className="max-w-4xl mx-auto">
+            <ChatInput 
+              onSendMessage={handleSendMessage} 
+              disabled={isLoading}
+              placeholder="Digite sua mensagem ou busque algo..."
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AgentChatArea;

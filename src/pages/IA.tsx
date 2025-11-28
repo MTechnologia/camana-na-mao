@@ -5,7 +5,7 @@ import { useFirstAccess } from "@/hooks/useFirstAccess";
 import AILoadingScreen from "@/components/ai/AILoadingScreen";
 import OnboardingTutorial from "@/components/ai/OnboardingTutorial";
 import OfflineMode from "@/components/ai/OfflineMode";
-import ChatLayout from "@/components/ai/ChatLayout";
+import AgentChatLayout from "@/components/ai/AgentChatLayout";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 
 const IA = () => {
@@ -69,7 +69,7 @@ const IA = () => {
 
   return (
     <AIJourneyProvider>
-      <ChatLayout />
+      <AgentChatLayout />
     </AIJourneyProvider>
   );
 };

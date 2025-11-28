@@ -107,7 +107,7 @@ const AppContent = () => {
             <Route path="/profile/demographics" element={<DemographicsPage />} />
             <Route path="/profile/address" element={<AddressPage />} />
             <Route path="/profile/preferences" element={<PreferencesPage />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/home" element={<Navigate to="/ia" replace />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/ia" element={<IA />} />
         <Route path="/conversa" element={<Conversa />} />
