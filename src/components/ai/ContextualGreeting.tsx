@@ -13,7 +13,6 @@ const ContextualGreeting = () => {
 
   const firstName = profile?.full_name?.split(' ')[0] || "Cidadão";
 
-  // Get contextual greeting based on time of day
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Bom dia";
@@ -21,7 +20,6 @@ const ContextualGreeting = () => {
     return "Boa noite";
   };
 
-  // Fetch unread notifications
   useEffect(() => {
     const fetchUnread = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -37,7 +35,6 @@ const ContextualGreeting = () => {
     fetchUnread();
   }, []);
 
-  // Fetch next audiência
   useEffect(() => {
     const fetchNextAudiencia = async () => {
       const { data } = await supabase
@@ -53,7 +50,6 @@ const ContextualGreeting = () => {
     fetchNextAudiencia();
   }, []);
 
-  // Build contextual message
   const getContextualMessage = () => {
     const messages: string[] = [];
 
@@ -83,11 +79,11 @@ const ContextualGreeting = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-2"
+      className="flex flex-col items-center justify-center text-center w-full px-4 py-6"
     >
       {/* Agent Avatar */}
       <motion.div
-        className="relative w-16 h-16 sm:w-20 sm:h-20 mb-3 sm:mb-4"
+        className="relative w-16 h-16 sm:w-20 sm:h-20 mb-4"
         animate={{ scale: [1, 1.02, 1] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       >
@@ -100,12 +96,12 @@ const ContextualGreeting = () => {
       </motion.div>
 
       {/* Greeting */}
-      <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-1 sm:mb-2">
+      <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
         {getTimeGreeting()}, <span className="text-primary">{firstName}</span>!
       </h2>
 
       {/* Contextual Message */}
-      <p className="text-muted-foreground text-xs sm:text-sm max-w-xs sm:max-w-sm leading-relaxed">
+      <p className="text-muted-foreground text-sm max-w-sm leading-relaxed">
         {getContextualMessage()}
       </p>
     </motion.div>
