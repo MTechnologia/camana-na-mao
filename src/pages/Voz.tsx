@@ -1,36 +1,59 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Mic, X, Volume2, Loader2 } from "lucide-react";
+import { ArrowLeft, Mic, X, Volume2, Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useVoiceChat } from "@/hooks/useVoiceChat";
-import { useAIChat } from "@/hooks/useAIChat";
+import { useWebSpeechChat } from "@/hooks/useWebSpeechChat";
 import { useAuth } from "@/contexts/AuthContext";
+import { getWelcomeMessage } from "@/data/mockVoiceResponses";
 
 const Voz = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentText, setCurrentText] = useState("");
   const [aiResponse, setAiResponse] = useState("");
+  const [hasStarted, setHasStarted] = useState(false);
   
   const { 
     isRecording, 
     isProcessing, 
     isPlaying,
+    transcript,
+    isSupported,
     startRecording, 
     stopRecording, 
-    playAudio 
-  } = useVoiceChat();
-  
-  const { sendMessage, messages } = useAIChat();
+    playAudio,
+    getAIResponse,
+  } = useWebSpeechChat();
+
+  // Update current text with real-time transcript
+  useEffect(() => {
+    if (transcript) {
+      setCurrentText(transcript);
+    }
+  }, [transcript]);
+
+  // Play welcome message on first interaction
+  useEffect(() => {
+    if (hasStarted && !aiResponse && isSupported) {
+      const welcome = getWelcomeMessage();
+      setAiResponse(welcome);
+      playAudio(welcome);
+    }
+  }, [hasStarted]);
 
   const handleMicClick = async () => {
+    if (!hasStarted) {
+      setHasStarted(true);
+    }
+    
     if (isRecording) {
       try {
         const transcribedText = await stopRecording();
         setCurrentText(transcribedText);
         
-        // Send to AI
         if (transcribedText) {
-          await sendMessage(transcribedText);
+          const response = await getAIResponse(transcribedText);
+          setAiResponse(response);
+          playAudio(response);
         }
       } catch (error) {
         console.error('Erro ao parar gravação:', error);
@@ -38,23 +61,16 @@ const Voz = () => {
     } else {
       setCurrentText("");
       setAiResponse("");
-      await startRecording();
+      startRecording();
     }
   };
 
-  // Play AI response when available
-  useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.role === 'assistant' && lastMessage.content && lastMessage.content !== aiResponse) {
-      setAiResponse(lastMessage.content);
-      playAudio(lastMessage.content);
-    }
-  }, [messages]);
-
   const getStatusText = () => {
+    if (!isSupported) return "Navegador não suportado";
     if (isRecording) return "Estou te ouvindo...";
     if (isProcessing) return "Processando...";
     if (isPlaying) return "Respondendo...";
+    if (!hasStarted) return "Toque no microfone para começar";
     return "No que posso te ajudar?";
   };
 
@@ -72,6 +88,16 @@ const Voz = () => {
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
+        {/* Browser support warning */}
+        {!isSupported && (
+          <div className="mb-6 bg-destructive/20 backdrop-blur-sm rounded-lg p-4 flex items-center gap-3 max-w-md">
+            <AlertCircle className="text-white" size={24} />
+            <p className="text-white text-sm">
+              Seu navegador não suporta reconhecimento de voz. Tente usar Chrome ou Edge.
+            </p>
+          </div>
+        )}
+        
         {/* Avatar with animation */}
         <div className="mb-8 relative">
           <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border-4 border-white/40">
@@ -130,7 +156,7 @@ const Voz = () => {
         {/* Mic Button */}
         <button
           onClick={handleMicClick}
-          disabled={isProcessing || isPlaying}
+          disabled={isProcessing || isPlaying || !isSupported}
           className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
             isRecording
               ? "bg-red-500 scale-110 animate-pulse"
@@ -144,8 +170,15 @@ const Voz = () => {
         <p className="text-white/60 text-sm mt-8 text-center px-8">
           {isRecording 
             ? "Toque novamente para parar" 
-            : "Toque no microfone e comece a falar"}
+            : isSupported 
+              ? "Toque no microfone e comece a falar"
+              : "Use Chrome ou Edge para habilitar voz"}
         </p>
+        
+        {/* Demo badge */}
+        <div className="mt-6 px-3 py-1 bg-white/10 rounded-full">
+          <span className="text-white/60 text-xs">Demo • Web Speech API</span>
+        </div>
       </div>
     </div>
   );
