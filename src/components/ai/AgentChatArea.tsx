@@ -46,8 +46,7 @@ const AgentChatArea = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, createdReport]);
 
-  const hasMessages = messages.length > 0;
-  const showWelcome = !hasMessages && !activeConversationId && !currentJourney;
+  const showWelcome = !activeConversationId && !currentJourney;
 
   // User avatar data
   const userAvatarUrl = profile?.avatar_url;
