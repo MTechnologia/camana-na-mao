@@ -53,7 +53,7 @@ export const BulkActionsBar = ({
             variant="outline"
             size="sm"
             onClick={onMarkRejected}
-            className="border-red-500/20 hover:bg-red-500/10"
+            className="border-border hover:bg-muted"
           >
             <XCircle className="h-4 w-4 mr-1" />
             Rejeitar

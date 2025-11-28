@@ -420,7 +420,7 @@ const UrbanReportsManagement = () => {
                           setReportToDelete(report.id);
                           setDeleteDialogOpen(true);
                         }}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        className="text-muted-foreground hover:text-foreground hover:bg-muted"
                       >
                         <Trash2 className="h-4 w-4 mr-1" />
                         Excluir
