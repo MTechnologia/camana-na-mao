@@ -15,6 +15,21 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getJourneyIcon } from "@/config/aiJourneys";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+
+const headerVariants = {
+  initial: { opacity: 0, y: -10 },
+  animate: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const }
+  },
+  exit: { 
+    opacity: 0, 
+    y: -10,
+    transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const }
+  }
+};
 
 const AgentHeader = () => {
   const navigate = useNavigate();
@@ -82,95 +97,148 @@ const AgentHeader = () => {
     navigate('/conversas');
   };
 
-  // Active Conversation Header
-  if (isInConversation && currentJourney) {
-    const JourneyIcon = getJourneyIcon(currentJourney.icon);
-    
-    return (
-      <header className={cn(
-        "relative flex items-center justify-between h-14 px-4 shrink-0 overflow-hidden",
-        "bg-gradient-to-r",
-        currentJourney.color
-      )}>
-        {/* Soft overlay for subtle effect */}
-        <div className="absolute inset-0 bg-background/20" />
-        
-        {/* Content */}
-        <div className="relative z-10 flex items-center justify-between w-full">
-          {/* Back Button */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={handleBack}
-            className="text-white hover:bg-white/20"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+  const JourneyIcon = isInConversation && currentJourney ? getJourneyIcon(currentJourney.icon) : null;
+
+  return (
+    <AnimatePresence mode="wait">
+      {isInConversation && currentJourney ? (
+        <motion.header
+          key="conversation-header"
+          variants={headerVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className={cn(
+            "relative flex items-center justify-between h-14 px-4 shrink-0 overflow-hidden",
+            "bg-gradient-to-r",
+            currentJourney.color
+          )}
+        >
+          {/* Animated overlay */}
+          <motion.div 
+            className="absolute inset-0 bg-background/20"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.3 }}
+          />
           
-          {/* Journey Icon + Label */}
-          <div className="flex items-center gap-2 text-white">
-            <JourneyIcon className="h-5 w-5" />
-            <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
-              {currentJourney.label}
-            </span>
-          </div>
-          
-          {/* Kebab Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          {/* Content */}
+          <div className="relative z-10 flex items-center justify-between w-full">
+            {/* Back Button with slide animation */}
+            <motion.div
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.15, duration: 0.25 }}
+            >
               <Button 
                 variant="ghost" 
-                size="icon"
+                size="icon" 
+                onClick={handleBack}
                 className="text-white hover:bg-white/20"
               >
-                <MoreVertical className="h-5 w-5" />
+                <ArrowLeft className="h-5 w-5" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleNewConversation}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova conversa
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleViewHistory}>
-                <History className="h-4 w-4 mr-2" />
-                Ver histórico
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-    );
-  }
-
-  // Hub Header (default)
-  return (
-    <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0">
-      {/* Hamburger Menu */}
-      <Button variant="ghost" size="icon" onClick={openMenu}>
-        <Menu className="h-5 w-5" />
-      </Button>
-      
-      {/* Title */}
-      <span className="text-lg font-semibold text-foreground">Câmara SP</span>
-      
-      {/* Notifications */}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={() => navigate('/notifications')}
-        className="relative"
-      >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <Badge 
-            variant="destructive" 
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] p-0 flex items-center justify-center text-[10px] rounded-full"
+            </motion.div>
+            
+            {/* Journey Icon + Label with scale animation */}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+              className="flex items-center gap-2 text-white"
+            >
+              {JourneyIcon && <JourneyIcon className="h-5 w-5" />}
+              <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
+                {currentJourney.label}
+              </span>
+            </motion.div>
+            
+            {/* Kebab Menu with fade animation */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.25 }}
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="text-white hover:bg-white/20"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={handleNewConversation}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova conversa
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleViewHistory}>
+                    <History className="h-4 w-4 mr-2" />
+                    Ver histórico
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </motion.div>
+          </div>
+        </motion.header>
+      ) : (
+        <motion.header
+          key="hub-header"
+          variants={headerVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0"
+        >
+          {/* Hamburger Menu */}
+          <motion.div
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.2 }}
           >
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </Badge>
-        )}
-      </Button>
-    </header>
+            <Button variant="ghost" size="icon" onClick={openMenu}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          </motion.div>
+          
+          {/* Title */}
+          <motion.span
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.05, duration: 0.25 }}
+            className="text-lg font-semibold text-foreground"
+          >
+            Câmara SP
+          </motion.span>
+          
+          {/* Notifications */}
+          <motion.div
+            initial={{ x: 10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.2 }}
+          >
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => navigate('/notifications')}
+              className="relative"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] p-0 flex items-center justify-center text-[10px] rounded-full"
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
+            </Button>
+          </motion.div>
+        </motion.header>
+      )}
+    </AnimatePresence>
   );
 };
 
