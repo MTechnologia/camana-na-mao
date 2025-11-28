@@ -31,7 +31,7 @@ const ErrorFallback = ({ error = "Algo deu errado" }: ErrorFallbackProps) => {
           Recarregar
         </Button>
         <Button
-          onClick={() => navigate("/home")}
+          onClick={() => navigate("/ia")}
           className="bg-primary hover:bg-primary/90"
         >
           Voltar ao início

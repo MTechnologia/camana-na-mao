@@ -37,6 +37,7 @@ const AgentChatArea = () => {
   const [showEndDialog, setShowEndDialog] = useState(false);
   const { profile, getInitials } = useProfile();
   const { toast } = useToast();
+  const hasCleared = useRef(false);
   
   // Sync local ID with context
   useEffect(() => {
@@ -52,9 +53,12 @@ const AgentChatArea = () => {
 
   // Clear messages when returning to hub (both conversationId and journey are null)
   useEffect(() => {
-    if (activeConversationId === null && !currentJourney) {
+    if (activeConversationId === null && !currentJourney && !hasCleared.current) {
+      hasCleared.current = true;
       clearMessages();
       setLocalConversationId(null);
+    } else if (activeConversationId !== null || currentJourney) {
+      hasCleared.current = false;
     }
   }, [activeConversationId, currentJourney, clearMessages]);
 

@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!error && (!data || data.length === 0)) {
       navigate('/onboarding');
     } else {
-      navigate('/home');
+      navigate('/ia');
     }
   };
 

@@ -19,7 +19,7 @@ const InstitutionalLayout = ({
   category,
   showSearch = true,
   showOfflineIndicator = false,
-  backTo = "/home",
+  backTo = "/ia",
 }: InstitutionalLayoutProps) => {
   const navigate = useNavigate();
   
