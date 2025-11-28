@@ -263,7 +263,7 @@ export default function ReportHistoryPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
                   onClick={() => setReportToDelete(report)}
                   disabled={deleting}
                 >

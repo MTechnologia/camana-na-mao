@@ -42,7 +42,7 @@ const ChatConversationItem = ({
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
         onClick={(e) => {
           e.stopPropagation();
           setDeleteDialogOpen(true);
