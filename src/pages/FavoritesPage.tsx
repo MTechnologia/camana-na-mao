@@ -5,7 +5,7 @@ import { useFavorites } from "@/contexts/FavoritesContext";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import FavoriteCard from "@/components/favorites/FavoriteCard";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 
 const FavoritesPage = () => {
   const navigate = useNavigate();
@@ -104,7 +104,6 @@ const FavoritesPage = () => {
         )}
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 };

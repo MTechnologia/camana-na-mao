@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { LineSearchInput } from '@/components/transport/LineSearchInput';
 import { ProblemTypeSelector } from '@/components/transport/ProblemTypeSelector';
 import { PatternAlert } from '@/components/transport/PatternAlert';
@@ -67,7 +67,6 @@ export default function UrgentReportPage() {
             />
           </div>
         </div>
-        <FloatingNavbar />
       </>
     );
   }
@@ -147,7 +146,6 @@ export default function UrgentReportPage() {
           )}
         </div>
       </div>
-      <FloatingNavbar />
     </>
   );
 }

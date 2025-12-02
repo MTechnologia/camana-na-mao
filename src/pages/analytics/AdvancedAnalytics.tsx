@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Plus, Download } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { ChartCard } from '@/components/analytics/ChartCard';
 import { FilterBar } from '@/components/analytics/FilterBar';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
@@ -191,8 +191,6 @@ const AdvancedAnalytics = () => {
           </div>
         )}
       </div>
-
-      <FloatingNavbar />
 
       {/* Export Dialog */}
       <ExportDialog

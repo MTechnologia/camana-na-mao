@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { DashboardCard } from '@/components/analytics/DashboardCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -160,8 +160,6 @@ export default function PublicDashboards() {
           </div>
         )}
       </div>
-
-      <FloatingNavbar />
 
       {/* Full Screen Preview Dialog */}
       <Dialog open={!!selectedDashboard} onOpenChange={() => setSelectedDashboard(null)}>

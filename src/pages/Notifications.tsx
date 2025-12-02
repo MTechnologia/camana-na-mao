@@ -1,5 +1,5 @@
 import { useState } from "react";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import PageHeader from "@/components/ui/page-header";
 import { PendingRatingsBanner } from "@/components/evaluation/PendingRatingsBanner";
 import { useNotifications } from "@/contexts/NotificationsContext";
@@ -194,7 +194,6 @@ const Notifications = () => {
         )}
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 };

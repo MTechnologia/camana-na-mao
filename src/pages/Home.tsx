@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Navigation, Bus, Calendar, FileText, Users, Vote, Bell, Megaphone, Heart, Star, MessageSquare, Sparkles } from "lucide-react";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -279,7 +279,6 @@ const Home = () => {
         </div>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 };

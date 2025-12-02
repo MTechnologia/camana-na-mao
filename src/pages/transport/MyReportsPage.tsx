@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -114,7 +114,6 @@ export default function MyReportsPage() {
         </div>
       </div>
 
-      <FloatingNavbar />
     </>
   );
 }

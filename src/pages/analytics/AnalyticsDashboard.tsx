@@ -11,7 +11,7 @@ import {
   Plus,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { KPICard } from '@/components/analytics/KPICard';
 import { ChartCard } from '@/components/analytics/ChartCard';
 import { FilterBar } from '@/components/analytics/FilterBar';
@@ -90,7 +90,6 @@ const AnalyticsDashboard = () => {
             {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-40" />)}
           </div>
         </div>
-        <FloatingNavbar />
       </div>
     );
   }
@@ -292,8 +291,6 @@ const AnalyticsDashboard = () => {
           </ResponsiveContainer>
         </ChartCard>
       </div>
-
-      <FloatingNavbar />
 
       {/* Export Dialog */}
       <ExportDialog
