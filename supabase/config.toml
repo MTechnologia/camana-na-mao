@@ -1,5 +1,8 @@
 project_id = "vzkwkcypkfrpfhhsghwn"
 
+[functions.generate-embeddings]
+verify_jwt = true
+
 [functions.evaluate-service]
 verify_jwt = true
 
