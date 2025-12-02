@@ -6,6 +6,84 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface RelevantDocument {
+  id: string;
+  content: string;
+  content_type: string;
+  title: string | null;
+  similarity: number;
+}
+
+async function generateQueryEmbedding(query: string, apiKey: string): Promise<number[] | null> {
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: query.slice(0, 8000), // Limit input size
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Erro ao gerar embedding:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.data?.[0]?.embedding || null;
+  } catch (error) {
+    console.error('Erro ao gerar embedding:', error);
+    return null;
+  }
+}
+
+async function searchRelevantDocuments(
+  supabase: any,
+  embedding: number[],
+  matchThreshold: number = 0.7,
+  matchCount: number = 5
+): Promise<RelevantDocument[]> {
+  try {
+    const { data, error } = await supabase.rpc('match_documents', {
+      query_embedding: `[${embedding.join(',')}]`,
+      match_threshold: matchThreshold,
+      match_count: matchCount,
+    });
+
+    if (error) {
+      console.error('Erro ao buscar documentos:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Erro ao buscar documentos:', error);
+    return [];
+  }
+}
+
+function buildContextFromDocuments(documents: RelevantDocument[]): string {
+  if (!documents || documents.length === 0) {
+    return '';
+  }
+
+  const contextParts = documents.map((doc, index) => {
+    const source = doc.content_type === 'noticia' ? 'Notícia CMSP' :
+                   doc.content_type === 'audiencia' ? 'Audiência Pública' :
+                   doc.content_type === 'servico' ? 'Serviço Público' :
+                   doc.content_type === 'legislativo' ? 'Informação Legislativa' :
+                   doc.content_type === 'faq' ? 'FAQ' : 'Base de Conhecimento';
+    
+    return `[${index + 1}] ${doc.title ? `**${doc.title}** - ` : ''}${source}:\n${doc.content.slice(0, 500)}${doc.content.length > 500 ? '...' : ''}`;
+  });
+
+  return `\n\n## CONTEXTO RELEVANTE DA BASE DE CONHECIMENTO:\n\nUse as informações abaixo para fundamentar sua resposta quando relevantes:\n\n${contextParts.join('\n\n')}`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -34,6 +112,29 @@ serve(async (req) => {
     
     if (authError || !user) {
       throw new Error('Usuário não autenticado');
+    }
+
+    // Get the last user message for RAG search
+    const lastUserMessage = messages
+      .filter((m: any) => m.role === 'user')
+      .pop()?.content || '';
+
+    // RAG: Generate embedding and search for relevant documents
+    let ragContext = '';
+    if (lastUserMessage) {
+      console.log('RAG: Gerando embedding para busca semântica...');
+      const embedding = await generateQueryEmbedding(lastUserMessage, LOVABLE_API_KEY);
+      
+      if (embedding) {
+        console.log('RAG: Buscando documentos relevantes...');
+        const relevantDocs = await searchRelevantDocuments(supabase, embedding, 0.65, 5);
+        console.log(`RAG: ${relevantDocs.length} documento(s) encontrado(s)`);
+        
+        if (relevantDocs.length > 0) {
+          ragContext = buildContextFromDocuments(relevantDocs);
+          console.log('RAG: Contexto adicionado ao prompt');
+        }
+      }
     }
 
     // System prompt inteligente e contextual para CMSP Connect
@@ -85,10 +186,11 @@ Para outras dúvidas sobre a cidade de São Paulo:
 2. **Seja proativo**: Sugira ações que o usuário pode tomar no app
 3. **Use linguagem simples**: Evite jargões técnicos, seja inclusivo
 4. **Indique fontes**: Sempre que possível, cite fontes oficiais (Portal CMSP, SPLegis)
-5. **Incentive participação**: Motive o cidadão a se engajar
-6. **Seja empático**: Demonstre que entende as dificuldades do cidadão
-7. **Seja conciso**: Respostas claras e diretas, sem enrolação
-8. **Direcione para funcionalidades**: Quando apropriado, sugira usar recursos do app como:
+5. **Use o contexto da base de conhecimento**: Se houver contexto relevante fornecido, use-o para fundamentar suas respostas
+6. **Incentive participação**: Motive o cidadão a se engajar
+7. **Seja empático**: Demonstre que entende as dificuldades do cidadão
+8. **Seja conciso**: Respostas claras e diretas, sem enrolação
+9. **Direcione para funcionalidades**: Quando apropriado, sugira usar recursos do app como:
    - "Perto de Mim" para encontrar serviços
    - "Diagnóstico de Transporte" para problemas com ônibus/metrô
    - "Relato Urbano" para problemas na cidade
@@ -101,8 +203,9 @@ Para outras dúvidas sobre a cidade de São Paulo:
 - Use emojis com moderação para tornar a conversa mais amigável
 - Quebre em parágrafos curtos para facilitar a leitura
 - Se não souber algo, seja honesto e indique onde buscar a informação
+- Quando usar informações do contexto fornecido, mencione a fonte
 
-Contexto: Você está conversando com um cidadão da cidade de São Paulo interessado em participar e melhorar sua cidade.`;
+Contexto: Você está conversando com um cidadão da cidade de São Paulo interessado em participar e melhorar sua cidade.${ragContext}`;
 
     // Call Lovable AI
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
