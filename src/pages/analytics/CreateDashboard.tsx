@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { WidgetSelector } from '@/components/analytics/WidgetSelector';
 import { DashboardBuilder } from '@/components/analytics/DashboardBuilder';
 import { DashboardPreview, type DashboardConfig, type WidgetConfig } from '@/components/analytics/DashboardPreview';
@@ -189,7 +189,6 @@ export default function CreateDashboard() {
         </div>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

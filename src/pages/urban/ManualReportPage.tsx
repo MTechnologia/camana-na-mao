@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -420,7 +420,6 @@ export default function ManualReportPage() {
         </Card>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

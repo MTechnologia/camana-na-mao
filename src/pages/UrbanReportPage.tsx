@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Card } from "@/components/ui/card";
 import { MessageSquare, FileText, History } from "lucide-react";
 
@@ -84,7 +84,6 @@ export default function UrbanReportPage() {
         </div>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

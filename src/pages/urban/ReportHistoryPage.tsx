@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -320,7 +320,6 @@ export default function ReportHistoryPage() {
             <Skeleton key={i} className="h-32 w-full" />
           ))}
         </div>
-        <FloatingNavbar />
       </div>
     );
   }
@@ -409,7 +408,6 @@ export default function ReportHistoryPage() {
         onConfirm={handleDeleteReport}
       />
 
-      <FloatingNavbar />
     </div>
   );
 }

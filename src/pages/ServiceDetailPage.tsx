@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RatingStars } from "@/components/evaluation/RatingStars";
@@ -331,7 +331,6 @@ export default function ServiceDetailPage() {
         </div>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

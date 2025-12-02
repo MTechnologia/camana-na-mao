@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { ChatEvaluation } from "@/components/evaluation/ChatEvaluation";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -138,7 +138,6 @@ export default function EvaluationPage() {
         <ChatEvaluation onComplete={handleComplete} />
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

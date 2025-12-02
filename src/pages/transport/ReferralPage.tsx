@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/ui/page-header';
-import FloatingNavbar from '@/components/FloatingNavbar';
+
 import { CouncilMemberSuggestion } from '@/components/transport/CouncilMemberSuggestion';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -123,7 +123,6 @@ export default function ReferralPage() {
           )}
         </div>
       </div>
-      <FloatingNavbar />
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
 import { ServiceTypeFilter } from "@/components/evaluation/ServiceTypeFilter";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -152,7 +152,6 @@ export default function NearbyServicesPage() {
         </Tabs>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

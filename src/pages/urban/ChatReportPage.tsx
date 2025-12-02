@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -209,7 +209,6 @@ export default function ChatReportPage() {
           </Card>
         </div>
 
-        <FloatingNavbar />
       </div>
     );
   }
@@ -326,7 +325,6 @@ export default function ChatReportPage() {
         </div>
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }

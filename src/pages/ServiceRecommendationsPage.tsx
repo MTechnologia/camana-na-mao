@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
-import FloatingNavbar from "@/components/FloatingNavbar";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -165,7 +165,6 @@ export default function ServiceRecommendationsPage() {
             <Skeleton key={i} className="h-40 w-full" />
           ))}
         </div>
-        <FloatingNavbar />
       </div>
     );
   }
@@ -324,7 +323,6 @@ export default function ServiceRecommendationsPage() {
         )}
       </div>
 
-      <FloatingNavbar />
     </div>
   );
 }
