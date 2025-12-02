@@ -1,5 +1,8 @@
 project_id = "vzkwkcypkfrpfhhsghwn"
 
+[functions.populate-knowledge-base]
+verify_jwt = false
+
 [functions.generate-embeddings]
 verify_jwt = true
 
@@ -32,3 +35,6 @@ verify_jwt = true
 
 [functions.suggest-council-members]
 verify_jwt = true
+
+[functions.n8n-webhook]
+verify_jwt = false
