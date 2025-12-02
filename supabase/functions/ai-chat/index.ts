@@ -14,52 +14,30 @@ interface RelevantDocument {
   similarity: number;
 }
 
-async function generateQueryEmbedding(query: string, apiKey: string): Promise<number[] | null> {
-  try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: query.slice(0, 8000), // Limit input size
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('Erro ao gerar embedding:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.data?.[0]?.embedding || null;
-  } catch (error) {
-    console.error('Erro ao gerar embedding:', error);
-    return null;
-  }
-}
-
+// Text-based search for knowledge base (no embeddings required)
 async function searchRelevantDocuments(
   supabase: any,
-  embedding: number[],
-  matchThreshold: number = 0.7,
+  query: string,
   matchCount: number = 5
 ): Promise<RelevantDocument[]> {
   try {
-    const { data, error } = await supabase.rpc('match_documents', {
-      query_embedding: `[${embedding.join(',')}]`,
-      match_threshold: matchThreshold,
-      match_count: matchCount,
-    });
+    // Use text search with ILIKE for relevant documents
+    const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+    
+    if (searchTerms.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('knowledge_base')
+      .select('id, content, content_type, title')
+      .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
+      .limit(matchCount);
 
     if (error) {
       console.error('Erro ao buscar documentos:', error);
       return [];
     }
 
-    return data || [];
+    return (data || []).map((doc: any) => ({ ...doc, similarity: 0.8 }));
   } catch (error) {
     console.error('Erro ao buscar documentos:', error);
     return [];
@@ -119,21 +97,16 @@ serve(async (req) => {
       .filter((m: any) => m.role === 'user')
       .pop()?.content || '';
 
-    // RAG: Generate embedding and search for relevant documents
+    // RAG: Search for relevant documents using text search
     let ragContext = '';
     if (lastUserMessage) {
-      console.log('RAG: Gerando embedding para busca semântica...');
-      const embedding = await generateQueryEmbedding(lastUserMessage, LOVABLE_API_KEY);
+      console.log('RAG: Buscando documentos relevantes por texto...');
+      const relevantDocs = await searchRelevantDocuments(supabase, lastUserMessage, 5);
+      console.log(`RAG: ${relevantDocs.length} documento(s) encontrado(s)`);
       
-      if (embedding) {
-        console.log('RAG: Buscando documentos relevantes...');
-        const relevantDocs = await searchRelevantDocuments(supabase, embedding, 0.65, 5);
-        console.log(`RAG: ${relevantDocs.length} documento(s) encontrado(s)`);
-        
-        if (relevantDocs.length > 0) {
-          ragContext = buildContextFromDocuments(relevantDocs);
-          console.log('RAG: Contexto adicionado ao prompt');
-        }
+      if (relevantDocs.length > 0) {
+        ragContext = buildContextFromDocuments(relevantDocs);
+        console.log('RAG: Contexto adicionado ao prompt');
       }
     }
 
