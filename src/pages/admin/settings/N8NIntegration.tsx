@@ -12,7 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown, Copy, Database, ArrowLeftRight, Clock, ExternalLink, Download, FileJson } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown, Copy, Database, ArrowLeftRight, Clock, ExternalLink, Download, FileJson, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -164,6 +165,7 @@ const n8nWorkflowTemplate = {
 
 const N8NIntegration = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [webhookUrl, setWebhookUrl] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -360,9 +362,19 @@ const N8NIntegration = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Integração N8N</h1>
-          <p className="text-muted-foreground">Configure webhooks para automação de workflows</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Integração N8N</h1>
+            <p className="text-muted-foreground">Configure webhooks para automação de workflows</p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/admin/settings/n8n-monitoring')}
+            className="gap-2"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Monitoramento
+          </Button>
         </div>
 
         {/* Status da Conexão */}

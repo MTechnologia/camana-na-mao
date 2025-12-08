@@ -72,6 +72,7 @@ import ReportsAnalytics from "./pages/admin/ReportsAnalytics";
 import SentimentAnalysis from "./pages/admin/SentimentAnalysis";
 import NotificationsManagement from "./pages/admin/NotificationsManagement";
 import N8NIntegration from "./pages/admin/settings/N8NIntegration";
+import N8NMonitoring from "./pages/admin/settings/N8NMonitoring";
 import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings";
 import ReferralsManagement from "./pages/admin/ReferralsManagement";
 import AccessibilityPage from "./pages/settings/AccessibilityPage";
@@ -166,6 +167,7 @@ const AppContent = () => {
           <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
           <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
+          <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
