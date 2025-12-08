@@ -1,7 +1,7 @@
 project_id = "vzkwkcypkfrpfhhsghwn"
 
 [functions.populate-knowledge-base]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-embeddings]
 verify_jwt = true
