@@ -1,0 +1,229 @@
+{
+  "name": "CMSP Connect - Processamento de Manifestações",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cmsp-manifestacao",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook CMSP",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "cmsp-manifestacao"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "urban_report_created",
+              "output": 0
+            },
+            {
+              "value": "transport_report_created",
+              "output": 1
+            },
+            {
+              "value": "service_rating_created",
+              "output": 2
+            }
+          ]
+        },
+        "dataPropertyName": "={{$json.body.event}}"
+      },
+      "id": "switch-event-type",
+      "name": "Tipo de Evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processamento de Relato Urbano\nconst input = $input.first().json.body;\nconst report = input.report;\nconst description = (report.description || '').toLowerCase();\n\n// Classificação por palavras-chave\nlet priority = 'normal';\nlet category = report.category;\nlet tags = [];\n\n// Detecção de urgência\nconst urgentKeywords = ['urgente', 'perigo', 'risco', 'acidente', 'vazamento', 'desabamento', 'incêndio'];\nconst highKeywords = ['buraco', 'cratera', 'alagamento', 'queda', 'sem luz', 'falta água'];\n\nif (urgentKeywords.some(k => description.includes(k))) {\n  priority = 'urgente';\n  tags.push('ATENÇÃO_IMEDIATA');\n} else if (highKeywords.some(k => description.includes(k))) {\n  priority = 'alta';\n}\n\n// Categorização automática\nconst categoryMap = {\n  'buraco': 'infraestrutura',\n  'iluminação': 'iluminacao_publica',\n  'lixo': 'limpeza_urbana',\n  'esgoto': 'saneamento',\n  'árvore': 'meio_ambiente',\n  'calçada': 'acessibilidade',\n  'sinal': 'sinalizacao'\n};\n\nfor (const [keyword, cat] of Object.entries(categoryMap)) {\n  if (description.includes(keyword)) {\n    category = cat;\n    tags.push(`AUTO_${cat.toUpperCase()}`);\n    break;\n  }\n}\n\n// Análise de severidade\nlet severity = report.severity || 'media';\nif (priority === 'urgente') severity = 'critica';\nelse if (priority === 'alta') severity = 'alta';\n\n// Enriquecimento com dados contextuais\nconst enrichedData = {\n  bairro_normalizado: report.location_address?.split(',')[1]?.trim() || null,\n  coordenadas_validas: !!(report.latitude && report.longitude),\n  tem_fotos: (report.photos?.length || 0) > 0,\n  hora_criacao: new Date(report.created_at).getHours(),\n  dia_semana: new Date(report.created_at).toLocaleDateString('pt-BR', { weekday: 'long' })\n};\n\nreturn {\n  report_id: report.id,\n  report_type: 'urban',\n  callback_url: input.callback_url,\n  secret_key: input.secret_key,\n  processed_data: {\n    priority,\n    validated_category: category,\n    tags,\n    enriched_data: enrichedData,\n    workflow_id: $workflow.id\n  }\n};"
+      },
+      "id": "process-urban-report",
+      "name": "Processar Relato Urbano",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processamento de Relato de Transporte\nconst input = $input.first().json.body;\nconst report = input.report;\nconst description = (report.description || '').toLowerCase();\n\nlet priority = 'normal';\nlet tags = [];\n\n// Detecção de problemas críticos de transporte\nconst criticalKeywords = ['acidente', 'atropelamento', 'colisão', 'quebrado', 'parado'];\nconst highKeywords = ['lotado', 'atraso', 'não passou', 'cancelado', 'sem ar'];\n\nif (criticalKeywords.some(k => description.includes(k))) {\n  priority = 'urgente';\n  tags.push('INCIDENTE_CRITICO');\n} else if (highKeywords.some(k => description.includes(k))) {\n  priority = 'alta';\n  tags.push('PROBLEMA_OPERACIONAL');\n}\n\n// Classificação por tipo de problema\nconst problemTypes = {\n  'atraso': 'ATRASO',\n  'lotado': 'SUPERLOTACAO',\n  'ar condicionado': 'CLIMATIZACAO',\n  'limpeza': 'HIGIENE',\n  'motorista': 'CONDUTA',\n  'acessibilidade': 'ACESSIBILIDADE',\n  'segurança': 'SEGURANCA'\n};\n\nfor (const [keyword, tag] of Object.entries(problemTypes)) {\n  if (description.includes(keyword)) {\n    tags.push(tag);\n  }\n}\n\n// Análise temporal\nconst hora = parseInt(report.occurrence_time?.split(':')[0] || '12');\nif (hora >= 6 && hora <= 9) tags.push('HORARIO_PICO_MANHA');\nelse if (hora >= 17 && hora <= 20) tags.push('HORARIO_PICO_TARDE');\n\nconst enrichedData = {\n  linha_codigo: report.line_code_custom || null,\n  horario_ocorrencia: report.occurrence_time,\n  data_ocorrencia: report.occurrence_date,\n  horario_pico: hora >= 6 && hora <= 9 || hora >= 17 && hora <= 20\n};\n\nreturn {\n  report_id: report.id,\n  report_type: 'transport',\n  callback_url: input.callback_url,\n  secret_key: input.secret_key,\n  processed_data: {\n    priority,\n    validated_category: report.report_type,\n    tags,\n    enriched_data: enrichedData,\n    workflow_id: $workflow.id\n  }\n};"
+      },
+      "id": "process-transport-report",
+      "name": "Processar Relato Transporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Processamento de Avaliação de Serviço\nconst input = $input.first().json.body;\nconst report = input.report;\n\nlet priority = 'normal';\nlet tags = [];\n\n// Análise de sentimento baseada em rating\nconst rating = report.rating_stars || 3;\nif (rating <= 2) {\n  priority = 'alta';\n  tags.push('AVALIACAO_NEGATIVA');\n} else if (rating >= 4) {\n  tags.push('AVALIACAO_POSITIVA');\n}\n\n// Análise do texto da avaliação\nconst text = (report.rating_text || '').toLowerCase();\nconst negativeKeywords = ['péssimo', 'horrível', 'demora', 'descaso', 'falta', 'nunca'];\nconst positiveKeywords = ['excelente', 'ótimo', 'rápido', 'atencioso', 'eficiente'];\n\nif (negativeKeywords.some(k => text.includes(k))) {\n  priority = 'alta';\n  tags.push('FEEDBACK_CRITICO');\n}\nif (positiveKeywords.some(k => text.includes(k))) {\n  tags.push('FEEDBACK_ELOGIO');\n}\n\nconst enrichedData = {\n  servico_id: report.service_id,\n  rating_numerico: rating,\n  tem_comentario: !!report.rating_text,\n  sentimento_detectado: rating <= 2 ? 'negativo' : rating >= 4 ? 'positivo' : 'neutro'\n};\n\nreturn {\n  report_id: report.id,\n  report_type: 'service_rating',\n  callback_url: input.callback_url,\n  secret_key: input.secret_key,\n  processed_data: {\n    priority,\n    validated_category: 'avaliacao_servico',\n    tags,\n    enriched_data: enrichedData,\n    workflow_id: $workflow.id\n  }\n};"
+      },
+      "id": "process-service-rating",
+      "name": "Processar Avaliação Serviço",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.callback_url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"report_id\": \"{{$json.report_id}}\",\n  \"report_type\": \"{{$json.report_type}}\",\n  \"secret_key\": \"{{$json.secret_key}}\",\n  \"processed_data\": {{JSON.stringify($json.processed_data)}}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "callback-cmsp",
+      "name": "Callback CMSP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log de sucesso\nconst response = $input.first().json;\nconsole.log('Callback enviado com sucesso:', response);\nreturn { success: true, response };"
+      },
+      "id": "log-success",
+      "name": "Log Sucesso",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "error_message",
+              "value": "={{$json.error?.message || 'Erro desconhecido'}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "handle-error",
+      "name": "Tratar Erro",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 500]
+    }
+  ],
+  "connections": {
+    "Webhook CMSP": {
+      "main": [
+        [
+          {
+            "node": "Tipo de Evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de Evento": {
+      "main": [
+        [
+          {
+            "node": "Processar Relato Urbano",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Relato Transporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Avaliação Serviço",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Relato Urbano": {
+      "main": [
+        [
+          {
+            "node": "Callback CMSP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Relato Transporte": {
+      "main": [
+        [
+          {
+            "node": "Callback CMSP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Avaliação Serviço": {
+      "main": [
+        [
+          {
+            "node": "Callback CMSP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback CMSP": {
+      "main": [
+        [
+          {
+            "node": "Log Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "CMSP Connect",
+      "id": "cmsp"
+    },
+    {
+      "name": "Manifestações",
+      "id": "manifestacoes"
+    }
+  ],
+  "triggerCount": 1,
+  "versionId": "1.0.0"
+}
