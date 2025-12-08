@@ -392,6 +392,42 @@ export type Database = {
         }
         Relationships: []
       }
+      n8n_integration_logs: {
+        Row: {
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          response: Json | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          response?: Json | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          response?: Json | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       n8n_settings: {
         Row: {
           created_at: string | null
@@ -1240,6 +1276,13 @@ export type Database = {
           line_code_custom: string | null
           line_id: string | null
           location: string | null
+          n8n_enriched_data: Json | null
+          n8n_priority: string | null
+          n8n_processed: boolean | null
+          n8n_processed_at: string | null
+          n8n_tags: string[] | null
+          n8n_validated_category: string | null
+          n8n_workflow_id: string | null
           occurrence_date: string
           occurrence_time: string | null
           report_type: string
@@ -1261,6 +1304,13 @@ export type Database = {
           line_code_custom?: string | null
           line_id?: string | null
           location?: string | null
+          n8n_enriched_data?: Json | null
+          n8n_priority?: string | null
+          n8n_processed?: boolean | null
+          n8n_processed_at?: string | null
+          n8n_tags?: string[] | null
+          n8n_validated_category?: string | null
+          n8n_workflow_id?: string | null
           occurrence_date: string
           occurrence_time?: string | null
           report_type: string
@@ -1282,6 +1332,13 @@ export type Database = {
           line_code_custom?: string | null
           line_id?: string | null
           location?: string | null
+          n8n_enriched_data?: Json | null
+          n8n_priority?: string | null
+          n8n_processed?: boolean | null
+          n8n_processed_at?: string | null
+          n8n_tags?: string[] | null
+          n8n_validated_category?: string | null
+          n8n_workflow_id?: string | null
           occurrence_date?: string
           occurrence_time?: string | null
           report_type?: string
@@ -1417,6 +1474,13 @@ export type Database = {
           latitude: number | null
           location_address: string | null
           longitude: number | null
+          n8n_enriched_data: Json | null
+          n8n_priority: string | null
+          n8n_processed: boolean | null
+          n8n_processed_at: string | null
+          n8n_tags: string[] | null
+          n8n_validated_category: string | null
+          n8n_workflow_id: string | null
           photos: string[] | null
           severity: string | null
           status: string | null
@@ -1433,6 +1497,13 @@ export type Database = {
           latitude?: number | null
           location_address?: string | null
           longitude?: number | null
+          n8n_enriched_data?: Json | null
+          n8n_priority?: string | null
+          n8n_processed?: boolean | null
+          n8n_processed_at?: string | null
+          n8n_tags?: string[] | null
+          n8n_validated_category?: string | null
+          n8n_workflow_id?: string | null
           photos?: string[] | null
           severity?: string | null
           status?: string | null
@@ -1449,6 +1520,13 @@ export type Database = {
           latitude?: number | null
           location_address?: string | null
           longitude?: number | null
+          n8n_enriched_data?: Json | null
+          n8n_priority?: string | null
+          n8n_processed?: boolean | null
+          n8n_processed_at?: string | null
+          n8n_tags?: string[] | null
+          n8n_validated_category?: string | null
+          n8n_workflow_id?: string | null
           photos?: string[] | null
           severity?: string | null
           status?: string | null

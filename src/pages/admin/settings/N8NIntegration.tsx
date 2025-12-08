@@ -9,15 +9,28 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown, Copy, Database, ArrowLeftRight, Clock, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface EventConfig {
   key: string;
   label: string;
   enabled: boolean;
+}
+
+interface IntegrationLog {
+  id: string;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  status: string;
+  created_at: string;
+  error_message: string | null;
 }
 
 type Environment = 'test' | 'production' | 'unknown';
@@ -29,6 +42,9 @@ const detectEnvironment = (url: string): Environment => {
   return 'unknown';
 };
 
+const SUPABASE_URL = 'https://vzkwkcypkfrpfhhsghwn.supabase.co';
+const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/n8n-callback`;
+
 const N8NIntegration = () => {
   const { user } = useAuth();
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -38,22 +54,49 @@ const N8NIntegration = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [connectionInfoOpen, setConnectionInfoOpen] = useState(true);
+  const [logs, setLogs] = useState<IntegrationLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
   
   const environment = detectEnvironment(webhookUrl);
   
   const [events, setEvents] = useState<EventConfig[]>([
-    { key: 'urban_report_created', label: 'Novo relato urbano criado', enabled: true },
-    { key: 'transport_report_created', label: 'Novo relato de transporte criado', enabled: true },
+    { key: 'urban_report', label: 'Novo relato urbano criado', enabled: true },
+    { key: 'transport_report', label: 'Novo relato de transporte criado', enabled: true },
+    { key: 'service_rating', label: 'Nova avaliação de serviço', enabled: false },
     { key: 'report_critical', label: 'Relato marcado como crítico', enabled: true },
-    { key: 'report_resolved', label: 'Relato resolvido', enabled: false },
     { key: 'pattern_detected', label: 'Padrão detectado pela IA', enabled: false },
   ]);
 
   useEffect(() => {
     if (user) {
       loadSettings();
+      loadLogs();
     }
   }, [user]);
+
+  const loadLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('n8n_integration_logs')
+        .select('id, event_type, entity_type, entity_id, status, created_at, error_message')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setLogs((data || []) as IntegrationLog[]);
+    } catch (error) {
+      console.error('Error loading N8N logs:', error);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
+  };
 
   const loadSettings = async () => {
     if (!user) return;
@@ -380,48 +423,174 @@ const N8NIntegration = () => {
           </div>
         </Card>
 
-        {/* Dados Enviados */}
+        {/* Dados de Conexão para N8N */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Dados Enviados no Payload</h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>Dados completos do relato</span>
+          <Collapsible open={connectionInfoOpen} onOpenChange={setConnectionInfoOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent mb-4">
+                <div className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  <h3 className="text-lg font-semibold">Dados de Conexão para N8N</h3>
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform ${connectionInfoOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Use estes dados para configurar seu workflow no N8N
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Supabase URL</p>
+                    <p className="font-mono text-sm">{SUPABASE_URL}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => copyToClipboard(SUPABASE_URL, 'URL')}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Callback URL (para retorno do N8N)</p>
+                    <p className="font-mono text-sm break-all">{CALLBACK_URL}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => copyToClipboard(CALLBACK_URL, 'Callback URL')}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {secretKey && (
+                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Secret Key</p>
+                      <p className="font-mono text-sm">••••••••{secretKey.slice(-4)}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => copyToClipboard(secretKey, 'Secret Key')}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <Alert className="bg-primary/5 border-primary/20">
+                <ArrowLeftRight className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm">
+                  <strong>Fluxo Bidirecional</strong>
+                  <ol className="list-decimal list-inside mt-2 space-y-1">
+                    <li>Relato criado → Enviado automaticamente para seu webhook N8N</li>
+                    <li>N8N processa (valida, prioriza, categoriza)</li>
+                    <li>N8N envia resultado para o <strong>Callback URL</strong> acima</li>
+                    <li>Dados enriquecidos aparecem no Kanban admin</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+
+        {/* Logs de Integração */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Logs de Integração</h3>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>Dados do usuário (anonimizados)</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>Análise de sentimento da IA</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>Geolocalização (quando disponível)</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>Timestamp do evento</span>
-            </div>
+            <Button variant="outline" size="sm" onClick={loadLogs} disabled={logsLoading}>
+              {logsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Atualizar'}
+            </Button>
+          </div>
+          
+          {logs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Nenhum log de integração ainda
+            </p>
+          ) : (
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge variant={log.event_type === 'outbound' ? 'default' : 'secondary'}>
+                        {log.event_type === 'outbound' ? '↑ Enviado' : '↓ Recebido'}
+                      </Badge>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {log.entity_type === 'urban' ? 'Relato Urbano' : 
+                           log.entity_type === 'transport' ? 'Relato Transporte' : log.entity_type}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {log.entity_id.substring(0, 8)}...
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          log.status === 'delivered' || log.status === 'received'
+                            ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                            : log.status === 'failed'
+                            ? 'bg-red-500/10 text-red-600 border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                        }
+                      >
+                        {log.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(log.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </Card>
+
+        {/* Payload de Exemplo */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4">Payload Enviado ao N8N</h3>
+          <div className="bg-muted p-4 rounded-lg font-mono text-xs overflow-x-auto">
+            <pre>{`{
+  "event": "urban_report_created",
+  "timestamp": "2024-12-08T14:30:00Z",
+  "report": {
+    "id": "uuid-do-relato",
+    "type": "urban",
+    "category": "iluminacao",
+    "description": "Poste apagado há 3 dias...",
+    "location_address": "Rua das Flores, 123"
+  },
+  "user": {
+    "id": "abc12345..."
+  },
+  "callback_url": "${CALLBACK_URL}",
+  "secret_key": "sua-secret-key"
+}`}</pre>
           </div>
 
           <Separator className="my-4" />
 
+          <h3 className="text-lg font-semibold mb-4">Payload de Retorno do N8N</h3>
           <div className="bg-muted p-4 rounded-lg font-mono text-xs overflow-x-auto">
             <pre>{`{
-  "event": "urban_report_created",
-  "timestamp": "2024-11-27T14:30:00Z",
-  "data": {
-    "report_id": "uuid",
-    "category": "infraestrutura",
-    "severity": "high",
-    "location": {...},
-    "sentiment": "negative",
-    "user": {
-      "id": "anonymized_id",
-      "region": "Zona Leste"
-    }
+  "report_id": "uuid-do-relato",
+  "report_type": "urban",
+  "secret_key": "sua-secret-key",
+  "processed_data": {
+    "priority": "alta",
+    "validated_category": "iluminacao_publica",
+    "tags": ["zona_leste", "recorrente"],
+    "enriched_data": {
+      "similar_reports_count": 5,
+      "suggested_department": "ILUME"
+    },
+    "workflow_id": "n8n-workflow-123"
   }
 }`}</pre>
           </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash2, AlertTriangle, GripVertical, Bus, MapPin, CheckCircle2, Clock } from 'lucide-react';
+import { Eye, Trash2, AlertTriangle, GripVertical, Bus, MapPin, CheckCircle2, Clock, Zap, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -26,6 +26,10 @@ interface TransportReport {
   responded_at: string | null;
   transport_lines: TransportLine | null;
   author: Author | null;
+  // N8N fields
+  n8n_processed?: boolean;
+  n8n_priority?: string | null;
+  n8n_tags?: string[] | null;
 }
 
 interface TransportKanbanCardProps {
@@ -50,6 +54,16 @@ const getSeverityLabel = (severity: string): string => {
     case 'medium': return 'Média';
     case 'low': return 'Baixa';
     default: return 'N/D';
+  }
+};
+
+const getN8NPriorityColor = (priority: string | null): string => {
+  switch (priority) {
+    case 'urgente': return 'bg-red-500 text-white';
+    case 'alta': return 'bg-orange-500 text-white';
+    case 'media': return 'bg-yellow-500 text-white';
+    case 'baixa': return 'bg-green-500 text-white';
+    default: return 'bg-muted text-muted-foreground';
   }
 };
 
@@ -79,6 +93,11 @@ export const TransportKanbanCard = ({
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Respondido
             </Badge>
+          ) : report.n8n_processed ? (
+            <Badge className={getN8NPriorityColor(report.n8n_priority)}>
+              <Zap className="h-3 w-3 mr-1" />
+              {report.n8n_priority || 'N8N'}
+            </Badge>
           ) : (
             <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
               <Clock className="h-3 w-3 mr-1" />
@@ -90,6 +109,18 @@ export const TransportKanbanCard = ({
         <h4 className="font-medium text-sm line-clamp-1">
           {report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)}
         </h4>
+
+        {/* N8N Tags */}
+        {report.n8n_tags && report.n8n_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {report.n8n_tags.slice(0, 3).map((tag, idx) => (
+              <Badge key={idx} variant="outline" className="text-[10px] px-1 py-0">
+                <Tag className="h-2 w-2 mr-0.5" />
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         {report.transport_lines && (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
