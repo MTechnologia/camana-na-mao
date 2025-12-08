@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown, Copy, Database, ArrowLeftRight, Clock, ExternalLink } from 'lucide-react';
+import { Link2, CheckCircle2, XCircle, TestTube, Activity, Loader2, AlertTriangle, ChevronDown, Copy, Database, ArrowLeftRight, Clock, ExternalLink, Download, FileJson } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -44,6 +44,96 @@ const detectEnvironment = (url: string): Environment => {
 
 const SUPABASE_URL = 'https://vzkwkcypkfrpfhhsghwn.supabase.co';
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/n8n-callback`;
+
+// Template de workflow N8N pré-configurado
+const n8nWorkflowTemplate = {
+  "name": "CMSP Connect - Processamento de Manifestações",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "cmsp-manifestacao", "options": {} },
+      "id": "webhook-trigger",
+      "name": "Webhook CMSP",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "cmsp-manifestacao"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            { "value": "urban_report_created", "output": 0 },
+            { "value": "transport_report_created", "output": 1 },
+            { "value": "service_rating_created", "output": 2 }
+          ]
+        },
+        "dataPropertyName": "={{$json.body.event}}"
+      },
+      "id": "switch-event-type",
+      "name": "Tipo de Evento",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body;\nconst report = input.report;\nconst description = (report.description || '').toLowerCase();\nlet priority = 'normal';\nlet tags = [];\nconst urgentKeywords = ['urgente', 'perigo', 'risco', 'acidente'];\nif (urgentKeywords.some(k => description.includes(k))) {\n  priority = 'urgente';\n  tags.push('ATENCAO_IMEDIATA');\n}\nreturn { report_id: report.id, report_type: 'urban', callback_url: input.callback_url, secret_key: input.secret_key, processed_data: { priority, validated_category: report.category, tags, workflow_id: $workflow.id } };"
+      },
+      "id": "process-urban-report",
+      "name": "Processar Relato Urbano",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 150]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body;\nconst report = input.report;\nlet priority = 'normal';\nlet tags = [];\nconst criticalKeywords = ['acidente', 'colisão', 'quebrado'];\nif (criticalKeywords.some(k => (report.description || '').toLowerCase().includes(k))) {\n  priority = 'urgente';\n  tags.push('INCIDENTE_CRITICO');\n}\nreturn { report_id: report.id, report_type: 'transport', callback_url: input.callback_url, secret_key: input.secret_key, processed_data: { priority, validated_category: report.report_type, tags, workflow_id: $workflow.id } };"
+      },
+      "id": "process-transport-report",
+      "name": "Processar Relato Transporte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body;\nconst report = input.report;\nlet priority = 'normal';\nlet tags = [];\nif (report.rating_stars <= 2) { priority = 'alta'; tags.push('AVALIACAO_NEGATIVA'); }\nreturn { report_id: report.id, report_type: 'service_rating', callback_url: input.callback_url, secret_key: input.secret_key, processed_data: { priority, validated_category: 'avaliacao_servico', tags, workflow_id: $workflow.id } };"
+      },
+      "id": "process-service-rating",
+      "name": "Processar Avaliação Serviço",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.callback_url}}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"report_id\": \"{{$json.report_id}}\", \"report_type\": \"{{$json.report_type}}\", \"secret_key\": \"{{$json.secret_key}}\", \"processed_data\": {{JSON.stringify($json.processed_data)}} }",
+        "options": { "timeout": 10000 }
+      },
+      "id": "callback-cmsp",
+      "name": "Callback CMSP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook CMSP": { "main": [[{ "node": "Tipo de Evento", "type": "main", "index": 0 }]] },
+    "Tipo de Evento": { "main": [[{ "node": "Processar Relato Urbano", "type": "main", "index": 0 }], [{ "node": "Processar Relato Transporte", "type": "main", "index": 0 }], [{ "node": "Processar Avaliação Serviço", "type": "main", "index": 0 }]] },
+    "Processar Relato Urbano": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] },
+    "Processar Relato Transporte": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] },
+    "Processar Avaliação Serviço": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "tags": [{ "name": "CMSP Connect", "id": "cmsp" }],
+  "versionId": "1.0.0"
+};
 
 const N8NIntegration = () => {
   const { user } = useAuth();
@@ -550,6 +640,82 @@ const N8NIntegration = () => {
               </div>
             </ScrollArea>
           )}
+        </Card>
+
+        {/* Template de Workflow N8N */}
+        <Card className="p-6">
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent mb-4">
+                <div className="flex items-center gap-2">
+                  <FileJson className="h-5 w-5" />
+                  <h3 className="text-lg font-semibold">Template de Workflow N8N</h3>
+                </div>
+                <ChevronDown className="h-4 w-4 transition-transform" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Importe este template diretamente no N8N para ter um workflow pré-configurado com processamento de manifestações.
+              </p>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const template = JSON.stringify(n8nWorkflowTemplate, null, 2);
+                    navigator.clipboard.writeText(template);
+                    toast.success('Template copiado para a área de transferência!');
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar JSON
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const template = JSON.stringify(n8nWorkflowTemplate, null, 2);
+                    const blob = new Blob([template], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'cmsp-connect-n8n-workflow.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast.success('Template baixado!');
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar Arquivo
+                </Button>
+              </div>
+
+              <Alert className="bg-blue-500/5 border-blue-500/20">
+                <FileJson className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-sm">
+                  <strong>Como importar no N8N:</strong>
+                  <ol className="list-decimal list-inside mt-2 space-y-1">
+                    <li>Abra seu N8N e vá em <strong>Workflows → Import</strong></li>
+                    <li>Cole o JSON ou selecione o arquivo baixado</li>
+                    <li>Configure o webhook URL e ative o workflow</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
+
+              <div className="bg-muted rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">cmsp-connect-n8n-workflow.json</span>
+                </div>
+                <ScrollArea className="h-[400px]">
+                  <pre className="p-4 font-mono text-xs whitespace-pre overflow-x-auto">
+                    {JSON.stringify(n8nWorkflowTemplate, null, 2)}
+                  </pre>
+                </ScrollArea>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         {/* Payload de Exemplo */}
