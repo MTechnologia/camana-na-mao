@@ -45,13 +45,13 @@ const detectEnvironment = (url: string): Environment => {
 const SUPABASE_URL = 'https://vzkwkcypkfrpfhhsghwn.supabase.co';
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/n8n-callback`;
 
-// Template de workflow N8N pré-configurado
+// Template de workflow N8N pré-configurado (v3 Switch Node + v4.2 HTTP Request)
 const n8nWorkflowTemplate = {
   "name": "CMSP Connect - Processamento de Manifestações",
   "nodes": [
     {
       "parameters": { "httpMethod": "POST", "path": "cmsp-manifestacao", "options": {} },
-      "id": "webhook-trigger",
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "name": "Webhook CMSP",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -60,16 +60,41 @@ const n8nWorkflowTemplate = {
     },
     {
       "parameters": {
+        "mode": "rules",
         "rules": {
-          "rules": [
-            { "value": "urban_report_created", "output": 0 },
-            { "value": "transport_report_created", "output": 1 },
-            { "value": "service_rating_created", "output": 2 }
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.body.event }}", "rightValue": "urban_report_created", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Urbano"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.body.event }}", "rightValue": "transport_report_created", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Transporte"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [{ "leftValue": "={{ $json.body.event }}", "rightValue": "service_rating_created", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Avaliacao"
+            }
           ]
         },
-        "dataPropertyName": "={{$json.body.event}}"
+        "options": { "fallbackOutput": "none" }
       },
-      "id": "switch-event-type",
+      "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
       "name": "Tipo de Evento",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
@@ -79,7 +104,7 @@ const n8nWorkflowTemplate = {
       "parameters": {
         "jsCode": "const input = $input.first().json.body;\nconst report = input.report;\nconst description = (report.description || '').toLowerCase();\nlet priority = 'normal';\nlet tags = [];\nconst urgentKeywords = ['urgente', 'perigo', 'risco', 'acidente'];\nif (urgentKeywords.some(k => description.includes(k))) {\n  priority = 'urgente';\n  tags.push('ATENCAO_IMEDIATA');\n}\nreturn { report_id: report.id, report_type: 'urban', callback_url: input.callback_url, secret_key: input.secret_key, processed_data: { priority, validated_category: report.category, tags, workflow_id: $workflow.id } };"
       },
-      "id": "process-urban-report",
+      "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
       "name": "Processar Relato Urbano",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -89,7 +114,7 @@ const n8nWorkflowTemplate = {
       "parameters": {
         "jsCode": "const input = $input.first().json.body;\nconst report = input.report;\nlet priority = 'normal';\nlet tags = [];\nconst criticalKeywords = ['acidente', 'colisão', 'quebrado'];\nif (criticalKeywords.some(k => (report.description || '').toLowerCase().includes(k))) {\n  priority = 'urgente';\n  tags.push('INCIDENTE_CRITICO');\n}\nreturn { report_id: report.id, report_type: 'transport', callback_url: input.callback_url, secret_key: input.secret_key, processed_data: { priority, validated_category: report.report_type, tags, workflow_id: $workflow.id } };"
       },
-      "id": "process-transport-report",
+      "id": "d4e5f6a7-b8c9-0123-defa-456789012345",
       "name": "Processar Relato Transporte",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -99,7 +124,7 @@ const n8nWorkflowTemplate = {
       "parameters": {
         "jsCode": "const input = $input.first().json.body;\nconst report = input.report;\nlet priority = 'normal';\nlet tags = [];\nif (report.rating_stars <= 2) { priority = 'alta'; tags.push('AVALIACAO_NEGATIVA'); }\nreturn { report_id: report.id, report_type: 'service_rating', callback_url: input.callback_url, secret_key: input.secret_key, processed_data: { priority, validated_category: 'avaliacao_servico', tags, workflow_id: $workflow.id } };"
       },
-      "id": "process-service-rating",
+      "id": "e5f6a7b8-c9d0-1234-efab-567890123456",
       "name": "Processar Avaliação Serviço",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -108,15 +133,15 @@ const n8nWorkflowTemplate = {
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$json.callback_url}}",
+        "url": "={{ $json.callback_url }}",
         "sendHeaders": true,
         "headerParameters": { "parameters": [{ "name": "Content-Type", "value": "application/json" }] },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"report_id\": \"{{$json.report_id}}\", \"report_type\": \"{{$json.report_type}}\", \"secret_key\": \"{{$json.secret_key}}\", \"processed_data\": {{JSON.stringify($json.processed_data)}} }",
+        "jsonBody": "={\n  \"report_id\": \"{{ $json.report_id }}\",\n  \"report_type\": \"{{ $json.report_type }}\",\n  \"secret_key\": \"{{ $json.secret_key }}\",\n  \"processed_data\": {{ JSON.stringify($json.processed_data) }}\n}",
         "options": { "timeout": 10000 }
       },
-      "id": "callback-cmsp",
+      "id": "f6a7b8c9-d0e1-2345-fabc-678901234567",
       "name": "Callback CMSP",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -130,9 +155,11 @@ const n8nWorkflowTemplate = {
     "Processar Relato Transporte": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] },
     "Processar Avaliação Serviço": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] }
   },
-  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
-  "tags": [{ "name": "CMSP Connect", "id": "cmsp" }],
-  "versionId": "1.0.0"
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "callerPolicy": "workflowsFromSameOwner" },
+  "staticData": null,
+  "pinData": {},
+  "active": false,
+  "triggerCount": 1
 };
 
 const N8NIntegration = () => {
