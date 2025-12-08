@@ -26,6 +26,10 @@ export interface UrbanReportForKanban {
   author?: Author | null;
   likes_count: number;
   comments_count: number;
+  // N8N fields
+  n8n_processed?: boolean;
+  n8n_priority?: string | null;
+  n8n_tags?: string[] | null;
 }
 
 interface UrbanKanbanBoardProps {

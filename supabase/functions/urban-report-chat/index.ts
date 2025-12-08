@@ -203,6 +203,27 @@ serve(async (req) => {
 
         console.log('Report created successfully:', report.id);
 
+        // Notify N8N about the new report
+        try {
+          await supabase.functions.invoke('notify-n8n', {
+            body: {
+              event: 'urban_report_created',
+              report_id: report.id,
+              report_type: 'urban',
+              report_data: {
+                category: reportData.category,
+                subcategory: reportData.subcategory,
+                description: reportData.description,
+                location_address: reportData.location_address
+              },
+              user_id: userId
+            }
+          });
+          console.log('N8N notification sent for urban report:', report.id);
+        } catch (n8nError) {
+          console.warn('Failed to notify N8N (non-blocking):', n8nError);
+        }
+
         // Gerar resposta de confirmação via streaming
         const confirmationResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',

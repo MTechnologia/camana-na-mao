@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Eye, Trash2, AlertTriangle, MapPin, Heart, MessageSquare } from 'lucide-react';
+import { GripVertical, Eye, Trash2, AlertTriangle, MapPin, Heart, MessageSquare, Zap, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { UrbanReportForKanban } from './UrbanKanbanBoard';
@@ -34,6 +34,16 @@ const getSeverityLabel = (severity: string | null): string => {
   }
 };
 
+const getN8NPriorityColor = (priority: string | null): string => {
+  switch (priority) {
+    case 'urgente': return 'bg-red-500 text-white';
+    case 'alta': return 'bg-orange-500 text-white';
+    case 'media': return 'bg-yellow-500 text-white';
+    case 'baixa': return 'bg-green-500 text-white';
+    default: return 'bg-muted text-muted-foreground';
+  }
+};
+
 export const UrbanKanbanCard = ({ report, onDragStart, onViewDetails, onDelete }: UrbanKanbanCardProps) => {
   return (
     <Card
@@ -50,6 +60,12 @@ export const UrbanKanbanCard = ({ report, onDragStart, onViewDetails, onDelete }
               {getSeverityLabel(report.severity)}
             </Badge>
           </div>
+          {report.n8n_processed && (
+            <Badge className={getN8NPriorityColor(report.n8n_priority)}>
+              <Zap className="h-3 w-3 mr-1" />
+              {report.n8n_priority || 'N8N'}
+            </Badge>
+          )}
         </div>
 
         <h4 className="font-medium text-sm line-clamp-1">
@@ -60,6 +76,18 @@ export const UrbanKanbanCard = ({ report, onDragStart, onViewDetails, onDelete }
           <Badge variant="secondary" className="text-xs">
             {report.subcategory}
           </Badge>
+        )}
+
+        {/* N8N Tags */}
+        {report.n8n_tags && report.n8n_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {report.n8n_tags.slice(0, 3).map((tag, idx) => (
+              <Badge key={idx} variant="outline" className="text-[10px] px-1 py-0">
+                <Tag className="h-2 w-2 mr-0.5" />
+                {tag}
+              </Badge>
+            ))}
+          </div>
         )}
 
         <p className="text-xs text-muted-foreground line-clamp-2">

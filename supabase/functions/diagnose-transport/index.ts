@@ -208,6 +208,28 @@ serve(async (req) => {
             } else {
               reportId = insertedReport.id;
               console.log('Report created with ID:', reportId);
+
+              // Notify N8N about the new report
+              try {
+                await supabase.functions.invoke('notify-n8n', {
+                  body: {
+                    event: 'transport_report_created',
+                    report_id: reportId,
+                    report_type: 'transport',
+                    report_data: {
+                      report_type: args.report_type,
+                      severity: args.severity,
+                      description: args.description,
+                      line_code: args.line_code,
+                      location: args.location
+                    },
+                    user_id: userId
+                  }
+                });
+                console.log('N8N notification sent for transport report:', reportId);
+              } catch (n8nError) {
+                console.warn('Failed to notify N8N (non-blocking):', n8nError);
+              }
             }
           } catch (e) {
             console.error('Error inserting report:', e);
