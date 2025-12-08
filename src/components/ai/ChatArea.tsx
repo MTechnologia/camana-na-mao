@@ -77,7 +77,7 @@ const ChatArea = () => {
     <div className="flex flex-col flex-1 min-h-0">
       {/* Messages Area */}
       <ScrollArea className="flex-1 px-4">
-        <div className="max-w-4xl mx-auto py-8">
+        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto py-8">
           {!hasMessages ? (
             <ChatEmptyState onSuggestionClick={handleSendMessage} />
           ) : (
@@ -111,7 +111,7 @@ const ChatArea = () => {
       {/* Input Area - hide if report just created */}
       {!createdReport && (
         <div className="border-t border-border bg-card p-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
             <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
           </div>
         </div>

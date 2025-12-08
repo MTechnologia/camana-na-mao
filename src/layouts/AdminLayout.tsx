@@ -23,8 +23,8 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
           onMenuClick={() => setMobileOpen(true)}
           isMobile={isMobile}
         />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <div className="animate-fade-in">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+          <div className="max-w-screen-2xl mx-auto animate-fade-in">
             {children}
           </div>
         </main>

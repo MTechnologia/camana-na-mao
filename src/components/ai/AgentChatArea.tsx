@@ -157,7 +157,7 @@ const AgentChatArea = () => {
             className="flex-1 min-h-0"
           >
             <ScrollArea className="h-full">
-              <div className="w-full max-w-2xl mx-auto px-4 py-6 space-y-4">
+              <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
                 {messages.map((msg, index) => (
                   <motion.div
                     key={msg.id}
@@ -211,8 +211,8 @@ const AgentChatArea = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.3 }}
         >
-          <div className="max-w-2xl mx-auto">
-            <ChatInput 
+          <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
+            <ChatInput
               onSendMessage={handleSendMessage} 
               disabled={isLoading}
               placeholder={currentJourney ? `Fale sobre ${currentJourney.label.toLowerCase()}...` : "Digite sua mensagem..."}

@@ -49,7 +49,7 @@ export default function TransportReportPage() {
     <>
       <PageHeader title="Diagnóstico de Transporte" backTo="/ia" />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
-        <div className="relative h-52 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-500 overflow-hidden">
+        <div className="relative h-52 lg:h-64 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-500 overflow-hidden">
           {/* Background decorations */}
           <div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
           <div className="absolute bottom-4 left-4 w-24 h-24 bg-cyan-400/20 rounded-full blur-xl" />
@@ -77,8 +77,8 @@ export default function TransportReportPage() {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 pt-2 -mt-8 relative z-10">
-          <div className="space-y-3">
+        <div className="max-w-3xl lg:max-w-4xl mx-auto px-6 pt-2 -mt-8 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {options.map((option, index) => {
               const Icon = option.icon;
               return (

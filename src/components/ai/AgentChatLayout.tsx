@@ -10,7 +10,7 @@ const AgentChatLayout = () => {
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-background">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-[280px] border-r border-border bg-muted/30 shrink-0">
+      <aside className="hidden lg:flex lg:w-[280px] xl:w-[320px] 2xl:w-[360px] border-r border-border bg-muted/30 shrink-0">
         <ChatSidebar onConversationClick={() => {}} />
       </aside>
 
