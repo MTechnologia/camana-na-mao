@@ -111,14 +111,14 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
 
   return (
     <div className="w-full py-2 overflow-visible">
-      <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-2 pt-2 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 xl:grid-cols-8 lg:overflow-visible">
+      <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-2 pt-2 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:gap-4 xl:grid-cols-8 xl:gap-3 lg:overflow-visible">
         {actions.map((action) => {
           const IconComponent = action.icon;
           return (
             <button
               key={action.id}
               onClick={() => handleJourneyClick(action.journeyKey)}
-              className="flex-shrink-0 snap-start flex flex-col items-center justify-center p-2 sm:p-3 w-[72px] sm:w-20 lg:w-auto h-[72px] sm:h-20 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all duration-200 group relative"
+              className="flex-shrink-0 snap-start flex flex-col items-center justify-center p-2 sm:p-3 w-[72px] sm:w-20 lg:w-full h-[72px] sm:h-20 lg:h-auto lg:py-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all duration-200 group relative"
             >
               {action.badge && (
                 <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center z-10">
