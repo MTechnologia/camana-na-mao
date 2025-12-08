@@ -36,7 +36,7 @@ export default function NearbyServicesPage() {
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
       <PageHeader title="Perto de Você" />
       
-      <div className="p-4 space-y-4">
+      <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
         {isSimulated && (
           <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
@@ -93,8 +93,8 @@ export default function NearbyServicesPage() {
 
           <TabsContent value="list" className="mt-0">
             {isLoading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-32 w-full" />
                 ))}
               </div>
@@ -107,7 +107,7 @@ export default function NearbyServicesPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                 {services.map((service) => (
                   <ServiceCard
                     key={service.id}

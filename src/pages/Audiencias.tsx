@@ -152,7 +152,7 @@ const Audiencias = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
             <Card className="p-4 bg-card border-border">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 rounded-lg">
@@ -180,7 +180,7 @@ const Audiencias = () => {
           </div>
 
           {/* Audiências List */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredAudiencias.length > 0 ? (
               filteredAudiencias.map((audiencia, index) => (
                 <div
