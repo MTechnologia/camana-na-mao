@@ -130,7 +130,7 @@ const AgentChatArea = () => {
             className="flex-1 flex flex-col items-center justify-center px-4"
           >
             <motion.div 
-              className="w-full max-w-md flex flex-col items-center"
+              className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl flex flex-col items-center"
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
