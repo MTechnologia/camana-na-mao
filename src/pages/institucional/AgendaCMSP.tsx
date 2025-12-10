@@ -1,9 +1,13 @@
+import { useState, useMemo } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, MapPin, Users, Heart } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Heart, Search, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
 import { useFavorites } from "@/contexts/FavoritesContext";
 
 interface AgendaItem {
@@ -44,6 +48,24 @@ const mockAgenda: AgendaItem[] = [
     type: "audiencia",
     participants: ["Cidadãos", "Comissão de Educação"],
   },
+  {
+    id: "4",
+    title: "Comissão de Saúde",
+    date: "2024-12-19",
+    time: "09:00",
+    location: "Sala das Comissões 2",
+    type: "comissao",
+    participants: ["5 Vereadores"],
+  },
+  {
+    id: "5",
+    title: "Sessão Extraordinária",
+    date: "2024-12-20",
+    time: "16:00",
+    location: "Plenário Juscelino Kubitschek",
+    type: "sessao",
+    participants: ["55 Vereadores"],
+  },
 ];
 
 const typeLabels = {
@@ -52,8 +74,16 @@ const typeLabels = {
   audiencia: { label: "Audiência Pública", color: "bg-green-500/10 text-green-600" },
 };
 
+const typeFilterOptions = [
+  { value: "sessao", label: "Sessões" },
+  { value: "comissao", label: "Comissões" },
+  { value: "audiencia", label: "Audiências" },
+];
+
 const AgendaCMSP = () => {
   const { toggleFavorite, isFavorited } = useFavorites();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -64,29 +94,99 @@ const AgendaCMSP = () => {
     });
   };
 
+  const filteredAgenda = useMemo(() => {
+    return mockAgenda.filter((item) => {
+      // Search filter
+      const matchesSearch = searchQuery === "" || 
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.location.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Type filter
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
+
+      return matchesSearch && matchesType;
+    });
+  }, [searchQuery, selectedTypes]);
+
+  const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedTypes([]);
+  };
+
   return (
     <InstitutionalLayout
       title="Agenda CMSP"
       category="Institucional"
     >
-        <ContentArticle
-          title="Agenda da Câmara Municipal"
-          date="Atualizado hoje às 10:30"
-          readTime="Verificação a cada 15 minutos"
-        >
-          <p className="text-muted-foreground">
-            Acompanhe todas as atividades legislativas da Câmara Municipal de São Paulo.
-            Sessões plenárias, reuniões de comissões e audiências públicas.
-          </p>
+      <ContentArticle
+        title="Agenda da Câmara Municipal"
+        date="Atualizado hoje às 10:30"
+        readTime="Verificação a cada 15 minutos"
+      >
+        <p className="text-muted-foreground">
+          Acompanhe todas as atividades legislativas da Câmara Municipal de São Paulo.
+          Sessões plenárias, reuniões de comissões e audiências públicas.
+        </p>
 
-          <Tabs defaultValue="proximos" className="mt-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="proximos">Próximos</TabsTrigger>
-              <TabsTrigger value="mes">Este mês</TabsTrigger>
-            </TabsList>
+        {/* Filters Section */}
+        <div className="mt-6 space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Buscar evento..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-            <TabsContent value="proximos" className="space-y-4 mt-4">
-              {mockAgenda.map((item) => {
+          {/* Type Pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">Tipo:</span>
+            <QuickFilterPills
+              options={typeFilterOptions}
+              selected={selectedTypes}
+              onChange={(value) => setSelectedTypes(value as string[])}
+              mode="multi"
+              showAllOption
+              allLabel="Todos"
+              size="sm"
+            />
+          </div>
+
+          {/* Clear filters */}
+          {hasActiveFilters && (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="gap-1">
+                {filteredAgenda.length} resultado{filteredAgenda.length !== 1 ? 's' : ''}
+              </Badge>
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
+                <X className="h-3 w-3 mr-1" />
+                Limpar filtros
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <Tabs defaultValue="proximos" className="mt-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="proximos">Próximos</TabsTrigger>
+            <TabsTrigger value="mes">Este mês</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="proximos" className="space-y-4 mt-4">
+            {filteredAgenda.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  Nenhum evento encontrado com os filtros selecionados
+                </p>
+              </div>
+            ) : (
+              filteredAgenda.map((item) => {
                 const typeInfo = typeLabels[item.type];
                 return (
                   <Card key={item.id} className="p-4 hover:shadow-md transition-shadow relative">
@@ -150,23 +250,24 @@ const AgendaCMSP = () => {
                     </div>
                   </Card>
                 );
-              })}
-            </TabsContent>
+              })
+            )}
+          </TabsContent>
 
-            <TabsContent value="mes" className="mt-4">
-              <p className="text-center text-muted-foreground py-8">
-                Visualização mensal em desenvolvimento
-              </p>
-            </TabsContent>
-          </Tabs>
+          <TabsContent value="mes" className="mt-4">
+            <p className="text-center text-muted-foreground py-8">
+              Visualização mensal em desenvolvimento
+            </p>
+          </TabsContent>
+        </Tabs>
 
-          <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-            <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
-            <p><strong>Atualização:</strong> A cada 15 minutos</p>
-            <p><strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.</p>
-          </div>
-        </ContentArticle>
-      </InstitutionalLayout>
+        <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+          <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
+          <p><strong>Atualização:</strong> A cada 15 minutos</p>
+          <p><strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.</p>
+        </div>
+      </ContentArticle>
+    </InstitutionalLayout>
   );
 };
 
