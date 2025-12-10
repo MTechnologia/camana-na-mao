@@ -1,0 +1,108 @@
+// Tipos padronizados de notificação para o sistema CMSP Connect
+
+export const NOTIFICATION_TYPES = {
+  // Categorias principais (para notification_settings.categories_enabled)
+  legislativa: { 
+    label: 'Legislativa', 
+    color: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    icon: '📜' 
+  },
+  servico: { 
+    label: 'Serviço', 
+    color: 'bg-green-500/10 text-green-600 border-green-500/20',
+    icon: '🏥' 
+  },
+  transporte: { 
+    label: 'Transporte', 
+    color: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    icon: '🚌' 
+  },
+  urbano: { 
+    label: 'Urbano', 
+    color: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+    icon: '🏙️' 
+  },
+  
+  // Tipos específicos
+  referral: { 
+    label: 'Encaminhamento', 
+    color: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
+    icon: '📨' 
+  },
+  referral_update: { 
+    label: 'Atualização de Encaminhamento', 
+    color: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20',
+    icon: '🔄' 
+  },
+  audiencia: { 
+    label: 'Audiência Pública', 
+    color: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+    icon: '🎤' 
+  },
+  
+  // Sistema
+  info: { 
+    label: 'Informação', 
+    color: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    icon: 'ℹ️' 
+  },
+  success: { 
+    label: 'Sucesso', 
+    color: 'bg-green-500/10 text-green-600 border-green-500/20',
+    icon: '✅' 
+  },
+  warning: { 
+    label: 'Aviso', 
+    color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    icon: '⚠️' 
+  },
+  error: { 
+    label: 'Erro', 
+    color: 'bg-red-500/10 text-red-600 border-red-500/20',
+    icon: '❌' 
+  },
+  general: { 
+    label: 'Geral', 
+    color: 'bg-muted text-muted-foreground border-border',
+    icon: '📢' 
+  },
+} as const;
+
+export const NOTIFICATION_PRIORITIES = {
+  low: { label: 'Baixa', color: 'bg-muted text-muted-foreground' },
+  normal: { label: 'Normal', color: 'bg-primary/10 text-primary' },
+  high: { label: 'Alta', color: 'bg-destructive/10 text-destructive' },
+} as const;
+
+export const NOTIFICATION_CATEGORIES = [
+  { value: 'legislativa', label: 'Legislativa' },
+  { value: 'servico', label: 'Serviços' },
+  { value: 'transporte', label: 'Transporte' },
+  { value: 'urbano', label: 'Urbano' },
+] as const;
+
+// Helper functions
+export const getNotificationType = (type: string) => {
+  return NOTIFICATION_TYPES[type as keyof typeof NOTIFICATION_TYPES] || NOTIFICATION_TYPES.general;
+};
+
+export const getNotificationPriority = (priority: string) => {
+  return NOTIFICATION_PRIORITIES[priority as keyof typeof NOTIFICATION_PRIORITIES] || NOTIFICATION_PRIORITIES.normal;
+};
+
+// Options for filter selects
+export const NOTIFICATION_TYPE_OPTIONS = Object.entries(NOTIFICATION_TYPES).map(([value, config]) => ({
+  value,
+  label: config.label,
+}));
+
+export const NOTIFICATION_PRIORITY_OPTIONS = Object.entries(NOTIFICATION_PRIORITIES).map(([value, config]) => ({
+  value,
+  label: config.label,
+}));
+
+export const NOTIFICATION_STATUS_OPTIONS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'read', label: 'Lidos' },
+  { value: 'unread', label: 'Não lidos' },
+];

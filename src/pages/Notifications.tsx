@@ -6,8 +6,9 @@ import { useNotifications } from "@/contexts/NotificationsContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Check, CheckCheck } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
+import { getNotificationType, getNotificationPriority } from "@/constants/notificationTypes";
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -25,26 +26,6 @@ const Notifications = () => {
   const filteredNotifications = filter === 'unread' 
     ? notifications.filter(n => !n.is_read)
     : notifications;
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'legislativa': return 'bg-blue-500/10 text-blue-600';
-      case 'servico': return 'bg-green-500/10 text-green-600';
-      case 'transporte': return 'bg-orange-500/10 text-orange-600';
-      case 'urbano': return 'bg-purple-500/10 text-purple-600';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'legislativa': return 'Legislativa';
-      case 'servico': return 'Serviço';
-      case 'transporte': return 'Transporte';
-      case 'urbano': return 'Urbano';
-      default: return 'Geral';
-    }
-  };
 
   const handleNotificationClick = (notification: typeof notifications[0]) => {
     if (!notification.is_read) {
@@ -130,13 +111,13 @@ const Notifications = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <Badge 
                         variant="secondary" 
-                        className={`text-xs ${getTypeColor(notification.type)}`}
+                        className={`text-xs ${getNotificationType(notification.type).color}`}
                       >
-                        {getTypeLabel(notification.type)}
+                        {getNotificationType(notification.type).icon} {getNotificationType(notification.type).label}
                       </Badge>
                       
                       {notification.priority === 'high' && (
-                        <Badge variant="destructive" className="text-xs">
+                        <Badge className={`text-xs ${getNotificationPriority('high').color}`}>
                           Urgente
                         </Badge>
                       )}
