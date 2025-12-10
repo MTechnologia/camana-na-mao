@@ -513,9 +513,11 @@ export type Database = {
           email_enabled: boolean | null
           id: string
           max_daily_notifications: number | null
+          newsletter_enabled: boolean | null
           push_enabled: boolean | null
           quiet_hours_end: string | null
           quiet_hours_start: string | null
+          sms_enabled: boolean | null
           updated_at: string
           user_id: string
         }
@@ -525,9 +527,11 @@ export type Database = {
           email_enabled?: boolean | null
           id?: string
           max_daily_notifications?: number | null
+          newsletter_enabled?: boolean | null
           push_enabled?: boolean | null
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
+          sms_enabled?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -537,9 +541,11 @@ export type Database = {
           email_enabled?: boolean | null
           id?: string
           max_daily_notifications?: number | null
+          newsletter_enabled?: boolean | null
           push_enabled?: boolean | null
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
+          sms_enabled?: boolean | null
           updated_at?: string
           user_id?: string
         }

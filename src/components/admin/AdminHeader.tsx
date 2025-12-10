@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminStats } from '@/hooks/useAdminStats';
 import { ChevronRight, Menu, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,10 @@ const routeNames: Record<string, string> = {
   '/admin/users': 'Gestão de Usuários',
   '/admin/dashboards': 'Painéis Públicos',
   '/admin/exports': 'Logs de Exportação',
+  '/admin/notifications': 'Notificações',
+  '/admin/urban-reports': 'Relatos Urbanos',
+  '/admin/transport-reports': 'Relatos de Transporte',
+  '/admin/referrals': 'Encaminhamentos',
 };
 
 interface AdminHeaderProps {
@@ -34,6 +39,7 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { signOut } = useAuth();
+  const { unreadNotifications } = useAdminStats();
   
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const breadcrumbs = pathSegments.map((_, index) => {
@@ -48,6 +54,11 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
   const displayBreadcrumbs = isMobile 
     ? [breadcrumbs[breadcrumbs.length - 1]] 
     : breadcrumbs;
+
+  const formatNotificationCount = (count: number) => {
+    if (count > 99) return '99+';
+    return count.toString();
+  };
 
   return (
     <header className="bg-card/80 backdrop-blur-sm border-b border-border/50 px-4 md:px-6 py-3 md:py-4 sticky top-0 z-40">
@@ -80,14 +91,21 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
         </div>
 
         <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-          <Button variant="ghost" size="icon" className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative"
+            onClick={() => navigate('/admin/notifications')}
+          >
             <Bell className="h-5 w-5" />
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-            >
-              3
-            </Badge>
+            {unreadNotifications > 0 && (
+              <Badge 
+                variant="destructive" 
+                className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center text-xs"
+              >
+                {formatNotificationCount(unreadNotifications)}
+              </Badge>
+            )}
           </Button>
 
           <DropdownMenu>

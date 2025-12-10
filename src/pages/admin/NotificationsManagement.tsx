@@ -8,31 +8,112 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { Bell, Send, Clock, Eye, MousePointer } from 'lucide-react';
+import { Bell, Send, Clock, Eye, Search, Filter, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
+import { UnifiedFilterBar } from '@/components/filters/UnifiedFilterBar';
+import { useFilters } from '@/hooks/useFilters';
+import { FilterConfig, DateRangeValue } from '@/components/filters/types';
+import { 
+  getNotificationType, 
+  getNotificationPriority,
+  NOTIFICATION_TYPE_OPTIONS,
+  NOTIFICATION_PRIORITY_OPTIONS,
+  NOTIFICATION_STATUS_OPTIONS 
+} from '@/constants/notificationTypes';
 
 interface NotificationHistory {
   id: string;
   title: string;
   message: string;
   type: string;
+  priority: string;
   created_at: string;
   user_id: string;
   is_read: boolean;
   read_at: string | null;
+  action_url: string | null;
 }
+
+interface NotificationFilters {
+  search: string;
+  type: string;
+  status: string;
+  priority: string;
+  dateRange: DateRangeValue;
+}
+
+const defaultFilters: NotificationFilters = {
+  search: '',
+  type: 'all',
+  status: 'all',
+  priority: 'all',
+  dateRange: { from: undefined, to: undefined },
+};
+
+const filterConfig: FilterConfig<NotificationFilters> = {
+  fields: [
+    { 
+      key: 'search', 
+      type: 'search', 
+      label: 'Buscar', 
+      placeholder: 'Título ou mensagem...',
+      colSpan: 2
+    },
+    { 
+      key: 'type', 
+      type: 'select', 
+      label: 'Tipo', 
+      options: [{ value: 'all', label: 'Todos os tipos' }, ...NOTIFICATION_TYPE_OPTIONS],
+      clearable: true
+    },
+    { 
+      key: 'status', 
+      type: 'select', 
+      label: 'Status', 
+      options: NOTIFICATION_STATUS_OPTIONS,
+      clearable: true
+    },
+    { 
+      key: 'priority', 
+      type: 'select', 
+      label: 'Prioridade', 
+      options: [{ value: 'all', label: 'Todas' }, ...NOTIFICATION_PRIORITY_OPTIONS],
+      clearable: true
+    },
+    { 
+      key: 'dateRange', 
+      type: 'daterange', 
+      label: 'Período',
+      colSpan: 2
+    },
+  ],
+  showActiveCount: true,
+};
 
 const NotificationsManagement = () => {
   const [notifications, setNotifications] = useState<NotificationHistory[]>([]);
+  const [filteredNotifications, setFilteredNotifications] = useState<NotificationHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     read: 0,
     unread: 0,
+  });
+
+  const { 
+    filters, 
+    setFilter, 
+    clearAll, 
+    activeCount,
+    debouncedFilters 
+  } = useFilters<NotificationFilters>({
+    defaultValues: defaultFilters,
+    debounceKeys: ['search'],
+    debounceMs: 300,
   });
 
   const [newNotification, setNewNotification] = useState({
@@ -48,16 +129,64 @@ const NotificationsManagement = () => {
     fetchStats();
   }, []);
 
+  // Apply filters when they change
+  useEffect(() => {
+    applyFilters();
+  }, [debouncedFilters, notifications]);
+
+  const applyFilters = () => {
+    let result = [...notifications];
+
+    // Search filter
+    if (debouncedFilters.search) {
+      const searchLower = debouncedFilters.search.toLowerCase();
+      result = result.filter(n => 
+        n.title.toLowerCase().includes(searchLower) ||
+        n.message.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Type filter
+    if (debouncedFilters.type && debouncedFilters.type !== 'all') {
+      result = result.filter(n => n.type === debouncedFilters.type);
+    }
+
+    // Status filter
+    if (debouncedFilters.status && debouncedFilters.status !== 'all') {
+      if (debouncedFilters.status === 'read') {
+        result = result.filter(n => n.is_read);
+      } else if (debouncedFilters.status === 'unread') {
+        result = result.filter(n => !n.is_read);
+      }
+    }
+
+    // Priority filter
+    if (debouncedFilters.priority && debouncedFilters.priority !== 'all') {
+      result = result.filter(n => n.priority === debouncedFilters.priority);
+    }
+
+    // Date range filter
+    if (debouncedFilters.dateRange?.from) {
+      result = result.filter(n => new Date(n.created_at) >= debouncedFilters.dateRange.from!);
+    }
+    if (debouncedFilters.dateRange?.to) {
+      result = result.filter(n => new Date(n.created_at) <= debouncedFilters.dateRange.to!);
+    }
+
+    setFilteredNotifications(result);
+  };
+
   const fetchNotifications = async () => {
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(200);
 
       if (error) throw error;
       setNotifications(data || []);
+      setFilteredNotifications(data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       toast.error('Erro ao carregar notificações');
@@ -94,7 +223,6 @@ const NotificationsManagement = () => {
 
   const sendNotificationToAll = async () => {
     try {
-      // Get all users
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id');
@@ -106,7 +234,6 @@ const NotificationsManagement = () => {
         return;
       }
 
-      // Create notifications for all users
       const notificationsToInsert = profiles.map((profile) => ({
         user_id: profile.id,
         title: newNotification.title,
@@ -133,26 +260,6 @@ const NotificationsManagement = () => {
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'info': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-      case 'success': return 'bg-green-500/10 text-green-600 border-green-500/20';
-      case 'warning': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
-      case 'error': return 'bg-red-500/10 text-red-600 border-red-500/20';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'info': return 'Informação';
-      case 'success': return 'Sucesso';
-      case 'warning': return 'Aviso';
-      case 'error': return 'Erro';
-      default: return type;
-    }
-  };
-
   const KPICard = ({ icon: Icon, title, value, color }: any) => (
     <Card className="p-6">
       <div className="flex items-center gap-4">
@@ -172,7 +279,7 @@ const NotificationsManagement = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold">Gestão de Notificações</h1>
             <p className="text-muted-foreground">Gerencie notificações enviadas aos usuários</p>
@@ -231,10 +338,11 @@ const NotificationsManagement = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="info">Informação</SelectItem>
-                        <SelectItem value="success">Sucesso</SelectItem>
-                        <SelectItem value="warning">Aviso</SelectItem>
-                        <SelectItem value="error">Erro</SelectItem>
+                        {NOTIFICATION_TYPE_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -248,14 +356,20 @@ const NotificationsManagement = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="low">Baixa</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
+                        {NOTIFICATION_PRIORITY_OPTIONS.map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <Button onClick={sendNotificationToAll} className="w-full">
+                <Button 
+                  onClick={sendNotificationToAll} 
+                  className="w-full"
+                  disabled={!newNotification.title || !newNotification.message}
+                >
                   <Send className="h-4 w-4 mr-2" />
                   Enviar para Todos
                 </Button>
@@ -286,40 +400,85 @@ const NotificationsManagement = () => {
           />
         </div>
 
+        {/* Filtros */}
+        <UnifiedFilterBar
+          config={filterConfig}
+          filters={filters}
+          onChange={setFilter}
+          onClearAll={clearAll}
+          activeCount={activeCount}
+        />
+
         {/* Histórico */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Histórico de Notificações</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">
+              Histórico de Notificações
+              {activeCount > 0 && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  ({filteredNotifications.length} de {notifications.length})
+                </span>
+              )}
+            </h3>
+          </div>
+          
           {loading ? (
             <p className="text-center text-muted-foreground py-8">Carregando...</p>
-          ) : notifications.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Nenhuma notificação encontrada</p>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="text-center py-8">
+              <Bell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">
+                {activeCount > 0 
+                  ? 'Nenhuma notificação encontrada com os filtros aplicados'
+                  : 'Nenhuma notificação encontrada'
+                }
+              </p>
+              {activeCount > 0 && (
+                <Button variant="link" onClick={clearAll} className="mt-2">
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
-              {notifications.slice(0, 20).map((notification) => (
-                <div
-                  key={notification.id}
-                  className="flex items-start justify-between p-4 rounded-lg border hover:border-primary/50 transition-colors"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={getTypeColor(notification.type)}>
-                        {getTypeLabel(notification.type)}
-                      </Badge>
-                      {notification.is_read ? (
-                        <Badge variant="secondary">Lida</Badge>
-                      ) : (
-                        <Badge variant="outline">Não lida</Badge>
+              {filteredNotifications.map((notification) => {
+                const typeConfig = getNotificationType(notification.type);
+                const priorityConfig = getNotificationPriority(notification.priority);
+                
+                return (
+                  <div
+                    key={notification.id}
+                    className="flex items-start justify-between p-4 rounded-lg border hover:border-primary/50 transition-colors"
+                  >
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge className={typeConfig.color}>
+                          {typeConfig.icon} {typeConfig.label}
+                        </Badge>
+                        <Badge className={priorityConfig.color}>
+                          {priorityConfig.label}
+                        </Badge>
+                        {notification.is_read ? (
+                          <Badge variant="secondary">Lida</Badge>
+                        ) : (
+                          <Badge variant="outline">Não lida</Badge>
+                        )}
+                      </div>
+                      <p className="font-medium">{notification.title}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{notification.message}</p>
+                      {notification.action_url && (
+                        <p className="text-xs text-primary truncate">
+                          → {notification.action_url}
+                        </p>
                       )}
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {format(new Date(notification.created_at), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                      </p>
                     </div>
-                    <p className="font-medium">{notification.title}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {format(new Date(notification.created_at), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
-                    </p>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>

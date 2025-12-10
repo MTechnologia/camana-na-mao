@@ -3,19 +3,27 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Lock, Eye, Mail, MessageSquare, Smartphone } from "lucide-react";
+import { Bell, Lock, Eye, MessageSquare } from "lucide-react";
+import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 
 interface PreferencesFormProps {
   userId: string;
 }
 
-interface Preferences {
-  email_notifications: boolean;
-  push_notifications: boolean;
-  sms_notifications: boolean;
-  newsletter: boolean;
+interface NotificationSettings {
+  push_enabled: boolean;
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  newsletter_enabled: boolean;
+  categories_enabled: string[];
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+}
+
+interface PrivacySettings {
   profile_visibility: 'public' | 'private' | 'friends';
   show_email: boolean;
   show_phone: boolean;
@@ -23,11 +31,17 @@ interface Preferences {
 
 const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const [loading, setLoading] = useState(false);
-  const [preferences, setPreferences] = useState<Preferences>({
-    email_notifications: true,
-    push_notifications: true,
-    sms_notifications: false,
-    newsletter: false,
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    push_enabled: true,
+    email_enabled: true,
+    sms_enabled: false,
+    newsletter_enabled: false,
+    categories_enabled: ['legislativa', 'servico', 'transporte', 'urbano'],
+    quiet_hours_start: null,
+    quiet_hours_end: null,
+  });
+  
+  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>({
     profile_visibility: 'public',
     show_email: false,
     show_phone: false,
@@ -39,23 +53,41 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
 
   const loadPreferences = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_preferences')
+      // Load notification settings
+      const { data: notifData, error: notifError } = await supabase
+        .from('notification_settings')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (error) throw error;
+      if (notifError && notifError.code !== 'PGRST116') throw notifError;
 
-      if (data) {
-        setPreferences({
-          email_notifications: data.email_notifications,
-          push_notifications: data.push_notifications,
-          sms_notifications: data.sms_notifications,
-          newsletter: data.newsletter,
-          profile_visibility: data.profile_visibility as 'public' | 'private' | 'friends',
-          show_email: data.show_email,
-          show_phone: data.show_phone,
+      if (notifData) {
+        setNotificationSettings({
+          push_enabled: notifData.push_enabled ?? true,
+          email_enabled: notifData.email_enabled ?? true,
+          sms_enabled: notifData.sms_enabled ?? false,
+          newsletter_enabled: notifData.newsletter_enabled ?? false,
+          categories_enabled: notifData.categories_enabled ?? ['legislativa', 'servico', 'transporte', 'urbano'],
+          quiet_hours_start: notifData.quiet_hours_start,
+          quiet_hours_end: notifData.quiet_hours_end,
+        });
+      }
+
+      // Load privacy settings from user_preferences
+      const { data: privData, error: privError } = await supabase
+        .from('user_preferences')
+        .select('profile_visibility, show_email, show_phone')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (privError && privError.code !== 'PGRST116') throw privError;
+
+      if (privData) {
+        setPrivacySettings({
+          profile_visibility: privData.profile_visibility as 'public' | 'private' | 'friends',
+          show_email: privData.show_email,
+          show_phone: privData.show_phone,
         });
       }
     } catch (error: any) {
@@ -66,16 +98,42 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('user_preferences')
+      // Save notification settings
+      const { error: notifError } = await supabase
+        .from('notification_settings')
         .upsert({
           user_id: userId,
-          ...preferences,
+          push_enabled: notificationSettings.push_enabled,
+          email_enabled: notificationSettings.email_enabled,
+          sms_enabled: notificationSettings.sms_enabled,
+          newsletter_enabled: notificationSettings.newsletter_enabled,
+          categories_enabled: notificationSettings.categories_enabled,
+          quiet_hours_start: notificationSettings.quiet_hours_start,
+          quiet_hours_end: notificationSettings.quiet_hours_end,
         }, {
           onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (notifError) throw notifError;
+
+      // Save privacy settings
+      const { error: privError } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: userId,
+          profile_visibility: privacySettings.profile_visibility,
+          show_email: privacySettings.show_email,
+          show_phone: privacySettings.show_phone,
+          // Keep existing notification fields synced
+          push_notifications: notificationSettings.push_enabled,
+          email_notifications: notificationSettings.email_enabled,
+          sms_notifications: notificationSettings.sms_enabled,
+          newsletter: notificationSettings.newsletter_enabled,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (privError) throw privError;
 
       toast.success("Preferências atualizadas com sucesso!");
     } catch (error: any) {
@@ -84,6 +142,15 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleCategory = (category: string) => {
+    setNotificationSettings(prev => ({
+      ...prev,
+      categories_enabled: prev.categories_enabled.includes(category)
+        ? prev.categories_enabled.filter(c => c !== category)
+        : [...prev.categories_enabled, category]
+    }));
   };
 
   return (
@@ -107,9 +174,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             </div>
             <Switch
               id="email-notif"
-              checked={preferences.email_notifications}
+              checked={notificationSettings.email_enabled}
               onCheckedChange={(checked) =>
-                setPreferences(prev => ({ ...prev, email_notifications: checked }))
+                setNotificationSettings(prev => ({ ...prev, email_enabled: checked }))
               }
             />
           </div>
@@ -125,9 +192,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             </div>
             <Switch
               id="push-notif"
-              checked={preferences.push_notifications}
+              checked={notificationSettings.push_enabled}
               onCheckedChange={(checked) =>
-                setPreferences(prev => ({ ...prev, push_notifications: checked }))
+                setNotificationSettings(prev => ({ ...prev, push_enabled: checked }))
               }
             />
           </div>
@@ -143,9 +210,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             </div>
             <Switch
               id="sms-notif"
-              checked={preferences.sms_notifications}
+              checked={notificationSettings.sms_enabled}
               onCheckedChange={(checked) =>
-                setPreferences(prev => ({ ...prev, sms_notifications: checked }))
+                setNotificationSettings(prev => ({ ...prev, sms_enabled: checked }))
               }
             />
           </div>
@@ -161,11 +228,36 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             </div>
             <Switch
               id="newsletter"
-              checked={preferences.newsletter}
+              checked={notificationSettings.newsletter_enabled}
               onCheckedChange={(checked) =>
-                setPreferences(prev => ({ ...prev, newsletter: checked }))
+                setNotificationSettings(prev => ({ ...prev, newsletter_enabled: checked }))
               }
             />
+          </div>
+
+          {/* Categorias de Notificação */}
+          <div className="space-y-3 pt-2 border-t">
+            <Label className="text-base">Categorias de interesse</Label>
+            <p className="text-sm text-muted-foreground">
+              Selecione quais tipos de notificação deseja receber
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {NOTIFICATION_CATEGORIES.map((category) => (
+                <div key={category.value} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`cat-${category.value}`}
+                    checked={notificationSettings.categories_enabled.includes(category.value)}
+                    onCheckedChange={() => toggleCategory(category.value)}
+                  />
+                  <Label 
+                    htmlFor={`cat-${category.value}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {category.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -183,9 +275,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               Visibilidade do Perfil
             </Label>
             <Select
-              value={preferences.profile_visibility}
+              value={privacySettings.profile_visibility}
               onValueChange={(value: 'public' | 'private' | 'friends') =>
-                setPreferences(prev => ({ ...prev, profile_visibility: value }))
+                setPrivacySettings(prev => ({ ...prev, profile_visibility: value }))
               }
             >
               <SelectTrigger id="visibility" className="h-12">
@@ -228,9 +320,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             </div>
             <Switch
               id="show-email"
-              checked={preferences.show_email}
+              checked={privacySettings.show_email}
               onCheckedChange={(checked) =>
-                setPreferences(prev => ({ ...prev, show_email: checked }))
+                setPrivacySettings(prev => ({ ...prev, show_email: checked }))
               }
             />
           </div>
@@ -246,9 +338,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             </div>
             <Switch
               id="show-phone"
-              checked={preferences.show_phone}
+              checked={privacySettings.show_phone}
               onCheckedChange={(checked) =>
-                setPreferences(prev => ({ ...prev, show_phone: checked }))
+                setPrivacySettings(prev => ({ ...prev, show_phone: checked }))
               }
             />
           </div>
