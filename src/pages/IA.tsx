@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import OfflineMode from "@/components/ai/OfflineMode";
-import AgentChatLayout2 from "@/components/ai/AgentChatLayout2";
+import AgentChatLayout from "@/components/ai/AgentChatLayout";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 
 const IA = () => {
@@ -36,7 +36,7 @@ const IA = () => {
 
   return (
     <AIJourneyProvider>
-      <AgentChatLayout2 />
+      <AgentChatLayout />
     </AIJourneyProvider>
   );
 };

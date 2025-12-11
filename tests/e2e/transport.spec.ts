@@ -7,11 +7,11 @@ test.describe('Diagnóstico de Transporte', () => {
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/home', { timeout: 10000 });
+    await expect(page).toHaveURL('/ia', { timeout: 10000 });
   });
 
   test('deve criar relato de transporte via formulário', async ({ page }) => {
-    await page.goto('/transport/new-report');
+    await page.goto('/transporte/novo');
     
     // Preencher formulário
     await page.click('input[placeholder*="linha"]');
@@ -27,14 +27,14 @@ test.describe('Diagnóstico de Transporte', () => {
   });
 
   test('deve visualizar padrões detectados', async ({ page }) => {
-    await page.goto('/transport/patterns');
+    await page.goto('/transporte/padroes');
     
     await expect(page.locator('h1:has-text("Padrões Detectados")')).toBeVisible();
     await expect(page.locator('[data-testid="pattern-card"]').first()).toBeVisible();
   });
 
   test('deve encaminhar relato para vereador', async ({ page }) => {
-    await page.goto('/transport/my-reports');
+    await page.goto('/transporte/meus-relatos');
     
     // Clicar no primeiro relato
     await page.click('[data-testid="report-card"]').first();

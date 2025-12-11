@@ -6,7 +6,7 @@ test.describe('Chat com IA', () => {
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/home', { timeout: 10000 });
+    await expect(page).toHaveURL('/ia', { timeout: 10000 });
   });
 
   test('deve iniciar conversa com assistente geral', async ({ page }) => {
@@ -37,7 +37,7 @@ test.describe('Chat com IA', () => {
     await expect(page.locator('text=Teste de conversa')).toBeVisible();
     
     // Navegar para outra página
-    await page.goto('/home');
+    await page.goto('/ia');
     
     // Voltar para IA
     await page.goto('/ia');
