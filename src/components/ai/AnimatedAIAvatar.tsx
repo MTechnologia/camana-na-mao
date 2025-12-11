@@ -11,9 +11,15 @@ const AnimatedAIAvatar = ({ size = "md" }: AnimatedAIAvatarProps) => {
     lg: "w-20 h-20",
   };
 
+  const iconSizes = {
+    sm: "w-4 h-4",
+    md: "w-5 h-5 sm:w-6 sm:h-6",
+    lg: "w-7 h-7",
+  };
+
   return (
     <div className={`relative ${sizeClasses[size]} flex items-center justify-center`}>
-      {/* Outer rotating ring */}
+      {/* Outer rotating gradient ring */}
       <motion.div
         className="absolute inset-0 rounded-full"
         style={{
@@ -21,117 +27,35 @@ const AnimatedAIAvatar = ({ size = "md" }: AnimatedAIAvatarProps) => {
           padding: "2px",
         }}
         animate={{ rotate: 360 }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
       >
         <div className="w-full h-full rounded-full bg-background" />
       </motion.div>
 
       {/* Pulsing glow */}
       <motion.div
-        className="absolute inset-1 rounded-full bg-gradient-to-br from-primary/30 via-secondary/20 to-accent/30 blur-md"
+        className="absolute inset-2 rounded-full bg-gradient-to-br from-primary/20 via-secondary/15 to-accent/20 blur-sm"
         animate={{ 
-          opacity: [0.4, 0.7, 0.4],
-          scale: [0.95, 1.05, 0.95]
+          opacity: [0.3, 0.6, 0.3],
         }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Inner container */}
-      <div className="absolute inset-1 rounded-full bg-gradient-to-br from-background via-background to-muted/50 flex items-center justify-center overflow-hidden border border-primary/20">
-        {/* AI Brain/Circuit icon */}
-        <svg 
-          viewBox="0 0 24 24" 
-          className="w-1/2 h-1/2 text-primary"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {/* Inner solid center */}
+      <div className="absolute inset-1 rounded-full bg-background border border-border/30 flex items-center justify-center">
+        {/* Sparkle icon */}
+        <motion.svg
+          viewBox="0 0 24 24"
+          className={`${iconSizes[size]} text-primary`}
+          fill="currentColor"
+          animate={{ 
+            scale: [0.95, 1.05, 0.95],
+          }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         >
-          {/* Central node */}
-          <motion.circle 
-            cx="12" 
-            cy="12" 
-            r="3"
-            fill="currentColor"
-            animate={{ 
-              opacity: [0.8, 1, 0.8],
-              scale: [0.9, 1.1, 0.9]
-            }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          />
-          
-          {/* Orbiting dots */}
-          <motion.circle 
-            cx="12" 
-            cy="5" 
-            r="1.5"
-            fill="currentColor"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
-          />
-          <motion.circle 
-            cx="18" 
-            cy="9" 
-            r="1.5"
-            fill="currentColor"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 0.3 }}
-          />
-          <motion.circle 
-            cx="18" 
-            cy="15" 
-            r="1.5"
-            fill="currentColor"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
-          />
-          <motion.circle 
-            cx="12" 
-            cy="19" 
-            r="1.5"
-            fill="currentColor"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 0.9 }}
-          />
-          <motion.circle 
-            cx="6" 
-            cy="15" 
-            r="1.5"
-            fill="currentColor"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 1.2 }}
-          />
-          <motion.circle 
-            cx="6" 
-            cy="9" 
-            r="1.5"
-            fill="currentColor"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.5, repeat: Infinity, delay: 1.5 }}
-          />
-          
-          {/* Connection lines */}
-          <motion.line x1="12" y1="9" x2="12" y2="5" strokeOpacity="0.6" />
-          <motion.line x1="14.5" y1="10.5" x2="18" y2="9" strokeOpacity="0.6" />
-          <motion.line x1="14.5" y1="13.5" x2="18" y2="15" strokeOpacity="0.6" />
-          <motion.line x1="12" y1="15" x2="12" y2="19" strokeOpacity="0.6" />
-          <motion.line x1="9.5" y1="13.5" x2="6" y2="15" strokeOpacity="0.6" />
-          <motion.line x1="9.5" y1="10.5" x2="6" y2="9" strokeOpacity="0.6" />
-        </svg>
+          <path d="M12 2L13.09 8.26L19 7L14.74 12L19 17L13.09 15.74L12 22L10.91 15.74L5 17L9.26 12L5 7L10.91 8.26L12 2Z" />
+        </motion.svg>
       </div>
-
-      {/* Scanning line effect */}
-      <motion.div
-        className="absolute inset-1 rounded-full overflow-hidden pointer-events-none"
-        style={{ opacity: 0.3 }}
-      >
-        <motion.div
-          className="w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent"
-          animate={{ y: [0, 56, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </motion.div>
     </div>
   );
 };
