@@ -28,11 +28,10 @@ const ContextualFeed = () => {
         .select('id, titulo, data, hora')
         .gte('data', today)
         .order('data', { ascending: true })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (data) {
-        setNextAudiencia(data);
+      if (data && data.length > 0) {
+        setNextAudiencia(data[0]);
       }
     };
 
