@@ -19,7 +19,7 @@ const AgentChatLayout = () => {
         {/* Dynamic Header */}
         <AgentHeader />
 
-        {/* Chat Area */}
+        {/* Chat Area with Contextual Feed */}
         <AgentChatArea />
 
         {/* Mobile Conversations Sheet */}

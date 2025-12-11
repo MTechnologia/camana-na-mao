@@ -6,11 +6,11 @@ test.describe('Avaliação de Serviços', () => {
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/home', { timeout: 10000 });
+    await expect(page).toHaveURL('/ia', { timeout: 10000 });
   });
 
   test('deve avaliar serviço pendente', async ({ page }) => {
-    await page.goto('/evaluation');
+    await page.goto('/avaliar');
     
     // Clicar no serviço pendente
     await page.click('[data-testid="service-card"]').first();
@@ -27,7 +27,7 @@ test.describe('Avaliação de Serviços', () => {
   });
 
   test('deve encaminhar avaliação para vereador', async ({ page }) => {
-    await page.goto('/evaluation');
+    await page.goto('/avaliar');
     
     await page.click('[data-testid="service-card"]').first();
     await page.click('[data-star="5"]');
@@ -43,7 +43,7 @@ test.describe('Avaliação de Serviços', () => {
   });
 
   test('deve buscar serviços próximos', async ({ page }) => {
-    await page.goto('/services/nearby');
+    await page.goto('/servicos-proximos');
     
     await expect(page.locator('h1:has-text("Serviços Próximos")')).toBeVisible();
     

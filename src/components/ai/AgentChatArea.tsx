@@ -8,10 +8,12 @@ import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
 import ReportSuccessCard from "./ReportSuccessCard";
 import ContextualGreeting from "./ContextualGreeting";
+import ContextualFeed from "./ContextualFeed";
 import QuickActionsCarousel from "./QuickActionsCarousel";
 import TypingIndicator from "./TypingIndicator";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
+import { MessageSquare } from "lucide-react";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -33,7 +35,6 @@ const AgentChatArea = () => {
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
   
-  // Sync local ID with context
   useEffect(() => {
     setLocalConversationId(activeConversationId);
   }, [activeConversationId]);
@@ -45,7 +46,6 @@ const AgentChatArea = () => {
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Clear messages when returning to hub (both conversationId and journey are null)
   useEffect(() => {
     if (activeConversationId === null && !currentJourney && !hasCleared.current) {
       hasCleared.current = true;
@@ -56,21 +56,18 @@ const AgentChatArea = () => {
     }
   }, [activeConversationId, currentJourney, clearMessages]);
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, createdReport]);
 
   const showWelcome = !activeConversationId && !currentJourney;
 
-  // User avatar data
   const userAvatarUrl = profile?.avatar_url;
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    // If no active conversation, create one first
     if (!localConversationId) {
       const journeyToUse = currentJourney || AI_JOURNEYS.general;
       const newConvId = await createConversation(journeyToUse.id, journeyToUse.initialMessage);
@@ -99,18 +96,14 @@ const AgentChatArea = () => {
   };
 
   const handleStartJourney = async (journeyId: string) => {
-    // Get the journey config
     const journey = AI_JOURNEYS[journeyId as keyof typeof AI_JOURNEYS];
     if (!journey) return;
 
-    // Clear any existing state
     clearMessages();
     
-    // Create a new conversation with the initial message
     const newConvId = await createConversation(journey.id, journey.initialMessage);
     
     if (newConvId) {
-      // Set the journey and conversation in context
       setLocalConversationId(newConvId);
       setJourney(journey, newConvId);
       setActiveConversationId(newConvId);
@@ -136,6 +129,23 @@ const AgentChatArea = () => {
               transition={{ delay: 0.1, duration: 0.3 }}
             >
               <ContextualGreeting />
+              
+              {/* Minimal Contextual Feed - News & Events */}
+              <ContextualFeed />
+              
+              {/* Section Title for Quick Actions */}
+              <motion.div 
+                className="flex items-center gap-2 w-full max-w-md px-4 mt-6 mb-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25, duration: 0.3 }}
+              >
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">
+                  Inicie uma conversa com a Câmara
+                </span>
+              </motion.div>
+              
               <QuickActionsCarousel onStartJourney={handleStartJourney} />
               <motion.p 
                 className="text-xs text-muted-foreground text-center mt-4"
@@ -203,7 +213,6 @@ const AgentChatArea = () => {
         )}
       </AnimatePresence>
 
-      {/* Input Area */}
       {!createdReport && (
         <motion.div 
           className="border-t border-border bg-card p-3 sm:p-4 shrink-0"

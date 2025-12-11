@@ -25,7 +25,6 @@ import DemographicsPage from "./pages/profile/DemographicsPage";
 import AddressPage from "./pages/profile/AddressPage";
 import PreferencesPage from "./pages/profile/PreferencesPage";
 import InterestsPage from "./pages/profile/InterestsPage";
-import Home from "./pages/Home";
 import IA from "./pages/IA";
 
 import ConversationsPage from "./pages/ConversationsPage";
@@ -84,6 +83,7 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import NotFound from "./pages/NotFound";
 import SearchPage from "./pages/Search";
 import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
+
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
   const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
@@ -107,11 +107,11 @@ const AppContent = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/personal" element={<PersonalInfoPage />} />
-            <Route path="/profile/interests" element={<InterestsPage />} />
-            <Route path="/profile/demographics" element={<DemographicsPage />} />
-            <Route path="/profile/address" element={<AddressPage />} />
-            <Route path="/profile/preferences" element={<PreferencesPage />} />
+        <Route path="/profile/personal" element={<PersonalInfoPage />} />
+        <Route path="/profile/interests" element={<InterestsPage />} />
+        <Route path="/profile/demographics" element={<DemographicsPage />} />
+        <Route path="/profile/address" element={<AddressPage />} />
+        <Route path="/profile/preferences" element={<PreferencesPage />} />
         <Route path="/settings/accessibility" element={<AccessibilityPage />} />
         <Route path="/home" element={<Navigate to="/ia" replace />} />
         <Route path="/search" element={<SearchPage />} />
@@ -120,17 +120,17 @@ const AppContent = () => {
         <Route path="/conversa" element={<Navigate to="/ia" replace />} />
         <Route path="/voz" element={<Voz />} />
         <Route path="/favoritos" element={<FavoritesPage />} />
-          <Route path="/audiencias" element={<Audiencias />} />
-          <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
-          <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
-          <Route path="/institucional/agenda" element={<AgendaCMSP />} />
-          <Route path="/institucional/vereadores" element={<Vereadores />} />
-          <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
-          <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
-          <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
-          <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
-          <Route path="/institucional/noticias" element={<Noticias />} />
-          <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
+        <Route path="/audiencias" element={<Audiencias />} />
+        <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
+        <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
+        <Route path="/institucional/agenda" element={<AgendaCMSP />} />
+        <Route path="/institucional/vereadores" element={<Vereadores />} />
+        <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
+        <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
+        <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
+        <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
+        <Route path="/institucional/noticias" element={<Noticias />} />
+        <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
         <Route path="/perto-de-mim" element={<Navigate to="/servicos-proximos" replace />} />
@@ -143,36 +143,36 @@ const AppContent = () => {
         <Route path="/transporte/padroes" element={<PatternsPage />} />
         <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
         <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
-          <Route path="/analytics" element={<AnalyticsDashboard />} />
-          <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
-          <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
-          <Route path="/analytics/galeria" element={<PublicDashboards />} />
-          <Route path="/relato-urbano" element={<UrbanReportPage />} />
-          <Route path="/relato-urbano/chat" element={<ChatReportPage />} />
-          <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
-          <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
-          <Route path="/meus-relatos-urbanos" element={<ReportHistoryPage />} />
-          <Route path="/recomendacoes" element={<ServiceRecommendationsPage />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedAdminRoute><AnalyticsDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/analytics/advanced" element={<ProtectedAdminRoute><AdvancedAnalytics /></ProtectedAdminRoute>} />
-          <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/dashboards" element={<ProtectedAdminRoute><DashboardManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/dashboards/create" element={<ProtectedAdminRoute><AdminCreateDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/dashboards/gallery" element={<ProtectedAdminRoute><AdminPublicDashboards /></ProtectedAdminRoute>} />
-          <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
-          <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
-          <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
-          <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
-          <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
+        <Route path="/analytics" element={<AnalyticsDashboard />} />
+        <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
+        <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
+        <Route path="/analytics/galeria" element={<PublicDashboards />} />
+        <Route path="/relato-urbano" element={<UrbanReportPage />} />
+        <Route path="/relato-urbano/chat" element={<ChatReportPage />} />
+        <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
+        <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
+        <Route path="/meus-relatos-urbanos" element={<ReportHistoryPage />} />
+        <Route path="/recomendacoes" element={<ServiceRecommendationsPage />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+        <Route path="/admin/analytics" element={<ProtectedAdminRoute><AnalyticsDashboard /></ProtectedAdminRoute>} />
+        <Route path="/admin/analytics/advanced" element={<ProtectedAdminRoute><AdvancedAnalytics /></ProtectedAdminRoute>} />
+        <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
+        <Route path="/admin/dashboards" element={<ProtectedAdminRoute><DashboardManagement /></ProtectedAdminRoute>} />
+        <Route path="/admin/dashboards/create" element={<ProtectedAdminRoute><AdminCreateDashboard /></ProtectedAdminRoute>} />
+        <Route path="/admin/dashboards/gallery" element={<ProtectedAdminRoute><AdminPublicDashboards /></ProtectedAdminRoute>} />
+        <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
+        <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
+        <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
+        <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
+        <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
+        <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
+        <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
+        <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />
+        <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
+        <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
+        <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
