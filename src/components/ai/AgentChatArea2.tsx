@@ -132,6 +132,18 @@ const AgentChatArea2 = () => {
               {/* Minimal Contextual Feed - News & Events */}
               <ContextualFeed />
               
+              {/* Section Title for Quick Actions */}
+              <motion.div 
+                className="flex items-center gap-2 w-full max-w-md px-4 mt-6 mb-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.25, duration: 0.3 }}
+              >
+                <span className="text-sm font-semibold text-foreground">
+                  Inicie uma conversa com a Câmara
+                </span>
+              </motion.div>
+              
               <QuickActionsCarousel onStartJourney={handleStartJourney} />
               <motion.p 
                 className="text-xs text-muted-foreground text-center mt-4"
