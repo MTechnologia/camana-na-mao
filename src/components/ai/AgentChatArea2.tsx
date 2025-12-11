@@ -13,6 +13,7 @@ import QuickActionsCarousel from "./QuickActionsCarousel";
 import TypingIndicator from "./TypingIndicator";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
+import { MessageSquare } from "lucide-react";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -139,6 +140,7 @@ const AgentChatArea2 = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.25, duration: 0.3 }}
               >
+                <MessageSquare className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">
                   Inicie uma conversa com a Câmara
                 </span>
