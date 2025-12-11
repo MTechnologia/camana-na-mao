@@ -184,7 +184,35 @@ Indicador visual de progresso da coleta de dados:
 - 🔄 Amarelo (animado): Slot em coleta
 - ⚪ Cinza: Slot pendente
 
-### 4.2 EscapeValveDialog
+### 4.2 JourneySuggestionCard
+
+Card de sugestão que aparece no chat geral quando a IA detecta intenção de usar uma jornada especializada.
+
+**Localização**: `src/components/ai/JourneySuggestionCard.tsx`
+
+**Comportamento**:
+- Aparece após resposta da IA quando `intent_detected` é `true`
+- Exibe ícone, título e descrição da jornada sugerida
+- Badge "Recomendado" para alta confiança (≥90%)
+- Botões: "Usar esta funcionalidade" (aceitar) e X (dispensar)
+- Animação de entrada/saída suave com Framer Motion
+
+**Jornadas Suportadas**:
+| Jornada | Ícone | Cor | Descrição |
+|---------|-------|-----|-----------|
+| `transport` | Bus | Azul | Diagnóstico de Transporte |
+| `urban_report` | MapPin | Âmbar | Relato Urbano |
+| `evaluate` | Star | Verde | Avaliação de Serviço |
+
+**Fluxo**:
+1. Usuário envia mensagem no chat geral
+2. Edge function detecta intent via keywords
+3. Marcador `intent_detected` é injetado no stream SSE
+4. Frontend exibe JourneySuggestionCard
+5. Usuário aceita → navega para jornada especializada
+6. Usuário dispensa → card desaparece
+
+### 4.3 EscapeValveDialog
 
 Modal apresentado quando o usuário tenta sair de uma jornada estruturada:
 
@@ -193,7 +221,7 @@ Modal apresentado quando o usuário tenta sair de uma jornada estruturada:
 2. **Salvar e sair**: Preserva no histórico para continuar depois
 3. **Descartar e sair**: Abandona a conversa
 
-### 4.3 AgentHeader
+### 4.4 AgentHeader
 
 Header dinâmico que muda conforme o estado:
 

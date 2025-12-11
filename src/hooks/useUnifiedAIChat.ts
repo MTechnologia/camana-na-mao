@@ -18,10 +18,16 @@ interface CreatedReport {
   id: string;
 }
 
+export interface IntentDetection {
+  journey: "transport" | "urban_report" | "evaluate";
+  confidence: number;
+}
+
 export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
+  const [detectedIntent, setDetectedIntent] = useState<IntentDetection | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -135,9 +141,16 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     setCreatedReport(null);
   }, []);
 
+  const dismissIntent = useCallback(() => {
+    setDetectedIntent(null);
+  }, []);
+
   const sendMessage = async (content: string) => {
     // Use fallback para jornada 'general' se nenhuma estiver ativa
     const activeJourney = journey || AI_JOURNEYS.general;
+    
+    // Clear previous intent when sending new message
+    setDetectedIntent(null);
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -245,6 +258,16 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
             try {
               const parsed = JSON.parse(data);
+              
+              // Check for intent detection marker (only in general chat)
+              if (parsed.intent_detected && activeJourney.id === 'general') {
+                setDetectedIntent({
+                  journey: parsed.journey,
+                  confidence: parsed.confidence
+                });
+                continue;
+              }
+              
               const content = parsed.choices?.[0]?.delta?.content;
 
               if (content) {
@@ -315,7 +338,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
                 conversationIdRef.current = parsed.conversationId;
               }
             } catch (e) {
-              console.error("Error parsing SSE data:", e);
+              // Ignore parse errors for incomplete chunks
             }
           }
         }
@@ -371,6 +394,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   const clearMessages = useCallback(() => {
     setMessages([]);
     setCreatedReport(null);
+    setDetectedIntent(null);
     conversationIdRef.current = null;
   }, []);
 
@@ -382,5 +406,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     addAssistantMessage,
     createdReport,
     clearCreatedReport,
+    detectedIntent,
+    dismissIntent,
   };
 };

@@ -263,8 +263,40 @@ Contexto: Você está conversando com um cidadão da cidade de São Paulo intere
       if (insertError) console.error('Erro ao salvar conversa:', insertError);
     }
 
-    // Return streaming response
-    return new Response(response.body, {
+    // Create a TransformStream to inject intent detection marker
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const reader = response.body!.getReader();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    // Process stream and inject intent marker at the end
+    (async () => {
+      try {
+        let done = false;
+        while (!done) {
+          const { value, done: streamDone } = await reader.read();
+          done = streamDone;
+          if (value) {
+            await writer.write(value);
+          }
+        }
+        
+        // Inject intent detection marker at the end of stream if detected
+        if (detectedJourney && confidence >= 0.6) {
+          const intentMarker = `\n\ndata: {"intent_detected":true,"journey":"${detectedJourney}","confidence":${confidence}}\n\n`;
+          await writer.write(encoder.encode(intentMarker));
+        }
+        
+        await writer.close();
+      } catch (error) {
+        console.error('Error processing stream:', error);
+        await writer.abort(error);
+      }
+    })();
+
+    // Return streaming response with intent detection
+    return new Response(readable, {
       headers: { 
         ...corsHeaders, 
         'Content-Type': 'text/event-stream',

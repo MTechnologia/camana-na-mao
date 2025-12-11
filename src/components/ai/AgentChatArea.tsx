@@ -12,6 +12,7 @@ import ContextualFeed from "./ContextualFeed";
 import QuickActionsCarousel from "./QuickActionsCarousel";
 import TypingIndicator from "./TypingIndicator";
 import JourneyProgressTracker from "./JourneyProgressTracker";
+import JourneySuggestionCard from "./JourneySuggestionCard";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare } from "lucide-react";
@@ -43,7 +44,7 @@ const AgentChatArea = () => {
     setLocalConversationId(activeConversationId);
   }, [activeConversationId]);
 
-  const { messages, isLoading, sendMessage, createdReport, clearCreatedReport, clearMessages } = useUnifiedAIChat(
+  const { messages, isLoading, sendMessage, createdReport, clearCreatedReport, clearMessages, detectedIntent, dismissIntent } = useUnifiedAIChat(
     currentJourney || AI_JOURNEYS.general,
     localConversationId
   );
@@ -212,6 +213,21 @@ const AgentChatArea = () => {
                     />
                   </motion.div>
                 )}
+                
+                {/* Journey Suggestion Card - shown when intent is detected */}
+                <AnimatePresence>
+                  {detectedIntent && !createdReport && !isLoading && (
+                    <JourneySuggestionCard
+                      journeyType={detectedIntent.journey}
+                      confidence={detectedIntent.confidence >= 0.9 ? "high" : "medium"}
+                      onAccept={() => {
+                        dismissIntent();
+                        handleStartJourney(detectedIntent.journey);
+                      }}
+                      onDismiss={dismissIntent}
+                    />
+                  )}
+                </AnimatePresence>
                 
                 {isLoading && !createdReport && (
                   <motion.div
