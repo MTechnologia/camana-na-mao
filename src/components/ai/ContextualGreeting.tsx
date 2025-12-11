@@ -79,22 +79,25 @@ const ContextualGreeting = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="flex flex-col items-center justify-center text-center w-full px-4 py-4"
+      className="flex items-center gap-4 w-full max-w-md px-4 py-4"
     >
-      {/* Agent Avatar com ondas animadas */}
-      <div className="mb-4">
+      {/* Agent Avatar com ondas animadas - à esquerda */}
+      <div className="shrink-0">
         <AnimatedAIAvatar size="md" />
       </div>
 
-      {/* Greeting */}
-      <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
-        {getTimeGreeting()}, <span className="text-primary">{firstName}</span>!
-      </h2>
+      {/* Text Content - à direita */}
+      <div className="flex flex-col text-left">
+        {/* Greeting */}
+        <h2 className="text-xl sm:text-2xl font-semibold text-foreground">
+          {getTimeGreeting()}, <span className="text-primary">{firstName}</span>!
+        </h2>
 
-      {/* Contextual Message */}
-      <p className="text-muted-foreground text-sm max-w-sm leading-relaxed">
-        {getContextualMessage()}
-      </p>
+        {/* Contextual Message */}
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {getContextualMessage()}
+        </p>
+      </div>
     </motion.div>
   );
 };
