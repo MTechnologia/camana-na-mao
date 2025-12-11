@@ -27,7 +27,6 @@ import PreferencesPage from "./pages/profile/PreferencesPage";
 import InterestsPage from "./pages/profile/InterestsPage";
 import Home from "./pages/Home";
 import IA from "./pages/IA";
-import IA2 from "./pages/IA2";
 
 import ConversationsPage from "./pages/ConversationsPage";
 import Voz from "./pages/Voz";
@@ -117,7 +116,6 @@ const AppContent = () => {
         <Route path="/home" element={<Navigate to="/ia" replace />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/ia" element={<IA />} />
-        <Route path="/ia-2" element={<IA2 />} />
         <Route path="/conversas" element={<ConversationsPage />} />
         <Route path="/conversa" element={<Navigate to="/ia" replace />} />
         <Route path="/voz" element={<Voz />} />
