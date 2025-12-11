@@ -16,27 +16,27 @@ interface Audiencia {
 
 const ContextualFeed = () => {
   const navigate = useNavigate();
-  const [nextAudiencia, setNextAudiencia] = useState<Audiencia | null>(null);
+  const [proximasAudiencias, setProximasAudiencias] = useState<Audiencia[]>([]);
 
-  // Get the most recent news
-  const latestNews = noticias.find(n => n.isNew) || noticias[0];
+  // Get multiple recent news (up to 2)
+  const recentNews = noticias.slice(0, 2);
 
   useEffect(() => {
-    const fetchNextAudiencia = async () => {
+    const fetchProximasAudiencias = async () => {
       const today = new Date().toISOString().split('T')[0];
       const { data } = await supabase
         .from('audiencias')
         .select('id, titulo, data, hora')
         .gte('data', today)
         .order('data', { ascending: true })
-        .limit(1);
+        .limit(2);
 
       if (data && data.length > 0) {
-        setNextAudiencia(data[0]);
+        setProximasAudiencias(data);
       }
     };
 
-    fetchNextAudiencia();
+    fetchProximasAudiencias();
   }, []);
 
   // Check if news is recent (within 6 hours)
@@ -82,7 +82,7 @@ const ContextualFeed = () => {
     }
   };
 
-  if (!latestNews && !nextAudiencia) return null;
+  if (recentNews.length === 0 && proximasAudiencias.length === 0) return null;
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -91,7 +91,7 @@ const ContextualFeed = () => {
       y: 0,
       transition: {
         duration: 0.4,
-        staggerChildren: 0.15
+        staggerChildren: 0.1
       }
     }
   };
@@ -112,90 +112,95 @@ const ContextualFeed = () => {
       initial="hidden"
       animate="visible"
     >
+      {/* Section Title - Outside Card */}
+      <motion.div 
+        className="flex items-center gap-2 mb-3"
+        variants={itemVariants}
+      >
+        <Sparkles className="w-4 h-4 text-primary" />
+        <span className="text-sm font-semibold text-foreground">
+          O que está rolando
+        </span>
+      </motion.div>
+
       {/* Card Container with Glassmorphism */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/8 via-background to-secondary/8 border border-primary/15 shadow-lg backdrop-blur-sm">
         {/* Decorative gradient orb */}
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-2xl" />
         
-        {/* Header */}
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-xs font-medium text-primary uppercase tracking-wider">
-            O que está rolando
-          </span>
-        </div>
-
         {/* Content */}
-        <div className="px-4 pb-4 space-y-3">
-          {/* News Item */}
-          {latestNews && (
+        <div className="p-3 space-y-2">
+          {/* News Items */}
+          {recentNews.map((news, index) => (
             <motion.button
+              key={news.id}
               variants={itemVariants}
-              onClick={() => navigate(`/institucional/noticias/${latestNews.id}`)}
+              onClick={() => navigate(`/institucional/noticias/${news.id}`)}
               className="w-full group flex items-start gap-3 p-3 rounded-xl bg-background/50 hover:bg-background/80 border border-transparent hover:border-primary/20 transition-all duration-200"
-              aria-label={`Notícia: ${latestNews.title}`}
+              aria-label={`Notícia: ${news.title}`}
             >
               {/* Icon */}
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center">
-                <Newspaper className="w-5 h-5 text-blue-500" />
+              <div className="shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center">
+                <Newspaper className="w-4 h-4 text-blue-500" />
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center gap-2 mb-1">
-                  {isRecentNews(latestNews.date) && (
+                <div className="flex items-center gap-2 mb-0.5">
+                  {isRecentNews(news.date) && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-destructive/15 text-destructive animate-pulse">
                       Novo
                     </span>
                   )}
                   <span className="text-[10px] text-muted-foreground">
-                    {formatNewsTime(latestNews.date)}
+                    {formatNewsTime(news.date)}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                  {latestNews.title}
+                <p className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                  {news.title}
                 </p>
               </div>
 
               {/* Arrow */}
-              <ChevronRight className="shrink-0 w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              <ChevronRight className="shrink-0 w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all mt-1" />
             </motion.button>
-          )}
+          ))}
 
-          {/* Audiencia Item */}
-          {nextAudiencia && (
+          {/* Audiencia Items */}
+          {proximasAudiencias.map((audiencia) => (
             <motion.button
+              key={audiencia.id}
               variants={itemVariants}
-              onClick={() => navigate(`/audiencias/${nextAudiencia.id}`)}
+              onClick={() => navigate(`/audiencias/${audiencia.id}`)}
               className="w-full group flex items-start gap-3 p-3 rounded-xl bg-background/50 hover:bg-background/80 border border-transparent hover:border-primary/20 transition-all duration-200"
-              aria-label={`Audiência: ${nextAudiencia.titulo}`}
+              aria-label={`Audiência: ${audiencia.titulo}`}
             >
               {/* Icon */}
-              <div className="shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-amber-500" />
+              <div className="shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-amber-500" />
               </div>
 
               {/* Content */}
               <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center gap-2 mb-1">
-                  {isEventSoon(nextAudiencia.data) && (
+                <div className="flex items-center gap-2 mb-0.5">
+                  {isEventSoon(audiencia.data) && (
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-600 dark:text-amber-400">
                       Em breve
                     </span>
                   )}
                   <span className="text-[10px] text-muted-foreground">
-                    {formatEventDate(nextAudiencia.data, nextAudiencia.hora)}
+                    {formatEventDate(audiencia.data, audiencia.hora)}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                  {nextAudiencia.titulo}
+                <p className="text-sm font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                  {audiencia.titulo}
                 </p>
               </div>
 
               {/* Arrow */}
-              <ChevronRight className="shrink-0 w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              <ChevronRight className="shrink-0 w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all mt-1" />
             </motion.button>
-          )}
+          ))}
         </div>
       </div>
     </motion.div>
