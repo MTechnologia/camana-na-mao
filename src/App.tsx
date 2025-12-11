@@ -35,6 +35,7 @@ import FavoritesPage from "./pages/FavoritesPage";
 import ParticipacaoPage from "./pages/audiencias/ParticipacaoPage";
 import AgendaCMSP from "./pages/institucional/AgendaCMSP";
 import Vereadores from "./pages/institucional/Vereadores";
+import VereadorDetailPage from "./pages/institucional/VereadorDetailPage";
 import ConhecaCamara from "./pages/institucional/ConhecaCamara";
 import CamaraExplica from "./pages/institucional/CamaraExplica";
 import EscolaParlamento from "./pages/institucional/EscolaParlamento";
@@ -122,6 +123,7 @@ const AppContent = () => {
           <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
           <Route path="/institucional/agenda" element={<AgendaCMSP />} />
           <Route path="/institucional/vereadores" element={<Vereadores />} />
+          <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
           <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
           <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
           <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />

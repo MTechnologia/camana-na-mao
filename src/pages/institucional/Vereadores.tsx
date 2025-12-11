@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import { Search, MapPin, Phone, Mail, Heart, X, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ const uniqueRegions = [...new Set(vereadores.map(v => v.region).filter(Boolean))
 const regionFilterOptions = uniqueRegions.map(r => ({ value: r, label: r }));
 
 const Vereadores = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParty, setSelectedParty] = useState<string>("all");
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
@@ -139,7 +141,8 @@ const Vereadores = () => {
             filteredVereadores.map((vereador) => (
               <Card
                 key={vereador.id}
-                className="p-4 hover:shadow-md transition-shadow cursor-pointer relative"
+                onClick={() => navigate(`/institucional/vereadores/${vereador.id}`)}
+                className="p-4 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
               >
                 <button
                   onClick={(e) => {
@@ -149,7 +152,7 @@ const Vereadores = () => {
                       type: 'vereador',
                       title: vereador.name,
                       subtitle: vereador.party,
-                      path: `/institucional/vereadores`,
+                      path: `/institucional/vereadores/${vereador.id}`,
                       image: vereador.photo,
                     });
                   }}
