@@ -36,7 +36,16 @@ const IA = () => {
 
   return (
     <AIJourneyProvider>
-      <AgentChatLayout />
+      <div className="relative">
+        <AgentChatLayout />
+        {/* Botão temporário de teste - REMOVER após validação */}
+        <button
+          onClick={() => navigate("/ia-2")}
+          className="fixed bottom-4 right-4 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg text-sm font-medium"
+        >
+          Testar /ia-2
+        </button>
+      </div>
     </AIJourneyProvider>
   );
 };
