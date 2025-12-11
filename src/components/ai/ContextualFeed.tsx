@@ -212,11 +212,6 @@ const ContextualFeed = () => {
                   {item.description}
                 </p>
 
-                {/* Read more indicator */}
-                <div className="flex items-center gap-1 mt-2 text-xs text-primary/70 group-hover:text-primary transition-colors">
-                  <span>Saiba mais</span>
-                  <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                </div>
               </div>
             </motion.button>
           ))}
