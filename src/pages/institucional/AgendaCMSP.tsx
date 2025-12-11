@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, MapPin, Users, Heart, Search, X } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Heart, Search, X, CalendarPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 interface AgendaItem {
   id: string;
@@ -84,6 +93,7 @@ const AgendaCMSP = () => {
   const { toggleFavorite, isFavorited } = useFavorites();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<AgendaItem | null>(null);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -92,6 +102,34 @@ const AgendaCMSP = () => {
       day: "numeric",
       month: "long",
     });
+  };
+
+  const formatShortDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const handleAddToCalendar = (item: AgendaItem) => {
+    const startDate = new Date(`${item.date}T${item.time}:00`);
+    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+
+    const formatGoogleDate = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+      item.title
+    )}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(
+      endDate
+    )}&location=${encodeURIComponent(item.location)}&details=${encodeURIComponent(
+      `Evento da Câmara Municipal de São Paulo\n\nLocal: ${item.location}`
+    )}`;
+
+    window.open(googleUrl, "_blank");
+    toast.success("Abrindo Google Calendar...");
   };
 
   const filteredAgenda = useMemo(() => {
@@ -189,7 +227,11 @@ const AgendaCMSP = () => {
               filteredAgenda.map((item) => {
                 const typeInfo = typeLabels[item.type];
                 return (
-                  <Card key={item.id} className="p-4 hover:shadow-md transition-shadow relative">
+                  <Card 
+                    key={item.id} 
+                    onClick={() => setSelectedEvent(item)}
+                    className="p-4 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
+                  >
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -267,6 +309,108 @@ const AgendaCMSP = () => {
           <p><strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.</p>
         </div>
       </ContentArticle>
+
+      {/* Event Detail Drawer */}
+      <Sheet open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <SheetContent side="bottom" className="h-auto max-h-[85vh] rounded-t-2xl">
+          {selectedEvent && (
+            <>
+              <SheetHeader className="text-left pb-4">
+                <Badge
+                  variant="outline"
+                  className={`w-fit ${typeLabels[selectedEvent.type].color}`}
+                >
+                  {typeLabels[selectedEvent.type].label}
+                </Badge>
+                <SheetTitle className="text-xl">
+                  {selectedEvent.title}
+                </SheetTitle>
+                <SheetDescription>
+                  Detalhes do evento da Câmara Municipal
+                </SheetDescription>
+              </SheetHeader>
+
+              <Separator className="my-4" />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Data</p>
+                    <p className="font-medium capitalize">{formatDate(selectedEvent.date)}</p>
+                    <p className="text-sm text-muted-foreground">{formatShortDate(selectedEvent.date)}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Horário</p>
+                    <p className="font-medium">{selectedEvent.time}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Local</p>
+                    <p className="font-medium">{selectedEvent.location}</p>
+                  </div>
+                </div>
+
+                {selectedEvent.participants && selectedEvent.participants.length > 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Participantes</p>
+                      <p className="font-medium">{selectedEvent.participants.join(", ")}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-6 pb-4">
+                <Button
+                  className="flex-1"
+                  onClick={() => handleAddToCalendar(selectedEvent)}
+                >
+                  <CalendarPlus className="h-4 w-4 mr-2" />
+                  Adicionar ao Calendário
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    toggleFavorite({
+                      id: `agenda-${selectedEvent.id}`,
+                      type: 'agenda',
+                      title: selectedEvent.title,
+                      subtitle: typeLabels[selectedEvent.type].label,
+                      path: `/institucional/agenda`,
+                      metadata: { date: selectedEvent.date, time: selectedEvent.time, location: selectedEvent.location },
+                    });
+                  }}
+                >
+                  <Heart
+                    className={`h-4 w-4 ${
+                      isFavorited(`agenda-${selectedEvent.id}`)
+                        ? "fill-pink-500 text-pink-500"
+                        : ""
+                    }`}
+                  />
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </InstitutionalLayout>
   );
 };
