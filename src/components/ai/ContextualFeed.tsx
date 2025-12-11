@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { noticias } from "@/data/noticias";
 import { formatDistanceToNow, format, isToday, isTomorrow, differenceInHours, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Newspaper, Calendar, ChevronRight, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 
@@ -169,26 +169,22 @@ const ContextualFeed = () => {
                 <div className="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-2xl" />
                 
                 {/* Header */}
-                <div className="flex items-center gap-2 mb-2">
-                  {/* Icon */}
-                  <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {/* Type Chip */}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
                     item.type === "news" 
-                      ? "bg-gradient-to-br from-blue-500/20 to-blue-600/10" 
-                      : "bg-gradient-to-br from-amber-500/20 to-amber-600/10"
+                      ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" 
+                      : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                   }`}>
-                    {item.type === "news" ? (
-                      <Newspaper className="w-4 h-4 text-blue-500" />
-                    ) : (
-                      <Calendar className="w-4 h-4 text-amber-500" />
-                    )}
-                  </div>
+                    {item.type === "news" ? "Notícia" : "Evento"}
+                  </span>
 
-                  {/* Badge */}
+                  {/* Status Badge */}
                   {item.badge && (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
                       item.badgeColor === "destructive" 
                         ? "bg-destructive/15 text-destructive animate-pulse" 
-                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                     }`}>
                       {item.badge}
                     </span>
