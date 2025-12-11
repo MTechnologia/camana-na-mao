@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import iaIcone from "@/assets/ia-icone.png";
 
 interface AnimatedAIAvatarProps {
   size?: "sm" | "md" | "lg";
@@ -7,55 +8,54 @@ interface AnimatedAIAvatarProps {
 const AnimatedAIAvatar = ({ size = "md" }: AnimatedAIAvatarProps) => {
   const sizeClasses = {
     sm: "w-12 h-12",
-    md: "w-14 h-14 sm:w-16 sm:h-16",
-    lg: "w-20 h-20",
+    md: "w-16 h-16 sm:w-20 sm:h-20",
+    lg: "w-24 h-24",
   };
 
   const iconSizes = {
-    sm: "w-4 h-4",
-    md: "w-5 h-5 sm:w-6 sm:h-6",
-    lg: "w-7 h-7",
+    sm: "w-8 h-8",
+    md: "w-12 h-12 sm:w-16 sm:h-16",
+    lg: "w-20 h-20",
   };
 
   return (
-    <div className={`relative ${sizeClasses[size]} flex items-center justify-center`}>
-      {/* Outer rotating gradient ring */}
-      <motion.div
-        className="absolute inset-0 rounded-full"
-        style={{
-          background: "conic-gradient(from 0deg, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--accent)), hsl(var(--primary)))",
-          padding: "2px",
-        }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-      >
-        <div className="w-full h-full rounded-full bg-background" />
-      </motion.div>
-
-      {/* Pulsing glow */}
-      <motion.div
-        className="absolute inset-2 rounded-full bg-gradient-to-br from-primary/20 via-secondary/15 to-accent/20 blur-sm"
-        animate={{ 
-          opacity: [0.3, 0.6, 0.3],
-        }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* Inner solid center */}
-      <div className="absolute inset-1 rounded-full bg-background border border-border/30 flex items-center justify-center">
-        {/* Sparkle icon */}
-        <motion.svg
-          viewBox="0 0 24 24"
-          className={`${iconSizes[size]} text-primary`}
-          fill="currentColor"
-          animate={{ 
-            scale: [0.95, 1.05, 0.95],
+    <div className={`relative ${sizeClasses[size]}`}>
+      {/* Ondas sonoras animadas */}
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute inset-0 rounded-full border-2 border-primary/60"
+          initial={{ scale: 1, opacity: 0.5 }}
+          animate={{
+            scale: [1, 1.6],
+            opacity: [0.5, 0],
           }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <path d="M12 2L13.09 8.26L19 7L14.74 12L19 17L13.09 15.74L12 22L10.91 15.74L5 17L9.26 12L5 7L10.91 8.26L12 2Z" />
-        </motion.svg>
-      </div>
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            delay: i * 0.8,
+            ease: "easeOut",
+          }}
+        />
+      ))}
+
+      {/* Glow de fundo */}
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary via-secondary to-accent opacity-20 blur-xl" />
+      
+      {/* Container principal com ícone */}
+      <motion.div
+        className="relative w-full h-full rounded-full bg-gradient-to-br from-primary/10 via-secondary/10 to-accent/10 p-1 shadow-lg"
+        animate={{ scale: [1, 1.02, 1] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
+          <img 
+            src={iaIcone} 
+            alt="Câmara SP" 
+            className={`${iconSizes[size]} object-contain`} 
+          />
+        </div>
+      </motion.div>
     </div>
   );
 };
