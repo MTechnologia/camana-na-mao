@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,13 +10,26 @@ interface Message {
   source?: string;
 }
 
+interface IntentDetection {
+  journey: "transport" | "urban_report" | "evaluate";
+  confidence: number;
+}
+
 export const useAIChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [detectedIntent, setDetectedIntent] = useState<IntentDetection | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const { toast } = useToast();
 
+  const dismissIntent = useCallback(() => {
+    setDetectedIntent(null);
+  }, []);
+
   const sendMessage = async (content: string) => {
+    // Clear any previous intent when sending new message
+    setDetectedIntent(null);
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -110,6 +123,16 @@ export const useAIChat = () => {
 
             try {
               const parsed = JSON.parse(data);
+              
+              // Check for intent detection marker
+              if (parsed.intent_detected) {
+                setDetectedIntent({
+                  journey: parsed.journey,
+                  confidence: parsed.confidence
+                });
+                continue;
+              }
+              
               const delta = parsed.choices?.[0]?.delta?.content;
               
               if (delta) {
@@ -148,15 +171,18 @@ export const useAIChat = () => {
     }
   };
 
-  const clearMessages = () => {
+  const clearMessages = useCallback(() => {
     setMessages([]);
+    setDetectedIntent(null);
     conversationIdRef.current = null;
-  };
+  }, []);
 
   return {
     messages,
     isLoading,
     sendMessage,
     clearMessages,
+    detectedIntent,
+    dismissIntent,
   };
 };
