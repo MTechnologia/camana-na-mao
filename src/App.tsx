@@ -14,6 +14,7 @@ import { EvaluationProvider } from "@/contexts/EvaluationContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import Splash from "./pages/Splash";
+import Welcome from "./pages/Welcome";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ResetPassword from "./pages/ResetPassword";
@@ -100,6 +101,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/" element={<Navigate to="/splash" replace />} />
         <Route path="/splash" element={<Splash />} />
+        <Route path="/welcome" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/reset-password" element={<ResetPassword />} />
