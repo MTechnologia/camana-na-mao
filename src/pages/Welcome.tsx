@@ -2,31 +2,36 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
-import { MessageCircle, Sparkles, MapPin, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import WelcomeSlide from "@/components/welcome/WelcomeSlide";
 
+// Import Lottie animations
+import communityAnimation from "@/assets/lottie/community.json";
+import aiAssistantAnimation from "@/assets/lottie/ai-assistant.json";
+import locationAnimation from "@/assets/lottie/location.json";
+import transparencyAnimation from "@/assets/lottie/transparency.json";
+
 const slides = [
   {
-    icon: MessageCircle,
+    animationData: communityAnimation,
     title: "Sua voz transforma São Paulo",
     description: "Participe de audiências públicas, avalie serviços e reporte problemas urbanos.",
     gradient: "bg-gradient-to-br from-rose-600 via-rose-500 to-pink-400",
   },
   {
-    icon: Sparkles,
+    animationData: aiAssistantAnimation,
     title: "Conheça a Luana",
     description: "Sua assistente inteligente para acessar informações da Câmara Municipal de forma simples.",
     gradient: "bg-gradient-to-br from-violet-600 via-purple-500 to-indigo-400",
   },
   {
-    icon: MapPin,
+    animationData: locationAnimation,
     title: "Serviços perto de você",
     description: "Encontre UBS, escolas, hospitais e outros equipamentos públicos na sua região.",
     gradient: "bg-gradient-to-br from-teal-600 via-cyan-500 to-sky-400",
   },
   {
-    icon: Building,
+    animationData: transparencyAnimation,
     title: "Transparência em tempo real",
     description: "Acompanhe projetos de lei, vereadores e tudo que acontece na Câmara.",
     gradient: "bg-gradient-to-br from-amber-600 via-orange-500 to-yellow-400",
@@ -81,7 +86,7 @@ const Welcome = () => {
           {slides.map((slide, index) => (
             <WelcomeSlide
               key={index}
-              icon={slide.icon}
+              animationData={slide.animationData}
               title={slide.title}
               description={slide.description}
               gradient={slide.gradient}

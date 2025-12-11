@@ -1,15 +1,15 @@
 import { motion } from "framer-motion";
-import { LucideIcon } from "lucide-react";
+import Lottie from "lottie-react";
 
 interface WelcomeSlideProps {
-  icon: LucideIcon;
+  animationData: object;
   title: string;
   description: string;
   gradient: string;
   isActive: boolean;
 }
 
-const WelcomeSlide = ({ icon: Icon, title, description, gradient, isActive }: WelcomeSlideProps) => {
+const WelcomeSlide = ({ animationData, title, description, gradient, isActive }: WelcomeSlideProps) => {
   return (
     <div className={`flex-[0_0_100%] min-w-0 h-full ${gradient}`}>
       <div className="flex flex-col items-center justify-center h-full px-8 text-center">
@@ -17,11 +17,14 @@ const WelcomeSlide = ({ icon: Icon, title, description, gradient, isActive }: We
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: isActive ? 1 : 0.8, opacity: isActive ? 1 : 0 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="mb-8"
+          className="mb-6 w-48 h-48 md:w-56 md:h-56"
         >
-          <div className="w-32 h-32 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-xl">
-            <Icon className="w-16 h-16 text-white drop-shadow-lg" strokeWidth={1.5} />
-          </div>
+          <Lottie
+            animationData={animationData}
+            loop={true}
+            autoplay={isActive}
+            className="w-full h-full drop-shadow-2xl"
+          />
         </motion.div>
 
         <motion.h2
