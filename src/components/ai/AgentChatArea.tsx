@@ -11,6 +11,7 @@ import ContextualGreeting from "./ContextualGreeting";
 import ContextualFeed from "./ContextualFeed";
 import QuickActionsCarousel from "./QuickActionsCarousel";
 import TypingIndicator from "./TypingIndicator";
+import JourneyProgressTracker from "./JourneyProgressTracker";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare } from "lucide-react";
@@ -28,6 +29,9 @@ const contentVariants = {
     transition: { duration: 0.2, ease: [0.4, 0, 1, 1] as const }
   }
 };
+
+// Journeys that collect structured data and should show progress tracker
+const STRUCTURED_JOURNEYS = ['urban_report', 'transport', 'evaluate'];
 
 const AgentChatArea = () => {
   const { currentJourney, activeConversationId, setJourney, setActiveConversationId, clearJourney } = useAIJourney();
@@ -61,6 +65,7 @@ const AgentChatArea = () => {
   }, [messages, isLoading, createdReport]);
 
   const showWelcome = !activeConversationId && !currentJourney;
+  const showProgressTracker = currentJourney && STRUCTURED_JOURNEYS.includes(currentJourney.id) && messages.length > 0;
 
   const userAvatarUrl = profile?.avatar_url;
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
@@ -164,9 +169,21 @@ const AgentChatArea = () => {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="flex-1 min-h-0"
+            className="flex-1 min-h-0 flex flex-col"
           >
-            <ScrollArea className="h-full">
+            {/* Progress Tracker for Structured Journeys */}
+            {showProgressTracker && (
+              <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
+                <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
+                  <JourneyProgressTracker 
+                    journeyId={currentJourney.id}
+                    messages={messages}
+                  />
+                </div>
+              </div>
+            )}
+
+            <ScrollArea className="flex-1">
               <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
                 {messages.map((msg, index) => (
                   <motion.div
