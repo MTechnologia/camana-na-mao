@@ -62,6 +62,28 @@ function buildContextFromDocuments(documents: RelevantDocument[]): string {
   return `\n\n## CONTEXTO RELEVANTE DA BASE DE CONHECIMENTO:\n\nUse as informações abaixo para fundamentar sua resposta quando relevantes:\n\n${contextParts.join('\n\n')}`;
 }
 
+// Intent detection keywords for specialized journeys
+const INTENT_PATTERNS = {
+  transport: ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'sptrans', 'linha', 'lotação', 'lotacao', 'atraso de ônibus', 'terminal', 'estação', 'bilhete único'],
+  urban_report: ['buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 'esgoto', 'semáforo', 'semaforo', 'asfalto', 'mato alto', 'árvore', 'arvore', 'entulho'],
+  evaluate: ['avaliar', 'avaliação', 'avaliacao', 'reclamar', 'elogiar', 'ubs', 'hospital', 'escola', 'ceu', 'atendimento', 'nota', 'estrelas']
+};
+
+function detectIntent(message: string): { journey: string | null; confidence: number } {
+  const lowerMessage = message.toLowerCase();
+  
+  for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
+    const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
+    if (matches.length >= 2) {
+      return { journey, confidence: 0.9 };
+    } else if (matches.length === 1) {
+      return { journey, confidence: 0.6 };
+    }
+  }
+  
+  return { journey: null, confidence: 0 };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -92,10 +114,32 @@ serve(async (req) => {
       throw new Error('Usuário não autenticado');
     }
 
-    // Get the last user message for RAG search
+    // Get the last user message for RAG search and intent detection
     const lastUserMessage = messages
       .filter((m: any) => m.role === 'user')
       .pop()?.content || '';
+
+    // Intent detection for specialized journeys
+    const { journey: detectedJourney, confidence } = detectIntent(lastUserMessage);
+    let intentSuggestion = '';
+    
+    if (detectedJourney && confidence >= 0.6) {
+      const journeyNames: Record<string, string> = {
+        transport: 'Diagnóstico de Transporte',
+        urban_report: 'Relato Urbano',
+        evaluate: 'Avaliação de Serviço'
+      };
+      
+      if (confidence >= 0.9) {
+        intentSuggestion = `\n\n## DETECÇÃO DE INTENÇÃO (Alta Confiança)
+O usuário parece querer usar a funcionalidade "${journeyNames[detectedJourney]}". 
+SUGIRA PROATIVAMENTE: "Parece que você quer ${detectedJourney === 'transport' ? 'relatar um problema no transporte público' : detectedJourney === 'urban_report' ? 'relatar um problema urbano' : 'avaliar um serviço público'}. Temos um canal especializado para isso! Quer que eu te direcione?"`;
+      } else {
+        intentSuggestion = `\n\n## DETECÇÃO DE INTENÇÃO (Média Confiança)
+O usuário pode estar interessado em "${journeyNames[detectedJourney]}".
+Se apropriado, mencione: "A propósito, se você precisar ${detectedJourney === 'transport' ? 'relatar um problema de transporte' : detectedJourney === 'urban_report' ? 'registrar um problema urbano' : 'avaliar um serviço'}, temos um canal específico para isso."`;
+      }
+    }
 
     // RAG: Search for relevant documents using text search
     let ragContext = '';
@@ -111,67 +155,53 @@ serve(async (req) => {
     }
 
     // System prompt inteligente e contextual para CMSP Connect
-    const systemPrompt = `Você é o assistente virtual da Câmara Municipal de São Paulo (CMSP Connect).
+    const systemPrompt = `Você é Luana, assistente virtual da Câmara Municipal de São Paulo (CMSP Connect).
 
-Você é um hub inteligente de assistência cidadã. Identifique automaticamente o contexto da pergunta do usuário e responda adequadamente com base nos temas abaixo:
+## 🎯 PROPÓSITO DESTA CONVERSA
+Este é o CHAT GERAL - você é um hub inteligente de assistência cidadã. Você responde perguntas gerais e DIRECIONA para jornadas especializadas quando apropriado.
 
-## TEMAS E CONTEXTOS:
+## 🚀 FUNCIONALIDADES ESPECIALIZADAS DO APP
+Quando o usuário mencionar esses temas, SUGIRA ATIVAMENTE a jornada apropriada:
 
 ### 🚌 Transporte Público
-Quando o usuário falar sobre: ônibus, metrô, trem, CPTM, SPTrans, lotação, atraso, superlotação, linha de ônibus, terminal, estação, bilhete único, acessibilidade no transporte
-→ Ajude a diagnosticar o problema e oriente sobre como registrar via Diagnóstico de Transporte no app
-→ Pergunte detalhes: qual linha, horário, tipo de problema
-→ Informe que o relato será encaminhado aos órgãos competentes
+Keywords: ônibus, metrô, trem, CPTM, SPTrans, lotação, atraso
+→ SUGERIR: "Para problemas com transporte público, temos o **Diagnóstico de Transporte** que registra seu relato direitinho. Quer usar?"
 
-### 🏗️ Relatos Urbanos
-Quando o usuário falar sobre: buraco, iluminação, lixo, sinalização, calçada, árvore, esgoto, poda, semáforo, asfalto, infraestrutura
-→ Oriente sobre como registrar um Relato Urbano no app
-→ Pergunte a localização específica e detalhes do problema
-→ Explique que o relato será categorizado e encaminhado
+### 🏗️ Problemas Urbanos  
+Keywords: buraco, iluminação, lixo, calçada, esgoto, semáforo, mato
+→ SUGERIR: "Para problemas na cidade, temos o **Relato Urbano** especializado. Quer registrar seu problema lá?"
 
-### 🏥 Serviços Públicos
-Quando o usuário falar sobre: UBS, hospital, posto de saúde, escola, EMEF, CEU, creche, CRAS, biblioteca, atendimento
-→ Ajude a encontrar serviços próximos usando "Perto de Mim"
-→ Oriente sobre como avaliar o atendimento recebido
-→ Forneça informações gerais sobre serviços públicos municipais
+### ⭐ Avaliação de Serviços
+Keywords: UBS, escola, hospital, atendimento, avaliar, nota
+→ SUGERIR: "Para avaliar serviços públicos, temos a **Avaliação de Serviço**. Quer compartilhar sua experiência?"
 
-### 🎤 Audiências Públicas
-Quando o usuário falar sobre: audiência pública, consulta pública, participação, votação, projeto de lei em discussão
-→ Informe sobre próximas audiências públicas
-→ Explique como se inscrever e participar
-→ Incentive o engajamento cidadão
+## 📋 TEMAS QUE VOCÊ RESPONDE DIRETAMENTE
+- 🎤 **Audiências Públicas**: Próximas audiências, como participar, temas em discussão
+- 📜 **Processo Legislativo**: Como funciona a Câmara, projetos de lei, votações
+- 👥 **Vereadores**: Informações sobre vereadores, comissões, contatos
+- 📰 **Notícias da CMSP**: Notícias recentes, eventos, comunicados
+- 🗺️ **Serviços Públicos**: Informações gerais sobre UBS, escolas, CEUs (mas avaliações vão para jornada específica)
+- ❓ **Dúvidas Gerais**: Sobre São Paulo, participação cidadã, direitos
 
-### 📜 Processo Legislativo e Câmara
-Quando o usuário falar sobre: vereador, projeto de lei, PL, votação, câmara, legislatura, sessão, comissão
-→ Explique de forma simples como funciona o processo legislativo
-→ Oriente sobre como acompanhar projetos de lei
-→ Indique fontes oficiais: Portal CMSP, SPLegis, Diário Oficial
+## 🔄 HANDOFF PARA JORNADAS ESPECIALIZADAS
+Quando detectar que o usuário quer REGISTRAR algo (não apenas perguntar):
+1. Reconheça o que ele quer fazer
+2. Explique que existe uma funcionalidade especializada
+3. Sugira: "Você pode acessar pelo menu de ações rápidas na tela inicial, ou eu posso te dar mais informações aqui mesmo!"
 
-### ❓ Dúvidas Gerais
-Para outras dúvidas sobre a cidade de São Paulo:
-→ Responda de forma educativa e acessível
-→ Indique os canais oficiais quando apropriado
-→ Sempre incentive a participação cidadã
+${intentSuggestion}
 
-## REGRAS IMPORTANTES:
-
-1. **Identifique o tema**: Leia a mensagem do usuário e identifique qual tema se aplica
-2. **Seja proativo**: Sugira ações que o usuário pode tomar no app
+## ⚠️ REGRAS IMPORTANTES
+1. **Identifique o tema**: Leia a mensagem e identifique qual tema se aplica
+2. **Sugira jornadas especializadas**: Quando apropriado, direcione para funcionalidades específicas
 3. **Use linguagem simples**: Evite jargões técnicos, seja inclusivo
 4. **Indique fontes**: Sempre que possível, cite fontes oficiais (Portal CMSP, SPLegis)
-5. **Use o contexto da base de conhecimento**: Se houver contexto relevante fornecido, use-o para fundamentar suas respostas
-6. **Incentive participação**: Motive o cidadão a se engajar
-7. **Seja empático**: Demonstre que entende as dificuldades do cidadão
-8. **Seja conciso**: Respostas claras e diretas, sem enrolação
-9. **Direcione para funcionalidades**: Quando apropriado, sugira usar recursos do app como:
-   - "Perto de Mim" para encontrar serviços
-   - "Diagnóstico de Transporte" para problemas com ônibus/metrô
-   - "Relato Urbano" para problemas na cidade
-   - "Audiências" para participação cidadã
-   - "Avaliar Serviço" para feedback sobre atendimentos
+5. **Use o contexto da base de conhecimento**: Se houver contexto relevante, use-o
+6. **Seja empático**: Demonstre que entende as dificuldades do cidadão
+7. **Seja conciso**: Respostas claras e diretas, sem enrolação
+8. **NÃO invente funcionalidades**: Só mencione o que realmente existe no app
 
-## FORMATO DE RESPOSTA:
-
+## 📝 FORMATO DE RESPOSTA
 - Seja breve mas completo
 - Use emojis com moderação para tornar a conversa mais amigável
 - Quebre em parágrafos curtos para facilitar a leitura
