@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, FileText, Settings, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -44,17 +44,10 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       section: 'GESTÃO',
       items: [
         { title: 'Gestão de Usuários', icon: Users, href: '/admin/users' },
-        {
-          title: 'Gestão de Relatos',
-          icon: FileText,
-          submenu: [
-            { title: 'Relatos Urbanos', href: '/admin/urban-reports', badge: stats.pendingUrbanReports },
-            { title: 'Relatos de Transporte', href: '/admin/transport-reports', badge: stats.pendingTransportReports },
-            { title: 'Encaminhamentos', href: '/admin/referrals', badge: stats.pendingReferrals },
-            { title: 'Análise de Relatos', href: '/admin/reports-analytics' },
-            { title: 'Análise de Sentimento', href: '/admin/sentiment-analysis' },
-          ],
-        },
+        { title: 'Manifestações', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
+        { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
+        { title: 'Análise de Relatos', icon: BarChart3, href: '/admin/reports-analytics' },
+        { title: 'Análise de Sentimento', icon: Brain, href: '/admin/sentiment-analysis' },
       ],
     },
     {
