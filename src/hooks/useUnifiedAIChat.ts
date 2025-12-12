@@ -259,8 +259,8 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
             try {
               const parsed = JSON.parse(data);
               
-              // Check for intent detection marker (only in general chat)
-              if (parsed.intent_detected && activeJourney.id === 'general') {
+              // Check for intent detection marker from any journey (cross-journey detection)
+              if (parsed.intent_detected) {
                 setDetectedIntent({
                   journey: parsed.journey,
                   confidence: parsed.confidence

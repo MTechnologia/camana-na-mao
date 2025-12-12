@@ -114,6 +114,30 @@ Se disser "quero falar sobre outra coisa", "cancelar", "sair", "voltar":
 - NÃO invente funcionalidades que não existem
 - NUNCA responda perguntas técnicas sobre código ou APIs`;
 
+// Cross-journey intent detection patterns
+const INTENT_PATTERNS: Record<string, string[]> = {
+  urban_report: ['buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 'esgoto', 'semáforo', 'mato alto', 'árvore', 'entulho', 'asfalto'],
+  evaluate: ['avaliar', 'avaliação', 'reclamar', 'elogiar', 'ubs', 'hospital', 'escola', 'ceu', 'atendimento', 'nota', 'estrelas'],
+  general: ['notícia', 'audiência', 'vereador', 'comissão', 'legislativo', 'câmara', 'lei', 'projeto']
+};
+
+function detectCrossIntent(message: string, currentJourney: string): { journey: string | null; confidence: number } {
+  const lowerMessage = message.toLowerCase();
+  
+  for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
+    if (journey === currentJourney) continue;
+    
+    const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
+    if (matches.length >= 2) {
+      return { journey, confidence: 0.9 };
+    } else if (matches.length === 1) {
+      return { journey, confidence: 0.6 };
+    }
+  }
+  
+  return { journey: null, confidence: 0 };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -121,6 +145,10 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
+    
+    // Detect cross-journey intent from last user message
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+    const crossIntent = lastUserMessage ? detectCrossIntent(lastUserMessage.content, 'transport') : null;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -346,6 +374,36 @@ serve(async (req) => {
 
     if (!streamResponse.ok) {
       throw new Error(`Stream API error: ${streamResponse.status}`);
+    }
+
+    // If cross-intent detected, inject marker into stream
+    if (crossIntent?.journey && crossIntent.confidence >= 0.6) {
+      const reader = streamResponse.body!.getReader();
+      const encoder = new TextEncoder();
+      
+      const customStream = new ReadableStream({
+        async start(controller) {
+          // Inject intent marker first
+          const intentMarker = `data: ${JSON.stringify({ intent_detected: true, journey: crossIntent.journey, confidence: crossIntent.confidence })}\n\n`;
+          controller.enqueue(encoder.encode(intentMarker));
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        }
+      });
+
+      return new Response(customStream, {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        },
+      });
     }
 
     return new Response(streamResponse.body, {

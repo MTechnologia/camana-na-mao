@@ -1,10 +1,10 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Bus, MapPin, Star, ArrowRight, X } from "lucide-react";
+import { Bus, MapPin, Star, ArrowRight, X, MessageCircle } from "lucide-react";
 
 interface JourneySuggestionCardProps {
-  journeyType: "transport" | "urban_report" | "evaluate";
+  journeyType: "transport" | "urban_report" | "evaluate" | "general";
   confidence: "high" | "medium";
   onAccept: () => void;
   onDismiss: () => void;
@@ -34,6 +34,14 @@ const JOURNEY_CONFIG = {
     color: "from-emerald-500 to-teal-500",
     bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
     borderColor: "border-emerald-200 dark:border-emerald-800",
+  },
+  general: {
+    icon: MessageCircle,
+    title: "Assistente Geral",
+    description: "Para dúvidas sobre notícias, audiências, vereadores e informações da Câmara.",
+    color: "from-purple-500 to-indigo-500",
+    bgColor: "bg-purple-50 dark:bg-purple-950/30",
+    borderColor: "border-purple-200 dark:border-purple-800",
   },
 };
 
