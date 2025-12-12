@@ -21,11 +21,10 @@ const routeNames: Record<string, string> = {
   '/admin/analytics': 'Analytics',
   '/admin/analytics/advanced': 'Análise Avançada',
   '/admin/users': 'Gestão de Usuários',
-  '/admin/dashboards': 'Painéis Públicos',
   '/admin/exports': 'Logs de Exportação',
-  '/admin/notifications': 'Notificações',
   '/admin/urban-reports': 'Relatos Urbanos',
   '/admin/transport-reports': 'Relatos de Transporte',
+  '/admin/reports': 'Gestão de Relatos',
   '/admin/referrals': 'Encaminhamentos',
 };
 
@@ -39,7 +38,7 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { signOut } = useAuth();
-  const { unreadNotifications } = useAdminStats();
+  const { pendingReports } = useAdminStats();
   
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const breadcrumbs = pathSegments.map((_, index) => {
@@ -95,15 +94,15 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
             variant="ghost" 
             size="icon" 
             className="relative"
-            onClick={() => navigate('/admin/notifications')}
+            onClick={() => navigate('/admin/reports')}
           >
             <Bell className="h-5 w-5" />
-            {unreadNotifications > 0 && (
+            {pendingReports > 0 && (
               <Badge 
                 variant="destructive" 
                 className="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center text-xs"
               >
-                {formatNotificationCount(unreadNotifications)}
+                {formatNotificationCount(pendingReports)}
               </Badge>
             )}
           </Button>

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileBarChart, Download, ChevronLeft, Home, X, Building2, FileText, Bell, Settings, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, FileText, Settings, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -55,16 +55,6 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             { title: 'Análise de Sentimento', href: '/admin/sentiment-analysis' },
           ],
         },
-        {
-          title: 'Gestão de Painéis',
-          icon: FileBarChart,
-          submenu: [
-            { title: 'Aprovar Painéis', href: '/admin/dashboards' },
-            { title: 'Criar Painel', href: '/admin/dashboards/create' },
-            { title: 'Galeria Pública', href: '/admin/dashboards/gallery' },
-          ],
-        },
-        { title: 'Gestão de Notificações', icon: Bell, href: '/admin/notifications' },
       ],
     },
     {

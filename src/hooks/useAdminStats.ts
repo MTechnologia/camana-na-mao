@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 interface AdminStats {
   pendingUrbanReports: number;
   pendingTransportReports: number;
+  pendingReports: number; // Combined urban + transport
   pendingReferrals: number;
-  unreadNotifications: number;
   loading: boolean;
 }
 
@@ -13,8 +13,8 @@ export const useAdminStats = () => {
   const [stats, setStats] = useState<AdminStats>({
     pendingUrbanReports: 0,
     pendingTransportReports: 0,
+    pendingReports: 0,
     pendingReferrals: 0,
-    unreadNotifications: 0,
     loading: true,
   });
 
@@ -33,23 +33,20 @@ export const useAdminStats = () => {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending');
 
-        // Count unread notifications (from all users)
-        const { count: notificationCount } = await supabase
-          .from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_read', false);
-
         // Count pending referrals
         const { count: referralCount } = await supabase
           .from('council_member_referrals')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending');
 
+        const urban = urbanCount || 0;
+        const transport = transportCount || 0;
+
         setStats({
-          pendingUrbanReports: urbanCount || 0,
-          pendingTransportReports: transportCount || 0,
+          pendingUrbanReports: urban,
+          pendingTransportReports: transport,
+          pendingReports: urban + transport,
           pendingReferrals: referralCount || 0,
-          unreadNotifications: notificationCount || 0,
           loading: false,
         });
       } catch (error) {
@@ -75,17 +72,9 @@ export const useAdminStats = () => {
       })
       .subscribe();
 
-    const notificationsChannel = supabase
-      .channel('notifications_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchStats();
-      })
-      .subscribe();
-
     return () => {
       urbanChannel.unsubscribe();
       transportChannel.unsubscribe();
-      notificationsChannel.unsubscribe();
     };
   }, []);
 
