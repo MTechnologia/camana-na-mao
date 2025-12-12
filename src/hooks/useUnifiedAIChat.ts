@@ -26,6 +26,7 @@ export interface IntentDetection {
 export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzingIntent, setIsAnalyzingIntent] = useState(false);
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
   const [detectedIntent, setDetectedIntent] = useState<IntentDetection | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
@@ -168,6 +169,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+    setIsAnalyzingIntent(true);
 
     // Salvar mensagem do usuário no banco se houver conversationId
     if (conversationIdRef.current && user) {
@@ -265,6 +267,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
               
               // Check for intent detection marker from any journey (cross-journey detection)
               if (parsed.intent_detected && parsed.journey && parsed.confidence >= 0.6) {
+                setIsAnalyzingIntent(false);
                 // Only show if not previously dismissed in this session
                 if (!dismissedIntentsRef.current.has(parsed.journey)) {
                   console.log('[useUnifiedAIChat] Cross-journey intent detected:', parsed.journey, 'confidence:', parsed.confidence);
@@ -396,6 +399,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
       });
     } finally {
       setIsLoading(false);
+      setIsAnalyzingIntent(false);
     }
   };
 
@@ -410,6 +414,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   return {
     messages,
     isLoading,
+    isAnalyzingIntent,
     sendMessage,
     clearMessages,
     addAssistantMessage,
