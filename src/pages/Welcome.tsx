@@ -5,7 +5,7 @@ import Autoplay from "embla-carousel-autoplay";
 import { MessageCircle, Sparkles, MapPin, Building, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import camaraLogo from "@/assets/camara-logo.png";
+import brasaoSP from "@/assets/brasao-sp.png";
 
 const slides = [
   {
@@ -62,12 +62,16 @@ const Welcome = () => {
     <div className="fixed inset-0 flex flex-col bg-background z-[100]">
       {/* Header with logo and skip */}
       <header className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <img 
-            src={camaraLogo} 
-            alt="Câmara Municipal de São Paulo" 
-            className="h-10 w-auto"
+            src={brasaoSP} 
+            alt="Brasão de São Paulo" 
+            className="h-9 w-auto"
           />
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-foreground leading-tight">CÂMARA MUNICIPAL</span>
+            <span className="text-xs font-semibold text-foreground leading-tight">DE SÃO PAULO</span>
+          </div>
         </div>
         <Button
           variant="ghost"
