@@ -197,7 +197,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                     <CarouselItem key={option.id} className="pl-2 basis-1/3">
                       <Card
                         onClick={() => handleMenuClick(option.route)}
-                        className="p-3 cursor-pointer hover:bg-accent/50 transition-colors border-border h-[80px] flex flex-col items-center justify-center gap-2"
+                        className="p-3 cursor-pointer hover:bg-muted transition-colors border-border h-[80px] flex flex-col items-center justify-center gap-2"
                       >
                         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
                           <Icon className="text-primary" size={18} />
@@ -227,7 +227,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                 <button
                   key={option.id}
                   onClick={() => handleMenuClick(option.route)}
-                  className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
                     <Icon className="text-primary" size={16} />
@@ -248,7 +248,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                 </h3>
                 <button
                   onClick={() => handleMenuClick('/admin')}
-                  className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
                     <Lock className="text-primary" size={16} />
@@ -265,7 +265,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
         <div className="px-4 pb-4 pt-2 space-y-1 border-t border-border shrink-0">
           <button
             onClick={onClose}
-            className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+            className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
           >
             <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
               <Shield className="text-primary" size={16} />
@@ -275,7 +275,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
           
           <button 
             onClick={handleLogout}
-            className="w-full py-2.5 flex items-center gap-3 hover:bg-accent/50 transition-colors rounded-lg px-2"
+            className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
           >
             <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
               <LogOut className="text-primary" size={16} />
