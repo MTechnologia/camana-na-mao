@@ -6,6 +6,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Cross-journey intent detection patterns
+const INTENT_PATTERNS: Record<string, string[]> = {
+  transport: ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'sptrans', 'lotação', 'atraso de ônibus', 'terminal', 'estação', 'bilhete único'],
+  urban_report: ['buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 'esgoto', 'semáforo', 'mato alto', 'árvore', 'entulho', 'asfalto'],
+  general: ['notícia', 'audiência', 'vereador', 'comissão', 'legislativo', 'câmara', 'lei', 'projeto']
+};
+
+function detectCrossIntent(message: string, currentJourney: string): { journey: string | null; confidence: number } {
+  const lowerMessage = message.toLowerCase();
+  
+  for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
+    if (journey === currentJourney) continue;
+    
+    const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
+    if (matches.length >= 2) {
+      return { journey, confidence: 0.9 };
+    } else if (matches.length === 1) {
+      return { journey, confidence: 0.6 };
+    }
+  }
+  
+  return { journey: null, confidence: 0 };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -13,6 +37,10 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
+    
+    // Detect cross-journey intent from last user message
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+    const crossIntent = lastUserMessage ? detectCrossIntent(lastUserMessage.content, 'evaluate') : null;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -173,6 +201,11 @@ Se disser "quero falar sobre outra coisa", "cancelar", "sair":
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Inject intent marker first if cross-intent detected
+          if (crossIntent?.journey && crossIntent.confidence >= 0.6) {
+            const intentMarker = `data: ${JSON.stringify({ intent_detected: true, journey: crossIntent.journey, confidence: crossIntent.confidence })}\n\n`;
+            controller.enqueue(encoder.encode(intentMarker));
+          }
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
