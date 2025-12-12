@@ -29,6 +29,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
   const [detectedIntent, setDetectedIntent] = useState<IntentDetection | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
+  const dismissedIntentsRef = useRef<Set<string>>(new Set());
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -141,7 +142,10 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     setCreatedReport(null);
   }, []);
 
-  const dismissIntent = useCallback(() => {
+  const dismissIntent = useCallback((journeyType?: string) => {
+    if (journeyType) {
+      dismissedIntentsRef.current.add(journeyType);
+    }
     setDetectedIntent(null);
   }, []);
 
@@ -261,11 +265,14 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
               
               // Check for intent detection marker from any journey (cross-journey detection)
               if (parsed.intent_detected && parsed.journey && parsed.confidence >= 0.6) {
-                console.log('[useUnifiedAIChat] Cross-journey intent detected:', parsed.journey, 'confidence:', parsed.confidence);
-                setDetectedIntent({
-                  journey: parsed.journey,
-                  confidence: parsed.confidence
-                });
+                // Only show if not previously dismissed in this session
+                if (!dismissedIntentsRef.current.has(parsed.journey)) {
+                  console.log('[useUnifiedAIChat] Cross-journey intent detected:', parsed.journey, 'confidence:', parsed.confidence);
+                  setDetectedIntent({
+                    journey: parsed.journey,
+                    confidence: parsed.confidence
+                  });
+                }
                 continue;
               }
               
@@ -397,6 +404,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     setCreatedReport(null);
     setDetectedIntent(null);
     conversationIdRef.current = null;
+    dismissedIntentsRef.current.clear();
   }, []);
 
   return {
