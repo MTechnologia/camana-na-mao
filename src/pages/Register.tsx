@@ -6,7 +6,36 @@ import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerStep1Schema, registerStep2Schema } from "@/lib/validations";
 import { toast } from "sonner";
-import brasaoSP from "@/assets/brasao-sp.png";
+import { supabase } from "@/integrations/supabase/client";
+import StepIndicator from "@/components/register/StepIndicator";
+import AboutYouStep from "@/components/register/AboutYouStep";
+import LocationStep from "@/components/register/LocationStep";
+import InterestsStep from "@/components/register/InterestsStep";
+
+const TOTAL_STEPS = 5;
+
+interface FormData {
+  // Step 1: Basic info
+  fullName: string;
+  email: string;
+  phone: string;
+  // Step 2: Password
+  password: string;
+  confirmPassword: string;
+  // Step 3: About You
+  birthDate: string;
+  gender: string;
+  race: string;
+  incomeRange: string;
+  // Step 4: Location
+  cep: string;
+  street: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  // Step 5: Interests
+  interests: string[];
+}
 
 const Register = () => {
   const navigate = useNavigate();
@@ -15,15 +44,27 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
+    birthDate: "",
+    gender: "",
+    race: "",
+    incomeRange: "",
+    cep: "",
+    street: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    interests: [],
   });
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: keyof FormData, value: string | string[]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -38,7 +79,6 @@ const Register = () => {
 
   const handleStep1Submit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
       registerStep1Schema.parse({
         fullName: formData.fullName,
@@ -48,16 +88,13 @@ const Register = () => {
       setCurrentStep(2);
     } catch (error: any) {
       if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
+        error.errors.forEach((err: any) => toast.error(err.message));
       }
     }
   };
 
   const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
       registerStep2Schema.parse({
         password: formData.password,
@@ -65,62 +102,160 @@ const Register = () => {
       });
 
       setLoading(true);
-
-      const { error } = await signUp(
+      const { data, error } = await signUp(
         formData.email,
         formData.password,
         formData.fullName,
         formData.phone
       );
 
-      if (!error) {
-        navigate("/onboarding");
+      if (!error && data?.user) {
+        setUserId(data.user.id);
+        setCurrentStep(3);
       }
     } catch (error: any) {
       if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
+        error.errors.forEach((err: any) => toast.error(err.message));
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleAboutYouContinue = () => setCurrentStep(4);
+  const handleAboutYouSkip = () => setCurrentStep(4);
+
+  const handleLocationContinue = () => setCurrentStep(5);
+  const handleLocationSkip = () => setCurrentStep(5);
+
+  const toggleInterest = (interestId: string) => {
+    const current = formData.interests;
+    const updated = current.includes(interestId)
+      ? current.filter(id => id !== interestId)
+      : [...current, interestId];
+    handleChange("interests", updated);
+  };
+
+  // Map income range to social class for database
+  const mapIncomeToSocialClass = (incomeRange: string): string | null => {
+    const mapping: Record<string, string> = {
+      "ate_2sm": "E",
+      "2_a_4sm": "D",
+      "4_a_10sm": "C",
+      "acima_10sm": "AB",
+    };
+    return mapping[incomeRange] || null;
+  };
+
+  const handleFinalSubmit = async () => {
+    if (formData.interests.length < 3) {
+      toast.error("Selecione pelo menos 3 interesses");
+      return;
+    }
+
+    if (!userId) {
+      toast.error("Erro no cadastro. Tente novamente.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Save demographics if provided
+      if (formData.birthDate || formData.gender || formData.race || formData.incomeRange) {
+        const socialClass = mapIncomeToSocialClass(formData.incomeRange);
+        await supabase.from('user_demographics').upsert({
+          user_id: userId,
+          birth_date: formData.birthDate || null,
+          gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
+          race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
+          social_class: socialClass,
+        });
+      }
+
+      // Save address if provided
+      if (formData.cep && formData.neighborhood) {
+        await supabase.from('user_addresses').insert({
+          user_id: userId,
+          street: formData.street || "",
+          number: "", // User can add later
+          neighborhood: formData.neighborhood,
+          city: formData.city || "São Paulo",
+          state: formData.state || "SP",
+          zip_code: formData.cep.replace(/\D/g, ""),
+          is_primary: true,
+        });
+      }
+
+      // Save interests
+      const interests = formData.interests.map(category => ({
+        user_id: userId,
+        interest_category: category,
+      }));
+      await supabase.from('user_interests').insert(interests);
+
+      toast.success("Cadastro concluído com sucesso!");
+      navigate("/ia");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao salvar dados");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 1) {
+      navigate("/login");
+    } else if (currentStep > 2) {
+      // After account creation, allow going back through profile steps
+      setCurrentStep(prev => prev - 1);
+    } else {
+      setCurrentStep(1);
+    }
+  };
+
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 1: return { main: "Olá!", sub: "queremos\nte conhecer!" };
+      case 2: return { main: "Quase lá!", sub: "Crie sua senha" };
+      case 3: return { main: "Conta criada!", sub: "Agora, conte mais\nsobre você" };
+      case 4: return { main: "Onde você", sub: "mora?" };
+      case 5: return { main: "Por fim,", sub: "seus interesses" };
+      default: return { main: "", sub: "" };
+    }
+  };
+
+  const title = getStepTitle();
+
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* Header com botão de voltar */}
+    <div className="min-h-screen bg-muted flex flex-col">
+      {/* Header */}
       <div className="px-6 pt-8 pb-6">
         <button
-          onClick={currentStep === 1 ? () => navigate("/login") : () => setCurrentStep(1)}
+          onClick={handleBack}
           className="mb-4 -ml-2 text-foreground hover:text-primary transition-colors"
           aria-label="Voltar"
         >
           <ChevronLeft size={24} strokeWidth={2} />
         </button>
-        {currentStep === 1 ? (
-          <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-            Olá!<br />
-            queremos<br />
-            te conhecer!
-          </h1>
-        ) : (
-          <h1 className="text-4xl font-bold text-gray-900 leading-tight">
-            Quase lá!<br />
-            Crie sua senha
-          </h1>
-        )}
+        <h1 className="text-3xl font-bold text-foreground leading-tight whitespace-pre-line">
+          {title.main}<br />
+          {title.sub}
+        </h1>
+      </div>
+
+      {/* Step Indicator */}
+      <div className="px-6">
+        <StepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
       </div>
 
       {/* Form Card */}
-      <div className="flex-1 bg-white rounded-t-[32px] px-6 pt-8">
-        {currentStep === 1 ? (
+      <div className="flex-1 bg-background rounded-t-[32px] px-6 pt-6 pb-8 overflow-y-auto">
+        {currentStep === 1 && (
           <>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Vamos começar</h2>
-            
+            <h2 className="text-lg font-semibold text-foreground mb-4">Vamos começar</h2>
             <form onSubmit={handleStep1Submit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <label className="text-sm font-medium text-foreground mb-2 block">
                   Nome completo
                 </label>
                 <Input
@@ -128,13 +263,12 @@ const Register = () => {
                   placeholder="Digite seu nome completo"
                   value={formData.fullName}
                   onChange={(e) => handleChange("fullName", e.target.value)}
-                  className="h-14 bg-gray-50 border-gray-200 rounded-xl"
+                  className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />
               </div>
-
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <label className="text-sm font-medium text-foreground mb-2 block">
                   E-mail
                 </label>
                 <Input
@@ -142,13 +276,12 @@ const Register = () => {
                   placeholder="seuemail@exemplo.com"
                   value={formData.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  className="h-14 bg-gray-50 border-gray-200 rounded-xl"
+                  className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />
               </div>
-
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <label className="text-sm font-medium text-foreground mb-2 block">
                   Celular
                 </label>
                 <Input
@@ -156,26 +289,26 @@ const Register = () => {
                   placeholder="(11) 98765-4321"
                   value={formData.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
-                  className="h-14 bg-gray-50 border-gray-200 rounded-xl"
+                  className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />
               </div>
-
               <Button
                 type="submit"
-                className="w-full h-14 bg-gray-900 text-white hover:bg-gray-800 rounded-xl text-base font-medium mt-6"
+                className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-base font-medium mt-4"
               >
                 Continuar
               </Button>
             </form>
           </>
-        ) : (
+        )}
+
+        {currentStep === 2 && (
           <>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Segurança</h2>
-            
+            <h2 className="text-lg font-semibold text-foreground mb-4">Segurança</h2>
             <form onSubmit={handleStep2Submit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <label className="text-sm font-medium text-foreground mb-2 block">
                   Senha
                 </label>
                 <div className="relative">
@@ -184,22 +317,33 @@ const Register = () => {
                     placeholder="Digite sua senha"
                     value={formData.password}
                     onChange={(e) => handleChange("password", e.target.value)}
-                    className="h-14 bg-gray-50 border-gray-200 rounded-xl pr-12"
+                    className="h-12 bg-muted/50 border-border rounded-xl pr-12"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-...
+                {formData.password && (
+                  <div className="mt-2">
+                    <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${passwordStrength.color}`}
+                        style={{ width: `${passwordStrength.strength}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground mt-1">
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                )}
               </div>
-
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <label className="text-sm font-medium text-foreground mb-2 block">
                   Confirmar senha
                 </label>
                 <div className="relative">
@@ -208,37 +352,76 @@ const Register = () => {
                     placeholder="Digite sua senha novamente"
                     value={formData.confirmPassword}
                     onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                    className="h-14 bg-gray-50 border-gray-200 rounded-xl pr-12"
+                    className="h-12 bg-muted/50 border-border rounded-xl pr-12"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                   >
                     {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>
-
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-14 bg-gray-900 text-white hover:bg-gray-800 rounded-xl text-base font-medium mt-6"
+                className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-base font-medium mt-4"
               >
-                {loading ? "Criando conta..." : "Criar Conta"}
+                {loading ? "Criando conta..." : "Continuar"}
               </Button>
             </form>
           </>
         )}
 
-        {/* Login Link */}
-        <p className="text-center text-sm text-gray-600 mt-8 mb-6">
-          Já tem uma conta?{" "}
-          <Link to="/login" className="text-gray-900 font-semibold">
-            Fazer login
-          </Link>
-        </p>
+        {currentStep === 3 && (
+          <AboutYouStep
+            data={{
+              birthDate: formData.birthDate,
+              gender: formData.gender,
+              race: formData.race,
+              incomeRange: formData.incomeRange,
+            }}
+            onChange={(field, value) => handleChange(field, value)}
+            onContinue={handleAboutYouContinue}
+            onSkip={handleAboutYouSkip}
+          />
+        )}
+
+        {currentStep === 4 && (
+          <LocationStep
+            data={{
+              cep: formData.cep,
+              street: formData.street,
+              neighborhood: formData.neighborhood,
+              city: formData.city,
+              state: formData.state,
+            }}
+            onChange={(field, value) => handleChange(field, value)}
+            onContinue={handleLocationContinue}
+            onSkip={handleLocationSkip}
+          />
+        )}
+
+        {currentStep === 5 && (
+          <InterestsStep
+            selectedInterests={formData.interests}
+            onToggle={toggleInterest}
+            onContinue={handleFinalSubmit}
+            loading={loading}
+          />
+        )}
+
+        {/* Login Link - only show on first two steps */}
+        {currentStep <= 2 && (
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Já tem uma conta?{" "}
+            <Link to="/login" className="text-foreground font-semibold">
+              Fazer login
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );
