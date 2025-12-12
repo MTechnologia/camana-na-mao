@@ -141,7 +141,7 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
-                className="text-destructive"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={() => signOut()}
               >
                 Sair
