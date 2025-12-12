@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { MapPin, Loader2, Check } from "lucide-react";
+import CollapsibleInfoCard from "./CollapsibleInfoCard";
 import { toast } from "sonner";
 
 interface LocationData {
@@ -69,26 +69,12 @@ const LocationStep = ({ data, onChange, onContinue, onSkip }: LocationStepProps)
         </p>
       </div>
 
-      {/* Card explicativo */}
-      <Card className="p-4 bg-primary/5 border-primary/20">
-        <div className="flex gap-3">
-          <div className="flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-primary" />
-            </div>
-          </div>
-          <div>
-            <h3 className="font-medium text-foreground text-sm mb-1">
-              Por que pedimos isso?
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Com seu CEP, conseguimos mostrar UBSs, escolas e outros serviços 
-              públicos próximos de você, além de entender as demandas de cada 
-              região da cidade.
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* Card explicativo colapsável */}
+      <CollapsibleInfoCard
+        icon={MapPin}
+        title="Por que pedimos isso?"
+        description="Com seu CEP, conseguimos mostrar UBSs, escolas e outros serviços públicos próximos de você, além de entender as demandas de cada região da cidade."
+      />
 
       {/* CEP Input */}
       <div>
