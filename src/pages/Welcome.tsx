@@ -15,8 +15,8 @@ const slides = [
   },
   {
     icon: Sparkles,
-    title: "Conheça a Luana",
-    description: "Sua assistente inteligente para acessar informações da Câmara Municipal de forma simples.",
+    title: "Seu Assistente Inteligente",
+    description: "Acesse informações da Câmara Municipal de forma simples e conversacional.",
   },
   {
     icon: MapPin,

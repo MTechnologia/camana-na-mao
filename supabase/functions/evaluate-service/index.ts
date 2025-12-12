@@ -98,7 +98,7 @@ serve(async (req) => {
       userId = user?.id || null;
     }
 
-    const systemPrompt = `Você é Luana, assistente da Câmara Municipal de São Paulo, especializada em coletar avaliações de serviços públicos.
+    const systemPrompt = `Você é o Assistente CMSP, assistente da Câmara Municipal de São Paulo, especializado em coletar avaliações de serviços públicos.
 
 ## 🎯 PROPÓSITO DESTA CONVERSA
 Esta é uma jornada FOCADA para avaliar serviços públicos que o cidadão utilizou (UBS, escola, CEU, hospital, biblioteca, etc.).
