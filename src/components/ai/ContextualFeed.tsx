@@ -34,12 +34,13 @@ const ContextualFeed = () => {
   const navigate = useNavigate();
   const [proximasAudiencias, setProximasAudiencias] = useState<Audiencia[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isReady, setIsReady] = useState(false);
   
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { 
       loop: true, 
       align: "start",
-      containScroll: "trimSnaps",
+      containScroll: "keepSnaps",
       dragFree: false,
       skipSnaps: false
     },
@@ -59,9 +60,12 @@ const ContextualFeed = () => {
     setSelectedIndex(emblaApi.selectedScrollSnap());
   }, [emblaApi]);
 
-  // Restart autoplay after user interaction
+  // Set ready state and restart autoplay after user interaction
   useEffect(() => {
     if (!emblaApi) return;
+    
+    // Mark as ready when carousel is initialized
+    setIsReady(true);
     
     emblaApi.on('select', onSelect);
     emblaApi.on('pointerUp', () => {
@@ -177,7 +181,7 @@ const ContextualFeed = () => {
     <motion.div 
       className="w-full mt-6 mb-4"
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: isReady ? 1 : 0, y: isReady ? 0 : 20 }}
       transition={{ duration: 0.4 }}
     >
       {/* Section Title */}
@@ -190,13 +194,10 @@ const ContextualFeed = () => {
 
       {/* Carousel Container - overflow-x-clip allows shadows to show vertically */}
       <div className="overflow-x-clip overflow-y-visible px-4" ref={emblaRef}>
-        <div className="flex gap-4">
-          {feedItems.map((item, index) => (
-            <motion.button
+        <div className="flex gap-4 pr-4">
+          {feedItems.map((item) => (
+            <button
               key={`${item.type}-${item.id}`}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.1, duration: 0.3 }}
               onClick={() => navigate(
                 item.type === "news" 
                   ? `/institucional/noticias/${item.id}` 
@@ -251,7 +252,7 @@ const ContextualFeed = () => {
                   {item.description}
                 </p>
               </div>
-            </motion.button>
+            </button>
           ))}
         </div>
       </div>
