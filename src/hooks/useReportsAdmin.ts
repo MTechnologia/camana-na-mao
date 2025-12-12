@@ -478,14 +478,20 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   }, [page, pageSize, searchTerm, statusFilter, severityFilter, typeFilter, dateRange]);
 
-  const updateManifestStatus = async (id: string, type: ManifestType, newStatus: string) => {
+  const updateManifestStatus = useCallback(async (id: string, type: ManifestType, newStatus: string) => {
+    if (type === 'evaluation') {
+      toast.error('Avaliações não podem ter status alterado');
+      return;
+    }
+
+    // Optimistic update - update UI immediately
+    const previousManifests = [...manifests];
+    setManifests(prev => prev.map(m => 
+      m.id === id ? { ...m, status: newStatus, updated_at: new Date().toISOString() } : m
+    ));
+
     try {
       const table = type === 'urban' || type === 'feedback' ? 'urban_reports' : 'transport_reports';
-      if (type === 'evaluation') {
-        toast.error('Avaliações não podem ter status alterado');
-        return;
-      }
-
       const { error } = await supabase
         .from(table)
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -493,14 +499,15 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
 
       if (error) throw error;
 
-      toast.success('Status atualizado com sucesso');
-      fetchManifests();
+      toast.success('Status atualizado');
       fetchKPIs();
     } catch (error) {
+      // Rollback on error
+      setManifests(previousManifests);
       console.error('Error updating status:', error);
       toast.error('Erro ao atualizar status');
     }
-  };
+  }, [manifests, fetchKPIs]);
 
   const updateBulkStatus = async (ids: { id: string; type: ManifestType }[], newStatus: string) => {
     try {

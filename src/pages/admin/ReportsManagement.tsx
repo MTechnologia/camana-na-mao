@@ -4,37 +4,27 @@ import { useReportsAdmin, ManifestType, UnifiedManifest } from '@/hooks/useRepor
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Search, Download, AlertTriangle, LayoutList, Columns, Filter,
-  Building2, Bus, Star, MessageSquare, Clock, TrendingUp, CheckCircle2, XCircle
+  Building2, Bus, Star, MessageSquare
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { UnifiedReportDrawer } from '@/components/admin/UnifiedReportDrawer';
 import { ManifestCard } from '@/components/admin/ManifestCard';
+import { KanbanBoard } from '@/components/admin/KanbanBoard';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
 
-// Config objects for Kanban view
+// Config objects
 const typeConfig: Record<ManifestType, { label: string; icon: typeof Building2; color: string }> = {
   urban: { label: 'Urbana', icon: Building2, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   transport: { label: 'Transporte', icon: Bus, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
   evaluation: { label: 'Avaliação', icon: Star, color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
   feedback: { label: 'Feedback', icon: MessageSquare, color: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20' },
-};
-
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20', icon: Clock },
-  in_progress: { label: 'Em Andamento', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: TrendingUp },
-  resolved: { label: 'Resolvido', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
-  rejected: { label: 'Rejeitado', color: 'bg-red-500/10 text-red-600 border-red-500/20', icon: XCircle },
-  completed: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
 };
 
 const severityConfig: Record<string, { label: string; color: string }> = {
@@ -368,61 +358,17 @@ export default function ReportsManagement() {
 
         {/* Kanban View */}
         {viewMode === 'kanban' && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {['pending', 'in_progress', 'resolved', 'rejected'].map((status) => {
-              const statusItems = manifests.filter(m => m.status === status);
-              const config = statusConfig[status];
-
-              return (
-                <Card key={status} className="min-h-[400px]">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className={config.color}>
-                        <config.icon className="h-3 w-3 mr-1" />
-                        {config.label}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{statusItems.length}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {loading ? (
-                      Array.from({ length: 2 }).map((_, i) => (
-                        <Skeleton key={i} className="h-20 w-full" />
-                      ))
-                    ) : (
-                      statusItems.slice(0, 10).map((manifest) => {
-                        const TypeIcon = typeConfig[manifest.type].icon;
-
-                        return (
-                          <Card
-                            key={manifest.id}
-                            className="p-3 cursor-pointer hover:border-primary transition-colors"
-                            onClick={() => handleViewDetails(manifest)}
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline" className={`${typeConfig[manifest.type].color} text-xs px-1.5 py-0`}>
-                                <TypeIcon className="h-3 w-3" />
-                              </Badge>
-                              {manifest.severity && severityConfig[manifest.severity] && (
-                                <Badge variant="outline" className={`${severityConfig[manifest.severity].color} text-xs px-1.5 py-0`}>
-                                  {severityConfig[manifest.severity].label}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm font-medium truncate">{manifest.title}</p>
-                            <p className="text-xs text-muted-foreground truncate">{manifest.description}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(manifest.created_at), "dd/MM HH:mm", { locale: ptBR })}
-                            </p>
-                          </Card>
-                        );
-                      })
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <KanbanBoard
+            manifests={manifests}
+            loading={loading}
+            onStatusChange={updateManifestStatus}
+            onViewDetails={handleViewDetails}
+            onReferral={(manifest) => {
+              setSelectedManifest(manifest);
+              setReferralDialogOpen(true);
+            }}
+            onDelete={handleDeleteClick}
+          />
         )}
       </div>
 
