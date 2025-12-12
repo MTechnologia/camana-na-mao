@@ -2,13 +2,8 @@ import {
   MessageSquare, 
   Bus, 
   MapPin, 
-  Star, 
-  Calendar, 
-  Users,
-  Sparkles,
-  Heart
+  Star
 } from "lucide-react";
-import { useFavorites } from "@/contexts/FavoritesContext";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
@@ -28,7 +23,6 @@ interface QuickActionsCarouselProps {
 }
 
 const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => {
-  const { favorites } = useFavorites();
   const { pendingRatings } = usePendingRatings();
   const { setJourney } = useAIJourney();
 
@@ -74,51 +68,18 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
       bgColor: "bg-amber-50 dark:bg-amber-950/30",
       badge: pendingRatings.length > 0 ? pendingRatings.length : undefined,
     },
-    {
-      id: "audiencias",
-      journeyKey: "audiencias",
-      title: "Audiências",
-      icon: Calendar,
-      color: "text-pink-500",
-      bgColor: "bg-pink-50 dark:bg-pink-950/30",
-    },
-    {
-      id: "vereadores",
-      journeyKey: "vereadores",
-      title: "Vereadores",
-      icon: Users,
-      color: "text-green-500",
-      bgColor: "bg-green-50 dark:bg-green-950/30",
-    },
-    {
-      id: "recommendations",
-      journeyKey: "services",
-      title: "Recomendações",
-      icon: Sparkles,
-      color: "text-purple-500",
-      bgColor: "bg-purple-50 dark:bg-purple-950/30",
-    },
-    {
-      id: "favorites",
-      journeyKey: "favorites",
-      title: "Favoritos",
-      icon: Heart,
-      color: "text-red-500",
-      bgColor: "bg-red-50 dark:bg-red-950/30",
-      badge: favorites.length > 0 ? favorites.length : undefined,
-    },
   ];
 
   return (
-    <div className="w-full py-2 overflow-visible">
-      <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-2 pt-2 scrollbar-hide -mx-4 px-4 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-4 lg:gap-4 xl:grid-cols-8 xl:gap-3 lg:overflow-visible">
+    <div className="w-full py-2">
+      <div className="flex gap-3 justify-center overflow-x-auto pb-2 pt-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
         {actions.map((action) => {
           const IconComponent = action.icon;
           return (
             <button
               key={action.id}
               onClick={() => handleJourneyClick(action.journeyKey)}
-              className="flex-shrink-0 snap-start flex flex-col items-center justify-center p-2 sm:p-3 w-[72px] sm:w-20 lg:w-full h-[72px] sm:h-20 lg:h-auto lg:py-4 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all duration-200 group relative"
+              className="flex-shrink-0 flex flex-col items-center justify-center p-2 sm:p-3 w-[72px] sm:w-24 h-[72px] sm:h-24 bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all duration-200 group relative"
             >
               {action.badge && (
                 <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center z-10">
