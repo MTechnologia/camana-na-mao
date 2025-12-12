@@ -24,7 +24,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ data: { user: User | null } | null; error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -44,8 +44,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
-      if (event === 'SIGNED_IN') {
-        // Check if user needs onboarding
+      // Only check onboarding status for sign in events from login page
+      // Not for fresh signups which now have their own flow
+      if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
         setTimeout(() => {
           checkOnboardingStatus(session?.user?.id);
         }, 0);
@@ -82,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -97,11 +98,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
       
       toast.success("Conta criada com sucesso!");
-      return { error: null };
+      return { data: { user: data.user }, error: null };
     } catch (error: any) {
       const translatedMessage = translateError(error.message);
       toast.error(translatedMessage || "Erro ao criar conta");
-      return { error };
+      return { data: null, error };
     }
   };
 
