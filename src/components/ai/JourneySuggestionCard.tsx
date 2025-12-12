@@ -1,47 +1,55 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Bus, MapPin, Star, ArrowRight, X, MessageCircle } from "lucide-react";
+import { Bus, MapPin, Star, ArrowRight, X, Landmark, MessageCircleMore } from "lucide-react";
 
 interface JourneySuggestionCardProps {
-  journeyType: "transport" | "urban_report" | "evaluate" | "general";
+  journeyType: "transport" | "urban_report" | "evaluate" | "general" | "services";
   confidence: "high" | "medium";
   onAccept: () => void;
   onDismiss: () => void;
 }
 
 const JOURNEY_CONFIG = {
+  general: {
+    icon: Landmark,
+    title: "Tudo Sobre a Câmara",
+    description: "Para dúvidas sobre vereadores, audiências, notícias e funcionamento da Câmara.",
+    color: "from-primary to-primary/80",
+    bgColor: "bg-primary/5 dark:bg-primary/10",
+    borderColor: "border-primary/20 dark:border-primary/30",
+  },
+  urban_report: {
+    icon: MessageCircleMore,
+    title: "Fala Cidadão!",
+    description: "Registre problemas urbanos, elogios, reclamações ou sugestões para a cidade.",
+    color: "from-orange-500 to-orange-600",
+    bgColor: "bg-orange-50 dark:bg-orange-950/30",
+    borderColor: "border-orange-200 dark:border-orange-800",
+  },
   transport: {
     icon: Bus,
-    title: "Diagnóstico de Transporte",
+    title: "Transporte",
     description: "Registre problemas com ônibus, metrô, trem ou CPTM de forma estruturada.",
-    color: "from-blue-500 to-cyan-500",
+    color: "from-blue-500 to-blue-600",
     bgColor: "bg-blue-50 dark:bg-blue-950/30",
     borderColor: "border-blue-200 dark:border-blue-800",
   },
-  urban_report: {
+  services: {
     icon: MapPin,
-    title: "Relato Urbano",
-    description: "Reporte problemas na cidade como buracos, iluminação, lixo ou calçadas.",
-    color: "from-amber-500 to-orange-500",
-    bgColor: "bg-amber-50 dark:bg-amber-950/30",
-    borderColor: "border-amber-200 dark:border-amber-800",
+    title: "Serviços",
+    description: "Encontre UBS, escolas, hospitais e outros serviços públicos próximos a você.",
+    color: "from-purple-500 to-purple-600",
+    bgColor: "bg-purple-50 dark:bg-purple-950/30",
+    borderColor: "border-purple-200 dark:border-purple-800",
   },
   evaluate: {
     icon: Star,
-    title: "Avaliação de Serviço",
+    title: "Avaliar",
     description: "Avalie sua experiência em UBS, escolas, hospitais e outros serviços públicos.",
-    color: "from-emerald-500 to-teal-500",
-    bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
-    borderColor: "border-emerald-200 dark:border-emerald-800",
-  },
-  general: {
-    icon: MessageCircle,
-    title: "Assistente Geral",
-    description: "Para dúvidas sobre notícias, audiências, vereadores e informações da Câmara.",
-    color: "from-purple-500 to-indigo-500",
-    bgColor: "bg-purple-50 dark:bg-purple-950/30",
-    borderColor: "border-purple-200 dark:border-purple-800",
+    color: "from-amber-500 to-amber-600",
+    bgColor: "bg-amber-50 dark:bg-amber-950/30",
+    borderColor: "border-amber-200 dark:border-amber-800",
   },
 };
 
