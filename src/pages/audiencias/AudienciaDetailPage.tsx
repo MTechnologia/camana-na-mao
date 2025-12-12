@@ -1,73 +1,27 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, MapPin, Users, Clock, Building2, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, MapPin, Users, Clock, Building2, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import PageHeader from "@/components/ui/page-header";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Audiencia {
   id: string;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  theme: string;
-  participants: number;
-  status: "upcoming" | "ongoing" | "finished";
-  organizer: string;
+  titulo: string;
+  descricao: string | null;
+  data: string;
+  hora: string;
+  local: string;
+  tema: string;
+  status: string;
+  vagas_disponiveis: number | null;
+  inscricoes_abertas: boolean | null;
+  link_transmissao: string | null;
 }
-
-const mockAudiencias: Audiencia[] = [
-  {
-    id: "1",
-    title: "Mobilidade Urbana na Zona Leste",
-    description: "Discussão sobre melhorias no transporte público e ciclovias na região da Zona Leste de São Paulo.",
-    date: "2024-12-15",
-    time: "14:00",
-    location: "Auditório da Câmara Municipal - Viaduto Jacareí",
-    theme: "Mobilidade",
-    participants: 45,
-    status: "upcoming",
-    organizer: "Comissão de Trânsito e Transporte",
-  },
-  {
-    id: "2",
-    title: "Educação Integral nas Escolas Municipais",
-    description: "Debate sobre a implementação do programa de educação integral nas escolas da rede municipal.",
-    date: "2024-12-18",
-    time: "10:00",
-    location: "Plenário 1º de Maio",
-    theme: "Educação",
-    participants: 67,
-    status: "upcoming",
-    organizer: "Comissão de Educação",
-  },
-  {
-    id: "3",
-    title: "Investimentos em UBS e Hospitais",
-    description: "Apresentação do plano de investimentos em Unidades Básicas de Saúde e hospitais municipais.",
-    date: "2024-12-20",
-    time: "15:30",
-    location: "Auditório Prestes Maia",
-    theme: "Saúde",
-    participants: 89,
-    status: "upcoming",
-    organizer: "Comissão de Saúde",
-  },
-  {
-    id: "4",
-    title: "Preservação de Parques Urbanos",
-    description: "Discussão sobre políticas de preservação e manutenção dos parques urbanos da cidade.",
-    date: "2024-12-22",
-    time: "09:00",
-    location: "Sala das Comissões",
-    theme: "Meio Ambiente",
-    participants: 34,
-    status: "upcoming",
-    organizer: "Comissão de Meio Ambiente",
-  },
-];
 
 const themeColors: Record<string, string> = {
   "Mobilidade": "bg-blue-500/10 text-blue-600 border-blue-500/20",
@@ -76,13 +30,44 @@ const themeColors: Record<string, string> = {
   "Meio Ambiente": "bg-green-500/10 text-green-600 border-green-500/20",
   "Cultura": "bg-pink-500/10 text-pink-600 border-pink-500/20",
   "Segurança": "bg-orange-500/10 text-orange-600 border-orange-500/20",
+  "Habitação": "bg-amber-500/10 text-amber-600 border-amber-500/20",
 };
 
 const AudienciaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const audiencia = mockAudiencias.find(a => a.id === id);
+  const [audiencia, setAudiencia] = useState<Audiencia | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAudiencia = async () => {
+      if (!id) return;
+      
+      const { data, error } = await supabase
+        .from('audiencias')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (!error && data) {
+        setAudiencia(data);
+      }
+      setLoading(false);
+    };
+
+    fetchAudiencia();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PageHeader title="Carregando..." backTo="/audiencias" />
+        <div className="pt-[60px] p-6 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!audiencia) {
     return (
@@ -97,13 +82,16 @@ const AudienciaDetailPage = () => {
   }
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    try {
+      const date = new Date(dateStr);
+      return format(date, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatTime = (timeStr: string) => {
+    return timeStr.slice(0, 5);
   };
 
   return (
@@ -114,15 +102,17 @@ const AudienciaDetailPage = () => {
         {/* Header com título e badge */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold text-foreground">{audiencia.title}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{audiencia.titulo}</h1>
             <Badge
               variant="outline"
-              className={`border shrink-0 ${themeColors[audiencia.theme] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
+              className={`border shrink-0 ${themeColors[audiencia.tema] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
             >
-              {audiencia.theme}
+              {audiencia.tema}
             </Badge>
           </div>
-          <p className="text-base text-muted-foreground">{audiencia.description}</p>
+          <p className="text-base text-muted-foreground">
+            {audiencia.descricao || `Audiência pública sobre ${audiencia.tema}. Participe e contribua com sua opinião sobre este tema relevante para a cidade.`}
+          </p>
         </div>
 
         <Separator />
@@ -136,7 +126,7 @@ const AudienciaDetailPage = () => {
             <div>
               <p className="text-sm font-medium text-foreground">Data</p>
               <p className="text-sm text-muted-foreground capitalize">
-                {formatDate(audiencia.date)}
+                {formatDate(audiencia.data)}
               </p>
             </div>
           </div>
@@ -147,7 +137,7 @@ const AudienciaDetailPage = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Horário</p>
-              <p className="text-sm text-muted-foreground">{audiencia.time}</p>
+              <p className="text-sm text-muted-foreground">{formatTime(audiencia.hora)}</p>
             </div>
           </div>
 
@@ -157,31 +147,23 @@ const AudienciaDetailPage = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Local</p>
-              <p className="text-sm text-muted-foreground">{audiencia.location}</p>
+              <p className="text-sm text-muted-foreground">{audiencia.local}</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Building2 className="h-5 w-5 text-primary" />
+          {audiencia.vagas_disponiveis && (
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Vagas Disponíveis</p>
+                <p className="text-sm text-muted-foreground">
+                  {audiencia.vagas_disponiveis} vagas
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">Organizador</p>
-              <p className="text-sm text-muted-foreground">{audiencia.organizer}</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Users className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">Participantes</p>
-              <p className="text-sm text-muted-foreground">
-                {audiencia.participants} pessoas já se inscreveram
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
         <Separator />
@@ -220,9 +202,13 @@ const AudienciaDetailPage = () => {
           <Button variant="outline" onClick={() => navigate("/audiencias")} className="flex-1">
             Voltar
           </Button>
-          <Button onClick={() => navigate(`/audiencias/${id}/participar`)} className="flex-1">
+          <Button 
+            onClick={() => navigate(`/audiencias/${id}/participar`)} 
+            className="flex-1"
+            disabled={!audiencia.inscricoes_abertas}
+          >
             <User className="h-4 w-4 mr-2" />
-            Quero participar
+            {audiencia.inscricoes_abertas ? "Quero participar" : "Inscrições fechadas"}
           </Button>
         </div>
       </div>
