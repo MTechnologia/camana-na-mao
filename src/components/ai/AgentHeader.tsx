@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useMenu } from "@/contexts/MenuContext";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
+import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import { supabase } from "@/integrations/supabase/client";
 import { getJourneyIcon } from "@/config/aiJourneys";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ const AgentHeader = () => {
   const { openMenu } = useMenu();
   const { currentJourney, activeConversationId, clearJourney, setActiveConversationId } = useAIJourney();
   const { toast } = useToast();
+  const { saveDraft, clearDraft } = useJourneyDraft();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showEscapeDialog, setShowEscapeDialog] = useState(false);
 
@@ -102,17 +104,18 @@ const AgentHeader = () => {
   };
 
   const handleSaveAndExit = () => {
-    // The conversation is already auto-saved, just exit
+    // Draft is already auto-saved via useJourneyDraft in AgentChatArea
     toast({
-      title: "Conversa salva",
-      description: "Você pode continuar depois pelo histórico.",
+      title: "Rascunho salvo",
+      description: "Você pode continuar quando voltar ao app.",
     });
     clearJourney();
     setActiveConversationId(null);
   };
 
   const handleDiscardAndExit = () => {
-    // TODO: Could delete the conversation from the database here
+    // Clear the draft from localStorage
+    clearDraft();
     toast({
       title: "Conversa descartada",
       description: "Você voltou ao início.",
@@ -122,6 +125,7 @@ const AgentHeader = () => {
   };
 
   const handleNewConversation = () => {
+    clearDraft();
     clearJourney();
     setActiveConversationId(null);
     toast({

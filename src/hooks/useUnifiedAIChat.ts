@@ -411,6 +411,20 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     dismissedIntentsRef.current.clear();
   }, []);
 
+  // Restore messages from draft
+  const restoreMessages = useCallback((draftMessages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date | string }>) => {
+    const restored: Message[] = draftMessages.map((m, idx) => ({
+      id: `restored-${idx}-${Date.now()}`,
+      role: m.role,
+      content: m.content,
+      timestamp: typeof m.timestamp === 'string' ? m.timestamp : m.timestamp.toISOString(),
+      source: 'draft'
+    }));
+    setMessages(restored);
+    setCreatedReport(null);
+    setDetectedIntent(null);
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -422,5 +436,6 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
     clearCreatedReport,
     detectedIntent,
     dismissIntent,
+    restoreMessages,
   };
 };

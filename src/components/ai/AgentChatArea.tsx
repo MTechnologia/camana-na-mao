@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useProfile } from "@/hooks/useProfile";
+import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
 import ReportSuccessCard from "./ReportSuccessCard";
@@ -14,6 +15,7 @@ import TypingIndicator from "./TypingIndicator";
 import JourneyProgressTracker from "./JourneyProgressTracker";
 import JourneySuggestionCard from "./JourneySuggestionCard";
 import IntentDetectionIndicator from "./IntentDetectionIndicator";
+import { DraftRecoveryBanner } from "./DraftRecoveryBanner";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare } from "lucide-react";
@@ -40,12 +42,13 @@ const AgentChatArea = () => {
   const [localConversationId, setLocalConversationId] = useState<string | null>(activeConversationId);
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
+  const { draft, hasDraft, saveDraft, clearDraft, getDraftAge, shouldAutoSave } = useJourneyDraft();
   
   useEffect(() => {
     setLocalConversationId(activeConversationId);
   }, [activeConversationId]);
 
-  const { messages, isLoading, isAnalyzingIntent, sendMessage, createdReport, clearCreatedReport, clearMessages, detectedIntent, dismissIntent } = useUnifiedAIChat(
+  const { messages, isLoading, isAnalyzingIntent, sendMessage, createdReport, clearCreatedReport, clearMessages, detectedIntent, dismissIntent, restoreMessages } = useUnifiedAIChat(
     currentJourney || AI_JOURNEYS.general,
     localConversationId
   );
@@ -65,6 +68,26 @@ const AgentChatArea = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, createdReport]);
+
+  // Auto-save draft when messages change (for structured journeys)
+  useEffect(() => {
+    if (currentJourney && shouldAutoSave(currentJourney.id) && messages.length > 0 && !createdReport) {
+      saveDraft(
+        currentJourney.id,
+        currentJourney.label,
+        messages.map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
+        {},
+        localConversationId || undefined
+      );
+    }
+  }, [messages, currentJourney, localConversationId, createdReport, saveDraft, shouldAutoSave]);
+
+  // Clear draft when report is created successfully
+  useEffect(() => {
+    if (createdReport) {
+      clearDraft();
+    }
+  }, [createdReport, clearDraft]);
 
   const showWelcome = !activeConversationId && !currentJourney;
   const showProgressTracker = currentJourney && STRUCTURED_JOURNEYS.includes(currentJourney.id) && messages.length > 0;
@@ -107,6 +130,7 @@ const AgentChatArea = () => {
     if (!journey) return;
 
     clearMessages();
+    clearDraft();
     
     const newConvId = await createConversation(journey.id, journey.initialMessage);
     
@@ -116,6 +140,29 @@ const AgentChatArea = () => {
       setActiveConversationId(newConvId);
     }
   };
+
+  // Resume draft handler
+  const handleResumeDraft = useCallback(async () => {
+    if (!draft) return;
+
+    const journey = AI_JOURNEYS[draft.journeyId as keyof typeof AI_JOURNEYS];
+    if (!journey) return;
+
+    // Restore journey context
+    setJourney(journey, draft.conversationId || null);
+    setActiveConversationId(draft.conversationId || null);
+    setLocalConversationId(draft.conversationId || null);
+
+    // Restore messages
+    if (restoreMessages && draft.messages.length > 0) {
+      restoreMessages(draft.messages);
+    }
+  }, [draft, setJourney, setActiveConversationId, restoreMessages]);
+
+  // Discard draft handler
+  const handleDiscardDraft = useCallback(() => {
+    clearDraft();
+  }, [clearDraft]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -129,6 +176,23 @@ const AgentChatArea = () => {
             exit="exit"
             className="flex-1 flex flex-col px-4 pt-4 pb-2"
           >
+            {/* Draft Recovery Banner */}
+            {hasDraft && draft && (
+              <motion.div
+                className="w-full px-4 pt-2"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <DraftRecoveryBanner
+                  draft={draft}
+                  draftAge={getDraftAge()}
+                  onResume={handleResumeDraft}
+                  onDiscard={handleDiscardDraft}
+                />
+              </motion.div>
+            )}
+
             {/* Topo: Saudação + Feed */}
             <motion.div 
               className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto flex flex-col items-center"
