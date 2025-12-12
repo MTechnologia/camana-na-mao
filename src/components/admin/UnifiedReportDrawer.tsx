@@ -502,35 +502,20 @@ export const UnifiedReportDrawer = ({
           </ScrollArea>
         </Tabs>
 
-        {/* Footer Actions */}
-        <div className="p-4 border-t bg-background/95 backdrop-blur space-y-3">
-          {manifest.type !== 'evaluation' && (
-            <div>
-              <label className="text-sm font-medium mb-2 block">Alterar Status</label>
-              <Select
-                value={manifest.status}
-                onValueChange={(value) => onStatusChange(manifest.id, manifest.type, value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="in_progress">Em Andamento</SelectItem>
-                  <SelectItem value="resolved">Resolvido</SelectItem>
-                  <SelectItem value="rejected">Rejeitado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
+        {/* Footer - Simplified (main actions are inline in cards) */}
+        <div className="p-4 border-t bg-background/95 backdrop-blur">
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={onReferral}>
+            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+            <Button variant="outline" onClick={onReferral}>
               <Forward className="h-4 w-4 mr-2" />
               Encaminhar
             </Button>
             <Button
-              variant="destructive"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-destructive"
               onClick={() => onDelete(manifest)}
             >
               <Trash2 className="h-4 w-4" />
