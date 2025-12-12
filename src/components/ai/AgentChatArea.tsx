@@ -126,10 +126,11 @@ const AgentChatArea = () => {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="flex-1 flex flex-col items-center justify-center px-4"
+            className="flex-1 flex flex-col px-4 pt-4 pb-2"
           >
+            {/* Topo: Saudação + Feed */}
             <motion.div 
-              className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl flex flex-col items-center"
+              className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto flex flex-col items-center"
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
@@ -138,29 +139,30 @@ const AgentChatArea = () => {
               
               {/* Minimal Contextual Feed - News & Events */}
               <ContextualFeed />
-              
+            </motion.div>
+            
+            {/* Spacer flexível */}
+            <div className="flex-1 min-h-4" />
+            
+            {/* Próximo ao chat: Quick Actions */}
+            <motion.div 
+              className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+            >
               {/* Section Title for Quick Actions */}
-              <motion.div 
-                className="flex items-center gap-2 w-full max-w-md px-4 mt-6 mb-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.25, duration: 0.3 }}
-              >
+              <div className="flex items-center gap-2 px-4 mb-3">
                 <MessageSquare className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">
                   Inicie uma conversa com a Câmara
                 </span>
-              </motion.div>
+              </div>
               
               <QuickActionsCarousel onStartJourney={handleStartJourney} />
-              <motion.p 
-                className="text-xs text-muted-foreground text-center mt-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.3 }}
-              >
+              <p className="text-xs text-muted-foreground text-center mt-3">
                 Digite sua mensagem ou escolha uma opção acima
-              </motion.p>
+              </p>
             </motion.div>
           </motion.div>
         ) : (

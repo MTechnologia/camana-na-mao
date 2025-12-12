@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { Mic, AudioWaveform } from "lucide-react";
+import { Mic, AudioWaveform, ArrowUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -16,6 +17,8 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
   const recognitionRef = useRef<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const hasText = inputValue.trim().length > 0;
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -93,6 +96,14 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
     navigate("/voz");
   };
 
+  const handleActionButtonClick = () => {
+    if (hasText) {
+      handleSend();
+    } else {
+      handleVoiceMode();
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -125,15 +136,38 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
           </button>
         </div>
 
-        {/* Voice mode button */}
+        {/* Dynamic action button: Voice mode (empty) or Send (with text) */}
         <Button
-          onClick={handleVoiceMode}
+          onClick={handleActionButtonClick}
+          disabled={disabled}
           size="icon"
-          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0"
-          aria-label="Modo conversa por voz"
-          title="Conversa completa por voz"
+          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0 relative overflow-hidden"
+          aria-label={hasText ? "Enviar mensagem" : "Modo conversa por voz"}
+          title={hasText ? "Enviar mensagem" : "Conversa completa por voz"}
         >
-          <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5" />
+          <AnimatePresence mode="wait" initial={false}>
+            {hasText ? (
+              <motion.div
+                key="send"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="voice"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5" />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Button>
       </div>
 
