@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export type ReportType = 'urban' | 'transport';
+export type ManifestType = 'urban' | 'transport' | 'evaluation' | 'feedback';
 
-export interface UnifiedReport {
+export interface UnifiedManifest {
   id: string;
-  type: ReportType;
+  type: ManifestType;
   title: string;
   description: string | null;
   severity: string;
@@ -34,7 +34,8 @@ export interface UnifiedReport {
   transport_data?: {
     report_type: string;
     line_id: string | null;
-    line_code_custom: string | null;
+    line_code: string | null;
+    line_name: string | null;
     occurrence_date: string;
     occurrence_time: string | null;
     impact_description: string | null;
@@ -42,22 +43,36 @@ export interface UnifiedReport {
     ai_category: string | null;
     ai_pattern_detected: boolean | null;
     responded_at: string | null;
+    responses_count: number;
   };
-  // N8N fields (common)
-  n8n_processed: boolean | null;
-  n8n_priority: string | null;
-  n8n_tags: string[] | null;
-  n8n_validated_category: string | null;
-  n8n_enriched_data: Record<string, unknown> | null;
+  // Evaluation-specific fields
+  evaluation_data?: {
+    service_id: string;
+    service_name: string | null;
+    service_type: string | null;
+    rating_stars: number;
+    rating_text: string | null;
+    sentiment: string | null;
+    visit_id: string;
+    is_anonymous: boolean;
+  };
+  // N8N fields (common for urban/transport)
+  n8n_processed?: boolean | null;
+  n8n_priority?: string | null;
+  n8n_tags?: string[] | null;
+  n8n_validated_category?: string | null;
+  n8n_enriched_data?: Record<string, unknown> | null;
 }
 
-export interface ReportsKPIs {
+export interface ManifestKPIs {
   total: number;
   pending: number;
   in_analysis: number;
   resolved: number;
   urban_count: number;
   transport_count: number;
+  evaluation_count: number;
+  feedback_count: number;
   critical_count: number;
   trends: {
     total: number;
@@ -71,9 +86,9 @@ export interface DateRange {
 }
 
 interface UseReportsAdminReturn {
-  reports: UnifiedReport[];
+  manifests: UnifiedManifest[];
   loading: boolean;
-  kpis: ReportsKPIs;
+  kpis: ManifestKPIs;
   kpisLoading: boolean;
   // Filters
   searchTerm: string;
@@ -82,8 +97,8 @@ interface UseReportsAdminReturn {
   setStatusFilter: (status: string) => void;
   severityFilter: string;
   setSeverityFilter: (severity: string) => void;
-  typeFilter: ReportType | 'all';
-  setTypeFilter: (type: ReportType | 'all') => void;
+  typeFilter: ManifestType | 'all';
+  setTypeFilter: (type: ManifestType | 'all') => void;
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
   // Pagination
@@ -92,24 +107,26 @@ interface UseReportsAdminReturn {
   pageSize: number;
   totalCount: number;
   // Actions
-  updateReportStatus: (id: string, type: ReportType, newStatus: string) => Promise<void>;
-  updateBulkStatus: (ids: { id: string; type: ReportType }[], newStatus: string) => Promise<void>;
-  deleteReport: (id: string, type: ReportType) => Promise<void>;
-  deleteBulkReports: (ids: { id: string; type: ReportType }[]) => Promise<void>;
+  updateManifestStatus: (id: string, type: ManifestType, newStatus: string) => Promise<void>;
+  updateBulkStatus: (ids: { id: string; type: ManifestType }[], newStatus: string) => Promise<void>;
+  deleteManifest: (id: string, type: ManifestType) => Promise<void>;
+  deleteBulkManifests: (ids: { id: string; type: ManifestType }[]) => Promise<void>;
   exportToCSV: () => void;
   refetch: () => void;
 }
 
 export const useReportsAdmin = (): UseReportsAdminReturn => {
-  const [reports, setReports] = useState<UnifiedReport[]>([]);
+  const [manifests, setManifests] = useState<UnifiedManifest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [kpis, setKpis] = useState<ReportsKPIs>({
+  const [kpis, setKpis] = useState<ManifestKPIs>({
     total: 0,
     pending: 0,
     in_analysis: 0,
     resolved: 0,
     urban_count: 0,
     transport_count: 0,
+    evaluation_count: 0,
+    feedback_count: 0,
     critical_count: 0,
     trends: { total: 0, pending: 0 },
   });
@@ -120,7 +137,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState<ReportType | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<ManifestType | 'all'>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   // Pagination
@@ -130,30 +147,29 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
   const fetchKPIs = useCallback(async () => {
     setKpisLoading(true);
     try {
-      // Urban reports counts
+      // Urban reports counts (excluding feedback)
       const { count: urbanTotal } = await supabase
         .from('urban_reports')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .neq('category', 'feedback_camara');
 
       const { count: urbanPending } = await supabase
         .from('urban_reports')
         .select('*', { count: 'exact', head: true })
+        .neq('category', 'feedback_camara')
         .eq('status', 'pending');
-
-      const { count: urbanAnalysis } = await supabase
-        .from('urban_reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'in_analysis');
-
-      const { count: urbanResolved } = await supabase
-        .from('urban_reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'resolved');
 
       const { count: urbanCritical } = await supabase
         .from('urban_reports')
         .select('*', { count: 'exact', head: true })
+        .neq('category', 'feedback_camara')
         .eq('severity', 'critical');
+
+      // Feedback counts (category = feedback_camara)
+      const { count: feedbackTotal } = await supabase
+        .from('urban_reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('category', 'feedback_camara');
 
       // Transport reports counts
       const { count: transportTotal } = await supabase
@@ -165,49 +181,51 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
 
-      const { count: transportAnalysis } = await supabase
-        .from('transport_reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'in_analysis');
-
-      const { count: transportResolved } = await supabase
-        .from('transport_reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'resolved');
-
       const { count: transportCritical } = await supabase
         .from('transport_reports')
         .select('*', { count: 'exact', head: true })
-        .eq('severity', 'critical');
+        .eq('severity', 'high');
+
+      // Service ratings counts
+      const { count: evaluationTotal } = await supabase
+        .from('service_ratings')
+        .select('*', { count: 'exact', head: true });
 
       // Calculate trends (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const { count: urbanRecentCount } = await supabase
+      const { count: recentUrban } = await supabase
         .from('urban_reports')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', sevenDaysAgo.toISOString());
 
-      const { count: transportRecentCount } = await supabase
+      const { count: recentTransport } = await supabase
         .from('transport_reports')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', sevenDaysAgo.toISOString());
 
-      const total = (urbanTotal || 0) + (transportTotal || 0);
-      const recentTotal = (urbanRecentCount || 0) + (transportRecentCount || 0);
+      const { count: recentEvaluation } = await supabase
+        .from('service_ratings')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      const total = (urbanTotal || 0) + (feedbackTotal || 0) + (transportTotal || 0) + (evaluationTotal || 0);
+      const recentTotal = (recentUrban || 0) + (recentTransport || 0) + (recentEvaluation || 0);
 
       setKpis({
         total,
         pending: (urbanPending || 0) + (transportPending || 0),
-        in_analysis: (urbanAnalysis || 0) + (transportAnalysis || 0),
-        resolved: (urbanResolved || 0) + (transportResolved || 0),
+        in_analysis: 0,
+        resolved: 0,
         urban_count: urbanTotal || 0,
         transport_count: transportTotal || 0,
+        evaluation_count: evaluationTotal || 0,
+        feedback_count: feedbackTotal || 0,
         critical_count: (urbanCritical || 0) + (transportCritical || 0),
         trends: {
           total: total > 0 ? Math.round((recentTotal / total) * 100) : 0,
-          pending: 0, // Could be calculated similarly
+          pending: 0,
         },
       });
     } catch (error) {
@@ -217,82 +235,55 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   }, []);
 
-  const fetchReports = useCallback(async () => {
+  const fetchManifests = useCallback(async () => {
     setLoading(true);
     try {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      let urbanReports: UnifiedReport[] = [];
-      let transportReports: UnifiedReport[] = [];
+      let allManifests: UnifiedManifest[] = [];
       let urbanCount = 0;
       let transportCount = 0;
+      let evaluationCount = 0;
 
-      // Fetch urban reports if filter allows
+      // Fetch urban reports (excluding feedback)
       if (typeFilter === 'all' || typeFilter === 'urban') {
         let urbanQuery = supabase
           .from('urban_reports')
-          .select('*', { count: 'exact' });
+          .select('*', { count: 'exact' })
+          .neq('category', 'feedback_camara');
 
-        if (statusFilter !== 'all') {
-          urbanQuery = urbanQuery.eq('status', statusFilter);
-        }
-        if (severityFilter !== 'all') {
-          urbanQuery = urbanQuery.eq('severity', severityFilter);
-        }
-        if (searchTerm) {
-          urbanQuery = urbanQuery.or(`description.ilike.%${searchTerm}%,location_address.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`);
-        }
-        if (dateRange.from) {
-          urbanQuery = urbanQuery.gte('created_at', dateRange.from.toISOString());
-        }
-        if (dateRange.to) {
-          urbanQuery = urbanQuery.lte('created_at', dateRange.to.toISOString());
-        }
+        if (statusFilter !== 'all') urbanQuery = urbanQuery.eq('status', statusFilter);
+        if (severityFilter !== 'all') urbanQuery = urbanQuery.eq('severity', severityFilter);
+        if (searchTerm) urbanQuery = urbanQuery.or(`description.ilike.%${searchTerm}%,location_address.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`);
+        if (dateRange.from) urbanQuery = urbanQuery.gte('created_at', dateRange.from.toISOString());
+        if (dateRange.to) urbanQuery = urbanQuery.lte('created_at', dateRange.to.toISOString());
 
-        urbanQuery = urbanQuery.order('created_at', { ascending: false });
-
-        const { data: urbanData, count, error: urbanError } = await urbanQuery;
-
-        if (urbanError) throw urbanError;
+        const { data: urbanData, count, error } = await urbanQuery.order('created_at', { ascending: false });
+        if (error) throw error;
 
         urbanCount = count || 0;
 
-        // Fetch authors and engagement for urban reports
-        if (urbanData && urbanData.length > 0) {
+        if (urbanData?.length) {
           const userIds = [...new Set(urbanData.map(r => r.user_id))];
           const reportIds = urbanData.map(r => r.id);
 
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .in('id', userIds);
-
-          const { data: likesData } = await supabase
-            .from('urban_report_likes')
-            .select('report_id')
-            .in('report_id', reportIds);
-
-          const { data: commentsData } = await supabase
-            .from('urban_report_comments')
-            .select('report_id')
-            .in('report_id', reportIds);
+          const [{ data: profiles }, { data: likes }, { data: comments }] = await Promise.all([
+            supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds),
+            supabase.from('urban_report_likes').select('report_id').in('report_id', reportIds),
+            supabase.from('urban_report_comments').select('report_id').in('report_id', reportIds),
+          ]);
 
           const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
           const likesCount = new Map<string, number>();
           const commentsCount = new Map<string, number>();
+          likes?.forEach(l => likesCount.set(l.report_id, (likesCount.get(l.report_id) || 0) + 1));
+          comments?.forEach(c => commentsCount.set(c.report_id, (commentsCount.get(c.report_id) || 0) + 1));
 
-          likesData?.forEach(l => {
-            likesCount.set(l.report_id, (likesCount.get(l.report_id) || 0) + 1);
-          });
-          commentsData?.forEach(c => {
-            commentsCount.set(c.report_id, (commentsCount.get(c.report_id) || 0) + 1);
-          });
-
-          urbanReports = urbanData.map(r => ({
+          allManifests.push(...urbanData.map(r => ({
             id: r.id,
-            type: 'urban' as ReportType,
-            title: r.category,
+            type: 'urban' as ManifestType,
+            title: r.subcategory || r.category,
             description: r.description,
             severity: r.severity || 'medium',
             status: r.status || 'pending',
@@ -315,54 +306,88 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
             n8n_tags: r.n8n_tags,
             n8n_validated_category: r.n8n_validated_category,
             n8n_enriched_data: r.n8n_enriched_data as Record<string, unknown> | null,
-          }));
+          })));
         }
       }
 
-      // Fetch transport reports if filter allows
+      // Fetch feedback (category = feedback_camara)
+      if (typeFilter === 'all' || typeFilter === 'feedback') {
+        let feedbackQuery = supabase
+          .from('urban_reports')
+          .select('*', { count: 'exact' })
+          .eq('category', 'feedback_camara');
+
+        if (statusFilter !== 'all') feedbackQuery = feedbackQuery.eq('status', statusFilter);
+        if (searchTerm) feedbackQuery = feedbackQuery.or(`description.ilike.%${searchTerm}%,subcategory.ilike.%${searchTerm}%`);
+        if (dateRange.from) feedbackQuery = feedbackQuery.gte('created_at', dateRange.from.toISOString());
+        if (dateRange.to) feedbackQuery = feedbackQuery.lte('created_at', dateRange.to.toISOString());
+
+        const { data: feedbackData, error } = await feedbackQuery.order('created_at', { ascending: false });
+        if (error) throw error;
+
+        if (feedbackData?.length) {
+          const userIds = [...new Set(feedbackData.map(r => r.user_id))];
+          const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds);
+          const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+          allManifests.push(...feedbackData.map(r => ({
+            id: r.id,
+            type: 'feedback' as ManifestType,
+            title: r.subcategory || 'Feedback Câmara',
+            description: r.description,
+            severity: r.severity || 'medium',
+            status: r.status || 'pending',
+            created_at: r.created_at || '',
+            updated_at: r.updated_at,
+            location: null,
+            author: profileMap.get(r.user_id) || null,
+            urban_data: {
+              category: r.category,
+              subcategory: r.subcategory,
+              photos: r.photos,
+              latitude: null,
+              longitude: null,
+              likes_count: 0,
+              comments_count: 0,
+              ai_classification: r.ai_classification as Record<string, unknown> | null,
+            },
+          })));
+        }
+      }
+
+      // Fetch transport reports
       if (typeFilter === 'all' || typeFilter === 'transport') {
         let transportQuery = supabase
           .from('transport_reports')
-          .select('*', { count: 'exact' });
+          .select('*, transport_lines(line_code, line_name)', { count: 'exact' });
 
-        if (statusFilter !== 'all') {
-          transportQuery = transportQuery.eq('status', statusFilter);
-        }
-        if (severityFilter !== 'all') {
-          transportQuery = transportQuery.eq('severity', severityFilter);
-        }
-        if (searchTerm) {
-          transportQuery = transportQuery.or(`description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%,report_type.ilike.%${searchTerm}%`);
-        }
-        if (dateRange.from) {
-          transportQuery = transportQuery.gte('created_at', dateRange.from.toISOString());
-        }
-        if (dateRange.to) {
-          transportQuery = transportQuery.lte('created_at', dateRange.to.toISOString());
-        }
+        if (statusFilter !== 'all') transportQuery = transportQuery.eq('status', statusFilter);
+        if (severityFilter !== 'all') transportQuery = transportQuery.eq('severity', severityFilter);
+        if (searchTerm) transportQuery = transportQuery.or(`description.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%,report_type.ilike.%${searchTerm}%`);
+        if (dateRange.from) transportQuery = transportQuery.gte('created_at', dateRange.from.toISOString());
+        if (dateRange.to) transportQuery = transportQuery.lte('created_at', dateRange.to.toISOString());
 
-        transportQuery = transportQuery.order('created_at', { ascending: false });
-
-        const { data: transportData, count, error: transportError } = await transportQuery;
-
-        if (transportError) throw transportError;
+        const { data: transportData, count, error } = await transportQuery.order('created_at', { ascending: false });
+        if (error) throw error;
 
         transportCount = count || 0;
 
-        // Fetch authors for transport reports
-        if (transportData && transportData.length > 0) {
+        if (transportData?.length) {
           const userIds = [...new Set(transportData.map(r => r.user_id))];
+          const reportIds = transportData.map(r => r.id);
 
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .in('id', userIds);
+          const [{ data: profiles }, { data: responses }] = await Promise.all([
+            supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds),
+            supabase.from('transport_report_responses').select('report_id').in('report_id', reportIds),
+          ]);
 
           const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+          const responsesCount = new Map<string, number>();
+          responses?.forEach(r => responsesCount.set(r.report_id, (responsesCount.get(r.report_id) || 0) + 1));
 
-          transportReports = transportData.map(r => ({
+          allManifests.push(...transportData.map(r => ({
             id: r.id,
-            type: 'transport' as ReportType,
+            type: 'transport' as ManifestType,
             title: r.report_type,
             description: r.description,
             severity: r.severity,
@@ -374,7 +399,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
             transport_data: {
               report_type: r.report_type,
               line_id: r.line_id,
-              line_code_custom: r.line_code_custom,
+              line_code: (r.transport_lines as any)?.line_code || r.line_code_custom,
+              line_name: (r.transport_lines as any)?.line_name || null,
               occurrence_date: r.occurrence_date,
               occurrence_time: r.occurrence_time,
               impact_description: r.impact_description,
@@ -382,35 +408,84 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               ai_category: r.ai_category,
               ai_pattern_detected: r.ai_pattern_detected,
               responded_at: r.responded_at,
+              responses_count: responsesCount.get(r.id) || 0,
             },
             n8n_processed: r.n8n_processed,
             n8n_priority: r.n8n_priority,
             n8n_tags: r.n8n_tags,
             n8n_validated_category: r.n8n_validated_category,
             n8n_enriched_data: r.n8n_enriched_data as Record<string, unknown> | null,
-          }));
+          })));
         }
       }
 
-      // Merge and sort by date
-      const allReports = [...urbanReports, ...transportReports]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(from, to + 1);
+      // Fetch service evaluations
+      if (typeFilter === 'all' || typeFilter === 'evaluation') {
+        let evalQuery = supabase
+          .from('service_ratings')
+          .select('*, public_services(name, service_type)', { count: 'exact' });
 
-      setReports(allReports);
-      setTotalCount(urbanCount + transportCount);
+        if (searchTerm) evalQuery = evalQuery.or(`rating_text.ilike.%${searchTerm}%`);
+        if (dateRange.from) evalQuery = evalQuery.gte('created_at', dateRange.from.toISOString());
+        if (dateRange.to) evalQuery = evalQuery.lte('created_at', dateRange.to.toISOString());
+
+        const { data: evalData, count, error } = await evalQuery.order('created_at', { ascending: false });
+        if (error) throw error;
+
+        evaluationCount = count || 0;
+
+        if (evalData?.length) {
+          const userIds = [...new Set(evalData.map(r => r.user_id))];
+          const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds);
+          const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+          allManifests.push(...evalData.map(r => ({
+            id: r.id,
+            type: 'evaluation' as ManifestType,
+            title: (r.public_services as any)?.name || 'Avaliação de Serviço',
+            description: r.rating_text,
+            severity: r.rating_stars <= 2 ? 'high' : r.rating_stars <= 3 ? 'medium' : 'low',
+            status: 'completed',
+            created_at: r.created_at || '',
+            updated_at: r.updated_at,
+            location: null,
+            author: r.is_anonymous ? null : profileMap.get(r.user_id) || null,
+            evaluation_data: {
+              service_id: r.service_id,
+              service_name: (r.public_services as any)?.name || null,
+              service_type: (r.public_services as any)?.service_type || null,
+              rating_stars: r.rating_stars,
+              rating_text: r.rating_text,
+              sentiment: r.sentiment,
+              visit_id: r.visit_id,
+              is_anonymous: r.is_anonymous || false,
+            },
+          })));
+        }
+      }
+
+      // Sort by date and paginate
+      const sorted = allManifests.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const paginated = sorted.slice(from, to + 1);
+
+      setManifests(paginated);
+      setTotalCount(urbanCount + transportCount + evaluationCount);
     } catch (error) {
-      console.error('Error fetching reports:', error);
-      toast.error('Erro ao carregar relatos');
+      console.error('Error fetching manifests:', error);
+      toast.error('Erro ao carregar manifestações');
     } finally {
       setLoading(false);
     }
   }, [page, pageSize, searchTerm, statusFilter, severityFilter, typeFilter, dateRange]);
 
-  // Actions
-  const updateReportStatus = async (id: string, type: ReportType, newStatus: string) => {
+  const updateManifestStatus = async (id: string, type: ManifestType, newStatus: string) => {
     try {
-      const table = type === 'urban' ? 'urban_reports' : 'transport_reports';
+      const table = type === 'urban' || type === 'feedback' ? 'urban_reports' : 'transport_reports';
+      if (type === 'evaluation') {
+        toast.error('Avaliações não podem ter status alterado');
+        return;
+      }
+
       const { error } = await supabase
         .from(table)
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -419,7 +494,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       if (error) throw error;
 
       toast.success('Status atualizado com sucesso');
-      fetchReports();
+      fetchManifests();
       fetchKPIs();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -427,9 +502,9 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   };
 
-  const updateBulkStatus = async (ids: { id: string; type: ReportType }[], newStatus: string) => {
+  const updateBulkStatus = async (ids: { id: string; type: ManifestType }[], newStatus: string) => {
     try {
-      const urbanIds = ids.filter(i => i.type === 'urban').map(i => i.id);
+      const urbanIds = ids.filter(i => i.type === 'urban' || i.type === 'feedback').map(i => i.id);
       const transportIds = ids.filter(i => i.type === 'transport').map(i => i.id);
 
       if (urbanIds.length > 0) {
@@ -448,8 +523,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         if (error) throw error;
       }
 
-      toast.success(`${ids.length} relatos atualizados`);
-      fetchReports();
+      toast.success(`${ids.length} manifestações atualizadas`);
+      fetchManifests();
       fetchKPIs();
     } catch (error) {
       console.error('Error updating bulk status:', error);
@@ -457,124 +532,115 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   };
 
-  const deleteReport = async (id: string, type: ReportType) => {
+  const deleteManifest = async (id: string, type: ManifestType) => {
     try {
-      const table = type === 'urban' ? 'urban_reports' : 'transport_reports';
-      
-      // Delete related data first
-      if (type === 'urban') {
+      if (type === 'urban' || type === 'feedback') {
         await supabase.from('urban_report_likes').delete().eq('report_id', id);
         await supabase.from('urban_report_comments').delete().eq('report_id', id);
-      } else {
+        await supabase.from('council_member_referrals').delete().eq('urban_report_id', id);
+        const { error } = await supabase.from('urban_reports').delete().eq('id', id);
+        if (error) throw error;
+      } else if (type === 'transport') {
         await supabase.from('transport_report_responses').delete().eq('report_id', id);
+        await supabase.from('council_member_referrals').delete().eq('transport_report_id', id);
+        const { error } = await supabase.from('transport_reports').delete().eq('id', id);
+        if (error) throw error;
+      } else if (type === 'evaluation') {
+        await supabase.from('council_member_referrals').delete().eq('service_rating_id', id);
+        const { error } = await supabase.from('service_ratings').delete().eq('id', id);
+        if (error) throw error;
       }
 
-      const { error } = await supabase.from(table).delete().eq('id', id);
-      if (error) throw error;
-
-      toast.success('Relato excluído com sucesso');
-      fetchReports();
+      toast.success('Manifestação excluída com sucesso');
+      fetchManifests();
       fetchKPIs();
     } catch (error) {
-      console.error('Error deleting report:', error);
-      toast.error('Erro ao excluir relato');
+      console.error('Error deleting manifest:', error);
+      toast.error('Erro ao excluir manifestação');
     }
   };
 
-  const deleteBulkReports = async (ids: { id: string; type: ReportType }[]) => {
+  const deleteBulkManifests = async (ids: { id: string; type: ManifestType }[]) => {
     try {
-      const urbanIds = ids.filter(i => i.type === 'urban').map(i => i.id);
-      const transportIds = ids.filter(i => i.type === 'transport').map(i => i.id);
-
-      if (urbanIds.length > 0) {
-        await supabase.from('urban_report_likes').delete().in('report_id', urbanIds);
-        await supabase.from('urban_report_comments').delete().in('report_id', urbanIds);
-        const { error } = await supabase.from('urban_reports').delete().in('id', urbanIds);
-        if (error) throw error;
+      for (const { id, type } of ids) {
+        await deleteManifest(id, type);
       }
-
-      if (transportIds.length > 0) {
-        await supabase.from('transport_report_responses').delete().in('report_id', transportIds);
-        const { error } = await supabase.from('transport_reports').delete().in('id', transportIds);
-        if (error) throw error;
-      }
-
-      toast.success(`${ids.length} relatos excluídos`);
-      fetchReports();
-      fetchKPIs();
     } catch (error) {
-      console.error('Error deleting bulk reports:', error);
-      toast.error('Erro ao excluir relatos em lote');
+      console.error('Error bulk deleting:', error);
+      toast.error('Erro ao excluir em lote');
     }
   };
 
   const exportToCSV = () => {
-    if (reports.length === 0) {
-      toast.error('Nenhum relato para exportar');
-      return;
-    }
+    const headers = ['ID', 'Tipo', 'Título', 'Descrição', 'Severidade', 'Status', 'Data', 'Autor'];
+    const typeLabels: Record<ManifestType, string> = {
+      urban: 'Urbana',
+      transport: 'Transporte',
+      evaluation: 'Avaliação',
+      feedback: 'Feedback',
+    };
 
-    const headers = ['ID', 'Tipo', 'Título', 'Descrição', 'Severidade', 'Status', 'Local', 'Autor', 'Data'];
-    const rows = reports.map(r => [
-      r.id,
-      r.type === 'urban' ? 'Urbano' : 'Transporte',
-      r.title,
-      r.description || '',
-      r.severity,
-      r.status,
-      r.location || '',
-      r.author?.full_name || 'Anônimo',
-      new Date(r.created_at).toLocaleString('pt-BR'),
+    const rows = manifests.map(m => [
+      m.id,
+      typeLabels[m.type],
+      m.title,
+      m.description || '',
+      m.severity,
+      m.status,
+      m.created_at,
+      m.author?.full_name || 'Anônimo',
     ]);
 
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `relatos_${new Date().toISOString().split('T')[0]}.csv`;
+    link.href = url;
+    link.download = `manifestacoes-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-
-    toast.success('Exportação concluída');
+    URL.revokeObjectURL(url);
+    toast.success('CSV exportado com sucesso');
   };
-
-  // Effects
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
 
   useEffect(() => {
     fetchKPIs();
-  }, [fetchKPIs]);
+    fetchManifests();
+  }, [fetchKPIs, fetchManifests]);
 
-  // Real-time subscriptions
   useEffect(() => {
     const urbanChannel = supabase
-      .channel('reports_urban_changes')
+      .channel('urban-reports-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'urban_reports' }, () => {
-        fetchReports();
+        fetchManifests();
         fetchKPIs();
       })
       .subscribe();
 
     const transportChannel = supabase
-      .channel('reports_transport_changes')
+      .channel('transport-reports-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transport_reports' }, () => {
-        fetchReports();
+        fetchManifests();
+        fetchKPIs();
+      })
+      .subscribe();
+
+    const ratingsChannel = supabase
+      .channel('ratings-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_ratings' }, () => {
+        fetchManifests();
         fetchKPIs();
       })
       .subscribe();
 
     return () => {
-      urbanChannel.unsubscribe();
-      transportChannel.unsubscribe();
+      supabase.removeChannel(urbanChannel);
+      supabase.removeChannel(transportChannel);
+      supabase.removeChannel(ratingsChannel);
     };
-  }, [fetchReports, fetchKPIs]);
+  }, [fetchManifests, fetchKPIs]);
 
   return {
-    reports,
+    manifests,
     loading,
     kpis,
     kpisLoading,
@@ -592,11 +658,11 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     setPage,
     pageSize,
     totalCount,
-    updateReportStatus,
+    updateManifestStatus,
     updateBulkStatus,
-    deleteReport,
-    deleteBulkReports,
+    deleteManifest,
+    deleteBulkManifests,
     exportToCSV,
-    refetch: fetchReports,
+    refetch: fetchManifests,
   };
 };

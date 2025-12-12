@@ -66,6 +66,7 @@ import ExportLogs from "./pages/admin/ExportLogs";
 import AuditLogs from "./pages/admin/AuditLogs";
 import UrbanReportsManagement from "./pages/admin/UrbanReportsManagement";
 import TransportReportsManagement from "./pages/admin/TransportReportsManagement";
+import ReportsManagement from "./pages/admin/ReportsManagement";
 import ReportsAnalytics from "./pages/admin/ReportsAnalytics";
 import SentimentAnalysis from "./pages/admin/SentimentAnalysis";
 import N8NIntegration from "./pages/admin/settings/N8NIntegration";
@@ -157,6 +158,7 @@ const AppContent = () => {
         <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
         <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
+        <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
