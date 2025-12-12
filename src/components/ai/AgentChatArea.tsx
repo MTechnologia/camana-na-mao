@@ -226,7 +226,7 @@ const AgentChatArea = () => {
                         dismissIntent();
                         handleStartJourney(detectedIntent.journey);
                       }}
-                      onDismiss={dismissIntent}
+                      onDismiss={() => dismissIntent(detectedIntent.journey)}
                     />
                   )}
                 </AnimatePresence>
