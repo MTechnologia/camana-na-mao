@@ -8,20 +8,20 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Search, Download, Building2, Bus, Star, MessageSquare,
-  AlertTriangle, Clock, CheckCircle2, XCircle, TrendingUp,
-  LayoutList, Columns, Filter
+  Search, Download, AlertTriangle, LayoutList, Columns, Filter,
+  Building2, Bus, Star, MessageSquare, Clock, TrendingUp, CheckCircle2, XCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { UnifiedReportDrawer } from '@/components/admin/UnifiedReportDrawer';
+import { ManifestCard } from '@/components/admin/ManifestCard';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
 
+// Config objects for Kanban view
 const typeConfig: Record<ManifestType, { label: string; icon: typeof Building2; color: string }> = {
   urban: { label: 'Urbana', icon: Building2, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   transport: { label: 'Transporte', icon: Bus, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
@@ -316,65 +316,22 @@ export default function ReportsManagement() {
                     <p>Nenhuma manifestação encontrada</p>
                   </div>
                 ) : (
-                  <div className="divide-y">
-                    {manifests.map((manifest) => {
-                      const TypeIcon = typeConfig[manifest.type].icon;
-                      const StatusIcon = statusConfig[manifest.status]?.icon || Clock;
-                      const isSelected = selectedIds.some(i => i.id === manifest.id);
-
-                      return (
-                        <div
-                          key={manifest.id}
-                          className={`flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer transition-colors ${isSelected ? 'bg-muted/30' : ''}`}
-                          onClick={() => handleViewDetails(manifest)}
-                        >
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => handleSelectOne(manifest, !!checked)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={manifest.author?.avatar_url || undefined} />
-                            <AvatarFallback className="text-xs">
-                              {manifest.author?.full_name?.slice(0, 2).toUpperCase() || '??'}
-                            </AvatarFallback>
-                          </Avatar>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className={typeConfig[manifest.type].color}>
-                                <TypeIcon className="h-3 w-3 mr-1" />
-                                {typeConfig[manifest.type].label}
-                              </Badge>
-                              <Badge variant="outline" className={statusConfig[manifest.status]?.color}>
-                                <StatusIcon className="h-3 w-3 mr-1" />
-                                {statusConfig[manifest.status]?.label || manifest.status}
-                              </Badge>
-                              {manifest.severity && severityConfig[manifest.severity] && (
-                                <Badge variant="outline" className={severityConfig[manifest.severity].color}>
-                                  {severityConfig[manifest.severity].label}
-                                </Badge>
-                              )}
-                              {manifest.type === 'evaluation' && manifest.evaluation_data && (
-                                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                                  ★ {manifest.evaluation_data.rating_stars}
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="font-medium truncate">{manifest.title}</p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {manifest.description || 'Sem descrição'}
-                            </p>
-                          </div>
-
-                          <div className="text-right text-sm text-muted-foreground shrink-0">
-                            <p>{format(new Date(manifest.created_at), "dd/MM/yyyy", { locale: ptBR })}</p>
-                            <p>{format(new Date(manifest.created_at), "HH:mm", { locale: ptBR })}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div>
+                    {manifests.map((manifest) => (
+                      <ManifestCard
+                        key={manifest.id}
+                        manifest={manifest}
+                        isSelected={selectedIds.some(i => i.id === manifest.id)}
+                        onSelect={(checked) => handleSelectOne(manifest, checked)}
+                        onStatusChange={(status) => updateManifestStatus(manifest.id, manifest.type, status)}
+                        onViewDetails={() => handleViewDetails(manifest)}
+                        onReferral={() => {
+                          setSelectedManifest(manifest);
+                          setReferralDialogOpen(true);
+                        }}
+                        onDelete={() => handleDeleteClick(manifest)}
+                      />
+                    ))}
                   </div>
                 )}
               </ScrollArea>
