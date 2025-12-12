@@ -64,8 +64,6 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import ExportLogs from "./pages/admin/ExportLogs";
 import AuditLogs from "./pages/admin/AuditLogs";
-import UrbanReportsManagement from "./pages/admin/UrbanReportsManagement";
-import TransportReportsManagement from "./pages/admin/TransportReportsManagement";
 import ReportsManagement from "./pages/admin/ReportsManagement";
 import ReportsAnalytics from "./pages/admin/ReportsAnalytics";
 import SentimentAnalysis from "./pages/admin/SentimentAnalysis";
@@ -159,8 +157,9 @@ const AppContent = () => {
         <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
         <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
         <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
-        <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
-        <Route path="/admin/transport-reports" element={<ProtectedAdminRoute><TransportReportsManagement /></ProtectedAdminRoute>} />
+        {/* Redirect old routes to unified reports */}
+        <Route path="/admin/urban-reports" element={<Navigate to="/admin/reports" replace />} />
+        <Route path="/admin/transport-reports" element={<Navigate to="/admin/reports" replace />} />
         <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
         <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
