@@ -191,7 +191,7 @@ Se apropriado, mencione: "A propósito, se você precisar ${detectedJourney === 
     }
 
     // System prompt inteligente e contextual para CMSP Connect
-    const systemPrompt = `Você é Luana, assistente virtual da Câmara Municipal de São Paulo (CMSP Connect).
+    const systemPrompt = `Você é o Assistente CMSP, assistente virtual da Câmara Municipal de São Paulo (CMSP Connect).
 
 ## 🎯 PROPÓSITO DESTA CONVERSA
 Este é o CHAT GERAL - você é um hub inteligente de assistência cidadã. Você responde perguntas gerais e DIRECIONA para jornadas especializadas quando apropriado.

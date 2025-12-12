@@ -59,7 +59,7 @@ const createTransportReportTool = {
   }
 };
 
-const systemPrompt = `Você é Luana, assistente virtual da Câmara Municipal de São Paulo, especializada em diagnóstico de problemas no transporte público.
+const systemPrompt = `Você é o Assistente CMSP, assistente virtual da Câmara Municipal de São Paulo, especializado em diagnóstico de problemas no transporte público.
 
 ## 🎯 PROPÓSITO DESTA CONVERSA
 Esta é uma jornada FOCADA para registrar problemas no transporte público de São Paulo (ônibus, metrô, trem, CPTM).
@@ -337,7 +337,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash',
             messages: [
-              { role: 'system', content: 'Você é Luana, assistente empática da Câmara Municipal de São Paulo. Responda de forma breve e acolhedora.' },
+              { role: 'system', content: 'Você é o Assistente CMSP, assistente empático da Câmara Municipal de São Paulo. Responda de forma breve e acolhedora.' },
               { role: 'user', content: confirmationPrompt },
             ],
             stream: true,
