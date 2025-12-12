@@ -74,7 +74,7 @@ export const DashboardBuilder = ({ config, onChange }: DashboardBuilderProps) =>
                     size="icon"
                     onClick={() => removeWidget(index)}
                   >
-                    <Trash2 className="w-4 h-4 text-destructive" />
+                    <Trash2 className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
                   </Button>
                 </div>
               </div>

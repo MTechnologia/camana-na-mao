@@ -80,7 +80,7 @@ const EscapeValveDialog = ({
 
           <Button
             variant="outline"
-            className="w-full justify-start gap-3 h-auto py-3 text-destructive hover:text-destructive"
+            className="w-full justify-start gap-3 h-auto py-3 text-muted-foreground hover:text-foreground"
             onClick={() => {
               onDiscardAndExit();
               onOpenChange(false);
