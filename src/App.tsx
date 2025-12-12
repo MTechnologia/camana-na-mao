@@ -62,16 +62,12 @@ import ReportHistoryPage from "./pages/urban/ReportHistoryPage";
 import ServiceRecommendationsPage from "./pages/ServiceRecommendationsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
-import DashboardManagement from "./pages/admin/DashboardManagement";
-import AdminCreateDashboard from "./pages/admin/AdminCreateDashboard";
-import AdminPublicDashboards from "./pages/admin/AdminPublicDashboards";
 import ExportLogs from "./pages/admin/ExportLogs";
 import AuditLogs from "./pages/admin/AuditLogs";
 import UrbanReportsManagement from "./pages/admin/UrbanReportsManagement";
 import TransportReportsManagement from "./pages/admin/TransportReportsManagement";
 import ReportsAnalytics from "./pages/admin/ReportsAnalytics";
 import SentimentAnalysis from "./pages/admin/SentimentAnalysis";
-import NotificationsManagement from "./pages/admin/NotificationsManagement";
 import N8NIntegration from "./pages/admin/settings/N8NIntegration";
 import N8NMonitoring from "./pages/admin/settings/N8NMonitoring";
 import AccessibilitySettings from "./pages/admin/settings/AccessibilitySettings";
@@ -159,9 +155,6 @@ const AppContent = () => {
         <Route path="/admin/analytics" element={<ProtectedAdminRoute><AnalyticsDashboard /></ProtectedAdminRoute>} />
         <Route path="/admin/analytics/advanced" element={<ProtectedAdminRoute><AdvancedAnalytics /></ProtectedAdminRoute>} />
         <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
-        <Route path="/admin/dashboards" element={<ProtectedAdminRoute><DashboardManagement /></ProtectedAdminRoute>} />
-        <Route path="/admin/dashboards/create" element={<ProtectedAdminRoute><AdminCreateDashboard /></ProtectedAdminRoute>} />
-        <Route path="/admin/dashboards/gallery" element={<ProtectedAdminRoute><AdminPublicDashboards /></ProtectedAdminRoute>} />
         <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
         <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
         <Route path="/admin/urban-reports" element={<ProtectedAdminRoute><UrbanReportsManagement /></ProtectedAdminRoute>} />
@@ -169,7 +162,6 @@ const AppContent = () => {
         <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
         <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
-        <Route path="/admin/notifications" element={<ProtectedAdminRoute><NotificationsManagement /></ProtectedAdminRoute>} />
         <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
         <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
         <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
