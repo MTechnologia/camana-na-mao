@@ -114,24 +114,60 @@ Se disser "quero falar sobre outra coisa", "cancelar", "sair", "voltar":
 - NÃO invente funcionalidades que não existem
 - NUNCA responda perguntas técnicas sobre código ou APIs`;
 
-// Cross-journey intent detection patterns
+// Phrase-based patterns for high-confidence cross-journey detection
+const PHRASE_PATTERNS: Record<string, string[]> = {
+  urban_report: [
+    'buraco na rua', 'poste sem luz', 'lixo na calçada', 'esgoto aberto',
+    'elogiar vereador', 'elogiar um vereador', 'reclamar da câmara', 'reclamar da camara',
+    'sugestão para câmara', 'feedback sobre vereador', 'crítica ao vereador',
+    'reclamação da câmara', 'elogio ao vereador', 'sugestão para vereador'
+  ],
+  evaluate: [
+    'avaliar a ubs', 'avaliar a escola', 'avaliar o hospital', 'avaliar o ceu',
+    'dar nota para', 'avaliar atendimento', 'nota para o serviço', 'avaliar serviço'
+  ],
+  general: [
+    'como funciona a câmara', 'próxima audiência', 'proxima audiencia',
+    'projeto de lei', 'quais comissões', 'agenda da câmara', 'notícias da câmara'
+  ]
+};
+
+// Keyword-based patterns for fallback detection (excluding transport - current journey)
 const INTENT_PATTERNS: Record<string, string[]> = {
-  urban_report: ['buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 'esgoto', 'semáforo', 'mato alto', 'árvore', 'entulho', 'asfalto'],
-  evaluate: ['avaliar', 'avaliação', 'reclamar', 'elogiar', 'ubs', 'hospital', 'escola', 'ceu', 'atendimento', 'nota', 'estrelas'],
-  general: ['notícia', 'audiência', 'vereador', 'comissão', 'legislativo', 'câmara', 'lei', 'projeto']
+  urban_report: [
+    'buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 
+    'esgoto', 'semáforo', 'semaforo', 'asfalto', 'mato alto', 'árvore', 'arvore', 'entulho',
+    'vereador', 'câmara', 'camara', 'reclamação', 'reclamacao', 'elogio'
+  ],
+  evaluate: [
+    'avaliar serviço', 'nota para ubs', 'nota para escola', 'avaliar hospital'
+  ],
+  general: [
+    'notícia', 'audiência pública', 'comissão permanente', 'legislativo', 
+    'projeto de lei', 'pauta do dia', 'sessão plenária', 'votação'
+  ]
 };
 
 function detectCrossIntent(message: string, currentJourney: string): { journey: string | null; confidence: number } {
   const lowerMessage = message.toLowerCase();
   
+  // First: try phrase-based detection (higher confidence)
+  for (const [journey, phrases] of Object.entries(PHRASE_PATTERNS)) {
+    if (journey === currentJourney) continue;
+    
+    const phraseMatch = phrases.some(phrase => lowerMessage.includes(phrase));
+    if (phraseMatch) {
+      return { journey, confidence: 0.95 };
+    }
+  }
+  
+  // Fallback: keyword-based detection (need 2+ keywords)
   for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
     if (journey === currentJourney) continue;
     
     const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
     if (matches.length >= 2) {
-      return { journey, confidence: 0.9 };
-    } else if (matches.length === 1) {
-      return { journey, confidence: 0.6 };
+      return { journey, confidence: 0.85 };
     }
   }
   
