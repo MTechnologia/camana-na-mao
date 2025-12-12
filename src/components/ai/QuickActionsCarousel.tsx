@@ -99,7 +99,7 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
               <div className={`w-10 h-10 rounded-xl ${action.bgColor} flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform duration-200`}>
                 <IconComponent className={`h-5 w-5 ${action.color}`} />
               </div>
-              <span className="text-[10px] font-medium text-foreground text-center leading-tight max-w-full">
+              <span className="text-[11px] font-medium text-foreground text-center leading-tight max-w-full">
                 {action.title}
               </span>
             </button>
