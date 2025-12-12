@@ -80,15 +80,15 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
   ];
 
   return (
-    <div className="w-full py-2">
-      <div className="flex gap-3 justify-start sm:justify-center overflow-x-auto pb-2 pt-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:overflow-visible">
+    <div className="w-full py-2 overflow-hidden">
+      <div className="flex gap-2.5 overflow-x-auto pb-3 pt-1 scrollbar-hide px-1 pr-8">
         {actions.map((action) => {
           const IconComponent = action.icon;
           return (
             <button
               key={action.id}
               onClick={() => handleJourneyClick(action.journeyKey)}
-              className="flex-shrink-0 flex flex-col items-center justify-center p-3 w-20 sm:w-24 h-[88px] sm:h-[100px] bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group relative"
+              className="flex-shrink-0 flex flex-col items-center justify-center p-2.5 w-[72px] h-[90px] bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group relative"
               aria-label={action.title}
             >
               {action.badge && (
@@ -96,10 +96,10 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
                   {action.badge}
                 </div>
               )}
-              <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${action.bgColor} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-200`}>
-                <IconComponent className={`h-5 w-5 sm:h-6 sm:w-6 ${action.color}`} />
+              <div className={`w-10 h-10 rounded-xl ${action.bgColor} flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform duration-200`}>
+                <IconComponent className={`h-5 w-5 ${action.color}`} />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium text-foreground text-center leading-snug line-clamp-2 px-0.5">
+              <span className="text-[10px] font-medium text-foreground text-center leading-tight max-w-full">
                 {action.title}
               </span>
             </button>
