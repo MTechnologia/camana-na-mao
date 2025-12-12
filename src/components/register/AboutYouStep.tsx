@@ -2,8 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Card } from "@/components/ui/card";
 import { Users, Info } from "lucide-react";
+import CollapsibleInfoCard from "./CollapsibleInfoCard";
 
 interface AboutYouData {
   birthDate: string;
@@ -54,26 +54,12 @@ const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps)
         </p>
       </div>
 
-      {/* Card explicativo */}
-      <Card className="p-4 bg-primary/5 border-primary/20">
-        <div className="flex gap-3">
-          <div className="flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-          </div>
-          <div>
-            <h3 className="font-medium text-foreground text-sm mb-1">
-              Por que pedimos isso?
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Essas informações nos ajudam a entender melhor quem usa os serviços 
-              públicos e garantir que todas as vozes sejam ouvidas pela Câmara Municipal. 
-              Seus dados são protegidos e usados apenas para análises estatísticas.
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* Card explicativo colapsável */}
+      <CollapsibleInfoCard
+        icon={Users}
+        title="Por que pedimos isso?"
+        description="Essas informações nos ajudam a entender melhor quem usa os serviços públicos e garantir que todas as vozes sejam ouvidas pela Câmara Municipal. Seus dados são protegidos e usados apenas para análises estatísticas."
+      />
 
       {/* Data de nascimento */}
       <div>

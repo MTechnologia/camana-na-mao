@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
+import CollapsibleInfoCard from "./CollapsibleInfoCard";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -32,25 +32,12 @@ const InterestsStep = ({ selectedInterests, onToggle, onContinue, loading }: Int
         </p>
       </div>
 
-      {/* Card explicativo */}
-      <Card className="p-4 bg-primary/5 border-primary/20">
-        <div className="flex gap-3">
-          <div className="flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
-          </div>
-          <div>
-            <h3 className="font-medium text-foreground text-sm mb-1">
-              Experiência personalizada
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Com base nos seus interesses, vamos destacar notícias, audiências 
-              públicas e projetos de lei que são mais relevantes para você.
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* Card explicativo colapsável */}
+      <CollapsibleInfoCard
+        icon={Sparkles}
+        title="Experiência personalizada"
+        description="Com base nos seus interesses, vamos destacar notícias, audiências públicas e projetos de lei que são mais relevantes para você."
+      />
 
       {/* Grid de interesses */}
       <div className="grid grid-cols-2 gap-3">
