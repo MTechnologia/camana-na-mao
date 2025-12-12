@@ -62,20 +62,56 @@ function buildContextFromDocuments(documents: RelevantDocument[]): string {
   return `\n\n## CONTEXTO RELEVANTE DA BASE DE CONHECIMENTO:\n\nUse as informações abaixo para fundamentar sua resposta quando relevantes:\n\n${contextParts.join('\n\n')}`;
 }
 
-// Intent detection keywords for specialized journeys
-const INTENT_PATTERNS = {
-  transport: ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'sptrans', 'linha', 'lotação', 'lotacao', 'atraso de ônibus', 'terminal', 'estação', 'bilhete único'],
-  urban_report: ['buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 'esgoto', 'semáforo', 'semaforo', 'asfalto', 'mato alto', 'árvore', 'arvore', 'entulho'],
-  evaluate: ['avaliar', 'avaliação', 'avaliacao', 'reclamar', 'elogiar', 'ubs', 'hospital', 'escola', 'ceu', 'atendimento', 'nota', 'estrelas']
+// Phrase-based patterns for high-confidence detection
+const PHRASE_PATTERNS: Record<string, string[]> = {
+  urban_report: [
+    'elogiar vereador', 'elogiar um vereador', 'reclamar da câmara', 'reclamar da camara',
+    'sugestão para câmara', 'feedback sobre vereador', 'crítica ao vereador', 'denúncia',
+    'reclamação da câmara', 'elogio ao vereador', 'sugestão para vereador'
+  ],
+  transport: [
+    'problema com ônibus', 'problema com onibus', 'atraso de metrô', 'atraso de metro',
+    'linha de trem', 'ônibus lotado', 'onibus lotado', 'metrô cheio', 'metro cheio'
+  ],
+  evaluate: [
+    'avaliar a ubs', 'avaliar a escola', 'avaliar o hospital', 'avaliar o ceu',
+    'dar nota para', 'avaliar atendimento', 'nota para o serviço'
+  ]
+};
+
+// Keyword-based patterns for fallback detection
+const INTENT_PATTERNS: Record<string, string[]> = {
+  transport: [
+    'ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'sptrans', 
+    'lotação', 'lotacao', 'terminal', 'estação', 'bilhete único'
+  ],
+  urban_report: [
+    'buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 
+    'esgoto', 'semáforo', 'semaforo', 'asfalto', 'mato alto', 'árvore', 'arvore', 'entulho',
+    'vereador', 'câmara', 'camara', 'reclamação', 'reclamacao', 'elogio', 'sugestão', 'sugestao'
+  ],
+  evaluate: [
+    'avaliar serviço', 'avaliação', 'avaliacao', 'ubs', 'hospital', 'escola', 'ceu',
+    'posto de saúde', 'nota para', 'estrelas'
+  ]
 };
 
 function detectIntent(message: string): { journey: string | null; confidence: number } {
   const lowerMessage = message.toLowerCase();
   
+  // First: try phrase-based detection (higher confidence)
+  for (const [journey, phrases] of Object.entries(PHRASE_PATTERNS)) {
+    const phraseMatch = phrases.some(phrase => lowerMessage.includes(phrase));
+    if (phraseMatch) {
+      return { journey, confidence: 0.95 };
+    }
+  }
+  
+  // Fallback: keyword-based detection
   for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
     const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
     if (matches.length >= 2) {
-      return { journey, confidence: 0.9 };
+      return { journey, confidence: 0.85 };
     } else if (matches.length === 1) {
       return { journey, confidence: 0.6 };
     }

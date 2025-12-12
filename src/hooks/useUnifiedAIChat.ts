@@ -19,7 +19,7 @@ interface CreatedReport {
 }
 
 export interface IntentDetection {
-  journey: "transport" | "urban_report" | "evaluate";
+  journey: "transport" | "urban_report" | "evaluate" | "general";
   confidence: number;
 }
 
@@ -260,7 +260,8 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
               const parsed = JSON.parse(data);
               
               // Check for intent detection marker from any journey (cross-journey detection)
-              if (parsed.intent_detected) {
+              if (parsed.intent_detected && parsed.journey && parsed.confidence >= 0.6) {
+                console.log('[useUnifiedAIChat] Cross-journey intent detected:', parsed.journey, 'confidence:', parsed.confidence);
                 setDetectedIntent({
                   journey: parsed.journey,
                   confidence: parsed.confidence
