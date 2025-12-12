@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,7 @@ import { ptBR } from "date-fns/locale";
 import { Sparkles } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
+import { cn } from "@/lib/utils";
 
 interface Audiencia {
   id: string;
@@ -32,16 +33,52 @@ interface FeedItem {
 const ContextualFeed = () => {
   const navigate = useNavigate();
   const [proximasAudiencias, setProximasAudiencias] = useState<Audiencia[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   
-  const [emblaRef] = useEmblaCarousel(
+  const [emblaRef, emblaApi] = useEmblaCarousel(
     { 
       loop: true, 
       align: "start",
-      containScroll: false,
-      dragFree: true
+      containScroll: "trimSnaps",
+      dragFree: false,
+      skipSnaps: false
     },
-    [Autoplay({ delay: 4000, stopOnInteraction: false, stopOnMouseEnter: true })]
+    [
+      Autoplay({ 
+        delay: 5000, 
+        stopOnInteraction: true, 
+        stopOnMouseEnter: true,
+        playOnInit: true
+      })
+    ]
   );
+
+  // Update selected index on scroll
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  // Restart autoplay after user interaction
+  useEffect(() => {
+    if (!emblaApi) return;
+    
+    emblaApi.on('select', onSelect);
+    emblaApi.on('pointerUp', () => {
+      const autoplay = emblaApi.plugins().autoplay;
+      if (autoplay) {
+        setTimeout(() => {
+          autoplay.play();
+        }, 3000); // Resume after 3 seconds
+      }
+    });
+    
+    onSelect();
+    
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, onSelect]);
 
   // Get multiple recent news (up to 3)
   const recentNews = noticias.slice(0, 3);
@@ -132,6 +169,10 @@ const ContextualFeed = () => {
 
   if (feedItems.length === 0) return null;
 
+  const scrollTo = (index: number) => {
+    emblaApi?.scrollTo(index);
+  };
+
   return (
     <motion.div 
       className="w-full mt-6 mb-4"
@@ -147,9 +188,9 @@ const ContextualFeed = () => {
         </span>
       </div>
 
-      {/* Carousel */}
-      <div className="overflow-hidden" ref={emblaRef}>
-        <div className="flex gap-3 pl-4">
+      {/* Carousel Container - overflow-x-clip allows shadows to show vertically */}
+      <div className="overflow-x-clip overflow-y-visible px-4" ref={emblaRef}>
+        <div className="flex gap-4">
           {feedItems.map((item, index) => (
             <motion.button
               key={`${item.type}-${item.id}`}
@@ -161,31 +202,33 @@ const ContextualFeed = () => {
                   ? `/institucional/noticias/${item.id}` 
                   : `/audiencias/${item.id}`
               )}
-              className="group flex-shrink-0 w-[85%] max-w-[320px] text-left"
+              className="group flex-shrink-0 w-[80%] max-w-[300px] text-left"
               aria-label={item.title}
             >
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/8 via-background to-secondary/8 border border-primary/15 shadow-lg backdrop-blur-sm p-4 h-full min-h-[140px] hover:border-primary/30 hover:shadow-xl transition-all duration-300">
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-background to-secondary/5 border border-border/60 shadow-sm hover:shadow-lg hover:border-primary/20 backdrop-blur-sm p-4 h-full min-h-[140px] transition-all duration-300">
                 {/* Decorative gradient orb */}
-                <div className="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-2xl" />
+                <div className="absolute -top-8 -right-8 w-24 h-24 bg-gradient-to-br from-primary/15 to-transparent rounded-full blur-2xl transition-opacity duration-300 group-hover:opacity-80" />
                 
                 {/* Header */}
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {/* Type Chip */}
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                  <span className={cn(
+                    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide",
                     item.type === "news" 
                       ? "bg-blue-500/15 text-blue-600 dark:text-blue-400" 
                       : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                  }`}>
+                  )}>
                     {item.type === "news" ? "Notícia" : "Evento"}
                   </span>
 
                   {/* Status Badge */}
                   {item.badge && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                    <span className={cn(
+                      "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide",
                       item.badgeColor === "destructive" 
                         ? "bg-destructive/15 text-destructive animate-pulse" 
                         : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                    }`}>
+                    )}>
                       {item.badge}
                     </span>
                   )}
@@ -199,7 +242,7 @@ const ContextualFeed = () => {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">
+                <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1.5 group-hover:text-primary transition-colors duration-200">
                   {item.title}
                 </h3>
 
@@ -207,15 +250,30 @@ const ContextualFeed = () => {
                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                   {item.description}
                 </p>
-
               </div>
             </motion.button>
           ))}
-          
-          {/* Spacer for peek effect */}
-          <div className="flex-shrink-0 w-4" />
         </div>
       </div>
+
+      {/* Navigation Dots */}
+      {feedItems.length > 1 && (
+        <div className="flex justify-center gap-1.5 mt-4">
+          {feedItems.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => scrollTo(idx)}
+              className={cn(
+                "h-1.5 rounded-full transition-all duration-300",
+                selectedIndex === idx 
+                  ? "bg-primary w-4" 
+                  : "bg-muted-foreground/30 w-1.5 hover:bg-muted-foreground/50"
+              )}
+              aria-label={`Ir para slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 };
