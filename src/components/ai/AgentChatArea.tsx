@@ -13,6 +13,7 @@ import QuickActionsCarousel from "./QuickActionsCarousel";
 import TypingIndicator from "./TypingIndicator";
 import JourneyProgressTracker from "./JourneyProgressTracker";
 import JourneySuggestionCard from "./JourneySuggestionCard";
+import IntentDetectionIndicator from "./IntentDetectionIndicator";
 import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare } from "lucide-react";
@@ -44,7 +45,7 @@ const AgentChatArea = () => {
     setLocalConversationId(activeConversationId);
   }, [activeConversationId]);
 
-  const { messages, isLoading, sendMessage, createdReport, clearCreatedReport, clearMessages, detectedIntent, dismissIntent } = useUnifiedAIChat(
+  const { messages, isLoading, isAnalyzingIntent, sendMessage, createdReport, clearCreatedReport, clearMessages, detectedIntent, dismissIntent } = useUnifiedAIChat(
     currentJourney || AI_JOURNEYS.general,
     localConversationId
   );
@@ -236,8 +237,14 @@ const AgentChatArea = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2 }}
+                    className="space-y-3"
                   >
                     <TypingIndicator />
+                    <AnimatePresence>
+                      {isAnalyzingIntent && !detectedIntent && (
+                        <IntentDetectionIndicator />
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )}
                 
