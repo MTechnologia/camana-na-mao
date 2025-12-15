@@ -486,6 +486,9 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
 
     // Optimistic update - update UI immediately
     const previousManifests = [...manifests];
+    const oldManifest = manifests.find(m => m.id === id);
+    const oldStatus = oldManifest?.status;
+    
     setManifests(prev => prev.map(m => 
       m.id === id ? { ...m, status: newStatus, updated_at: new Date().toISOString() } : m
     ));
@@ -498,6 +501,20 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Register audit log
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'update',
+          entity_type: type === 'urban' || type === 'feedback' ? 'urban_report' : 'transport_report',
+          entity_id: id,
+          old_values: { status: oldStatus },
+          new_values: { status: newStatus },
+          user_agent: navigator.userAgent
+        });
+      }
 
       toast.success('Status atualizado');
       fetchKPIs();
@@ -541,6 +558,9 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
 
   const deleteManifest = async (id: string, type: ManifestType) => {
     try {
+      // Get manifest data before deletion for audit
+      const manifestToDelete = manifests.find(m => m.id === id);
+      
       if (type === 'urban' || type === 'feedback') {
         await supabase.from('urban_report_likes').delete().eq('report_id', id);
         await supabase.from('urban_report_comments').delete().eq('report_id', id);
@@ -556,6 +576,19 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         await supabase.from('council_member_referrals').delete().eq('service_rating_id', id);
         const { error } = await supabase.from('service_ratings').delete().eq('id', id);
         if (error) throw error;
+      }
+
+      // Register audit log
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'delete',
+          entity_type: type === 'urban' ? 'urban_report' : type === 'transport' ? 'transport_report' : type === 'evaluation' ? 'service_rating' : 'feedback',
+          entity_id: id,
+          old_values: manifestToDelete ? { title: manifestToDelete.title, status: manifestToDelete.status } : null,
+          user_agent: navigator.userAgent
+        });
       }
 
       toast.success('Manifestação excluída com sucesso');
@@ -578,7 +611,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   };
 
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
     const headers = ['ID', 'Tipo', 'Título', 'Descrição', 'Severidade', 'Status', 'Data', 'Autor'];
     const typeLabels: Record<ManifestType, string> = {
       urban: 'Urbana',
@@ -606,6 +639,49 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     link.download = `manifestacoes-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+
+    // Register export log and audit log
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Register in export_logs
+        await supabase.from('export_logs').insert({
+          user_id: user.id,
+          export_type: typeFilter === 'all' ? 'all_manifests' : typeFilter,
+          format: 'csv',
+          status: 'completed',
+          row_count: manifests.length,
+          filters: {
+            status: statusFilter,
+            severity: severityFilter,
+            type: typeFilter,
+            search: searchTerm,
+            dateRange: dateRange.from || dateRange.to ? {
+              from: dateRange.from?.toISOString(),
+              to: dateRange.to?.toISOString()
+            } : null
+          },
+          completed_at: new Date().toISOString()
+        });
+
+        // Register audit log
+        await supabase.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'export',
+          entity_type: 'manifestations',
+          metadata: {
+            export_type: typeFilter === 'all' ? 'all_manifests' : typeFilter,
+            format: 'csv',
+            row_count: manifests.length,
+            filters: { status: statusFilter, severity: severityFilter, type: typeFilter }
+          },
+          user_agent: navigator.userAgent
+        });
+      }
+    } catch (error) {
+      console.error('Error logging export:', error);
+    }
+
     toast.success('CSV exportado com sucesso');
   };
 

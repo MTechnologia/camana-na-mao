@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Button } from '@/components/ui/button';
-import { Calendar, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, RefreshCw } from 'lucide-react';
 import { SentimentGauge } from '@/components/analytics/SentimentGauge';
 import { SentimentDonut } from '@/components/analytics/SentimentDonut';
 import { SentimentTrend } from '@/components/analytics/SentimentTrend';
@@ -9,15 +9,29 @@ import { WordCloud } from '@/components/analytics/WordCloud';
 import { SentimentDrivers } from '@/components/analytics/SentimentDrivers';
 import { AIInsightsCard } from '@/components/analytics/AIInsightsCard';
 import { KPICard } from '@/components/analytics/KPICard';
-import { HeatmapChart } from '@/components/analytics/HeatmapChart';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
 
 export default function SentimentAnalysis() {
-  const [filters, setFilters] = useState({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [filters, setFilters] = useState<{ startDate?: string; endDate?: string }>({});
   const { stats, isLoading, refresh } = useSentimentAnalytics(filters);
   const { toast } = useToast();
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    setFilters({
+      startDate: range?.from?.toISOString(),
+      endDate: range?.to?.toISOString(),
+    });
+  };
 
   const handleRefresh = () => {
     refresh();
@@ -60,10 +74,48 @@ export default function SentimentAnalysis() {
           <p className="text-muted-foreground">Dashboard executivo de análise de sentimento cidadão</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Calendar className="w-4 h-4 mr-2" />
-            Período
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className={cn(dateRange?.from && "text-primary")}>
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'dd/MM', { locale: ptBR })} - {format(dateRange.to, 'dd/MM', { locale: ptBR })}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'dd/MM/yyyy', { locale: ptBR })
+                  )
+                ) : (
+                  'Período'
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={handleDateRangeChange}
+                numberOfMonths={2}
+                locale={ptBR}
+                className="pointer-events-auto"
+              />
+              {dateRange?.from && (
+                <div className="p-3 border-t border-border">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleDateRangeChange(undefined)}
+                  >
+                    Limpar filtro
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar

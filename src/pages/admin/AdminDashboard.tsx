@@ -50,7 +50,7 @@ export default function AdminDashboard() {
                 direction: stats.dashboardsTrend >= 0 ? 'up' : 'down' 
               }}
               subtitle="este mês"
-              onClick={() => navigate('/admin/dashboards')}
+              onClick={() => navigate('/admin/analytics')}
             />
             <KPICard
               title="Exportações"
@@ -103,10 +103,10 @@ export default function AdminDashboard() {
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                onClick={() => navigate('/admin/dashboards')}
+                onClick={() => navigate('/admin/reports')}
               >
                 <FileBarChart className="h-4 w-4 mr-2" />
-                Aprovar Painéis
+                Gerenciar Manifestações
               </Button>
             </div>
           </div>

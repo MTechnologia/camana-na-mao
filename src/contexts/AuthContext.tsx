@@ -108,12 +108,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
+      
+      // Register audit log for login
+      if (data.user) {
+        await supabase.from('audit_logs').insert({
+          user_id: data.user.id,
+          action: 'login',
+          entity_type: 'session',
+          metadata: { email },
+          user_agent: navigator.userAgent
+        });
+      }
       
       toast.success("Login realizado com sucesso!");
       return { error: null };
@@ -126,6 +137,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
+      // Register audit log for logout before signing out
+      if (user) {
+        await supabase.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'logout',
+          entity_type: 'session',
+          user_agent: navigator.userAgent
+        });
+      }
+      
       await supabase.auth.signOut();
       toast.success("Logout realizado com sucesso!");
       navigate('/login');
