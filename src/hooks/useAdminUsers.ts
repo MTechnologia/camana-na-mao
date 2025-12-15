@@ -67,6 +67,9 @@ export const useAdminUsers = () => {
 
   const updateUserRoles = async (userId: string, newRoles: UserRole[]) => {
     try {
+      // Get old roles for audit log
+      const oldRoles = users.find(u => u.id === userId)?.roles || [];
+      
       // Delete existing roles
       const { error: deleteError } = await supabase
         .from('user_roles')
@@ -89,6 +92,20 @@ export const useAdminUsers = () => {
         if (insertError) throw insertError;
       }
 
+      // Register audit log
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'update',
+          entity_type: 'user_role',
+          entity_id: userId,
+          old_values: { roles: oldRoles },
+          new_values: { roles: newRoles },
+          user_agent: navigator.userAgent
+        });
+      }
+
       toast.success('Roles atualizados com sucesso');
       await fetchUsers();
     } catch (error) {
@@ -100,6 +117,9 @@ export const useAdminUsers = () => {
 
   const deleteUser = async (userId: string) => {
     try {
+      // Get user data for audit log
+      const userToDelete = users.find(u => u.id === userId);
+      
       // Delete user roles first
       const { error: rolesError } = await supabase
         .from('user_roles')
@@ -115,6 +135,19 @@ export const useAdminUsers = () => {
         .eq('id', userId);
 
       if (profileError) throw profileError;
+
+      // Register audit log
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'delete',
+          entity_type: 'user',
+          entity_id: userId,
+          old_values: userToDelete ? { full_name: userToDelete.full_name, roles: userToDelete.roles } : null,
+          user_agent: navigator.userAgent
+        });
+      }
 
       toast.success('Usuário excluído com sucesso');
       await fetchUsers();
