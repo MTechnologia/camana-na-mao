@@ -74,25 +74,14 @@ import ReferralsManagement from "./pages/admin/ReferralsManagement";
 import AccessibilityPage from "./pages/settings/AccessibilityPage";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { useMenu } from "@/contexts/MenuContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import NotFound from "./pages/NotFound";
 import SearchPage from "./pages/Search";
-import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
 
 const AppContent = () => {
   const { isMenuOpen, closeMenu } = useMenu();
-  const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
 
   return (
     <>
-      {/* Global tutorial overlay - aparece acima do conteúdo */}
-      {!onboardingLoading && showTutorial && (
-        <AppOnboardingTutorial 
-          onComplete={completeTutorial}
-          onSkip={completeTutorial}
-        />
-      )}
-      
       <Routes>
         <Route path="/" element={<Navigate to="/splash" replace />} />
         <Route path="/splash" element={<Splash />} />
