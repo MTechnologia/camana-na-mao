@@ -4,11 +4,14 @@ import { useNavigate } from "react-router-dom";
 import OfflineMode from "@/components/ai/OfflineMode";
 import AgentChatLayout from "@/components/ai/AgentChatLayout";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
+import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
 
 const IA = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
 
   useEffect(() => {
     if (!user) {
@@ -35,9 +38,18 @@ const IA = () => {
   }
 
   return (
-    <AIJourneyProvider>
-      <AgentChatLayout />
-    </AIJourneyProvider>
+    <>
+      {/* Tutorial de onboarding - apenas para usuários autenticados na página /ia */}
+      {!onboardingLoading && showTutorial && (
+        <AppOnboardingTutorial 
+          onComplete={completeTutorial}
+          onSkip={completeTutorial}
+        />
+      )}
+      <AIJourneyProvider>
+        <AgentChatLayout />
+      </AIJourneyProvider>
+    </>
   );
 };
 
