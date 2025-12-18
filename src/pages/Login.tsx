@@ -175,6 +175,13 @@ const Login = () => {
                 Cadastre-se
               </Link>
             </p>
+
+            <Link 
+              to="/docs/overview" 
+              className="block text-center text-xs text-gray-400 hover:text-gray-600 mt-4 underline underline-offset-2 transition-colors"
+            >
+              Conheça a plataforma
+            </Link>
           </div>
         </div>
       </div>
