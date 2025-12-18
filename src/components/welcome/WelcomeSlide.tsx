@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import Lottie from "lottie-react";
+import { LazyLottie } from "@/components/ui/lazy-lottie";
 
 interface WelcomeSlideProps {
   animationData: object;
@@ -19,7 +19,7 @@ const WelcomeSlide = ({ animationData, title, description, gradient, isActive }:
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="mb-6 w-48 h-48 md:w-56 md:h-56"
         >
-          <Lottie
+          <LazyLottie
             animationData={animationData}
             loop={true}
             autoplay={isActive}
