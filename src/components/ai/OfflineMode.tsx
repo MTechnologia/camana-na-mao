@@ -33,7 +33,7 @@ const OfflineMode = () => {
           💡 Dica
         </h3>
         <p className="text-xs text-muted-foreground">
-          Enquanto estiver offline, você pode consultar o conteúdo previamente carregado no aplicativo.
+          Verifique sua conexão Wi-Fi ou dados móveis e tente novamente. Todas as funcionalidades requerem conexão com a internet.
         </p>
       </div>
     </div>
