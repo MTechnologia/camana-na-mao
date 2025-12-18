@@ -32,6 +32,14 @@ export const PHRASE_PATTERNS: Record<string, string[]> = {
     'elogio ao vereador', 'sugestão para vereador', 'sugestao para vereador',
     'problema na rua', 'problema na calçada', 'problema na calcada',
     'denúncia urbana', 'denuncia urbana',
+    // Frases naturais adicionais
+    'fazer uma reclamação', 'fazer uma reclamacao',
+    'quero reclamar', 'gostaria de reclamar',
+    'fazer um relato', 'quero relatar', 'gostaria de relatar',
+    'fazer um elogio', 'quero elogiar', 'gostaria de elogiar',
+    'fazer uma sugestão', 'fazer uma sugestao',
+    'quero sugerir', 'gostaria de sugerir',
+    'dar feedback', 'enviar feedback',
   ],
   transport: [
     'problema com ônibus', 'problema com onibus',
@@ -52,6 +60,11 @@ export const PHRASE_PATTERNS: Record<string, string[]> = {
     'reclamar do ônibus', 'reclamar do onibus',
     'reclamar do metrô', 'reclamar do metro',
     'denunciar transporte',
+    // Frases naturais adicionais
+    'falar sobre transporte', 'falar de transporte',
+    'quero falar sobre transporte', 'quero falar de transporte',
+    'gostaria de falar sobre transporte', 'gostaria de falar de transporte',
+    'reportar transporte', 'relatar transporte',
   ],
   evaluate: [
     'avaliar a ubs', 'avaliar ubs', 'avaliar uma ubs',
@@ -66,6 +79,11 @@ export const PHRASE_PATTERNS: Record<string, string[]> = {
     'avaliar serviço', 'avaliar servico',
     'avaliar serviço público', 'avaliar servico publico',
     'quero avaliar', 'gostaria de avaliar',
+    // Frases naturais adicionais
+    'fazer uma avaliação', 'fazer uma avaliacao',
+    'dar minha opinião', 'dar minha opiniao',
+    'falar sobre atendimento', 'falar de atendimento',
+    'avaliar um serviço', 'avaliar um servico',
   ],
   services: [
     'serviços perto', 'servicos perto',
@@ -75,6 +93,12 @@ export const PHRASE_PATTERNS: Record<string, string[]> = {
     'onde fica a ubs', 'onde fica a escola',
     'serviços próximos', 'servicos proximos',
     'perto de mim', 'próximo de mim', 'proximo de mim',
+    // Frases naturais adicionais
+    'encontrar serviços', 'encontrar servicos',
+    'buscar serviços', 'buscar servicos',
+    'procurar serviços', 'procurar servicos',
+    'ver serviços', 'ver servicos',
+    'serviços disponíveis', 'servicos disponiveis',
   ],
 };
 
@@ -167,13 +191,15 @@ export function detectCrossIntent(
     }
   }
   
-  // Fallback: detecção por palavras-chave (precisa de 2+ matches)
+  // Fallback: detecção por palavras-chave
   for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
     if (journey === currentJourney) continue;
     
     const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
     if (matches.length >= 2) {
       return { journey, confidence: 0.85 };
+    } else if (matches.length === 1) {
+      return { journey, confidence: 0.7 }; // Confiança média para 1 match
     }
   }
   
