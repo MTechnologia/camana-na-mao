@@ -1,6 +1,8 @@
-import { MapboxMap } from './MapboxMap';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { SimulatedMap } from './SimulatedMap';
-import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MapboxMap = lazy(() => import('./MapboxMap').then(module => ({ default: module.MapboxMap })));
 
 interface Service {
   id: string;
@@ -16,6 +18,15 @@ interface MapViewProps {
   services: Service[];
   onServiceClick: (serviceId: string) => void;
 }
+
+const MapLoader = () => (
+  <div className="relative w-full h-[500px] rounded-lg overflow-hidden">
+    <Skeleton className="absolute inset-0" />
+    <div className="absolute inset-0 flex items-center justify-center">
+      <p className="text-sm text-muted-foreground">Carregando mapa...</p>
+    </div>
+  </div>
+);
 
 export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps) => {
   const [hasMapboxToken, setHasMapboxToken] = useState(false);
@@ -37,12 +48,14 @@ export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps
     );
   }
 
-  // Use real Mapbox map if token is configured
+  // Use real Mapbox map if token is configured - lazy loaded
   return (
-    <MapboxMap
-      userLocation={userLocation}
-      services={services}
-      onServiceClick={onServiceClick}
-    />
+    <Suspense fallback={<MapLoader />}>
+      <MapboxMap
+        userLocation={userLocation}
+        services={services}
+        onServiceClick={onServiceClick}
+      />
+    </Suspense>
   );
 };
