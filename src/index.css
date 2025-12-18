@@ -163,3 +163,92 @@ All colors MUST be HSL.
     line-height: 1.8 !important;
   }
 }
+
+/* Print styles for documentation export */
+@media print {
+  /* Hide non-printable elements */
+  .print\\:hidden,
+  header,
+  nav,
+  aside,
+  footer,
+  .fixed,
+  button:not(.print\\:block),
+  [role="navigation"],
+  [role="banner"] {
+    display: none !important;
+  }
+
+  /* Force white background and black text */
+  body,
+  .bg-card,
+  .bg-background,
+  .bg-muted {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure content fills page */
+  main,
+  article,
+  .prose {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Page breaks */
+  .print\\:break-before-page {
+    break-before: page;
+  }
+
+  .print\\:break-inside-avoid,
+  table,
+  pre,
+  blockquote,
+  figure,
+  .mermaid-container {
+    break-inside: avoid;
+  }
+
+  /* Page margins */
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+
+  /* Links show URL */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Print-specific visibility */
+  .print\\:block {
+    display: block !important;
+  }
+
+  /* Tables styling */
+  table {
+    font-size: 0.9em;
+  }
+
+  th {
+    background: #f0f0f0 !important;
+  }
+
+  /* Code blocks */
+  pre,
+  code {
+    background: #f5f5f5 !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Mermaid diagrams */
+  .mermaid-container svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
