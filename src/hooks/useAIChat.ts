@@ -77,11 +77,12 @@ export const useAIChat = () => {
         throw new Error(errorData.error || 'Erro ao processar resposta');
       }
 
-      // Handle streaming response
+      // Handle streaming response with robust buffer
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantContent = '';
       let assistantMessageId = (Date.now() + 1).toString();
+      let textBuffer = ""; // Buffer robusto para SSE
 
       if (!reader) {
         throw new Error('Resposta inválida do servidor');
@@ -100,56 +101,68 @@ export const useAIChat = () => {
       };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      let buffer = '';
-      let done = false;
+      // Função helper para processar uma linha SSE completa
+      const processSSELine = (line: string) => {
+        // Handle CRLF
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        
+        // Skip comments and empty lines
+        if (line.startsWith(":") || line.trim() === "") return;
+        if (!line.startsWith("data: ")) return;
 
-      while (!done) {
-        const { value, done: streamDone } = await reader.read();
-        done = streamDone;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") return;
 
-        if (value) {
-          buffer += decoder.decode(value, { stream: !done });
+        try {
+          const parsed = JSON.parse(jsonStr);
           
-          // Process SSE lines
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.trim() || line.startsWith(':')) continue;
-            if (!line.startsWith('data: ')) continue;
-
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-
-            try {
-              const parsed = JSON.parse(data);
-              
-              // Check for intent detection marker
-              if (parsed.intent_detected) {
-                setDetectedIntent({
-                  journey: parsed.journey,
-                  confidence: parsed.confidence
-                });
-                continue;
-              }
-              
-              const delta = parsed.choices?.[0]?.delta?.content;
-              
-              if (delta) {
-                assistantContent += delta;
-                setMessages((prev) => 
-                  prev.map(m => 
-                    m.id === assistantMessageId 
-                      ? { ...m, content: assistantContent }
-                      : m
-                  )
-                );
-              }
-            } catch (e) {
-              // Ignore parse errors for incomplete chunks
-            }
+          // Check for intent detection marker
+          if (parsed.intent_detected) {
+            setDetectedIntent({
+              journey: parsed.journey,
+              confidence: parsed.confidence
+            });
+            return;
           }
+          
+          const delta = parsed.choices?.[0]?.delta?.content;
+          
+          if (delta) {
+            assistantContent += delta;
+            setMessages((prev) => 
+              prev.map(m => 
+                m.id === assistantMessageId 
+                  ? { ...m, content: assistantContent }
+                  : m
+              )
+            );
+          }
+        } catch (e) {
+          // JSON parse failed - line might be incomplete
+          console.debug('[SSE] Incomplete JSON chunk, buffering...');
         }
+      };
+
+      // Processar stream com buffer robusto
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Append decoded chunk to buffer
+        textBuffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines only
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          const line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+          processSSELine(line);
+        }
+      }
+
+      // Final flush - process any remaining data in buffer
+      if (textBuffer.trim()) {
+        processSSELine(textBuffer);
       }
 
       if (!assistantContent) {
