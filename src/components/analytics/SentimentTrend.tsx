@@ -15,11 +15,12 @@ interface TimelineDataPoint {
 interface SentimentTrendProps {
   data: TimelineDataPoint[];
   comparisonData?: TimelineDataPoint[];
+  onPointClick?: (date: string) => void;
 }
 
 type Period = '7d' | '30d' | '90d' | '1y';
 
-export const SentimentTrend = ({ data, comparisonData }: SentimentTrendProps) => {
+export const SentimentTrend = ({ data, comparisonData, onPointClick }: SentimentTrendProps) => {
   const [period, setPeriod] = useState<Period>('30d');
   const [showComparison, setShowComparison] = useState(false);
 
@@ -60,7 +61,16 @@ export const SentimentTrend = ({ data, comparisonData }: SentimentTrendProps) =>
 
       {/* Chart */}
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+        <AreaChart 
+          data={data} 
+          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+          onClick={(e) => {
+            if (e?.activePayload?.[0]?.payload?.date) {
+              onPointClick?.(e.activePayload[0].payload.date);
+            }
+          }}
+          className={onPointClick ? 'cursor-pointer' : ''}
+        >
           <defs>
             <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
