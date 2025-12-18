@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
-import PageHeader from '@/components/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KPICard } from '@/components/analytics/KPICard';
 import { FilterBar } from '@/components/analytics/FilterBar';
@@ -21,128 +20,18 @@ import { SentimentTrend } from '@/components/analytics/SentimentTrend';
 import { WordCloud } from '@/components/analytics/WordCloud';
 import { SentimentDrivers } from '@/components/analytics/SentimentDrivers';
 import { AIInsightsCard } from '@/components/analytics/AIInsightsCard';
-import { DrillDownDrawer } from '@/components/analytics/DrillDownDrawer';
 import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useDrillInsight } from '@/hooks/useDrillInsight';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, TrendingUp, Users, Activity, Sparkles } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 const ReportsAnalytics = () => {
   const [filters, setFilters] = useState({});
   const { stats, isLoading, refresh } = useReportsAnalytics(filters);
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics(filters);
   const drillInsight = useDrillInsight(filters);
-  // Drill-down state
-  const [drillDown, setDrillDown] = useState<{
-    open: boolean;
-    reports: any[];
-    title: string;
-    subtitle: string;
-    filterContext: {
-      type: 'status' | 'category' | 'severity' | 'region' | 'sentiment';
-      value: string;
-    };
-  }>({
-    open: false,
-    reports: [],
-    title: '',
-    subtitle: '',
-    filterContext: { type: 'status', value: '' },
-  });
-
-  // Fetch reports based on drill-down filter
-  const fetchDrillDownReports = async (
-    type: 'status' | 'category' | 'severity' | 'region' | 'sentiment',
-    value: string
-  ) => {
-    try {
-      let urbanQuery = supabase.from('urban_reports').select('*');
-      let transportQuery = supabase.from('transport_reports').select('*');
-
-      // Apply filters based on type
-      if (type === 'status') {
-        urbanQuery = urbanQuery.eq('status', value.toLowerCase());
-        transportQuery = transportQuery.eq('status', value.toLowerCase());
-      } else if (type === 'category') {
-        urbanQuery = urbanQuery.eq('category', value);
-      } else if (type === 'severity') {
-        urbanQuery = urbanQuery.eq('severity', value.toLowerCase());
-        transportQuery = transportQuery.eq('severity', value.toLowerCase());
-      }
-
-      // Apply existing filters
-      if ((filters as any).startDate) {
-        urbanQuery = urbanQuery.gte('created_at', (filters as any).startDate);
-        transportQuery = transportQuery.gte('created_at', (filters as any).startDate);
-      }
-      if ((filters as any).endDate) {
-        urbanQuery = urbanQuery.lte('created_at', (filters as any).endDate);
-        transportQuery = transportQuery.lte('created_at', (filters as any).endDate);
-      }
-
-      const [{ data: urbanReports }, { data: transportReports }] = await Promise.all([
-        urbanQuery,
-        transportQuery,
-      ]);
-
-      const allReports = [...(urbanReports || []), ...(transportReports || [])];
-      
-      return allReports.map((report: any) => ({
-        id: report.id,
-        category: report.category || 'Transporte',
-        description: report.description || report.impact_description || 'Sem descrição',
-        status: report.status,
-        severity: report.severity,
-        location_address: report.location_address || report.location,
-        created_at: report.created_at,
-        user_id: report.user_id,
-      }));
-    } catch (error) {
-      console.error('Error fetching drill-down reports:', error);
-      toast.error('Erro ao carregar relatos');
-      return [];
-    }
-  };
-
-  // Handle click on status donut
-  const handleStatusClick = async (status: string) => {
-    const reports = await fetchDrillDownReports('status', status);
-    setDrillDown({
-      open: true,
-      reports,
-      title: `Relatos: ${status}`,
-      subtitle: `Visualizando todos os relatos com status "${status}"`,
-      filterContext: { type: 'status', value: status },
-    });
-  };
-
-  // Handle click on category bar
-  const handleCategoryClick = async (category: string) => {
-    const reports = await fetchDrillDownReports('category', category);
-    setDrillDown({
-      open: true,
-      reports,
-      title: `Relatos: ${category}`,
-      subtitle: `Visualizando todos os relatos da categoria "${category}"`,
-      filterContext: { type: 'category', value: category },
-    });
-  };
-
-  // Handle click on severity
-  const handleSeverityClick = async (severity: string) => {
-    const reports = await fetchDrillDownReports('severity', severity);
-    setDrillDown({
-      open: true,
-      reports,
-      title: `Relatos: Severidade ${severity}`,
-      subtitle: `Visualizando todos os relatos com severidade "${severity}"`,
-      filterContext: { type: 'severity', value: severity },
-    });
-  };
 
   if (isLoading || !stats) {
     return (
@@ -183,22 +72,26 @@ const ReportsAnalytics = () => {
                 value={stats.total}
                 trend={{ value: stats.trend, direction: 'up' }}
                 icon={BarChart3}
+                onClick={() => drillInsight.searchByOverview()}
               />
               <KPICard
                 title="Críticos"
                 value={stats.critical}
                 icon={TrendingUp}
+                onClick={() => drillInsight.searchBySeverity('crítico')}
               />
               <KPICard
                 title="Pendentes"
                 value={stats.pending}
                 icon={Activity}
+                onClick={() => drillInsight.searchByStatus('pendente')}
               />
               <KPICard
                 title="Resolvidos"
                 value={stats.resolved}
                 trend={{ value: 15, direction: 'up' }}
                 icon={Users}
+                onClick={() => drillInsight.searchByStatus('resolvido')}
               />
             </div>
 
@@ -209,7 +102,7 @@ const ReportsAnalytics = () => {
                   <StatusDonut 
                     data={stats.byStatus} 
                     total={stats.total}
-                    onSegmentClick={handleStatusClick}
+                    onSegmentClick={(status) => drillInsight.searchByStatus(status)}
                   />
                 </div>
               </div>
@@ -219,7 +112,7 @@ const ReportsAnalytics = () => {
                 <div className="h-64 md:h-80">
                   <CategoryBarChart 
                     data={stats.categories}
-                    onBarClick={handleCategoryClick}
+                    onBarClick={(category) => drillInsight.searchByCategory(category)}
                   />
                 </div>
               </div>
@@ -229,7 +122,11 @@ const ReportsAnalytics = () => {
               <h3 className="text-lg font-semibold mb-4">Distribuição Regional</h3>
               <div className="space-y-3">
                 {stats.demographics.byRegion.map((region) => (
-                  <div key={region.region} className="flex items-center justify-between">
+                  <div 
+                    key={region.region} 
+                    className="flex items-center justify-between cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                    onClick={() => drillInsight.searchByRegion(region.region)}
+                  >
                     <span className="text-sm font-medium">{region.region}</span>
                     <div className="flex items-center gap-3 flex-1 max-w-md ml-4">
                       <div className="flex-1 bg-muted rounded-full h-2">
@@ -289,7 +186,10 @@ const ReportsAnalytics = () => {
                 <div className="bg-card rounded-lg border border-border p-6">
                   <h3 className="text-lg font-semibold mb-4">Tendência Temporal</h3>
                   <div className="h-64 md:h-80">
-                    <SentimentTrend data={sentimentStats.timeline} />
+                    <SentimentTrend 
+                      data={sentimentStats.timeline} 
+                      onPointClick={(date) => drillInsight.searchByPeriod(date)}
+                    />
                   </div>
                 </div>
 
@@ -326,6 +226,7 @@ const ReportsAnalytics = () => {
                   <DemographicsPieChart 
                     data={stats.demographics.byGender}
                     title="Por Gênero"
+                    onSegmentClick={(gender) => drillInsight.searchByGender(gender)}
                   />
                 </div>
               </div>
@@ -335,6 +236,7 @@ const ReportsAnalytics = () => {
                   <DemographicsPieChart 
                     data={stats.demographics.byRace}
                     title="Por Raça"
+                    onSegmentClick={(race) => drillInsight.searchByRace(race)}
                   />
                 </div>
               </div>
@@ -342,11 +244,14 @@ const ReportsAnalytics = () => {
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Pirâmide Etária</h3>
                 <div className="h-64 md:h-80">
-                  <AgePyramid data={stats.demographics.byAgeGroup.map(g => ({
-                    ageGroup: g.label,
-                    count: g.count,
-                    percentage: g.percentage
-                  }))} />
+                  <AgePyramid 
+                    data={stats.demographics.byAgeGroup.map(g => ({
+                      ageGroup: g.label,
+                      count: g.count,
+                      percentage: g.percentage
+                    }))}
+                    onBarClick={(ageGroup) => drillInsight.searchByAge(ageGroup)}
+                  />
                 </div>
               </div>
 
@@ -355,6 +260,7 @@ const ReportsAnalytics = () => {
                   <DemographicsPieChart 
                     data={stats.demographics.bySocialClass}
                     title="Por Classe Social"
+                    onSegmentClick={(socialClass) => drillInsight.searchBySocialClass(socialClass)}
                   />
                 </div>
               </div>
@@ -369,12 +275,14 @@ const ReportsAnalytics = () => {
                 value={stats.engagement.totalLikes}
                 trend={{ value: 18, direction: 'up' }}
                 icon={TrendingUp}
+                onClick={() => drillInsight.searchByEngagement('apoios')}
               />
               <KPICard
                 title="Comentários"
                 value={stats.engagement.totalComments}
                 trend={{ value: 25, direction: 'up' }}
                 icon={Activity}
+                onClick={() => drillInsight.searchByEngagement('comentários')}
               />
               <KPICard
                 title="Média Apoios"
@@ -386,12 +294,16 @@ const ReportsAnalytics = () => {
                 value={`${((stats.resolved / stats.total) * 100).toFixed(0)}%`}
                 trend={{ value: 8, direction: 'up' }}
                 icon={Users}
+                onClick={() => drillInsight.searchByStatus('resolvido')}
               />
             </div>
 
             <div className="bg-card rounded-lg border border-border p-6">
               <h3 className="text-lg font-semibold mb-4">Funil de Conversão</h3>
-              <EngagementFunnel steps={stats.engagement.conversionFunnel} />
+              <EngagementFunnel 
+                steps={stats.engagement.conversionFunnel}
+                onStepClick={(step) => drillInsight.searchByEngagement(step.label)}
+              />
             </div>
 
             <div className="bg-card rounded-lg border border-border p-6">
@@ -409,7 +321,8 @@ const ReportsAnalytics = () => {
                   data={stats.categories.map(c => ({ 
                     name: c.category, 
                     size: c.count 
-                  }))} 
+                  }))}
+                  onCellClick={(category) => drillInsight.searchByCategory(category)}
                 />
               </div>
             </div>
@@ -424,6 +337,7 @@ const ReportsAnalytics = () => {
                     ]}
                     label1="Urbano"
                     label2="Transporte"
+                    onBarClick={(source) => drillInsight.searchBySource(source === 'value1' ? 'urban' : 'transport')}
                   />
                 </div>
               </div>
@@ -431,7 +345,10 @@ const ReportsAnalytics = () => {
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Top Categorias</h3>
                 <div className="h-64 md:h-80">
-                  <CategoryBarChart data={stats.categories.slice(0, 5)} />
+                  <CategoryBarChart 
+                    data={stats.categories.slice(0, 5)}
+                    onBarClick={(category) => drillInsight.searchByCategory(category)}
+                  />
                 </div>
               </div>
             </div>
@@ -441,7 +358,10 @@ const ReportsAnalytics = () => {
           <TabsContent value="criticidade" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               <div className="bg-card rounded-lg border border-border p-6">
-                <CriticalityGauge score={stats.criticality.criticalScore} />
+                <CriticalityGauge 
+                  score={stats.criticality.criticalScore}
+                  onClick={() => drillInsight.searchBySeverity('crítico')}
+                />
               </div>
 
               <div className="md:col-span-2 bg-card rounded-lg border border-border p-6">
@@ -456,7 +376,7 @@ const ReportsAnalytics = () => {
                              s.severity === 'Médio' ? 'hsl(var(--chart-2))' : 'hsl(var(--chart-1))'
                     }))}
                     total={stats.total}
-                    onSegmentClick={(severity) => handleSeverityClick(severity)}
+                    onSegmentClick={(severity) => drillInsight.searchBySeverity(severity)}
                   />
                 </div>
               </div>
@@ -465,23 +385,16 @@ const ReportsAnalytics = () => {
             {stats.criticality.patterns.length > 0 && (
               <div className="bg-card rounded-lg border border-border p-6">
                 <h3 className="text-lg font-semibold mb-4">Padrões de Alerta Detectados</h3>
-                <PatternAlerts alerts={stats.criticality.patterns} />
+                <PatternAlerts 
+                  alerts={stats.criticality.patterns}
+                  onAlertClick={(alert) => drillInsight.searchByKeyword(alert.title)}
+                />
               </div>
             )}
           </TabsContent>
         </Tabs>
 
-        {/* Drill-Down Drawer */}
-        <DrillDownDrawer
-          open={drillDown.open}
-          onClose={() => setDrillDown({ ...drillDown, open: false })}
-          reports={drillDown.reports}
-          title={drillDown.title}
-          subtitle={drillDown.subtitle}
-          filterContext={drillDown.filterContext}
-        />
-
-        {/* Drill Insight Panel (Sentimento) */}
+        {/* Universal Drill Insight Panel */}
         <DrillInsightPanel
           state={drillInsight.state}
           onClose={drillInsight.close}

@@ -9,14 +9,14 @@ interface AgeGroupData {
 
 interface AgePyramidProps {
   data: AgeGroupData[];
+  onBarClick?: (ageGroup: string) => void;
 }
 
-export const AgePyramid = ({ data }: AgePyramidProps) => {
-  // Sort by age group order
+export const AgePyramid = ({ data, onBarClick }: AgePyramidProps) => {
   const ageOrder = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
   const sortedData = [...data].sort((a, b) => {
     return ageOrder.indexOf(a.ageGroup) - ageOrder.indexOf(b.ageGroup);
-  }).reverse(); // Reverse to show oldest at top
+  }).reverse();
 
   return (
     <motion.div
@@ -53,6 +53,9 @@ export const AgePyramid = ({ data }: AgePyramidProps) => {
                     <p className="text-muted-foreground">
                       {data.count} ({data.percentage.toFixed(1)}%)
                     </p>
+                    {onBarClick && (
+                      <p className="text-xs text-primary mt-1">Clique para ver detalhes</p>
+                    )}
                   </div>
                 );
               }
@@ -63,11 +66,14 @@ export const AgePyramid = ({ data }: AgePyramidProps) => {
             dataKey="percentage" 
             fill="hsl(var(--chart-1))"
             radius={[0, 4, 4, 0]}
+            onClick={(data) => onBarClick?.(data.ageGroup)}
+            className={onBarClick ? 'cursor-pointer' : ''}
           >
             {sortedData.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`}
                 fill={`hsl(var(--chart-${(index % 5) + 1}))`}
+                className={onBarClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}
               />
             ))}
           </Bar>

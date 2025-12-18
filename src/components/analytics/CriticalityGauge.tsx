@@ -1,21 +1,24 @@
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CriticalityGaugeProps {
-  score: number; // 0-100
+  score: number;
   label?: string;
   size?: 'sm' | 'md' | 'lg';
+  onClick?: () => void;
 }
 
 export const CriticalityGauge = ({ 
   score, 
   label = 'Índice de Criticidade',
-  size = 'md' 
+  size = 'md',
+  onClick
 }: CriticalityGaugeProps) => {
   const getColor = (value: number) => {
-    if (value < 30) return 'hsl(var(--chart-1))'; // Green
-    if (value < 60) return 'hsl(var(--chart-3))'; // Yellow
-    return 'hsl(var(--chart-5))'; // Red
+    if (value < 30) return 'hsl(var(--chart-1))';
+    if (value < 60) return 'hsl(var(--chart-3))';
+    return 'hsl(var(--chart-5))';
   };
 
   const getLevel = (value: number) => {
@@ -37,10 +40,19 @@ export const CriticalityGauge = ({
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <div className={`relative ${currentSize.gauge}`}>
+    <div 
+      className={cn(
+        "flex flex-col items-center justify-center",
+        onClick && "cursor-pointer group"
+      )}
+      onClick={onClick}
+    >
+      <div className={cn(
+        currentSize.gauge,
+        "relative transition-transform",
+        onClick && "group-hover:scale-105"
+      )}>
         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
-          {/* Background circle */}
           <circle
             cx="80"
             cy="80"
@@ -50,7 +62,6 @@ export const CriticalityGauge = ({
             strokeWidth="12"
           />
           
-          {/* Progress circle */}
           <motion.circle
             cx="80"
             cy="80"
@@ -68,7 +79,6 @@ export const CriticalityGauge = ({
           />
         </svg>
 
-        {/* Center content */}
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -87,9 +97,17 @@ export const CriticalityGauge = ({
         </motion.div>
       </div>
       
-      <p className="text-sm font-medium text-foreground mt-4 text-center">
+      <p className={cn(
+        "text-sm font-medium text-foreground mt-4 text-center",
+        onClick && "group-hover:text-primary transition-colors"
+      )}>
         {label}
       </p>
+      {onClick && (
+        <p className="text-xs text-muted-foreground group-hover:text-primary transition-colors">
+          Clique para ver detalhes
+        </p>
+      )}
     </div>
   );
 };
