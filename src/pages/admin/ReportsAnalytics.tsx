@@ -20,11 +20,12 @@ import { SentimentDonut } from '@/components/analytics/SentimentDonut';
 import { SentimentTrend } from '@/components/analytics/SentimentTrend';
 import { WordCloud } from '@/components/analytics/WordCloud';
 import { SentimentDrivers } from '@/components/analytics/SentimentDrivers';
+import { AIInsightsCard } from '@/components/analytics/AIInsightsCard';
 import { DrillDownDrawer } from '@/components/analytics/DrillDownDrawer';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BarChart3, TrendingUp, Users, Activity } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Activity, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -250,16 +251,19 @@ const ReportsAnalytics = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                  <div className="bg-card rounded-lg border border-border p-6">
-                    <SentimentGauge 
-                      score={sentimentStats.overallScore} 
-                      trend={sentimentStats.trend}
-                    />
+                  <div className="bg-card rounded-lg border border-border p-6 min-h-[320px] flex flex-col">
+                    <h3 className="text-lg font-semibold mb-4">Índice de Satisfação</h3>
+                    <div className="flex-1 flex items-center justify-center">
+                      <SentimentGauge 
+                        score={sentimentStats.overallScore} 
+                        trend={sentimentStats.trend}
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-card rounded-lg border border-border p-6">
+                  <div className="bg-card rounded-lg border border-border p-6 min-h-[320px] flex flex-col">
                     <h3 className="text-lg font-semibold mb-4">Distribuição</h3>
-                    <div className="h-64 md:h-80">
+                    <div className="flex-1 relative">
                       <SentimentDonut 
                         data={sentimentStats.distribution}
                         total={stats.total}
@@ -267,9 +271,9 @@ const ReportsAnalytics = () => {
                     </div>
                   </div>
 
-                  <div className="bg-card rounded-lg border border-border p-6">
+                  <div className="bg-card rounded-lg border border-border p-6 min-h-[320px] flex flex-col">
                     <h3 className="text-lg font-semibold mb-4">Palavras-Chave</h3>
-                    <div className="h-64 md:h-80">
+                    <div className="flex-1">
                       <WordCloud words={sentimentStats.keywords} />
                     </div>
                   </div>
@@ -283,9 +287,23 @@ const ReportsAnalytics = () => {
                 </div>
 
                 <div className="bg-card rounded-lg border border-border p-6">
-                  <h3 className="text-lg font-semibold mb-4">Drivers de Sentimento</h3>
+                  <h3 className="text-lg font-semibold mb-4">O que está impulsionando o sentimento?</h3>
                   <SentimentDrivers drivers={sentimentStats.byCategory} />
                 </div>
+
+                {sentimentStats.insights && sentimentStats.insights.length > 0 && (
+                  <div className="bg-card rounded-lg border border-border p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Insights da IA</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {sentimentStats.insights.map((insight) => (
+                        <AIInsightsCard key={insight.id} insight={insight} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </TabsContent>
