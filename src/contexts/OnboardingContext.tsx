@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
 
 interface OnboardingContextType {
   showTutorial: boolean;
@@ -22,26 +22,26 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const triggerTutorial = () => {
+  const triggerTutorial = useCallback(() => {
     setShowTutorial(true);
-  };
+  }, []);
 
-  const completeTutorial = () => {
+  const completeTutorial = useCallback(() => {
     localStorage.setItem("hasCompletedOnboarding", "true");
     setIsFirstAccess(false);
     setShowTutorial(false);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    showTutorial,
+    isFirstAccess,
+    isLoading,
+    triggerTutorial,
+    completeTutorial,
+  }), [showTutorial, isFirstAccess, isLoading, triggerTutorial, completeTutorial]);
 
   return (
-    <OnboardingContext.Provider
-      value={{
-        showTutorial,
-        isFirstAccess,
-        isLoading,
-        triggerTutorial,
-        completeTutorial,
-      }}
-    >
+    <OnboardingContext.Provider value={value}>
       {children}
     </OnboardingContext.Provider>
   );

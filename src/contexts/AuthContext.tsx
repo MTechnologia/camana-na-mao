@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useMemo, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +38,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const checkOnboardingStatus = useCallback(async (userId: string | undefined) => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('user_interests')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (!error && (!data || data.length === 0)) {
+      navigate('/onboarding');
+    } else {
+      navigate('/ia');
+    }
+  }, [navigate]);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -61,25 +77,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkOnboardingStatus]);
 
-  const checkOnboardingStatus = async (userId: string | undefined) => {
-    if (!userId) return;
-
-    const { data, error } = await supabase
-      .from('user_interests')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1);
-
-    if (!error && (!data || data.length === 0)) {
-      navigate('/onboarding');
-    } else {
-      navigate('/ia');
-    }
-  };
-
-  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string, phone: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
@@ -104,9 +104,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error(translatedMessage || "Erro ao criar conta");
       return { data: null, error };
     }
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -133,9 +133,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error(translatedMessage || "Erro ao fazer login");
       return { error };
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       // Register audit log for logout before signing out
       if (user) {
@@ -154,9 +154,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const translatedMessage = translateError(error.message);
       toast.error(translatedMessage || "Erro ao fazer logout");
     }
-  };
+  }, [user, navigate]);
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = useCallback(async (email: string) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
@@ -171,10 +171,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error(translatedMessage || "Erro ao enviar e-mail");
       return { error };
     }
-  };
+  }, []);
+
+  const value = useMemo(() => ({ 
+    user, 
+    session, 
+    loading, 
+    signUp, 
+    signIn, 
+    signOut, 
+    resetPassword 
+  }), [user, session, loading, signUp, signIn, signOut, resetPassword]);
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, resetPassword }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

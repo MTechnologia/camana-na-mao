@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +34,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -54,9 +54,9 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = useCallback(async (id: string) => {
     if (!user) return;
 
     try {
@@ -80,9 +80,9 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
         variant: "destructive",
       });
     }
-  };
+  }, [user, toast]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -111,9 +111,9 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
         variant: "destructive",
       });
     }
-  };
+  }, [user, toast]);
 
-  const deleteNotification = async (id: string) => {
+  const deleteNotification = useCallback(async (id: string) => {
     if (!user) return;
 
     try {
@@ -140,7 +140,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
         variant: "destructive",
       });
     }
-  };
+  }, [user, notifications, toast]);
 
   // Setup realtime subscription
   useEffect(() => {
@@ -190,20 +190,28 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, fetchNotifications, toast]);
+
+  const value = useMemo(() => ({
+    notifications,
+    unreadCount,
+    isLoading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  }), [
+    notifications,
+    unreadCount,
+    isLoading,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  ]);
 
   return (
-    <NotificationsContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        isLoading,
-        fetchNotifications,
-        markAsRead,
-        markAllAsRead,
-        deleteNotification,
-      }}
-    >
+    <NotificationsContext.Provider value={value}>
       {children}
     </NotificationsContext.Provider>
   );

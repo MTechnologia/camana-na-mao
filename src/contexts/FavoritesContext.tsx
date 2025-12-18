@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 
 export interface Favorite {
   id: string;
@@ -30,31 +30,40 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('cmsp_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  const addFavorite = (item: Favorite) => {
+  const addFavorite = useCallback((item: Favorite) => {
     setFavorites(prev => {
       if (prev.some(f => f.id === item.id)) return prev;
       return [...prev, item];
     });
-  };
+  }, []);
 
-  const removeFavorite = (id: string) => {
+  const removeFavorite = useCallback((id: string) => {
     setFavorites(prev => prev.filter(f => f.id !== id));
-  };
+  }, []);
 
-  const isFavorited = (id: string) => {
+  const isFavorited = useCallback((id: string) => {
     return favorites.some(f => f.id === id);
-  };
+  }, [favorites]);
 
-  const toggleFavorite = (item: Favorite) => {
-    if (isFavorited(item.id)) {
-      removeFavorite(item.id);
-    } else {
-      addFavorite(item);
-    }
-  };
+  const toggleFavorite = useCallback((item: Favorite) => {
+    setFavorites(prev => {
+      if (prev.some(f => f.id === item.id)) {
+        return prev.filter(f => f.id !== item.id);
+      }
+      return [...prev, item];
+    });
+  }, []);
+
+  const value = useMemo(() => ({ 
+    favorites, 
+    addFavorite, 
+    removeFavorite, 
+    isFavorited, 
+    toggleFavorite 
+  }), [favorites, addFavorite, removeFavorite, isFavorited, toggleFavorite]);
 
   return (
-    <FavoritesContext.Provider value={{ favorites, addFavorite, removeFavorite, isFavorited, toggleFavorite }}>
+    <FavoritesContext.Provider value={value}>
       {children}
     </FavoritesContext.Provider>
   );

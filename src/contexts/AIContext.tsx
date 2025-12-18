@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo, useCallback } from "react";
 
 interface AIContextType {
   mode: "text" | "voice";
@@ -10,11 +10,26 @@ interface AIContextType {
 const AIContext = createContext<AIContextType | undefined>(undefined);
 
 export const AIProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<"text" | "voice">("text");
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [mode, setModeState] = useState<"text" | "voice">("text");
+  const [isOnline, setIsOnlineState] = useState(navigator.onLine);
+
+  const setMode = useCallback((newMode: "text" | "voice") => {
+    setModeState(newMode);
+  }, []);
+
+  const setIsOnline = useCallback((online: boolean) => {
+    setIsOnlineState(online);
+  }, []);
+
+  const value = useMemo(() => ({ 
+    mode, 
+    setMode, 
+    isOnline, 
+    setIsOnline 
+  }), [mode, setMode, isOnline, setIsOnline]);
 
   return (
-    <AIContext.Provider value={{ mode, setMode, isOnline, setIsOnline }}>
+    <AIContext.Provider value={value}>
       {children}
     </AIContext.Provider>
   );
