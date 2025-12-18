@@ -120,13 +120,29 @@ export const useAdminUsers = () => {
       // Get user data for audit log
       const userToDelete = users.find(u => u.id === userId);
       
-      // Delete user roles first
+      // Call Edge Function to delete from auth.users (requires service_role)
+      const { data, error: functionError } = await supabase.functions.invoke('delete-user', {
+        body: { userId }
+      });
+
+      if (functionError) {
+        console.error('Error calling delete-user function:', functionError);
+        throw new Error(functionError.message || 'Erro ao excluir usuário');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      // Delete user roles
       const { error: rolesError } = await supabase
         .from('user_roles')
         .delete()
         .eq('user_id', userId);
 
-      if (rolesError) throw rolesError;
+      if (rolesError) {
+        console.warn('Error deleting user roles (user may already be cascade deleted):', rolesError);
+      }
 
       // Delete user profile
       const { error: profileError } = await supabase
@@ -134,7 +150,9 @@ export const useAdminUsers = () => {
         .delete()
         .eq('id', userId);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.warn('Error deleting profile (user may already be cascade deleted):', profileError);
+      }
 
       // Register audit log
       const { data: { user } } = await supabase.auth.getUser();
@@ -153,7 +171,7 @@ export const useAdminUsers = () => {
       await fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      toast.error('Erro ao excluir usuário');
+      toast.error(error instanceof Error ? error.message : 'Erro ao excluir usuário');
       throw error;
     }
   };
