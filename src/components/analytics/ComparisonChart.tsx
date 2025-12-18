@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { motion } from 'framer-motion';
 
 interface ComparisonData {
@@ -13,6 +13,7 @@ interface ComparisonChartProps {
   label2: string;
   color1?: string;
   color2?: string;
+  onBarClick?: (source: 'value1' | 'value2', label: string) => void;
 }
 
 export const ComparisonChart = ({ 
@@ -20,7 +21,8 @@ export const ComparisonChart = ({
   label1, 
   label2,
   color1 = 'hsl(var(--chart-1))',
-  color2 = 'hsl(var(--chart-2))'
+  color2 = 'hsl(var(--chart-2))',
+  onBarClick
 }: ComparisonChartProps) => {
   return (
     <motion.div
@@ -53,6 +55,9 @@ export const ComparisonChart = ({
                         {entry.name}: {entry.value}
                       </p>
                     ))}
+                    {onBarClick && (
+                      <p className="text-xs text-primary mt-2">Clique para ver detalhes</p>
+                    )}
                   </div>
                 );
               }
@@ -65,12 +70,16 @@ export const ComparisonChart = ({
             name={label1}
             fill={color1} 
             radius={[4, 4, 0, 0]}
+            onClick={(data) => onBarClick?.('value1', data.label)}
+            className={onBarClick ? 'cursor-pointer' : ''}
           />
           <Bar 
             dataKey="value2" 
             name={label2}
             fill={color2} 
             radius={[4, 4, 0, 0]}
+            onClick={(data) => onBarClick?.('value2', data.label)}
+            className={onBarClick ? 'cursor-pointer' : ''}
           />
         </BarChart>
       </ResponsiveContainer>

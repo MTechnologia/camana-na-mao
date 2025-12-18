@@ -19,6 +19,7 @@ interface PatternAlertsProps {
   onView?: (id: string) => void;
   onForward?: (id: string) => void;
   onDismiss?: (id: string) => void;
+  onAlertClick?: (alert: PatternAlert) => void;
 }
 
 const getSeverityConfig = (severity: string) => {
@@ -67,7 +68,8 @@ export const PatternAlerts = ({
   alerts, 
   onView, 
   onForward, 
-  onDismiss 
+  onDismiss,
+  onAlertClick
 }: PatternAlertsProps) => {
   return (
     <div className="space-y-4">
@@ -82,7 +84,8 @@ export const PatternAlerts = ({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`relative bg-card border rounded-lg p-4 ${severityConfig.border}`}
+            className={`relative bg-card border rounded-lg p-4 ${severityConfig.border} ${onAlertClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+            onClick={() => onAlertClick?.(alert)}
           >
             {/* Dismiss button */}
             {onDismiss && (

@@ -11,23 +11,25 @@ interface DemographicsPieChartProps {
   data: DemographicData[];
   title: string;
   colors?: string[];
+  onSegmentClick?: (label: string) => void;
 }
 
 const DEFAULT_COLORS = [
-  'hsl(var(--chart-2))',  // Blue
-  'hsl(var(--chart-7))',  // Pink
-  'hsl(var(--chart-4))',  // Purple
-  'hsl(var(--chart-6))',  // Cyan
-  'hsl(var(--chart-3))',  // Yellow
-  'hsl(var(--chart-1))',  // Green
-  'hsl(var(--chart-8))',  // Gold
-  'hsl(var(--chart-5))',  // Red
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-7))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-6))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-8))',
+  'hsl(var(--chart-5))',
 ];
 
 export const DemographicsPieChart = ({ 
   data, 
   title, 
-  colors = DEFAULT_COLORS 
+  colors = DEFAULT_COLORS,
+  onSegmentClick
 }: DemographicsPieChartProps) => {
   return (
     <motion.div
@@ -52,6 +54,8 @@ export const DemographicsPieChart = ({
               <Cell 
                 key={`cell-${index}`} 
                 fill={colors[index % colors.length]}
+                className={onSegmentClick ? 'cursor-pointer transition-opacity hover:opacity-80' : ''}
+                onClick={() => onSegmentClick?.(entry.label)}
               />
             ))}
           </Pie>
@@ -65,6 +69,9 @@ export const DemographicsPieChart = ({
                     <p className="text-muted-foreground">
                       {data.count} ({data.percentage.toFixed(1)}%)
                     </p>
+                    {onSegmentClick && (
+                      <p className="text-xs text-primary mt-1">Clique para ver detalhes</p>
+                    )}
                   </div>
                 );
               }
