@@ -111,63 +111,8 @@ Se disser "quero falar sobre outra coisa", "cancelar", "sair":
 - Use linguagem simples e acessível
 - Seja breve nas respostas`;
 
-// Phrase-based patterns for high-confidence cross-journey detection
-const PHRASE_PATTERNS: Record<string, string[]> = {
-  transport: [
-    'problema com ônibus', 'problema com onibus', 'atraso de metrô', 'atraso de metro',
-    'linha de trem', 'ônibus lotado', 'onibus lotado', 'metrô cheio', 'metro cheio',
-    'ônibus atrasado', 'onibus atrasado', 'metrô atrasado', 'metro atrasado'
-  ],
-  evaluate: [
-    'avaliar a ubs', 'avaliar a escola', 'avaliar o hospital', 'avaliar o ceu',
-    'dar nota para', 'avaliar atendimento', 'nota para o serviço', 'avaliar serviço'
-  ],
-  general: [
-    'como funciona a câmara', 'próxima audiência', 'proxima audiencia',
-    'projeto de lei', 'quais comissões', 'agenda da câmara', 'notícias da câmara'
-  ]
-};
-
-// Keyword-based patterns for fallback detection (excluding urban_report - current journey)
-const INTENT_PATTERNS: Record<string, string[]> = {
-  transport: [
-    'ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'sptrans', 
-    'lotação', 'lotacao', 'terminal', 'estação', 'bilhete único'
-  ],
-  evaluate: [
-    'avaliar serviço', 'nota para ubs', 'nota para escola', 'avaliar hospital'
-  ],
-  general: [
-    'notícia', 'audiência pública', 'comissão permanente', 'legislativo', 
-    'projeto de lei', 'pauta do dia', 'sessão plenária', 'votação'
-  ]
-};
-
-function detectCrossIntent(message: string, currentJourney: string): { journey: string | null; confidence: number } {
-  const lowerMessage = message.toLowerCase();
-  
-  // First: try phrase-based detection (higher confidence)
-  for (const [journey, phrases] of Object.entries(PHRASE_PATTERNS)) {
-    if (journey === currentJourney) continue;
-    
-    const phraseMatch = phrases.some(phrase => lowerMessage.includes(phrase));
-    if (phraseMatch) {
-      return { journey, confidence: 0.95 };
-    }
-  }
-  
-  // Fallback: keyword-based detection (need 2+ keywords)
-  for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
-    if (journey === currentJourney) continue;
-    
-    const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
-    if (matches.length >= 2) {
-      return { journey, confidence: 0.85 };
-    }
-  }
-  
-  return { journey: null, confidence: 0 };
-}
+// Import shared intent patterns
+import { detectCrossIntent } from '../shared/intent-patterns.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

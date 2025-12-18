@@ -6,67 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Phrase-based patterns for high-confidence cross-journey detection
-const PHRASE_PATTERNS: Record<string, string[]> = {
-  transport: [
-    'problema com ônibus', 'problema com onibus', 'atraso de metrô', 'atraso de metro',
-    'linha de trem', 'ônibus lotado', 'onibus lotado', 'metrô cheio', 'metro cheio',
-    'ônibus atrasado', 'onibus atrasado', 'metrô atrasado', 'metro atrasado'
-  ],
-  urban_report: [
-    'buraco na rua', 'poste sem luz', 'lixo na calçada', 'esgoto aberto',
-    'elogiar vereador', 'elogiar um vereador', 'reclamar da câmara', 'reclamar da camara',
-    'sugestão para câmara', 'feedback sobre vereador', 'crítica ao vereador',
-    'reclamação da câmara', 'elogio ao vereador', 'sugestão para vereador'
-  ],
-  general: [
-    'como funciona a câmara', 'próxima audiência', 'proxima audiencia',
-    'projeto de lei', 'quais comissões', 'agenda da câmara', 'notícias da câmara'
-  ]
-};
-
-// Keyword-based patterns for fallback detection (excluding evaluate - current journey)
-const INTENT_PATTERNS: Record<string, string[]> = {
-  transport: [
-    'ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'sptrans', 
-    'lotação', 'lotacao', 'terminal', 'estação', 'bilhete único'
-  ],
-  urban_report: [
-    'buraco', 'iluminação', 'iluminacao', 'poste', 'lixo', 'calçada', 'calcada', 
-    'esgoto', 'semáforo', 'semaforo', 'asfalto', 'mato alto', 'árvore', 'arvore', 'entulho',
-    'vereador', 'câmara', 'camara', 'reclamação', 'reclamacao', 'elogio'
-  ],
-  general: [
-    'notícia', 'audiência pública', 'comissão permanente', 'legislativo', 
-    'projeto de lei', 'pauta do dia', 'sessão plenária', 'votação'
-  ]
-};
-
-function detectCrossIntent(message: string, currentJourney: string): { journey: string | null; confidence: number } {
-  const lowerMessage = message.toLowerCase();
-  
-  // First: try phrase-based detection (higher confidence)
-  for (const [journey, phrases] of Object.entries(PHRASE_PATTERNS)) {
-    if (journey === currentJourney) continue;
-    
-    const phraseMatch = phrases.some(phrase => lowerMessage.includes(phrase));
-    if (phraseMatch) {
-      return { journey, confidence: 0.95 };
-    }
-  }
-  
-  // Fallback: keyword-based detection (need 2+ keywords)
-  for (const [journey, keywords] of Object.entries(INTENT_PATTERNS)) {
-    if (journey === currentJourney) continue;
-    
-    const matches = keywords.filter(keyword => lowerMessage.includes(keyword));
-    if (matches.length >= 2) {
-      return { journey, confidence: 0.85 };
-    }
-  }
-  
-  return { journey: null, confidence: 0 };
-}
+// Import shared intent patterns
+import { detectCrossIntent } from '../shared/intent-patterns.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
