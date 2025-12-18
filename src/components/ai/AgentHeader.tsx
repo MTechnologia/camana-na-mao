@@ -34,7 +34,7 @@ const headerVariants = {
   }
 };
 
-// Journeys that collect structured data and need escape valve
+// Journeys that collect structured data and have save/discard options
 const STRUCTURED_JOURNEYS = ['urban_report', 'transport', 'evaluate'];
 
 const AgentHeader = () => {
@@ -89,11 +89,11 @@ const AgentHeader = () => {
   }, []);
 
   const handleBack = () => {
-    // If it's a structured journey, show escape dialog
-    if (isStructuredJourney) {
+    // Show escape dialog for all journeys (standardized UX)
+    if (currentJourney) {
       setShowEscapeDialog(true);
     } else {
-      // For informational journeys, just go back
+      // No journey active, just clear
       clearJourney();
       setActiveConversationId(null);
     }
@@ -220,18 +220,14 @@ const AgentHeader = () => {
                       <History className="h-4 w-4 mr-2" />
                       Ver histórico
                     </DropdownMenuItem>
-                    {isStructuredJourney && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => setShowEscapeDialog(true)}
-                          className="text-amber-600 dark:text-amber-400"
-                        >
-                          <LogOut className="h-4 w-4 mr-2" />
-                          Sair desta jornada
-                        </DropdownMenuItem>
-                      </>
-                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => setShowEscapeDialog(true)}
+                      className="text-amber-600 dark:text-amber-400"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sair desta jornada
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </motion.div>
@@ -300,6 +296,7 @@ const AgentHeader = () => {
           open={showEscapeDialog}
           onOpenChange={setShowEscapeDialog}
           journeyLabel={currentJourney.label}
+          isStructured={isStructuredJourney}
           onContinue={handleContinue}
           onSaveAndExit={handleSaveAndExit}
           onDiscardAndExit={handleDiscardAndExit}
