@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useMemo, useCallback } from 'react';
 
 interface TransportContextType {
   currentReport: any;
@@ -22,37 +22,45 @@ export const TransportProvider = ({ children }: { children: ReactNode }) => {
   const [reportData, setReportData] = useState<any>({});
   const [patterns, setPatterns] = useState<any[]>([]);
 
-  const startEvaluation = (data?: any) => {
+  const startEvaluation = useCallback((data?: any) => {
     setReportData(data || {});
     setReportStep(1);
-  };
+  }, []);
 
-  const nextStep = () => {
+  const nextStep = useCallback(() => {
     setReportStep(prev => prev + 1);
-  };
+  }, []);
 
-  const cancelEvaluation = () => {
+  const cancelEvaluation = useCallback(() => {
     setCurrentReport(null);
     setReportStep(1);
     setReportData({});
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    currentReport,
+    reportStep,
+    reportData,
+    patterns,
+    setCurrentReport,
+    setReportStep,
+    setReportData,
+    setPatterns,
+    startEvaluation,
+    nextStep,
+    cancelEvaluation,
+  }), [
+    currentReport,
+    reportStep,
+    reportData,
+    patterns,
+    startEvaluation,
+    nextStep,
+    cancelEvaluation,
+  ]);
 
   return (
-    <TransportContext.Provider
-      value={{
-        currentReport,
-        reportStep,
-        reportData,
-        patterns,
-        setCurrentReport,
-        setReportStep,
-        setReportData,
-        setPatterns,
-        startEvaluation,
-        nextStep,
-        cancelEvaluation,
-      }}
-    >
+    <TransportContext.Provider value={value}>
       {children}
     </TransportContext.Provider>
   );

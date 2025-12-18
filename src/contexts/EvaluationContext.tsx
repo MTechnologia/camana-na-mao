@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo, useCallback } from "react";
 
 interface Service {
   id: string;
@@ -51,47 +51,57 @@ export const EvaluationProvider = ({ children }: { children: ReactNode }) => {
   const [evaluationStep, setEvaluationStep] = useState(1);
   const [evaluationData, setEvaluationData] = useState<EvaluationData>({});
 
-  const startEvaluation = (service: Service, visit?: Visit) => {
+  const startEvaluation = useCallback((service: Service, visit?: Visit) => {
     setCurrentService(service);
     setCurrentVisit(visit || null);
     setEvaluationStep(1);
     setEvaluationData({});
-  };
+  }, []);
 
-  const nextStep = () => {
+  const nextStep = useCallback(() => {
     setEvaluationStep(prev => prev + 1);
-  };
+  }, []);
 
-  const updateData = (data: Partial<EvaluationData>) => {
+  const updateData = useCallback((data: Partial<EvaluationData>) => {
     setEvaluationData(prev => ({ ...prev, ...data }));
-  };
+  }, []);
 
-  const saveEvaluation = async () => {
+  const saveEvaluation = useCallback(async () => {
     // Implementação será feita quando necessário
     console.log("Saving evaluation:", evaluationData);
-  };
+  }, [evaluationData]);
 
-  const cancelEvaluation = () => {
+  const cancelEvaluation = useCallback(() => {
     setCurrentService(null);
     setCurrentVisit(null);
     setEvaluationStep(1);
     setEvaluationData({});
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    currentService,
+    currentVisit,
+    evaluationStep,
+    evaluationData,
+    startEvaluation,
+    nextStep,
+    updateData,
+    saveEvaluation,
+    cancelEvaluation,
+  }), [
+    currentService,
+    currentVisit,
+    evaluationStep,
+    evaluationData,
+    startEvaluation,
+    nextStep,
+    updateData,
+    saveEvaluation,
+    cancelEvaluation,
+  ]);
 
   return (
-    <EvaluationContext.Provider
-      value={{
-        currentService,
-        currentVisit,
-        evaluationStep,
-        evaluationData,
-        startEvaluation,
-        nextStep,
-        updateData,
-        saveEvaluation,
-        cancelEvaluation,
-      }}
-    >
+    <EvaluationContext.Provider value={value}>
       {children}
     </EvaluationContext.Provider>
   );

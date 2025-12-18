@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo, useCallback } from "react";
 
 export interface JourneyType {
   id: string;
@@ -32,53 +32,68 @@ export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
   const [journeyContext, setJourneyContext] = useState<Record<string, any>>({});
   const [backgroundConversation, setBackgroundConversation] = useState<{ journeyId: string; conversationId: string } | null>(null);
 
-  const setJourney = (journey: JourneyType, conversationId?: string, context: Record<string, any> = {}) => {
+  const setJourney = useCallback((journey: JourneyType, conversationId?: string, context: Record<string, any> = {}) => {
     setCurrentJourney(journey);
     setCurrentConversationId(conversationId || null);
     setJourneyContext(context);
-  };
+  }, []);
 
-  const clearJourney = () => {
+  const clearJourney = useCallback(() => {
     setCurrentJourney(null);
     setCurrentConversationId(null);
     setJourneyContext({});
-  };
+  }, []);
 
-  const minimizeToBackground = () => {
+  const minimizeToBackground = useCallback(() => {
     if (currentJourney && currentConversationId) {
       setBackgroundConversation({
         journeyId: currentJourney.id,
         conversationId: currentConversationId,
       });
-      clearJourney();
+      setCurrentJourney(null);
+      setCurrentConversationId(null);
+      setJourneyContext({});
     }
-  };
+  }, [currentJourney, currentConversationId]);
 
-  const restoreFromBackground = () => {
+  const restoreFromBackground = useCallback(() => {
     if (backgroundConversation) {
       setCurrentConversationId(backgroundConversation.conversationId);
       setBackgroundConversation(null);
     }
-  };
+  }, [backgroundConversation]);
 
-  const clearBackground = () => {
+  const clearBackground = useCallback(() => {
     setBackgroundConversation(null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({ 
+    currentJourney, 
+    currentConversationId,
+    activeConversationId,
+    backgroundConversation,
+    setJourney,
+    setActiveConversationId,
+    journeyContext, 
+    clearJourney,
+    minimizeToBackground,
+    restoreFromBackground,
+    clearBackground
+  }), [
+    currentJourney, 
+    currentConversationId,
+    activeConversationId,
+    backgroundConversation,
+    setJourney,
+    journeyContext, 
+    clearJourney,
+    minimizeToBackground,
+    restoreFromBackground,
+    clearBackground
+  ]);
 
   return (
-    <AIJourneyContext.Provider value={{ 
-      currentJourney, 
-      currentConversationId,
-      activeConversationId,
-      backgroundConversation,
-      setJourney,
-      setActiveConversationId,
-      journeyContext, 
-      clearJourney,
-      minimizeToBackground,
-      restoreFromBackground,
-      clearBackground
-    }}>
+    <AIJourneyContext.Provider value={value}>
       {children}
     </AIJourneyContext.Provider>
   );
