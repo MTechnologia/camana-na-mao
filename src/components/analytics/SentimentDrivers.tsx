@@ -43,9 +43,6 @@ export const SentimentDrivers = ({ drivers, onDriverClick }: SentimentDriversPro
 
   return (
     <div className="w-full space-y-3">
-      <h3 className="text-lg font-semibold text-foreground mb-4">
-        O que está impulsionando o sentimento?
-      </h3>
       
       {sortedDrivers.map((driver, index) => (
         <motion.button

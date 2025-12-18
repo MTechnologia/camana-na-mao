@@ -24,7 +24,7 @@ export const SentimentDonut = ({ data, total, onSegmentClick }: SentimentDonutPr
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col relative">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
