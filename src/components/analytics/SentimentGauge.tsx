@@ -7,13 +7,15 @@ interface SentimentGaugeProps {
   trend?: number; // % change
   label?: string;
   size?: 'sm' | 'md' | 'lg';
+  onClick?: () => void;
 }
 
 export const SentimentGauge = ({ 
   score, 
   trend, 
   label = 'Índice de Satisfação',
-  size = 'md' 
+  size = 'md',
+  onClick
 }: SentimentGaugeProps) => {
   const getColor = (value: number) => {
     if (value >= 70) return 'hsl(var(--chart-1))'; // green
@@ -39,7 +41,14 @@ export const SentimentGauge = ({
   const offset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <button 
+      className={cn(
+        "flex flex-col items-center gap-4 transition-transform",
+        onClick && "hover:scale-105 cursor-pointer"
+      )}
+      onClick={onClick}
+      disabled={!onClick}
+    >
       <div className="relative" style={{ width: config.gauge, height: config.gauge }}>
         {/* Background circle */}
         <svg className="transform -rotate-90" width={config.gauge} height={config.gauge}>
@@ -102,6 +111,6 @@ export const SentimentGauge = ({
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 };

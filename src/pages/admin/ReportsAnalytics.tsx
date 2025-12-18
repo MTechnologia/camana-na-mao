@@ -22,8 +22,10 @@ import { WordCloud } from '@/components/analytics/WordCloud';
 import { SentimentDrivers } from '@/components/analytics/SentimentDrivers';
 import { AIInsightsCard } from '@/components/analytics/AIInsightsCard';
 import { DrillDownDrawer } from '@/components/analytics/DrillDownDrawer';
+import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
+import { useDrillInsight } from '@/hooks/useDrillInsight';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, TrendingUp, Users, Activity, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +35,7 @@ const ReportsAnalytics = () => {
   const [filters, setFilters] = useState({});
   const { stats, isLoading, refresh } = useReportsAnalytics(filters);
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics(filters);
-  
+  const drillInsight = useDrillInsight(filters);
   // Drill-down state
   const [drillDown, setDrillDown] = useState<{
     open: boolean;
@@ -257,6 +259,7 @@ const ReportsAnalytics = () => {
                       <SentimentGauge 
                         score={sentimentStats.overallScore} 
                         trend={sentimentStats.trend}
+                        onClick={() => drillInsight.searchByOverview()}
                       />
                     </div>
                   </div>
@@ -267,6 +270,7 @@ const ReportsAnalytics = () => {
                       <SentimentDonut 
                         data={sentimentStats.distribution}
                         total={stats.total}
+                        onSegmentClick={(sentiment) => drillInsight.searchBySentiment(sentiment)}
                       />
                     </div>
                   </div>
@@ -274,7 +278,10 @@ const ReportsAnalytics = () => {
                   <div className="bg-card rounded-lg border border-border p-6 min-h-[320px] flex flex-col">
                     <h3 className="text-lg font-semibold mb-4">Palavras-Chave</h3>
                     <div className="flex-1">
-                      <WordCloud words={sentimentStats.keywords} />
+                      <WordCloud 
+                        words={sentimentStats.keywords} 
+                        onWordClick={(word) => drillInsight.searchByKeyword(word)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -288,7 +295,10 @@ const ReportsAnalytics = () => {
 
                 <div className="bg-card rounded-lg border border-border p-6">
                   <h3 className="text-lg font-semibold mb-4">O que está impulsionando o sentimento?</h3>
-                  <SentimentDrivers drivers={sentimentStats.byCategory} />
+                  <SentimentDrivers 
+                    drivers={sentimentStats.byCategory} 
+                    onDriverClick={(category) => drillInsight.searchByCategory(category)}
+                  />
                 </div>
 
                 {sentimentStats.insights && sentimentStats.insights.length > 0 && (
@@ -469,6 +479,12 @@ const ReportsAnalytics = () => {
           title={drillDown.title}
           subtitle={drillDown.subtitle}
           filterContext={drillDown.filterContext}
+        />
+
+        {/* Drill Insight Panel (Sentimento) */}
+        <DrillInsightPanel
+          state={drillInsight.state}
+          onClose={drillInsight.close}
         />
       </div>
     </AdminLayout>
