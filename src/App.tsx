@@ -98,7 +98,7 @@ const N8NIntegration = lazy(() => import("./pages/admin/settings/N8NIntegration"
 const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"));
 const AccessibilitySettings = lazy(() => import("./pages/admin/settings/AccessibilitySettings"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
-const OverviewPage = lazy(() => import("./pages/admin/docs/OverviewPage"));
+const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 
 // Settings pages - lazy loaded
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
@@ -182,7 +182,9 @@ const AppContent = () => {
           <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
-          <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><OverviewPage /></ProtectedAdminRoute>} />
+          {/* Public Documentation Route */}
+          <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
+          <Route path="/docs/overview" element={<PublicDocumentationPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
