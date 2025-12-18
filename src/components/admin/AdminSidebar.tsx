@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, Brain, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -63,12 +63,6 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         },
         { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
-      ],
-    },
-    {
-      section: 'DOCUMENTAÇÃO',
-      items: [
-        { title: 'Visão da Plataforma', icon: BookOpen, href: '/admin/docs/overview' },
       ],
     },
   ];
