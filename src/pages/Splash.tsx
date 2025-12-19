@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,19 +6,23 @@ import { useAuth } from "@/contexts/AuthContext";
 const Splash = () => {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
+  // Timer mínimo para exibir a splash
   useEffect(() => {
-    // Aguarda o loading da autenticação
-    if (loading) return;
-
     const timer = setTimeout(() => {
-      // Se usuário logado, vai direto para /ia
-      // Se não, vai para /welcome
-      navigate(user ? "/ia" : "/welcome");
-    }, 2000);
+      setMinTimeElapsed(true);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [navigate, user, loading]);
+  }, []);
+
+  // Navega quando auth terminar de carregar E tempo mínimo passar
+  useEffect(() => {
+    if (!loading && minTimeElapsed) {
+      navigate(user ? "/ia" : "/welcome", { replace: true });
+    }
+  }, [loading, minTimeElapsed, user, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-400">
