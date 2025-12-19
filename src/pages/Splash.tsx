@@ -1,17 +1,24 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Splash = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
+    // Aguarda o loading da autenticação
+    if (loading) return;
+
     const timer = setTimeout(() => {
-      navigate("/welcome");
+      // Se usuário logado, vai direto para /ia
+      // Se não, vai para /welcome
+      navigate(user ? "/ia" : "/welcome");
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [navigate, user, loading]);
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-400">

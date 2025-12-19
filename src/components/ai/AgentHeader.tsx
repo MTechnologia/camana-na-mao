@@ -253,15 +253,19 @@ const AgentHeader = () => {
               </Button>
             </motion.div>
             
-            {/* Title */}
-            <motion.span
+            {/* Title - clickable to reset to home */}
+            <motion.button
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.05, duration: 0.25 }}
-              className="text-lg font-semibold text-foreground"
+              className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
+              onClick={() => {
+                clearJourney();
+                setActiveConversationId(null);
+              }}
             >
               Câmara SP
-            </motion.span>
+            </motion.button>
             
             {/* Notifications */}
             <motion.div
