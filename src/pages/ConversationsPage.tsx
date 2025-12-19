@@ -10,8 +10,8 @@ import { useAIConversations, type AIConversation } from "@/hooks/useAIConversati
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
 import DeleteConversationDialog from "@/components/ai/DeleteConversationDialog";
-import { formatDistanceToNow, isToday, isYesterday, subDays, isAfter } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { isToday, isYesterday, subDays, isAfter } from "date-fns";
+import { formatRelativeTime } from "@/lib/dateUtils";
 
 const journeyIcons: Record<string, typeof Bot> = {
   general: Bot,
@@ -126,7 +126,7 @@ const ConversationsPage = () => {
   };
 
   const formatDate = (date: Date) => {
-    return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
+    return formatRelativeTime(date);
   };
 
   return (

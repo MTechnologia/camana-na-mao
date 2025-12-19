@@ -1,8 +1,7 @@
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Eye, EyeOff } from 'lucide-react';
+import { formatDateTime } from '@/lib/dateUtils';
 
 interface Response {
   id: string;
@@ -81,7 +80,7 @@ export const TransportResponseHistory = ({ responses, loading }: TransportRespon
                   {response.responder?.full_name || 'Administrador'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(response.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  {formatDateTime(response.created_at)}
                 </p>
               </div>
             </div>

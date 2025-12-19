@@ -223,14 +223,19 @@ export default function SentimentAnalysis() {
               <AIInsightsCard
                 key={insight.id}
                 insight={insight}
-                onViewDetails={(id) => console.log('View details:', id)}
-                onTakeAction={(id) => {
+                onViewDetails={() => {
+                  toast({
+                    title: 'Detalhes do insight',
+                    description: insight.title
+                  });
+                }}
+                onTakeAction={() => {
                   toast({
                     title: 'Ação iniciada',
                     description: 'Encaminhando para fluxo de trabalho'
                   });
                 }}
-                onDismiss={(id) => {
+                onDismiss={() => {
                   toast({
                     title: 'Insight ignorado',
                     description: 'Você pode visualizar novamente em histórico'
