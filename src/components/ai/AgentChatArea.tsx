@@ -7,7 +7,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
-import ReportSuccessCard from "./ReportSuccessCard";
+import { ReportSuccessCard } from "@/components/shared/ReportSuccessCard";
 import ContextualGreeting from "./ContextualGreeting";
 import ContextualFeed from "./ContextualFeed";
 import QuickActionsCarousel from "./QuickActionsCarousel";
@@ -275,7 +275,8 @@ const AgentChatArea = () => {
                     transition={{ duration: 0.3 }}
                   >
                     <ReportSuccessCard 
-                      reportId={createdReport.id} 
+                      reportId={createdReport.id}
+                      variant="urban"
                       onNewReport={handleNewReport}
                     />
                   </motion.div>

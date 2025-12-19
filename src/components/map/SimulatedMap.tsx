@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation } from "lucide-react";
+import { formatDistance } from "@/lib/mapUtils";
 
 interface Service {
   id: string;
@@ -25,12 +26,6 @@ const serviceIcons: Record<string, string> = {
   library: "📚",
   sports_center: "⚽",
   other: "📍"
-};
-
-const formatDistance = (meters?: number) => {
-  if (!meters) return '';
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
 };
 
 export const SimulatedMap = ({ userLocation, services, onServiceClick }: SimulatedMapProps) => {

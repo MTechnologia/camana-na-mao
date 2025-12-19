@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp,
@@ -14,7 +14,7 @@ import PageHeader from '@/components/ui/page-header';
 
 import { KPICard } from '@/components/analytics/KPICard';
 import { ChartCard } from '@/components/analytics/ChartCard';
-import { FilterBar } from '@/components/analytics/FilterBar';
+import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
 import { HeatmapChart } from '@/components/analytics/HeatmapChart';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { Button } from '@/components/ui/button';
@@ -35,11 +35,49 @@ import {
   Cell,
 } from 'recharts';
 
+interface AnalyticsFilters {
+  search: string;
+  category: string;
+  dateRange: { from?: Date; to?: Date } | undefined;
+}
+
+const filterConfig: FilterConfig<AnalyticsFilters> = {
+  fields: [
+    { key: 'search', type: 'search', label: 'Buscar', placeholder: 'Buscar...', colSpan: 2 },
+    { 
+      key: 'category', 
+      type: 'select', 
+      label: 'Categoria',
+      placeholder: 'Todas',
+      options: [
+        { value: 'saude', label: 'Saúde' },
+        { value: 'educacao', label: 'Educação' },
+        { value: 'transporte', label: 'Transporte' },
+        { value: 'seguranca', label: 'Segurança' },
+      ]
+    },
+    { key: 'dateRange', type: 'daterange', label: 'Período', placeholder: 'Período' },
+  ],
+  showExport: false,
+};
+
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
   const { loading: roleLoading, canExportData, canAccessAdvancedAnalytics } = useUserRole();
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState<AnalyticsFilters>({
+    search: '',
+    category: '',
+    dateRange: undefined,
+  });
   const [showExport, setShowExport] = useState(false);
+
+  const activeCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.category && filters.category !== 'all') count++;
+    if (filters.dateRange?.from) count++;
+    return count;
+  }, [filters]);
 
   // Mock data
   const kpiData = {
@@ -111,7 +149,15 @@ const AnalyticsDashboard = () => {
 
       <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6 animate-fade-in">
         {/* Filter Bar */}
-        <FilterBar onFilterChange={setFilters} activeFilters={filters} />
+        <div className="mb-6">
+          <UnifiedFilterBar
+            config={filterConfig}
+            filters={filters}
+            onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+            onClearAll={() => setFilters({ search: '', category: '', dateRange: undefined })}
+            activeCount={activeCount}
+          />
+        </div>
 
         {/* Action Bar */}
         <div className="flex items-center justify-between mb-6">
