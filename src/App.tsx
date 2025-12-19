@@ -5,13 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { AIProvider } from "@/contexts/AIContext";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
-import { TransportProvider } from "@/contexts/TransportContext";
-import { EvaluationProvider } from "@/contexts/EvaluationContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import { PageLoader } from "@/components/ui/page-loader";
@@ -214,17 +211,11 @@ const App = () => (
           <MenuProvider>
             <OnboardingProvider>
               <FavoritesProvider>
-                <TransportProvider>
-                  <EvaluationProvider>
-                    <AIProvider>
-                      <AIJourneyProvider>
-                        <NotificationsProvider>
-                          <AppContent />
-                        </NotificationsProvider>
-                      </AIJourneyProvider>
-                    </AIProvider>
-                  </EvaluationProvider>
-                </TransportProvider>
+                <AIJourneyProvider>
+                  <NotificationsProvider>
+                    <AppContent />
+                  </NotificationsProvider>
+                </AIJourneyProvider>
               </FavoritesProvider>
             </OnboardingProvider>
           </MenuProvider>
