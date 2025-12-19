@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format, subDays, subMonths, startOfYear } from 'date-fns';
+import { subDays, subMonths, startOfYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { FilterDatePickerProps, DateRangeValue } from './types';
+import { formatShortDate, formatCompactDate } from '@/lib/dateUtils';
 
 const defaultPresets: { label: string; getValue: () => DateRangeValue }[] = [
   {
@@ -44,8 +45,8 @@ export function FilterDatePicker({
 
   const formatDateRange = () => {
     if (!value?.from) return placeholder;
-    if (!value?.to) return format(value.from, 'dd/MM/yyyy', { locale: ptBR });
-    return `${format(value.from, 'dd/MM/yy', { locale: ptBR })} - ${format(value.to, 'dd/MM/yy', { locale: ptBR })}`;
+    if (!value?.to) return formatShortDate(value.from);
+    return `${formatCompactDate(value.from)} - ${formatCompactDate(value.to)}`;
   };
 
   const handleClear = (e: React.MouseEvent) => {

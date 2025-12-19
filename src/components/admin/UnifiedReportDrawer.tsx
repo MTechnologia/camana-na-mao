@@ -13,8 +13,7 @@ import {
   Heart, Download, Trash2, Forward, ExternalLink, Send,
   CheckCircle2, AlertCircle, Image as ImageIcon, Activity
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatShortDate, formatLongDateTime, formatDateTime, formatCompactDateTime } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UnifiedManifest, ManifestType } from '@/hooks/useReportsAdmin';
@@ -231,7 +230,7 @@ export const UnifiedReportDrawer = ({
                   <div>
                     <p className="font-medium">{manifest.author.full_name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(manifest.created_at), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                      {formatLongDateTime(manifest.created_at)}
                     </p>
                   </div>
                 </div>
@@ -289,7 +288,7 @@ export const UnifiedReportDrawer = ({
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      {format(new Date(manifest.transport_data.occurrence_date), "dd/MM/yyyy", { locale: ptBR })}
+                      {formatShortDate(manifest.transport_data.occurrence_date)}
                     </span>
                     {manifest.transport_data.occurrence_time && (
                       <span className="flex items-center gap-1">
@@ -459,7 +458,7 @@ export const UnifiedReportDrawer = ({
                           </Avatar>
                           <span className="text-sm font-medium">{response.responder?.full_name || 'Admin'}</span>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(response.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                            {formatCompactDateTime(response.created_at)}
                           </span>
                         </div>
                         <p className="text-sm">{response.response_text}</p>
@@ -480,7 +479,7 @@ export const UnifiedReportDrawer = ({
                   <div>
                     <p className="text-sm">Manifestação criada</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(manifest.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      {formatDateTime(manifest.created_at)}
                     </p>
                   </div>
                 </div>
@@ -492,7 +491,7 @@ export const UnifiedReportDrawer = ({
                     <div>
                       <p className="text-sm">Última atualização</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(manifest.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {formatDateTime(manifest.updated_at)}
                       </p>
                     </div>
                   </div>

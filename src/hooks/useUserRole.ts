@@ -15,14 +15,10 @@ export const useUserRole = () => {
   useEffect(() => {
     fetchUserRoles();
 
-    // Listen to auth state changes and refetch roles
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      console.log('🔄 [useUserRole] Auth state changed:', event);
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        console.log('♻️ [useUserRole] Refetching roles after auth change');
         fetchUserRoles();
       } else if (event === 'SIGNED_OUT') {
-        console.log('🚪 [useUserRole] Clearing roles after sign out');
         setRoles([]);
         setIsAdmin(false);
         setIsGestor(false);
@@ -38,10 +34,8 @@ export const useUserRole = () => {
   const fetchUserRoles = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔍 [useUserRole] User ID:', user?.id);
       
       if (!user) {
-        console.log('❌ [useUserRole] No user found');
         setLoading(false);
         return;
       }
@@ -51,13 +45,9 @@ export const useUserRole = () => {
         .select('role')
         .eq('user_id', user.id);
 
-      console.log('📋 [useUserRole] Roles data:', data);
-      console.log('⚠️ [useUserRole] Error:', error);
-
       if (error) throw error;
 
       const userRoles = (data || []).map(r => r.role as UserRole);
-      console.log('✅ [useUserRole] Parsed roles:', userRoles);
       
       setRoles(userRoles);
       setIsAdmin(userRoles.includes('admin'));
@@ -65,10 +55,8 @@ export const useUserRole = () => {
       setIsVereador(userRoles.includes('vereador'));
       setIsAssessor(userRoles.includes('assessor'));
       setIsCidadao(userRoles.includes('cidadao'));
-      
-      console.log('🎯 [useUserRole] isAdmin:', userRoles.includes('admin'));
     } catch (error) {
-      console.error('❌ [useUserRole] Error fetching user roles:', error);
+      console.error('Error fetching user roles:', error);
     } finally {
       setLoading(false);
     }

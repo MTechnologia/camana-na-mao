@@ -8,8 +8,7 @@ import PageHeader from '@/components/ui/page-header';
 
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatShortDate } from '@/lib/dateUtils';
 import { transportProblems } from '@/data/transportProblems';
 
 export default function MyReportsPage() {
@@ -73,7 +72,7 @@ export default function MyReportsPage() {
                   <div className="flex items-start justify-between mb-3">
                     <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(report.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                      {formatShortDate(report.created_at)}
                     </span>
                   </div>
 
@@ -103,7 +102,7 @@ export default function MyReportsPage() {
 
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
                     <Clock className="w-3 h-3" />
-                    {report.occurrence_date && format(new Date(report.occurrence_date), 'dd/MM/yyyy', { locale: ptBR })}
+                    {report.occurrence_date && formatShortDate(report.occurrence_date)}
                     {report.occurrence_time && ` às ${report.occurrence_time}`}
                   </div>
                 </CardContent>

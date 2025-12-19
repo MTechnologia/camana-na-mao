@@ -3,8 +3,7 @@ import { Heart, MessageCircle, MapPin, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatRelativeTimeShort } from '@/lib/dateUtils';
 
 export interface TopReport {
   id: string;
@@ -80,7 +79,7 @@ export const TopReportsList = ({ reports, onViewReport }: TopReportsListProps) =
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   <span>
-                    há {formatDistanceToNow(new Date(report.created_at), { locale: ptBR })}
+                    há {formatRelativeTimeShort(report.created_at)}
                   </span>
                 </div>
               </div>

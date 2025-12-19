@@ -302,7 +302,7 @@ const AnalyticsDashboard = () => {
         >
           <HeatmapChart
             data={heatmapData}
-            onCellClick={(cell) => console.log('Drill down:', cell)}
+            onCellClick={() => navigate('/analytics/advanced')}
           />
         </ChartCard>
 

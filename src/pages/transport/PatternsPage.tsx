@@ -6,9 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ui/page-header';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
+import { formatShortDate } from '@/lib/dateUtils';
 export default function PatternsPage() {
   const navigate = useNavigate();
   const { patterns, loading } = useReportPatterns();
@@ -63,11 +61,11 @@ export default function PatternsPage() {
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>
                     Primeiro relato:{' '}
-                    {format(new Date(pattern.first_detected_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    {formatShortDate(pattern.first_detected_at)}
                   </p>
                   <p>
                     Último relato:{' '}
-                    {format(new Date(pattern.last_occurrence_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    {formatShortDate(pattern.last_occurrence_at)}
                   </p>
                 </div>
 

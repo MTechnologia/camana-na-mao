@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { noticias } from "@/data/noticias";
-import { formatDistanceToNow, format, isToday, isTomorrow, differenceInHours, differenceInDays } from "date-fns";
+import { isToday, isTomorrow, differenceInHours, differenceInDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Sparkles } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/dateUtils";
 
 interface Audiencia {
   id: string;
@@ -127,7 +128,7 @@ const ContextualFeed = () => {
 
   const formatNewsTime = (date: string) => {
     try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ptBR });
+      return formatRelativeTime(date);
     } catch {
       return "";
     }
