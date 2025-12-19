@@ -13,6 +13,11 @@ import {
   User,
   MessageSquare,
   Accessibility,
+  Heart,
+  Mic2,
+  MapPin,
+  Star,
+  BarChart3,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -69,9 +74,42 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
     { 
       id: 3, 
+      label: "Favoritos", 
+      icon: Heart,
+      route: "/favoritos"
+    },
+    { 
+      id: 4, 
       label: "Acessibilidade", 
       icon: Accessibility,
       route: "/settings/accessibility"
+    },
+  ];
+
+  const servicesOptions = [
+    { 
+      id: 1, 
+      label: "Audiências Públicas", 
+      icon: Mic2,
+      route: "/audiencias"
+    },
+    { 
+      id: 2, 
+      label: "Serviços Próximos", 
+      icon: MapPin,
+      route: "/servicos-proximos"
+    },
+    { 
+      id: 3, 
+      label: "Avaliar Serviços", 
+      icon: Star,
+      route: "/avaliar"
+    },
+    { 
+      id: 4, 
+      label: "Analytics", 
+      icon: BarChart3,
+      route: "/analytics"
     },
   ];
 
@@ -211,6 +249,31 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                 })}
               </CarouselContent>
             </Carousel>
+          </div>
+
+          <div className="my-4 border-t border-border" />
+
+          {/* Serviços e Participação */}
+          <div className="mb-4">
+            <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+              Serviços e Participação
+            </h3>
+            
+            {servicesOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleMenuClick(option.route)}
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                    <Icon className="text-emerald-600 dark:text-emerald-400" size={16} />
+                  </div>
+                  <span className="text-foreground font-medium text-sm">{option.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="my-4 border-t border-border" />
