@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { noticias } from "@/data/noticias";
 import { isToday, isTomorrow, differenceInHours, differenceInDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Zap, BarChart3, FileText, MapPin, Star } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
@@ -276,6 +276,50 @@ const ContextualFeed = () => {
           ))}
         </div>
       )}
+
+      {/* Quick Links Section */}
+      <div className="mt-6 px-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="w-4 h-4 text-amber-500" />
+          <span className="text-sm font-semibold text-foreground">
+            Acesso Rápido
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            onClick={() => navigate('/analytics')}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20 hover:border-blue-500/40 transition-all"
+          >
+            <BarChart3 className="w-5 h-5 text-blue-500" />
+            <span className="text-[10px] font-medium text-muted-foreground">Analytics</span>
+          </button>
+          
+          <button
+            onClick={() => navigate('/docs/overview')}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20 hover:border-purple-500/40 transition-all"
+          >
+            <FileText className="w-5 h-5 text-purple-500" />
+            <span className="text-[10px] font-medium text-muted-foreground">Docs</span>
+          </button>
+          
+          <button
+            onClick={() => navigate('/servicos-proximos')}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 hover:border-emerald-500/40 transition-all"
+          >
+            <MapPin className="w-5 h-5 text-emerald-500" />
+            <span className="text-[10px] font-medium text-muted-foreground">Serviços</span>
+          </button>
+          
+          <button
+            onClick={() => navigate('/avaliar')}
+            className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 hover:border-amber-500/40 transition-all"
+          >
+            <Star className="w-5 h-5 text-amber-500" />
+            <span className="text-[10px] font-medium text-muted-foreground">Avaliar</span>
+          </button>
+        </div>
+      </div>
     </motion.div>
   );
 };
