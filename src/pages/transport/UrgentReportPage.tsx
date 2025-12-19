@@ -12,7 +12,7 @@ import { ProblemTypeSelector } from '@/components/transport/ProblemTypeSelector'
 import { PatternAlert } from '@/components/transport/PatternAlert';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
-import { ReportSuccessCard } from '@/components/transport/ReportSuccessCard';
+import { ReportSuccessCard } from '@/components/shared/ReportSuccessCard';
 
 export default function UrgentReportPage() {
   const navigate = useNavigate();
@@ -63,6 +63,7 @@ export default function UrgentReportPage() {
           <div className="max-w-md w-full">
             <ReportSuccessCard
               reportId={reportId}
+              variant="transport"
               onNewReport={() => window.location.reload()}
             />
           </div>

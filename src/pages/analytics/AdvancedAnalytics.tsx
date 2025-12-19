@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Plus, Download } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 
 import { ChartCard } from '@/components/analytics/ChartCard';
-import { FilterBar } from '@/components/analytics/FilterBar';
+import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -18,15 +18,53 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+interface AdvancedFilters {
+  search: string;
+  category: string;
+  dateRange: { from?: Date; to?: Date } | undefined;
+}
+
+const filterConfig: FilterConfig<AdvancedFilters> = {
+  fields: [
+    { key: 'search', type: 'search', label: 'Buscar', placeholder: 'Buscar...', colSpan: 2 },
+    { 
+      key: 'category', 
+      type: 'select', 
+      label: 'Categoria',
+      placeholder: 'Todas',
+      options: [
+        { value: 'saude', label: 'Saúde' },
+        { value: 'educacao', label: 'Educação' },
+        { value: 'transporte', label: 'Transporte' },
+        { value: 'seguranca', label: 'Segurança' },
+      ]
+    },
+    { key: 'dateRange', type: 'daterange', label: 'Período', placeholder: 'Período' },
+  ],
+  showExport: false,
+};
+
 const AdvancedAnalytics = () => {
   const navigate = useNavigate();
   const { canAccessAdvancedAnalytics } = useUserRole();
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState<AdvancedFilters>({
+    search: '',
+    category: '',
+    dateRange: undefined,
+  });
   const [selectedDimension, setSelectedDimension] = useState('region');
   const [selectedMetric, setSelectedMetric] = useState('count');
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillPath, setDrillPath] = useState<Array<{ label: string; value: string }>>([]);
   const [showExport, setShowExport] = useState(false);
+
+  const activeCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.category && filters.category !== 'all') count++;
+    if (filters.dateRange?.from) count++;
+    return count;
+  }, [filters]);
 
   if (!canAccessAdvancedAnalytics) {
     return (
@@ -61,7 +99,15 @@ const AdvancedAnalytics = () => {
 
       <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6 animate-fade-in">
         {/* Filter Bar */}
-        <FilterBar onFilterChange={setFilters} activeFilters={filters} />
+        <div className="mb-6">
+          <UnifiedFilterBar
+            config={filterConfig}
+            filters={filters}
+            onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+            onClearAll={() => setFilters({ search: '', category: '', dateRange: undefined })}
+            activeCount={activeCount}
+          />
+        </div>
 
         {/* Dimension & Metric Selectors */}
         <div className="bg-card border border-border rounded-xl p-6 mb-6">

@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Phone } from "lucide-react";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
+import { formatDistance } from "@/lib/mapUtils";
 
 interface ServiceCardProps {
   id: string;
@@ -47,13 +48,6 @@ export const ServiceCard = ({
   phone,
   onClick
 }: ServiceCardProps) => {
-  const formatDistance = (meters: number) => {
-    if (meters < 1000) {
-      return `${Math.round(meters)}m`;
-    }
-    return `${(meters / 1000).toFixed(1)}km`;
-  };
-
   return (
     <Card 
       className={cn(

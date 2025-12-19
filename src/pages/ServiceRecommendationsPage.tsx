@@ -10,6 +10,7 @@ import { Sparkles, MapPin, Star, TrendingUp, Calendar, Route } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { formatDistance } from "@/lib/mapUtils";
 
 interface Recommendation {
   id: string;
@@ -142,12 +143,6 @@ export default function ServiceRecommendationsPage() {
     library: "📚",
     sports_center: "⚽",
     other: "📍"
-  };
-
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '';
-    if (meters < 1000) return `${Math.round(meters)}m`;
-    return `${(meters / 1000).toFixed(1)}km`;
   };
 
   const getConfidenceColor = (confidence: number) => {

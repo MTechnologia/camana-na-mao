@@ -16,7 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { ReportFilters } from "@/components/urban/ReportFilters";
 import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
-import { DeleteReportDialog } from "@/components/urban/DeleteReportDialog";
+import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { toast } from "@/hooks/use-toast";
 
 interface Report {
@@ -401,11 +401,12 @@ export default function ReportHistoryPage() {
         </DialogContent>
       </Dialog>
 
-      <DeleteReportDialog
-        report={reportToDelete}
+      <DeleteReportConfirmDialog
         open={!!reportToDelete}
         onOpenChange={(open) => !open && setReportToDelete(null)}
         onConfirm={handleDeleteReport}
+        report={reportToDelete}
+        variant="simple"
       />
 
     </div>

@@ -7,7 +7,7 @@ import { LineSearchInput } from '@/components/transport/LineSearchInput';
 import { ProblemTypeSelector } from '@/components/transport/ProblemTypeSelector';
 import { SeveritySlider } from '@/components/transport/SeveritySlider';
 import { ReportSummaryCard } from '@/components/transport/ReportSummaryCard';
-import { ReportSuccessCard } from '@/components/transport/ReportSuccessCard';
+import { ReportSuccessCard } from '@/components/shared/ReportSuccessCard';
 import { PatternAlert } from '@/components/transport/PatternAlert';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -79,6 +79,7 @@ export default function NewReportPage() {
           <div className="max-w-md w-full">
             <ReportSuccessCard
               reportId={reportId}
+              variant="transport"
               onViewPatterns={() => navigate('/transporte/padroes')}
               onNewReport={() => window.location.reload()}
             />

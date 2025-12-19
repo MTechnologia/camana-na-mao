@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KPICard } from '@/components/analytics/KPICard';
-import { FilterBar } from '@/components/analytics/FilterBar';
+import { UnifiedFilterBar, FilterConfig } from '@/components/filters';
 import { StatusDonut } from '@/components/analytics/StatusDonut';
 import { CategoryBarChart } from '@/components/analytics/CategoryBarChart';
 import { DemographicsPieChart } from '@/components/analytics/DemographicsPieChart';
@@ -27,8 +27,61 @@ import { useDrillInsight } from '@/hooks/useDrillInsight';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, TrendingUp, Users, Activity, Sparkles } from 'lucide-react';
 
+interface ReportsFilters {
+  search: string;
+  category: string;
+  status: string;
+  dateRange: { from?: Date; to?: Date } | undefined;
+}
+
+const filterConfig: FilterConfig<ReportsFilters> = {
+  fields: [
+    { key: 'search', type: 'search', label: 'Buscar', placeholder: 'Buscar relatos...', colSpan: 2 },
+    { 
+      key: 'category', 
+      type: 'select', 
+      label: 'Categoria',
+      placeholder: 'Todas',
+      options: [
+        { value: 'saude', label: 'Saúde' },
+        { value: 'educacao', label: 'Educação' },
+        { value: 'transporte', label: 'Transporte' },
+      ]
+    },
+    { 
+      key: 'status', 
+      type: 'select', 
+      label: 'Status',
+      placeholder: 'Todos',
+      options: [
+        { value: 'pending', label: 'Pendente' },
+        { value: 'in_progress', label: 'Em análise' },
+        { value: 'resolved', label: 'Resolvido' },
+      ]
+    },
+    { key: 'dateRange', type: 'daterange', label: 'Período', placeholder: 'Período' },
+  ],
+  showExport: false,
+  compactMode: true,
+};
+
 const ReportsAnalytics = () => {
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState<ReportsFilters>({
+    search: '',
+    category: '',
+    status: '',
+    dateRange: undefined,
+  });
+
+  const activeCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.category && filters.category !== 'all') count++;
+    if (filters.status && filters.status !== 'all') count++;
+    if (filters.dateRange?.from) count++;
+    return count;
+  }, [filters]);
+
   const { stats, isLoading, refresh } = useReportsAnalytics(filters);
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics(filters);
   const drillInsight = useDrillInsight(filters);
@@ -52,7 +105,15 @@ const ReportsAnalytics = () => {
           <p className="text-muted-foreground">Dashboard executivo multidimensional</p>
         </div>
 
-        <FilterBar onFilterChange={setFilters} activeFilters={filters} />
+        <div className="mb-6">
+          <UnifiedFilterBar
+            config={filterConfig}
+            filters={filters}
+            onChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
+            onClearAll={() => setFilters({ search: '', category: '', status: '', dateRange: undefined })}
+            activeCount={activeCount}
+          />
+        </div>
 
         <Tabs defaultValue="geral" className="w-full">
           <TabsList className="flex flex-wrap md:grid md:grid-cols-6 w-full h-auto gap-1 p-1">
