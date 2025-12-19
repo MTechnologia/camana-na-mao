@@ -83,18 +83,16 @@ cmsp-connect/
 │   │   ├── 📁 favorites/             # Favoritos (1)
 │   │   ├── 📁 filters/               # Filtros (5)
 │   │   ├── 📁 home/                  # Home (1)
-│   │   ├── 📁 institucional/         # Institucional (3)
-│   │   ├── 📁 map/                   # Mapas (6)
+│   │   ├── 📁 institucional/         # Institucional (2)
+│   │   ├── 📁 map/                   # Mapas (5)
 │   │   ├── 📁 onboarding/            # Onboarding (1)
 │   │   ├── 📁 profile/               # Perfil (5)
 │   │   ├── 📁 referral/              # Encaminhamentos (3)
 │   │   ├── 📁 register/              # Registro (5)
-│   │   ├── 📁 transport/             # Transporte (8)
+│   │   ├── 📁 transport/             # Transporte (7)
 │   │   ├── 📁 ui/                    # Componentes UI base (52)
 │   │   ├── 📁 urban/                 # Relatos urbanos (4)
-│   │   ├── 📁 welcome/               # Boas-vindas (1)
-│   │   ├── MenuDrawer.tsx
-│   │   └── NavLink.tsx
+│   │   └── MenuDrawer.tsx
 │   │
 │   ├── 📁 config/                    # Configurações
 │   │   └── aiJourneys.ts             # Jornadas de IA
@@ -120,21 +118,19 @@ cmsp-connect/
 │   │   ├── transportProblems.ts
 │   │   └── vereadores.ts
 │   │
-│   ├── 📁 hooks/                     # Hooks customizados (40)
+│   ├── 📁 hooks/                     # Hooks customizados (35)
 │   │   ├── use-mobile.tsx
 │   │   ├── use-toast.ts
 │   │   ├── useAccessibility.ts
 │   │   ├── useAdminDashboardStats.ts
 │   │   ├── useAdminStats.ts
 │   │   ├── useAdminUsers.ts
-│   │   ├── useAIChat.ts
 │   │   ├── useAIConversations.ts
 │   │   ├── useAuditLog.ts
 │   │   ├── useCouncilMemberSuggestions.ts
 │   │   ├── useDebounce.ts
 │   │   ├── useDrillInsight.ts
 │   │   ├── useFilters.ts
-│   │   ├── useFirstAccess.ts
 │   │   ├── useGeolocation.ts
 │   │   ├── useJourneyDraft.ts
 │   │   ├── useMapboxDirections.ts
@@ -150,7 +146,6 @@ cmsp-connect/
 │   │   ├── useSearchHistory.ts
 │   │   ├── useSentimentAnalytics.ts
 │   │   ├── useServiceRating.ts
-│   │   ├── useSessionContext.ts
 │   │   ├── useSystemSettings.ts
 │   │   ├── useTransportLines.ts
 │   │   ├── useTransportReport.ts
@@ -158,7 +153,6 @@ cmsp-connect/
 │   │   ├── useUrbanReportComments.ts
 │   │   ├── useUrbanReportInteractions.ts
 │   │   ├── useUserRole.ts
-│   │   ├── useVoiceChat.ts
 │   │   └── useWebSpeechChat.ts
 │   │
 │   ├── 📁 integrations/              # Integrações
@@ -248,8 +242,7 @@ cmsp-connect/
 │   │   ├── Voz.tsx
 │   │   └── Welcome.tsx
 │   │
-│   ├── 📁 services/                  # Serviços
-│   │   └── externalData.ts
+│   ├── 📁 types/                     # Tipos TypeScript
 │   │
 │   ├── 📁 types/                     # Tipos TypeScript
 │   │   ├── analytics.ts
@@ -438,48 +431,48 @@ graph TB
     
     subgraph "🏠 Principal - Cidadão"
         IA["/ia<br/>Assistente IA"]
-        CONVERSATIONS["/conversations<br/>Histórico"]
+        CONVERSATIONS["/conversas<br/>Histórico"]
         NOTIFICATIONS["/notifications"]
         PROFILE["/profile"]
-        FAVORITES["/favorites"]
+        FAVORITES["/favoritos"]
         SEARCH["/search"]
     end
     
     subgraph "🏛️ Institucional"
-        VEREADORES["/vereadores"]
-        NOTICIAS["/noticias"]
-        AGENDA["/agenda"]
-        CONHECA["/conheca-camara"]
-        EXPLICA["/camara-explica"]
-        ESCOLA["/escola-parlamento"]
+        VEREADORES["/institucional/vereadores"]
+        NOTICIAS["/institucional/noticias"]
+        AGENDA["/institucional/agenda"]
+        CONHECA["/institucional/conheca-camara"]
+        EXPLICA["/institucional/camara-explica"]
+        ESCOLA["/institucional/escola-parlamento"]
     end
     
     subgraph "📍 Serviços"
-        NEARBY["/nearby-services"]
-        SERVICE_DETAIL["/service/:id"]
-        EVALUATION["/evaluation"]
-        RECOMMENDATIONS["/recommendations"]
+        NEARBY["/servicos-proximos"]
+        SERVICE_DETAIL["/servico/:id"]
+        EVALUATION["/avaliar"]
+        RECOMMENDATIONS["/recomendacoes"]
     end
     
     subgraph "🚌 Transporte"
-        TRANSPORT["/transport"]
-        MY_REPORTS["/transport/my-reports"]
-        NEW_REPORT["/transport/new-report"]
-        PATTERNS["/transport/patterns"]
+        TRANSPORT["/transporte"]
+        MY_REPORTS["/transporte/meus-relatos"]
+        NEW_REPORT["/transporte/novo"]
+        PATTERNS["/transporte/padroes"]
     end
     
     subgraph "🏗️ Relatos Urbanos"
-        URBAN["/urban-report"]
-        URBAN_CHAT["/urban/chat"]
-        URBAN_MANUAL["/urban/manual"]
-        URBAN_HISTORY["/urban/history"]
+        URBAN["/relato-urbano"]
+        URBAN_CHAT["/relato-urbano/chat"]
+        URBAN_MANUAL["/relato-urbano/manual"]
+        URBAN_HISTORY["/relato-urbano/historico"]
     end
     
     subgraph "📊 Analytics"
         ANALYTICS["/analytics"]
         ADVANCED["/analytics/advanced"]
-        CREATE_DASH["/analytics/create"]
-        PUBLIC_DASH["/analytics/public"]
+        CREATE_DASH["/analytics/criar-painel"]
+        PUBLIC_DASH["/analytics/galeria"]
     end
     
     subgraph "🛡️ Administração"
@@ -487,7 +480,7 @@ graph TB
         USERS["/admin/users"]
         REPORTS_MGMT["/admin/reports"]
         REFERRALS["/admin/referrals"]
-        SENTIMENT["/admin/sentiment"]
+        SENTIMENT["/admin/sentiment-analysis"]
         AUDIT["/admin/audit-logs"]
     end
     
@@ -518,7 +511,7 @@ graph TB
 | Rota | Componente | Descrição |
 |------|------------|-----------|
 | `/ia` | `IA.tsx` | Interface principal do assistente IA |
-| `/conversations` | `ConversationsPage.tsx` | Histórico de conversas com IA |
+| `/conversas` | `ConversationsPage.tsx` | Histórico de conversas com IA |
 | `/notifications` | `Notifications.tsx` | Central de notificações |
 | `/profile` | `Profile.tsx` | Perfil do usuário |
 | `/profile/personal` | `PersonalInfoPage.tsx` | Dados pessoais |
@@ -526,7 +519,7 @@ graph TB
 | `/profile/demographics` | `DemographicsPage.tsx` | Dados demográficos |
 | `/profile/interests` | `InterestsPage.tsx` | Interesses temáticos |
 | `/profile/preferences` | `PreferencesPage.tsx` | Preferências do app |
-| `/favorites` | `FavoritesPage.tsx` | Serviços e conteúdos favoritos |
+| `/favoritos` | `FavoritesPage.tsx` | Serviços e conteúdos favoritos |
 | `/search` | `Search.tsx` | Busca global |
 | `/onboarding` | `Onboarding.tsx` | Tutorial inicial |
 | `/voz` | `Voz.tsx` | Interface de voz |
@@ -535,47 +528,49 @@ graph TB
 
 | Rota | Componente | Descrição |
 |------|------------|-----------|
-| `/vereadores` | `Vereadores.tsx` | Lista de vereadores |
-| `/vereador/:id` | `VereadorDetailPage.tsx` | Perfil do vereador |
-| `/noticias` | `Noticias.tsx` | Feed de notícias |
-| `/noticia/:id` | `NoticiaDetailPage.tsx` | Detalhe da notícia |
-| `/agenda` | `AgendaCMSP.tsx` | Agenda legislativa |
+| `/institucional/vereadores` | `Vereadores.tsx` | Lista de vereadores |
+| `/institucional/vereadores/:id` | `VereadorDetailPage.tsx` | Perfil do vereador |
+| `/institucional/noticias` | `Noticias.tsx` | Feed de notícias |
+| `/institucional/noticias/:id` | `NoticiaDetailPage.tsx` | Detalhe da notícia |
+| `/institucional/agenda` | `AgendaCMSP.tsx` | Agenda legislativa |
 | `/audiencias` | `Audiencias.tsx` | Audiências públicas |
-| `/audiencia/:id` | `AudienciaDetailPage.tsx` | Detalhe da audiência |
-| `/audiencia/:id/participar` | `ParticipacaoPage.tsx` | Participação na audiência |
-| `/conheca-camara` | `ConhecaCamara.tsx` | Sobre a Câmara |
-| `/camara-explica` | `CamaraExplica.tsx` | Conteúdo educativo |
-| `/escola-parlamento` | `EscolaParlamento.tsx` | Escola do Parlamento |
-| `/documentacao` | `PublicDocumentationPage.tsx` | Documentação pública |
+| `/audiencias/:id` | `AudienciaDetailPage.tsx` | Detalhe da audiência |
+| `/audiencias/:id/participar` | `ParticipacaoPage.tsx` | Participação na audiência |
+| `/institucional/conheca-camara` | `ConhecaCamara.tsx` | Sobre a Câmara |
+| `/institucional/camara-explica` | `CamaraExplica.tsx` | Conteúdo educativo |
+| `/institucional/escola-parlamento` | `EscolaParlamento.tsx` | Escola do Parlamento |
+| `/docs/overview` | `PublicDocumentationPage.tsx` | Documentação pública |
 
 #### Rotas de Serviços Públicos
 
 | Rota | Componente | Descrição |
 |------|------------|-----------|
-| `/nearby-services` | `NearbyServicesPage.tsx` | Serviços próximos (mapa) |
-| `/service/:id` | `ServiceDetailPage.tsx` | Detalhe do serviço |
-| `/evaluation` | `EvaluationPage.tsx` | Avaliar serviço visitado |
-| `/recommendations` | `ServiceRecommendationsPage.tsx` | Recomendações personalizadas |
+| `/servicos-proximos` | `NearbyServicesPage.tsx` | Serviços próximos (mapa) |
+| `/servico/:id` | `ServiceDetailPage.tsx` | Detalhe do serviço |
+| `/avaliar` | `EvaluationPage.tsx` | Avaliar serviço visitado |
+| `/avaliar/:visitId` | `EvaluationPage.tsx` | Avaliar visita específica |
+| `/recomendacoes` | `ServiceRecommendationsPage.tsx` | Recomendações personalizadas |
 
 #### Rotas de Transporte
 
 | Rota | Componente | Descrição |
 |------|------------|-----------|
-| `/transport` | `TransportReportPage.tsx` | Hub de transporte |
-| `/transport/my-reports` | `MyReportsPage.tsx` | Meus relatos de transporte |
-| `/transport/new-report` | `NewReportPage.tsx` | Novo relato |
-| `/transport/patterns` | `PatternsPage.tsx` | Padrões identificados |
-| `/transport/referral/:id` | `ReferralPage.tsx` | Encaminhamento a vereador |
-| `/transport/urgent` | `UrgentReportPage.tsx` | Relato urgente |
+| `/transporte` | `TransportReportPage.tsx` | Hub de transporte |
+| `/transporte/meus-relatos` | `MyReportsPage.tsx` | Meus relatos de transporte |
+| `/transporte/novo` | `NewReportPage.tsx` | Novo relato |
+| `/transporte/padroes` | `PatternsPage.tsx` | Padrões identificados |
+| `/transporte/encaminhar/:reportId` | `ReferralPage.tsx` | Encaminhamento a vereador |
+| `/transporte/urgente` | `UrgentReportPage.tsx` | Relato urgente |
 
 #### Rotas de Relatos Urbanos
 
 | Rota | Componente | Descrição |
 |------|------------|-----------|
-| `/urban-report` | `UrbanReportPage.tsx` | Hub de relatos urbanos |
-| `/urban/chat` | `ChatReportPage.tsx` | Relato via chat |
-| `/urban/manual` | `ManualReportPage.tsx` | Relato manual |
-| `/urban/history` | `ReportHistoryPage.tsx` | Histórico de relatos |
+| `/relato-urbano` | `UrbanReportPage.tsx` | Hub de relatos urbanos |
+| `/relato-urbano/chat` | `ChatReportPage.tsx` | Relato via chat IA |
+| `/relato-urbano/manual` | `ManualReportPage.tsx` | Relato manual |
+| `/relato-urbano/historico` | `ReportHistoryPage.tsx` | Histórico de relatos |
+| `/meus-relatos-urbanos` | `ReportHistoryPage.tsx` | Alias para histórico |
 
 #### Rotas de Analytics
 
@@ -583,24 +578,26 @@ graph TB
 |------|------------|-----------|
 | `/analytics` | `AnalyticsDashboard.tsx` | Dashboard principal |
 | `/analytics/advanced` | `AdvancedAnalytics.tsx` | Analytics avançado |
-| `/analytics/create` | `CreateDashboard.tsx` | Criar dashboard |
-| `/analytics/public` | `PublicDashboards.tsx` | Dashboards públicos |
+| `/analytics/criar-painel` | `CreateDashboard.tsx` | Criar dashboard |
+| `/analytics/galeria` | `PublicDashboards.tsx` | Galeria de dashboards públicos |
 
 #### Rotas Administrativas (Requer Role Admin)
 
 | Rota | Componente | Descrição |
 |------|------------|-----------|
 | `/admin` | `AdminDashboard.tsx` | Dashboard admin |
+| `/admin/analytics` | `AnalyticsDashboard.tsx` | Analytics admin |
+| `/admin/analytics/advanced` | `AdvancedAnalytics.tsx` | Analytics avançado |
 | `/admin/users` | `UserManagement.tsx` | Gestão de usuários |
-| `/admin/reports` | `ReportsManagement.tsx` | Gestão de relatos |
-| `/admin/reports/analytics` | `ReportsAnalytics.tsx` | Analytics de relatos |
-| `/admin/referrals` | `ReferralsManagement.tsx` | Gestão de encaminhamentos |
-| `/admin/sentiment` | `SentimentAnalysis.tsx` | Análise de sentimento |
+| `/admin/exports` | `ExportLogs.tsx` | Logs de exportação |
 | `/admin/audit-logs` | `AuditLogs.tsx` | Logs de auditoria |
-| `/admin/export-logs` | `ExportLogs.tsx` | Logs de exportação |
-| `/admin/settings/accessibility` | `AccessibilitySettings.tsx` | Config. acessibilidade |
+| `/admin/reports` | `ReportsManagement.tsx` | Gestão unificada de relatos |
+| `/admin/referrals` | `ReferralsManagement.tsx` | Gestão de encaminhamentos |
+| `/admin/reports-analytics` | `ReportsAnalytics.tsx` | Analytics de relatos |
+| `/admin/sentiment-analysis` | `SentimentAnalysis.tsx` | Análise de sentimento |
 | `/admin/settings/n8n` | `N8NIntegration.tsx` | Integração N8N |
-| `/admin/settings/n8n/monitoring` | `N8NMonitoring.tsx` | Monitoramento N8N |
+| `/admin/settings/n8n-monitoring` | `N8NMonitoring.tsx` | Monitoramento N8N |
+| `/admin/settings/accessibility` | `AccessibilitySettings.tsx` | Config. acessibilidade |
 
 #### Rotas de Configurações
 
@@ -608,14 +605,39 @@ graph TB
 |------|------------|-----------|
 | `/settings/accessibility` | `AccessibilityPage.tsx` | Acessibilidade |
 
+---
+
+### 📌 Nota sobre Nomenclatura de Rotas
+
+O CMSP Connect adota **nomenclatura em português brasileiro** para todas as rotas públicas, priorizando:
+- **Acessibilidade linguística** para cidadãos brasileiros
+- **Clareza semântica** nas URLs
+- **Inclusão digital** para usuários não técnicos
+
+#### Tabela de Correspondência: Documentação vs Rotas Reais
+
+| Termo em Documentação | Rota Real no App | Justificativa |
+|-----------------------|------------------|---------------|
+| `conversations` | `/conversas` | Português BR |
+| `favorites` | `/favoritos` | Português BR |
+| `nearby-services` | `/servicos-proximos` | Português BR |
+| `evaluation` | `/avaliar` | Português BR |
+| `recommendations` | `/recomendacoes` | Português BR |
+| `transport/*` | `/transporte/*` | Português BR |
+| `urban-report/*` | `/relato-urbano/*` | Português BR |
+| `analytics/create` | `/analytics/criar-painel` | Português BR |
+| `analytics/public` | `/analytics/galeria` | Português BR |
+| `/vereadores` | `/institucional/vereadores` | Hierarquia organizada |
+| `/noticias` | `/institucional/noticias` | Hierarquia organizada |
+| `/agenda` | `/institucional/agenda` | Hierarquia organizada |
+
 ## 2.2 Catálogo de Componentes
 
-### Componentes de IA (24)
+### Componentes de IA (21)
 
 ```
 src/components/ai/
 ├── AIAvatar.tsx              # Avatar animado da IA
-├── AILoadingScreen.tsx       # Tela de carregamento
 ├── AgentChatArea.tsx         # Área principal do chat
 ├── AgentChatLayout.tsx       # Layout do agente
 ├── AgentHeader.tsx           # Cabeçalho do chat
@@ -628,13 +650,11 @@ src/components/ai/
 ├── ContextualGreeting.tsx    # Saudação personalizada
 ├── DeleteConversationDialog.tsx # Dialog de exclusão
 ├── DraftRecoveryBanner.tsx   # Banner de rascunho
-├── ErrorFallback.tsx         # Fallback de erro
 ├── EscapeValveDialog.tsx     # Dialog de saída
 ├── IntentDetectionIndicator.tsx # Indicador de intenção
 ├── JourneyProgressTracker.tsx   # Tracker de progresso
 ├── JourneySuggestionCard.tsx    # Card de sugestão
 ├── OfflineMode.tsx           # Modo offline
-├── OnboardingTutorial.tsx    # Tutorial de onboarding
 ├── QuickActionsCarousel.tsx  # Carrossel de ações
 ├── ReportSuccessCard.tsx     # Card de sucesso
 └── TypingIndicator.tsx       # Indicador de digitação
