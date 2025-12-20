@@ -15,7 +15,7 @@ import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
 import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import { supabase } from "@/integrations/supabase/client";
-import { Landmark } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import EscapeValveDialog from "./EscapeValveDialog";
@@ -34,20 +34,16 @@ const headerVariants = {
   }
 };
 
-// Journeys that collect structured data and have save/discard options
-const STRUCTURED_JOURNEYS = ['urban_report', 'transport', 'evaluate'];
-
 const AgentHeader = () => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
-  const { currentJourney, activeConversationId, clearJourney, setActiveConversationId } = useAIJourney();
+  const { activeConversationId, setActiveConversationId, clearConversation } = useAIJourney();
   const { toast } = useToast();
-  const { saveDraft, clearDraft } = useJourneyDraft();
+  const { clearDraft } = useJourneyDraft();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showEscapeDialog, setShowEscapeDialog] = useState(false);
 
-  const isInConversation = !!currentJourney || !!activeConversationId;
-  const isStructuredJourney = currentJourney && STRUCTURED_JOURNEYS.includes(currentJourney.id);
+  const isInConversation = !!activeConversationId;
 
   // Fetch unread notifications count
   useEffect(() => {
@@ -89,14 +85,7 @@ const AgentHeader = () => {
   }, []);
 
   const handleBack = () => {
-    // Show escape dialog for all journeys (standardized UX)
-    if (currentJourney) {
-      setShowEscapeDialog(true);
-    } else {
-      // No journey active, just clear
-      clearJourney();
-      setActiveConversationId(null);
-    }
+    setShowEscapeDialog(true);
   };
 
   const handleContinue = () => {
@@ -104,30 +93,25 @@ const AgentHeader = () => {
   };
 
   const handleSaveAndExit = () => {
-    // Draft is already auto-saved via useJourneyDraft in AgentChatArea
     toast({
       title: "Rascunho salvo",
       description: "Você pode continuar quando voltar ao app.",
     });
-    clearJourney();
-    setActiveConversationId(null);
+    clearConversation();
   };
 
   const handleDiscardAndExit = () => {
-    // Clear the draft from localStorage
     clearDraft();
     toast({
       title: "Conversa descartada",
       description: "Você voltou ao início.",
     });
-    clearJourney();
-    setActiveConversationId(null);
+    clearConversation();
   };
 
   const handleNewConversation = () => {
     clearDraft();
-    clearJourney();
-    setActiveConversationId(null);
+    clearConversation();
     toast({
       title: "Nova conversa",
       description: "Uma nova conversa foi iniciada.",
@@ -138,9 +122,8 @@ const AgentHeader = () => {
     navigate('/conversas');
   };
 
-  const JourneyIcon = currentJourney ? Landmark : MessageCircle;
-  const headerLabel = currentJourney?.label || "Assistente CMSP";
-  const headerColor = currentJourney?.color || "from-primary/80 to-primary";
+  const headerLabel = "Assistente CMSP";
+  const headerColor = "from-primary/80 to-primary";
 
   return (
     <>
@@ -184,14 +167,14 @@ const AgentHeader = () => {
                 </Button>
               </motion.div>
               
-              {/* Journey Icon + Label with scale animation */}
+              {/* Icon + Label with scale animation */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.1, duration: 0.3 }}
                 className="flex items-center gap-2 text-white"
               >
-                <JourneyIcon className="h-5 w-5" />
+                <MessageCircle className="h-5 w-5" />
                 <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
                   {headerLabel}
                 </span>
@@ -262,8 +245,7 @@ const AgentHeader = () => {
               transition={{ delay: 0.05, duration: 0.25 }}
               className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
               onClick={() => {
-                clearJourney();
-                setActiveConversationId(null);
+                clearConversation();
               }}
             >
               Câmara SP
@@ -302,8 +284,6 @@ const AgentHeader = () => {
       <EscapeValveDialog
         open={showEscapeDialog}
         onOpenChange={setShowEscapeDialog}
-        journeyLabel={currentJourney?.label}
-        isStructured={isStructuredJourney}
         onContinue={handleContinue}
         onSaveAndExit={handleSaveAndExit}
         onDiscardAndExit={handleDiscardAndExit}

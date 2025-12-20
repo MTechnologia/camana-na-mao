@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useProfile } from "@/hooks/useProfile";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
@@ -29,7 +30,7 @@ const contentVariants = {
 };
 
 const AgentChatArea = () => {
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const { activeConversationId, setActiveConversationId } = useAIJourney();
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
 

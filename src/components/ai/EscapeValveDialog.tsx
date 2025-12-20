@@ -7,14 +7,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MessageSquare, Save, X, LogOut } from "lucide-react";
+import { MessageSquare, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface EscapeValveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  journeyLabel?: string;
-  isStructured?: boolean;
   onContinue: () => void;
   onSaveAndExit: () => void;
   onDiscardAndExit: () => void;
@@ -23,8 +21,6 @@ interface EscapeValveDialogProps {
 const EscapeValveDialog = ({
   open,
   onOpenChange,
-  journeyLabel,
-  isStructured = false,
   onContinue,
   onSaveAndExit,
   onDiscardAndExit,
@@ -35,15 +31,10 @@ const EscapeValveDialog = ({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />
-            Sair de "{journeyLabel || 'Conversa'}"?
+            Sair da conversa?
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-2">
-            <p>
-              {isStructured 
-                ? "Você está no meio de uma conversa. O que deseja fazer?"
-                : "Deseja encerrar esta conversa?"
-              }
-            </p>
+          <AlertDialogDescription>
+            O que deseja fazer com esta conversa?
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -65,60 +56,39 @@ const EscapeValveDialog = ({
             </div>
           </Button>
 
-          {isStructured ? (
-            <>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 h-auto py-3"
-                onClick={() => {
-                  onSaveAndExit();
-                  onOpenChange(false);
-                }}
-              >
-                <Save className="h-4 w-4 text-amber-500" />
-                <div className="text-left">
-                  <div className="font-medium">Salvar e sair</div>
-                  <div className="text-xs text-muted-foreground">
-                    Posso continuar depois pelo histórico
-                  </div>
-                </div>
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 h-auto py-3 text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  onDiscardAndExit();
-                  onOpenChange(false);
-                }}
-              >
-                <X className="h-4 w-4" />
-                <div className="text-left">
-                  <div className="font-medium">Descartar e sair</div>
-                  <div className="text-xs text-muted-foreground">
-                    Perder esta conversa
-                  </div>
-                </div>
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 h-auto py-3 text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                onDiscardAndExit();
-                onOpenChange(false);
-              }}
-            >
-              <LogOut className="h-4 w-4" />
-              <div className="text-left">
-                <div className="font-medium">Sair</div>
-                <div className="text-xs text-muted-foreground">
-                  Encerrar esta conversa
-                </div>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-auto py-3"
+            onClick={() => {
+              onSaveAndExit();
+              onOpenChange(false);
+            }}
+          >
+            <Save className="h-4 w-4 text-amber-500" />
+            <div className="text-left">
+              <div className="font-medium">Salvar e sair</div>
+              <div className="text-xs text-muted-foreground">
+                Posso continuar depois pelo histórico
               </div>
-            </Button>
-          )}
+            </div>
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 h-auto py-3 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              onDiscardAndExit();
+              onOpenChange(false);
+            }}
+          >
+            <X className="h-4 w-4" />
+            <div className="text-left">
+              <div className="font-medium">Descartar e sair</div>
+              <div className="text-xs text-muted-foreground">
+                Encerrar esta conversa
+              </div>
+            </div>
+          </Button>
         </div>
 
         <AlertDialogFooter className="sm:justify-center">

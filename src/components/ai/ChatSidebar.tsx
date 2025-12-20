@@ -15,13 +15,12 @@ interface ChatSidebarProps {
 
 const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   const { conversations, deleteConversation } = useAIConversations();
-  const { clearJourney, setActiveConversationId, activeConversationId, setJourney } = useAIJourney();
+  const { setActiveConversationId, activeConversationId, clearConversation } = useAIJourney();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
   const handleNewChat = () => {
-    clearJourney();
-    setActiveConversationId(null);
+    clearConversation();
   };
 
   const handleDeleteConversation = async (conversationId: string) => {
@@ -29,8 +28,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
     
     // Se deletou a conversa ativa, limpar estado e voltar para seleção de jornada
     if (activeConversationId === conversationId) {
-      setActiveConversationId(null);
-      clearJourney();
+      clearConversation();
     }
     
     toast({
