@@ -8,10 +8,11 @@ import ChatInput from "./ChatInput";
 import { ReportSuccessCard } from "@/components/shared/ReportSuccessCard";
 import ContextualGreeting from "./ContextualGreeting";
 import ContextualFeed from "./ContextualFeed";
-import QuickActionsCarousel from "./QuickActionsCarousel";
+import PriorityAction from "./PriorityAction";
+import PromptChips from "./PromptChips";
 import TypingIndicator from "./TypingIndicator";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -128,24 +129,31 @@ const AgentChatArea = () => {
             {/* Spacer */}
             <div className="flex-1 min-h-4" />
             
-            {/* Quick Actions */}
+            {/* Priority Action + Prompt Chips */}
             <motion.div 
-              className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto"
+              className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto space-y-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.3 }}
             >
-              <div className="flex items-center gap-2 px-4 mb-3">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">
-                  Inicie uma conversa com a Câmara
-                </span>
-              </div>
+              {/* Priority Action - conditional */}
+              <PriorityAction onAction={handleStartConversation} />
               
-              <QuickActionsCarousel onStartConversation={handleStartConversation} />
-              <p className="text-xs text-muted-foreground text-center mt-3">
-                Digite sua mensagem ou escolha uma opção acima
-              </p>
+              {/* Prompt Chips Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Como posso ajudar?
+                  </span>
+                </div>
+                
+                <PromptChips onSelect={handleStartConversation} />
+                
+                <p className="text-xs text-muted-foreground text-center">
+                  Ou digite sua mensagem abaixo
+                </p>
+              </div>
             </motion.div>
           </motion.div>
         ) : (
