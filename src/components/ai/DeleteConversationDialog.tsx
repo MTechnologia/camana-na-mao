@@ -9,7 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AIConversation } from "@/hooks/useAIConversations";
-import { AI_JOURNEYS } from "@/config/aiJourneys";
+
 import { MessageSquare } from "lucide-react";
 
 interface DeleteConversationDialogProps {
@@ -26,8 +26,6 @@ export default function DeleteConversationDialog({
   onConfirm,
 }: DeleteConversationDialogProps) {
   if (!conversation) return null;
-
-  const journey = AI_JOURNEYS[conversation.journeyId];
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

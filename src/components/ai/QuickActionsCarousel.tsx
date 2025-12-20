@@ -6,13 +6,11 @@ import {
   Star
 } from "lucide-react";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
-import { useAIJourney } from "@/contexts/AIJourneyContext";
-import { AI_JOURNEYS } from "@/config/aiJourneys";
 
 interface QuickAction {
   id: string;
-  journeyKey: string;
   title: string;
+  initialMessage: string;
   icon: React.ElementType;
   color: string;
   bgColor: string;
@@ -20,58 +18,49 @@ interface QuickAction {
 }
 
 interface QuickActionsCarouselProps {
-  onStartJourney?: (journeyId: string) => void;
+  onStartConversation?: (initialMessage: string) => void;
 }
 
-const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => {
+const QuickActionsCarousel = ({ onStartConversation }: QuickActionsCarouselProps) => {
   const { pendingRatings } = usePendingRatings();
-  const { setJourney } = useAIJourney();
-
-  const handleJourneyClick = (journeyKey: string) => {
-    const journey = AI_JOURNEYS[journeyKey];
-    if (journey) {
-      setJourney(journey);
-      onStartJourney?.(journeyKey);
-    }
-  };
 
   const actions: QuickAction[] = [
     {
       id: "general",
-      journeyKey: "general",
       title: "Tudo Sobre a Câmara",
+      initialMessage: "Quero saber mais sobre a Câmara Municipal de São Paulo",
       icon: Landmark,
       color: "text-primary",
       bgColor: "bg-primary/10 dark:bg-primary/20",
     },
     {
       id: "urban_report",
-      journeyKey: "urban_report",
       title: "Fala Cidadão!",
+      initialMessage: "Quero registrar um problema ou dar um feedback",
       icon: MessageCircleMore,
       color: "text-orange-500",
       bgColor: "bg-orange-50 dark:bg-orange-950/30",
     },
     {
       id: "transport",
-      journeyKey: "transport",
       title: "Transporte",
+      initialMessage: "Quero relatar um problema no transporte público",
       icon: Bus,
       color: "text-blue-500",
       bgColor: "bg-blue-50 dark:bg-blue-950/30",
     },
     {
       id: "services",
-      journeyKey: "services",
       title: "Serviços",
+      initialMessage: "Quero saber sobre serviços públicos próximos",
       icon: MapPin,
       color: "text-purple-500",
       bgColor: "bg-purple-50 dark:bg-purple-950/30",
     },
     {
       id: "evaluate",
-      journeyKey: "evaluate",
       title: "Avaliar",
+      initialMessage: "Quero avaliar um serviço público que visitei",
       icon: Star,
       color: "text-amber-500",
       bgColor: "bg-amber-50 dark:bg-amber-950/30",
@@ -87,7 +76,7 @@ const QuickActionsCarousel = ({ onStartJourney }: QuickActionsCarouselProps) => 
           return (
             <button
               key={action.id}
-              onClick={() => handleJourneyClick(action.journeyKey)}
+              onClick={() => onStartConversation?.(action.initialMessage)}
               className="flex-shrink-0 flex flex-col items-center justify-center p-2.5 w-[72px] h-[90px] bg-card rounded-xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group relative"
               aria-label={action.title}
             >

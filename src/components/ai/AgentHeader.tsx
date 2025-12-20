@@ -15,7 +15,7 @@ import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
 import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import { supabase } from "@/integrations/supabase/client";
-import { getJourneyIcon } from "@/config/aiJourneys";
+import { Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import EscapeValveDialog from "./EscapeValveDialog";
@@ -138,7 +138,7 @@ const AgentHeader = () => {
     navigate('/conversas');
   };
 
-  const JourneyIcon = isInConversation && currentJourney ? getJourneyIcon(currentJourney.icon) : null;
+  const JourneyIcon = Landmark;
 
   return (
     <>

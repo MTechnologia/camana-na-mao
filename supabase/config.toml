@@ -1,30 +1,15 @@
 project_id = "vzkwkcypkfrpfhhsghwn"
 
+[functions.ai-orchestrator]
+verify_jwt = true
+
 [functions.populate-knowledge-base]
 verify_jwt = true
 
 [functions.generate-embeddings]
 verify_jwt = true
 
-[functions.evaluate-service]
-verify_jwt = true
-
-[functions.diagnose-transport]
-verify_jwt = true
-
-[functions.urban-report-chat]
-verify_jwt = true
-
 [functions.recommend-services]
-verify_jwt = true
-
-[functions.ai-chat]
-verify_jwt = true
-
-[functions.voice-to-text]
-verify_jwt = true
-
-[functions.text-to-voice]
 verify_jwt = true
 
 [functions.send-notification]
