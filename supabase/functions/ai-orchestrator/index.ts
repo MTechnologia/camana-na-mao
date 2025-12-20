@@ -169,6 +169,35 @@ const tools = [
         required: ["issue_type", "description"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_citizen_history",
+      description: "Consulta histórico completo do cidadão: relatos urbanos, relatos de transporte, avaliações de serviços, inscrições em audiências e encaminhamentos a vereadores. Usar quando cidadão perguntar: 'meus relatos', 'status das minhas denúncias', 'minhas avaliações', 'minhas participações', 'o que eu já fiz no app', 'meu histórico'.",
+      parameters: {
+        type: "object",
+        properties: {
+          history_type: {
+            type: "string",
+            enum: ["all", "urban_reports", "transport_reports", "ratings", "audiencias", "referrals"],
+            description: "Tipo de histórico: all (tudo), urban_reports (relatos urbanos), transport_reports (transporte), ratings (avaliações), audiencias (inscrições), referrals (encaminhamentos)"
+          },
+          status_filter: {
+            type: "string",
+            enum: ["all", "pending", "in_progress", "resolved", "closed"],
+            description: "Filtrar por status: all (todos), pending (pendente), in_progress (em andamento), resolved (resolvido), closed (fechado)"
+          },
+          limit: {
+            type: "integer",
+            description: "Quantidade máxima de resultados por tipo (padrão: 5)",
+            minimum: 1,
+            maximum: 20
+          }
+        },
+        required: []
+      }
+    }
   }
 ];
 
@@ -186,6 +215,7 @@ CAPACIDADES (use as tools quando apropriado):
 • Informações sobre a Câmara → search_knowledge_base
 • Serviços públicos próximos → find_nearby_services
 • Audiências públicas → search_audiencias
+• Histórico do cidadão (relatos, avaliações, participações) → get_citizen_history
 • Sugerir vereador para demanda → suggest_council_member
 
 COLETA DE DADOS:
@@ -370,6 +400,221 @@ async function suggestCouncilMember(supabase: any, issueType: string, descriptio
     }).join('\n\n');
 }
 
+// Helper: Get citizen history
+async function getCitizenHistory(
+  supabase: any, 
+  userId: string, 
+  historyType: string = 'all', 
+  statusFilter: string = 'all',
+  limit: number = 5
+): Promise<string> {
+  console.log(`[get_citizen_history] Fetching history for user: ${userId}, type: ${historyType}, status: ${statusFilter}`);
+  
+  const results: string[] = [];
+  const summary = {
+    urban_reports: 0,
+    transport_reports: 0,
+    ratings: 0,
+    audiencias: 0,
+    referrals: 0,
+    pending: 0,
+    resolved: 0
+  };
+
+  const statusLabels: Record<string, string> = {
+    'pending': '🟡 Pendente',
+    'in_progress': '🔵 Em andamento',
+    'resolved': '✅ Resolvido',
+    'closed': '⚫ Fechado',
+    'sent': '📤 Enviado',
+    'acknowledged': '👀 Visualizado',
+    'confirmed': '✅ Confirmado',
+    'cancelled': '❌ Cancelado'
+  };
+
+  const categoryLabels: Record<string, string> = {
+    'iluminacao': 'Iluminação',
+    'calcada': 'Calçada',
+    'via_publica': 'Via Pública',
+    'lixo': 'Lixo/Entulho',
+    'area_verde': 'Área Verde',
+    'outro': 'Outro',
+    'atraso': 'Atraso',
+    'lotacao': 'Lotação',
+    'seguranca': 'Segurança',
+    'acessibilidade': 'Acessibilidade',
+    'limpeza': 'Limpeza'
+  };
+
+  // 1. Urban Reports
+  if (historyType === 'all' || historyType === 'urban_reports') {
+    let query = supabase
+      .from('urban_reports')
+      .select('id, category, description, status, severity, location_address, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data: urbanReports, error } = await query;
+    
+    if (!error && urbanReports?.length > 0) {
+      summary.urban_reports = urbanReports.length;
+      urbanReports.forEach((r: any) => {
+        if (r.status === 'pending' || r.status === 'in_progress') summary.pending++;
+        if (r.status === 'resolved' || r.status === 'closed') summary.resolved++;
+      });
+
+      const formatted = urbanReports.map((r: any, i: number) => {
+        const date = new Date(r.created_at).toLocaleDateString('pt-BR');
+        const category = categoryLabels[r.category] || r.category;
+        const status = statusLabels[r.status] || r.status;
+        const location = r.location_address ? `📍 ${r.location_address}` : '';
+        return `[${i+1}] ${category}: ${r.description?.slice(0, 60)}...\n   ${status} | 📅 ${date}\n   ${location}`;
+      }).join('\n\n');
+
+      results.push(`📋 **RELATOS URBANOS** (${urbanReports.length})\n\n${formatted}`);
+    }
+  }
+
+  // 2. Transport Reports
+  if (historyType === 'all' || historyType === 'transport_reports') {
+    let query = supabase
+      .from('transport_reports')
+      .select('id, report_type, description, status, severity, occurrence_date, line_code_custom, location, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data: transportReports, error } = await query;
+    
+    if (!error && transportReports?.length > 0) {
+      summary.transport_reports = transportReports.length;
+      transportReports.forEach((r: any) => {
+        if (r.status === 'pending' || r.status === 'in_progress') summary.pending++;
+        if (r.status === 'resolved' || r.status === 'closed') summary.resolved++;
+      });
+
+      const formatted = transportReports.map((r: any, i: number) => {
+        const date = new Date(r.occurrence_date).toLocaleDateString('pt-BR');
+        const type = categoryLabels[r.report_type] || r.report_type;
+        const status = statusLabels[r.status] || r.status;
+        const line = r.line_code_custom ? `🚌 Linha ${r.line_code_custom}` : '';
+        return `[${i+1}] ${type}: ${r.description?.slice(0, 60)}...\n   ${status} | 📅 ${date}\n   ${line}`;
+      }).join('\n\n');
+
+      results.push(`🚌 **RELATOS DE TRANSPORTE** (${transportReports.length})\n\n${formatted}`);
+    }
+  }
+
+  // 3. Service Ratings
+  if (historyType === 'all' || historyType === 'ratings') {
+    const { data: ratings, error } = await supabase
+      .from('service_ratings')
+      .select(`
+        id, rating_stars, rating_text, sentiment, created_at,
+        public_services(name, service_type)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (!error && ratings?.length > 0) {
+      summary.ratings = ratings.length;
+
+      const serviceTypeLabels: Record<string, string> = {
+        'ubs': 'UBS',
+        'school': 'Escola',
+        'ceu': 'CEU',
+        'hospital': 'Hospital',
+        'library': 'Biblioteca',
+        'sports_center': 'Centro Esportivo'
+      };
+
+      const formatted = ratings.map((r: any, i: number) => {
+        const date = new Date(r.created_at).toLocaleDateString('pt-BR');
+        const stars = '⭐'.repeat(r.rating_stars);
+        const serviceName = r.public_services?.name || 'Serviço';
+        const serviceType = serviceTypeLabels[r.public_services?.service_type] || '';
+        return `[${i+1}] ${serviceType}: ${serviceName}\n   ${stars} (${r.rating_stars}/5)\n   📝 "${r.rating_text?.slice(0, 50)}..."\n   📅 ${date}`;
+      }).join('\n\n');
+
+      results.push(`⭐ **AVALIAÇÕES DE SERVIÇOS** (${ratings.length})\n\n${formatted}`);
+    }
+  }
+
+  // 4. Audiencia Inscricoes
+  if (historyType === 'all' || historyType === 'audiencias') {
+    const { data: inscricoes, error } = await supabase
+      .from('audiencia_inscricoes')
+      .select(`
+        id, status, created_at,
+        audiencias(titulo, tema, data, hora, local, status)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (!error && inscricoes?.length > 0) {
+      summary.audiencias = inscricoes.length;
+
+      const formatted = inscricoes.map((r: any, i: number) => {
+        const inscDate = new Date(r.created_at).toLocaleDateString('pt-BR');
+        const audData = r.audiencias?.data ? new Date(r.audiencias.data).toLocaleDateString('pt-BR') : '';
+        const status = statusLabels[r.status] || r.status;
+        return `[${i+1}] ${r.audiencias?.titulo || 'Audiência'}\n   🏷️ ${r.audiencias?.tema || ''}\n   📍 ${r.audiencias?.local || ''}\n   📆 ${audData} às ${r.audiencias?.hora || ''}\n   ${status} | Inscrito em: ${inscDate}`;
+      }).join('\n\n');
+
+      results.push(`🎤 **INSCRIÇÕES EM AUDIÊNCIAS** (${inscricoes.length})\n\n${formatted}`);
+    }
+  }
+
+  // 5. Council Member Referrals
+  if (historyType === 'all' || historyType === 'referrals') {
+    const { data: referrals, error } = await supabase
+      .from('council_member_referrals')
+      .select('id, council_member_name, council_member_party, status, citizen_message, match_reasons, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (!error && referrals?.length > 0) {
+      summary.referrals = referrals.length;
+
+      const formatted = referrals.map((r: any, i: number) => {
+        const date = new Date(r.created_at).toLocaleDateString('pt-BR');
+        const status = statusLabels[r.status] || r.status;
+        const party = r.council_member_party ? `(${r.council_member_party})` : '';
+        return `[${i+1}] Para: ${r.council_member_name} ${party}\n   ${status} | 📅 ${date}\n   📝 "${r.citizen_message?.slice(0, 50) || 'Sem mensagem'}..."`;
+      }).join('\n\n');
+
+      results.push(`📨 **ENCAMINHAMENTOS A VEREADORES** (${referrals.length})\n\n${formatted}`);
+    }
+  }
+
+  // Build response
+  if (results.length === 0) {
+    return `📭 Você ainda não tem nenhum registro no app.\n\nQue tal começar? Posso ajudar a:\n• Registrar um problema urbano\n• Reportar problema no transporte\n• Avaliar um serviço público\n• Buscar audiências públicas`;
+  }
+
+  const summaryText = `📊 **RESUMO DA SUA PARTICIPAÇÃO**\n\n` +
+    `📋 Relatos urbanos: ${summary.urban_reports}\n` +
+    `🚌 Relatos de transporte: ${summary.transport_reports}\n` +
+    `⭐ Avaliações: ${summary.ratings}\n` +
+    `🎤 Audiências: ${summary.audiencias}\n` +
+    `📨 Encaminhamentos: ${summary.referrals}\n\n` +
+    `🟡 Pendentes: ${summary.pending} | ✅ Resolvidos: ${summary.resolved}`;
+
+  return `${summaryText}\n\n---\n\n${results.join('\n\n---\n\n')}`;
+}
+
 // Helper: Execute tool and insert into database
 async function executeTool(
   toolName: string, 
@@ -524,6 +769,11 @@ async function executeTool(
         return { success: true, id: 'council', error: results };
       }
 
+      case 'get_citizen_history': {
+        const results = await getCitizenHistory(supabase, userId, args.history_type || 'all', args.status_filter || 'all', args.limit || 5);
+        return { success: true, id: 'history', error: results };
+      }
+
       default:
         return { success: false, error: 'Tool não reconhecida' };
     }
@@ -615,7 +865,7 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Tool result:', toolResult);
 
       // Determine confirmation prompt based on tool type
-      const isSearchTool = ['search_knowledge_base', 'find_nearby_services', 'search_audiencias', 'suggest_council_member'].includes(toolCall.function.name);
+      const isSearchTool = ['search_knowledge_base', 'find_nearby_services', 'search_audiencias', 'suggest_council_member', 'get_citizen_history'].includes(toolCall.function.name);
       
       const confirmPrompt = toolResult.success
         ? isSearchTool
