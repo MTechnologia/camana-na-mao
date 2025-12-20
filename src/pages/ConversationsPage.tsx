@@ -25,7 +25,7 @@ const ConversationsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { conversations, isLoading, deleteConversation } = useAIConversations();
-  const { setActiveConversationId, setJourney } = useAIJourney();
+  const { setActiveConversationId } = useAIJourney();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -82,18 +82,6 @@ const ConversationsPage = () => {
 
   const handleConversationClick = (conversation: AIConversation) => {
     setActiveConversationId(conversation.id);
-    
-    // Set journey based on conversation's journeyId
-    const journeyConfig = {
-      id: conversation.journeyId,
-      label: conversation.journeyId === 'general' ? 'Assistente Geral' : conversation.journeyId,
-      edgeFunction: 'ai-chat',
-      initialMessage: '',
-      color: 'primary',
-      icon: 'Bot',
-    };
-    setJourney(journeyConfig);
-    
     navigate("/ia");
   };
 
