@@ -41,17 +41,6 @@ export default function DeleteConversationDialog({
               
               {/* Conversation preview */}
               <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  {journey && (
-                    <div
-                      className={`w-2 h-2 rounded-full bg-gradient-to-r ${journey.color}`}
-                    />
-                  )}
-                  <span className="text-sm font-medium text-foreground">
-                    {journey?.label || conversation.journeyId}
-                  </span>
-                </div>
-                
                 <h4 className="font-semibold text-foreground line-clamp-1">
                   {conversation.title}
                 </h4>
