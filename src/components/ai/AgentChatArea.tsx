@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useProfile } from "@/hooks/useProfile";
-import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
 import { ReportSuccessCard } from "@/components/shared/ReportSuccessCard";
@@ -12,11 +10,6 @@ import ContextualGreeting from "./ContextualGreeting";
 import ContextualFeed from "./ContextualFeed";
 import QuickActionsCarousel from "./QuickActionsCarousel";
 import TypingIndicator from "./TypingIndicator";
-import JourneyProgressTracker from "./JourneyProgressTracker";
-import JourneySuggestionCard from "./JourneySuggestionCard";
-import IntentDetectionIndicator from "./IntentDetectionIndicator";
-import { DraftRecoveryBanner } from "./DraftRecoveryBanner";
-import { AI_JOURNEYS } from "@/config/aiJourneys";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare } from "lucide-react";
 
@@ -34,77 +27,47 @@ const contentVariants = {
   }
 };
 
-// Journeys that collect structured data and should show progress tracker
-const STRUCTURED_JOURNEYS = ['urban_report', 'transport', 'evaluate'];
-
 const AgentChatArea = () => {
-  const { currentJourney, activeConversationId, setJourney, setActiveConversationId, clearJourney } = useAIJourney();
-  const [localConversationId, setLocalConversationId] = useState<string | null>(activeConversationId);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
-  const { draft, hasDraft, saveDraft, clearDraft, getDraftAge, shouldAutoSave } = useJourneyDraft();
-  
-  useEffect(() => {
-    setLocalConversationId(activeConversationId);
-  }, [activeConversationId]);
 
-  const { messages, isLoading, isAnalyzingIntent, sendMessage, createdReport, clearCreatedReport, clearMessages, detectedIntent, dismissIntent, restoreMessages } = useUnifiedAIChat(
-    currentJourney || AI_JOURNEYS.general,
-    localConversationId
-  );
+  const { 
+    messages, 
+    isLoading, 
+    sendMessage, 
+    createdReport, 
+    clearCreatedReport, 
+    clearMessages 
+  } = useUnifiedAIChat(activeConversationId);
+  
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (activeConversationId === null && !currentJourney && !hasCleared.current) {
+    if (activeConversationId === null && !hasCleared.current) {
       hasCleared.current = true;
       clearMessages();
-      setLocalConversationId(null);
-    } else if (activeConversationId !== null || currentJourney) {
+    } else if (activeConversationId !== null) {
       hasCleared.current = false;
     }
-  }, [activeConversationId, currentJourney, clearMessages]);
+  }, [activeConversationId, clearMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, createdReport]);
 
-  // Auto-save draft when messages change (for structured journeys)
-  useEffect(() => {
-    if (currentJourney && shouldAutoSave(currentJourney.id) && messages.length > 0 && !createdReport) {
-      saveDraft(
-        currentJourney.id,
-        currentJourney.label,
-        messages.map(m => ({ role: m.role, content: m.content, timestamp: m.timestamp })),
-        {},
-        localConversationId || undefined
-      );
-    }
-  }, [messages, currentJourney, localConversationId, createdReport, saveDraft, shouldAutoSave]);
-
-  // Clear draft when report is created successfully
-  useEffect(() => {
-    if (createdReport) {
-      clearDraft();
-    }
-  }, [createdReport, clearDraft]);
-
-  const showWelcome = !activeConversationId && !currentJourney;
-  const showProgressTracker = currentJourney && STRUCTURED_JOURNEYS.includes(currentJourney.id) && messages.length > 0;
-
+  const showWelcome = !activeConversationId;
   const userAvatarUrl = profile?.avatar_url;
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    if (!localConversationId) {
-      const journeyToUse = currentJourney || AI_JOURNEYS.general;
-      const newConvId = await createConversation(journeyToUse.id, journeyToUse.initialMessage);
+    if (!activeConversationId) {
+      const newConvId = await createConversation('general');
       
       if (newConvId) {
-        setLocalConversationId(newConvId);
-        setJourney(journeyToUse, newConvId);
         setActiveConversationId(newConvId);
         
         setTimeout(() => {
@@ -120,49 +83,24 @@ const AgentChatArea = () => {
   const handleNewReport = () => {
     clearCreatedReport();
     clearMessages();
-    setLocalConversationId(null);
     setActiveConversationId(null);
-    clearJourney();
   };
 
-  const handleStartJourney = async (journeyId: string) => {
-    const journey = AI_JOURNEYS[journeyId as keyof typeof AI_JOURNEYS];
-    if (!journey) return;
-
+  const handleStartConversation = async (initialMessage?: string) => {
     clearMessages();
-    clearDraft();
     
-    const newConvId = await createConversation(journey.id, journey.initialMessage);
+    const newConvId = await createConversation('general');
     
     if (newConvId) {
-      setLocalConversationId(newConvId);
-      setJourney(journey, newConvId);
       setActiveConversationId(newConvId);
+      
+      if (initialMessage) {
+        setTimeout(() => {
+          sendMessage(initialMessage);
+        }, 50);
+      }
     }
   };
-
-  // Resume draft handler
-  const handleResumeDraft = useCallback(async () => {
-    if (!draft) return;
-
-    const journey = AI_JOURNEYS[draft.journeyId as keyof typeof AI_JOURNEYS];
-    if (!journey) return;
-
-    // Restore journey context
-    setJourney(journey, draft.conversationId || null);
-    setActiveConversationId(draft.conversationId || null);
-    setLocalConversationId(draft.conversationId || null);
-
-    // Restore messages
-    if (restoreMessages && draft.messages.length > 0) {
-      restoreMessages(draft.messages);
-    }
-  }, [draft, setJourney, setActiveConversationId, restoreMessages]);
-
-  // Discard draft handler
-  const handleDiscardDraft = useCallback(() => {
-    clearDraft();
-  }, [clearDraft]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -176,23 +114,6 @@ const AgentChatArea = () => {
             exit="exit"
             className="flex-1 flex flex-col px-4 pt-4 pb-2"
           >
-            {/* Draft Recovery Banner */}
-            {hasDraft && draft && (
-              <motion.div
-                className="w-full px-4 pt-2"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <DraftRecoveryBanner
-                  draft={draft}
-                  draftAge={getDraftAge()}
-                  onResume={handleResumeDraft}
-                  onDiscard={handleDiscardDraft}
-                />
-              </motion.div>
-            )}
-
             {/* Topo: Saudação + Feed */}
             <motion.div 
               className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto flex flex-col items-center"
@@ -201,22 +122,19 @@ const AgentChatArea = () => {
               transition={{ delay: 0.1, duration: 0.3 }}
             >
               <ContextualGreeting />
-              
-              {/* Minimal Contextual Feed - News & Events */}
               <ContextualFeed />
             </motion.div>
             
-            {/* Spacer flexível */}
+            {/* Spacer */}
             <div className="flex-1 min-h-4" />
             
-            {/* Próximo ao chat: Quick Actions */}
+            {/* Quick Actions */}
             <motion.div 
               className="w-full max-w-md lg:max-w-2xl xl:max-w-4xl 2xl:max-w-5xl mx-auto"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.3 }}
             >
-              {/* Section Title for Quick Actions */}
               <div className="flex items-center gap-2 px-4 mb-3">
                 <MessageSquare className="w-4 h-4 text-primary" />
                 <span className="text-sm font-semibold text-foreground">
@@ -224,7 +142,7 @@ const AgentChatArea = () => {
                 </span>
               </div>
               
-              <QuickActionsCarousel onStartJourney={handleStartJourney} />
+              <QuickActionsCarousel onStartConversation={handleStartConversation} />
               <p className="text-xs text-muted-foreground text-center mt-3">
                 Digite sua mensagem ou escolha uma opção acima
               </p>
@@ -239,18 +157,6 @@ const AgentChatArea = () => {
             exit="exit"
             className="flex-1 min-h-0 flex flex-col"
           >
-            {/* Progress Tracker for Structured Journeys */}
-            {showProgressTracker && (
-              <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
-                <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
-                  <JourneyProgressTracker 
-                    journeyId={currentJourney.id}
-                    messages={messages}
-                  />
-                </div>
-              </div>
-            )}
-
             <ScrollArea className="flex-1">
               <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
                 {messages.map((msg, index) => (
@@ -268,7 +174,7 @@ const AgentChatArea = () => {
                   </motion.div>
                 ))}
                 
-                {createdReport && createdReport.type === 'urban_report' && (
+                {createdReport && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -276,40 +182,19 @@ const AgentChatArea = () => {
                   >
                     <ReportSuccessCard 
                       reportId={createdReport.id}
-                      variant="urban"
+                      variant={createdReport.type === 'transport' ? 'transport' : 'urban'}
                       onNewReport={handleNewReport}
                     />
                   </motion.div>
                 )}
-                
-                {/* Journey Suggestion Card - shown when intent is detected */}
-                <AnimatePresence>
-                  {detectedIntent && !createdReport && !isLoading && (
-                    <JourneySuggestionCard
-                      journeyType={detectedIntent.journey}
-                      confidence={detectedIntent.confidence >= 0.9 ? "high" : "medium"}
-                      onAccept={() => {
-                        dismissIntent();
-                        handleStartJourney(detectedIntent.journey);
-                      }}
-                      onDismiss={() => dismissIntent(detectedIntent.journey)}
-                    />
-                  )}
-                </AnimatePresence>
                 
                 {isLoading && !createdReport && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2 }}
-                    className="space-y-3"
                   >
                     <TypingIndicator />
-                    <AnimatePresence>
-                      {isAnalyzingIntent && !detectedIntent && (
-                        <IntentDetectionIndicator />
-                      )}
-                    </AnimatePresence>
                   </motion.div>
                 )}
                 
@@ -331,7 +216,7 @@ const AgentChatArea = () => {
             <ChatInput
               onSendMessage={handleSendMessage} 
               disabled={isLoading}
-              placeholder={currentJourney ? `Fale sobre ${currentJourney.label.toLowerCase()}...` : "Digite sua mensagem..."}
+              placeholder="Digite sua mensagem..."
             />
           </div>
         </motion.div>

@@ -2,8 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { JourneyType } from "@/contexts/AIJourneyContext";
-import { AI_JOURNEYS } from "@/config/aiJourneys";
 
 interface Message {
   id: string;
@@ -18,43 +16,29 @@ interface CreatedReport {
   id: string;
 }
 
-export interface IntentDetection {
-  journey: "transport" | "urban_report" | "evaluate" | "general";
-  confidence: number;
-}
-
-export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: string | null) => {
+export const useUnifiedAIChat = (conversationId?: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAnalyzingIntent, setIsAnalyzingIntent] = useState(false);
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
-  const [detectedIntent, setDetectedIntent] = useState<IntentDetection | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
-  const dismissedIntentsRef = useRef<Set<string>>(new Set());
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Sync conversationIdRef with prop changes imediatamente
+  // Sync conversationIdRef with prop changes
   useEffect(() => {
     if (conversationId !== conversationIdRef.current) {
       conversationIdRef.current = conversationId || null;
     }
   }, [conversationId]);
 
-  // Sync síncrono também para garantir
-  if (conversationId && conversationId !== conversationIdRef.current) {
-    conversationIdRef.current = conversationId;
-  }
-
   // Reset createdReport when conversation changes
   useEffect(() => {
     setCreatedReport(null);
   }, [conversationId]);
 
-  // Carregar mensagens do banco quando há conversationId
+  // Load messages from database when conversationId changes
   useEffect(() => {
     const loadConversationMessages = async () => {
-      // Clear old messages first
       setMessages([]);
       
       if (!conversationId || !user) return;
@@ -62,7 +46,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
       try {
         const { data, error } = await supabase
           .from('ai_conversations')
-          .select('messages, journey_id')
+          .select('messages')
           .eq('id', conversationId)
           .single();
 
@@ -70,24 +54,27 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
         const savedMessages = (data.messages as any[]) || [];
         
-        // Determinar a jornada: usar a passada ou buscar pelo journey_id da conversa
-        const effectiveJourney = journey || (data.journey_id ? AI_JOURNEYS[data.journey_id] : null);
-        
-        // Fallback: Se não há mensagens mas há jornada com initialMessage, adicionar
-        if (savedMessages.length === 0 && effectiveJourney?.initialMessage) {
+        if (savedMessages.length === 0) {
+          // Add initial greeting
           const initialMsg: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: effectiveJourney.initialMessage,
+            content: `Olá! Sou o Assistente CMSP 🏛️
+
+Posso ajudar você com:
+• **Informações** sobre a Câmara, vereadores e audiências
+• **Relatar problemas** urbanos ou de transporte
+• **Avaliar** serviços públicos que você utilizou
+
+Como posso ajudar?`,
             timestamp: new Date().toLocaleTimeString("pt-BR", {
               hour: "2-digit",
               minute: "2-digit",
             }),
-            source: "IA CMSP Connect",
+            source: "Assistente CMSP",
           };
           setMessages([initialMsg]);
           
-          // Salvar a mensagem inicial no banco também
           await supabase
             .from('ai_conversations')
             .update({
@@ -98,7 +85,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
         } else {
           setMessages(savedMessages);
           
-          // Check if any message contains a report creation marker
+          // Check for report markers in history
           for (const msg of savedMessages) {
             const urbanMatch = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch) {
@@ -118,45 +105,18 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
           }
         }
       } catch (error) {
-        console.error('Error loading conversation messages:', error);
+        console.error('Error loading conversation:', error);
       }
     };
 
     loadConversationMessages();
-  }, [conversationId, user?.id, journey?.initialMessage]);
-
-  const addAssistantMessage = (content: string, source: string = "CMSP Connect") => {
-    const newMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content,
-      timestamp: new Date().toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      source,
-    };
-    setMessages((prev) => [...prev, newMessage]);
-  };
+  }, [conversationId, user?.id]);
 
   const clearCreatedReport = useCallback(() => {
     setCreatedReport(null);
   }, []);
 
-  const dismissIntent = useCallback((journeyType?: string) => {
-    if (journeyType) {
-      dismissedIntentsRef.current.add(journeyType);
-    }
-    setDetectedIntent(null);
-  }, []);
-
   const sendMessage = async (content: string) => {
-    // Use fallback para jornada 'general' se nenhuma estiver ativa
-    const activeJourney = journey || AI_JOURNEYS.general;
-    
-    // Clear previous intent when sending new message
-    setDetectedIntent(null);
-
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -169,9 +129,8 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
-    setIsAnalyzingIntent(true);
 
-    // Salvar mensagem do usuário no banco se houver conversationId
+    // Save user message to database
     if (conversationIdRef.current && user) {
       try {
         const { data: currentConv } = await supabase
@@ -209,8 +168,9 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
         conversationId: conversationIdRef.current,
       };
 
+      // Always call the unified orchestrator
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${activeJourney.edgeFunction}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
         {
           method: "POST",
           headers: {
@@ -225,7 +185,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
         if (response.status === 429) {
           toast({
             title: "Limite de uso atingido",
-            description: "Por favor, aguarde um momento antes de tentar novamente.",
+            description: "Aguarde um momento antes de tentar novamente.",
             variant: "destructive",
           });
           setIsLoading(false);
@@ -234,7 +194,7 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
         if (response.status === 402) {
           toast({
             title: "Créditos insuficientes",
-            description: "Adicione créditos ao seu workspace para continuar usando a IA.",
+            description: "Adicione créditos ao workspace para continuar.",
             variant: "destructive",
           });
           setIsLoading(false);
@@ -247,16 +207,12 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
       const decoder = new TextDecoder();
       let assistantMessage = "";
       let assistantMessageId = crypto.randomUUID();
-      let textBuffer = ""; // Buffer robusto para SSE
+      let textBuffer = "";
 
       if (!reader) throw new Error("No response body");
 
-      // Função helper para processar uma linha SSE completa
       const processSSELine = (line: string) => {
-        // Handle CRLF
         if (line.endsWith("\r")) line = line.slice(0, -1);
-        
-        // Skip comments and empty lines
         if (line.startsWith(":") || line.trim() === "") return;
         if (!line.startsWith("data: ")) return;
 
@@ -265,57 +221,40 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
 
         try {
           const parsed = JSON.parse(jsonStr);
-          
-          // Check for intent detection marker from any journey (cross-journey detection)
-          if (parsed.intent_detected && parsed.journey && parsed.confidence >= 0.6) {
-            setIsAnalyzingIntent(false);
-            // Only show if not previously dismissed in this session
-            if (!dismissedIntentsRef.current.has(parsed.journey)) {
-              console.log('[useUnifiedAIChat] Cross-journey intent detected:', parsed.journey, 'confidence:', parsed.confidence);
-              setDetectedIntent({
-                journey: parsed.journey,
-                confidence: parsed.confidence
-              });
-            }
-            return;
-          }
-          
           const content = parsed.choices?.[0]?.delta?.content;
 
           if (content) {
             assistantMessage += content;
             
-            // Check for urban report creation marker
+            // Check for report markers
             const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch && !createdReport) {
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
               toast({
                 title: "Relato criado!",
-                description: "Seu relato urbano foi registrado com sucesso.",
+                description: "Seu relato urbano foi registrado.",
               });
             }
             
-            // Check for transport report creation marker
             const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch && !createdReport) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
               toast({
                 title: "Relato registrado!",
-                description: "Seu relato de transporte foi registrado com sucesso.",
+                description: "Seu relato de transporte foi salvo.",
               });
             }
             
-            // Check for rating creation marker
             const ratingMatch = assistantMessage.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch && !createdReport) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
               toast({
                 title: "Avaliação registrada!",
-                description: "Sua avaliação foi registrada com sucesso.",
+                description: "Sua avaliação foi salva.",
               });
             }
             
-            // Remove all markers from displayed message
+            // Remove markers from displayed message
             const displayMessage = assistantMessage
               .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
@@ -340,30 +279,26 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
                     hour: "2-digit",
                     minute: "2-digit",
                   }),
-                  source: "IA CMSP Connect",
-                 },
-               ];
-             });
+                  source: "Assistente CMSP",
+                },
+              ];
+            });
           }
 
           if (parsed.conversationId) {
             conversationIdRef.current = parsed.conversationId;
           }
         } catch (e) {
-          // JSON parse failed - line might be incomplete, will be re-processed
-          console.debug('[SSE] Incomplete JSON chunk, buffering...');
+          // Incomplete JSON, continue buffering
         }
       };
 
-      // Processar stream com buffer robusto
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Append decoded chunk to buffer
         textBuffer += decoder.decode(value, { stream: true });
 
-        // Process complete lines only
         let newlineIndex: number;
         while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
           const line = textBuffer.slice(0, newlineIndex);
@@ -372,12 +307,11 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
         }
       }
 
-      // Final flush - process any remaining data in buffer
       if (textBuffer.trim()) {
         processSSELine(textBuffer);
       }
 
-      // Salvar resposta da IA no banco se houver conversationId
+      // Save assistant response
       if (conversationIdRef.current && user && assistantMessage) {
         try {
           const { data: currentConv } = await supabase
@@ -390,12 +324,12 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
             const finalAssistantMsg = {
               id: assistantMessageId,
               role: "assistant",
-              content: assistantMessage, // Save full message with marker for history
+              content: assistantMessage,
               timestamp: new Date().toLocaleTimeString("pt-BR", {
                 hour: "2-digit",
                 minute: "2-digit",
               }),
-              source: "IA CMSP Connect",
+              source: "Assistente CMSP",
             };
 
             const updatedMessages = [...((currentConv.messages as any[]) || []), finalAssistantMsg];
@@ -416,48 +350,41 @@ export const useUnifiedAIChat = (journey: JourneyType | null, conversationId?: s
       console.error("Error sending message:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível enviar a mensagem. Tente novamente.",
+        description: "Não foi possível enviar a mensagem.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
-      setIsAnalyzingIntent(false);
     }
   };
 
   const clearMessages = useCallback(() => {
     setMessages([]);
     setCreatedReport(null);
-    setDetectedIntent(null);
     conversationIdRef.current = null;
-    dismissedIntentsRef.current.clear();
   }, []);
 
-  // Restore messages from draft
-  const restoreMessages = useCallback((draftMessages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date | string }>) => {
-    const restored: Message[] = draftMessages.map((m, idx) => ({
-      id: `restored-${idx}-${Date.now()}`,
-      role: m.role,
-      content: m.content,
-      timestamp: typeof m.timestamp === 'string' ? m.timestamp : m.timestamp.toISOString(),
-      source: 'draft'
-    }));
-    setMessages(restored);
-    setCreatedReport(null);
-    setDetectedIntent(null);
-  }, []);
+  const addAssistantMessage = (content: string) => {
+    const newMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content,
+      timestamp: new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      source: "Assistente CMSP",
+    };
+    setMessages((prev) => [...prev, newMessage]);
+  };
 
   return {
     messages,
     isLoading,
-    isAnalyzingIntent,
     sendMessage,
     clearMessages,
     addAssistantMessage,
     createdReport,
     clearCreatedReport,
-    detectedIntent,
-    dismissIntent,
-    restoreMessages,
   };
 };
