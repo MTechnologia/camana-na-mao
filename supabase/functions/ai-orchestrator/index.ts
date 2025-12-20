@@ -6,6 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Commission to themes mapping for council member suggestions
+const COMMISSION_THEMES: Record<string, string[]> = {
+  'transporte': ['atraso', 'lotacao', 'superlotacao', 'onibus', 'metro', 'trem', 'mobilidade', 'transito'],
+  'urbanismo': ['buraco', 'calcada', 'iluminacao', 'praca', 'lixo', 'entulho', 'poda', 'arvore', 'infraestrutura'],
+  'saude': ['ubs', 'hospital', 'posto', 'saude', 'medico', 'atendimento'],
+  'educacao': ['escola', 'creche', 'ceu', 'educacao', 'ensino'],
+  'meio_ambiente': ['poluicao', 'rio', 'corrego', 'desmatamento', 'verde', 'parque', 'ambiental'],
+  'seguranca': ['seguranca', 'policia', 'violencia', 'assalto', 'roubo'],
+  'habitacao': ['moradia', 'habitacao', 'ocupacao', 'favela', 'desabrigado'],
+  'assistencia_social': ['social', 'vulnerabilidade', 'morador_rua', 'fome', 'abrigo'],
+};
+
 // Unified tools for all citizen actions
 const tools = [
   {
@@ -97,17 +109,84 @@ const tools = [
         required: ["query"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_nearby_services",
+      description: "Busca serviços públicos próximos ao cidadão. Usar quando perguntar sobre: UBS perto, escola próxima, hospital mais próximo, CEU na região, biblioteca perto de mim.",
+      parameters: {
+        type: "object",
+        properties: {
+          service_type: {
+            type: "string",
+            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
+            description: "Tipo do serviço buscado"
+          },
+          district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
+          limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
+        },
+        required: ["service_type"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_audiencias",
+      description: "Busca audiências públicas da Câmara. Usar quando cidadão perguntar sobre: audiências, consultas públicas, participação popular, eventos legislativos, próximas audiências.",
+      parameters: {
+        type: "object",
+        properties: {
+          tema: { type: "string", description: "Tema de interesse (ex: transporte, saúde, educação)" },
+          status: {
+            type: "string",
+            enum: ["scheduled", "ongoing", "finished"],
+            description: "Status da audiência: scheduled (agendada), ongoing (em andamento), finished (encerrada)"
+          },
+          inscricoes_abertas: { type: "boolean", description: "Filtrar apenas audiências com inscrições abertas" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "suggest_council_member",
+      description: "Sugere vereadores para encaminhar uma demanda cidadã. Usar quando cidadão quiser: encaminhar reclamação a vereador, saber qual vereador procurar, indicar vereador especialista no tema.",
+      parameters: {
+        type: "object",
+        properties: {
+          issue_type: {
+            type: "string",
+            enum: ["transporte", "urbanismo", "saude", "educacao", "meio_ambiente", "seguranca", "habitacao", "assistencia_social"],
+            description: "Tipo do problema/demanda"
+          },
+          description: { type: "string", description: "Descrição do problema para matching mais preciso" },
+          district: { type: "string", description: "Bairro ou região do cidadão" }
+        },
+        required: ["issue_type", "description"]
+      }
+    }
   }
 ];
 
-// Lean system prompt (~400 tokens)
+// Lean system prompt with new capabilities
 const systemPrompt = `Você é o Assistente CMSP, da Câmara Municipal de São Paulo. Ajuda cidadãos de forma empática e direta.
 
 CAPACIDADES (use as tools quando apropriado):
-• Informações sobre a Câmara → search_knowledge_base
+
+📋 REGISTROS:
 • Problemas urbanos (buracos, iluminação, lixo) → create_urban_report
 • Problemas de transporte (ônibus, metrô) → create_transport_report  
 • Avaliar serviços (UBS, escola, hospital) → create_service_rating
+
+🔍 BUSCAS:
+• Informações sobre a Câmara → search_knowledge_base
+• Serviços públicos próximos → find_nearby_services
+• Audiências públicas → search_audiencias
+• Sugerir vereador para demanda → suggest_council_member
 
 COLETA DE DADOS:
 - Converse naturalmente, extraia informações do contexto
@@ -145,6 +224,152 @@ async function searchKnowledgeBase(supabase: any, query: string): Promise<string
   }).join('\n\n');
 }
 
+// Helper: Find nearby services
+async function findNearbyServices(supabase: any, serviceType: string, district?: string, limit: number = 5): Promise<string> {
+  let query = supabase
+    .from('public_services')
+    .select('name, address, district, phone, average_rating, service_type')
+    .eq('service_type', serviceType)
+    .limit(limit);
+
+  if (district) {
+    query = query.ilike('district', `%${district}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[find_nearby_services] Error:', error);
+    return '';
+  }
+
+  if (!data?.length) {
+    return `Nenhum serviço do tipo "${serviceType}" encontrado${district ? ` no bairro ${district}` : ''}.`;
+  }
+
+  const serviceTypeLabels: Record<string, string> = {
+    'ubs': 'UBS',
+    'school': 'Escola',
+    'ceu': 'CEU',
+    'hospital': 'Hospital',
+    'library': 'Biblioteca',
+    'sports_center': 'Centro Esportivo',
+    'other': 'Serviço'
+  };
+
+  return data.map((s: any, i: number) => {
+    const rating = s.average_rating ? `⭐ ${s.average_rating.toFixed(1)}` : 'Sem avaliações';
+    const phone = s.phone ? `📞 ${s.phone}` : '';
+    return `[${i+1}] ${serviceTypeLabels[s.service_type] || 'Serviço'}: ${s.name}\n   📍 ${s.address}, ${s.district}\n   ${rating} ${phone}`;
+  }).join('\n\n');
+}
+
+// Helper: Search audiencias
+async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
+  let query = supabase
+    .from('audiencias')
+    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+    .order('data', { ascending: true })
+    .limit(5);
+
+  if (tema) {
+    query = query.ilike('tema', `%${tema}%`);
+  }
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+
+  if (inscricoesAbertas !== undefined) {
+    query = query.eq('inscricoes_abertas', inscricoesAbertas);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('[search_audiencias] Error:', error);
+    return '';
+  }
+
+  if (!data?.length) {
+    return `Nenhuma audiência encontrada${tema ? ` sobre "${tema}"` : ''}.`;
+  }
+
+  const statusLabels: Record<string, string> = {
+    'scheduled': '📅 Agendada',
+    'ongoing': '🔴 Em andamento',
+    'finished': '✅ Encerrada'
+  };
+
+  return data.map((a: any, i: number) => {
+    const dataFormatted = new Date(a.data).toLocaleDateString('pt-BR');
+    const inscricao = a.inscricoes_abertas ? `✅ Inscrições abertas (${a.vagas_disponiveis || 'vagas disponíveis'})` : '❌ Inscrições encerradas';
+    return `[${i+1}] ${a.titulo}\n   🏷️ Tema: ${a.tema}\n   📍 ${a.local}\n   📆 ${dataFormatted} às ${a.hora}\n   ${statusLabels[a.status] || a.status}\n   ${inscricao}`;
+  }).join('\n\n');
+}
+
+// Helper: Suggest council member
+async function suggestCouncilMember(supabase: any, issueType: string, description: string, district?: string): Promise<string> {
+  // Get council members that match the issue type
+  const relevantThemes = COMMISSION_THEMES[issueType] || [];
+  
+  // This is a simplified matching - in production you'd query a council_members table
+  const suggestions = [
+    { name: 'Milton Leite', party: 'União Brasil', commissions: ['transporte', 'urbanismo'], matchScore: 0 },
+    { name: 'Soninha Francine', party: 'Cidadania', commissions: ['meio_ambiente', 'urbanismo'], matchScore: 0 },
+    { name: 'Rodrigo Goulart', party: 'PSD', commissions: ['saude', 'educacao'], matchScore: 0 },
+    { name: 'Celso Giannazi', party: 'PSOL', commissions: ['educacao', 'assistencia_social'], matchScore: 0 },
+    { name: 'Erika Hilton', party: 'PSOL', commissions: ['assistencia_social', 'habitacao'], matchScore: 0 },
+    { name: 'Amanda Paschoal', party: 'PSOL', commissions: ['meio_ambiente', 'transporte'], matchScore: 0 },
+    { name: 'Luna Zarattini', party: 'PT', commissions: ['saude', 'assistencia_social'], matchScore: 0 },
+    { name: 'Janaína Lima', party: 'PP', commissions: ['urbanismo', 'seguranca'], matchScore: 0 },
+    { name: 'Rinaldi Digilio', party: 'Republicanos', commissions: ['seguranca', 'urbanismo'], matchScore: 0 },
+  ];
+
+  // Calculate match scores
+  const descLower = description.toLowerCase();
+  suggestions.forEach(s => {
+    // Commission match
+    if (s.commissions.includes(issueType)) {
+      s.matchScore += 40;
+    }
+    
+    // Theme keyword match
+    relevantThemes.forEach(theme => {
+      if (descLower.includes(theme)) {
+        s.matchScore += 10;
+      }
+    });
+  });
+
+  // Sort by score and get top 3
+  const topSuggestions = suggestions
+    .filter(s => s.matchScore > 0)
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 3);
+
+  if (topSuggestions.length === 0) {
+    return `Não encontrei vereadores especializados nesse tema. Você pode procurar qualquer vereador da Câmara Municipal.`;
+  }
+
+  const issueTypeLabels: Record<string, string> = {
+    'transporte': 'Transporte',
+    'urbanismo': 'Urbanismo',
+    'saude': 'Saúde',
+    'educacao': 'Educação',
+    'meio_ambiente': 'Meio Ambiente',
+    'seguranca': 'Segurança',
+    'habitacao': 'Habitação',
+    'assistencia_social': 'Assistência Social'
+  };
+
+  return `Vereadores recomendados para questões de ${issueTypeLabels[issueType] || issueType}:\n\n` +
+    topSuggestions.map((s, i) => {
+      const commissionNames = s.commissions.map(c => issueTypeLabels[c] || c).join(', ');
+      return `[${i+1}] ${s.name} (${s.party})\n   📋 Comissões: ${commissionNames}\n   ⭐ Relevância: ${Math.min(s.matchScore, 100)}%`;
+    }).join('\n\n');
+}
+
 // Helper: Execute tool and insert into database
 async function executeTool(
   toolName: string, 
@@ -152,6 +377,8 @@ async function executeTool(
   userId: string, 
   supabase: any
 ): Promise<{ success: boolean; id?: string; error?: string; marker?: string }> {
+  
+  console.log(`[executeTool] Executing ${toolName} with args:`, JSON.stringify(args));
   
   try {
     switch (toolName) {
@@ -282,6 +509,21 @@ async function executeTool(
         return { success: true, id: 'search', error: context || 'Nenhum resultado encontrado.' };
       }
 
+      case 'find_nearby_services': {
+        const results = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 5);
+        return { success: true, id: 'services', error: results };
+      }
+
+      case 'search_audiencias': {
+        const results = await searchAudiencias(supabase, args.tema, args.status, args.inscricoes_abertas);
+        return { success: true, id: 'audiencias', error: results };
+      }
+
+      case 'suggest_council_member': {
+        const results = await suggestCouncilMember(supabase, args.issue_type, args.description, args.district);
+        return { success: true, id: 'council', error: results };
+      }
+
       default:
         return { success: false, error: 'Tool não reconhecida' };
     }
@@ -372,13 +614,13 @@ serve(async (req) => {
       const toolResult = await executeTool(toolCall.function.name, toolArgs, user.id, supabase);
       console.log('[ai-orchestrator] Tool result:', toolResult);
 
-      // Generate confirmation response with streaming
+      // Determine confirmation prompt based on tool type
+      const isSearchTool = ['search_knowledge_base', 'find_nearby_services', 'search_audiencias', 'suggest_council_member'].includes(toolCall.function.name);
+      
       const confirmPrompt = toolResult.success
-        ? `A ação foi executada com sucesso. ${
-            toolCall.function.name === 'search_knowledge_base' 
-              ? `Contexto encontrado:\n${toolResult.error}\n\nResponda a pergunta do usuário usando este contexto.`
-              : 'Agradeça brevemente (2-3 frases), confirme o registro e mencione que pode acompanhar pelo app.'
-          }`
+        ? isSearchTool
+          ? `Resultados encontrados:\n${toolResult.error}\n\nApresente esses resultados de forma amigável e útil ao cidadão.`
+          : 'Agradeça brevemente (2-3 frases), confirme o registro e mencione que pode acompanhar pelo app.'
         : `Houve um erro: ${toolResult.error}. Peça desculpas e sugira tentar novamente.`;
 
       const confirmResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -401,7 +643,9 @@ serve(async (req) => {
       if (!confirmResponse.ok) {
         // Fallback static message
         const staticMsg = toolResult.success 
-          ? `✅ Pronto! Registro salvo com sucesso.\n\n${toolResult.marker || ''}`
+          ? isSearchTool
+            ? `📋 Resultados:\n\n${toolResult.error}`
+            : `✅ Pronto! Registro salvo com sucesso.\n\n${toolResult.marker || ''}`
           : `❌ Erro: ${toolResult.error}`;
         
         const encoder = new TextEncoder();
@@ -430,8 +674,8 @@ serve(async (req) => {
             controller.enqueue(value);
           }
 
-          // Inject success marker at the end
-          if (toolResult.marker) {
+          // Inject success marker at the end (only for non-search tools)
+          if (toolResult.marker && !isSearchTool) {
             const markerData = `data: ${JSON.stringify({ choices: [{ delta: { content: `\n\n${toolResult.marker}` } }] })}\n\n`;
             controller.enqueue(encoder.encode(markerData));
           }
