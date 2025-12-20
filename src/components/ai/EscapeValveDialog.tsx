@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 interface EscapeValveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  journeyLabel: string;
+  journeyLabel?: string;
   isStructured?: boolean;
   onContinue: () => void;
   onSaveAndExit: () => void;
@@ -35,7 +35,7 @@ const EscapeValveDialog = ({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" />
-            Sair de "{journeyLabel}"?
+            Sair de "{journeyLabel || 'Conversa'}"?
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-2">
             <p>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History, LogOut } from "lucide-react";
+import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History, LogOut, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -138,12 +138,14 @@ const AgentHeader = () => {
     navigate('/conversas');
   };
 
-  const JourneyIcon = Landmark;
+  const JourneyIcon = currentJourney ? Landmark : MessageCircle;
+  const headerLabel = currentJourney?.label || "Assistente CMSP";
+  const headerColor = currentJourney?.color || "from-primary/80 to-primary";
 
   return (
     <>
       <AnimatePresence mode="wait">
-        {isInConversation && currentJourney ? (
+        {isInConversation ? (
           <motion.header
             key="conversation-header"
             variants={headerVariants}
@@ -153,7 +155,7 @@ const AgentHeader = () => {
             className={cn(
               "relative flex items-center justify-between h-14 px-4 shrink-0 overflow-hidden",
               "bg-gradient-to-r",
-              currentJourney.color
+              headerColor
             )}
           >
             {/* Animated overlay */}
@@ -189,9 +191,9 @@ const AgentHeader = () => {
                 transition={{ delay: 0.1, duration: 0.3 }}
                 className="flex items-center gap-2 text-white"
               >
-                {JourneyIcon && <JourneyIcon className="h-5 w-5" />}
+                <JourneyIcon className="h-5 w-5" />
                 <span className="font-semibold text-sm sm:text-base truncate max-w-[180px] sm:max-w-none">
-                  {currentJourney.label}
+                  {headerLabel}
                 </span>
               </motion.div>
               
@@ -297,17 +299,15 @@ const AgentHeader = () => {
       </AnimatePresence>
 
       {/* Escape Valve Dialog */}
-      {currentJourney && (
-        <EscapeValveDialog
-          open={showEscapeDialog}
-          onOpenChange={setShowEscapeDialog}
-          journeyLabel={currentJourney.label}
-          isStructured={isStructuredJourney}
-          onContinue={handleContinue}
-          onSaveAndExit={handleSaveAndExit}
-          onDiscardAndExit={handleDiscardAndExit}
-        />
-      )}
+      <EscapeValveDialog
+        open={showEscapeDialog}
+        onOpenChange={setShowEscapeDialog}
+        journeyLabel={currentJourney?.label}
+        isStructured={isStructuredJourney}
+        onContinue={handleContinue}
+        onSaveAndExit={handleSaveAndExit}
+        onDiscardAndExit={handleDiscardAndExit}
+      />
     </>
   );
 };
