@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History, LogOut, Heart } from "lucide-react";
+import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -274,15 +274,6 @@ const AgentHeader = () => {
               transition={{ delay: 0.1, duration: 0.2 }}
               className="flex items-center gap-1"
             >
-              {/* Favorites */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => navigate('/favoritos')}
-              >
-                <Heart className="h-5 w-5" />
-              </Button>
-              
               {/* Notifications */}
               <Button 
                 variant="ghost" 
