@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
+import { useNavigate } from "react-router-dom";
 
 import ChatConversationItem from "./ChatConversationItem";
 import { useMemo, useState } from "react";
@@ -18,9 +19,12 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   const { setActiveConversationId, activeConversationId, clearConversation } = useAIJourney();
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleNewChat = () => {
     clearConversation();
+    navigate('/ia');
+    onConversationClick?.();
   };
 
   const handleDeleteConversation = async (conversationId: string) => {
@@ -77,8 +81,9 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
     return groups;
   }, [filteredConversations]);
 
-  const handleConversationClick = (conversationId: string, journeyId: string) => {
+  const handleConversationClick = (conversationId: string) => {
     setActiveConversationId(conversationId);
+    navigate('/ia');
     onConversationClick?.();
   };
 
@@ -113,7 +118,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
                     <ChatConversationItem
                       key={conv.id}
                       conversation={conv}
-                      onClick={(journeyId) => handleConversationClick(conv.id, journeyId)}
+                      onClick={() => handleConversationClick(conv.id)}
                       onDelete={() => handleDeleteConversation(conv.id)}
                     />
                   ))}

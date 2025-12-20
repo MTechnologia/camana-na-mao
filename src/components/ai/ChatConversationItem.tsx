@@ -8,7 +8,7 @@ import { useState } from "react";
 
 interface ChatConversationItemProps {
   conversation: AIConversation;
-  onClick: (journeyId: string) => void;
+  onClick: () => void;
   onDelete: () => void;
 }
 
@@ -34,7 +34,7 @@ const ChatConversationItem = ({
           ? "bg-primary/10 text-primary font-medium"
           : "hover:bg-muted text-foreground"
       )}
-      onClick={() => onClick(conversation.journeyId || 'general')}
+      onClick={() => onClick()}
     >
       <MessageSquare className="h-4 w-4 shrink-0 opacity-70 mt-0.5" />
       <span className="flex-1 text-sm line-clamp-2 pr-1">{conversation.title}</span>
