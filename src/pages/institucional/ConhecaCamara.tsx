@@ -84,7 +84,7 @@ const ConhecaCamara = () => {
 
           <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
             <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
-            <p><strong>Documentação:</strong> Arquivo Histórico da CMSP</p>
+            <p><strong>Documentação:</strong> Arquivo Histórico da Câmara Municipal</p>
             <p><strong>Última atualização:</strong> 10/12/2024</p>
           </div>
         </ContentArticle>

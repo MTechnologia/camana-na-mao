@@ -16,7 +16,7 @@ const slides = [
   {
     icon: Sparkles,
     title: "Seu Assistente Inteligente",
-    description: "Acesse informações da Câmara Municipal de forma simples e conversacional.",
+    description: "A Câmara Municipal na palma da sua mão de forma simples e conversacional.",
   },
   {
     icon: MapPin,
@@ -205,7 +205,7 @@ const Welcome = () => {
         {/* Footer text */}
         <div className="text-center mt-6 space-y-2">
           <p className="text-xs text-muted-foreground">
-            Câmara Municipal de São Paulo
+            Câmara na Mão
           </p>
           <button
             onClick={() => navigate("/docs/overview")}

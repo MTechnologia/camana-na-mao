@@ -30,7 +30,7 @@ const mockResponses: MockResponse[] = [
   },
   {
     keywords: ['reclamação', 'denúncia', 'problema', 'buraco', 'iluminação'],
-    response: 'Entendo sua preocupação. Pelo CMSP Connect, você pode registrar relatos urbanos sobre problemas na sua região. Os relatos são analisados e podem ser encaminhados aos vereadores responsáveis. Quer registrar um relato agora?'
+    response: 'Entendo sua preocupação. Pelo Câmara na Mão, você pode registrar relatos urbanos sobre problemas na sua região. Os relatos são analisados e podem ser encaminhados aos vereadores responsáveis. Quer registrar um relato agora?'
   },
   {
     keywords: ['como', 'funciona', 'câmara', 'legislativo'],
@@ -38,7 +38,7 @@ const mockResponses: MockResponse[] = [
   },
   {
     keywords: ['olá', 'oi', 'bom dia', 'boa tarde', 'boa noite'],
-    response: 'Olá! Sou a assistente virtual do CMSP Connect. Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, projetos de lei, ou você pode fazer relatos sobre serviços públicos. Como posso ajudar?'
+    response: 'Olá! Sou a assistente virtual do Câmara na Mão. Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, projetos de lei, ou você pode fazer relatos sobre serviços públicos. Como posso ajudar?'
   },
   {
     keywords: ['obrigado', 'obrigada', 'valeu', 'agradeço'],
@@ -73,5 +73,5 @@ export const getWelcomeMessage = (): string => {
   else if (hour < 18) greeting = 'Boa tarde';
   else greeting = 'Boa noite';
   
-  return `${greeting}! Sou a assistente virtual do CMSP Connect. Pode falar comigo sobre audiências públicas, vereadores, projetos de lei, ou fazer relatos sobre serviços da cidade. Como posso ajudar?`;
+  return `${greeting}! Sou a assistente virtual do Câmara na Mão. Pode falar comigo sobre audiências públicas, vereadores, projetos de lei, ou fazer relatos sobre serviços da cidade. Como posso ajudar?`;
 };

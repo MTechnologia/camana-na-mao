@@ -22,7 +22,7 @@ const chips: PromptChip[] = [
   {
     id: "question",
     label: "Tirar dúvida",
-    message: "Tenho uma dúvida sobre a Câmara Municipal",
+    message: "Tenho uma dúvida sobre a Câmara",
     icon: HelpCircle,
   },
   {

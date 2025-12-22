@@ -49,7 +49,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/analytics/advanced": "Análise Avançada",
   "/analytics/criar-painel": "Criar Painel",
   "/analytics/galeria": "Galeria de Painéis",
-  "/institucional/agenda": "Agenda CMSP",
+  "/institucional/agenda": "Agenda da Câmara",
   "/institucional/vereadores": "Vereadores",
   "/institucional/conheca-camara": "Conheça a Câmara",
   "/institucional/camara-explica": "Câmara Explica",

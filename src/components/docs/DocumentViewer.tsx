@@ -122,7 +122,7 @@ export const DocumentViewer = ({ content, title }: DocumentViewerProps) => {
               <img src={brasaoImage} alt="Brasão SP" className="h-16 w-auto" />
               <div>
                 <h1 className="text-xl font-bold text-primary">CÂMARA MUNICIPAL DE SÃO PAULO</h1>
-                <p className="text-sm text-muted-foreground">Documentação Técnica - CMSP Connect</p>
+                <p className="text-sm text-muted-foreground">Documentação Técnica - Câmara na Mão</p>
               </div>
             </div>
           </div>
@@ -271,7 +271,7 @@ export const DocumentViewer = ({ content, title }: DocumentViewerProps) => {
 
           {/* Print Footer */}
           <div className="hidden print:block mt-12 pt-4 border-t text-center text-xs text-muted-foreground">
-            <p>CMSP Connect - Documento gerado em {new Date().toLocaleDateString('pt-BR')}</p>
+            <p>Câmara na Mão - Documento gerado em {new Date().toLocaleDateString('pt-BR')}</p>
             <p>Câmara Municipal de São Paulo © {new Date().getFullYear()}</p>
           </div>
         </article>

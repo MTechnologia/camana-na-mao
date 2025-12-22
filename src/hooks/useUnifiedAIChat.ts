@@ -59,7 +59,7 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
           const initialMsg: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: `Olá! Sou o Assistente CMSP 🏛️
+            content: `Olá! Sou o assistente do Câmara na Mão 🏛️
 
 Posso ajudar você com:
 • **Informações** sobre a Câmara, vereadores e audiências
@@ -71,7 +71,7 @@ Como posso ajudar?`,
               hour: "2-digit",
               minute: "2-digit",
             }),
-            source: "Assistente CMSP",
+            source: "Assistente Câmara na Mão",
           };
           setMessages([initialMsg]);
           
@@ -279,7 +279,7 @@ Como posso ajudar?`,
                     hour: "2-digit",
                     minute: "2-digit",
                   }),
-                  source: "Assistente CMSP",
+                  source: "Assistente Câmara na Mão",
                 },
               ];
             });
@@ -329,7 +329,7 @@ Como posso ajudar?`,
                 hour: "2-digit",
                 minute: "2-digit",
               }),
-              source: "Assistente CMSP",
+              source: "Assistente Câmara na Mão",
             };
 
             const updatedMessages = [...((currentConv.messages as any[]) || []), finalAssistantMsg];
@@ -373,7 +373,7 @@ Como posso ajudar?`,
         hour: "2-digit",
         minute: "2-digit",
       }),
-      source: "Assistente CMSP",
+      source: "Assistente Câmara na Mão",
     };
     setMessages((prev) => [...prev, newMessage]);
   };
