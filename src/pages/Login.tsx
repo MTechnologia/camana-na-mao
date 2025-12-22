@@ -67,8 +67,8 @@ const Login = () => {
         <div className="flex items-center justify-center gap-4 pt-8 pb-8 px-6">
           <img src={brasaoSP} alt="Brasão São Paulo" className="w-20 h-20" />
           <div className="text-left">
-            <p className="text-xs text-gray-600 mb-1">CÂMARA MUNICIPAL DE</p>
-            <p className="text-2xl font-bold text-gray-900">SÃO PAULO</p>
+            <p className="text-2xl font-bold text-gray-900">Câmara na Mão</p>
+            <p className="text-xs text-gray-600 mt-1">Câmara Municipal de São Paulo</p>
           </div>
         </div>
 
