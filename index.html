@@ -18,10 +18,134 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@camarasp" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <!-- Critical CSS for instant App Shell -->
+    <style>
+      /* App Shell - Renderização instantânea */
+      #app-shell {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #DC0032 0%, #b8002a 50%, #9a0023 100%);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .shell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      
+      .shell-icon {
+        width: 96px;
+        height: 96px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 2rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        animation: shell-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      
+      .shell-icon svg {
+        width: 48px;
+        height: 48px;
+        color: white;
+      }
+      
+      .shell-title {
+        color: white;
+        font-size: 2.25rem;
+        font-weight: 700;
+        text-align: center;
+        line-height: 1.2;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+      
+      .shell-dots {
+        display: flex;
+        gap: 8px;
+        margin-top: 2.5rem;
+      }
+      
+      .shell-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.8);
+        animation: shell-bounce 1s infinite;
+      }
+      
+      .shell-dot:nth-child(2) { animation-delay: 150ms; }
+      .shell-dot:nth-child(3) { animation-delay: 300ms; }
+      
+      .shell-footer {
+        padding: 2rem;
+        text-align: center;
+      }
+      
+      .shell-footer-text {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.75rem;
+      }
+      
+      @keyframes shell-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+      
+      @keyframes shell-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+      
+      /* Hide shell when React mounts */
+      #root:not(:empty) + #app-shell {
+        display: none;
+      }
+      
+      /* Ensure root takes full height */
+      #root {
+        min-height: 100vh;
+      }
+      
+      #root:empty {
+        display: none;
+      }
+    </style>
   </head>
 
   <body>
     <div id="root"></div>
+    
+    <!-- App Shell - Shown instantly while JS loads -->
+    <div id="app-shell">
+      <div class="shell-content">
+        <div class="shell-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+          </svg>
+        </div>
+        <div class="shell-title">
+          Fala<br/>Cidadão SP
+        </div>
+        <div class="shell-dots">
+          <div class="shell-dot"></div>
+          <div class="shell-dot"></div>
+          <div class="shell-dot"></div>
+        </div>
+      </div>
+      <div class="shell-footer">
+        <p class="shell-footer-text">Câmara Municipal de São Paulo</p>
+      </div>
+    </div>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
