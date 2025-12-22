@@ -107,7 +107,7 @@ export const useAIConversations = () => {
             hour: "2-digit",
             minute: "2-digit",
           }),
-          source: "IA CMSP Connect",
+          source: "IA Câmara na Mão",
         });
       }
       

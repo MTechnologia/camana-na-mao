@@ -48,7 +48,7 @@ const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/n8n-callback`;
 
 // Template de workflow N8N pré-configurado (v3 Switch Node + v4.2 HTTP Request)
 const n8nWorkflowTemplate = {
-  "name": "CMSP Connect - Processamento de Manifestações",
+  "name": "Câmara na Mão - Processamento de Manifestações",
   "nodes": [
     {
       "parameters": { "httpMethod": "POST", "path": "cmsp-manifestacao", "options": {} },
@@ -316,7 +316,7 @@ const N8NIntegration = () => {
         event: 'test.connection',
         timestamp: new Date().toISOString(),
         data: {
-          message: 'Teste de conexão do CMSP Connect',
+          message: 'Teste de conexão do Câmara na Mão',
           app_version: '1.0.0',
         }
       };

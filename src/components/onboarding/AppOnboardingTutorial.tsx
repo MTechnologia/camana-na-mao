@@ -23,7 +23,7 @@ interface AppOnboardingTutorialProps {
 const steps = [
   {
     icon: Sparkles,
-    title: "Bem-vindo ao CMSP Connect!",
+    title: "Bem-vindo ao Câmara na Mão!",
     description: "Seu portal de participação cidadã com a Câmara Municipal de São Paulo. Vamos conhecer as principais funcionalidades?",
     color: "from-primary to-primary/70",
     useImage: true,
@@ -132,7 +132,7 @@ const AppOnboardingTutorial = ({ onComplete, onSkip }: AppOnboardingTutorialProp
                   <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
                     <img 
                       src={iaIcone} 
-                      alt="CMSP Connect" 
+                      alt="Câmara na Mão" 
                       className="w-24 h-24 object-contain"
                     />
                   </div>
