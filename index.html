@@ -105,18 +105,28 @@
         50% { transform: translateY(-6px); }
       }
       
-      /* Hide shell when React mounts */
+      /* Hide shell when React mounts - more robust */
+      #root:not(:empty) ~ #app-shell,
       #root:not(:empty) + #app-shell {
-        display: none;
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
       }
       
-      /* Ensure root takes full height */
+      /* Ensure root always has a neutral background */
       #root {
         min-height: 100vh;
+        background: #ffffff;
       }
       
       #root:empty {
         display: none;
+      }
+      
+      /* Prevent overscroll from revealing shell */
+      html, body {
+        overscroll-behavior: none;
+        background: #ffffff;
       }
     </style>
   </head>

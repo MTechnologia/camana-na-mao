@@ -112,7 +112,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
-          className={!isHeaderlessRoute ? "pt-[60px]" : ""}
+          className={`min-h-screen bg-background ${!isHeaderlessRoute ? "pt-[60px]" : ""}`}
         >
           <Suspense fallback={<PageSkeleton />}>
             {children}
