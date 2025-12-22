@@ -117,7 +117,7 @@ const Audiencias = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <PageHeader title="Audiências Públicas" backTo="/ia" />
+      <PageHeader title="Audiências Públicas" backTo="/" />
       
       <div className="pt-[60px]">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">

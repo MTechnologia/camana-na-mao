@@ -7,7 +7,7 @@ test.describe('Diagnóstico de Transporte', () => {
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/ia', { timeout: 10000 });
+    await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
   test('deve criar relato de transporte via formulário', async ({ page }) => {
