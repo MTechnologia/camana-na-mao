@@ -23,7 +23,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
   const handleNewChat = () => {
     clearConversation();
-    navigate('/ia');
+    navigate('/');
     onConversationClick?.();
   };
 
@@ -83,7 +83,7 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
 
   const handleConversationClick = (conversationId: string) => {
     setActiveConversationId(conversationId);
-    navigate('/ia');
+    navigate('/');
     onConversationClick?.();
   };
 

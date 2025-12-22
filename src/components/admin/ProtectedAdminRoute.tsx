@@ -16,7 +16,7 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
       toast.error('Acesso negado', {
         description: 'Você não tem permissão para acessar esta área.',
       });
-      navigate('/ia');
+      navigate('/');
     }
   }, [isAdmin, isGestor, loading, navigate]);
 

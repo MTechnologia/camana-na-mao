@@ -125,7 +125,7 @@ const SearchPage = () => {
   };
 
   const handleAIHelp = () => {
-    navigate("/ia");
+    navigate("/");
   };
 
   const handleHistoryClick = (item: string) => {
@@ -157,7 +157,7 @@ const SearchPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PageHeader title="Buscar" backTo="/ia" />
+      <PageHeader title="Buscar" backTo="/" />
       
       <div className="pt-[60px] pb-20">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">

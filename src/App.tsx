@@ -16,7 +16,7 @@ import { useMenu } from "@/contexts/MenuContext";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 
 // Critical pages - loaded immediately
-import Splash from "./pages/Splash";
+import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 
 // Auth pages - lazy loaded
@@ -35,7 +35,6 @@ const PreferencesPage = lazy(() => import("./pages/profile/PreferencesPage"));
 const InterestsPage = lazy(() => import("./pages/profile/InterestsPage"));
 
 // Main citizen pages - lazy loaded
-const IA = lazy(() => import("./pages/IA"));
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
 const Voz = lazy(() => import("./pages/Voz"));
 const SearchPage = lazy(() => import("./pages/Search"));
@@ -106,13 +105,17 @@ const AppContent = () => {
     <>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/" element={<Navigate to="/splash" replace />} />
-          <Route path="/splash" element={<Splash />} />
+          {/* Main route - Home (ex-IA) */}
+          <Route path="/" element={<Home />} />
+          
+          {/* Auth routes */}
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          
+          {/* Profile routes */}
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/personal" element={<PersonalInfoPage />} />
           <Route path="/profile/interests" element={<InterestsPage />} />
@@ -120,16 +123,17 @@ const AppContent = () => {
           <Route path="/profile/address" element={<AddressPage />} />
           <Route path="/profile/preferences" element={<PreferencesPage />} />
           <Route path="/settings/accessibility" element={<AccessibilityPage />} />
-          <Route path="/home" element={<Navigate to="/ia" replace />} />
+          
+          {/* Citizen routes */}
           <Route path="/search" element={<SearchPage />} />
-          <Route path="/ia" element={<IA />} />
           <Route path="/conversas" element={<ConversationsPage />} />
-          <Route path="/conversa" element={<Navigate to="/ia" replace />} />
           <Route path="/voz" element={<Voz />} />
           <Route path="/favoritos" element={<FavoritesPage />} />
           <Route path="/audiencias" element={<Audiencias />} />
           <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
           <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
+          
+          {/* Institutional routes */}
           <Route path="/institucional/agenda" element={<AgendaCMSP />} />
           <Route path="/institucional/vereadores" element={<Vereadores />} />
           <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
@@ -139,23 +143,31 @@ const AppContent = () => {
           <Route path="/institucional/noticias" element={<Noticias />} />
           <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
           <Route path="/notifications" element={<Notifications />} />
+          
+          {/* Services routes */}
           <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
           <Route path="/perto-de-mim" element={<Navigate to="/servicos-proximos" replace />} />
           <Route path="/servico/:id" element={<ServiceDetailPage />} />
           <Route path="/avaliar" element={<EvaluationPage />} />
           <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
+          
+          {/* Transport routes */}
           <Route path="/transporte" element={<TransportReportPage />} />
           <Route path="/transporte/novo" element={<NewReportPage />} />
           <Route path="/transporte/urgente" element={<UrgentReportPage />} />
           <Route path="/transporte/padroes" element={<PatternsPage />} />
           <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
           <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
+          
+          {/* Analytics routes */}
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
           <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
           <Route path="/analytics/galeria" element={<PublicDashboards />} />
+          
+          {/* Urban report routes */}
           <Route path="/relato-urbano" element={<UrbanReportPage />} />
-          <Route path="/relato-urbano/chat" element={<Navigate to="/ia?journey=urban_report" replace />} />
+          <Route path="/relato-urbano/chat" element={<Navigate to="/?journey=urban_report" replace />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
           <Route path="/meus-relatos-urbanos" element={<ReportHistoryPage />} />
@@ -169,7 +181,6 @@ const AppContent = () => {
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
-          {/* Redirect old routes to unified reports */}
           <Route path="/admin/urban-reports" element={<Navigate to="/admin/reports" replace />} />
           <Route path="/admin/transport-reports" element={<Navigate to="/admin/reports" replace />} />
           <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
@@ -178,10 +189,18 @@ const AppContent = () => {
           <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
-          {/* Public Documentation Route */}
+          
+          {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          
+          {/* Compatibility redirects - old routes to new */}
+          <Route path="/ia" element={<Navigate to="/" replace />} />
+          <Route path="/splash" element={<Navigate to="/" replace />} />
+          <Route path="/home" element={<Navigate to="/" replace />} />
+          <Route path="/conversa" element={<Navigate to="/" replace />} />
+          
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
