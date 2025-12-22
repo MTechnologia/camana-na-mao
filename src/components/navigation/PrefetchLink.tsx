@@ -3,8 +3,11 @@ import { ReactNode, useCallback } from "react";
 
 // Map of routes to their lazy import functions for prefetching
 const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
+  // Critical routes (already loaded, but kept for consistency)
   "/profile": () => import("@/pages/Profile"),
   "/notifications": () => import("@/pages/Notifications"),
+  
+  // Citizen pages
   "/audiencias": () => import("@/pages/Audiencias"),
   "/search": () => import("@/pages/Search"),
   "/favoritos": () => import("@/pages/FavoritesPage"),
@@ -12,14 +15,29 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   "/servicos-proximos": () => import("@/pages/NearbyServicesPage"),
   "/transporte": () => import("@/pages/TransportReportPage"),
   "/relato-urbano": () => import("@/pages/UrbanReportPage"),
+  "/avaliacao": () => import("@/pages/EvaluationPage"),
+  "/recomendacoes": () => import("@/pages/ServiceRecommendationsPage"),
+  
+  // Analytics
   "/analytics": () => import("@/pages/analytics/AnalyticsDashboard"),
+  "/analytics/advanced": () => import("@/pages/analytics/AdvancedAnalytics"),
+  "/analytics/public": () => import("@/pages/analytics/PublicDashboards"),
+  
+  // Institutional pages
   "/institucional/agenda": () => import("@/pages/institucional/AgendaCMSP"),
   "/institucional/vereadores": () => import("@/pages/institucional/Vereadores"),
   "/institucional/conheca-camara": () => import("@/pages/institucional/ConhecaCamara"),
   "/institucional/camara-explica": () => import("@/pages/institucional/CamaraExplica"),
   "/institucional/escola-parlamento": () => import("@/pages/institucional/EscolaParlamento"),
   "/institucional/noticias": () => import("@/pages/institucional/Noticias"),
+  
+  // Settings
   "/settings/accessibility": () => import("@/pages/settings/AccessibilityPage"),
+  
+  // Admin pages
+  "/admin": () => import("@/pages/admin/AdminDashboard"),
+  "/admin/users": () => import("@/pages/admin/UserManagement"),
+  "/admin/reports": () => import("@/pages/admin/ReportsManagement"),
 };
 
 interface PrefetchLinkProps extends Omit<LinkProps, 'to'> {

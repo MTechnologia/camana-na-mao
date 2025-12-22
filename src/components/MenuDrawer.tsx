@@ -26,6 +26,8 @@ import {
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel";
+import { usePrefetch } from "@/components/navigation/PrefetchLink";
+import { useCallback } from "react";
 
 interface MenuDrawerProps {
   isOpen: boolean;
@@ -37,6 +39,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const { isAdmin, isGestor } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
+  const { prefetch } = usePrefetch();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -122,6 +125,10 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
   ];
 
+  const handlePrefetch = useCallback((route: string) => {
+    prefetch(route);
+  }, [prefetch]);
+
   const handleMenuClick = (route?: string) => {
     onClose();
     if (route) {
@@ -205,6 +212,8 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                     <CarouselItem key={option.id} className="pl-2 basis-1/3">
                       <Card
                         onClick={() => handleMenuClick(option.route)}
+                        onMouseEnter={() => handlePrefetch(option.route)}
+                        onFocus={() => handlePrefetch(option.route)}
                         className="p-3 cursor-pointer hover:bg-muted transition-colors border-border h-[80px] flex flex-col items-center justify-center gap-2"
                       >
                         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -235,6 +244,8 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                 <button
                   key={option.id}
                   onClick={() => handleMenuClick(option.route)}
+                  onMouseEnter={() => handlePrefetch(option.route)}
+                  onFocus={() => handlePrefetch(option.route)}
                   className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
@@ -256,6 +267,8 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
                 </h3>
                 <button
                   onClick={() => handleMenuClick('/admin')}
+                  onMouseEnter={() => handlePrefetch('/admin')}
+                  onFocus={() => handlePrefetch('/admin')}
                   className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
                 >
                   <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
