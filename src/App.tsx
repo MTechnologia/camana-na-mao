@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
@@ -120,6 +120,18 @@ const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement
 // ============================================
 const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
+
+// Failsafe: If somehow /ia is accessed, immediately redirect to /
+const IAFailsafe = () => {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Immediate client-side redirect before any rendering
+    navigate("/", { replace: true });
+  }, [navigate]);
+  
+  return null;
+};
 
 // Prefetch common routes on app load
 const RoutePrefetcher = () => {
@@ -259,7 +271,7 @@ const AppContent = () => {
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
           
           {/* Compatibility redirects - old routes to new */}
-          <Route path="/ia" element={<Navigate to="/" replace />} />
+          <Route path="/ia" element={<IAFailsafe />} />
           <Route path="/splash" element={<Navigate to="/" replace />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="/conversa" element={<Navigate to="/" replace />} />

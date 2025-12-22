@@ -6,11 +6,11 @@ test.describe('Chat com IA', () => {
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/ia', { timeout: 10000 });
+    await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
   test('deve iniciar conversa com assistente geral', async ({ page }) => {
-    await page.goto('/ia');
+    await page.goto('/');
     
     await page.fill('textarea', 'Olá, preciso de ajuda');
     await page.click('button[type="submit"]');
@@ -19,7 +19,7 @@ test.describe('Chat com IA', () => {
   });
 
   test('deve selecionar jornada específica', async ({ page }) => {
-    await page.goto('/ia');
+    await page.goto('/');
     
     // Selecionar jornada de transporte
     await page.click('text=Diagnóstico de Transporte');
@@ -28,7 +28,7 @@ test.describe('Chat com IA', () => {
   });
 
   test('deve salvar e retomar conversa', async ({ page }) => {
-    await page.goto('/ia');
+    await page.goto('/');
     
     // Iniciar conversa
     await page.fill('textarea', 'Teste de conversa');
@@ -37,17 +37,17 @@ test.describe('Chat com IA', () => {
     await expect(page.locator('text=Teste de conversa')).toBeVisible();
     
     // Navegar para outra página
-    await page.goto('/ia');
+    await page.goto('/');
     
-    // Voltar para IA
-    await page.goto('/ia');
+    // Voltar para Home
+    await page.goto('/');
     
     // Verificar se conversa foi restaurada
     await expect(page.locator('text=Teste de conversa')).toBeVisible();
   });
 
   test('deve criar nova conversa', async ({ page }) => {
-    await page.goto('/ia');
+    await page.goto('/');
     
     await page.fill('textarea', 'Primeira mensagem');
     await page.click('button[type="submit"]');
@@ -61,7 +61,7 @@ test.describe('Chat com IA', () => {
   });
 
   test('deve deletar conversa', async ({ page }) => {
-    await page.goto('/ia');
+    await page.goto('/');
     
     await page.fill('textarea', 'Mensagem para deletar');
     await page.click('button[type="submit"]');

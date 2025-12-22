@@ -11,7 +11,7 @@ test.describe('Autenticação', () => {
     
     await page.click('button[type="submit"]');
     
-    await expect(page).toHaveURL('/ia', { timeout: 10000 });
+    await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
   test('deve permitir login com credenciais válidas', async ({ page }) => {
@@ -22,7 +22,7 @@ test.describe('Autenticação', () => {
     
     await page.click('button[type="submit"]');
     
-    await expect(page).toHaveURL('/ia', { timeout: 10000 });
+    await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
   test('deve mostrar erro com credenciais inválidas', async ({ page }) => {
@@ -43,7 +43,7 @@ test.describe('Autenticação', () => {
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
     
-    await expect(page).toHaveURL('/ia', { timeout: 10000 });
+    await expect(page).toHaveURL('/', { timeout: 10000 });
     
     // Then logout
     await page.click('[data-testid="menu-button"]');

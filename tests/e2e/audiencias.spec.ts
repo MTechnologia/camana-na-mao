@@ -6,7 +6,7 @@ test.describe('Audiências Públicas', () => {
     await page.fill('input[type="email"]', 'test@example.com');
     await page.fill('input[type="password"]', 'Test@123456');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/home', { timeout: 10000 });
+    await expect(page).toHaveURL('/', { timeout: 10000 });
   });
 
   test('deve listar audiências disponíveis', async ({ page }) => {

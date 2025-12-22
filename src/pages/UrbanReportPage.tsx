@@ -15,7 +15,7 @@ export default function UrbanReportPage() {
       icon: MessageSquare,
       color: "text-purple-500",
       bgColor: "bg-purple-50",
-      path: "/ia?journey=urban_report"
+      path: "/?journey=urban_report"
     },
     {
       id: 2,

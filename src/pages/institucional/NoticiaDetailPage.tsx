@@ -15,7 +15,7 @@ const NoticiaDetailPage = () => {
 
   if (!noticia) {
     return (
-      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/ia">
+      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/">
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">Notícia não encontrada</p>
           <Button onClick={() => navigate("/institucional/noticias")}>
@@ -50,7 +50,7 @@ const NoticiaDetailPage = () => {
     <InstitutionalLayout 
       title="Notícia" 
       category={categoryStyle.label}
-      backTo="/ia"
+      backTo="/"
     >
       <article className="space-y-6">
         {/* Header com categoria e badge NOVO */}

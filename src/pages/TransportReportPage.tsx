@@ -14,7 +14,7 @@ export default function TransportReportPage() {
       icon: MessageSquare,
       color: 'text-purple-500',
       bgColor: 'bg-purple-50',
-      path: '/ia?journey=transport',
+      path: '/?journey=transport',
     },
     {
       id: 'new-report',
@@ -47,7 +47,7 @@ export default function TransportReportPage() {
 
   return (
     <>
-      <PageHeader title="Diagnóstico de Transporte" backTo="/ia" />
+      <PageHeader title="Diagnóstico de Transporte" backTo="/" />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="relative h-52 lg:h-64 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-500 overflow-hidden">
           {/* Background decorations */}

@@ -86,7 +86,7 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader title="Meu Perfil" backTo="/ia" />
+      <PageHeader title="Meu Perfil" backTo="/" />
 
       <div className="p-6">
         {/* Avatar Section */}
