@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -33,6 +33,7 @@ const AgentChatArea = () => {
   const { activeConversationId, setActiveConversationId } = useAIJourney();
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const { 
     messages, 
@@ -45,6 +46,13 @@ const AgentChatArea = () => {
   
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Força re-render após hydration completa
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setIsInitialized(true);
+    });
+  }, []);
 
   useEffect(() => {
     if (activeConversationId === null && !hasCleared.current) {
