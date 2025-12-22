@@ -5,11 +5,11 @@ import { ArrowLeft, LogIn } from 'lucide-react';
 import brasaoImage from '@/assets/brasao-sp.png';
 
 const overviewContent = `
-# CMSP Connect - Visão Executiva da Plataforma
+# Câmara na Mão - Visão Executiva da Plataforma
 
 ## Sumário Executivo
 
-O **CMSP Connect** é uma plataforma digital inovadora desenvolvida pela Câmara Municipal de São Paulo para revolucionar a comunicação entre cidadãos e o poder legislativo municipal. Utilizando inteligência artificial conversacional, a plataforma oferece uma experiência unificada para participação cidadã, avaliação de serviços públicos e acompanhamento legislativo.
+O **Câmara na Mão** é uma plataforma digital inovadora desenvolvida pela Câmara Municipal de São Paulo para revolucionar a comunicação entre cidadãos e o poder legislativo municipal. Utilizando inteligência artificial conversacional, a plataforma oferece uma experiência unificada para participação cidadã, avaliação de serviços públicos e acompanhamento legislativo.
 
 ---
 
@@ -26,7 +26,7 @@ A Câmara Municipal de São Paulo enfrenta desafios significativos na comunicaç
 
 ### 1.2 A Solução
 
-O CMSP Connect oferece um **assistente virtual inteligente** que:
+O Câmara na Mão oferece um **assistente virtual inteligente** que:
 
 - Centraliza todas as interações em uma interface conversacional
 - Guia cidadãos através de jornadas especializadas
@@ -78,7 +78,7 @@ graph TB
 
 ## 3. Jornadas do Cidadão
 
-O CMSP Connect oferece **5 jornadas especializadas** para atender diferentes necessidades:
+O Câmara na Mão oferece **5 jornadas especializadas** para atender diferentes necessidades:
 
 ### 3.1 Tudo Sobre a Câmara
 
@@ -290,7 +290,7 @@ O sistema garante conformidade com a LGPD:
 Viaduto Jacareí, 100 - Bela Vista
 São Paulo - SP, 01319-900
 
-📧 cmspconnect@saopaulo.sp.leg.br
+📧 camaranamao@saopaulo.sp.leg.br
 🌐 www.saopaulo.sp.leg.br
 `;
 
@@ -316,7 +316,7 @@ const PublicDocumentationPage = () => {
                 <img src={brasaoImage} alt="Brasão SP" className="h-10 w-auto" />
                 <div className="hidden sm:block">
                   <h1 className="text-sm font-semibold text-foreground">CÂMARA MUNICIPAL DE SÃO PAULO</h1>
-                  <p className="text-xs text-muted-foreground">Documentação CMSP Connect</p>
+                  <p className="text-xs text-muted-foreground">Documentação Câmara na Mão</p>
                 </div>
               </div>
             </div>
@@ -353,7 +353,7 @@ const PublicDocumentationPage = () => {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} CMSP Connect - Todos os direitos reservados
+              © {new Date().getFullYear()} Câmara na Mão - Todos os direitos reservados
             </p>
           </div>
         </div>

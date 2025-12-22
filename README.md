@@ -1,3 +1,9 @@
+# Câmara na Mão
+
+Aplicativo de participação cidadã da Câmara Municipal de São Paulo.
+
+---
+
 # Welcome to your Lovable project
 
 ## Project info
