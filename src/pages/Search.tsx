@@ -198,7 +198,7 @@ const SearchPage = () => {
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-base">Agente da Câmara de SP</h3>
+                <h3 className="font-semibold text-gray-900 text-base">Agente Câmara na Mão</h3>
                 <p className="text-sm text-gray-500 mt-0.5">Seu assistente virtual inteligente</p>
               </div>
             </div>

@@ -53,7 +53,7 @@ const n8nWorkflowTemplate = {
     {
       "parameters": { "httpMethod": "POST", "path": "cmsp-manifestacao", "options": {} },
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "name": "Webhook CMSP",
+      "name": "Webhook Câmara na Mão",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [250, 300],
@@ -143,18 +143,18 @@ const n8nWorkflowTemplate = {
         "options": { "timeout": 10000 }
       },
       "id": "f6a7b8c9-d0e1-2345-fabc-678901234567",
-      "name": "Callback CMSP",
+      "name": "Callback Câmara na Mão",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1000, 300]
     }
   ],
   "connections": {
-    "Webhook CMSP": { "main": [[{ "node": "Tipo de Evento", "type": "main", "index": 0 }]] },
+    "Webhook Câmara na Mão": { "main": [[{ "node": "Tipo de Evento", "type": "main", "index": 0 }]] },
     "Tipo de Evento": { "main": [[{ "node": "Processar Relato Urbano", "type": "main", "index": 0 }], [{ "node": "Processar Relato Transporte", "type": "main", "index": 0 }], [{ "node": "Processar Avaliação Serviço", "type": "main", "index": 0 }]] },
-    "Processar Relato Urbano": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] },
-    "Processar Relato Transporte": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] },
-    "Processar Avaliação Serviço": { "main": [[{ "node": "Callback CMSP", "type": "main", "index": 0 }]] }
+    "Processar Relato Urbano": { "main": [[{ "node": "Callback Câmara na Mão", "type": "main", "index": 0 }]] },
+    "Processar Relato Transporte": { "main": [[{ "node": "Callback Câmara na Mão", "type": "main", "index": 0 }]] },
+    "Processar Avaliação Serviço": { "main": [[{ "node": "Callback Câmara na Mão", "type": "main", "index": 0 }]] }
   },
   "settings": { "executionOrder": "v1", "saveManualExecutions": true, "callerPolicy": "workflowsFromSameOwner" },
   "staticData": null,
@@ -718,7 +718,7 @@ const N8NIntegration = () => {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'cmsp-connect-n8n-workflow.json';
+                    a.download = 'camara-na-mao-n8n-workflow.json';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -745,7 +745,7 @@ const N8NIntegration = () => {
 
               <div className="bg-muted rounded-lg overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground">cmsp-connect-n8n-workflow.json</span>
+                  <span className="text-xs font-medium text-muted-foreground">camara-na-mao-n8n-workflow.json</span>
                 </div>
                 <ScrollArea className="h-[400px]">
                   <pre className="p-4 font-mono text-xs whitespace-pre overflow-x-auto">

@@ -94,7 +94,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             </div>
             <div>
               <h2 className="text-sm font-semibold text-foreground">
-                CMSP Connect
+                Câmara na Mão
               </h2>
               <p className="text-xs text-muted-foreground">Área Admin</p>
             </div>

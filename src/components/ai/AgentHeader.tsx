@@ -122,7 +122,7 @@ const AgentHeader = () => {
     navigate('/conversas');
   };
 
-  const headerLabel = "Assistente CMSP";
+  const headerLabel = "Assistente Câmara na Mão";
   const headerColor = "from-primary/80 to-primary";
 
   return (
@@ -248,7 +248,7 @@ const AgentHeader = () => {
                 clearConversation();
               }}
             >
-              Câmara SP
+              Câmara na Mão
             </motion.button>
             
             {/* Right Actions */}

@@ -89,7 +89,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const menuOptions = [
     { 
       id: 1, 
-      label: "Agenda CMSP", 
+      label: "Agenda da Câmara", 
       icon: Calendar,
       route: "/institucional/agenda"
     },

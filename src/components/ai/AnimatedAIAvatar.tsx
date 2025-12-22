@@ -51,7 +51,7 @@ const AnimatedAIAvatar = ({ size = "md" }: AnimatedAIAvatarProps) => {
         <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden">
           <img 
             src={iaIcone} 
-            alt="Câmara SP" 
+            alt="Câmara na Mão" 
             className={`${iconSizes[size]} object-contain`} 
           />
         </div>
