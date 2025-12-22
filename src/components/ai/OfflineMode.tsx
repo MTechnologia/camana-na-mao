@@ -1,13 +1,14 @@
+import React, { forwardRef } from "react";
 import { WifiOff, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const OfflineMode = () => {
+const OfflineMode = forwardRef<HTMLDivElement>((_, ref) => {
   const handleRetry = () => {
     window.location.reload();
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+    <div ref={ref} className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
         <WifiOff className="w-10 h-10 text-muted-foreground" />
       </div>
@@ -38,6 +39,8 @@ const OfflineMode = () => {
       </div>
     </div>
   );
-};
+});
+
+OfflineMode.displayName = "OfflineMode";
 
 export default OfflineMode;
