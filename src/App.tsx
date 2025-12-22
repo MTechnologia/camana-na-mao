@@ -73,7 +73,6 @@ const ReferralPage = lazy(() => import("./pages/transport/ReferralPage"));
 
 // Urban report pages - lazy loaded
 const UrbanReportPage = lazy(() => import("./pages/UrbanReportPage"));
-const ChatReportPage = lazy(() => import("./pages/urban/ChatReportPage"));
 const ManualReportPage = lazy(() => import("./pages/urban/ManualReportPage"));
 const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 
@@ -156,7 +155,7 @@ const AppContent = () => {
           <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
           <Route path="/analytics/galeria" element={<PublicDashboards />} />
           <Route path="/relato-urbano" element={<UrbanReportPage />} />
-          <Route path="/relato-urbano/chat" element={<ChatReportPage />} />
+          <Route path="/relato-urbano/chat" element={<Navigate to="/ia?journey=urban_report" replace />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
           <Route path="/meus-relatos-urbanos" element={<ReportHistoryPage />} />
