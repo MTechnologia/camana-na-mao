@@ -72,6 +72,11 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html, body {
+    overscroll-behavior: none;
+    background-color: hsl(var(--background));
+  }
+
   body {
     @apply text-foreground;
     background: linear-gradient(180deg, hsl(0 0% 98%) 0%, hsl(0 0% 96%) 100%);
