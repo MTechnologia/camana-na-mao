@@ -194,7 +194,7 @@ const Register = () => {
       await supabase.from('user_interests').insert(interests);
 
       toast.success("Cadastro concluído com sucesso!");
-      navigate("/ia");
+      navigate("/");
     } catch (error: any) {
       toast.error(error.message || "Erro ao salvar dados");
     } finally {

@@ -21,7 +21,7 @@ const AccessibilityPage = () => {
 
   const handleTutorial = () => {
     triggerTutorial();
-    navigate("/ia");
+    navigate("/");
   };
 
   return (

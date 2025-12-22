@@ -228,7 +228,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             collapsed && "justify-center"
           )}
           onClick={() => {
-            navigate('/ia');
+            navigate('/');
             if (isMobile) setMobileOpen(false);
           }}
         >

@@ -15,7 +15,7 @@ const IA = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/login");
+      navigate("/welcome");
       return;
     }
   }, [user, authLoading, navigate]);

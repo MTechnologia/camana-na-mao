@@ -84,7 +84,7 @@ const FavoritesPage = () => {
             <p className="text-muted-foreground mb-6 max-w-sm">
               Explore o app e favorite conteúdos do seu interesse para acessá-los rapidamente
             </p>
-            <Button onClick={() => navigate("/ia")} variant="default">
+            <Button onClick={() => navigate("/")} variant="default">
               Explorar Conteúdos
             </Button>
           </div>
