@@ -1,52 +1,63 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MenuProvider } from "@/contexts/MenuContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
-import MenuDrawer from "@/components/MenuDrawer";
-import { PageLoader } from "@/components/ui/page-loader";
-import { useMenu } from "@/contexts/MenuContext";
+import AppLayout from "@/components/layout/AppLayout";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
+import { usePrefetch } from "@/components/navigation/PrefetchLink";
 
-// Critical pages - loaded immediately
+// ============================================
+// CRITICAL PAGES - Loaded immediately (no lazy)
+// ============================================
 import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
+import Notifications from "./pages/Notifications";
 
-// Auth pages - lazy loaded
+// ============================================
+// AUTH PAGES - Lazy loaded (used before main app)
+// ============================================
 const Welcome = lazy(() => import("./pages/Welcome"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 
-// Profile pages - lazy loaded
-const Profile = lazy(() => import("./pages/Profile"));
+// ============================================
+// PROFILE PAGES - Lazy loaded
+// ============================================
 const PersonalInfoPage = lazy(() => import("./pages/profile/PersonalInfoPage"));
 const DemographicsPage = lazy(() => import("./pages/profile/DemographicsPage"));
 const AddressPage = lazy(() => import("./pages/profile/AddressPage"));
 const PreferencesPage = lazy(() => import("./pages/profile/PreferencesPage"));
 const InterestsPage = lazy(() => import("./pages/profile/InterestsPage"));
 
-// Main citizen pages - lazy loaded
+// ============================================
+// CITIZEN PAGES - Lazy loaded
+// ============================================
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
 const Voz = lazy(() => import("./pages/Voz"));
 const SearchPage = lazy(() => import("./pages/Search"));
 const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
-const Notifications = lazy(() => import("./pages/Notifications"));
 
-// Audiencias pages - lazy loaded
+// ============================================
+// AUDIENCIAS PAGES - Lazy loaded
+// ============================================
 const Audiencias = lazy(() => import("./pages/Audiencias"));
 const AudienciaDetailPage = lazy(() => import("./pages/audiencias/AudienciaDetailPage"));
 const ParticipacaoPage = lazy(() => import("./pages/audiencias/ParticipacaoPage"));
 
-// Institutional pages - lazy loaded
+// ============================================
+// INSTITUTIONAL PAGES - Lazy loaded
+// ============================================
 const AgendaCMSP = lazy(() => import("./pages/institucional/AgendaCMSP"));
 const Vereadores = lazy(() => import("./pages/institucional/Vereadores"));
 const VereadorDetailPage = lazy(() => import("./pages/institucional/VereadorDetailPage"));
@@ -56,13 +67,17 @@ const EscolaParlamento = lazy(() => import("./pages/institucional/EscolaParlamen
 const Noticias = lazy(() => import("./pages/institucional/Noticias"));
 const NoticiaDetailPage = lazy(() => import("./pages/institucional/NoticiaDetailPage"));
 
-// Services pages - lazy loaded
+// ============================================
+// SERVICES PAGES - Lazy loaded
+// ============================================
 const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
 const ServiceRecommendationsPage = lazy(() => import("./pages/ServiceRecommendationsPage"));
 
-// Transport pages - lazy loaded
+// ============================================
+// TRANSPORT PAGES - Lazy loaded
+// ============================================
 const TransportReportPage = lazy(() => import("./pages/TransportReportPage"));
 const NewReportPage = lazy(() => import("./pages/transport/NewReportPage"));
 const UrgentReportPage = lazy(() => import("./pages/transport/UrgentReportPage"));
@@ -70,18 +85,24 @@ const PatternsPage = lazy(() => import("./pages/transport/PatternsPage"));
 const MyReportsPage = lazy(() => import("./pages/transport/MyReportsPage"));
 const ReferralPage = lazy(() => import("./pages/transport/ReferralPage"));
 
-// Urban report pages - lazy loaded
+// ============================================
+// URBAN REPORT PAGES - Lazy loaded
+// ============================================
 const UrbanReportPage = lazy(() => import("./pages/UrbanReportPage"));
 const ManualReportPage = lazy(() => import("./pages/urban/ManualReportPage"));
 const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 
-// Analytics pages - lazy loaded
+// ============================================
+// ANALYTICS PAGES - Lazy loaded
+// ============================================
 const AnalyticsDashboard = lazy(() => import("./pages/analytics/AnalyticsDashboard"));
 const AdvancedAnalytics = lazy(() => import("./pages/analytics/AdvancedAnalytics"));
 const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
 const PublicDashboards = lazy(() => import("./pages/analytics/PublicDashboards"));
 
-// Admin pages - lazy loaded
+// ============================================
+// ADMIN PAGES - Lazy loaded (separate bundle)
+// ============================================
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
@@ -93,29 +114,70 @@ const N8NIntegration = lazy(() => import("./pages/admin/settings/N8NIntegration"
 const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"));
 const AccessibilitySettings = lazy(() => import("./pages/admin/settings/AccessibilitySettings"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
-const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 
-// Settings pages - lazy loaded
+// ============================================
+// OTHER PAGES - Lazy loaded
+// ============================================
+const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
 
-const AppContent = () => {
-  const { isMenuOpen, closeMenu } = useMenu();
+// Prefetch common routes on app load
+const RoutePrefetcher = () => {
+  const { prefetchMultiple } = usePrefetch();
+  const location = useLocation();
 
+  useEffect(() => {
+    // Prefetch common routes after initial render
+    const timer = setTimeout(() => {
+      prefetchMultiple([
+        "/profile",
+        "/notifications",
+        "/audiencias",
+      ]);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [prefetchMultiple]);
+
+  // Prefetch related routes based on current location
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (location.pathname === "/") {
+        prefetchMultiple(["/search", "/favoritos", "/conversas"]);
+      } else if (location.pathname.startsWith("/transporte")) {
+        prefetchMultiple(["/transporte/novo", "/transporte/meus-relatos"]);
+      } else if (location.pathname.startsWith("/institucional")) {
+        prefetchMultiple([
+          "/institucional/agenda",
+          "/institucional/vereadores",
+          "/institucional/noticias",
+        ]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [location.pathname, prefetchMultiple]);
+
+  return null;
+};
+
+const AppContent = () => {
   return (
     <>
-      <Suspense fallback={<PageLoader />}>
+      <RoutePrefetcher />
+      <AppLayout>
         <Routes>
-          {/* Main route - Home (ex-IA) */}
+          {/* Main route - Home */}
           <Route path="/" element={<Home />} />
           
-          {/* Auth routes */}
+          {/* Auth routes - No layout header */}
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
           
-          {/* Profile routes */}
+          {/* Profile routes - Critical page loaded immediately */}
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/personal" element={<PersonalInfoPage />} />
           <Route path="/profile/interests" element={<InterestsPage />} />
@@ -123,6 +185,9 @@ const AppContent = () => {
           <Route path="/profile/address" element={<AddressPage />} />
           <Route path="/profile/preferences" element={<PreferencesPage />} />
           <Route path="/settings/accessibility" element={<AccessibilityPage />} />
+          
+          {/* Notifications - Critical page loaded immediately */}
+          <Route path="/notifications" element={<Notifications />} />
           
           {/* Citizen routes */}
           <Route path="/search" element={<SearchPage />} />
@@ -142,7 +207,6 @@ const AppContent = () => {
           <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
           <Route path="/institucional/noticias" element={<Noticias />} />
           <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
-          <Route path="/notifications" element={<Notifications />} />
           
           {/* Services routes */}
           <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
@@ -203,8 +267,7 @@ const AppContent = () => {
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </Suspense>
-      <MenuDrawer isOpen={isMenuOpen} onClose={closeMenu} />
+      </AppLayout>
     </>
   );
 };
@@ -214,7 +277,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutos
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
