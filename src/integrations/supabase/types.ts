@@ -1678,39 +1678,51 @@ export type Database = {
         Row: {
           created_at: string
           email_notifications: boolean
+          font_size: string | null
           id: string
           newsletter: boolean
           profile_visibility: string
           push_notifications: boolean
+          reading_mode: boolean | null
           show_email: boolean
           show_phone: boolean
           sms_notifications: boolean
+          text_spacing: boolean | null
+          theme: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           email_notifications?: boolean
+          font_size?: string | null
           id?: string
           newsletter?: boolean
           profile_visibility?: string
           push_notifications?: boolean
+          reading_mode?: boolean | null
           show_email?: boolean
           show_phone?: boolean
           sms_notifications?: boolean
+          text_spacing?: boolean | null
+          theme?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           email_notifications?: boolean
+          font_size?: string | null
           id?: string
           newsletter?: boolean
           profile_visibility?: string
           push_notifications?: boolean
+          reading_mode?: boolean | null
           show_email?: boolean
           show_phone?: boolean
           sms_notifications?: boolean
+          text_spacing?: boolean | null
+          theme?: string | null
           updated_at?: string
           user_id?: string
         }
