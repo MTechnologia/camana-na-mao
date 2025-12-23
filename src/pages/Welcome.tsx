@@ -68,10 +68,7 @@ const Welcome = () => {
             alt="Brasão de São Paulo" 
             className="h-9 w-auto"
           />
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-foreground leading-tight">CÂMARA MUNICIPAL</span>
-            <span className="text-xs font-semibold text-foreground leading-tight">DE SÃO PAULO</span>
-          </div>
+          <span className="text-base font-bold text-foreground">Câmara na Mão</span>
         </div>
         <Button
           variant="ghost"
@@ -205,7 +202,7 @@ const Welcome = () => {
         {/* Footer text */}
         <div className="text-center mt-6 space-y-2">
           <p className="text-xs text-muted-foreground">
-            Câmara na Mão
+            Câmara Municipal de São Paulo
           </p>
           <button
             onClick={() => navigate("/docs/overview")}
