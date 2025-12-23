@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
+    <!-- AGGRESSIVE CACHE CONTROL - TEMPORARY -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <!-- Build timestamp for debugging -->
+    <meta name="build-timestamp" content="__BUILD_TIMESTAMP__" />
+    
     <title>Câmara na Mão - Participação Cidadã</title>
     <meta name="description" content="Aplicativo oficial da Câmara Municipal de São Paulo para participação cidadã" />
     <meta name="author" content="Câmara Municipal de São Paulo" />
@@ -114,7 +121,7 @@
         opacity: 0 !important;
       }
 
-      /* Make the shell an overlay so it can never appear "below" the app on scroll */
+      /* Make the shell an overlay so it can never appear “below” the app on scroll */
       #app-shell {
         position: fixed;
         inset: 0;
