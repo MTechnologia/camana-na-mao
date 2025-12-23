@@ -4,13 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
-    <!-- AGGRESSIVE CACHE CONTROL - TEMPORARY -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <!-- Build timestamp for debugging -->
-    <meta name="build-timestamp" content="__BUILD_TIMESTAMP__" />
-    
     <title>Câmara na Mão - Participação Cidadã</title>
     <meta name="description" content="Aplicativo oficial da Câmara Municipal de São Paulo para participação cidadã" />
     <meta name="author" content="Câmara Municipal de São Paulo" />
@@ -121,7 +114,7 @@
         opacity: 0 !important;
       }
 
-      /* Make the shell an overlay so it can never appear “below” the app on scroll */
+      /* Make the shell an overlay so it can never appear "below" the app on scroll */
       #app-shell {
         position: fixed;
         inset: 0;
@@ -171,48 +164,6 @@
     </div>
     
     <script>
-      // === EDITOR CACHE BUSTER (AGGRESSIVE - TEMPORARY) ===
-      // Detecta se está rodando dentro do editor Lovable e força URL única
-      (function() {
-        try {
-          var isInEditor = (
-            window.parent !== window || 
-            document.referrer.indexOf('lovable.dev/projects') !== -1 ||
-            window.location.hostname.indexOf('lovable.dev') !== -1
-          );
-          
-          // Também verifica se está em iframe
-          var isIframe = window.self !== window.top;
-          
-          // Log para diagnóstico
-          var debugMode = window.location.search.indexOf('debug') !== -1;
-          if (debugMode) {
-            console.log('[CACHE-BUSTER] isInEditor:', isInEditor);
-            console.log('[CACHE-BUSTER] isIframe:', isIframe);
-            console.log('[CACHE-BUSTER] referrer:', document.referrer);
-            console.log('[CACHE-BUSTER] hostname:', window.location.hostname);
-          }
-          
-          // Se está no editor E não tem o parâmetro _lvb, força reload com cache-bust
-          if ((isInEditor || isIframe) && window.location.search.indexOf('_lvb=') === -1) {
-            var url = new URL(window.location.href);
-            url.searchParams.set('_lvb', Date.now().toString());
-            
-            // Marca que já tentou uma vez nesta sessão para evitar loop
-            var sessionKey = 'lvb_bust_' + url.pathname;
-            if (!sessionStorage.getItem(sessionKey)) {
-              sessionStorage.setItem(sessionKey, '1');
-              if (debugMode) {
-                console.log('[CACHE-BUSTER] Forcing reload with:', url.toString());
-              }
-              window.location.replace(url.toString());
-            }
-          }
-        } catch(e) {
-          console.error('[CACHE-BUSTER] Error:', e);
-        }
-      })();
-      
       // Definitive App Shell removal (prevents it from ever showing on scroll)
       (function () {
         try {
