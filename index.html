@@ -105,25 +105,31 @@
         50% { transform: translateY(-6px); }
       }
       
-      /* Hide shell when React mounts - more robust */
+      /* Hide shell when React mounts (CSS fallback) */
       #root:not(:empty) ~ #app-shell,
       #root:not(:empty) + #app-shell {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
       }
-      
+
+      /* Make the shell an overlay so it can never appear “below” the app on scroll */
+      #app-shell {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100vh;
+        overflow: hidden;
+        z-index: 9999;
+      }
+
       /* Ensure root always has a neutral background */
       #root {
         min-height: 100vh;
         background: #ffffff;
       }
-      
-      #root:empty {
-        display: none;
-      }
-      
-      /* Prevent overscroll from revealing shell */
+
+      /* Prevent overscroll from revealing anything behind the app */
       html, body {
         overscroll-behavior: none;
         background: #ffffff;
@@ -156,6 +162,43 @@
       </div>
     </div>
     
+    <script>
+      // Definitive App Shell removal (prevents it from ever showing on scroll)
+      (function () {
+        try {
+          var root = document.getElementById('root');
+          var shell = document.getElementById('app-shell');
+          if (!root || !shell) return;
+
+          function hideShell() {
+            if (shell.getAttribute('data-hidden') === 'true') return;
+            shell.setAttribute('data-hidden', 'true');
+            shell.style.display = 'none';
+            shell.style.visibility = 'hidden';
+            shell.style.opacity = '0';
+          }
+
+          function check() {
+            if (root.childNodes && root.childNodes.length > 0) {
+              hideShell();
+            }
+          }
+
+          check();
+
+          var obs = new MutationObserver(function () {
+            check();
+          });
+          obs.observe(root, { childList: true, subtree: true });
+
+          // Safety: stop observing after mount window
+          setTimeout(function () {
+            try { obs.disconnect(); } catch (e) {}
+          }, 10000);
+        } catch (e) {}
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
