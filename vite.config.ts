@@ -3,24 +3,49 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
+// Build timestamp for cache busting
+const BUILD_TIMESTAMP = Date.now().toString();
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // AGGRESSIVE NO-CACHE HEADERS FOR DEVELOPMENT
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store',
+    },
   },
   plugins: [
     react(),
     mode === 'development' && componentTagger(),
+    // Plugin to replace build timestamp
+    {
+      name: 'build-timestamp',
+      transformIndexHtml(html: string) {
+        return html.replace('__BUILD_TIMESTAMP__', BUILD_TIMESTAMP);
+      },
+    },
   ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // Expose build timestamp to the app
+    '__BUILD_TIMESTAMP__': JSON.stringify(BUILD_TIMESTAMP),
+  },
   build: {
     rollupOptions: {
       output: {
+        // Force unique chunk names with timestamp
+        entryFileNames: `assets/[name]-${BUILD_TIMESTAMP}-[hash].js`,
+        chunkFileNames: `assets/[name]-${BUILD_TIMESTAMP}-[hash].js`,
+        assetFileNames: `assets/[name]-${BUILD_TIMESTAMP}-[hash].[ext]`,
         manualChunks: {
           // Vendor chunks - core libraries
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
