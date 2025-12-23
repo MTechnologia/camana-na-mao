@@ -24,6 +24,13 @@ const BuildStamp = () => {
   const hasDebugParam = typeof window !== 'undefined' && 
     new URLSearchParams(window.location.search).has('debug');
   
+  // Detectar se está no editor
+  const isInEditor = typeof window !== 'undefined' && (
+    window.self !== window.top ||
+    document.referrer.includes('lovable.dev/projects') ||
+    window.location.hostname.includes('lovable.app')
+  );
+  
   if (!isDev && !hasDebugParam) {
     return null;
   }
@@ -98,6 +105,12 @@ const BuildStamp = () => {
         <div className="flex justify-between">
           <span>Env:</span>
           <span className="text-foreground">{import.meta.env.MODE}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Editor:</span>
+          <span className={isInEditor ? "text-amber-500" : "text-foreground"}>
+            {isInEditor ? 'Sim' : 'Não'}
+          </span>
         </div>
         <div className="flex justify-between">
           <span>URL:</span>
