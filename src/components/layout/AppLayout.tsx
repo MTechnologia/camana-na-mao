@@ -5,7 +5,6 @@ import PageHeader from "@/components/ui/page-header";
 import { useMenu } from "@/contexts/MenuContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
-import BuildStamp from "@/components/debug/BuildStamp";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -122,9 +121,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       </AnimatePresence>
       
       <MenuDrawer isOpen={isMenuOpen} onClose={closeMenu} />
-      
-      {/* Debug: Build timestamp indicator */}
-      <BuildStamp />
     </>
   );
 };
