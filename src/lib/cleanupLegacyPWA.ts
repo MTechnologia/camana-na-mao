@@ -1,38 +1,60 @@
 /**
- * LIMPEZA AGRESSIVA DE PWA LEGADO
- * Versão "nuclear" - remove TUDO que pode estar cacheado
+ * Limpeza "nuclear" de PWA legado
+ * 
+ * Esta função é chamada no boot do app para:
+ * 1. Limpar todos os Service Workers legados
+ * 2. Limpar todas as caches
+ * 3. Limpar storages (localStorage/sessionStorage/IndexedDB)
+ * 4. Forçar reload se necessário
  */
 
-const CLEANUP_VERSION = '2.0.0'; // Incrementar para forçar nova limpeza
-const CLEANUP_KEY = 'cmsp_nuclear_cleanup';
-const BUILD_TIMESTAMP = typeof __BUILD_TIMESTAMP__ !== 'undefined' ? __BUILD_TIMESTAMP__ : Date.now().toString();
-
-// Declare global for TypeScript
+// Versão da limpeza - usar BUILD_TIMESTAMP para forçar por build
 declare const __BUILD_TIMESTAMP__: string;
 
+const BUILD_TS = typeof __BUILD_TIMESTAMP__ !== 'undefined' 
+  ? __BUILD_TIMESTAMP__ 
+  : Date.now().toString();
+
+const CLEANUP_VERSION = `nuclear-2.0-${BUILD_TS}`;
+const CLEANUP_KEY = '__cmsp_pwa_cleanup_state__';
+
 interface CleanupState {
+  isClean: boolean;
+  cleanedAt: string;
   version: string;
-  timestamp: string;
-  completed: boolean;
+  buildTimestamp: string;
 }
 
-function getCleanupState(): CleanupState | null {
+/**
+ * Detecta se está rodando dentro do editor Lovable
+ */
+const isInLovableEditor = (): boolean => {
+  try {
+    const isIframe = window.self !== window.top;
+    const hasEditorReferrer = document.referrer.includes('lovable.dev/projects');
+    const isPreviewDomain = window.location.hostname.includes('lovable.app');
+    return isIframe || hasEditorReferrer || isPreviewDomain;
+  } catch {
+    return false;
+  }
+};
+
+const getCleanupState = (): CleanupState | null => {
   try {
     const stored = localStorage.getItem(CLEANUP_KEY);
-    if (!stored) return null;
-    return JSON.parse(stored);
+    return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
   }
-}
+};
 
-function setCleanupState(state: CleanupState): void {
+const setCleanupState = (state: CleanupState): void => {
   try {
     localStorage.setItem(CLEANUP_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.error('[CMSP Nuclear] Erro ao salvar estado:', e);
+  } catch {
+    // Ignore storage errors
   }
-}
+};
 
 /**
  * Limpa TODOS os IndexedDB databases
@@ -45,13 +67,13 @@ async function clearAllIndexedDB(): Promise<number> {
       for (const db of databases) {
         if (db.name) {
           indexedDB.deleteDatabase(db.name);
-          console.info(`[CMSP Nuclear] IndexedDB deletado: ${db.name}`);
+          console.info(`[PWA Cleanup] IndexedDB deletado: ${db.name}`);
           count++;
         }
       }
     }
   } catch (e) {
-    console.warn('[CMSP Nuclear] Erro ao limpar IndexedDB:', e);
+    console.warn('[PWA Cleanup] Erro ao limpar IndexedDB:', e);
   }
   return count;
 }
@@ -66,12 +88,12 @@ async function clearAllCaches(): Promise<number> {
       const cacheKeys = await caches.keys();
       for (const key of cacheKeys) {
         await caches.delete(key);
-        console.info(`[CMSP Nuclear] Cache deletado: ${key}`);
+        console.info(`[PWA Cleanup] Cache deletado: ${key}`);
         count++;
       }
     }
   } catch (e) {
-    console.warn('[CMSP Nuclear] Erro ao limpar caches:', e);
+    console.warn('[PWA Cleanup] Erro ao limpar caches:', e);
   }
   return count;
 }
@@ -86,12 +108,12 @@ async function unregisterAllServiceWorkers(): Promise<number> {
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (const registration of registrations) {
         await registration.unregister();
-        console.info(`[CMSP Nuclear] SW desregistrado: ${registration.scope}`);
+        console.info(`[PWA Cleanup] SW desregistrado: ${registration.scope}`);
         count++;
       }
     }
   } catch (e) {
-    console.warn('[CMSP Nuclear] Erro ao desregistrar SWs:', e);
+    console.warn('[PWA Cleanup] Erro ao desregistrar SWs:', e);
   }
   return count;
 }
@@ -111,185 +133,221 @@ function clearLocalStorage(): number {
         count++;
       }
     }
-    console.info(`[CMSP Nuclear] localStorage: ${count} itens removidos`);
+    console.info(`[PWA Cleanup] localStorage: ${count} itens removidos`);
   } catch (e) {
-    console.warn('[CMSP Nuclear] Erro ao limpar localStorage:', e);
+    console.warn('[PWA Cleanup] Erro ao limpar localStorage:', e);
   }
   return count;
 }
 
 /**
- * Limpa sessionStorage
+ * Limpa sessionStorage (exceto keys específicas)
  */
-function clearSessionStorage(): number {
+function clearSessionStorage(keysToKeep: string[] = []): number {
   let count = 0;
   try {
-    count = sessionStorage.length;
-    sessionStorage.clear();
-    console.info(`[CMSP Nuclear] sessionStorage: ${count} itens removidos`);
+    const allKeys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && !keysToKeep.includes(key)) {
+        allKeys.push(key);
+      }
+    }
+    allKeys.forEach(key => {
+      sessionStorage.removeItem(key);
+      count++;
+    });
+    console.info(`[PWA Cleanup] sessionStorage: ${count} itens removidos`);
   } catch (e) {
-    console.warn('[CMSP Nuclear] Erro ao limpar sessionStorage:', e);
+    console.warn('[PWA Cleanup] Erro ao limpar sessionStorage:', e);
   }
   return count;
 }
 
 /**
- * Força reload com bypass de cache completo
+ * Executa limpeza agressiva de PWA legado
+ * 
+ * @returns true se vai recarregar a página (caller deve abortar renderização)
  */
-function forceHardReload(): void {
-  console.info('[CMSP Nuclear] Forçando hard reload...');
+export const cleanupLegacyPWA = async (): Promise<boolean> => {
+  // Verificar se está em modo debug
+  const isDebug = window.location.search.includes('debug');
+  const isEditor = isInLovableEditor();
   
-  // Adicionar query param único para garantir novo download
-  const url = new URL(window.location.href);
-  url.searchParams.set('_cache_bust', Date.now().toString());
-  
-  // Tentar métodos diferentes de reload
-  try {
-    // Método 1: location.replace com cache bust
-    window.location.replace(url.toString());
-  } catch {
-    // Método 2: location.href
-    window.location.href = url.toString();
-  }
-}
-
-/**
- * Execução principal da limpeza nuclear
- */
-export async function cleanupLegacyPWA(): Promise<boolean> {
-  console.group('[CMSP Nuclear] Iniciando limpeza agressiva...');
-  console.info('Build:', BUILD_TIMESTAMP);
-  console.info('Cleanup Version:', CLEANUP_VERSION);
-  
-  // Verificar se já limpamos nesta versão
-  const state = getCleanupState();
-  if (state?.version === CLEANUP_VERSION && state?.completed) {
-    console.info('Limpeza já executada nesta versão. Pulando...');
-    console.groupEnd();
-    return false;
+  if (isDebug) {
+    console.log('[PWA Cleanup] Starting...');
+    console.log('[PWA Cleanup] BUILD_TIMESTAMP:', BUILD_TS);
+    console.log('[PWA Cleanup] CLEANUP_VERSION:', CLEANUP_VERSION);
+    console.log('[PWA Cleanup] isInLovableEditor:', isEditor);
   }
   
-  let totalCleaned = 0;
-  
   try {
-    // 1. Desregistrar todos os Service Workers
-    const swCount = await unregisterAllServiceWorkers();
-    totalCleaned += swCount;
+    const state = getCleanupState();
     
-    // 2. Limpar todos os caches
-    const cacheCount = await clearAllCaches();
-    totalCleaned += cacheCount;
+    // Verificar se já limpou ESTA versão específica
+    const alreadyCleanedThisVersion = state?.version === CLEANUP_VERSION && state?.buildTimestamp === BUILD_TS;
+    
+    // No editor, verificar também a sessão para evitar loops mas forçar limpeza em nova sessão
+    const sessionCleanedKey = `__cmsp_session_cleaned_${BUILD_TS}__`;
+    const sessionAlreadyCleaned = sessionStorage.getItem(sessionCleanedKey) === '1';
+    
+    if (isDebug) {
+      console.log('[PWA Cleanup] State:', state);
+      console.log('[PWA Cleanup] alreadyCleanedThisVersion:', alreadyCleanedThisVersion);
+      console.log('[PWA Cleanup] sessionAlreadyCleaned:', sessionAlreadyCleaned);
+    }
+    
+    // Se no editor e já limpou nesta sessão, não repetir (evita loop)
+    if (isEditor && sessionAlreadyCleaned) {
+      if (isDebug) console.log('[PWA Cleanup] Editor session already cleaned, skipping');
+      return false;
+    }
+    
+    // Se já limpou esta versão (em qualquer lugar), pular
+    if (alreadyCleanedThisVersion && !isEditor) {
+      if (isDebug) console.log('[PWA Cleanup] Already cleaned this version, skipping');
+      return false;
+    }
+    
+    console.log(`[PWA Cleanup] Executing cleanup for version ${CLEANUP_VERSION}`);
+    
+    // Marcar sessão como "em limpeza" para evitar loops
+    sessionStorage.setItem(sessionCleanedKey, '1');
+    
+    // 1. Desregistrar todos os Service Workers
+    const swCleared = await unregisterAllServiceWorkers();
+    
+    // 2. Limpar todas as caches
+    const cachesCleared = await clearAllCaches();
     
     // 3. Limpar IndexedDB
-    const idbCount = await clearAllIndexedDB();
-    totalCleaned += idbCount;
+    const idbCleared = await clearAllIndexedDB();
     
-    // 4. Limpar sessionStorage
-    const sessionCount = clearSessionStorage();
-    totalCleaned += sessionCount;
+    // 4. Limpar sessionStorage (exceto nossa flag de sessão)
+    clearSessionStorage([sessionCleanedKey]);
     
-    // 5. Limpar localStorage (exceto nosso controle)
-    const localCount = clearLocalStorage();
-    totalCleaned += localCount;
+    // 5. Limpar localStorage (exceto nosso estado)
+    clearLocalStorage();
     
-    console.info(`[CMSP Nuclear] Total de itens limpos: ${totalCleaned}`);
+    const anythingCleared = swCleared > 0 || cachesCleared > 0 || idbCleared > 0;
     
-    // Se limpamos algo significativo, marcar e recarregar
-    if (totalCleaned > 0) {
-      setCleanupState({
-        version: CLEANUP_VERSION,
-        timestamp: BUILD_TIMESTAMP,
-        completed: true,
-      });
+    console.log(`[PWA Cleanup] Results: SW=${swCleared}, Caches=${cachesCleared}, IDB=${idbCleared}`);
+    
+    // Salvar estado de limpeza
+    setCleanupState({
+      isClean: true,
+      cleanedAt: new Date().toISOString(),
+      version: CLEANUP_VERSION,
+      buildTimestamp: BUILD_TS,
+    });
+    
+    // Se limpou algo E não é a primeira vez nesta sessão com este build, recarregar
+    // (evita loop infinito mas garante que mudanças sejam aplicadas)
+    if (anythingCleared) {
+      console.log('[PWA Cleanup] Data cleared, forcing hard reload...');
       
-      console.info('[CMSP Nuclear] Limpeza completa! Forçando reload...');
-      console.groupEnd();
+      // Forçar reload limpo
+      const url = new URL(window.location.href);
+      url.searchParams.set('_bust', Date.now().toString());
       
       // Pequeno delay para garantir que logs apareçam
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      forceHardReload();
-      return true; // Vai recarregar
+      window.location.replace(url.toString());
+      return true;
     }
     
-    // Se não tinha nada para limpar, marcar como completo
-    setCleanupState({
-      version: CLEANUP_VERSION,
-      timestamp: BUILD_TIMESTAMP,
-      completed: true,
-    });
-    
-    console.info('[CMSP Nuclear] Nenhum cache legado encontrado.');
-    console.groupEnd();
+    if (isDebug) console.log('[PWA Cleanup] No data to clear, proceeding normally');
     return false;
     
-  } catch (err) {
-    console.error('[CMSP Nuclear] Erro durante limpeza:', err);
-    console.groupEnd();
+  } catch (error) {
+    console.error('[PWA Cleanup] Error:', error);
     return false;
   }
-}
+};
 
 /**
- * Log de diagnóstico completo para debug
+ * Log de diagnóstico de PWA (melhorado para debug)
  */
-export async function logPWADiagnostics(): Promise<void> {
-  console.group('[CMSP] Diagnóstico PWA');
-  console.info('Build Timestamp:', BUILD_TIMESTAMP);
-  console.info('Cleanup Version:', CLEANUP_VERSION);
-  console.info('URL:', window.location.href);
+export const logPWADiagnostics = async (): Promise<void> => {
+  const isDebug = window.location.search.includes('debug');
   
-  try {
-    // Service Worker status
-    if ('serviceWorker' in navigator) {
-      const controller = navigator.serviceWorker.controller;
-      console.info('SW Controller:', controller?.scriptURL || 'Nenhum');
-      
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      console.info('SW Registrations:', registrations.length);
-      registrations.forEach((reg, i) => {
-        console.info(`  [${i}] Scope: ${reg.scope}, Active: ${reg.active?.state}, Waiting: ${reg.waiting?.state || 'none'}`);
-      });
-    } else {
-      console.info('ServiceWorker não suportado');
-    }
-
-    // Caches
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      console.info('Caches:', keys.length > 0 ? keys : 'Nenhuma');
-    }
-
-    // Storage
-    console.info('localStorage items:', localStorage.length);
-    console.info('sessionStorage items:', sessionStorage.length);
-    
-    // Cleanup state
-    const state = getCleanupState();
-    console.info('Cleanup State:', state);
-    
-  } catch (err) {
-    console.error('Erro no diagnóstico:', err);
+  console.group('[PWA Diagnostics]');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('BUILD_TIMESTAMP:', BUILD_TS);
+  console.log('CLEANUP_VERSION:', CLEANUP_VERSION);
+  console.log('URL:', window.location.href);
+  console.log('Referrer:', document.referrer);
+  console.log('Is in iframe:', window.self !== window.top);
+  console.log('Is in Lovable Editor:', isInLovableEditor());
+  console.log('Cleanup State:', getCleanupState());
+  
+  // Service Workers
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    console.log('Service Workers:', registrations.length);
+    registrations.forEach((reg, i) => {
+      console.log(`  SW[${i}]: ${reg.scope} - active: ${!!reg.active}`);
+    });
   }
+  
+  // Caches
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    console.log('Caches:', cacheNames.length, cacheNames);
+  }
+  
+  // Storage estimate
+  if (navigator.storage?.estimate) {
+    const estimate = await navigator.storage.estimate();
+    console.log('Storage:', {
+      usage: `${Math.round((estimate.usage || 0) / 1024)}KB`,
+      quota: `${Math.round((estimate.quota || 0) / 1024 / 1024)}MB`,
+    });
+  }
+  
+  // localStorage keys
+  console.log('localStorage keys:', Object.keys(localStorage).length);
+  
+  // Meta tag de build
+  const buildMeta = document.querySelector('meta[name="build-timestamp"]');
+  console.log('Build meta tag:', buildMeta?.getAttribute('content'));
   
   console.groupEnd();
-}
+  
+  // Se debug mode, mostrar alerta visual
+  if (isDebug) {
+    console.log('%c[DEBUG MODE ACTIVE]', 'background: #DC0032; color: white; padding: 4px 8px; border-radius: 4px;');
+  }
+};
 
 /**
- * Força limpeza manual (para usar em debug/console)
+ * Força limpeza nuclear (para uso manual no console)
  */
-export async function forceNuclearCleanup(): Promise<void> {
-  console.warn('[CMSP Nuclear] FORÇANDO LIMPEZA MANUAL!');
+export const forceNuclearCleanup = async (): Promise<void> => {
+  console.log('[PWA Cleanup] Forcing nuclear cleanup...');
   
-  // Remover estado de cleanup para forçar nova execução
+  // Remove estado para forçar re-limpeza
   localStorage.removeItem(CLEANUP_KEY);
   
-  // Executar limpeza
+  // Limpa flags de sessão
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key?.includes('cmsp_session_cleaned') || key?.includes('lvb_bust')) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach(key => sessionStorage.removeItem(key));
+  
+  // Executa limpeza
   await cleanupLegacyPWA();
-}
+};
 
-// Expor no window para debug via console
+// Expor funções globalmente para debug via console
 if (typeof window !== 'undefined') {
-  (window as any).cmspNuclearCleanup = forceNuclearCleanup;
-  (window as any).cmspDiagnostics = logPWADiagnostics;
+  (window as any).forceNuclearCleanup = forceNuclearCleanup;
+  (window as any).logPWADiagnostics = logPWADiagnostics;
+  (window as any).BUILD_TIMESTAMP = BUILD_TS;
+  (window as any).CLEANUP_VERSION = CLEANUP_VERSION;
 }
