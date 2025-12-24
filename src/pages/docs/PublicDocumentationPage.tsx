@@ -9,7 +9,9 @@ const overviewContent = `
 
 ## Sumário Executivo
 
-O **Câmara na Mão** é uma plataforma digital inovadora desenvolvida pela Câmara Municipal de São Paulo para revolucionar a comunicação entre cidadãos e o poder legislativo municipal. Utilizando inteligência artificial conversacional, a plataforma oferece uma experiência unificada para participação cidadã, avaliação de serviços públicos e acompanhamento legislativo.
+O **Câmara na Mão** é uma plataforma digital inovadora desenvolvida pela Câmara Municipal de São Paulo para revolucionar a comunicação entre cidadãos e o poder legislativo municipal. Utilizando um **assistente virtual inteligente com arquitetura de tool-calling**, a plataforma oferece uma experiência unificada para participação cidadã, avaliação de serviços públicos e acompanhamento legislativo.
+
+> **Diferencial**: Um único agente conversacional que detecta automaticamente a intenção do cidadão e aciona a ferramenta apropriada, sem necessidade de navegação manual entre módulos.
 
 ---
 
@@ -26,10 +28,11 @@ A Câmara Municipal de São Paulo enfrenta desafios significativos na comunicaç
 
 ### 1.2 A Solução
 
-O Câmara na Mão oferece um **assistente virtual inteligente** que:
+O Câmara na Mão oferece um **assistente virtual unificado** que:
 
-- Centraliza todas as interações em uma interface conversacional
-- Guia cidadãos através de jornadas especializadas
+- Centraliza **todas** as interações em uma única interface conversacional
+- **Detecta automaticamente a intenção** do cidadão via IA generativa
+- Aciona **ferramentas especializadas** (tools) conforme a necessidade
 - Coleta e estrutura feedback de forma automatizada
 - Conecta demandas às comissões parlamentares apropriadas
 
@@ -37,30 +40,41 @@ O Câmara na Mão oferece um **assistente virtual inteligente** que:
 
 ## 2. Arquitetura do Sistema
 
-### 2.1 Visão Geral
+### 2.1 Visão Geral - Agente Unificado
 
 \`\`\`mermaid
 graph TB
-    subgraph "Camada de Apresentação"
-        A[App Mobile/Web] --> B[Interface Conversacional]
-        B --> C[Jornadas Especializadas]
+    subgraph "Interface Única"
+        A[App Mobile/Web] --> B[AgentChatLayout]
+        B --> C[Chat Conversacional]
+        B --> D[ContextualFeed]
+        B --> E[PromptChips]
     end
     
-    subgraph "Camada de Serviços"
-        D[API REST] --> E[Edge Functions]
-        E --> F[IA Generativa]
-        E --> G[Processamento N8N]
+    subgraph "Agente Unificado - AI Orchestrator"
+        F[AI Orchestrator] --> G{Detecção de Intenção}
+        G --> H[Tool Calling]
+    end
+    
+    subgraph "Ferramentas Especializadas"
+        H --> I[create_urban_report]
+        H --> J[create_transport_report]
+        H --> K[create_service_rating]
+        H --> L[search_knowledge_base]
+        H --> M[find_nearby_services]
+        H --> N[search_audiencias]
+        H --> O[suggest_council_member]
+        H --> P[get_citizen_history]
     end
     
     subgraph "Camada de Dados"
-        H[(PostgreSQL)] --> I[Knowledge Base]
-        H --> J[Manifestações]
-        H --> K[Perfis de Usuário]
+        Q[(PostgreSQL)] --> R[Knowledge Base]
+        Q --> S[Manifestações]
+        Q --> T[Perfis de Usuário]
     end
     
-    C --> D
-    F --> H
-    G --> H
+    C --> F
+    I & J & K & L & M & N & O & P --> Q
 \`\`\`
 
 ### 2.2 Stack Tecnológico
@@ -69,89 +83,144 @@ graph TB
 |--------|------------|-----------|
 | Frontend | React + TypeScript | Interface responsiva |
 | Estilização | Tailwind CSS | Design system consistente |
-| Backend | Edge Functions | Lógica serverless |
+| Backend | Supabase Edge Functions | Lógica serverless |
 | Banco de Dados | PostgreSQL | Persistência de dados |
-| IA | Modelos Generativos | Processamento de linguagem natural |
-| Automação | N8N | Workflows de integração |
+| IA | Lovable AI Gateway (Gemini/GPT) | Processamento de linguagem natural com tool-calling |
+| Automação | N8N | Workflows de integração externa |
+
+### 2.3 Arquitetura de Tool-Calling
+
+O **AI Orchestrator** é o cérebro do sistema. Ele recebe mensagens do cidadão e decide qual ferramenta acionar:
+
+1. **Recebe mensagem** do cidadão via chat
+2. **Analisa contexto** e histórico da conversa
+3. **Detecta intenção** usando patterns pré-definidos + inferência do LLM
+4. **Chama a tool apropriada** com parâmetros extraídos da conversa
+5. **Retorna resposta estruturada** ao cidadão
+
+\`\`\`mermaid
+flowchart LR
+    A[Mensagem do Cidadão] --> B{AI Orchestrator}
+    B --> C[Detecta Intenção]
+    C --> D[Extrai Parâmetros]
+    D --> E[Chama Tool]
+    E --> F[Executa Ação no Banco]
+    F --> G[Formata Resposta]
+    G --> H[Retorna ao Cidadão]
+\`\`\`
 
 ---
 
-## 3. Jornadas do Cidadão
+## 3. Capacidades do Assistente
 
-O Câmara na Mão oferece **5 jornadas especializadas** para atender diferentes necessidades:
+O assistente possui **8 ferramentas especializadas** que são acionadas automaticamente:
 
-### 3.1 Tudo Sobre a Câmara
+### 3.1 Ferramentas de Registro
 
-**Propósito**: Educação legislativa e informações institucionais
+| Tool | Descrição | Exemplos de Gatilho |
+|------|-----------|---------------------|
+| \`create_urban_report\` | Registra problemas urbanos (buracos, iluminação, lixo) | "Tem um buraco na Rua X", "Poste sem luz" |
+| \`create_transport_report\` | Relata problemas de transporte público | "Ônibus 875A sempre atrasado", "Problema no metrô" |
+| \`create_service_rating\` | Avalia serviços públicos visitados | "Quero avaliar a UBS", "Atendimento ruim na escola" |
 
-- Funcionamento da Câmara Municipal
-- Papel dos vereadores e comissões
-- Processo legislativo explicado
-- Notícias e agenda institucional
+### 3.2 Ferramentas de Busca
 
-### 3.2 Fala Cidadão!
+| Tool | Descrição | Exemplos de Gatilho |
+|------|-----------|---------------------|
+| \`search_knowledge_base\` | Consulta informações sobre a Câmara | "Como funciona a Câmara?", "O que faz um vereador?" |
+| \`find_nearby_services\` | Localiza serviços públicos próximos | "UBS mais próxima", "Onde tem CEU perto?" |
+| \`search_audiencias\` | Busca audiências públicas | "Próximas audiências sobre saúde", "Agenda da Câmara" |
+| \`get_citizen_history\` | Recupera histórico do cidadão | "Meus relatos", "O que já reportei?" |
 
-**Propósito**: Relatos urbanos e feedback sobre a Câmara
+### 3.3 Ferramentas de Recomendação
 
-- Problemas de infraestrutura urbana
-- Sugestões para o legislativo
-- Elogios e reclamações
-- Classificação automática por IA
-
-### 3.3 Transporte
-
-**Propósito**: Diagnóstico de problemas no transporte público
-
-- Relatos sobre linhas de ônibus/metrô
-- Detecção de padrões recorrentes
-- Encaminhamento para comissões relevantes
-- Acompanhamento de status
-
-### 3.4 Serviços
-
-**Propósito**: Descoberta de serviços públicos próximos
-
-- UBS, escolas, CEUs, hospitais
-- Geolocalização e filtros
-- Rotas e informações de contato
-- Avaliações de outros cidadãos
-
-### 3.5 Avaliar
-
-**Propósito**: Avaliação de serviços públicos visitados
-
-- Avaliação por estrelas e comentários
-- Análise de sentimento automatizada
-- Sugestão de encaminhamento a vereadores
-- Histórico de avaliações
+| Tool | Descrição | Exemplos de Gatilho |
+|------|-----------|---------------------|
+| \`suggest_council_member\` | Sugere vereadores por tema | "Qual vereador cuida de transporte?", "Quem procurar sobre saúde?" |
 
 ---
 
-## 4. Fluxo de Processamento
+## 4. Interface do Usuário
 
-### 4.1 Ciclo de Vida de uma Manifestação
+### 4.1 AgentChatLayout
+
+O componente principal que renderiza a experiência de chat:
+
+- **Header dinâmico** com nome do assistente e ações
+- **Sidebar de conversas** (em desktop) para histórico
+- **Área de chat centralizada** com streaming de respostas
+- **Input de mensagem** com suporte a anexos
+
+### 4.2 ContextualFeed
+
+Carousel informativo que exibe:
+
+- **Notícias recentes** da Câmara Municipal
+- **Próximas audiências públicas** relevantes
+- **Atualizações** baseadas nos interesses do cidadão
+- Atualização automática a cada 15 minutos
+
+### 4.3 PromptChips
+
+Botões de ação rápida que iniciam conversas direcionadas:
+
+| Chip | Ação |
+|------|------|
+| 🗣️ **Relatar problema** | Inicia fluxo de criação de manifestação |
+| ❓ **Tirar dúvida** | Consulta à base de conhecimento |
+| 📍 **Serviços próximos** | Busca geolocalizada |
+
+---
+
+## 5. Fluxo de Processamento
+
+### 5.1 Ciclo de Vida de uma Manifestação
 
 \`\`\`mermaid
 sequenceDiagram
     participant C as Cidadão
-    participant A as Assistente IA
-    participant B as Backend
+    participant UI as AgentChatLayout
+    participant O as AI Orchestrator
+    participant T as Tools
+    participant DB as PostgreSQL
     participant N as N8N
     participant G as Gestor CMS
     
-    C->>A: Inicia conversa
-    A->>C: Coleta informações naturalmente
-    A->>B: Salva manifestação estruturada
-    B->>N: Envia para processamento
+    C->>UI: "Tem um buraco na rua X"
+    UI->>O: POST /ai-orchestrator
+    O->>O: Detecta intenção: urban_report
+    O->>O: Extrai: category=buraco, location=rua X
+    O->>T: create_urban_report(params)
+    T->>DB: INSERT urban_reports
+    T-->>O: {id: "abc123", status: "created"}
+    O-->>UI: "Seu relato foi registrado! Protocolo: abc123"
+    UI->>C: Exibe confirmação + card de sucesso
+    DB->>N: Trigger: novo relato
     N->>N: Valida, categoriza, prioriza
-    N->>B: Retorna dados enriquecidos
-    B->>G: Disponibiliza no CMS
+    N->>DB: UPDATE com dados enriquecidos
+    G->>DB: Consulta manifestações
     G->>C: Responde/Encaminha
 \`\`\`
 
-### 4.2 Integração N8N
+### 5.2 Detecção de Intenção
 
-O N8N processa automaticamente cada manifestação:
+O sistema usa uma combinação de:
+
+1. **Patterns pré-definidos** (regex e keywords)
+2. **Inferência do LLM** para casos ambíguos
+3. **Contexto da conversa** para refinamento
+
+\`\`\`
+Exemplo de Patterns:
+- "buraco|cratera|asfalto" → create_urban_report (category: buraco)
+- "ônibus|metro|trem|linha" → create_transport_report
+- "avaliar|nota|estrela" → create_service_rating
+- "próximo|perto|onde tem" → find_nearby_services
+\`\`\`
+
+### 5.3 Integração N8N
+
+O N8N processa automaticamente cada manifestação após criação:
 
 1. **Validação**: Verifica completude dos dados
 2. **Categorização**: Classifica por tema e área
@@ -161,48 +230,49 @@ O N8N processa automaticamente cada manifestação:
 
 ---
 
-## 5. Área Administrativa (CMS)
+## 6. Área Administrativa (CMS)
 
-### 5.1 Módulos do CMS
+### 6.1 Módulos do CMS
 
 O painel administrativo oferece gestão completa:
 
 | Módulo | Funcionalidade |
 |--------|----------------|
 | **Dashboard** | KPIs e métricas em tempo real |
-| **Manifestações** | Gestão unificada com Kanban |
-| **Encaminhamentos** | Sistema de referral a comissões |
-| **Análise de Sentimento** | Visualização de tendências |
-| **Analytics** | Dashboards e relatórios avançados |
-| **Usuários** | Gestão de perfis e permissões |
-| **Logs de Auditoria** | Rastreabilidade de ações |
+| **Manifestações** | Gestão unificada com Kanban (urbanos + transporte + avaliações) |
+| **Encaminhamentos** | Sistema de referral a vereadores e comissões |
+| **Análise de Sentimento** | Visualização de tendências e drivers |
+| **Analytics** | Dashboards personalizáveis e exportação |
+| **Usuários** | Gestão de perfis e permissões (RBAC) |
+| **Logs de Auditoria** | Rastreabilidade completa de ações |
 
-### 5.2 Gestão de Manifestações
+### 6.2 Gestão de Manifestações
 
 \`\`\`mermaid
 stateDiagram-v2
     [*] --> Pendente: Nova manifestação
     Pendente --> EmAnalise: Gestor abre
-    EmAnalise --> Encaminhado: Envia para comissão
+    EmAnalise --> Encaminhado: Envia para vereador
     EmAnalise --> Respondido: Resposta direta
-    Encaminhado --> Resolvido: Comissão atua
+    Encaminhado --> Resolvido: Vereador atua
     Respondido --> Resolvido: Cidadão satisfeito
     Resolvido --> [*]
 \`\`\`
 
 ---
 
-## 6. Integrações Externas
+## 7. Integrações Externas
 
-### 6.1 Fontes de Dados
+### 7.1 Fontes de Dados
 
 | Sistema | Dados | Frequência |
 |---------|-------|------------|
 | SP Legis | Vereadores, comissões, projetos | Diária |
 | Portal CMSP | Notícias, agenda, audiências | A cada 15min |
 | APIs Municipais | Serviços públicos geolocalizados | Sob demanda |
+| Knowledge Base | Embeddings vetoriais para RAG | Atualização contínua |
 
-### 6.2 Notificações
+### 7.2 Notificações
 
 - **Push**: Atualizações de manifestações
 - **Email**: Resumos e confirmações
@@ -210,16 +280,17 @@ stateDiagram-v2
 
 ---
 
-## 7. Segurança e LGPD
+## 8. Segurança e LGPD
 
-### 7.1 Proteção de Dados
+### 8.1 Proteção de Dados
 
 - **Criptografia**: Dados sensíveis em repouso e trânsito
-- **Anonimização**: Dados demográficos agregados
+- **Anonimização**: Dados demográficos agregados após 90 dias
 - **Minimização**: Coleta apenas do necessário
 - **Retenção**: Políticas de expiração definidas
+- **RLS**: Row Level Security em todas as tabelas
 
-### 7.2 Direitos do Cidadão
+### 8.2 Direitos do Cidadão
 
 O sistema garante conformidade com a LGPD:
 
@@ -231,56 +302,69 @@ O sistema garante conformidade com a LGPD:
 
 ---
 
-## 8. Métricas de Sucesso
+## 9. Métricas de Sucesso
 
-### 8.1 Indicadores de Engajamento
+### 9.1 Indicadores de Engajamento
 
 | Métrica | Meta | Descrição |
 |---------|------|-----------|
 | Usuários ativos mensais | 50.000+ | Cidadãos usando a plataforma |
-| Taxa de conclusão de jornadas | 70%+ | Fluxos completados com sucesso |
+| Taxa de conclusão de conversas | 80%+ | Interações que resultam em ação |
 | NPS | 60+ | Satisfação do cidadão |
 | Tempo médio de resposta | <48h | Agilidade no atendimento |
 
-### 8.2 Indicadores Operacionais
+### 9.2 Indicadores Operacionais
 
 | Métrica | Meta | Descrição |
 |---------|------|-----------|
 | Manifestações processadas/dia | 500+ | Volume de demandas |
-| Taxa de categorização automática | 90%+ | Eficiência da IA |
+| Taxa de detecção automática | 95%+ | Precisão do AI Orchestrator |
 | Encaminhamentos bem-sucedidos | 80%+ | Precisão do roteamento |
+| Tempo de resposta da IA | <3s | Performance do tool-calling |
 
 ---
 
-## 9. Roadmap
+## 10. Roadmap
 
-### Fase 1: MVP (Atual)
-- ✅ Interface conversacional
-- ✅ 5 jornadas especializadas
-- ✅ CMS administrativo
+### Fase 1: MVP (Atual) ✅
+
+- ✅ **Agente unificado com tool-calling** (AI Orchestrator)
+- ✅ Interface conversacional única (AgentChatLayout)
+- ✅ 8 ferramentas especializadas implementadas
+- ✅ ContextualFeed e PromptChips
+- ✅ CMS administrativo completo
 - ✅ Integração N8N
 
-### Fase 2: Expansão
-- 🔄 App mobile nativo (Flutter)
-- 🔄 Integração com sistemas legados
-- 🔄 Analytics avançados com BI
+### Fase 2: Expansão 🔄
 
-### Fase 3: Evolução
+- 🔄 Sistema de notificações progressivo
+- 🔄 App mobile nativo (Flutter)
+- 🔄 Analytics avançados com BI
+- 🔄 Integração com sistemas legados
+
+### Fase 3: Evolução 📋
+
 - 📋 IA preditiva para demandas
-- 📋 Assistente de voz
+- 📋 Assistente de voz nativo
 - 📋 Gamificação de participação
+- 📋 Expansão para outros municípios
 
 ---
 
-## 10. Glossário
+## 11. Glossário
 
 | Termo | Definição |
 |-------|-----------|
-| **Manifestação** | Qualquer comunicação do cidadão (relato, avaliação, sugestão) |
-| **Jornada** | Fluxo conversacional especializado para um propósito |
-| **Comissão** | Grupo parlamentar temático que recebe encaminhamentos |
-| **Encaminhamento** | Direcionamento de manifestação para comissão relevante |
+| **Tool-Calling** | Mecanismo pelo qual o LLM aciona funções específicas baseado na intenção detectada |
+| **Agente Unificado** | Assistente único que centraliza todas as interações, sem módulos separados |
+| **AI Orchestrator** | Edge Function central que processa todas as mensagens do chat |
+| **ContextualFeed** | Componente que exibe notícias e audiências relevantes em carousel |
+| **PromptChips** | Botões de ação rápida para iniciar conversas direcionadas |
+| **Manifestação** | Qualquer comunicação do cidadão (relato urbano, transporte, avaliação) |
+| **Encaminhamento** | Direcionamento de manifestação para vereador/comissão relevante |
 | **Gestor** | Funcionário da CMSP que administra o sistema |
+| **RLS** | Row Level Security - controle de acesso a nível de linha no banco |
+| **RAG** | Retrieval-Augmented Generation - busca + geração de resposta |
 
 ---
 
