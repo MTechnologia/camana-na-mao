@@ -18,6 +18,150 @@ const COMMISSION_THEMES: Record<string, string[]> = {
   'assistencia_social': ['social', 'vulnerabilidade', 'morador_rua', 'fome', 'abrigo'],
 };
 
+// Intent detection for collection progress tracking
+type CollectionIntent = {
+  type: 'urban_report' | 'transport_report' | 'service_rating';
+  fields: Record<string, any>;
+};
+
+function detectCollectionIntent(
+  userMessage: string, 
+  conversationHistory: Array<{ role: string; content: string }>
+): CollectionIntent | null {
+  const msgLower = userMessage.toLowerCase();
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Combine recent context
+  const recentContext = conversationHistory.slice(-6).map(m => m.content.toLowerCase()).join(' ');
+  const fullContext = `${recentContext} ${msgLower}`;
+  
+  // Transport report detection
+  const transportKeywords = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'transporte', 'linha', 'ponto de ônibus', 'estação'];
+  const hasTransportIntent = transportKeywords.some(kw => fullContext.includes(kw));
+  
+  if (hasTransportIntent) {
+    const fields: Record<string, any> = {};
+    
+    // Detect report_type
+    if (fullContext.includes('atraso') || fullContext.includes('atrasou') || fullContext.includes('demora')) {
+      fields.report_type = 'atraso';
+    } else if (fullContext.includes('lotad') || fullContext.includes('chei') || fullContext.includes('superlotad')) {
+      fields.report_type = 'lotacao';
+    } else if (fullContext.includes('segurança') || fullContext.includes('assalto') || fullContext.includes('roubo')) {
+      fields.report_type = 'seguranca';
+    } else if (fullContext.includes('sujo') || fullContext.includes('limpeza') || fullContext.includes('fedendo')) {
+      fields.report_type = 'limpeza';
+    } else if (fullContext.includes('acessib') || fullContext.includes('cadeirante') || fullContext.includes('elevador')) {
+      fields.report_type = 'acessibilidade';
+    }
+    
+    // Detect line
+    const lineMatch = fullContext.match(/linha\s*(\d{3,4}[a-z]?[-/]?\d*)/i);
+    if (lineMatch) fields.line_code = lineMatch[1].toUpperCase();
+    
+    // Detect date
+    if (fullContext.includes('hoje') || fullContext.includes('agora') || fullContext.includes('acabou de')) {
+      fields.occurrence_date = today;
+    } else if (fullContext.includes('ontem')) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      fields.occurrence_date = yesterday.toISOString().split('T')[0];
+    }
+    
+    // Detect time
+    const timeMatch = fullContext.match(/(\d{1,2})[h:](\d{2})?/);
+    if (timeMatch) {
+      fields.occurrence_time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
+    } else if (fullContext.includes('manhã') || fullContext.includes('cedo')) {
+      fields.occurrence_time = '08:00';
+    } else if (fullContext.includes('tarde')) {
+      fields.occurrence_time = '14:00';
+    } else if (fullContext.includes('noite')) {
+      fields.occurrence_time = '19:00';
+    }
+    
+    return { type: 'transport_report', fields };
+  }
+  
+  // Urban report detection
+  const urbanKeywords = ['buraco', 'poste', 'luz', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'mato', 'praça', 'praca', 'rua', 'avenida'];
+  const hasUrbanIntent = urbanKeywords.some(kw => fullContext.includes(kw));
+  
+  if (hasUrbanIntent) {
+    const fields: Record<string, any> = {};
+    
+    // Detect category
+    if (fullContext.includes('poste') || fullContext.includes('luz') || fullContext.includes('escuro') || fullContext.includes('iluminaç')) {
+      fields.category = 'iluminacao';
+    } else if (fullContext.includes('buraco') || fullContext.includes('asfalto') || fullContext.includes('rua') || fullContext.includes('avenida')) {
+      fields.category = 'via_publica';
+    } else if (fullContext.includes('calçada') || fullContext.includes('calcada') || fullContext.includes('passeio')) {
+      fields.category = 'calcada';
+    } else if (fullContext.includes('lixo') || fullContext.includes('entulho') || fullContext.includes('sujeira')) {
+      fields.category = 'lixo';
+    } else if (fullContext.includes('árvore') || fullContext.includes('arvore') || fullContext.includes('poda') || fullContext.includes('praça') || fullContext.includes('praca') || fullContext.includes('mato')) {
+      fields.category = 'area_verde';
+    }
+    
+    // Detect location (street names)
+    const locationPatterns = [
+      /(?:rua|avenida|av\.?|alameda|travessa|praça|largo)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i,
+      /(?:na|no|em)\s+(?:rua|avenida|av\.?)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i
+    ];
+    
+    for (const pattern of locationPatterns) {
+      const match = fullContext.match(pattern);
+      if (match) {
+        fields.location_address = match[0].trim();
+        break;
+      }
+    }
+    
+    return { type: 'urban_report', fields };
+  }
+  
+  // Service rating detection
+  const ratingKeywords = ['avaliar', 'avaliação', 'avaliacao', 'nota', 'estrela', 'reclamar de', 'elogiar', 'atendimento'];
+  const serviceKeywords = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto de saúde', 'posto de saude', 'centro esportivo'];
+  const hasRatingIntent = ratingKeywords.some(kw => fullContext.includes(kw)) && serviceKeywords.some(kw => fullContext.includes(kw));
+  
+  if (hasRatingIntent) {
+    const fields: Record<string, any> = {};
+    
+    // Detect service type
+    if (fullContext.includes('ubs') || fullContext.includes('posto de saúde') || fullContext.includes('posto de saude')) {
+      fields.service_type = 'ubs';
+    } else if (fullContext.includes('hospital')) {
+      fields.service_type = 'hospital';
+    } else if (fullContext.includes('escola')) {
+      fields.service_type = 'school';
+    } else if (fullContext.includes('ceu')) {
+      fields.service_type = 'ceu';
+    } else if (fullContext.includes('biblioteca')) {
+      fields.service_type = 'library';
+    } else if (fullContext.includes('centro esportivo') || fullContext.includes('esporte')) {
+      fields.service_type = 'sports_center';
+    }
+    
+    // Detect rating
+    const starsMatch = fullContext.match(/(\d)\s*(?:estrela|nota)/);
+    if (starsMatch) {
+      fields.rating_stars = parseInt(starsMatch[1]);
+    }
+    
+    // Detect sentiment
+    if (fullContext.includes('péssim') || fullContext.includes('horrível') || fullContext.includes('ruim')) {
+      fields.sentiment = 'negative';
+    } else if (fullContext.includes('bom') || fullContext.includes('ótim') || fullContext.includes('excelente') || fullContext.includes('elogiar')) {
+      fields.sentiment = 'positive';
+    }
+    
+    return { type: 'service_rating', fields };
+  }
+  
+  return null;
+}
+
 // Unified tools for all citizen actions
 const tools = [
   {
@@ -971,7 +1115,14 @@ serve(async (req) => {
       });
     }
 
-    // No tool call - stream regular response
+    // No tool call - detect collection intent and inject marker
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
+    const collectionIntent = lastUserMessage 
+      ? detectCollectionIntent(lastUserMessage.content, messages)
+      : null;
+    
+    console.log('[ai-orchestrator] Collection intent detected:', collectionIntent);
+
     const streamResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -1003,6 +1154,34 @@ serve(async (req) => {
         })
         .eq('id', conversationId)
         .eq('user_id', user.id);
+    }
+
+    // If collection intent detected, inject marker at the start of stream
+    if (collectionIntent && Object.keys(collectionIntent.fields).length > 0) {
+      const reader = streamResponse.body!.getReader();
+      const encoder = new TextEncoder();
+      const marker = `[COLLECTION_PROGRESS:${collectionIntent.type}:${JSON.stringify(collectionIntent.fields)}]`;
+      console.log('[ai-orchestrator] Injecting collection marker:', marker);
+      
+      const customStream = new ReadableStream({
+        async start(controller) {
+          // Inject collection progress marker at the start
+          const markerData = `data: ${JSON.stringify({ choices: [{ delta: { content: marker } }] })}\n\n`;
+          controller.enqueue(encoder.encode(markerData));
+          
+          // Stream the rest of the AI response
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        }
+      });
+
+      return new Response(customStream, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
     }
 
     return new Response(streamResponse.body, {
