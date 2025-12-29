@@ -171,7 +171,7 @@ const AgentChatArea = () => {
                 <div className="flex items-center justify-center gap-2">
                   <Sparkles className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium text-muted-foreground">
-                    Como posso ajudar?
+                    Sobre o que deseja falar?
                   </span>
                 </div>
                 
