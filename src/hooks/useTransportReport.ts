@@ -6,7 +6,7 @@ interface ReportData {
   line_id?: string;
   line_code_custom?: string;
   report_type: string;
-  severity: string;
+  severity?: string;
   description?: string;
   occurrence_date: string;
   occurrence_time?: string;
@@ -29,6 +29,7 @@ export const useTransportReport = () => {
         .from('transport_reports')
         .insert({
           ...reportData,
+          severity: reportData.severity || 'pending', // Default até N8N classificar
           user_id: user.id,
         })
         .select()

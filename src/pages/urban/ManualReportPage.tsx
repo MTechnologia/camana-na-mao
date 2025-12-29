@@ -197,7 +197,7 @@ export default function ManualReportPage() {
         category: formData.category,
         subcategory: formData.title,
         description: formData.description,
-        severity: "medium",
+        severity: null, // Será classificado pelo N8N
         location_address: formData.location || null,
         latitude: formData.latitude,
         longitude: formData.longitude,
