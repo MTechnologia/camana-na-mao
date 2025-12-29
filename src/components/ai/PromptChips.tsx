@@ -8,15 +8,18 @@ import {
   MoreHorizontal 
 } from "lucide-react";
 
+export type CollectionTypePreset = 'urban_report' | 'transport_report' | 'service_rating' | null;
+
 interface PromptChip {
   id: string;
   label: string;
   message: string;
   icon: React.ElementType;
+  collectionType: CollectionTypePreset;
 }
 
 interface PromptChipsProps {
-  onSelect: (message: string) => void;
+  onSelect: (message: string, collectionType?: CollectionTypePreset) => void;
   onOpenDiscovery?: () => void;
 }
 
@@ -26,30 +29,35 @@ const chips: PromptChip[] = [
     label: "Problema urbano",
     message: "Quero relatar um problema na minha cidade",
     icon: Building2,
+    collectionType: "urban_report",
   },
   {
     id: "transport",
     label: "Transporte",
     message: "Quero reclamar de um problema no transporte público",
     icon: Bus,
+    collectionType: "transport_report",
   },
   {
     id: "evaluate",
     label: "Avaliar serviço",
     message: "Quero avaliar um serviço público que usei",
     icon: Star,
+    collectionType: "service_rating",
   },
   {
     id: "services",
     label: "Serviços próximos",
     message: "Quais serviços públicos ficam perto de mim?",
     icon: MapPin,
+    collectionType: null,
   },
   {
     id: "question",
     label: "Tirar dúvida",
     message: "Tenho uma dúvida sobre a Câmara",
     icon: HelpCircle,
+    collectionType: null,
   },
 ];
 
@@ -61,7 +69,7 @@ const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
         return (
           <motion.button
             key={chip.id}
-            onClick={() => onSelect(chip.message)}
+            onClick={() => onSelect(chip.message, chip.collectionType)}
             className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full bg-secondary/80 hover:bg-secondary border border-border hover:border-primary/30 text-xs sm:text-sm font-medium text-foreground hover:text-primary transition-all duration-200"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
