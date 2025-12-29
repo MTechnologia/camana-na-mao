@@ -231,16 +231,18 @@ Como posso ajudar?`,
           if (content) {
             assistantMessage += content;
             
-            // Check for collection progress markers
-            const progressMatch = assistantMessage.match(/\[COLLECTION_PROGRESS:(\w+):(\{[^}]+\})\]/);
-            if (progressMatch) {
+            // Check for collection progress markers (robust parsing)
+            const progressRegex = /\[COLLECTION_PROGRESS:(\w+):(\{[^\]]*\})\]/g;
+            let progressMatch;
+            while ((progressMatch = progressRegex.exec(assistantMessage)) !== null) {
               const type = progressMatch[1] as CollectionType;
               try {
                 const fields = JSON.parse(progressMatch[2]);
+                console.log('[useUnifiedAIChat] Collection progress detected:', type, fields);
                 setCollectionType(type);
                 setCollectedFields(prev => ({ ...prev, ...fields }));
               } catch (e) {
-                console.warn('Failed to parse collection progress:', e);
+                console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressMatch[2], e);
               }
             }
             
@@ -278,12 +280,12 @@ Como posso ajudar?`,
               });
             }
             
-            // Remove all markers from displayed message
+            // Remove all markers from displayed message (robust regex)
             const displayMessage = assistantMessage
               .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
-              .replace(/\[COLLECTION_PROGRESS:\w+:\{[^}]+\}]/g, '')
+              .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
               .trim();
             
             setMessages((prev) => {
