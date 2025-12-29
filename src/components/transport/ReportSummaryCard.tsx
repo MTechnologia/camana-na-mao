@@ -1,7 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit2, Check } from 'lucide-react';
-import { transportProblems, severityLevels } from '@/data/transportProblems';
+import { Edit2, Check, Sparkles } from 'lucide-react';
+import { transportProblems } from '@/data/transportProblems';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -10,7 +10,6 @@ interface ReportSummaryCardProps {
     line_code?: string;
     line_name?: string;
     report_type: string;
-    severity: string;
     occurrence_date: string;
     occurrence_time?: string;
     location?: string;
@@ -23,8 +22,6 @@ interface ReportSummaryCardProps {
 
 export const ReportSummaryCard = ({ data, onEdit, onConfirm, loading }: ReportSummaryCardProps) => {
   const problem = transportProblems.find(p => p.id === data.report_type);
-  const severityIndex = severityLevels.findIndex(s => s.value === data.severity);
-  const severity = severityLevels[severityIndex >= 0 ? severityIndex : 1];
 
   return (
     <Card className="border-2">
@@ -42,14 +39,6 @@ export const ReportSummaryCard = ({ data, onEdit, onConfirm, loading }: ReportSu
           <div>
             <span className="text-sm text-muted-foreground">Problema:</span>
             <p className="font-medium">{problem?.label}</p>
-          </div>
-
-          <div>
-            <span className="text-sm text-muted-foreground">Gravidade:</span>
-            <div className="flex items-center gap-2 mt-1">
-              <div className={`w-3 h-3 rounded-full ${severity.color}`} />
-              <span className="font-medium">{severity.label}</span>
-            </div>
           </div>
 
           <div>
@@ -73,6 +62,15 @@ export const ReportSummaryCard = ({ data, onEdit, onConfirm, loading }: ReportSu
               <p className="text-sm">{data.description}</p>
             </div>
           )}
+
+          {/* Aviso sobre classificação por IA */}
+          <div className="bg-muted/50 rounded-lg p-3 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              A prioridade do seu relato será determinada automaticamente pela nossa IA 
+              com base no tipo de problema e contexto informado.
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-4">

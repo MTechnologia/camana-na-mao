@@ -60,15 +60,20 @@ serve(async (req) => {
       );
     }
 
-    // Build webhook payload
+    // Build webhook payload - severity será classificado pelo N8N
     const callbackUrl = `${supabaseUrl}/functions/v1/n8n-callback`;
+    const reportDataWithoutUserSeverity = { ...payload.report_data };
+    // Remove severity definida pelo usuário - N8N é quem classifica
+    delete (reportDataWithoutUserSeverity as any).severity;
+    
     const webhookPayload = {
       event: payload.event,
       timestamp: new Date().toISOString(),
       report: {
         id: payload.report_id,
         type: payload.report_type,
-        ...payload.report_data
+        severity_pending_classification: true, // Flag para N8N saber que deve classificar
+        ...reportDataWithoutUserSeverity
       },
       user: {
         id: payload.user_id ? payload.user_id.substring(0, 8) + '...' : 'anonymous'

@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { LineSearchInput } from '@/components/transport/LineSearchInput';
 import { ProblemTypeSelector } from '@/components/transport/ProblemTypeSelector';
-import { SeveritySlider } from '@/components/transport/SeveritySlider';
 import { ReportSummaryCard } from '@/components/transport/ReportSummaryCard';
 import { ReportSuccessCard } from '@/components/shared/ReportSuccessCard';
 import { PatternAlert } from '@/components/transport/PatternAlert';
@@ -15,16 +14,13 @@ import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
-import { severityLevels } from '@/data/transportProblems';
 
 export default function NewReportPage() {
   const navigate = useNavigate();
   const { submitReport, submitting } = useTransportReport();
   const { patterns } = useReportPatterns();
   const [step, setStep] = useState(1);
-  const [reportData, setReportData] = useState<any>({
-    severity: 1,
-  });
+  const [reportData, setReportData] = useState<any>({});
   const [success, setSuccess] = useState(false);
   const [reportId, setReportId] = useState('');
   const [relatedPattern, setRelatedPattern] = useState<any>(null);
@@ -39,7 +35,7 @@ export default function NewReportPage() {
     }
   }, [reportData.line_id, reportData.report_type, patterns]);
 
-  const totalSteps = 6;
+  const totalSteps = 5;
   const progress = (step / totalSteps) * 100;
 
   const handleNext = () => {
@@ -56,7 +52,6 @@ export default function NewReportPage() {
         line_id: reportData.line_id,
         line_code_custom: reportData.line_code,
         report_type: reportData.report_type,
-        severity: severityLevels[reportData.severity].value,
         description: reportData.description,
         occurrence_date: reportData.occurrence_date,
         occurrence_time: reportData.occurrence_time,
@@ -180,23 +175,6 @@ export default function NewReportPage() {
         {step === 4 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-2xl font-bold mb-2">Gravidade</h2>
-              <p className="text-muted-foreground">Qual foi o impacto para você?</p>
-            </div>
-            <SeveritySlider
-              value={reportData.severity}
-              onChange={(value) => setReportData({ ...reportData, severity: value })}
-            />
-            <Button onClick={handleNext} className="w-full">
-              Continuar
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="space-y-4">
-            <div>
               <h2 className="text-2xl font-bold mb-2">Conte mais detalhes</h2>
               <p className="text-muted-foreground">Isso nos ajuda a entender melhor o problema</p>
             </div>
@@ -225,7 +203,7 @@ export default function NewReportPage() {
           </div>
         )}
 
-        {step === 6 && (
+        {step === 5 && (
           <div className="space-y-4">
             <div>
               <h2 className="text-2xl font-bold mb-2">Confirmar envio</h2>
