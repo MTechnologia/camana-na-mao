@@ -9,9 +9,10 @@ interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  onFocus?: () => void;
 }
 
-const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer coisa..." }: ChatInputProps) => {
+const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer coisa...", onFocus }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -113,6 +114,7 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
+            onFocus={onFocus}
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
