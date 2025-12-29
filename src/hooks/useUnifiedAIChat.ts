@@ -46,9 +46,8 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
   // Load messages from database when conversationId changes
   useEffect(() => {
     const loadConversationMessages = async () => {
-      setMessages([]);
-      
       if (!conversationId || !user) {
+        // Não limpa mensagens se não há conversa - preserva mensagens otimistas
         setIsHistoryLoaded(true);
         return;
       }
@@ -65,7 +64,7 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
         const savedMessages = (data.messages as any[]) || [];
         
         if (savedMessages.length === 0) {
-          // Add initial greeting
+          // Add initial greeting, preservando mensagens otimistas existentes
           const initialMsg: Message = {
             id: crypto.randomUUID(),
             role: "assistant",
@@ -83,7 +82,16 @@ Como posso ajudar?`,
             }),
             source: "Assistente Câmara na Mão",
           };
-          setMessages([initialMsg]);
+          
+          // Preserva mensagens otimistas do usuário e adiciona greeting antes delas
+          setMessages(prev => {
+            const optimisticUserMessages = prev.filter(msg => msg.role === "user");
+            if (optimisticUserMessages.length > 0) {
+              // Greeting + mensagens otimistas do usuário
+              return [initialMsg, ...optimisticUserMessages];
+            }
+            return [initialMsg];
+          });
           
           await supabase
             .from('ai_conversations')
@@ -98,7 +106,18 @@ Como posso ajudar?`,
             ...msg,
             timestamp: msg.timestamp || ''
           }));
-          setMessages(messagesWithTimestamp);
+          
+          // Preserva mensagens otimistas que ainda não foram salvas no banco
+          setMessages(prev => {
+            const optimisticUserMessages = prev.filter(
+              msg => msg.role === "user" && 
+              !savedMessages.some(saved => saved.content === msg.content)
+            );
+            if (optimisticUserMessages.length > 0) {
+              return [...messagesWithTimestamp, ...optimisticUserMessages];
+            }
+            return messagesWithTimestamp;
+          });
           
           // Check for report markers in history
           for (const msg of savedMessages) {
