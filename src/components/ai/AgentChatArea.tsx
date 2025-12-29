@@ -10,12 +10,13 @@ import { ReportSuccessCard } from "@/components/shared/ReportSuccessCard";
 import ContextualGreeting from "./ContextualGreeting";
 import ContextualFeed from "./ContextualFeed";
 import PriorityAction from "./PriorityAction";
-import PromptChips from "./PromptChips";
+import PromptChips, { CollectionTypePreset } from "./PromptChips";
 import TypingIndicator from "./TypingIndicator";
 import DataCollectionTracker from "./DataCollectionTracker";
 import CapabilitiesOverlay from "./CapabilitiesOverlay";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import type { CollectionType } from "./DataCollectionTracker";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -38,6 +39,7 @@ const AgentChatArea = () => {
   const pendingMessageRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+  const [presetCollectionType, setPresetCollectionType] = useState<CollectionType>(null);
 
   const { 
     messages, 
@@ -50,7 +52,7 @@ const AgentChatArea = () => {
     addOptimisticMessage,
     collectionType,
     collectedFields
-  } = useUnifiedAIChat(activeConversationId);
+  } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -111,9 +113,16 @@ const AgentChatArea = () => {
     setActiveConversationId(null);
   };
 
-  const handleStartConversation = async (initialMessage?: string) => {
+  const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
     clearMessages();
+    
+    // Define o tipo de coleta imediatamente para ativar o tracker
+    if (collectionTypePreset) {
+      setPresetCollectionType(collectionTypePreset as CollectionType);
+    } else {
+      setPresetCollectionType(null);
+    }
     
     // UI otimista: adiciona mensagem do usuário imediatamente
     if (initialMessage) {

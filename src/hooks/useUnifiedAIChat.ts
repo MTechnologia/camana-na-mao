@@ -17,12 +17,15 @@ interface CreatedReport {
   id: string;
 }
 
-export const useUnifiedAIChat = (conversationId?: string | null) => {
+export const useUnifiedAIChat = (
+  conversationId?: string | null,
+  initialCollectionType?: CollectionType
+) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
-  const [collectionType, setCollectionType] = useState<CollectionType>(null);
+  const [collectionType, setCollectionType] = useState<CollectionType>(initialCollectionType || null);
   const [collectedFields, setCollectedFields] = useState<CollectedFields>({});
   const conversationIdRef = useRef<string | null>(conversationId || null);
   const { toast } = useToast();
@@ -35,13 +38,16 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
     }
   }, [conversationId]);
 
-  // Reset state when conversation changes
+  // Reset state when conversation changes (but respect initialCollectionType)
   useEffect(() => {
     setIsHistoryLoaded(false);
     setCreatedReport(null);
-    setCollectionType(null);
+    // Só reseta collectionType se não houver um inicial definido
+    if (!initialCollectionType) {
+      setCollectionType(null);
+    }
     setCollectedFields({});
-  }, [conversationId]);
+  }, [conversationId, initialCollectionType]);
 
   // Load messages from database when conversationId changes
   useEffect(() => {
@@ -64,42 +70,8 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
         const savedMessages = (data.messages as any[]) || [];
         
         if (savedMessages.length === 0) {
-          // Add initial greeting, preservando mensagens otimistas existentes
-          const initialMsg: Message = {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: `Olá! Sou o assistente do Câmara na Mão 🏛️
-
-Posso ajudar você com:
-• **Informações** sobre a Câmara, vereadores e audiências
-• **Relatar problemas** urbanos ou de transporte
-• **Avaliar** serviços públicos que você utilizou
-
-Como posso ajudar?`,
-            timestamp: new Date().toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            source: "Assistente Câmara na Mão",
-          };
-          
-          // Preserva mensagens otimistas do usuário e adiciona greeting antes delas
-          setMessages(prev => {
-            const optimisticUserMessages = prev.filter(msg => msg.role === "user");
-            if (optimisticUserMessages.length > 0) {
-              // Greeting + mensagens otimistas do usuário
-              return [initialMsg, ...optimisticUserMessages];
-            }
-            return [initialMsg];
-          });
-          
-          await supabase
-            .from('ai_conversations')
-            .update({
-              messages: [{ ...initialMsg }],
-              last_message_at: new Date().toISOString(),
-            })
-            .eq('id', conversationId);
+          // Sem greeting - preserva apenas mensagens otimistas do usuário
+          setMessages(prev => prev.filter(msg => msg.role === "user"));
         } else {
           // Garante que todas as mensagens tenham timestamp (fallback para vazio)
           const messagesWithTimestamp = savedMessages.map(msg => ({
