@@ -189,7 +189,7 @@ const ContextualFeed = () => {
       <div className="flex items-center gap-2 mb-3 px-4">
         <Sparkles className="w-4 h-4 text-primary" />
         <span className="text-sm font-semibold text-foreground">
-          O que está rolando
+          Destaques
         </span>
       </div>
 
