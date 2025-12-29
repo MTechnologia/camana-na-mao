@@ -13,6 +13,7 @@ import PriorityAction from "./PriorityAction";
 import PromptChips from "./PromptChips";
 import TypingIndicator from "./TypingIndicator";
 import DataCollectionTracker from "./DataCollectionTracker";
+import CapabilitiesOverlay from "./CapabilitiesOverlay";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
@@ -35,6 +36,7 @@ const AgentChatArea = () => {
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
 
   const { 
     messages, 
@@ -100,6 +102,7 @@ const AgentChatArea = () => {
   };
 
   const handleStartConversation = async (initialMessage?: string) => {
+    setIsDiscoveryOpen(false);
     clearMessages();
     
     const newConvId = await createConversation('general');
@@ -113,6 +116,10 @@ const AgentChatArea = () => {
         }, 50);
       }
     }
+  };
+
+  const handleOpenDiscovery = () => {
+    setIsDiscoveryOpen(true);
   };
 
   return (
@@ -160,7 +167,10 @@ const AgentChatArea = () => {
                   </span>
                 </div>
                 
-                <PromptChips onSelect={handleStartConversation} />
+                <PromptChips 
+                  onSelect={handleStartConversation} 
+                  onOpenDiscovery={handleOpenDiscovery}
+                />
                 
                 <p className="text-xs text-muted-foreground text-center">
                   Ou digite sua mensagem abaixo
@@ -247,6 +257,12 @@ const AgentChatArea = () => {
           </div>
         </motion.div>
       )}
+      {/* Capabilities Discovery Overlay */}
+      <CapabilitiesOverlay
+        isOpen={isDiscoveryOpen}
+        onClose={() => setIsDiscoveryOpen(false)}
+        onSelectCapability={handleStartConversation}
+      />
     </div>
   );
 };
