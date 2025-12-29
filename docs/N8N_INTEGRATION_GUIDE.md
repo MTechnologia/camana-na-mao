@@ -115,33 +115,92 @@ Adicione um node **IF** para validar o secret:
 
 ## Payloads de Entrada
 
+### Estrutura Base (v2 - com Contexto do Orquestrador)
+
+```json
+{
+  "event": "urban_report_created | transport_report_created | service_rating_created",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "report": {
+    "id": "uuid-do-relato",
+    "type": "urban | transport | service_rating",
+    "severity_pending_classification": true,
+    "...campos_do_relato"
+  },
+  "user": {
+    "id": "abc123..."
+  },
+  "orchestrator": {
+    "source_tool": "create_urban_report | create_transport_report | create_service_rating",
+    "tool_arguments": {
+      "...argumentos_originais_inferidos_pelo_llm"
+    },
+    "tool_metadata": {
+      "called_at": "2024-01-15T10:30:00.000Z",
+      "orchestrator_version": "2.0"
+    },
+    "available_tools": [
+      "create_urban_report",
+      "create_transport_report",
+      "create_service_rating",
+      "search_knowledge_base",
+      "find_nearby_services",
+      "search_audiencias",
+      "suggest_council_member",
+      "get_citizen_history"
+    ]
+  },
+  "callback_url": "https://vzkwkcypkfrpfhhsghwn.supabase.co/functions/v1/n8n-callback",
+  "secret_key": "sua-chave-secreta"
+}
+```
+
+### Campos do Orquestrador
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `orchestrator.source_tool` | string | Nome da tool que foi chamada pelo LLM |
+| `orchestrator.tool_arguments` | object | Argumentos originais inferidos pelo LLM da conversa |
+| `orchestrator.tool_metadata` | object | Metadados da chamada (timestamp, versão) |
+| `orchestrator.available_tools` | array | Lista de todas as tools disponíveis no orquestrador |
+
 ### Evento: `urban_report_created`
 
 ```json
 {
   "event": "urban_report_created",
   "timestamp": "2024-01-15T10:30:00.000Z",
-  "report_id": "550e8400-e29b-41d4-a716-446655440000",
-  "report_type": "urban",
-  "report_data": {
+  "report": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
+    "type": "urban",
+    "severity_pending_classification": true,
     "category": "iluminacao",
     "subcategory": "lampada_queimada",
     "description": "Poste sem luz na esquina da Rua Augusta com Av. Paulista há 3 dias",
-    "severity": "media",
     "status": "pending",
     "location_address": "Rua Augusta, 1500 - Consolação, São Paulo",
     "latitude": -23.5505,
     "longitude": -46.6333,
     "photos": ["https://storage.url/photo1.jpg"],
-    "ai_classification": {
-      "category": "iluminacao",
-      "confidence": 0.95,
-      "keywords": ["poste", "luz", "escuro"]
-    },
     "created_at": "2024-01-15T10:30:00.000Z"
   },
-  "user_id": "user-uuid-here",
+  "user": {
+    "id": "abc123..."
+  },
+  "orchestrator": {
+    "source_tool": "create_urban_report",
+    "tool_arguments": {
+      "category": "iluminacao",
+      "subcategory": "lampada_queimada",
+      "description": "Poste sem luz na esquina da Rua Augusta com Av. Paulista há 3 dias",
+      "location_address": "Rua Augusta, 1500 - Consolação, São Paulo"
+    },
+    "tool_metadata": {
+      "called_at": "2024-01-15T10:30:00.000Z",
+      "orchestrator_version": "2.0"
+    },
+    "available_tools": ["create_urban_report", "create_transport_report", "..."]
+  },
   "callback_url": "https://vzkwkcypkfrpfhhsghwn.supabase.co/functions/v1/n8n-callback",
   "secret_key": "sua-chave-secreta"
 }
@@ -153,51 +212,40 @@ Adicione um node **IF** para validar o secret:
 {
   "event": "transport_report_created",
   "timestamp": "2024-01-15T11:45:00.000Z",
-  "report_id": "660e8400-e29b-41d4-a716-446655440001",
-  "report_type": "transport",
-  "report_data": {
+  "report": {
     "id": "660e8400-e29b-41d4-a716-446655440001",
+    "type": "transport",
+    "severity_pending_classification": true,
     "report_type": "atraso",
     "description": "Ônibus 875A-10 atrasou mais de 40 minutos no ponto Terminal Pinheiros",
-    "severity": "high",
     "status": "pending",
-    "line_id": "uuid-da-linha",
     "line_code_custom": "875A-10",
     "location": "Terminal Pinheiros",
     "occurrence_date": "2024-01-15",
     "occurrence_time": "08:30:00",
     "impact_description": "Perdi compromisso importante no trabalho",
-    "ai_category": "atraso",
-    "ai_sentiment": "negative",
-    "ai_pattern_detected": true,
     "created_at": "2024-01-15T11:45:00.000Z"
   },
-  "user_id": "user-uuid-here",
-  "callback_url": "https://vzkwkcypkfrpfhhsghwn.supabase.co/functions/v1/n8n-callback",
-  "secret_key": "sua-chave-secreta"
-}
-```
-
-### Evento: `service_rating_created`
-
-```json
-{
-  "event": "service_rating_created",
-  "timestamp": "2024-01-15T14:20:00.000Z",
-  "report_id": "770e8400-e29b-41d4-a716-446655440002",
-  "report_type": "service_rating",
-  "report_data": {
-    "id": "770e8400-e29b-41d4-a716-446655440002",
-    "service_id": "uuid-do-servico",
-    "service_name": "UBS Vila Mariana",
-    "service_type": "ubs",
-    "rating_stars": 2,
-    "rating_text": "Esperei 3 horas para ser atendido, falta de médicos",
-    "sentiment": "negative",
-    "visit_id": "uuid-da-visita",
-    "created_at": "2024-01-15T14:20:00.000Z"
+  "user": {
+    "id": "abc123..."
   },
-  "user_id": "user-uuid-here",
+  "orchestrator": {
+    "source_tool": "create_transport_report",
+    "tool_arguments": {
+      "report_type": "atraso",
+      "description": "Ônibus 875A-10 atrasou mais de 40 minutos no ponto Terminal Pinheiros",
+      "occurrence_date": "2024-01-15",
+      "occurrence_time": "08:30",
+      "line_code": "875A-10",
+      "location": "Terminal Pinheiros",
+      "impact_description": "Perdi compromisso importante no trabalho"
+    },
+    "tool_metadata": {
+      "called_at": "2024-01-15T11:45:00.000Z",
+      "orchestrator_version": "2.0"
+    },
+    "available_tools": ["create_urban_report", "create_transport_report", "..."]
+  },
   "callback_url": "https://vzkwkcypkfrpfhhsghwn.supabase.co/functions/v1/n8n-callback",
   "secret_key": "sua-chave-secreta"
 }
@@ -207,13 +255,78 @@ Adicione um node **IF** para validar o secret:
 
 ## Workflow N8N Sugerido
 
-### Workflow Básico
+### Arquitetura v2: Roteamento por Tool (Recomendado)
+
+O novo formato de payload inclui `orchestrator.source_tool`, permitindo roteamento direto baseado na tool usada pelo LLM:
 
 ```
-[Webhook] → [Switch por Evento] → [Classificar Prioridade] → [Callback]
+[Webhook] → [Extrair Contexto] → [Switch por source_tool] → [Agente Especializado] → [Callback]
 ```
 
-### Workflow com IA
+### Vantagens do Roteamento por Tool
+
+1. **Simetria arquitetural**: Mesmo padrão do ai-orchestrator no frontend
+2. **Contexto completo**: Acesso aos `tool_arguments` originais inferidos pelo LLM
+3. **Extensibilidade**: Novos agentes sem mudanças no CMSP Connect
+4. **Rastreabilidade**: Auditoria end-to-end de tools chamadas
+
+### Exemplo: Node de Extração de Contexto
+
+```javascript
+// Extrair contexto do orquestrador para decisões de roteamento
+const input = $input.first().json.body;
+const orchestrator = input.orchestrator || {};
+
+console.log('Tool usada:', orchestrator.source_tool);
+console.log('Argumentos originais:', JSON.stringify(orchestrator.tool_arguments));
+
+// source_tool pode ser:
+// - create_urban_report
+// - create_transport_report
+// - create_service_rating
+
+return {
+  event: input.event,
+  report: input.report,
+  source_tool: orchestrator.source_tool,
+  tool_arguments: orchestrator.tool_arguments,
+  callback_url: input.callback_url,
+  secret_key: input.secret_key
+};
+```
+
+### Exemplo: Usando tool_arguments no Agente
+
+```javascript
+// No agente de análise de transporte
+const input = $input.first().json;
+const toolArgs = input.tool_arguments || {};
+
+// Acessar dados originais inferidos pelo LLM
+const description = toolArgs.description || input.report.description;
+const reportType = toolArgs.report_type || input.report.report_type;
+const occurrenceTime = toolArgs.occurrence_time || input.report.occurrence_time;
+const lineCode = toolArgs.line_code || input.report.line_code_custom;
+
+// Usar esses dados para classificação mais precisa
+let priority = 'normal';
+if (description.includes('acidente')) priority = 'urgente';
+
+return {
+  report_id: input.report.id,
+  processed_data: {
+    priority,
+    validated_category: reportType,
+    tags: ['ANALISADO_POR_TOOL_ARGS'],
+    enriched_data: {
+      linha: lineCode,
+      fonte: 'orchestrator_tool_call'
+    }
+  }
+};
+```
+
+### Workflow com IA (Opcional)
 
 ```
 [Webhook] → [Switch] → [OpenAI/Claude] → [Parse JSON] → [Enriquecer] → [Callback]

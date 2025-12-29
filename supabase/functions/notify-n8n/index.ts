@@ -12,6 +12,13 @@ interface NotifyPayload {
   report_type: 'urban' | 'transport' | 'service_rating';
   report_data: Record<string, unknown>;
   user_id?: string;
+  // Orchestrator context for N8N agent routing
+  source_tool?: string;
+  tool_arguments?: Record<string, unknown>;
+  tool_metadata?: {
+    called_at: string;
+    orchestrator_version: string;
+  };
 }
 
 serve(async (req) => {
@@ -60,11 +67,23 @@ serve(async (req) => {
       );
     }
 
-    // Build webhook payload - severity será classificado pelo N8N
+    // Build webhook payload with orchestrator context for N8N agent routing
     const callbackUrl = `${supabaseUrl}/functions/v1/n8n-callback`;
     const reportDataWithoutUserSeverity = { ...payload.report_data };
     // Remove severity definida pelo usuário - N8N é quem classifica
     delete (reportDataWithoutUserSeverity as any).severity;
+    
+    // Available tools in the orchestrator (for N8N reference)
+    const availableTools = [
+      'create_urban_report',
+      'create_transport_report', 
+      'create_service_rating',
+      'search_knowledge_base',
+      'find_nearby_services',
+      'search_audiencias',
+      'suggest_council_member',
+      'get_citizen_history'
+    ];
     
     const webhookPayload = {
       event: payload.event,
@@ -77,6 +96,13 @@ serve(async (req) => {
       },
       user: {
         id: payload.user_id ? payload.user_id.substring(0, 8) + '...' : 'anonymous'
+      },
+      // Orchestrator context - enables N8N to mirror tool-based routing
+      orchestrator: {
+        source_tool: payload.source_tool || null,
+        tool_arguments: payload.tool_arguments || null,
+        tool_metadata: payload.tool_metadata || null,
+        available_tools: availableTools
       },
       callback_url: callbackUrl,
       secret_key: settings.secret_key

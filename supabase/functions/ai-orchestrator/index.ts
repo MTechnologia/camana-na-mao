@@ -54,11 +54,6 @@ const tools = [
             enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "outro"],
             description: "Tipo do problema"
           },
-          severity: {
-            type: "string",
-            enum: ["low", "medium", "high", "critical"],
-            description: "critical=risco à vida, high=atraso>1h, medium=15-60min, low=inconveniência"
-          },
           description: { type: "string", description: "Descrição do problema" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
           occurrence_time: { type: "string", description: "Horário HH:MM" },
@@ -645,9 +640,20 @@ async function executeTool(
 
         if (error) throw error;
 
-        // Notify N8N (non-blocking)
+        // Notify N8N with orchestrator context (non-blocking)
         supabase.functions.invoke('notify-n8n', {
-          body: { event: 'urban_report_created', report_id: data.id, report_type: 'urban', user_id: userId }
+          body: { 
+            event: 'urban_report_created', 
+            report_id: data.id, 
+            report_type: 'urban', 
+            user_id: userId,
+            source_tool: 'create_urban_report',
+            tool_arguments: args,
+            tool_metadata: {
+              called_at: new Date().toISOString(),
+              orchestrator_version: '2.0'
+            }
+          }
         }).catch(console.warn);
 
         return { success: true, id: data.id, marker: `[REPORT_CREATED:${data.id}]` };
@@ -659,7 +665,7 @@ async function executeTool(
           .insert({
             user_id: userId,
             report_type: args.report_type,
-            severity: args.severity || 'medium',
+            severity: 'pending',
             description: args.description,
             occurrence_date: args.occurrence_date,
             occurrence_time: args.occurrence_time || null,
@@ -675,8 +681,20 @@ async function executeTool(
 
         if (error) throw error;
 
+        // Notify N8N with orchestrator context (non-blocking)
         supabase.functions.invoke('notify-n8n', {
-          body: { event: 'transport_report_created', report_id: data.id, report_type: 'transport', user_id: userId }
+          body: { 
+            event: 'transport_report_created', 
+            report_id: data.id, 
+            report_type: 'transport', 
+            user_id: userId,
+            source_tool: 'create_transport_report',
+            tool_arguments: args,
+            tool_metadata: {
+              called_at: new Date().toISOString(),
+              orchestrator_version: '2.0'
+            }
+          }
         }).catch(console.warn);
 
         return { success: true, id: data.id, marker: `[TRANSPORT_CREATED:${data.id}]` };
