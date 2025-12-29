@@ -1,24 +1,21 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History, LogOut, MessageCircle } from "lucide-react";
+import { ArrowLeft, Bell, Menu, MoreVertical, Plus, History, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 import { useMenu } from "@/contexts/MenuContext";
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
-import { useJourneyDraft } from "@/hooks/useJourneyDraft";
 import { supabase } from "@/integrations/supabase/client";
 
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import EscapeValveDialog from "./EscapeValveDialog";
 
 const headerVariants = {
   initial: { opacity: 0, y: -10 },
@@ -37,11 +34,9 @@ const headerVariants = {
 const AgentHeader = () => {
   const navigate = useNavigate();
   const { openMenu } = useMenu();
-  const { activeConversationId, setActiveConversationId, clearConversation } = useAIJourney();
+  const { activeConversationId, clearConversation } = useAIJourney();
   const { toast } = useToast();
-  const { clearDraft } = useJourneyDraft();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [showEscapeDialog, setShowEscapeDialog] = useState(false);
 
   const isInConversation = !!activeConversationId;
 
@@ -84,33 +79,12 @@ const AgentHeader = () => {
     fetchUnreadCount();
   }, []);
 
+  // Saída fluida sem modal - apenas volta para home
   const handleBack = () => {
-    setShowEscapeDialog(true);
-  };
-
-  const handleContinue = () => {
-    // Just close the dialog, keep everything as is
-  };
-
-  const handleSaveAndExit = () => {
-    toast({
-      title: "Rascunho salvo",
-      description: "Você pode continuar quando voltar ao app.",
-    });
-    clearConversation();
-  };
-
-  const handleDiscardAndExit = () => {
-    clearDraft();
-    toast({
-      title: "Conversa descartada",
-      description: "Você voltou ao início.",
-    });
     clearConversation();
   };
 
   const handleNewConversation = () => {
-    clearDraft();
     clearConversation();
     toast({
       title: "Nova conversa",
@@ -205,14 +179,6 @@ const AgentHeader = () => {
                       <History className="h-4 w-4 mr-2" />
                       Ver histórico
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      onClick={() => setShowEscapeDialog(true)}
-                      className="text-amber-600 dark:text-amber-400"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sair desta jornada
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </motion.div>
@@ -279,15 +245,6 @@ const AgentHeader = () => {
           </motion.header>
         )}
       </AnimatePresence>
-
-      {/* Escape Valve Dialog */}
-      <EscapeValveDialog
-        open={showEscapeDialog}
-        onOpenChange={setShowEscapeDialog}
-        onContinue={handleContinue}
-        onSaveAndExit={handleSaveAndExit}
-        onDiscardAndExit={handleDiscardAndExit}
-      />
     </>
   );
 };
