@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2 } from "lucide-react";
-import { useState } from "react";
+import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User } from "lucide-react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 export type CollectionType = 'urban_report' | 'transport_report' | 'service_rating' | null;
@@ -22,11 +22,13 @@ interface FieldConfig {
   required: boolean;
 }
 
-const COLLECTION_CONFIGS: Record<string, {
+interface CollectionConfig {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   fields: FieldConfig[];
-}> = {
+}
+
+const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {
     title: "Registrando problema urbano",
     icon: FileText,
@@ -59,6 +61,17 @@ const COLLECTION_CONFIGS: Record<string, {
   }
 };
 
+// Special config for chamber feedback (stored as urban_report with category=feedback_camara)
+const CHAMBER_FEEDBACK_CONFIG: CollectionConfig = {
+  title: "Feedback sobre Vereador/Câmara",
+  icon: Users,
+  fields: [
+    { key: 'subcategory', label: 'Tipo', icon: Tag, required: true },
+    { key: 'council_member_name', label: 'Vereador(a)', icon: User, required: false },
+    { key: 'description', label: 'Detalhes', icon: MessageSquare, required: true },
+  ]
+};
+
 const CATEGORY_LABELS: Record<string, string> = {
   iluminacao: 'Iluminação',
   calcada: 'Calçada',
@@ -66,6 +79,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   lixo: 'Lixo/Entulho',
   area_verde: 'Área Verde',
   outro: 'Outro',
+  feedback_camara: 'Feedback Câmara',
   atraso: 'Atraso',
   lotacao: 'Lotação',
   seguranca: 'Segurança',
@@ -77,6 +91,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   hospital: 'Hospital',
   library: 'Biblioteca',
   sports_center: 'Centro Esportivo',
+  // Chamber feedback subcategories
+  elogio: 'Elogio',
+  reclamacao: 'Reclamação',
+  sugestao: 'Sugestão',
 };
 
 const DataCollectionTracker = ({ 
@@ -86,11 +104,21 @@ const DataCollectionTracker = ({
 }: DataCollectionTrackerProps) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
-  if (!collectionType || !COLLECTION_CONFIGS[collectionType]) {
+  // Determine the correct config based on collection type and fields
+  const config = useMemo(() => {
+    if (!collectionType) return null;
+    
+    // Check for chamber feedback (urban_report with category=feedback_camara)
+    if (collectionType === 'urban_report' && collectedFields.category === 'feedback_camara') {
+      return CHAMBER_FEEDBACK_CONFIG;
+    }
+    
+    return DEFAULT_CONFIGS[collectionType] || null;
+  }, [collectionType, collectedFields.category]);
+
+  if (!collectionType || !config) {
     return null;
   }
-
-  const config = COLLECTION_CONFIGS[collectionType];
   const requiredFields = config.fields.filter(f => f.required);
   const collectedRequiredCount = requiredFields.filter(f => collectedFields[f.key]).length;
   const progress = Math.round((collectedRequiredCount / requiredFields.length) * 100);

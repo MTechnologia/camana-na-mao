@@ -18,148 +18,259 @@ const COMMISSION_THEMES: Record<string, string[]> = {
   'assistencia_social': ['social', 'vulnerabilidade', 'morador_rua', 'fome', 'abrigo'],
 };
 
-// Intent detection for collection progress tracking
+// Intent detection for collection progress tracking with scoring system
 type CollectionIntent = {
   type: 'urban_report' | 'transport_report' | 'service_rating';
   fields: Record<string, any>;
 };
+
+interface DetectionScore {
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback';
+  score: number;
+  fields: Record<string, any>;
+}
+
+// Intent keywords - REQUIRED to activate tracker (prevents false positives)
+const INTENT_KEYWORDS = [
+  'quero reclamar', 'preciso relatar', 'quero reportar', 'aconteceu',
+  'tem um problema', 'está com problema', 'não está funcionando',
+  'quero avaliar', 'quero elogiar', 'quero denunciar', 'preciso informar',
+  'gostaria de registrar', 'vim falar sobre um', 'tenho uma reclamação',
+  'quero fazer', 'preciso fazer', 'quero registrar', 'tive um problema',
+  'sofri um', 'passei por', 'enfrentei', 'reclamar sobre', 'reclamar do',
+  'agradecer', 'parabenizar', 'sugerir', 'dar uma sugestão'
+];
+
+// Extract transport-specific fields
+function extractTransportFields(context: string): Record<string, any> {
+  const fields: Record<string, any> = {};
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Detect report_type
+  if (context.includes('atraso') || context.includes('atrasou') || context.includes('demora')) {
+    fields.report_type = 'atraso';
+  } else if (context.includes('lotad') || context.includes('chei') || context.includes('superlotad')) {
+    fields.report_type = 'lotacao';
+  } else if (context.includes('segurança') || context.includes('assalto') || context.includes('roubo')) {
+    fields.report_type = 'seguranca';
+  } else if (context.includes('sujo') || context.includes('limpeza') || context.includes('fedendo')) {
+    fields.report_type = 'limpeza';
+  } else if (context.includes('acessib') || context.includes('cadeirante') || context.includes('elevador')) {
+    fields.report_type = 'acessibilidade';
+  }
+  
+  // Detect line
+  const lineMatch = context.match(/linha\s*(\d{3,4}[a-z]?[-/]?\d*)/i);
+  if (lineMatch) fields.line_code = lineMatch[1].toUpperCase();
+  
+  // Detect date
+  if (context.includes('hoje') || context.includes('agora') || context.includes('acabou de')) {
+    fields.occurrence_date = today;
+  } else if (context.includes('ontem')) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    fields.occurrence_date = yesterday.toISOString().split('T')[0];
+  }
+  
+  // Detect time
+  const timeMatch = context.match(/(\d{1,2})[h:](\d{2})?/);
+  if (timeMatch) {
+    fields.occurrence_time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
+  } else if (context.includes('manhã') || context.includes('cedo')) {
+    fields.occurrence_time = '08:00';
+  } else if (context.includes('tarde')) {
+    fields.occurrence_time = '14:00';
+  } else if (context.includes('noite')) {
+    fields.occurrence_time = '19:00';
+  }
+  
+  return fields;
+}
+
+// Extract urban report-specific fields
+function extractUrbanFields(context: string): Record<string, any> {
+  const fields: Record<string, any> = {};
+  
+  // Detect category
+  if (context.includes('poste') || context.includes('luz') || context.includes('escuro') || context.includes('iluminaç')) {
+    fields.category = 'iluminacao';
+  } else if (context.includes('buraco') || context.includes('asfalto')) {
+    fields.category = 'via_publica';
+  } else if (context.includes('calçada') || context.includes('calcada') || context.includes('passeio')) {
+    fields.category = 'calcada';
+  } else if (context.includes('lixo') || context.includes('entulho') || context.includes('sujeira')) {
+    fields.category = 'lixo';
+  } else if (context.includes('árvore') || context.includes('arvore') || context.includes('poda') || context.includes('praça') || context.includes('praca') || context.includes('mato')) {
+    fields.category = 'area_verde';
+  }
+  
+  // Detect location (street names)
+  const locationPatterns = [
+    /(?:rua|avenida|av\.?|alameda|travessa|praça|largo)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i,
+    /(?:na|no|em)\s+(?:rua|avenida|av\.?)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i
+  ];
+  
+  for (const pattern of locationPatterns) {
+    const match = context.match(pattern);
+    if (match) {
+      fields.location_address = match[0].trim();
+      break;
+    }
+  }
+  
+  return fields;
+}
+
+// Extract service rating-specific fields
+function extractServiceFields(context: string): Record<string, any> {
+  const fields: Record<string, any> = {};
+  
+  // Detect service type
+  if (context.includes('ubs') || context.includes('posto de saúde') || context.includes('posto de saude')) {
+    fields.service_type = 'ubs';
+  } else if (context.includes('hospital')) {
+    fields.service_type = 'hospital';
+  } else if (context.includes('escola')) {
+    fields.service_type = 'school';
+  } else if (context.includes('ceu')) {
+    fields.service_type = 'ceu';
+  } else if (context.includes('biblioteca')) {
+    fields.service_type = 'library';
+  } else if (context.includes('centro esportivo') || context.includes('esporte')) {
+    fields.service_type = 'sports_center';
+  }
+  
+  // Detect rating
+  const starsMatch = context.match(/(\d)\s*(?:estrela|nota)/);
+  if (starsMatch) {
+    fields.rating_stars = parseInt(starsMatch[1]);
+  }
+  
+  // Detect sentiment
+  if (context.includes('péssim') || context.includes('horrível') || context.includes('ruim')) {
+    fields.sentiment = 'negative';
+  } else if (context.includes('bom') || context.includes('ótim') || context.includes('excelente') || context.includes('elogiar')) {
+    fields.sentiment = 'positive';
+  }
+  
+  return fields;
+}
+
+// Extract chamber feedback-specific fields
+function extractChamberFields(context: string): Record<string, any> {
+  const fields: Record<string, any> = {
+    category: 'feedback_camara'
+  };
+  
+  // Detect feedback type (subcategory)
+  if (context.includes('elogiar') || context.includes('elogio') || context.includes('agradecer') || context.includes('parabenizar')) {
+    fields.subcategory = 'elogio';
+  } else if (context.includes('reclamar') || context.includes('reclamação') || context.includes('reclamacao') || context.includes('denunciar') || context.includes('denúncia')) {
+    fields.subcategory = 'reclamacao';
+  } else if (context.includes('sugestão') || context.includes('sugestao') || context.includes('sugerir')) {
+    fields.subcategory = 'sugestao';
+  }
+  
+  // Detect council member name
+  const namePatterns = [
+    /(?:vereador|vereadora)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s+por|\s+pelo|\s*,|\s+é|\s+foi|$)/i,
+    /(?:ao|à|a)\s+(?:vereador|vereadora)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s+por|\s+pelo|\s*,|$)/i
+  ];
+  
+  for (const pattern of namePatterns) {
+    const match = context.match(pattern);
+    if (match && match[1] && match[1].trim().length > 2) {
+      fields.council_member_name = match[1].trim();
+      break;
+    }
+  }
+  
+  return fields;
+}
 
 function detectCollectionIntent(
   userMessage: string, 
   conversationHistory: Array<{ role: string; content: string }>
 ): CollectionIntent | null {
   const msgLower = userMessage.toLowerCase();
-  const today = new Date().toISOString().split('T')[0];
   
   // Combine recent context
   const recentContext = conversationHistory.slice(-6).map(m => m.content.toLowerCase()).join(' ');
   const fullContext = `${recentContext} ${msgLower}`;
   
-  // Transport report detection
-  const transportKeywords = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'transporte', 'linha', 'ponto de ônibus', 'estação'];
-  const hasTransportIntent = transportKeywords.some(kw => fullContext.includes(kw));
+  // Check for intent keywords (REQUIRED to activate tracker)
+  const hasIntent = INTENT_KEYWORDS.some(kw => fullContext.includes(kw));
   
-  if (hasTransportIntent) {
-    const fields: Record<string, any> = {};
-    
-    // Detect report_type
-    if (fullContext.includes('atraso') || fullContext.includes('atrasou') || fullContext.includes('demora')) {
-      fields.report_type = 'atraso';
-    } else if (fullContext.includes('lotad') || fullContext.includes('chei') || fullContext.includes('superlotad')) {
-      fields.report_type = 'lotacao';
-    } else if (fullContext.includes('segurança') || fullContext.includes('assalto') || fullContext.includes('roubo')) {
-      fields.report_type = 'seguranca';
-    } else if (fullContext.includes('sujo') || fullContext.includes('limpeza') || fullContext.includes('fedendo')) {
-      fields.report_type = 'limpeza';
-    } else if (fullContext.includes('acessib') || fullContext.includes('cadeirante') || fullContext.includes('elevador')) {
-      fields.report_type = 'acessibilidade';
-    }
-    
-    // Detect line
-    const lineMatch = fullContext.match(/linha\s*(\d{3,4}[a-z]?[-/]?\d*)/i);
-    if (lineMatch) fields.line_code = lineMatch[1].toUpperCase();
-    
-    // Detect date
-    if (fullContext.includes('hoje') || fullContext.includes('agora') || fullContext.includes('acabou de')) {
-      fields.occurrence_date = today;
-    } else if (fullContext.includes('ontem')) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      fields.occurrence_date = yesterday.toISOString().split('T')[0];
-    }
-    
-    // Detect time
-    const timeMatch = fullContext.match(/(\d{1,2})[h:](\d{2})?/);
-    if (timeMatch) {
-      fields.occurrence_time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
-    } else if (fullContext.includes('manhã') || fullContext.includes('cedo')) {
-      fields.occurrence_time = '08:00';
-    } else if (fullContext.includes('tarde')) {
-      fields.occurrence_time = '14:00';
-    } else if (fullContext.includes('noite')) {
-      fields.occurrence_time = '19:00';
-    }
-    
-    return { type: 'transport_report', fields };
+  if (!hasIntent) {
+    console.log('[detectCollectionIntent] No intent keywords found, skipping tracker activation');
+    return null;
   }
   
-  // Urban report detection
-  const urbanKeywords = ['buraco', 'poste', 'luz', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'mato', 'praça', 'praca', 'rua', 'avenida'];
-  const hasUrbanIntent = urbanKeywords.some(kw => fullContext.includes(kw));
+  // Calculate scores for each type
+  const scores: DetectionScore[] = [];
   
-  if (hasUrbanIntent) {
-    const fields: Record<string, any> = {};
-    
-    // Detect category
-    if (fullContext.includes('poste') || fullContext.includes('luz') || fullContext.includes('escuro') || fullContext.includes('iluminaç')) {
-      fields.category = 'iluminacao';
-    } else if (fullContext.includes('buraco') || fullContext.includes('asfalto') || fullContext.includes('rua') || fullContext.includes('avenida')) {
-      fields.category = 'via_publica';
-    } else if (fullContext.includes('calçada') || fullContext.includes('calcada') || fullContext.includes('passeio')) {
-      fields.category = 'calcada';
-    } else if (fullContext.includes('lixo') || fullContext.includes('entulho') || fullContext.includes('sujeira')) {
-      fields.category = 'lixo';
-    } else if (fullContext.includes('árvore') || fullContext.includes('arvore') || fullContext.includes('poda') || fullContext.includes('praça') || fullContext.includes('praca') || fullContext.includes('mato')) {
-      fields.category = 'area_verde';
-    }
-    
-    // Detect location (street names)
-    const locationPatterns = [
-      /(?:rua|avenida|av\.?|alameda|travessa|praça|largo)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i,
-      /(?:na|no|em)\s+(?:rua|avenida|av\.?)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i
-    ];
-    
-    for (const pattern of locationPatterns) {
-      const match = fullContext.match(pattern);
-      if (match) {
-        fields.location_address = match[0].trim();
-        break;
-      }
-    }
-    
-    return { type: 'urban_report', fields };
+  // Transport scoring
+  const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus'];
+  const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
+  let transportScore = 0;
+  transportDomain.forEach(kw => { if (fullContext.includes(kw)) transportScore += 4; });
+  transportProblems.forEach(kw => { if (fullContext.includes(kw)) transportScore += 3; });
+  if (transportScore > 0) {
+    scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullContext) });
   }
   
-  // Service rating detection
-  const ratingKeywords = ['avaliar', 'avaliação', 'avaliacao', 'nota', 'estrela', 'reclamar de', 'elogiar', 'atendimento'];
-  const serviceKeywords = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto de saúde', 'posto de saude', 'centro esportivo'];
-  const hasRatingIntent = ratingKeywords.some(kw => fullContext.includes(kw)) && serviceKeywords.some(kw => fullContext.includes(kw));
-  
-  if (hasRatingIntent) {
-    const fields: Record<string, any> = {};
-    
-    // Detect service type
-    if (fullContext.includes('ubs') || fullContext.includes('posto de saúde') || fullContext.includes('posto de saude')) {
-      fields.service_type = 'ubs';
-    } else if (fullContext.includes('hospital')) {
-      fields.service_type = 'hospital';
-    } else if (fullContext.includes('escola')) {
-      fields.service_type = 'school';
-    } else if (fullContext.includes('ceu')) {
-      fields.service_type = 'ceu';
-    } else if (fullContext.includes('biblioteca')) {
-      fields.service_type = 'library';
-    } else if (fullContext.includes('centro esportivo') || fullContext.includes('esporte')) {
-      fields.service_type = 'sports_center';
-    }
-    
-    // Detect rating
-    const starsMatch = fullContext.match(/(\d)\s*(?:estrela|nota)/);
-    if (starsMatch) {
-      fields.rating_stars = parseInt(starsMatch[1]);
-    }
-    
-    // Detect sentiment
-    if (fullContext.includes('péssim') || fullContext.includes('horrível') || fullContext.includes('ruim')) {
-      fields.sentiment = 'negative';
-    } else if (fullContext.includes('bom') || fullContext.includes('ótim') || fullContext.includes('excelente') || fullContext.includes('elogiar')) {
-      fields.sentiment = 'positive';
-    }
-    
-    return { type: 'service_rating', fields };
+  // Urban scoring (exclude location words that might false-positive)
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda'];
+  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo'];
+  let urbanScore = 0;
+  urbanDomain.forEach(kw => { if (fullContext.includes(kw)) urbanScore += 4; });
+  urbanProblems.forEach(kw => { if (fullContext.includes(kw)) urbanScore += 2; });
+  if (urbanScore > 0) {
+    scores.push({ type: 'urban_report', score: urbanScore, fields: extractUrbanFields(fullContext) });
   }
   
-  return null;
+  // Service rating scoring
+  const serviceDomain = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto de saúde', 'posto de saude', 'centro esportivo'];
+  const ratingTerms = ['avaliar', 'avaliação', 'avaliacao', 'nota', 'estrela', 'atendimento'];
+  let serviceScore = 0;
+  serviceDomain.forEach(kw => { if (fullContext.includes(kw)) serviceScore += 4; });
+  ratingTerms.forEach(kw => { if (fullContext.includes(kw)) serviceScore += 3; });
+  if (serviceScore > 0) {
+    scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullContext) });
+  }
+  
+  // Chamber feedback scoring (new!)
+  const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
+  const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  let chamberScore = 0;
+  chamberDomain.forEach(kw => { if (fullContext.includes(kw)) chamberScore += 5; });
+  feedbackTerms.forEach(kw => { if (fullContext.includes(kw)) chamberScore += 4; });
+  if (chamberScore > 0) {
+    scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullContext) });
+  }
+  
+  // No matches found
+  if (scores.length === 0) {
+    console.log('[detectCollectionIntent] Intent found but no domain keywords matched');
+    return null;
+  }
+  
+  // Sort by score and select winner (threshold of 5)
+  const winner = scores.sort((a, b) => b.score - a.score)[0];
+  console.log('[detectCollectionIntent] Scores:', JSON.stringify(scores.map(s => ({ type: s.type, score: s.score }))));
+  console.log('[detectCollectionIntent] Winner:', winner.type, 'with score:', winner.score);
+  
+  if (winner.score < 5) {
+    console.log('[detectCollectionIntent] Winner score below threshold (5), skipping');
+    return null;
+  }
+  
+  // Chamber feedback is stored as urban_report with category=feedback_camara
+  if (winner.type === 'chamber_feedback') {
+    return { type: 'urban_report', fields: winner.fields };
+  }
+  
+  return { type: winner.type as CollectionIntent['type'], fields: winner.fields };
 }
 
 // Unified tools for all citizen actions
