@@ -85,8 +85,16 @@ export const ReportSuccessCard = ({
                 )}
               >
                 {isUrban
-                  ? "Seu relato foi enviado com sucesso e será analisado pela equipe responsável."
-                  : "Seu relato foi registrado e está sendo analisado. Você receberá atualizações sobre o andamento."}
+                  ? "Seu relato foi enviado e está sendo analisado por inteligência artificial. Você pode acompanhar o status em 'Meus Relatos'."
+                  : "Seu relato foi registrado e está sendo analisado por IA. Geralmente em poucos minutos você verá a classificação e prioridade definidas."}
+              </p>
+              <p className={cn(
+                "text-xs mt-2",
+                isUrban 
+                  ? "text-green-600/80 dark:text-green-400/80"
+                  : "text-muted-foreground/80"
+              )}>
+                ⏱️ Tempo estimado de análise: 1-5 minutos
               </p>
             </div>
 

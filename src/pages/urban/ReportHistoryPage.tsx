@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ import { ReportFilters } from "@/components/urban/ReportFilters";
 import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
+import { AnalysisStatusBadge } from "@/components/shared/AnalysisStatusBadge";
 import { toast } from "@/hooks/use-toast";
 
 interface Report {
@@ -30,6 +31,8 @@ interface Report {
   created_at: string;
   user_id: string;
   photos?: string[] | null;
+  n8n_processed?: boolean | null;
+  n8n_priority?: string | null;
   profiles?: {
     full_name: string;
     avatar_url: string | null;
@@ -94,7 +97,7 @@ export default function ReportHistoryPage() {
     try {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("*")
+        .select("id, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -126,7 +129,7 @@ export default function ReportHistoryPage() {
     try {
       let query = supabase
         .from("urban_reports")
-        .select("*")
+        .select("id, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -301,10 +304,11 @@ export default function ReportHistoryPage() {
               onCommentClick={() => setSelectedReport(report)}
             />
             
-            <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-              {getStatusIcon(report.status)}
-              {statusInfo.label}
-            </Badge>
+            <AnalysisStatusBadge
+              status={report.status}
+              n8nProcessed={report.n8n_processed}
+              n8nPriority={report.n8n_priority}
+            />
           </div>
         </CardContent>
       </Card>
