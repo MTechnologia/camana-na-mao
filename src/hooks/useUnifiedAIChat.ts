@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 
 interface Message {
   id: string;
@@ -20,6 +21,8 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
+  const [collectionType, setCollectionType] = useState<CollectionType>(null);
+  const [collectedFields, setCollectedFields] = useState<CollectedFields>({});
   const conversationIdRef = useRef<string | null>(conversationId || null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -31,9 +34,11 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
     }
   }, [conversationId]);
 
-  // Reset createdReport when conversation changes
+  // Reset createdReport and collection state when conversation changes
   useEffect(() => {
     setCreatedReport(null);
+    setCollectionType(null);
+    setCollectedFields({});
   }, [conversationId]);
 
   // Load messages from database when conversationId changes
@@ -226,10 +231,25 @@ Como posso ajudar?`,
           if (content) {
             assistantMessage += content;
             
+            // Check for collection progress markers
+            const progressMatch = assistantMessage.match(/\[COLLECTION_PROGRESS:(\w+):(\{[^}]+\})\]/);
+            if (progressMatch) {
+              const type = progressMatch[1] as CollectionType;
+              try {
+                const fields = JSON.parse(progressMatch[2]);
+                setCollectionType(type);
+                setCollectedFields(prev => ({ ...prev, ...fields }));
+              } catch (e) {
+                console.warn('Failed to parse collection progress:', e);
+              }
+            }
+            
             // Check for report markers
             const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch && !createdReport) {
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
+              setCollectionType(null);
+              setCollectedFields({});
               toast({
                 title: "Relato criado!",
                 description: "Seu relato urbano foi registrado.",
@@ -239,6 +259,8 @@ Como posso ajudar?`,
             const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch && !createdReport) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
+              setCollectionType(null);
+              setCollectedFields({});
               toast({
                 title: "Relato registrado!",
                 description: "Seu relato de transporte foi salvo.",
@@ -248,17 +270,20 @@ Como posso ajudar?`,
             const ratingMatch = assistantMessage.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch && !createdReport) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
+              setCollectionType(null);
+              setCollectedFields({});
               toast({
                 title: "Avaliação registrada!",
                 description: "Sua avaliação foi salva.",
               });
             }
             
-            // Remove markers from displayed message
+            // Remove all markers from displayed message
             const displayMessage = assistantMessage
               .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
+              .replace(/\[COLLECTION_PROGRESS:\w+:\{[^}]+\}]/g, '')
               .trim();
             
             setMessages((prev) => {
@@ -361,6 +386,8 @@ Como posso ajudar?`,
   const clearMessages = useCallback(() => {
     setMessages([]);
     setCreatedReport(null);
+    setCollectionType(null);
+    setCollectedFields({});
     conversationIdRef.current = null;
   }, []);
 
@@ -386,5 +413,7 @@ Como posso ajudar?`,
     addAssistantMessage,
     createdReport,
     clearCreatedReport,
+    collectionType,
+    collectedFields,
   };
 };
