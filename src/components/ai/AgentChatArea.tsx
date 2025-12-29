@@ -35,6 +35,7 @@ const AgentChatArea = () => {
   const { activeConversationId, setActiveConversationId } = useAIJourney();
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
+  const pendingMessageRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
 
@@ -68,6 +69,15 @@ const AgentChatArea = () => {
     }
   }, [activeConversationId, clearMessages]);
 
+  // Enviar mensagem pendente após conversa carregar
+  useEffect(() => {
+    if (activeConversationId && pendingMessageRef.current && !isLoading) {
+      const msg = pendingMessageRef.current;
+      pendingMessageRef.current = null;
+      sendMessage(msg);
+    }
+  }, [activeConversationId, isLoading, sendMessage]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, createdReport]);
@@ -80,16 +90,14 @@ const AgentChatArea = () => {
     if (!content.trim()) return;
 
     if (!activeConversationId) {
-      const newConvId = await createConversation('general');
+      // Guardar mensagem para enviar após conversa criada
+      pendingMessageRef.current = content.trim();
       
+      const newConvId = await createConversation('general');
       if (newConvId) {
         setActiveConversationId(newConvId);
-        
-        setTimeout(() => {
-          sendMessage(content.trim());
-        }, 50);
-        return;
       }
+      return;
     }
 
     sendMessage(content.trim());
