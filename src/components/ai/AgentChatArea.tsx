@@ -12,6 +12,7 @@ import ContextualFeed from "./ContextualFeed";
 import PriorityAction from "./PriorityAction";
 import PromptChips from "./PromptChips";
 import TypingIndicator from "./TypingIndicator";
+import DataCollectionTracker from "./DataCollectionTracker";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
@@ -41,7 +42,9 @@ const AgentChatArea = () => {
     sendMessage, 
     createdReport, 
     clearCreatedReport, 
-    clearMessages 
+    clearMessages,
+    collectionType,
+    collectedFields
   } = useUnifiedAIChat(activeConversationId);
   
   const { createConversation } = useAIConversations();
@@ -174,6 +177,12 @@ const AgentChatArea = () => {
             exit="exit"
             className="flex-1 min-h-0 flex flex-col"
           >
+            {/* Data Collection Progress Tracker */}
+            <DataCollectionTracker 
+              collectionType={collectionType}
+              collectedFields={collectedFields}
+            />
+            
             <ScrollArea className="flex-1">
               <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
                 {messages.map((msg, index) => (
