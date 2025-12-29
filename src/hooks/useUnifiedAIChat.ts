@@ -20,6 +20,7 @@ interface CreatedReport {
 export const useUnifiedAIChat = (conversationId?: string | null) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
   const [collectionType, setCollectionType] = useState<CollectionType>(null);
   const [collectedFields, setCollectedFields] = useState<CollectedFields>({});
@@ -34,8 +35,9 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
     }
   }, [conversationId]);
 
-  // Reset createdReport and collection state when conversation changes
+  // Reset state when conversation changes
   useEffect(() => {
+    setIsHistoryLoaded(false);
     setCreatedReport(null);
     setCollectionType(null);
     setCollectedFields({});
@@ -46,7 +48,10 @@ export const useUnifiedAIChat = (conversationId?: string | null) => {
     const loadConversationMessages = async () => {
       setMessages([]);
       
-      if (!conversationId || !user) return;
+      if (!conversationId || !user) {
+        setIsHistoryLoaded(true);
+        return;
+      }
 
       try {
         const { data, error } = await supabase
@@ -111,6 +116,8 @@ Como posso ajudar?`,
         }
       } catch (error) {
         console.error('Error loading conversation:', error);
+      } finally {
+        setIsHistoryLoaded(true);
       }
     };
 
@@ -410,6 +417,7 @@ Como posso ajudar?`,
   return {
     messages,
     isLoading,
+    isHistoryLoaded,
     sendMessage,
     clearMessages,
     addAssistantMessage,
