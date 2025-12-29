@@ -93,7 +93,12 @@ Como posso ajudar?`,
             })
             .eq('id', conversationId);
         } else {
-          setMessages(savedMessages);
+          // Garante que todas as mensagens tenham timestamp (fallback para vazio)
+          const messagesWithTimestamp = savedMessages.map(msg => ({
+            ...msg,
+            timestamp: msg.timestamp || ''
+          }));
+          setMessages(messagesWithTimestamp);
           
           // Check for report markers in history
           for (const msg of savedMessages) {

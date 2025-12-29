@@ -9,9 +9,32 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: string | Date;
+  timestamp?: string | Date;
   source?: string;
 }
+
+const formatTimestamp = (timestamp: string | Date | undefined): string => {
+  if (!timestamp) return '';
+  
+  if (typeof timestamp === 'string') {
+    // Se já está formatado (ex: "20:27"), usar direto
+    if (/^\d{2}:\d{2}$/.test(timestamp)) {
+      return timestamp;
+    }
+    // Se for ISO string, formatar
+    const date = new Date(timestamp);
+    if (!isNaN(date.getTime())) {
+      return format(date, "HH:mm", { locale: ptBR });
+    }
+    return '';
+  }
+  
+  if (timestamp instanceof Date && !isNaN(timestamp.getTime())) {
+    return format(timestamp, "HH:mm", { locale: ptBR });
+  }
+  
+  return '';
+};
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -82,14 +105,11 @@ const ChatMessageBubble = ({ message, userAvatarUrl, userInitials }: ChatMessage
             </div>
           )}
         </div>
-        <span className="text-xs text-muted-foreground px-2">
-          {typeof message.timestamp === 'string' 
-            ? message.timestamp 
-            : message.timestamp instanceof Date 
-              ? format(message.timestamp, "HH:mm", { locale: ptBR })
-              : new Date(message.timestamp).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-          }
-        </span>
+        {formatTimestamp(message.timestamp) && (
+          <span className="text-xs text-muted-foreground px-2">
+            {formatTimestamp(message.timestamp)}
+          </span>
+        )}
       </div>
     </div>
   );
