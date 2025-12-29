@@ -47,6 +47,7 @@ const AgentChatArea = () => {
     createdReport, 
     clearCreatedReport, 
     clearMessages,
+    addOptimisticMessage,
     collectionType,
     collectedFields
   } = useUnifiedAIChat(activeConversationId);
@@ -114,8 +115,9 @@ const AgentChatArea = () => {
     setIsDiscoveryOpen(false);
     clearMessages();
     
-    // Usa o mesmo mecanismo de pendingMessageRef para consistência
+    // UI otimista: adiciona mensagem do usuário imediatamente
     if (initialMessage) {
+      addOptimisticMessage(initialMessage);
       pendingMessageRef.current = initialMessage;
     }
     

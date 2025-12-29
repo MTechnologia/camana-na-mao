@@ -133,7 +133,26 @@ Como posso ajudar?`,
     setCreatedReport(null);
   }, []);
 
-  const sendMessage = async (content: string) => {
+  // Adiciona mensagem do usuário de forma otimista (antes da conversa ser criada)
+  const addOptimisticMessage = useCallback((content: string) => {
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+      timestamp: new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setMessages([userMessage]);
+  }, []);
+
+  const sendMessage = useCallback(async (content: string) => {
+    // Verifica se já existe uma mensagem otimista com o mesmo conteúdo
+    const hasOptimisticMessage = messages.some(
+      msg => msg.role === "user" && msg.content === content
+    );
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -144,7 +163,10 @@ Como posso ajudar?`,
       }),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // Só adiciona se não houver mensagem otimista
+    if (!hasOptimisticMessage) {
+      setMessages((prev) => [...prev, userMessage]);
+    }
     setIsLoading(true);
 
     // Save user message to database
@@ -395,7 +417,7 @@ Como posso ajudar?`,
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [messages, user, toast, createdReport]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -426,6 +448,7 @@ Como posso ajudar?`,
     sendMessage,
     clearMessages,
     addAssistantMessage,
+    addOptimisticMessage,
     createdReport,
     clearCreatedReport,
     collectionType,
