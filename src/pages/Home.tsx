@@ -7,11 +7,12 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import AppOnboardingTutorial from "@/components/onboarding/AppOnboardingTutorial";
 import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
 import { DebugOverlay } from "@/components/debug/DebugOverlay";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 const Home = () => {
   const { user, session, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { isOnline, isChecking, checkConnection } = useNetworkStatus();
   const [authChecked, setAuthChecked] = useState(false);
   const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
 
@@ -29,21 +30,8 @@ const Home = () => {
     }
   }, [user, session, authLoading, navigate]);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
-  // Loading guard - mostra skeleton enquanto auth não está pronto
-  if (authLoading || !authChecked) {
+  // Loading guard - mostra skeleton enquanto auth ou conexão não estão prontos
+  if (authLoading || !authChecked || isChecking) {
     return (
       <>
         <PageSkeleton />
@@ -57,10 +45,11 @@ const Home = () => {
     return null;
   }
 
+  // Só mostra offline após confirmação real (2 falhas consecutivas)
   if (!isOnline) {
     return (
       <>
-        <OfflineMode />
+        <OfflineMode onRetry={checkConnection} />
         <DebugOverlay />
       </>
     );
