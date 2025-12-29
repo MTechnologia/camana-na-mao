@@ -20,7 +20,7 @@ export default function UrgentReportPage() {
   const { patterns } = useReportPatterns();
   const [step, setStep] = useState(1);
   const [reportData, setReportData] = useState<any>({
-    is_urgent: true, // Flag para N8N priorizar
+    is_urgent: true, // Flag para sistema de análise priorizar
     occurrence_date: new Date().toISOString().split('T')[0],
   });
   const [success, setSuccess] = useState(false);
@@ -43,7 +43,7 @@ export default function UrgentReportPage() {
         line_id: reportData.line_id,
         line_code_custom: reportData.line_code,
         report_type: reportData.report_type,
-        description: `[URGENTE] ${reportData.description}`, // Marcador para N8N identificar urgência
+        description: `[URGENTE] ${reportData.description}`, // Marcador de urgência para análise
         occurrence_date: reportData.occurrence_date,
       });
       
