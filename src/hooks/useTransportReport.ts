@@ -61,7 +61,24 @@ export const useTransportReport = () => {
     const { data, error } = await supabase
       .from('transport_reports')
       .select(`
-        *,
+        id,
+        line_id,
+        line_code_custom,
+        report_type,
+        severity,
+        description,
+        occurrence_date,
+        occurrence_time,
+        location,
+        impact_description,
+        status,
+        created_at,
+        updated_at,
+        n8n_processed,
+        n8n_processed_at,
+        n8n_priority,
+        n8n_validated_category,
+        n8n_tags,
         line:transport_lines(line_code, line_name, line_type)
       `)
       .eq('user_id', user.id)

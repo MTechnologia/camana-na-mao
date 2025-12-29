@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ui/page-header';
-
+import { AnalysisStatusBadge } from '@/components/shared/AnalysisStatusBadge';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatShortDate } from '@/lib/dateUtils';
@@ -32,15 +31,7 @@ export default function MyReportsPage() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, { text: string; variant: 'default' | 'secondary' | 'outline' }> = {
-      pending: { text: 'Pendente', variant: 'secondary' },
-      analyzing: { text: 'Analisando', variant: 'default' },
-      forwarded: { text: 'Encaminhado', variant: 'outline' },
-      resolved: { text: 'Resolvido', variant: 'outline' },
-    };
-    return labels[status] || labels.pending;
-  };
+  // Função removida - agora usa AnalysisStatusBadge
 
   return (
     <>
@@ -64,13 +55,16 @@ export default function MyReportsPage() {
         ) : (
           reports.map((report) => {
             const problem = transportProblems.find(p => p.id === report.report_type);
-            const statusInfo = getStatusLabel(report.status);
             
             return (
               <Card key={report.id} className="hover:shadow-md transition-shadow border-border">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>
+                    <AnalysisStatusBadge
+                      status={report.status}
+                      n8nProcessed={report.n8n_processed}
+                      n8nPriority={report.n8n_priority}
+                    />
                     <span className="text-xs text-muted-foreground">
                       {formatShortDate(report.created_at)}
                     </span>
