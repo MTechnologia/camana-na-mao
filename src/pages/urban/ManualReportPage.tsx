@@ -24,7 +24,7 @@ const categories = [
   { value: "outro", label: "Outro" }
 ];
 
-// Buscar configurações do N8N
+// Buscar configurações de automação
 const getN8NSettings = async () => {
   try {
     const { data, error } = await supabase
@@ -40,7 +40,7 @@ const getN8NSettings = async () => {
   }
 };
 
-// Enviar relato para N8N em background
+// Enviar para processamento automático em background
 const sendToN8N = async (reportData: any) => {
   try {
     const settings = await getN8NSettings();
@@ -64,10 +64,10 @@ const sendToN8N = async (reportData: any) => {
       }
     });
     
-    console.log('✅ Relato enviado para N8N');
+    console.log('✅ Relato enviado para processamento');
   } catch (error) {
     // Log silencioso - não bloquear o fluxo do usuário
-    console.error('⚠️ Erro ao enviar para N8N (não crítico):', error);
+    console.error('⚠️ Erro ao enviar para processamento automático (não crítico):', error);
   }
 };
 

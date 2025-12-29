@@ -330,10 +330,10 @@ export const UnifiedReportDrawer = ({
                 </>
               )}
 
-              {/* N8N Processing */}
+              {/* Automated Processing */}
               {manifest.n8n_processed && (
                 <div className="p-4 rounded-lg border bg-muted/30">
-                  <h4 className="text-sm font-medium mb-2">Processamento N8N</h4>
+                  <h4 className="text-sm font-medium mb-2">Análise Automatizada</h4>
                   <div className="flex flex-wrap gap-2">
                     {manifest.n8n_priority && (
                       <Badge variant="outline">Prioridade: {manifest.n8n_priority}</Badge>

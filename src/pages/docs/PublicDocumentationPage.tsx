@@ -86,7 +86,7 @@ graph TB
 | Backend | Supabase Edge Functions | Lógica serverless |
 | Banco de Dados | PostgreSQL | Persistência de dados |
 | IA | Lovable AI Gateway (Gemini/GPT) | Processamento de linguagem natural com tool-calling |
-| Automação | N8N | Workflows de integração externa |
+| Automação | Motor de Análise | Processamento e priorização automatizada |
 
 ### 2.3 Arquitetura de Tool-Calling
 
@@ -183,7 +183,7 @@ sequenceDiagram
     participant O as AI Orchestrator
     participant T as Tools
     participant DB as PostgreSQL
-    participant N as N8N
+    participant N as Automação
     participant G as Gestor CMS
     
     C->>UI: "Tem um buraco na rua X"
@@ -218,9 +218,9 @@ Exemplo de Patterns:
 - "próximo|perto|onde tem" → find_nearby_services
 \`\`\`
 
-### 5.3 Integração N8N
+### 5.3 Processamento Automatizado
 
-O N8N processa automaticamente cada manifestação após criação:
+O sistema processa automaticamente cada manifestação após criação:
 
 1. **Validação**: Verifica completude dos dados
 2. **Categorização**: Classifica por tema e área
@@ -333,7 +333,7 @@ O sistema garante conformidade com a LGPD:
 - ✅ 8 ferramentas especializadas implementadas
 - ✅ ContextualFeed e PromptChips
 - ✅ CMS administrativo completo
-- ✅ Integração N8N
+- ✅ Motor de análise automatizado
 
 ### Fase 2: Expansão 🔄
 

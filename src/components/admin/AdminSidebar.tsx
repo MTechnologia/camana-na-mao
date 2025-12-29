@@ -56,7 +56,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           title: 'Configurações',
           icon: Settings,
           submenu: [
-            { title: 'Integração N8N', href: '/admin/settings/n8n' },
+            { title: 'Automação de Workflows', href: '/admin/settings/n8n' },
             { title: 'Acessibilidade', href: '/admin/settings/accessibility' },
           ],
         },
