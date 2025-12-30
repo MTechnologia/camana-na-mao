@@ -207,9 +207,9 @@ const DataCollectionTracker = ({
           className
         )}
       >
-        <div className="px-3 py-2 space-y-2">
+        <div className="px-3 py-2 space-y-1.5">
           {/* Header Row */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <CircularProgress progress={progress} isComplete={allRequiredCollected} />
             
             <span className="text-xs font-medium text-foreground">
