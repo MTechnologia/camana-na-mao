@@ -9,13 +9,15 @@ import {
   Users, 
   HelpCircle, 
   Newspaper,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
+  DrawerClose,
 } from "@/components/ui/drawer";
 
 interface Capability {
@@ -198,10 +200,18 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="pb-2">
+        <DrawerHeader className="pb-2 relative">
           <DrawerTitle className="text-lg font-semibold text-foreground">
             O que posso fazer por você?
           </DrawerTitle>
+          <DrawerClose asChild>
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </DrawerClose>
         </DrawerHeader>
         
         {/* Search */}
@@ -274,12 +284,6 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
           )}
         </div>
 
-        {/* Footer hint */}
-        <div className="p-3 border-t border-border bg-muted/30">
-          <p className="text-xs text-muted-foreground text-center">
-            Use <kbd className="px-1.5 py-0.5 rounded bg-secondary text-foreground font-mono text-[10px]">↑↓</kbd> para navegar • <kbd className="px-1.5 py-0.5 rounded bg-secondary text-foreground font-mono text-[10px]">Enter</kbd> para selecionar
-          </p>
-        </div>
       </DrawerContent>
     </Drawer>
   );
