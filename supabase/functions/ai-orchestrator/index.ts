@@ -1091,15 +1091,15 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
     
-    // Call AI API
-    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
+    // Call AI API (Lovable AI Gateway)
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
-        body: JSON.stringify({
-          model: 'openai/gpt-5-mini',
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages.slice(-10) // Last 10 messages for context
@@ -1107,7 +1107,6 @@ serve(async (req) => {
         tools,
         tool_choice: 'auto',
         temperature: 0.7,
-        max_tokens: 1024,
       }),
     });
     
