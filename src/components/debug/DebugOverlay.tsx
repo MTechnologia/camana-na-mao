@@ -2,17 +2,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, X, Bug } from "lucide-react";
-import { cleanupLegacyPWA } from "@/lib/cleanupLegacyPWA";
+import { RefreshCw, X, Bug, Check } from "lucide-react";
+import { forceNuclearCleanup } from "@/lib/cleanupLegacyPWA";
+import { toast } from "sonner";
 
 // Build ID - atualizado a cada deploy
-const BUILD_ID = "2024-12-23-v2";
+const BUILD_ID = "2024-12-30-v1";
 
 export const DebugOverlay = () => {
   const { user, session, loading } = useAuth();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [cleanupDone, setCleanupDone] = useState(false);
 
   // Só mostrar se ?debug=1 está na URL
   const params = new URLSearchParams(location.search);
@@ -23,14 +25,13 @@ export const DebugOverlay = () => {
   const handleForceRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await cleanupLegacyPWA();
-      // Adicionar timestamp para forçar revalidação
-      const url = new URL(window.location.href);
-      url.searchParams.set("v", Date.now().toString());
-      window.location.href = url.toString();
+      const cleaned = await forceNuclearCleanup();
+      setCleanupDone(true);
+      toast.success(cleaned ? "Cache limpo com sucesso!" : "Nenhum cache para limpar");
     } catch (e) {
-      console.error("Erro ao forçar atualização:", e);
-      // Não fazer reload automático - apenas resetar estado
+      console.error("Erro ao limpar cache:", e);
+      toast.error("Erro na limpeza de cache");
+    } finally {
       setIsRefreshing(false);
     }
   };
@@ -99,8 +100,12 @@ export const DebugOverlay = () => {
         size="sm"
         className="w-full mt-4 bg-yellow-500/20 border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/30"
       >
-        <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-        {isRefreshing ? "Atualizando..." : "Forçar Atualização"}
+        {cleanupDone ? (
+          <Check className="h-4 w-4 mr-2 text-green-400" />
+        ) : (
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+        )}
+        {isRefreshing ? "Limpando..." : cleanupDone ? "Cache Limpo" : "Limpar Cache"}
       </Button>
     </div>
   );

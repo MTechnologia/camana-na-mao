@@ -70,6 +70,8 @@ const sendToN8N = async (reportData: any) => {
   }
 };
 
+const DRAFT_KEY = 'cmsp_urban_report_draft';
+
 export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -80,14 +82,31 @@ export default function ManualReportPage() {
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
   const isSupported = typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
-  const [formData, setFormData] = useState({
-    category: "",
-    title: "",
-    description: "",
-    location: "",
-    latitude: null as number | null,
-    longitude: null as number | null
+  const [formData, setFormData] = useState(() => {
+    // Carregar draft do sessionStorage na inicialização
+    try {
+      const saved = sessionStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return {
+      category: "",
+      title: "",
+      description: "",
+      location: "",
+      latitude: null as number | null,
+      longitude: null as number | null
+    };
   });
+
+  // Salvar draft a cada mudança
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [formData]);
 
   // Initialize Web Speech API
   useEffect(() => {
@@ -249,6 +268,9 @@ export default function ManualReportPage() {
 
       if (error) throw error;
 
+      // Limpar draft após sucesso
+      sessionStorage.removeItem(DRAFT_KEY);
+      
       toast.success("Relato enviado com sucesso!");
 
       // Enviar para N8N em background (não-bloqueante)
