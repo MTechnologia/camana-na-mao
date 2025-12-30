@@ -81,8 +81,8 @@ export function AddressAutocomplete({
     }
   }, []);
 
-  // Fetch predictions when query changes
-  const fetchPredictions = useCallback(async (searchQuery: string) => {
+  // Fetch predictions - using ref to avoid dependency issues
+  const fetchPredictions = async (searchQuery: string) => {
     if (searchQuery.length < 3) {
       setPredictions([]);
       setShowDropdown(false);
@@ -142,16 +142,20 @@ export function AddressAutocomplete({
     } finally {
       setIsLoading(false);
     }
-  }, [fetchFromViaCep]);
+  };
 
-  // Debounced search
+  // Use ref to store latest fetch function to avoid stale closures
+  const fetchPredictionsRef = useRef(fetchPredictions);
+  fetchPredictionsRef.current = fetchPredictions;
+
+  // Debounced search - only depends on query
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
     debounceRef.current = setTimeout(() => {
-      fetchPredictions(query);
+      fetchPredictionsRef.current(query);
     }, 300);
 
     return () => {
@@ -159,7 +163,7 @@ export function AddressAutocomplete({
         clearTimeout(debounceRef.current);
       }
     };
-  }, [query, fetchPredictions]);
+  }, [query]);
 
   // Fetch full address details when a prediction is selected
   const handleSelect = async (prediction: Prediction) => {
