@@ -133,49 +133,24 @@ async function lookupCEP(cep: string): Promise<{
   }
 }
 
-// Extract urban report-specific fields - SIMPLIFIED: NO automatic location extraction
-// PRIORITY ORDER: esgoto > higiene_urbana > iluminacao (prevents "bueiro fedido" → iluminacao)
+// Valid categories for urban reports (source of truth)
+const VALID_URBAN_CATEGORIES = [
+  'iluminacao', 'calcada', 'via_publica', 'lixo', 'esgoto', 
+  'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
+] as const;
+
+// State to track if category has been classified via AI for current conversation
+const classifiedCategories = new Map<string, { category: string; confidence: number; user_confirmed: boolean }>();
+
+// Extract urban report-specific fields - SIMPLIFIED: NO category inference, NO location extraction
+// Category is now EXCLUSIVELY determined by classify_report_category tool (AI classification)
 function extractUrbanFields(context: string): Record<string, any> {
   const fields: Record<string, any> = {};
   
-  // PRIORITY 1: Esgoto/bueiro (highest priority - includes "bueiro fedido")
-  if (context.includes('esgoto') || context.includes('bueiro') || context.includes('vazamento') || context.includes('alagamento') || context.includes('alagando')) {
-    fields.category = 'esgoto';
-  }
-  // PRIORITY 2: Animals (before hygiene to handle "bicho morto fedendo")
-  else if (context.includes('bicho morto') || context.includes('animal morto') || context.includes('rato') || context.includes('barata') || context.includes('infestação') || context.includes('infestacao')) {
-    fields.category = 'animais';
-  }
-  // PRIORITY 3: Urban hygiene (fedor/sujeira when NOT related to esgoto)
-  else if (context.includes('fedor') || context.includes('cheiro') || context.includes('fedendo') || context.includes('urina') || context.includes('fezes') || context.includes('sujeira')) {
-    fields.category = 'higiene_urbana';
-  }
-  // PRIORITY 4: Lighting
-  else if (context.includes('poste') || context.includes('luz apagad') || context.includes('escuro') || context.includes('iluminaç')) {
-    fields.category = 'iluminacao';
-  }
-  // PRIORITY 5: Roads
-  else if (context.includes('buraco') || context.includes('asfalto') || context.includes('semáforo') || context.includes('semaforo')) {
-    fields.category = 'via_publica';
-  }
-  // PRIORITY 6: Sidewalk
-  else if (context.includes('calçada') || context.includes('calcada') || context.includes('passeio')) {
-    fields.category = 'calcada';
-  }
-  // PRIORITY 7: Trash
-  else if (context.includes('lixo') || context.includes('entulho')) {
-    fields.category = 'lixo';
-  }
-  // PRIORITY 8: Green areas
-  else if (context.includes('árvore') || context.includes('arvore') || context.includes('poda') || context.includes('praça') || context.includes('praca') || context.includes('mato')) {
-    fields.category = 'area_verde';
-  }
-  // PRIORITY 9: Pollution
-  else if (context.includes('poluição') || context.includes('poluicao') || context.includes('fumaça') || context.includes('fumaca') || context.includes('barulho')) {
-    fields.category = 'poluicao';
-  }
+  // REMOVED: All category inference logic - now handled by classify_report_category tool
+  // The AI model will classify the category and call the tool explicitly
   
-  // Detect CEP pattern
+  // Only detect CEP pattern (structural data, not semantic)
   const cepMatch = context.match(/\b(\d{5}[-]?\d{3})\b/);
   if (cepMatch) {
     fields.cep = cepMatch[1].replace('-', '');
@@ -524,6 +499,43 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "classify_report_category",
+      description: "OBRIGATÓRIO: Classifica a categoria do relato urbano ANTES de coletar outros dados. Chamar IMEDIATAMENTE quando detectar que cidadão quer fazer um relato urbano. Se confiança >= 80%, classificar automaticamente. Se < 80%, apresentar opções ao cidadão e aguardar confirmação.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
+            description: "Categoria classificada: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento, alagamento), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador), outro"
+          },
+          confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            description: "Nível de confiança na classificação (0.0 a 1.0). Se >= 0.8, classificação automática. Se < 0.8, perguntar ao usuário."
+          },
+          reasoning: {
+            type: "string",
+            description: "Justificativa da classificação (para auditoria)"
+          },
+          user_confirmed: {
+            type: "boolean",
+            description: "Se o usuário confirmou a categoria (true quando usuário escolheu entre opções)"
+          },
+          alternative_categories: {
+            type: "array",
+            items: { type: "string" },
+            description: "Quando confiança < 80%, listar 2-3 categorias alternativas mais prováveis"
+          }
+        },
+        required: ["category", "confidence", "reasoning", "user_confirmed"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "validate_cep",
       description: "Valida CEP e retorna endereço completo. CHAMAR SEMPRE que cidadão informar um CEP (8 dígitos). Retorna rua, bairro, cidade automaticamente.",
       parameters: {
@@ -723,94 +735,112 @@ const tools = [
   }
 ];
 
-// Lean system prompt with CEP-first collection
+// Lean system prompt with AI-driven classification and CEP-first collection
 const systemPrompt = `Você é o Assistente CMSP, da Câmara Municipal de São Paulo. Ajuda cidadãos de forma empática e direta.
 
-REGRAS CRÍTICAS DE COLETA DE DADOS:
+=== REGRA DE CLASSIFICAÇÃO DE CATEGORIA (CRÍTICO) ===
 
-1. PRIORIZAR CEP PARA ENDEREÇO (mais preciso e rápido)
-   - Quando cidadão relatar problema urbano, perguntar CEP PRIMEIRO
-   - Se cidadão informar CEP (8 dígitos): CHAMAR validate_cep imediatamente
-   - Se CEP válido: rua e bairro são preenchidos automaticamente → pular para número
-   - Se CEP inválido ou desconhecido: perguntar rua e bairro manualmente
+Quando detectar que o cidadão quer fazer um RELATO URBANO, você DEVE:
+
+1. CLASSIFICAR A CATEGORIA IMEDIATAMENTE usando classify_report_category:
+   - Analise o problema descrito pelo cidadão
+   - Determine a categoria mais adequada
+   - Avalie seu nível de confiança (0.0 a 1.0)
+
+2. SE CONFIANÇA >= 80% (0.8):
+   - Chamar classify_report_category com user_confirmed: false
+   - Confirmar brevemente: "Entendi, é um problema de [categoria]. Qual o CEP do local?"
+   - Prosseguir com coleta de dados
+
+3. SE CONFIANÇA < 80%:
+   - Apresentar 2-3 opções mais prováveis ao cidadão
+   - Perguntar: "Isso é mais um problema de [opção 1] ou [opção 2]?"
+   - Aguardar resposta e chamar classify_report_category com user_confirmed: true
+
+4. EXEMPLOS DE CLASSIFICAÇÃO:
+
+   | Descrição do cidadão | Categoria | Confiança |
+   |---------------------|-----------|-----------|
+   | "bueiro fedido" | esgoto | 95% |
+   | "bueiro entupido" | esgoto | 95% |
+   | "poste apagado" | iluminacao | 95% |
+   | "buraco na rua" | via_publica | 95% |
+   | "cheiro ruim na rua" | higiene_urbana | 70% → perguntar |
+   | "problema na minha rua" | outro | 40% → perguntar |
+   | "animal morto" | animais | 90% |
+   | "lixo acumulado" | lixo | 90% |
+   | "árvore caindo" | area_verde | 90% |
+   | "vazamento de água" | esgoto | 85% |
+   | "barulho excessivo" | poluicao | 85% |
+   | "elogiar vereador X" | feedback_camara | 95% |
+
+5. REGRAS DE PRIORIDADE (quando ambíguo):
+   - "bueiro" sempre → esgoto (mesmo que fedido)
+   - "bicho morto" → animais (mesmo que fedendo)
+   - fedor genérico sem causa clara → perguntar ao cidadão
+
+=== REGRAS DE COLETA DE DADOS ===
+
+1. FLUXO CORRETO PARA RELATO URBANO:
+   1º) CLASSIFICAR categoria via classify_report_category
+   2º) Perguntar CEP: "Qual o CEP do local?"
+   3º) Se CEP: chamar validate_cep
+   4º) Pedir número/referência
+   5º) Se descrição < 30 chars: pedir mais detalhes
+   6º) Chamar create_urban_report
 
 2. NUNCA extrair localização da descrição do problema
-   - Se o cidadão disser "tem fedor na minha rua", você NÃO sabe qual é a rua
-   - Perguntar: "Qual o CEP do local?" (ou rua/bairro se não souber CEP)
-   
-3. NUNCA aceitar respostas vagas como localização
-   - "na minha rua" → "Qual o CEP do local?"
-   - "aqui perto" → "Qual o CEP? (se não souber, me diz a rua e bairro)"
-   - "não sei o CEP" → "Qual o nome da rua e bairro?"
+   - "tem fedor na minha rua" → você NÃO sabe qual é a rua
+   - Perguntar explicitamente o CEP ou endereço
 
-4. NUNCA chamar create_urban_report sem ter:
-   - Categoria definida
-   - Descrição com no mínimo 30 caracteres
-   - Nome da rua/avenida (street) - via CEP ou manual
-   - Bairro de São Paulo (neighborhood) - via CEP ou manual
+3. NUNCA chamar create_urban_report sem:
+   - Categoria definida via classify_report_category
+   - Descrição >= 30 caracteres
+   - Rua (street) - via CEP ou manual
+   - Bairro (neighborhood) - via CEP ou manual
 
-5. MANTER A CATEGORIA ORIGINAL
-   - Se o cidadão disse "bueiro entupido", a categoria é "esgoto"
-   - NÃO mudar para outra categoria nas perguntas seguintes
+=== TEMPLATES DE PERGUNTAS ===
 
-TEMPLATES DE PERGUNTAS (seguir rigorosamente, UMA POR VEZ):
-
-RELATO URBANO (FLUXO CEP-FIRST):
-1ª pergunta: "Qual é o problema? (buraco, poste apagado, lixo, mau cheiro, bicho morto...)"
-2ª pergunta: "Qual o CEP do local? (se não souber, me diz a rua e bairro)"
-   → Se informar CEP: CHAMAR validate_cep
-   → Se CEP válido: confirmar endereço e pedir número
-   → Se CEP inválido: "CEP não encontrado. Qual o nome da rua?"
-   → Se não souber CEP: "Qual o nome da rua e bairro?"
-3ª pergunta: "Qual o número ou ponto de referência?"
-4ª pergunta (se descrição < 30 chars): "Pode dar mais detalhes sobre o problema?"
-→ Só então chamar create_urban_report
+RELATO URBANO:
+1ª: (após classificar) "Qual o CEP do local? (se não souber, me diz rua e bairro)"
+2ª: "Qual o número ou ponto de referência?"
+3ª: (se descrição curta) "Pode dar mais detalhes sobre o problema?"
 
 TRANSPORTE:
-1ª pergunta: "Qual linha ou estação teve o problema?"
-2ª pergunta: "O que aconteceu? (atraso, lotação, segurança, limpeza)"
-3ª pergunta: "Quando aconteceu? (data e horário aproximado)"
-4ª pergunta (se descrição < 30 chars): "Pode descrever melhor o que aconteceu?"
+1ª: "Qual linha ou estação teve o problema?"
+2ª: "O que aconteceu? (atraso, lotação, segurança)"
+3ª: "Quando? (data e horário aproximado)"
 
 AVALIAÇÃO DE SERVIÇO:
-1ª pergunta: "Qual serviço você quer avaliar? (UBS, escola, hospital, CEU...)"
-2ª pergunta: "Qual o nome do serviço?"
-3ª pergunta: "Em qual bairro fica?"
-4ª pergunta: "De 1 a 5, que nota você dá? Por quê?"
+1ª: "Qual serviço? (UBS, escola, hospital, CEU...)"
+2ª: "Qual o nome?"
+3ª: "Em qual bairro?"
+4ª: "De 1 a 5, que nota? Por quê?"
 
-FEEDBACK SOBRE VEREADOR/CÂMARA:
-1ª pergunta: "Qual o nome completo do vereador?"
-→ Se só primeiro nome: "Qual [Nome]? Temos: [listar opções com partido]"
-2ª pergunta: "É um elogio, reclamação ou sugestão?"
-3ª pergunta: "Descreva seu feedback (quanto mais detalhes, melhor)"
+FEEDBACK VEREADOR:
+1ª: "Qual o nome completo do vereador?"
+2ª: "É elogio, reclamação ou sugestão?"
+3ª: "Descreva seu feedback"
 
-CATEGORIAS DE PROBLEMAS URBANOS:
-- iluminacao: poste apagado, falta de luz, escuro
+=== CATEGORIAS URBANAS ===
+- iluminacao: poste apagado, falta de luz
 - via_publica: buraco, asfalto, semáforo
-- calcada: calçada quebrada, passeio
-- lixo: lixo, entulho acumulado
-- esgoto: bueiro ENTUPIDO, vazamento, alagamento
-- area_verde: árvore, praça, poda, mato
-- higiene_urbana: fedor, sujeira, urina, fezes
-- animais: bicho morto, rato, barata, infestação
+- calcada: calçada quebrada
+- lixo: lixo, entulho
+- esgoto: bueiro, vazamento, alagamento
+- area_verde: árvore, praça, poda
+- higiene_urbana: fedor genérico, sujeira
+- animais: bicho morto, infestação
 - poluicao: fumaça, barulho
-- feedback_camara: sobre vereador ou câmara
+- feedback_camara: sobre vereador/câmara
 
-VALIDAÇÃO DE VEREADORES (CRÍTICO):
-Lista oficial: Milton Leite (UNIÃO), Rodrigo Goulart (PSD), Celso Giannazi (PSOL), 
-Soninha Francine (CIDADANIA), Erika Hilton (PSOL), Amanda Paschoal (PSOL), 
-Luna Zarattini (PT), Janaína Lima (PP), José Turin (REPUBLICANOS), José Ferreira (MDB),
-Juliana Cardoso (PT), Eduardo Suplicy (PT), Professor Toninho Vespoli (PSOL)...
-
-Se cidadão mencionar só "José", perguntar: "Qual José? José Turin (Republicanos) ou José Ferreira (MDB)?"
-
-OUTRAS CAPACIDADES:
-• validate_cep → validar CEP e retornar endereço completo
-• search_knowledge_base → informações sobre a Câmara
-• find_nearby_services → UBS, escolas, hospitais próximos
+=== OUTRAS CAPACIDADES ===
+• validate_cep → endereço completo via CEP
+• search_knowledge_base → informações da Câmara
+• find_nearby_services → serviços próximos
 • search_audiencias → audiências públicas
 • get_citizen_history → histórico do cidadão
-• suggest_council_member → sugerir vereador para demanda
+• suggest_council_member → vereador para demanda
 
 TOM: Breve, direto, linguagem simples.
 Data de hoje: ${new Date().toISOString().split('T')[0]}`;
@@ -1039,10 +1069,87 @@ async function executeTool(
   
   try {
     switch (name) {
+      case 'classify_report_category': {
+        // Validate category against enum
+        const validCategories = VALID_URBAN_CATEGORIES;
+        if (!validCategories.includes(args.category)) {
+          console.error('[classify_report_category] Invalid category:', args.category);
+          return {
+            success: false,
+            message: `Categoria inválida. Categorias válidas: ${validCategories.join(', ')}`
+          };
+        }
+        
+        // Log classification for audit
+        console.log('[classify_report_category] Classification:', {
+          category: args.category,
+          confidence: args.confidence,
+          reasoning: args.reasoning,
+          user_confirmed: args.user_confirmed,
+          alternatives: args.alternative_categories
+        });
+        
+        // Build progress marker with category
+        const categoryLabels: Record<string, string> = {
+          iluminacao: 'Iluminação',
+          via_publica: 'Via Pública',
+          calcada: 'Calçada',
+          lixo: 'Lixo/Entulho',
+          esgoto: 'Esgoto/Bueiro',
+          area_verde: 'Área Verde',
+          higiene_urbana: 'Higiene Urbana',
+          animais: 'Animais',
+          poluicao: 'Poluição',
+          feedback_camara: 'Feedback Câmara',
+          outro: 'Outro'
+        };
+        const categoryLabel = categoryLabels[args.category] || args.category;
+        
+        // If low confidence and not user confirmed, suggest alternatives
+        if (args.confidence < 0.8 && !args.user_confirmed && args.alternative_categories?.length) {
+          const alternatives = args.alternative_categories
+            .map((cat: string) => categoryLabels[cat] || cat)
+            .join(', ');
+          
+          return {
+            success: true,
+            message: `Não tenho certeza da categoria. É mais um problema de **${categoryLabel}** ou de **${alternatives}**?`,
+            data: { 
+              category: args.category, 
+              confidence: args.confidence, 
+              user_confirmed: false,
+              needs_confirmation: true
+            }
+          };
+        }
+        
+        // Classification confirmed (high confidence or user confirmed)
+        const progressData = { 
+          category: args.category,
+          category_confidence: args.confidence,
+          category_user_confirmed: args.user_confirmed
+        };
+        const progressMarker = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(progressData)}]`;
+        
+        const confirmationText = args.user_confirmed 
+          ? `Entendido, **${categoryLabel}**.` 
+          : `Certo, é um problema de **${categoryLabel}**.`;
+        
+        return {
+          success: true,
+          message: `${progressMarker}${confirmationText} Qual o CEP do local? (se não souber, me diz a rua e bairro)`,
+          data: { 
+            category: args.category, 
+            confidence: args.confidence, 
+            user_confirmed: args.user_confirmed 
+          }
+        };
+      }
+      
       case 'validate_cep': {
         const result = await lookupCEP(args.cep);
         if (result.valid) {
-          // FIX: Include COLLECTION_PROGRESS marker with validated address data
+          // Include COLLECTION_PROGRESS marker with validated address data
           const cleanCep = args.cep.replace(/\D/g, '');
           const addressData = { 
             cep: cleanCep,
@@ -1067,7 +1174,25 @@ async function executeTool(
       }
       
       case 'create_urban_report': {
-        // FIX: Hard validation for description length (min 30 chars)
+        // Validate category is provided
+        if (!args.category) {
+          return {
+            success: false,
+            message: 'Preciso saber a categoria do problema. É um problema de iluminação, buraco, esgoto, lixo...?'
+          };
+        }
+        
+        // Validate category against enum
+        const validCategories = VALID_URBAN_CATEGORIES;
+        if (!validCategories.includes(args.category)) {
+          console.error('[create_urban_report] Invalid category:', args.category);
+          return {
+            success: false,
+            message: `Categoria inválida: ${args.category}. Categorias válidas: ${validCategories.join(', ')}`
+          };
+        }
+        
+        // Hard validation for description length (min 30 chars)
         if (!args.description || args.description.trim().length < 30) {
           return {
             success: false,
@@ -1075,7 +1200,7 @@ async function executeTool(
           };
         }
         
-        // FIX: Validate required fields
+        // Validate required address fields
         if (!args.street || !args.neighborhood) {
           return {
             success: false,
@@ -1083,14 +1208,8 @@ async function executeTool(
           };
         }
         
-        // FIX: Normalize category based on description (server-side last line of defense)
-        let normalizedCategory = args.category;
-        const descLower = args.description.toLowerCase();
-        if (descLower.includes('bueiro') || descLower.includes('esgoto') || descLower.includes('vazamento') || descLower.includes('alagamento') || descLower.includes('alagando')) {
-          normalizedCategory = 'esgoto';
-        } else if (descLower.includes('bicho morto') || descLower.includes('animal morto') || descLower.includes('rato') || descLower.includes('infestação')) {
-          normalizedCategory = 'animais';
-        }
+        // Category is now directly from classify_report_category (AI classification)
+        // No more server-side normalization - trust the AI classification
         
         // Build location_address from structured fields
         const locationParts = [];
@@ -1104,7 +1223,7 @@ async function executeTool(
           .from('urban_reports')
           .insert({
             user_id: userId,
-            category: normalizedCategory, // Use normalized category
+            category: args.category, // Use AI-classified category directly
             subcategory: args.subcategory || null,
             description: args.description,
             location_address: location_address,
