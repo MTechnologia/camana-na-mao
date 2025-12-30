@@ -119,9 +119,17 @@ const DataCollectionTracker = ({
   if (!collectionType || !config) {
     return null;
   }
+  // Contagem de TODOS os campos para consistência visual
+  const totalFields = config.fields.length;
+  const collectedCount = config.fields.filter(f => !!collectedFields[f.key]).length;
+  
+  // Contagem de campos obrigatórios para indicar quando pode submeter
   const requiredFields = config.fields.filter(f => f.required);
   const collectedRequiredCount = requiredFields.filter(f => collectedFields[f.key]).length;
-  const progress = Math.round((collectedRequiredCount / requiredFields.length) * 100);
+  const allRequiredCollected = collectedRequiredCount === requiredFields.length;
+  
+  // Progresso baseado em todos os campos
+  const progress = Math.round((collectedCount / totalFields) * 100);
   const TitleIcon = config.icon;
 
   const formatValue = (key: string, value: any): string => {
@@ -252,7 +260,7 @@ const DataCollectionTracker = ({
                       transition={{ duration: 0.5, ease: "easeOut" }}
                       className={cn(
                         "h-full rounded-full transition-colors",
-                        progress === 100 
+                        allRequiredCollected 
                           ? "bg-green-500" 
                           : "bg-primary"
                       )}
@@ -260,9 +268,9 @@ const DataCollectionTracker = ({
                   </div>
                   <span className={cn(
                     "text-xs font-medium min-w-[36px] text-right",
-                    progress === 100 ? "text-green-600" : "text-muted-foreground"
+                    allRequiredCollected ? "text-green-600" : "text-muted-foreground"
                   )}>
-                    {progress}%
+                    {collectedCount}/{totalFields}
                   </span>
                 </div>
               </motion.div>
@@ -276,13 +284,16 @@ const DataCollectionTracker = ({
                 <div 
                   className={cn(
                     "h-full rounded-full transition-all",
-                    progress === 100 ? "bg-green-500" : "bg-primary"
+                    allRequiredCollected ? "bg-green-500" : "bg-primary"
                   )}
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <span className="text-xs font-medium text-muted-foreground">
-                {collectedRequiredCount}/{requiredFields.length}
+              <span className={cn(
+                "text-xs font-medium",
+                allRequiredCollected ? "text-green-600" : "text-muted-foreground"
+              )}>
+                {collectedCount}/{totalFields}
               </span>
             </div>
           )}
