@@ -189,6 +189,24 @@ export const useUnifiedAIChat = (
   }, []);
 
   const sendMessage = useCallback(async (content: string) => {
+    // Heurística: se o assistente acabou de perguntar "número" e o usuário respondeu só com um número,
+    // marcamos street_number imediatamente para o tracker dar check.
+    if (
+      collectionType === 'urban_report' &&
+      !collectedFields.street_number
+    ) {
+      const lastAssistantText = [...messages].reverse().find(m => m.role === 'assistant')?.content || '';
+      const askedForNumber = /\bn[úu]mero\b/i.test(lastAssistantText);
+      if (askedForNumber) {
+        const raw = content.trim();
+        const match = raw.match(/^(\d+[A-Za-z]?|s\/?n|sem\s*n[úu]mero)$/i) || raw.match(/^(\d+)\b/);
+        if (match) {
+          const extracted = (match[1] || match[0] || raw).toUpperCase();
+          setCollectedFields(prev => ({ ...prev, street_number: extracted }));
+        }
+      }
+    }
+
     // Verifica se já existe uma mensagem otimista com o mesmo conteúdo
     const hasOptimisticMessage = messages.some(
       msg => msg.role === "user" && msg.content === content
@@ -321,29 +339,9 @@ export const useUnifiedAIChat = (
               }
             }
             
-            // Check for FIELD_REQUEST markers and extract from previous user message
-            const fieldRequestMatch = assistantMessage.match(/\[FIELD_REQUEST:(\w+)\]/);
-            if (fieldRequestMatch) {
-              const requestedField = fieldRequestMatch[1];
-              // If assistant asked for street_number in previous turn and user just replied,
-              // we need to extract from the messages history
-              if (requestedField === 'street_number') {
-                // Look at the last user message (current one being processed)
-                const lastUserMsg = messages.filter(m => m.role === 'user').pop();
-                if (lastUserMsg) {
-                  // Extract number from user's response (e.g., "123", "s/n", "sem número")
-                  const numberMatch = lastUserMsg.content.match(/^(\d+[A-Za-z]?|s\/?n|sem\s*n[úu]mero)$/i) ||
-                    lastUserMsg.content.match(/n[úu]mero\s*[:\s]*(\d+[A-Za-z]?)/i) ||
-                    lastUserMsg.content.match(/^(\d+)\b/);
-                  if (numberMatch) {
-                    const extractedNumber = numberMatch[1] || numberMatch[0];
-                    console.log('[useUnifiedAIChat] Extracted street_number:', extractedNumber);
-                    setCollectedFields(prev => ({ ...prev, street_number: extractedNumber }));
-                  }
-                }
-              }
-            }
-            
+            // FIELD_REQUEST markers are primarily used by the backend for deterministic parsing.
+            // The UI tracker updates via COLLECTION_PROGRESS and local heuristics on user send.
+
             // Check for report markers
             // Check for report markers - keep tracker visible, just mark as created
             const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
@@ -474,7 +472,7 @@ export const useUnifiedAIChat = (
     } finally {
       setIsLoading(false);
     }
-  }, [messages, user, toast, createdReport]);
+  }, [messages, user, toast, createdReport, collectionType, collectedFields]);
 
   const clearMessages = useCallback((preserveCollectionType = false) => {
     setMessages([]);
