@@ -207,6 +207,42 @@ export const useUnifiedAIChat = (
           cep: true,
         }));
       }
+      
+      // 0.5) Categoria - detecta confirmação de feedback ou classificação na conversa
+      if (!collectedFields.category) {
+        // Detecta quando IA oferece registrar como feedback e usuário aceita
+        const isOfferingFeedback = lastAssistantLower.includes('registrar') && 
+                                   (lastAssistantLower.includes('feedback') || 
+                                    lastAssistantLower.includes('preocupação') || 
+                                    lastAssistantLower.includes('câmara'));
+        const userAccepts = rawLower.includes('sim') || rawLower.includes('desejo') || 
+                           rawLower.includes('quero') || rawLower.includes('pode') || 
+                           rawLower.includes('ok') || rawLower.includes('aceito');
+        
+        if (isOfferingFeedback && userAccepts) {
+          setCollectedFields(prev => ({ ...prev, category: 'feedback_camara' }));
+        }
+        
+        // Detecta quando IA confirma categoria via texto
+        const categoryConfirmPatterns = [
+          { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
+          { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
+          { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
+          { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
+          { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
+          { pattern: /feedback.*c[âa]mara/i, category: 'feedback_camara' },
+          { pattern: /registrar.*preocupa[çc][ãa]o.*c[âa]mara/i, category: 'feedback_camara' },
+          { pattern: /registrar como feedback/i, category: 'feedback_camara' },
+        ];
+        
+        for (const { pattern, category } of categoryConfirmPatterns) {
+          if (pattern.test(lastAssistantText)) {
+            setCollectedFields(prev => ({ ...prev, category }));
+            break;
+          }
+        }
+      }
 
       // 1) Número / Referência
       if (!collectedFields.street_number) {
