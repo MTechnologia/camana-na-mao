@@ -106,25 +106,14 @@ export const ReportSuccessCard = ({
               )}
             >
               {isUrban ? (
-                <>
-                  <Button
-                    variant="outline"
-                    className="flex-1 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50"
-                    onClick={() => navigate("/relato-urbano/historico")}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Ver Meus Relatos
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="flex-1 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50"
-                    onClick={() => navigate("/servicos-proximos")}
-                  >
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Ver no Mapa
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  className="w-full border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50"
+                  onClick={() => navigate("/relato-urbano/historico")}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Ver Meus Relatos
+                </Button>
               ) : (
                 <>
                   {onViewPatterns && (

@@ -1491,8 +1491,11 @@ export type Database = {
           n8n_validated_category: string | null
           n8n_workflow_id: string | null
           photos: string[] | null
+          reference_point: string | null
           severity: string | null
           status: string | null
+          street: string | null
+          street_number: string | null
           subcategory: string | null
           updated_at: string | null
           user_id: string
@@ -1514,8 +1517,11 @@ export type Database = {
           n8n_validated_category?: string | null
           n8n_workflow_id?: string | null
           photos?: string[] | null
+          reference_point?: string | null
           severity?: string | null
           status?: string | null
+          street?: string | null
+          street_number?: string | null
           subcategory?: string | null
           updated_at?: string | null
           user_id: string
@@ -1537,8 +1543,11 @@ export type Database = {
           n8n_validated_category?: string | null
           n8n_workflow_id?: string | null
           photos?: string[] | null
+          reference_point?: string | null
           severity?: string | null
           status?: string | null
+          street?: string | null
+          street_number?: string | null
           subcategory?: string | null
           updated_at?: string | null
           user_id?: string

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building } from "lucide-react";
+import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building, Navigation } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +35,9 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     fields: [
       { key: 'category', label: 'Categoria', icon: Tag, required: true },
       { key: 'description', label: 'Descrição', icon: MessageSquare, required: true },
-      { key: 'location_address', label: 'Localização', icon: MapPin, required: true }, // Obrigatório
-      { key: 'neighborhood', label: 'Bairro', icon: Building, required: false },
+      { key: 'street', label: 'Rua/Avenida', icon: MapPin, required: true },
+      { key: 'neighborhood', label: 'Bairro', icon: Building, required: true },
+      { key: 'reference_point', label: 'Referência', icon: Navigation, required: false },
     ]
   },
   transport_report: {
@@ -78,12 +79,16 @@ const CHAMBER_FEEDBACK_CONFIG: CollectionConfig = {
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
-  // Urban report categories
+  // Urban report categories - expanded
   iluminacao: 'Iluminação',
   calcada: 'Calçada',
   via_publica: 'Via Pública',
   lixo: 'Lixo/Entulho',
+  esgoto: 'Esgoto/Bueiro',
   area_verde: 'Área Verde',
+  higiene_urbana: 'Higiene Urbana',
+  animais: 'Animais',
+  poluicao: 'Poluição',
   outro: 'Outro',
   feedback_camara: 'Feedback Câmara',
   // Transport report types

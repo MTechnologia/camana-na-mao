@@ -109,8 +109,9 @@ const AgentChatArea = () => {
 
   const handleNewReport = () => {
     clearCreatedReport();
-    clearMessages();
-    setActiveConversationId(null);
+    clearMessages(false); // Clear messages but don't preserve collection type
+    // Stay in chat - don't navigate away or set conversation to null
+    // User can start typing immediately for a new report
   };
 
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
