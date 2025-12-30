@@ -328,7 +328,7 @@ function accumulateFieldsFromHistory(
         const question = normalizeTextForMatching(rawQuestion); // Use normalized text for matching
         const answer = nextMsg.content.trim();
         
-        // === NEW: Deterministic field capture via [FIELD_REQUEST:...] markers ===
+        // === Deterministic field capture via [FIELD_REQUEST:...] markers ===
         const fieldRequestMatch = rawQuestion.match(/\[FIELD_REQUEST:(\w+)\]/);
         if (fieldRequestMatch) {
           const fieldType = fieldRequestMatch[1];
@@ -401,6 +401,22 @@ function accumulateFieldsFromHistory(
              question.includes('causando')) && !accumulated.active_consequences) {
           const parsedConsequences = parseFieldResponse('active_consequences', answer);
           Object.assign(accumulated, parsedConsequences);
+        }
+      }
+    }
+    
+    // === CRITICAL: Process the LAST user message if it's a response to a FIELD_REQUEST ===
+    // This handles the case where the user just responded but we haven't looped through it yet
+    const lastMsgIdx = messages.length - 1;
+    if (messages[lastMsgIdx]?.role === 'user' && lastMsgIdx > 0) {
+      const prevMsg = messages[lastMsgIdx - 1];
+      if (prevMsg?.role === 'assistant') {
+        const fieldRequestMatch = prevMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
+        if (fieldRequestMatch) {
+          const fieldType = fieldRequestMatch[1];
+          const answer = messages[lastMsgIdx].content.trim();
+          const parsedFields = parseFieldResponse(fieldType, answer);
+          Object.assign(accumulated, parsedFields);
         }
       }
     }
