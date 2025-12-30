@@ -35,6 +35,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     fields: [
       { key: 'category', label: 'Categoria', icon: Tag, required: true },
       { key: 'description', label: 'Descrição', icon: MessageSquare, required: true },
+      { key: 'cep', label: 'CEP', icon: MapPin, required: false },
       { key: 'street', label: 'Rua/Avenida', icon: MapPin, required: true },
       { key: 'street_number', label: 'Número', icon: Navigation, required: false },
       { key: 'neighborhood', label: 'Bairro', icon: Building, required: true },
