@@ -4,7 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { Bot } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ReactMarkdown from "react-markdown";
-
+import { Link, useNavigate } from "react-router-dom";
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -44,7 +44,7 @@ interface ChatMessageBubbleProps {
 
 const ChatMessageBubble = ({ message, userAvatarUrl, userInitials }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
-
+  const navigate = useNavigate();
   return (
     <div
       className={cn(
@@ -93,14 +93,34 @@ const ChatMessageBubble = ({ message, userAvatarUrl, userInitials }: ChatMessage
                   li: ({ children }) => <li className="mb-1">{children}</li>,
                   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                   em: ({ children }) => <em className="italic">{children}</em>,
-                  a: ({ href, children }) => (
-                    <a 
-                      href={href} 
-                      className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
-                    >
-                      {children}
-                    </a>
-                  ),
+                  a: ({ href, children }) => {
+                    // Check if internal link
+                    const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                    if (isInternal) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigate(href || '/');
+                          }}
+                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                        >
+                          {children}
+                        </button>
+                      );
+                    }
+                    return (
+                      <a 
+                        href={href} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
                   code: ({ children }) => (
                     <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
                       {children}

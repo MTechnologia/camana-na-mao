@@ -288,6 +288,29 @@ export const useUnifiedAIChat = (
               }
             }
             
+            // Check for FIELD_REQUEST markers and extract from previous user message
+            const fieldRequestMatch = assistantMessage.match(/\[FIELD_REQUEST:(\w+)\]/);
+            if (fieldRequestMatch) {
+              const requestedField = fieldRequestMatch[1];
+              // If assistant asked for street_number in previous turn and user just replied,
+              // we need to extract from the messages history
+              if (requestedField === 'street_number') {
+                // Look at the last user message (current one being processed)
+                const lastUserMsg = messages.filter(m => m.role === 'user').pop();
+                if (lastUserMsg) {
+                  // Extract number from user's response (e.g., "123", "s/n", "sem número")
+                  const numberMatch = lastUserMsg.content.match(/^(\d+[A-Za-z]?|s\/?n|sem\s*n[úu]mero)$/i) ||
+                    lastUserMsg.content.match(/n[úu]mero\s*[:\s]*(\d+[A-Za-z]?)/i) ||
+                    lastUserMsg.content.match(/^(\d+)\b/);
+                  if (numberMatch) {
+                    const extractedNumber = numberMatch[1] || numberMatch[0];
+                    console.log('[useUnifiedAIChat] Extracted street_number:', extractedNumber);
+                    setCollectedFields(prev => ({ ...prev, street_number: extractedNumber }));
+                  }
+                }
+              }
+            }
+            
             // Check for report markers
             const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch && !createdReport) {
