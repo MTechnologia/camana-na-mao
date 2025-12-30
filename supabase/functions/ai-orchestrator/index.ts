@@ -1505,10 +1505,20 @@ async function executeTool(
         if (args.neighborhood) locationParts.push(`- ${args.neighborhood}`);
         const location_address = locationParts.join(' ');
         
+        // Generate protocol code atomically
+        const { data: protocolData, error: protocolError } = await supabase
+          .rpc('generate_protocol_code', { p_type: 'urban' });
+        
+        if (protocolError) {
+          console.error('[executeTool] Protocol generation failed:', protocolError);
+        }
+        const protocolCode = protocolData || null;
+        
         const { data, error } = await supabase
           .from('urban_reports')
           .insert({
             user_id: userId,
+            protocol_code: protocolCode,
             category: args.category, // Use AI-classified category directly
             subcategory: args.subcategory || null,
             description: args.description,
@@ -1531,7 +1541,7 @@ async function executeTool(
             urgency_reason: args.urgency_reason || null,
             status: 'pending'
           })
-          .select('id')
+          .select('id, protocol_code')
           .single();
         
         if (error) throw error;
@@ -1644,6 +1654,7 @@ async function executeTool(
           '',
           '✅ **Relato registrado com sucesso!**',
           '',
+          data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : '',
           '**Resumo do seu relato:**',
           '',
           `📋 **Categoria:** ${categoryLabel}${args.subcategory ? ` - ${args.subcategory}` : ''}`,
@@ -1667,7 +1678,7 @@ async function executeTool(
         return { 
           success: true, 
           message: successMessage,
-          data: { id: data.id, type: 'urban' }
+          data: { id: data.id, protocol_code: data.protocol_code, type: 'urban' }
         };
       }
       
@@ -1683,10 +1694,20 @@ async function executeTool(
           lineId = lineData?.id || null;
         }
         
+        // Generate protocol code atomically
+        const { data: protocolData, error: protocolError } = await supabase
+          .rpc('generate_protocol_code', { p_type: 'transport' });
+        
+        if (protocolError) {
+          console.error('[executeTool] Protocol generation failed:', protocolError);
+        }
+        const protocolCode = protocolData || null;
+        
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
             user_id: userId,
+            protocol_code: protocolCode,
             report_type: args.report_type,
             description: args.description,
             occurrence_date: args.occurrence_date,
@@ -1698,7 +1719,7 @@ async function executeTool(
             impact_description: args.impact_description || null,
             status: 'pending'
           })
-          .select('id')
+          .select('id, protocol_code')
           .single();
         
         if (error) throw error;
@@ -1728,10 +1749,12 @@ async function executeTool(
         };
         const typeLabel = reportTypeLabels[args.report_type] || args.report_type;
         
+        const protocolLine = data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n\n` : '';
+        
         return { 
           success: true, 
-          message: `✅ **Relato de transporte registrado!**\n\n🚌 **Linha:** ${args.line_code || 'Não informada'}\n📋 **Tipo:** ${typeLabel}\n📅 **Data:** ${args.occurrence_date}\n\n👉 Acesse [Meus Relatos](/transporte/meus-relatos) para acompanhar.\n\nPosso ajudar com mais alguma coisa?`,
-          data: { id: data.id, type: 'transport' }
+          message: `✅ **Relato de transporte registrado!**\n\n${protocolLine}🚌 **Linha:** ${args.line_code || 'Não informada'}\n📋 **Tipo:** ${typeLabel}\n📅 **Data:** ${args.occurrence_date}\n\n👉 Acesse [Meus Relatos](/transporte/meus-relatos) para acompanhar.\n\nPosso ajudar com mais alguma coisa?`,
+          data: { id: data.id, protocol_code: data.protocol_code, type: 'transport' }
         };
       }
       

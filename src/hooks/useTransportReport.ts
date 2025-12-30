@@ -63,6 +63,7 @@ export const useTransportReport = () => {
       .from('transport_reports')
       .select(`
         id,
+        protocol_code,
         line_id,
         line_code_custom,
         report_type,

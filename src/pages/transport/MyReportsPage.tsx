@@ -60,11 +60,18 @@ export default function MyReportsPage() {
               <Card key={report.id} className="hover:shadow-md transition-shadow border-border">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <AnalysisStatusBadge
-                      status={report.status}
-                      n8nProcessed={report.n8n_processed}
-                      n8nPriority={report.n8n_priority}
-                    />
+                    <div className="flex flex-col gap-1">
+                      {report.protocol_code && (
+                        <span className="text-xs font-mono text-primary">
+                          {report.protocol_code}
+                        </span>
+                      )}
+                      <AnalysisStatusBadge
+                        status={report.status}
+                        n8nProcessed={report.n8n_processed}
+                        n8nPriority={report.n8n_priority}
+                      />
+                    </div>
                     <span className="text-xs text-muted-foreground">
                       {formatShortDate(report.created_at)}
                     </span>
