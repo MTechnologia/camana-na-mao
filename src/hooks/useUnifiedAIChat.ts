@@ -280,29 +280,58 @@ export const useUnifiedAIChat = (
         }
       }
 
-      // 2) Risco (impacto)
+      // 2) Risco (impacto) - Heurística expandida para detectar respostas variadas
       if (!collectedFields.risk_level) {
-        const askedForRisk = lastAssistantLower.includes('risco imediato') || /\balgum\s+risco\b/i.test(lastAssistantText);
+        const askedForRisk = 
+          lastAssistantLower.includes('risco imediato') || 
+          lastAssistantLower.includes('risco') ||
+          lastAssistantLower.includes('perigo') ||
+          lastAssistantLower.includes('gravidade') ||
+          lastAssistantLower.includes('urgên') ||
+          /\balgum\s+risco\b/i.test(lastAssistantText);
+          
         if (askedForRisk && raw.length > 0) {
           let risk_level: string | null = null;
           const risk_types: string[] = [];
 
-          if (rawLower.includes('sem risco') || rawLower.includes('não tem risco')) {
+          // Detecção de negação
+          if (rawLower.includes('sem risco') || rawLower.includes('não tem risco') || rawLower.includes('nenhum risco')) {
             risk_level = 'none';
-          } else if (
+          } 
+          // Crítico - palavras de alta urgência
+          else if (
             rawLower.includes('fios') || rawLower.includes('choque') || rawLower.includes('incênd') || rawLower.includes('fogo') ||
-            rawLower.includes('alag') || rawLower.includes('inund') || rawLower.includes('desab') || rawLower.includes('desmor')
+            rawLower.includes('alag') || rawLower.includes('inund') || rawLower.includes('desab') || rawLower.includes('desmor') ||
+            rawLower.includes('bloqueada') || rawLower.includes('bloqueado') || rawLower.includes('não passa') || rawLower.includes('nao passa') ||
+            rawLower.includes('urgente') || rawLower.includes('emergência') || rawLower.includes('emergencia') ||
+            rawLower.includes('crítico') || rawLower.includes('muito perigoso') || rawLower.includes('grave')
           ) {
             risk_level = 'critical';
-            if (rawLower.includes('fios') || rawLower.includes('choque')) risk_types.push('electrical');
+            if (rawLower.includes('fios') || rawLower.includes('choque') || rawLower.includes('elétric')) risk_types.push('electrical');
             if (rawLower.includes('alag') || rawLower.includes('inund')) risk_types.push('flooding');
-            if (rawLower.includes('desab') || rawLower.includes('desmor')) risk_types.push('structural');
+            if (rawLower.includes('desab') || rawLower.includes('desmor') || rawLower.includes('estrutur')) risk_types.push('structural');
             if (rawLower.includes('incênd') || rawLower.includes('fogo')) risk_types.push('fire');
-          } else if (rawLower.includes('acident') || rawLower.includes('trânsit') || rawLower.includes('bloquead')) {
+            if (rawLower.includes('trânsit') || rawLower.includes('bloqu') || rawLower.includes('passa')) risk_types.push('traffic');
+          } 
+          // Moderado - problemas de trânsito e acidentes
+          else if (rawLower.includes('acident') || rawLower.includes('trânsit') || rawLower.includes('transit') || rawLower.includes('lento')) {
             risk_level = 'moderate';
             risk_types.push('traffic');
-          } else if (rawLower.includes('incômod') || rawLower.includes('desconfort')) {
+          } 
+          // Baixo - incômodos
+          else if (rawLower.includes('incômod') || rawLower.includes('desconfort') || rawLower.includes('pouco')) {
             risk_level = 'low';
+          }
+          // Resposta afirmativa simples ("sim", "sim, o trânsito está lento")
+          else if (rawLower.match(/^sim\b/)) {
+            // Se a resposta começa com "sim" para pergunta de risco
+            if (rawLower.includes('trânsit') || rawLower.includes('bloqu') || rawLower.includes('passage')) {
+              risk_level = 'critical';
+              risk_types.push('traffic');
+            } else {
+              // Assumir moderado para respostas afirmativas genéricas
+              risk_level = 'moderate';
+            }
           }
 
           if (risk_level) {
@@ -491,15 +520,50 @@ export const useUnifiedAIChat = (
             // The UI tracker updates via COLLECTION_PROGRESS and local heuristics on user send.
 
             // Check for report markers
-            // Check for report markers - keep tracker visible, just mark as created
+            // Check for report markers - sync final fields from agent summary, then mark as created
             const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch && !createdReport) {
+              // CRITICAL: Parse final fields from agent success message to sync tracker
+              const finalFields: Record<string, unknown> = { ...collectedFields };
+              
+              // Extract risk level from summary
+              const riskMatch = assistantMessage.match(/Nível de risco:\*?\*?\s*(\w+)/i);
+              if (riskMatch) {
+                const riskMap: Record<string, string> = {
+                  'crítico': 'critical', 'critico': 'critical',
+                  'moderado': 'moderate',
+                  'baixo': 'low',
+                  'nenhum': 'none'
+                };
+                finalFields.risk_level = riskMap[riskMatch[1].toLowerCase()] || riskMatch[1];
+              }
+              
+              // Extract scope from summary
+              const scopeMatch = assistantMessage.match(/Escopo[^:]*:\*?\*?\s*([^\n•\*]+)/i);
+              if (scopeMatch) {
+                const scopeMap: Record<string, string> = {
+                  'bairro todo': 'neighborhood', 'bairro': 'neighborhood',
+                  'rua toda': 'street', 'rua': 'street',
+                  'apenas eu': 'individual', 'individual': 'individual',
+                  'zona': 'zone', 'cidade': 'city'
+                };
+                const scopeKey = scopeMatch[1].toLowerCase().trim();
+                finalFields.affected_scope = scopeMap[scopeKey] || scopeKey;
+              }
+              
+              // Extract category from summary if present
+              const catMatch = assistantMessage.match(/Categoria:\*?\*?\s*([^\n•\*]+)/i);
+              if (catMatch && !finalFields.category) {
+                finalFields.category = catMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
+              }
+              
+              // Update tracker with final fields before marking as created
+              setCollectedFields(finalFields);
+              
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
-              // Don't hide tracker - keep it visible after creation
-              // Clear tracker from sessionStorage on completion
+              // Clear tracker from sessionStorage on completion (after syncing)
               const storageKey = getTrackerStorageKey(conversationIdRef.current);
               if (storageKey) sessionStorage.removeItem(storageKey);
-              // Toast removed - agent message already confirms creation
             }
             
             const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
