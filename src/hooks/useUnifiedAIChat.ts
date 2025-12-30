@@ -4,6 +4,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 
+// Sanitiza marcadores técnicos do conteúdo das mensagens
+const sanitizeMessageContent = (content: string): string => {
+  return content
+    .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
+    .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
+    .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
+    .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
+    .replace(/\[FIELD_REQUEST:\w+\]/g, '')
+    .trim();
+};
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -78,9 +89,10 @@ export const useUnifiedAIChat = (
           // Sem greeting - preserva apenas mensagens otimistas do usuário
           setMessages(prev => prev.filter(msg => msg.role === "user"));
         } else {
-          // Garante que todas as mensagens tenham timestamp (fallback para vazio)
+          // Garante que todas as mensagens tenham timestamp e sanitiza conteúdo
           const messagesWithTimestamp = savedMessages.map(msg => ({
             ...msg,
+            content: msg.role === 'assistant' ? sanitizeMessageContent(msg.content || '') : msg.content,
             timestamp: msg.timestamp || ''
           }));
           
@@ -382,7 +394,7 @@ export const useUnifiedAIChat = (
             const finalAssistantMsg = {
               id: assistantMessageId,
               role: "assistant",
-              content: assistantMessage,
+              content: sanitizeMessageContent(assistantMessage),
               timestamp: new Date().toLocaleTimeString("pt-BR", {
                 hour: "2-digit",
                 minute: "2-digit",
