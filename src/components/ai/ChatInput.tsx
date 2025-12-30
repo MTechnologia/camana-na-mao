@@ -10,16 +10,29 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   onFocus?: () => void;
+  autoFocus?: boolean;
 }
 
-const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer coisa...", onFocus }: ChatInputProps) => {
+const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer coisa...", onFocus, autoFocus = true }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const hasText = inputValue.trim().length > 0;
+
+  // Auto-focus when disabled changes from true to false (agent finished responding)
+  useEffect(() => {
+    if (!disabled && autoFocus && textareaRef.current) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [disabled, autoFocus]);
 
   useEffect(() => {
     // Initialize Web Speech API
@@ -111,6 +124,7 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
         {/* Input with microphone */}
         <div className="flex-1 relative">
           <textarea
+            ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
