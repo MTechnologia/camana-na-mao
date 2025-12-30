@@ -10,8 +10,9 @@ import { useAIConversations, type AIConversation } from "@/hooks/useAIConversati
 import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useToast } from "@/hooks/use-toast";
 import DeleteConversationDialog from "@/components/ai/DeleteConversationDialog";
-import { isToday, isYesterday, subDays, isAfter } from "date-fns";
+import { isToday, isYesterday, subDays, isAfter, format } from "date-fns";
 import { formatRelativeTime } from "@/lib/dateUtils";
+import { ptBR } from "date-fns/locale";
 
 const journeyIcons: Record<string, typeof Bot> = {
   general: Bot,
@@ -82,7 +83,7 @@ const ConversationsPage = () => {
 
   const handleConversationClick = (conversation: AIConversation) => {
     setActiveConversationId(conversation.id);
-    navigate("/");
+    navigate("/ia");
   };
 
   const handleDeleteClick = (e: React.MouseEvent, conversation: AIConversation) => {
@@ -105,7 +106,7 @@ const ConversationsPage = () => {
 
   const handleNewConversation = () => {
     setActiveConversationId(null);
-    navigate("/");
+    navigate("/ia");
   };
 
   const getJourneyIcon = (journeyId: string) => {
@@ -113,20 +114,9 @@ const ConversationsPage = () => {
     return <Icon className="h-5 w-5" />;
   };
 
-  // Clean internal markers from text displayed to user
-  const cleanDisplayText = (text: string): string => {
-    if (!text) return "";
-    return text
-      .replace(/\[COLLECTION_PROGRESS:[^\]]+\]/g, "")
-      .replace(/\[REPORT_CREATED:[^\]]+\]/g, "")
-      .replace(/\[TRANSPORT_CREATED:[^\]]+\]/g, "")
-      .replace(/\[RATING_CREATED:[^\]]+\]/g, "")
-      .replace(/\*\*/g, "")
-      .trim() || "Conversa iniciada";
-  };
 
-  const formatDate = (date: Date) => {
-    return formatRelativeTime(date);
+  const formatCreatedDate = (date: Date) => {
+    return format(date, "dd/MM HH:mm", { locale: ptBR });
   };
 
   return (
@@ -214,21 +204,42 @@ const ConversationsPage = () => {
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
                             <div className="flex items-start justify-between gap-2">
-                              <h3 className="font-medium text-foreground line-clamp-1">
+                              <h3 className="font-medium text-foreground line-clamp-2 break-words">
                                 {conversation.title}
                               </h3>
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                {formatDate(conversation.lastMessageAt)}
+                              <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+                                {formatCreatedDate(conversation.createdAt)}
                               </span>
                             </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1 break-words">
-                              {cleanDisplayText(conversation.lastMessagePreview) || "Sem mensagens"}
-                            </p>
+                            {conversation.reportData && (
+                              <div className="flex flex-wrap items-center gap-1 mt-1 text-xs text-muted-foreground">
+                                {conversation.reportData.category && (
+                                  <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                    {conversation.reportData.category}
+                                  </span>
+                                )}
+                                {conversation.reportData.address && (
+                                  <span className="truncate max-w-[200px]">
+                                    {conversation.reportData.address}
+                                  </span>
+                                )}
+                                {conversation.reportData.status && (
+                                  <span className="text-emerald-600 dark:text-emerald-400">
+                                    • {conversation.reportData.status}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {!conversation.reportData && conversation.lastMessagePreview && (
+                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1 break-words">
+                                {conversation.lastMessagePreview}
+                              </p>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
+                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                             onClick={(e) => handleDeleteClick(e, conversation)}
                           >
                             <Trash2 className="h-4 w-4" />
