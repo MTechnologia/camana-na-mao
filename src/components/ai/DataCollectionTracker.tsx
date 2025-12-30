@@ -83,8 +83,8 @@ const CHAMBER_FEEDBACK_CONFIG: CollectionConfig = {
 };
 
 // Circular progress indicator
-const CircularProgress = ({ progress, size = 18, isComplete }: { progress: number; size?: number; isComplete: boolean }) => {
-  const strokeWidth = 2;
+const CircularProgress = ({ progress, size = 20, isComplete }: { progress: number; size?: number; isComplete: boolean }) => {
+  const strokeWidth = 2.5;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
@@ -98,7 +98,7 @@ const CircularProgress = ({ progress, size = 18, isComplete }: { progress: numbe
         fill="none"
         stroke="currentColor"
         strokeWidth={strokeWidth}
-        className="text-muted/30"
+        className="text-border"
       />
       <motion.circle
         cx={size / 2}
