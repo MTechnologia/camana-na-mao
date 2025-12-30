@@ -207,12 +207,87 @@ export const useUnifiedAIChat = (
             if (transportMatch) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
               setCollectionType('transport_report');
+              
+              // Reconstruct transport tracker from agent summary
+              const reconstructedFields: CollectedFields = {};
+              
+              // Parse report type
+              const tipoMatch = msg.content?.match(/Tipo:\*?\*?\s*([^\n•\*]+)/i);
+              if (tipoMatch) reconstructedFields.report_type = tipoMatch[1].trim();
+              
+              // Parse line
+              const linhaMatch = msg.content?.match(/Linha:\*?\*?\s*([^\n•\*]+)/i);
+              if (linhaMatch) reconstructedFields.line_code = linhaMatch[1].trim();
+              
+              // Parse date/time
+              const dataMatch = msg.content?.match(/Data:\*?\*?\s*([^\n•\*]+)/i);
+              if (dataMatch) reconstructedFields.occurrence_date = dataMatch[1].trim();
+              
+              const horaMatch = msg.content?.match(/Horário:\*?\*?\s*([^\n•\*]+)/i);
+              if (horaMatch) reconstructedFields.occurrence_time = horaMatch[1].trim();
+              
+              // Parse description
+              const descMatch = msg.content?.match(/Descrição:\*?\*?\s*([^\n•\*]+)/i);
+              if (descMatch) reconstructedFields.description = descMatch[1].trim();
+              
+              // Parse severity
+              const sevMatch = msg.content?.match(/Gravidade:\*?\*?\s*(\w+)/i);
+              if (sevMatch) {
+                const sevMap: Record<string, string> = {
+                  'alta': 'high', 'crítica': 'critical', 'critica': 'critical',
+                  'média': 'medium', 'media': 'medium', 'moderada': 'moderate',
+                  'baixa': 'low'
+                };
+                reconstructedFields.severity = sevMap[sevMatch[1].toLowerCase()] || sevMatch[1];
+              }
+              
+              // Parse location
+              const localMatch = msg.content?.match(/Local:\*?\*?\s*([^\n•\*]+)/i);
+              if (localMatch) reconstructedFields.location = localMatch[1].trim();
+              
+              console.log('[useUnifiedAIChat] Reconstructed transport tracker:', reconstructedFields);
+              setCollectedFields(reconstructedFields);
               break;
             }
             const ratingMatch = msg.content?.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
               setCollectionType('service_rating');
+              
+              // Reconstruct service rating tracker from agent summary
+              const reconstructedFields: CollectedFields = {};
+              
+              // Parse service type
+              const tipoMatch = msg.content?.match(/Tipo:\*?\*?\s*([^\n•\*]+)/i);
+              if (tipoMatch) {
+                const typeMap: Record<string, string> = {
+                  'ubs': 'ubs', 'posto de saúde': 'ubs', 'unidade básica': 'ubs',
+                  'escola': 'school', 'emef': 'school', 'emei': 'school',
+                  'ceu': 'ceu', 'hospital': 'hospital',
+                  'biblioteca': 'library', 'centro esportivo': 'sports_center'
+                };
+                const typeKey = tipoMatch[1].toLowerCase().trim();
+                reconstructedFields.service_type = typeMap[typeKey] || tipoMatch[1].trim();
+              }
+              
+              // Parse service name
+              const nomeMatch = msg.content?.match(/Serviço:\*?\*?\s*([^\n•\*]+)/i);
+              if (nomeMatch) reconstructedFields.service_name = nomeMatch[1].trim();
+              
+              // Parse neighborhood
+              const bairroMatch = msg.content?.match(/Bairro:\*?\*?\s*([^\n•\*]+)/i);
+              if (bairroMatch) reconstructedFields.service_neighborhood = bairroMatch[1].trim();
+              
+              // Parse rating (stars)
+              const notaMatch = msg.content?.match(/Nota:\*?\*?\s*(\d)/i);
+              if (notaMatch) reconstructedFields.rating_stars = parseInt(notaMatch[1]);
+              
+              // Parse comment
+              const comentarioMatch = msg.content?.match(/Comentário:\*?\*?\s*([^\n•\*]+)/i);
+              if (comentarioMatch) reconstructedFields.rating_text = comentarioMatch[1].trim();
+              
+              console.log('[useUnifiedAIChat] Reconstructed rating tracker:', reconstructedFields);
+              setCollectedFields(reconstructedFields);
               break;
             }
           }
@@ -440,6 +515,137 @@ export const useUnifiedAIChat = (
         }
       }
     }
+    
+    // === HEURÍSTICAS PARA TRANSPORTE ===
+    if (collectionType === 'transport_report') {
+      const lastAssistantText = [...messages].reverse().find(m => m.role === 'assistant')?.content || '';
+      const lastAssistantLower = lastAssistantText.toLowerCase();
+      const raw = content.trim();
+      const rawLower = raw.toLowerCase();
+      
+      // Detectar tipo de problema
+      if (!collectedFields.report_type) {
+        const problemTypes: Record<string, string> = {
+          'atraso': 'delay', 'atrasado': 'delay', 'demora': 'delay', 'demorou': 'delay',
+          'lotado': 'overcrowding', 'lotação': 'overcrowding', 'cheio': 'overcrowding',
+          'quebrado': 'breakdown', 'quebrou': 'breakdown', 'pane': 'breakdown',
+          'sujo': 'cleanliness', 'sujeira': 'cleanliness', 'limpeza': 'cleanliness',
+          'inseguro': 'safety', 'assalto': 'safety', 'perigoso': 'safety'
+        };
+        for (const [keyword, type] of Object.entries(problemTypes)) {
+          if (rawLower.includes(keyword)) {
+            setCollectedFields(prev => ({ ...prev, report_type: type }));
+            break;
+          }
+        }
+      }
+      
+      // Detectar linha de ônibus/metrô
+      if (!collectedFields.line_code) {
+        const lineMatch = raw.match(/\b(\d{3,4}[A-Za-z]?-?\d*|[A-Z]{1,3}\d{1,2})\b/i);
+        if (lineMatch) {
+          setCollectedFields(prev => ({ ...prev, line_code: lineMatch[1].toUpperCase() }));
+        }
+      }
+      
+      // Detectar data (hoje, ontem, ou data específica)
+      if (!collectedFields.occurrence_date) {
+        if (rawLower.includes('hoje')) {
+          setCollectedFields(prev => ({ ...prev, occurrence_date: new Date().toISOString().split('T')[0] }));
+        } else if (rawLower.includes('ontem')) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          setCollectedFields(prev => ({ ...prev, occurrence_date: yesterday.toISOString().split('T')[0] }));
+        }
+      }
+      
+      // Detectar horário
+      if (!collectedFields.occurrence_time) {
+        const timeMatch = raw.match(/\b(\d{1,2})[h:](\d{2})?\b/i);
+        if (timeMatch) {
+          const hour = timeMatch[1].padStart(2, '0');
+          const minute = timeMatch[2] || '00';
+          setCollectedFields(prev => ({ ...prev, occurrence_time: `${hour}:${minute}` }));
+        }
+      }
+      
+      // Detectar descrição (mensagem longa)
+      if (!collectedFields.description && raw.length >= 30) {
+        const askedForDescription = 
+          lastAssistantLower.includes('descreva') ||
+          lastAssistantLower.includes('me conte') ||
+          lastAssistantLower.includes('detalhes') ||
+          lastAssistantLower.includes('[field_request:description]');
+        if (askedForDescription || messages.filter(m => m.role === 'user').length <= 2) {
+          setCollectedFields(prev => ({ ...prev, description: raw }));
+        }
+      }
+    }
+    
+    // === HEURÍSTICAS PARA AVALIAÇÃO ===
+    if (collectionType === 'service_rating') {
+      const lastAssistantText = [...messages].reverse().find(m => m.role === 'assistant')?.content || '';
+      const lastAssistantLower = lastAssistantText.toLowerCase();
+      const raw = content.trim();
+      const rawLower = raw.toLowerCase();
+      
+      // Detectar tipo de serviço
+      if (!collectedFields.service_type) {
+        const serviceTypes: Record<string, string> = {
+          'ubs': 'ubs', 'posto de saúde': 'ubs', 'posto': 'ubs', 'unidade básica': 'ubs',
+          'escola': 'school', 'emef': 'school', 'emei': 'school',
+          'ceu': 'ceu', 'hospital': 'hospital',
+          'biblioteca': 'library', 'centro esportivo': 'sports_center'
+        };
+        for (const [keyword, type] of Object.entries(serviceTypes)) {
+          if (rawLower.includes(keyword)) {
+            setCollectedFields(prev => ({ ...prev, service_type: type }));
+            break;
+          }
+        }
+      }
+      
+      // Detectar nota (1-5 estrelas)
+      if (!collectedFields.rating_stars) {
+        const starsMatch = raw.match(/(\d)\s*(estrela|nota|ponto)/i);
+        if (starsMatch) {
+          const stars = parseInt(starsMatch[1]);
+          if (stars >= 1 && stars <= 5) {
+            setCollectedFields(prev => ({ ...prev, rating_stars: stars }));
+          }
+        }
+        // Também detectar números isolados quando perguntado sobre nota
+        if (lastAssistantLower.includes('nota') || lastAssistantLower.includes('estrela')) {
+          const numMatch = raw.match(/^(\d)$/);
+          if (numMatch) {
+            const stars = parseInt(numMatch[1]);
+            if (stars >= 1 && stars <= 5) {
+              setCollectedFields(prev => ({ ...prev, rating_stars: stars }));
+            }
+          }
+        }
+      }
+      
+      // Detectar nome do serviço
+      if (!collectedFields.service_name && lastAssistantLower.includes('qual') && 
+          (lastAssistantLower.includes('nome') || lastAssistantLower.includes('unidade') || lastAssistantLower.includes('serviço'))) {
+        if (raw.length >= 3) {
+          setCollectedFields(prev => ({ ...prev, service_name: raw }));
+        }
+      }
+      
+      // Detectar comentário (mensagem longa)
+      if (!collectedFields.rating_text && raw.length >= 20) {
+        const askedForComment = 
+          lastAssistantLower.includes('comentário') ||
+          lastAssistantLower.includes('descreva') ||
+          lastAssistantLower.includes('experiência') ||
+          lastAssistantLower.includes('[field_request:rating_text]');
+        if (askedForComment) {
+          setCollectedFields(prev => ({ ...prev, rating_text: raw }));
+        }
+      }
+    }
 
     // Verifica se já existe uma mensagem otimista com o mesmo conteúdo
     const hasOptimisticMessage = messages.some(
@@ -624,14 +830,54 @@ export const useUnifiedAIChat = (
             
             const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch && !createdReport) {
+              // Sync final fields from agent summary
+              const finalFields: Record<string, unknown> = { ...collectedFields };
+              
+              const tipoMatch = assistantMessage.match(/Tipo:\*?\*?\s*([^\n•\*]+)/i);
+              if (tipoMatch) finalFields.report_type = tipoMatch[1].trim();
+              
+              const linhaMatch = assistantMessage.match(/Linha:\*?\*?\s*([^\n•\*]+)/i);
+              if (linhaMatch) finalFields.line_code = linhaMatch[1].trim();
+              
+              const dataMatch = assistantMessage.match(/Data:\*?\*?\s*([^\n•\*]+)/i);
+              if (dataMatch) finalFields.occurrence_date = dataMatch[1].trim();
+              
+              const sevMatch = assistantMessage.match(/Gravidade:\*?\*?\s*(\w+)/i);
+              if (sevMatch) {
+                const sevMap: Record<string, string> = {
+                  'alta': 'high', 'crítica': 'critical', 'critica': 'critical',
+                  'média': 'medium', 'media': 'medium', 'baixa': 'low'
+                };
+                finalFields.severity = sevMap[sevMatch[1].toLowerCase()] || sevMatch[1];
+              }
+              
+              setCollectedFields(finalFields);
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
-              // DO NOT clear sessionStorage - tracker should remain visible
             }
             
             const ratingMatch = assistantMessage.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch && !createdReport) {
+              // Sync final fields from agent summary
+              const finalFields: Record<string, unknown> = { ...collectedFields };
+              
+              const tipoMatch = assistantMessage.match(/Tipo:\*?\*?\s*([^\n•\*]+)/i);
+              if (tipoMatch) {
+                const typeMap: Record<string, string> = {
+                  'ubs': 'ubs', 'escola': 'school', 'ceu': 'ceu',
+                  'hospital': 'hospital', 'biblioteca': 'library'
+                };
+                const typeKey = tipoMatch[1].toLowerCase().trim();
+                finalFields.service_type = typeMap[typeKey] || tipoMatch[1].trim();
+              }
+              
+              const nomeMatch = assistantMessage.match(/Serviço:\*?\*?\s*([^\n•\*]+)/i);
+              if (nomeMatch) finalFields.service_name = nomeMatch[1].trim();
+              
+              const notaMatch = assistantMessage.match(/Nota:\*?\*?\s*(\d)/i);
+              if (notaMatch) finalFields.rating_stars = parseInt(notaMatch[1]);
+              
+              setCollectedFields(finalFields);
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
-              // DO NOT clear sessionStorage - tracker should remain visible
             }
             
             // Remove all markers from displayed message (robust regex)
