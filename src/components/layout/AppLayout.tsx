@@ -39,7 +39,6 @@ const ROUTE_TITLES: Record<string, string> = {
   "/avaliar": "Avaliar Serviço",
   "/transporte": "Transporte",
   "/transporte/novo": "Novo Relato",
-  "/transporte/urgente": "Relato Urgente",
   "/transporte/padroes": "Padrões de Relatos",
   "/transporte/meus-relatos": "Meus Relatos",
   "/relato-urbano": "Relato Urbano",
@@ -48,7 +47,6 @@ const ROUTE_TITLES: Record<string, string> = {
   "/analytics": "Analytics",
   "/analytics/advanced": "Análise Avançada",
   "/analytics/criar-painel": "Criar Painel",
-  "/analytics/galeria": "Galeria de Painéis",
   "/institucional/agenda": "Agenda da Câmara",
   "/institucional/vereadores": "Vereadores",
   "/institucional/conheca-camara": "Conheça a Câmara",
@@ -56,7 +54,6 @@ const ROUTE_TITLES: Record<string, string> = {
   "/institucional/escola-parlamento": "Escola do Parlamento",
   "/institucional/noticias": "Notícias",
   "/settings/accessibility": "Acessibilidade",
-  "/recomendacoes": "Recomendações",
   "/docs/overview": "Documentação",
 };
 
@@ -89,10 +86,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     if (pathParts[1] === "institucional" && pathParts[2] === "noticias" && pathParts[3]) {
       return "Notícia";
     }
-    if (pathParts[1] === "transporte" && pathParts[2] === "encaminhar") {
-      return "Encaminhar Relato";
-    }
-    
     return "";
   }, [location.pathname]);
 
