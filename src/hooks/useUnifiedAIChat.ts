@@ -197,6 +197,17 @@ export const useUnifiedAIChat = (
       const raw = content.trim();
       const rawLower = raw.toLowerCase();
 
+      // 0) Detect Address Picker structured address (from Google Places)
+      if (rawLower.includes('endereço selecionado:') && rawLower.includes(' - cep:')) {
+        // User selected an address from the picker - mark all location fields
+        setCollectedFields(prev => ({
+          ...prev,
+          street: true,
+          neighborhood: true,
+          cep: true,
+        }));
+      }
+
       // 1) Número / Referência
       if (!collectedFields.street_number) {
         const askedForNumber = /\bn[úu]mero\b/i.test(lastAssistantText);

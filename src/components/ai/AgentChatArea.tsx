@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -17,6 +17,7 @@ import CapabilitiesOverlay from "./CapabilitiesOverlay";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import type { CollectionType } from "./DataCollectionTracker";
+import type { StructuredAddress } from "@/components/address";
 
 const contentVariants = {
   initial: { opacity: 0, y: 20 },
@@ -144,6 +145,15 @@ const AgentChatArea = () => {
     setIsDiscoveryOpen(true);
   };
 
+  // Handle address selection from Google Places picker
+  const handleAddressSelected = useCallback((address: StructuredAddress) => {
+    // Format address as a structured message that the AI can understand
+    const addressMessage = `Endereço selecionado: ${address.street}${address.streetNumber ? `, ${address.streetNumber}` : ''} - ${address.neighborhood}, ${address.city}${address.cep ? ` - CEP: ${address.cep}` : ''}`;
+    
+    // Send the address as a user message
+    sendMessage(addressMessage);
+  }, [sendMessage]);
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <AnimatePresence mode="wait">
@@ -228,6 +238,7 @@ const AgentChatArea = () => {
                       message={msg}
                       userAvatarUrl={userAvatarUrl}
                       userInitials={userInitials}
+                      onAddressSelected={handleAddressSelected}
                     />
                   </motion.div>
                 ))}
