@@ -99,6 +99,40 @@ function extractTransportFields(context: string): Record<string, any> {
   return fields;
 }
 
+// Lookup CEP via ViaCEP API
+async function lookupCEP(cep: string): Promise<{
+  valid: boolean;
+  street?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}> {
+  const cleanCEP = cep.replace(/\D/g, '');
+  if (cleanCEP.length !== 8) {
+    return { valid: false };
+  }
+  
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
+    const data = await response.json();
+    
+    if (data.erro) {
+      return { valid: false };
+    }
+    
+    return {
+      valid: true,
+      street: data.logradouro || '',
+      neighborhood: data.bairro || '',
+      city: data.localidade || '',
+      state: data.uf || ''
+    };
+  } catch (error) {
+    console.error('[lookupCEP] Error:', error);
+    return { valid: false };
+  }
+}
+
 // Extract urban report-specific fields - SIMPLIFIED: NO automatic location extraction
 function extractUrbanFields(context: string): Record<string, any> {
   const fields: Record<string, any> = {};
@@ -124,9 +158,11 @@ function extractUrbanFields(context: string): Record<string, any> {
     fields.category = 'poluicao';
   }
   
-  // IMPORTANT: DO NOT extract location_address or neighborhood automatically
-  // The AI must ASK the user explicitly for these fields
-  // This prevents garbage like "rua fedor na minha rua" or "bairro: rua"
+  // Detect CEP pattern
+  const cepMatch = context.match(/\b(\d{5}[-]?\d{3})\b/);
+  if (cepMatch) {
+    fields.cep = cepMatch[1].replace('-', '');
+  }
   
   return fields;
 }
@@ -173,11 +209,28 @@ function accumulateFieldsFromHistory(
       const msg = messages[i];
       const nextMsg = messages[i + 1];
       
+      // Detect CEP in any user message
+      if (msg.role === 'user') {
+        const cepMatch = msg.content.match(/\b(\d{5}[-]?\d{3})\b/);
+        if (cepMatch && !accumulated.cep) {
+          accumulated.cep = cepMatch[1].replace('-', '');
+        }
+      }
+      
       if (msg.role === 'assistant' && nextMsg?.role === 'user') {
         const question = msg.content.toLowerCase();
         const answer = nextMsg.content.trim();
         
-        // Extract street from specific question-answer pair
+        // Extract CEP from specific question
+        if ((question.includes('qual o cep') || question.includes('qual é o cep') || 
+             question.includes('cep do local')) && answer.length >= 8) {
+          const cepMatch = answer.match(/\b(\d{5}[-]?\d{3})\b/);
+          if (cepMatch) {
+            accumulated.cep = cepMatch[1].replace('-', '');
+          }
+        }
+        
+        // Extract street from specific question-answer pair (fallback if no CEP)
         if ((question.includes('qual o nome da rua') || question.includes('qual é o nome da rua') || 
              question.includes('qual a rua') || question.includes('qual é a rua')) && 
             answer.length > 3 && !answer.toLowerCase().includes('não sei')) {
@@ -206,7 +259,7 @@ function accumulateFieldsFromHistory(
           }
         }
         
-        // Extract neighborhood from specific question
+        // Extract neighborhood from specific question (fallback if no CEP)
         if ((question.includes('qual o bairro') || question.includes('qual é o bairro') ||
              question.includes('bairro?')) && answer.length > 2) {
           accumulated.neighborhood = answer;
@@ -449,8 +502,22 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "validate_cep",
+      description: "Valida CEP e retorna endereço completo. CHAMAR SEMPRE que cidadão informar um CEP (8 dígitos). Retorna rua, bairro, cidade automaticamente.",
+      parameters: {
+        type: "object",
+        properties: {
+          cep: { type: "string", description: "CEP no formato 00000-000 ou 00000000 (8 dígitos)" }
+        },
+        required: ["cep"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "create_urban_report",
-      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) nome da rua, 4) bairro de São Paulo.",
+      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente).",
       parameters: {
         type: "object",
         properties: {
@@ -461,6 +528,7 @@ const tools = [
           },
           subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
           description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
+          cep: { type: "string", description: "CEP do local (se validado via validate_cep)" },
           street: { type: "string", description: "OBRIGATÓRIO: Nome da rua/avenida (ex: Rua Augusta, Av. Paulista)" },
           street_number: { type: "string", description: "Número ou 'sem número' ou 'altura X'" },
           reference_point: { type: "string", description: "Ponto de referência (ex: perto do metrô, em frente à escola)" },
@@ -633,46 +701,47 @@ const tools = [
   }
 ];
 
-// Lean system prompt with new capabilities
+// Lean system prompt with CEP-first collection
 const systemPrompt = `Você é o Assistente CMSP, da Câmara Municipal de São Paulo. Ajuda cidadãos de forma empática e direta.
 
 REGRAS CRÍTICAS DE COLETA DE DADOS:
 
-1. NUNCA extrair localização da descrição do problema
-   - Se o cidadão disser "tem fedor na minha rua", você NÃO sabe qual é a rua
-   - SEMPRE pergunte explicitamente: "Qual o nome da rua?"
-   
-2. NUNCA aceitar respostas vagas como localização
-   - "na minha rua" → Perguntar: "Qual o nome da rua?"
-   - "aqui perto" → Perguntar: "Qual o nome da rua e bairro?"
-   - "no meu bairro" → Perguntar: "Qual bairro?"
+1. PRIORIZAR CEP PARA ENDEREÇO (mais preciso e rápido)
+   - Quando cidadão relatar problema urbano, perguntar CEP PRIMEIRO
+   - Se cidadão informar CEP (8 dígitos): CHAMAR validate_cep imediatamente
+   - Se CEP válido: rua e bairro são preenchidos automaticamente → pular para número
+   - Se CEP inválido ou desconhecido: perguntar rua e bairro manualmente
 
-3. SEMPRE coletar endereço estruturado para problemas urbanos:
-   - street: Nome da rua/avenida (OBRIGATÓRIO)
-   - street_number: Número ou "altura X" ou "sem número"
-   - reference_point: Ponto de referência (opcional mas útil)
-   - neighborhood: Bairro (OBRIGATÓRIO)
+2. NUNCA extrair localização da descrição do problema
+   - Se o cidadão disser "tem fedor na minha rua", você NÃO sabe qual é a rua
+   - Perguntar: "Qual o CEP do local?" (ou rua/bairro se não souber CEP)
+   
+3. NUNCA aceitar respostas vagas como localização
+   - "na minha rua" → "Qual o CEP do local?"
+   - "aqui perto" → "Qual o CEP? (se não souber, me diz a rua e bairro)"
+   - "não sei o CEP" → "Qual o nome da rua e bairro?"
 
 4. NUNCA chamar create_urban_report sem ter:
    - Categoria definida
-   - Descrição com no mínimo 30 caracteres (pedir mais detalhes se necessário)
-   - Nome da rua/avenida (campo street)
-   - Bairro de São Paulo (campo neighborhood)
+   - Descrição com no mínimo 30 caracteres
+   - Nome da rua/avenida (street) - via CEP ou manual
+   - Bairro de São Paulo (neighborhood) - via CEP ou manual
 
 5. MANTER A CATEGORIA ORIGINAL
    - Se o cidadão disse "bueiro entupido", a categoria é "esgoto"
    - NÃO mudar para outra categoria nas perguntas seguintes
-   - A categoria só muda se o cidadão explicitamente corrigir
 
 TEMPLATES DE PERGUNTAS (seguir rigorosamente, UMA POR VEZ):
 
-RELATO URBANO:
+RELATO URBANO (FLUXO CEP-FIRST):
 1ª pergunta: "Qual é o problema? (buraco, poste apagado, lixo, mau cheiro, bicho morto...)"
-2ª pergunta: "Qual o nome da rua ou avenida?"
-3ª pergunta: "Qual o número? (pode dizer 'não sei' ou 'altura de X')"
-4ª pergunta: "Tem algum ponto de referência próximo? (ex: em frente ao mercado)"
-5ª pergunta: "Qual o bairro?"
-6ª pergunta (se descrição < 30 chars): "Pode dar mais detalhes sobre o problema? Como está afetando a região?"
+2ª pergunta: "Qual o CEP do local? (se não souber, me diz a rua e bairro)"
+   → Se informar CEP: CHAMAR validate_cep
+   → Se CEP válido: confirmar endereço e pedir número
+   → Se CEP inválido: "CEP não encontrado. Qual o nome da rua?"
+   → Se não souber CEP: "Qual o nome da rua e bairro?"
+3ª pergunta: "Qual o número ou ponto de referência?"
+4ª pergunta (se descrição < 30 chars): "Pode dar mais detalhes sobre o problema?"
 → Só então chamar create_urban_report
 
 TRANSPORTE:
@@ -714,6 +783,7 @@ Juliana Cardoso (PT), Eduardo Suplicy (PT), Professor Toninho Vespoli (PSOL)...
 Se cidadão mencionar só "José", perguntar: "Qual José? José Turin (Republicanos) ou José Ferreira (MDB)?"
 
 OUTRAS CAPACIDADES:
+• validate_cep → validar CEP e retornar endereço completo
 • search_knowledge_base → informações sobre a Câmara
 • find_nearby_services → UBS, escolas, hospitais próximos
 • search_audiencias → audiências públicas
@@ -947,6 +1017,28 @@ async function executeTool(
   
   try {
     switch (name) {
+      case 'validate_cep': {
+        const result = await lookupCEP(args.cep);
+        if (result.valid) {
+          return {
+            success: true,
+            message: `✅ CEP válido! Endereço encontrado:\n📍 ${result.street}\n🏘️ ${result.neighborhood}, ${result.city}/${result.state}\n\nQual o número ou ponto de referência próximo?`,
+            data: { 
+              cep: args.cep.replace(/\D/g, ''),
+              street: result.street, 
+              neighborhood: result.neighborhood,
+              city: result.city,
+              state: result.state
+            }
+          };
+        } else {
+          return {
+            success: false,
+            message: 'CEP não encontrado. Pode verificar o número? Se não souber o CEP, me diz o nome da rua e bairro.'
+          };
+        }
+      }
+      
       case 'create_urban_report': {
         // Build location_address from structured fields
         const locationParts = [];
@@ -964,10 +1056,11 @@ async function executeTool(
             subcategory: args.subcategory || null,
             description: args.description,
             location_address: location_address,
+            cep: args.cep || null, // Save CEP if provided
             street: args.street || null,
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
-            neighborhood: args.neighborhood || null, // Save in dedicated column
+            neighborhood: args.neighborhood || null,
             ai_classification: {
               council_member_name: args.council_member_name || null,
               council_member_party: args.council_member_party || null

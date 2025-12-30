@@ -1477,6 +1477,7 @@ export type Database = {
         Row: {
           ai_classification: Json | null
           category: string
+          cep: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -1504,6 +1505,7 @@ export type Database = {
         Insert: {
           ai_classification?: Json | null
           category: string
+          cep?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -1531,6 +1533,7 @@ export type Database = {
         Update: {
           ai_classification?: Json | null
           category?: string
+          cep?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
