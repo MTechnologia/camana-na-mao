@@ -159,6 +159,120 @@ function extractUrbanFields(context: string): Record<string, any> {
   return fields;
 }
 
+// Normalize text by removing Markdown formatting for reliable string matching
+function normalizeTextForMatching(text: string): string {
+  return text
+    .replace(/\*\*/g, '') // Remove bold markers
+    .replace(/_/g, '')    // Remove italic markers
+    .replace(/\n+/g, ' ') // Replace newlines with spaces
+    .replace(/\s+/g, ' ') // Collapse multiple spaces
+    .toLowerCase()
+    .trim();
+}
+
+// Parse user response for specific field types
+function parseFieldResponse(fieldType: string, userResponse: string): Record<string, any> {
+  const response = userResponse.trim();
+  const responseLower = response.toLowerCase();
+  const result: Record<string, any> = {};
+  
+  switch (fieldType) {
+    case 'street_number':
+      // Try to extract number first
+      const numberMatch = response.match(/^(\d+)/);
+      if (numberMatch) {
+        result.street_number = numberMatch[1];
+      } else if (responseLower.includes('altura') || responseLower.includes('perto') || 
+                 responseLower.includes('frente') || responseLower.includes('próximo') ||
+                 responseLower.includes('esquina')) {
+        result.reference_point = response;
+      } else if (response.length > 0 && response.length < 50) {
+        // Short response without reference keywords = treat as number/reference
+        result.street_number = response;
+      }
+      break;
+      
+    case 'risk_level':
+      // Parse risk level from natural language
+      const criticalKeywords = ['bloqueada', 'bloqueado', 'não passa', 'nao passa', 'não dá para', 'nao da para',
+        'fios expostos', 'exposto', 'choque', 'alagando', 'água subindo', 'inundando', 'transbordando',
+        'desabando', 'caindo', 'desmoronando', 'risco imediato', 'emergência', 'urgente'];
+      const moderateKeywords = ['risco de', 'pode causar', 'perigoso', 'perigo', 'acidente', 
+        'risco de doença', 'doença', 'doenças', 'contaminação', 'transtorno', 'prejudica'];
+      const lowKeywords = ['incômodo', 'incomodo', 'chato', 'desconfortável', 'feio', 'ruim'];
+      const noRiskKeywords = ['sem risco', 'não tem risco', 'nenhum risco', 'tranquilo'];
+      
+      if (noRiskKeywords.some(k => responseLower.includes(k))) {
+        result.risk_level = 'none';
+      } else if (criticalKeywords.some(k => responseLower.includes(k))) {
+        result.risk_level = 'critical';
+        // Also extract risk types
+        const riskTypes: string[] = [];
+        if (responseLower.includes('fio') || responseLower.includes('choque') || responseLower.includes('elétric')) riskTypes.push('electrical');
+        if (responseLower.includes('bloqueada') || responseLower.includes('não passa') || responseLower.includes('trânsito')) riskTypes.push('traffic');
+        if (responseLower.includes('alagando') || responseLower.includes('inundando') || responseLower.includes('água')) riskTypes.push('flooding');
+        if (responseLower.includes('caindo') || responseLower.includes('desab')) riskTypes.push('structural');
+        if (riskTypes.length > 0) result.risk_types = riskTypes;
+      } else if (moderateKeywords.some(k => responseLower.includes(k))) {
+        result.risk_level = 'moderate';
+        // Extract risk types for moderate too
+        const riskTypes: string[] = [];
+        if (responseLower.includes('doença') || responseLower.includes('saúde') || responseLower.includes('contaminação')) riskTypes.push('health');
+        if (responseLower.includes('acidente') || responseLower.includes('trânsito')) riskTypes.push('traffic');
+        if (riskTypes.length > 0) result.risk_types = riskTypes;
+      } else if (lowKeywords.some(k => responseLower.includes(k))) {
+        result.risk_level = 'low';
+      }
+      // Store urgency reason with user's actual words
+      if (result.risk_level) {
+        result.urgency_reason = response;
+      }
+      break;
+      
+    case 'affected_scope':
+      // Parse affected scope
+      const individualKeywords = ['só eu', 'so eu', 'minha casa', 'meu', 'apenas eu', 'só minha'];
+      const streetKeywords = ['rua toda', 'toda a rua', 'rua inteira', 'vizinhos', 'quarteirão', 'a rua', 'toda rua'];
+      const neighborhoodKeywords = ['bairro', 'região', 'região toda', 'várias ruas', 'varias ruas'];
+      
+      if (neighborhoodKeywords.some(k => responseLower.includes(k))) {
+        result.affected_scope = 'neighborhood';
+      } else if (streetKeywords.some(k => responseLower.includes(k))) {
+        result.affected_scope = 'street';
+      } else if (individualKeywords.some(k => responseLower.includes(k))) {
+        result.affected_scope = 'individual';
+      }
+      break;
+      
+    case 'active_consequences':
+      // Parse active consequences
+      const consequences: string[] = [];
+      if (responseLower.includes('luz') || responseLower.includes('apagão') || responseLower.includes('energia')) {
+        consequences.push('power_outage');
+      }
+      if (responseLower.includes('água') && (responseLower.includes('falta') || responseLower.includes('sem'))) {
+        consequences.push('water_outage');
+      }
+      if (responseLower.includes('trânsito parado') || responseLower.includes('transito parado') || 
+          responseLower.includes('não passa') || responseLower.includes('via bloqueada')) {
+        consequences.push('traffic_blocked');
+      }
+      if (responseLower.includes('alagando') || responseLower.includes('inundando') || 
+          responseLower.includes('alagado') || responseLower.includes('inundado')) {
+        consequences.push('flooding');
+      }
+      if (responseLower.includes('doença') || responseLower.includes('saúde') || responseLower.includes('contamin')) {
+        consequences.push('health_hazard');
+      }
+      if (consequences.length > 0) {
+        result.active_consequences = consequences;
+      }
+      break;
+  }
+  
+  return result;
+}
+
 // Accumulate fields from all messages in conversation for better tracking
 function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
@@ -210,8 +324,18 @@ function accumulateFieldsFromHistory(
       }
       
       if (msg.role === 'assistant' && nextMsg?.role === 'user') {
-        const question = msg.content.toLowerCase();
+        const rawQuestion = msg.content;
+        const question = normalizeTextForMatching(rawQuestion); // Use normalized text for matching
         const answer = nextMsg.content.trim();
+        
+        // === NEW: Deterministic field capture via [FIELD_REQUEST:...] markers ===
+        const fieldRequestMatch = rawQuestion.match(/\[FIELD_REQUEST:(\w+)\]/);
+        if (fieldRequestMatch) {
+          const fieldType = fieldRequestMatch[1];
+          const parsedFields = parseFieldResponse(fieldType, answer);
+          Object.assign(accumulated, parsedFields);
+          continue; // Skip heuristic parsing, we used deterministic capture
+        }
         
         // Extract CEP from specific question
         if ((question.includes('qual o cep') || question.includes('qual é o cep') || 
@@ -236,9 +360,9 @@ function accumulateFieldsFromHistory(
           accumulated.street = street;
         }
         
-        // Extract number/reference from specific question
+        // Extract number/reference from specific question (NOW MARKDOWN-RESISTANT)
         if ((question.includes('qual o número') || question.includes('qual é o número') ||
-             question.includes('número ou ponto')) && answer.length > 0) {
+             question.includes('número ou ponto') || question.includes('ponto de referência')) && answer.length > 0) {
           // Try to parse as number first
           const numberMatch = answer.match(/^(\d+)/);
           if (numberMatch) {
@@ -255,6 +379,28 @@ function accumulateFieldsFromHistory(
         if ((question.includes('qual o bairro') || question.includes('qual é o bairro') ||
              question.includes('bairro?')) && answer.length > 2) {
           accumulated.neighborhood = answer;
+        }
+        
+        // === NEW: Heuristic parsing for impact fields (as fallback) ===
+        // Risk level detection from question context
+        if ((question.includes('risco imediato') || question.includes('há algum risco') ||
+             question.includes('gravidade')) && !accumulated.risk_level) {
+          const parsedRisk = parseFieldResponse('risk_level', answer);
+          Object.assign(accumulated, parsedRisk);
+        }
+        
+        // Affected scope detection
+        if ((question.includes('afetando só você') || question.includes('toda a rua') ||
+             question.includes('bairro todo') || question.includes('está afetando')) && !accumulated.affected_scope) {
+          const parsedScope = parseFieldResponse('affected_scope', answer);
+          Object.assign(accumulated, parsedScope);
+        }
+        
+        // Active consequences detection
+        if ((question.includes('consequência') || question.includes('falta de luz') ||
+             question.includes('causando')) && !accumulated.active_consequences) {
+          const parsedConsequences = parseFieldResponse('active_consequences', answer);
+          Object.assign(accumulated, parsedConsequences);
         }
       }
     }
@@ -836,16 +982,21 @@ de risco sem risk_level. Você DEVE coletar esses dados ANTES de chamar a tool.
 
 === REGRA DE COLETA DE IMPACTO ===
 
+⚠️ **REGRA CRÍTICA: 1 PERGUNTA POR MENSAGEM**
+Durante coleta estruturada, você DEVE fazer apenas UMA pergunta por mensagem.
+Se precisar de 3 dados, faça em 3 mensagens separadas.
+Isso garante captura precisa e evita respostas ambíguas.
+
 CATEGORIAS QUE EXIGEM PERGUNTAS DE IMPACTO:
 - via_publica (buraco, asfalto)
 - iluminacao (poste, fios)
 - esgoto (bueiro, vazamento, alagamento)
 - area_verde (árvore caindo)
 
-APÓS coletar localização, PERGUNTAR SOBRE IMPACTO:
+APÓS coletar localização (CEP/endereço + número), PERGUNTAR SOBRE IMPACTO:
 
-1. RISCO IMEDIATO (sempre para categorias acima):
-   Perguntar: "Há algum risco imediato? Por exemplo: fios expostos, via bloqueada, alagamento?"
+1. RISCO IMEDIATO (pergunta única):
+   "Há algum risco imediato? (fios expostos, via bloqueada, alagando)"
    
    Mapear respostas para risk_level e risk_types:
    - "fios expostos", "risco de choque" → risk_level: "critical", risk_types: ["electrical"]
@@ -853,45 +1004,29 @@ APÓS coletar localização, PERGUNTAR SOBRE IMPACTO:
    - "alagando", "água subindo" → risk_level: "critical", risk_types: ["flooding"]
    - "árvore caindo", "pode desabar" → risk_level: "critical", risk_types: ["structural"]
    - "pode causar acidente" → risk_level: "moderate", risk_types: ["traffic"]
+   - "risco de doenças" → risk_level: "moderate", risk_types: ["health"]
    - "incômodo", "chato", "desconfortável" → risk_level: "low"
-   - "não tem risco" → risk_level: "none"
+   - "não tem risco", "só incomoda" → risk_level: "none"
 
-2. ALCANCE DA AFETAÇÃO (se risco >= moderate):
-   Perguntar: "Isso está afetando só você, toda a rua ou o bairro todo?"
+2. ALCANCE DA AFETAÇÃO (pergunta separada, se risco >= moderate):
+   "Está afetando só você, toda a rua ou o bairro?"
    
    Mapear respostas:
    - "só eu", "minha casa" → affected_scope: "individual"
    - "a rua toda", "vizinhos" → affected_scope: "street"
    - "bairro inteiro" → affected_scope: "neighborhood"
 
-3. CONSEQUÊNCIAS ATIVAS (se risco critical OU afetação > individual):
-   Perguntar: "Já está causando falta de luz, água ou outro problema?"
-   
-   Mapear respostas:
-   - "falta luz", "apagão" → active_consequences: ["power_outage"]
-   - "falta água" → active_consequences: ["water_outage"]
-   - "trânsito parado" → active_consequences: ["traffic_blocked"]
-   - "está alagando" → active_consequences: ["flooding"]
+IMPORTANTE: Extrair também consequências mencionadas (falta de luz, trânsito parado, etc.)
+e urgency_reason com as palavras do cidadão.
 
-IMPORTANTE: Capturar também urgency_reason com as palavras do cidadão.
-
-Exemplo de fluxo completo:
-Cidadão: "Poste caiu e está com fios na rua"
-→ Classificar: iluminacao, risk_level: critical
-→ Coletar CEP/endereço
-→ Perguntar: "A rua está bloqueada? Está afetando outros moradores?"
-→ Resposta: "Sim, ninguém passa e a rua toda está sem luz"
-→ Mapear: risk_types: ["electrical", "traffic"], affected_scope: "street", active_consequences: ["power_outage", "traffic_blocked"]
-→ Criar relato com todos os dados de impacto
-
-=== TEMPLATES DE PERGUNTAS ===
+=== TEMPLATES DE PERGUNTAS (1 PERGUNTA POR VEZ) ===
 
 RELATO URBANO:
-1ª: (após classificar) "Qual o CEP do local? (se não souber, me diz rua e bairro)"
-2ª: "Qual o número ou ponto de referência?"
+1ª: (após classificar) "Qual o CEP do local? Se não souber, me diz rua e bairro."
+2ª: (após CEP/rua) "Qual o número ou ponto de referência?"
 3ª: (se descrição curta) "Pode dar mais detalhes sobre o problema?"
-4ª: (categorias de risco) "Há algum risco imediato? (fios expostos, via bloqueada, alagamento)"
-5ª: (se risco) "Está afetando só você ou toda a rua/bairro?"
+4ª: (categorias de risco) "Há algum risco imediato? (fios expostos, via bloqueada, alagando)"
+5ª: (se risco >= moderate) "Está afetando só você ou toda a rua/bairro?"
 
 TRANSPORTE:
 1ª: "Qual linha ou estação teve o problema?"
@@ -1247,9 +1382,10 @@ async function executeTool(
           };
           const progressMarker = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(addressData)}]`;
           
+          // Add FIELD_REQUEST marker for deterministic capture of next response
           return {
             success: true,
-            message: `${progressMarker}✅ **CEP válido!**\n\n📍 **Endereço encontrado:**\n- Rua: ${result.street}\n- Bairro: ${result.neighborhood}\n- Cidade: ${result.city}/${result.state}\n\nQual o **número** ou **ponto de referência** próximo?`,
+            message: `${progressMarker}[FIELD_REQUEST:street_number]✅ **CEP válido!**\n\n📍 **Endereço encontrado:**\n- Rua: ${result.street}\n- Bairro: ${result.neighborhood}\n- Cidade: ${result.city}/${result.state}\n\nQual o **número** ou **ponto de referência** próximo?`,
             data: addressData
           };
         } else {
@@ -1308,17 +1444,19 @@ async function executeTool(
               area_verde: 'área verde'
             };
             const label = categoryLabels[args.category] || args.category;
+            // Add FIELD_REQUEST marker for deterministic capture of risk_level
             return {
               success: false,
-              message: `Como seu relato é sobre **${label}**, preciso entender a gravidade.\n\nHá algum risco imediato? _(ex: fios expostos, via bloqueada, alagando)_`
+              message: `[FIELD_REQUEST:risk_level]Como seu relato é sobre **${label}**, preciso entender a gravidade.\n\nHá algum risco imediato? _(ex: fios expostos, via bloqueada, alagando)_`
             };
           }
           
           // If risk is moderate or critical, require affected_scope
           if (['critical', 'moderate'].includes(args.risk_level) && !args.affected_scope) {
+            // Add FIELD_REQUEST marker for deterministic capture of affected_scope
             return {
               success: false,
-              message: 'Entendi que há risco. Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?'
+              message: '[FIELD_REQUEST:affected_scope]Entendi que há risco. Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?'
             };
           }
         }
