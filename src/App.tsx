@@ -73,17 +73,14 @@ const NoticiaDetailPage = lazy(() => import("./pages/institucional/NoticiaDetail
 const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
-const ServiceRecommendationsPage = lazy(() => import("./pages/ServiceRecommendationsPage"));
 
 // ============================================
 // TRANSPORT PAGES - Lazy loaded
 // ============================================
 const TransportReportPage = lazy(() => import("./pages/TransportReportPage"));
 const NewReportPage = lazy(() => import("./pages/transport/NewReportPage"));
-const UrgentReportPage = lazy(() => import("./pages/transport/UrgentReportPage"));
 const PatternsPage = lazy(() => import("./pages/transport/PatternsPage"));
 const MyReportsPage = lazy(() => import("./pages/transport/MyReportsPage"));
-const ReferralPage = lazy(() => import("./pages/transport/ReferralPage"));
 
 // ============================================
 // URBAN REPORT PAGES - Lazy loaded
@@ -98,7 +95,6 @@ const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 const AnalyticsDashboard = lazy(() => import("./pages/analytics/AnalyticsDashboard"));
 const AdvancedAnalytics = lazy(() => import("./pages/analytics/AdvancedAnalytics"));
 const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
-const PublicDashboards = lazy(() => import("./pages/analytics/PublicDashboards"));
 
 // ============================================
 // ADMIN PAGES - Lazy loaded (separate bundle)
@@ -121,17 +117,6 @@ const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement
 const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
 
-// Failsafe: If somehow /ia is accessed, immediately redirect to /
-const IAFailsafe = () => {
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    // Immediate client-side redirect before any rendering
-    navigate("/", { replace: true });
-  }, [navigate]);
-  
-  return null;
-};
 
 // Prefetch common routes on app load
 const RoutePrefetcher = () => {
@@ -222,7 +207,6 @@ const AppContent = () => {
           
           {/* Services routes */}
           <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
-          <Route path="/perto-de-mim" element={<Navigate to="/servicos-proximos" replace />} />
           <Route path="/servico/:id" element={<ServiceDetailPage />} />
           <Route path="/avaliar" element={<EvaluationPage />} />
           <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
@@ -230,24 +214,18 @@ const AppContent = () => {
           {/* Transport routes */}
           <Route path="/transporte" element={<TransportReportPage />} />
           <Route path="/transporte/novo" element={<NewReportPage />} />
-          <Route path="/transporte/urgente" element={<UrgentReportPage />} />
           <Route path="/transporte/padroes" element={<PatternsPage />} />
           <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
-          <Route path="/transporte/encaminhar/:reportId" element={<ReferralPage />} />
           
           {/* Analytics routes */}
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
           <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
-          <Route path="/analytics/galeria" element={<PublicDashboards />} />
           
           {/* Urban report routes */}
           <Route path="/relato-urbano" element={<UrbanReportPage />} />
-          <Route path="/relato-urbano/chat" element={<Navigate to="/?journey=urban_report" replace />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
-          <Route path="/meus-relatos-urbanos" element={<ReportHistoryPage />} />
-          <Route path="/recomendacoes" element={<ServiceRecommendationsPage />} />
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
@@ -257,8 +235,6 @@ const AppContent = () => {
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/urban-reports" element={<Navigate to="/admin/reports" replace />} />
-          <Route path="/admin/transport-reports" element={<Navigate to="/admin/reports" replace />} />
           <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
           <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
@@ -269,12 +245,6 @@ const AppContent = () => {
           {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
-          
-          {/* Compatibility redirects - old routes to new */}
-          <Route path="/ia" element={<IAFailsafe />} />
-          <Route path="/splash" element={<Navigate to="/" replace />} />
-          <Route path="/home" element={<Navigate to="/" replace />} />
-          <Route path="/conversa" element={<Navigate to="/" replace />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

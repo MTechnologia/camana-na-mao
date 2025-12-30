@@ -16,12 +16,10 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   "/transporte": () => import("@/pages/TransportReportPage"),
   "/relato-urbano": () => import("@/pages/UrbanReportPage"),
   "/avaliacao": () => import("@/pages/EvaluationPage"),
-  "/recomendacoes": () => import("@/pages/ServiceRecommendationsPage"),
   
   // Analytics
   "/analytics": () => import("@/pages/analytics/AnalyticsDashboard"),
   "/analytics/advanced": () => import("@/pages/analytics/AdvancedAnalytics"),
-  "/analytics/public": () => import("@/pages/analytics/PublicDashboards"),
   
   // Institutional pages
   "/institucional/agenda": () => import("@/pages/institucional/AgendaCMSP"),
