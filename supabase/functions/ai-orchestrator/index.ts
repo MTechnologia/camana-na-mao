@@ -1091,7 +1091,11 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
     
-    // Call AI API (Lovable AI Gateway)
+    // Detect collection intent from user message for later injection
+    const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const collectionIntent = detectCollectionIntent(lastUserMsg, messages);
+    
+    // Call AI API (Lovable AI Gateway) with streaming enabled
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -1107,15 +1111,133 @@ serve(async (req) => {
         tools,
         tool_choice: 'auto',
         temperature: 0.7,
+        stream: true, // Enable streaming
       }),
     });
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[ai-orchestrator] API error:', errorText);
+      console.error('[ai-orchestrator] API error:', response.status, errorText);
+      
+      // Handle rate limiting and payment errors
+      if (response.status === 429) {
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Desculpe, estamos com muitas solicitações no momento. Tente novamente em alguns segundos.' } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
+      if (response.status === 402) {
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Desculpe, o serviço de IA está temporariamente indisponível. Tente novamente mais tarde.' } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
+      
       throw new Error(`AI API error: ${response.status}`);
     }
     
+    const contentType = response.headers.get('content-type') || '';
+    console.log('[ai-orchestrator] Response content-type:', contentType);
+    
+    // If streaming response, we need to intercept for tool calls
+    if (contentType.includes('text/event-stream') && response.body) {
+      // Create a TransformStream to process the SSE and handle tool calls
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let toolCallData: any = null;
+      let toolCallArguments = '';
+      
+      // Read the entire stream first to check for tool calls
+      let textBuffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+      }
+      
+      // Parse SSE events
+      const lines = textBuffer.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') continue;
+        
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const delta = parsed.choices?.[0]?.delta;
+          
+          if (delta?.content) {
+            fullContent += delta.content;
+          }
+          
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              if (tc.function?.name) {
+                toolCallData = { name: tc.function.name, id: tc.id };
+              }
+              if (tc.function?.arguments) {
+                toolCallArguments += tc.function.arguments;
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore parse errors for incomplete chunks
+        }
+      }
+      
+      console.log('[ai-orchestrator] Parsed content:', fullContent.substring(0, 100));
+      console.log('[ai-orchestrator] Tool call detected:', toolCallData?.name || 'none');
+      
+      // If tool call was found, execute it
+      if (toolCallData?.name) {
+        try {
+          const toolArgs = JSON.parse(toolCallArguments);
+          console.log('[ai-orchestrator] Executing tool:', toolCallData.name, toolArgs);
+          
+          const result = await executeTool(toolCallData.name, toolArgs, user.id, supabase);
+          
+          // Inject collection progress if needed
+          let responseContent = result.message;
+          if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
+            const fieldsJson = JSON.stringify(collectionIntent.fields);
+            responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
+          }
+          
+          // Format as SSE for frontend
+          const ssePayload = JSON.stringify({
+            choices: [{ delta: { content: responseContent } }]
+          });
+          
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+          });
+        } catch (e) {
+          console.error('[ai-orchestrator] Tool execution error:', e);
+          const errorPayload = JSON.stringify({
+            choices: [{ delta: { content: 'Desculpe, houve um erro ao processar sua solicitação. Pode tentar novamente?' } }]
+          });
+          return new Response(`data: ${errorPayload}\n\ndata: [DONE]\n\n`, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+          });
+        }
+      }
+      
+      // No tool call - inject collection progress and return content as SSE
+      let responseContent = fullContent;
+      if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
+        const fieldsJson = JSON.stringify(collectionIntent.fields);
+        responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
+      }
+      
+      const ssePayload = JSON.stringify({
+        choices: [{ delta: { content: responseContent } }]
+      });
+      
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+    
+    // Fallback: non-streaming response (shouldn't happen but handle gracefully)
     const data = await response.json();
     const choice = data.choices?.[0];
     
@@ -1123,44 +1245,44 @@ serve(async (req) => {
       throw new Error('No response from AI');
     }
     
-    // Handle tool calls
+    // Handle tool calls in non-streaming mode
     if (choice.message?.tool_calls?.length) {
       const toolCall = choice.message.tool_calls[0];
       const toolName = toolCall.function.name;
       const toolArgs = JSON.parse(toolCall.function.arguments);
       
-      console.log(`[ai-orchestrator] Tool call: ${toolName}`);
+      console.log('[ai-orchestrator] Tool call (non-stream):', toolName);
       
       const result = await executeTool(toolName, toolArgs, user.id, supabase);
       
-      // Return with success marker for frontend
-      return new Response(JSON.stringify({
-        content: result.message,
-        toolResult: result,
-        success: result.success
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      let responseContent = result.message;
+      if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
+        const fieldsJson = JSON.stringify(collectionIntent.fields);
+        responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
+      }
+      
+      const ssePayload = JSON.stringify({
+        choices: [{ delta: { content: responseContent } }]
+      });
+      
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
       });
     }
     
-    // Regular response - check for collection intent
+    // Regular response
     let content = choice.message?.content || '';
-    
-    // Detect collection intent from user message
-    const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
-    const collectionIntent = detectCollectionIntent(lastUserMsg, messages);
-    
-    // If we detected intent and response doesn't already have progress marker, inject one
     if (collectionIntent && !content.includes('[COLLECTION_PROGRESS:')) {
       const fieldsJson = JSON.stringify(collectionIntent.fields);
-      content += `\n\n[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]`;
+      content = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${content}`;
     }
     
-    return new Response(JSON.stringify({
-      content,
-      success: true
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    const ssePayload = JSON.stringify({
+      choices: [{ delta: { content } }]
+    });
+    
+    return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
     });
     
   } catch (error) {
