@@ -151,8 +151,24 @@ function accumulateFieldsFromHistory(
     }
   }
   
-  // For urban reports, parse assistant questions and user responses
+  // For urban reports, scan ALL user messages for category and structured fields
   if (collectionType === 'urban_report') {
+    // FIRST: Scan all user messages for category detection (fixes "bueiro" → "iluminacao" bug)
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        const userContext = msg.content.toLowerCase();
+        const detectedFields = extractUrbanFields(userContext);
+        // Only override category if we found one (prevents losing a good detection)
+        if (detectedFields.category && !accumulated.category) {
+          accumulated.category = detectedFields.category;
+        } else if (detectedFields.category) {
+          // If already have category, only update if this one is more specific
+          accumulated.category = detectedFields.category;
+        }
+      }
+    }
+    
+    // THEN: Parse assistant questions and user responses for structured fields
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       const nextMsg = messages[i + 1];
