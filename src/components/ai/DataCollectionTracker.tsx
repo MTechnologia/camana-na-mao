@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building, Navigation, ShieldAlert, Target } from "lucide-react";
+import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building, Navigation, ShieldAlert, Target, CheckCircle2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { RISK_CATEGORIES as CONFIG_RISK_CATEGORIES } from "@/lib/reportFieldConfig";
 
 export type CollectionType = 'urban_report' | 'transport_report' | 'service_rating' | null;
 
@@ -210,11 +212,17 @@ const DataCollectionTracker = ({
   // Contagem de campos obrigatórios para indicar quando pode submeter
   const requiredFields = config.fields.filter(f => f.required);
   const collectedRequiredCount = requiredFields.filter(f => collectedFields[f.key]).length;
-  const allRequiredCollected = collectedRequiredCount === requiredFields.length;
+  const missingRequiredCount = requiredFields.length - collectedRequiredCount;
+  const allRequiredCollected = missingRequiredCount === 0;
   
   // Progresso baseado em todos os campos
   const progress = Math.round((collectedCount / totalFields) * 100);
   const TitleIcon = config.icon;
+  
+  // Get names of missing required fields for tooltip
+  const missingRequiredFields = requiredFields
+    .filter(f => !collectedFields[f.key])
+    .map(f => f.label);
 
   const formatValue = (key: string, value: any): string => {
     if (!value) return '';
@@ -263,6 +271,18 @@ const DataCollectionTracker = ({
               <span className="text-sm font-medium text-foreground">
                 {config.title}
               </span>
+              {/* Status Badge */}
+              {allRequiredCollected ? (
+                <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950/30 dark:border-green-800">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Pronto
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800" title={`Faltam: ${missingRequiredFields.join(', ')}`}>
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {missingRequiredCount} obrigatório{missingRequiredCount > 1 ? 's' : ''}
+                </Badge>
+              )}
             </div>
             <button
               onClick={() => setIsMinimized(!isMinimized)}
@@ -307,7 +327,9 @@ const DataCollectionTracker = ({
                           "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all",
                           isCollected 
                             ? "bg-primary/20 text-primary border border-primary/30" 
-                            : "bg-muted/50 text-muted-foreground border border-border/50"
+                            : field.required && !isCollected
+                              ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 animate-pulse"
+                              : "bg-muted/50 text-muted-foreground border border-border/50"
                         )}
                       >
                         {isCollected ? (

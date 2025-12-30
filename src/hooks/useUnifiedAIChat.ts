@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -572,6 +572,71 @@ export const useUnifiedAIChat = (
     setMessages((prev) => [...prev, newMessage]);
   };
 
+  // Calculate missing required fields for current collection
+  const getMissingRequiredFields = useCallback((): string[] => {
+    if (!collectionType) return [];
+    
+    // Import would cause circular dependency, so inline the logic
+    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+    
+    const configs: Record<string, { key: string; required: boolean; requiredFor?: string[]; requiredWhen?: { field: string; values: string[] } }[]> = {
+      urban_report: [
+        { key: 'category', required: true },
+        { key: 'description', required: true },
+        { key: 'street', required: true },
+        { key: 'neighborhood', required: true },
+        { key: 'risk_level', required: false, requiredFor: RISK_CATEGORIES },
+        { key: 'affected_scope', required: false, requiredWhen: { field: 'risk_level', values: ['critical', 'moderate'] } },
+      ],
+      transport_report: [
+        { key: 'report_type', required: true },
+        { key: 'description', required: true },
+        { key: 'occurrence_date', required: true },
+      ],
+      service_rating: [
+        { key: 'service_type', required: true },
+        { key: 'service_name', required: true },
+        { key: 'rating_stars', required: true },
+        { key: 'rating_text', required: true },
+      ]
+    };
+    
+    const fields = configs[collectionType];
+    if (!fields) return [];
+    
+    const category = collectedFields.category;
+    const missing: string[] = [];
+    
+    for (const field of fields) {
+      if (collectedFields[field.key]) continue;
+      
+      let isRequired = field.required;
+      
+      // Check conditional requirements (requiredFor)
+      if (!isRequired && field.requiredFor && category) {
+        isRequired = field.requiredFor.includes(category);
+      }
+      
+      // Check conditional requirements (requiredWhen)
+      if (!isRequired && field.requiredWhen) {
+        const dependentValue = collectedFields[field.requiredWhen.field];
+        if (dependentValue && field.requiredWhen.values.includes(dependentValue)) {
+          isRequired = true;
+        }
+      }
+      
+      if (isRequired) {
+        missing.push(field.key);
+      }
+    }
+    
+    return missing;
+  }, [collectionType, collectedFields]);
+
+  const isCollectionComplete = useMemo(() => {
+    return getMissingRequiredFields().length === 0;
+  }, [getMissingRequiredFields]);
+
   return {
     messages,
     isLoading,
@@ -584,5 +649,7 @@ export const useUnifiedAIChat = (
     clearCreatedReport,
     collectionType,
     collectedFields,
+    getMissingRequiredFields,
+    isCollectionComplete,
   };
 };
