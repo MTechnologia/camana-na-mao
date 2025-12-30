@@ -84,6 +84,17 @@ function extractTransportFields(context: string): Record<string, any> {
     fields.occurrence_time = '19:00';
   }
   
+  // Detect severity
+  if (context.includes('gravíssim') || context.includes('acidente') || context.includes('agressão') || context.includes('ferido')) {
+    fields.severity = 'critica';
+  } else if (context.includes('muito atraso') || context.includes('mais de 30') || context.includes('horas esperando')) {
+    fields.severity = 'alta';
+  } else if (context.includes('20 minutos') || context.includes('meia hora') || context.includes('bastante')) {
+    fields.severity = 'media';
+  } else if (context.includes('desconfortável') || context.includes('chato') || context.includes('incômodo')) {
+    fields.severity = 'baixa';
+  }
+  
   return fields;
 }
 
@@ -118,6 +129,20 @@ function extractUrbanFields(context: string): Record<string, any> {
     }
   }
   
+  // Detect neighborhood
+  const bairroPatterns = [
+    /(?:bairro|região|zona)\s+(?:de\s+|do\s+|da\s+)?([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|$)/i,
+    /(?:em|no|na)\s+(?:bairro\s+)?([a-záàâãéèêíïóôõöúç]+?)(?:\s*,|\s+zona|\s+região|$)/i
+  ];
+  
+  for (const pattern of bairroPatterns) {
+    const match = context.match(pattern);
+    if (match && match[1] && match[1].trim().length > 2) {
+      fields.neighborhood = match[1].trim();
+      break;
+    }
+  }
+  
   return fields;
 }
 
@@ -147,13 +172,80 @@ function extractServiceFields(context: string): Record<string, any> {
   }
   
   // Detect sentiment
-  if (context.includes('péssim') || context.includes('horrível') || context.includes('ruim')) {
+  if (context.includes('péssim') || context.includes('horrível') || context.includes('ruim') || context.includes('terrível')) {
     fields.sentiment = 'negative';
-  } else if (context.includes('bom') || context.includes('ótim') || context.includes('excelente') || context.includes('elogiar')) {
+  } else if (context.includes('bom') || context.includes('ótim') || context.includes('excelente') || context.includes('elogiar') || context.includes('muito bom')) {
     fields.sentiment = 'positive';
+  } else {
+    fields.sentiment = 'neutral';
+  }
+  
+  // Detect neighborhood for service
+  const bairroMatch = context.match(/(?:no|na|do|da|em)\s+(?:bairro\s+)?([a-záàâãéèêíïóôõöúç]+?)(?:\s*,|\s+zona|\s*$)/i);
+  if (bairroMatch && bairroMatch[1] && bairroMatch[1].trim().length > 2) {
+    fields.service_neighborhood = bairroMatch[1].trim();
   }
   
   return fields;
+}
+
+// Official council member list for validation
+const COUNCIL_MEMBERS = [
+  { name: 'Milton Leite', party: 'UNIÃO' },
+  { name: 'Rubinho Nunes', party: 'UNIÃO' },
+  { name: 'Rodrigo Goulart', party: 'PSD' },
+  { name: 'Celso Giannazi', party: 'PSOL' },
+  { name: 'Soninha Francine', party: 'CIDADANIA' },
+  { name: 'Erika Hilton', party: 'PSOL' },
+  { name: 'Amanda Paschoal', party: 'PSOL' },
+  { name: 'Luna Zarattini', party: 'PT' },
+  { name: 'Janaína Lima', party: 'PP' },
+  { name: 'Rinaldi Digilio', party: 'REPUBLICANOS' },
+  { name: 'José Turin', party: 'REPUBLICANOS' },
+  { name: 'José Ferreira', party: 'MDB' },
+  { name: 'Juliana Cardoso', party: 'PT' },
+  { name: 'Eduardo Suplicy', party: 'PT' },
+  { name: 'Rute Costa', party: 'PL' },
+  { name: 'Thammy Miranda', party: 'PL' },
+  { name: 'Ricardo Teixeira', party: 'UNIÃO' },
+  { name: 'Eliseu Gabriel', party: 'PSB' },
+  { name: 'Atílio Francisco', party: 'REPUBLICANOS' },
+  { name: 'Eli Corrêa', party: 'UNIÃO' },
+  { name: 'Zé Luiz', party: 'REPUBLICANOS' },
+  { name: 'Professor Toninho Vespoli', party: 'PSOL' },
+  { name: 'Sandra Tadeu', party: 'PL' },
+  { name: 'Fabio Riva', party: 'MDB' },
+  { name: 'Senival Moura', party: 'PT' },
+  { name: 'Tito Bernardes', party: 'PSDB' },
+];
+
+// Helper: Find council member matches
+function findCouncilMemberMatches(partialName: string): { found: boolean; matches: Array<{ name: string; party: string }>; suggestion?: string } {
+  const nameLower = partialName.toLowerCase().trim();
+  
+  // Exact match first
+  const exactMatch = COUNCIL_MEMBERS.find(v => v.name.toLowerCase() === nameLower);
+  if (exactMatch) {
+    return { found: true, matches: [exactMatch], suggestion: `${exactMatch.name} (${exactMatch.party})` };
+  }
+  
+  // Partial match (first name, last name, or contains)
+  const matches = COUNCIL_MEMBERS.filter(v => {
+    const vLower = v.name.toLowerCase();
+    const parts = vLower.split(' ');
+    return parts.some(part => part.startsWith(nameLower) || nameLower.startsWith(part)) ||
+           vLower.includes(nameLower);
+  });
+  
+  if (matches.length === 1) {
+    return { found: true, matches, suggestion: `${matches[0].name} (${matches[0].party})` };
+  }
+  
+  if (matches.length > 1) {
+    return { found: false, matches: matches.slice(0, 5), suggestion: undefined };
+  }
+  
+  return { found: false, matches: [], suggestion: undefined };
 }
 
 // Extract chamber feedback-specific fields
@@ -171,7 +263,7 @@ function extractChamberFields(context: string): Record<string, any> {
     fields.subcategory = 'sugestao';
   }
   
-  // Detect council member name
+  // Detect council member name with validation
   const namePatterns = [
     /(?:vereador|vereadora)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s+por|\s+pelo|\s*,|\s+é|\s+foi|$)/i,
     /(?:ao|à|a)\s+(?:vereador|vereadora)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s+por|\s+pelo|\s*,|$)/i
@@ -180,7 +272,18 @@ function extractChamberFields(context: string): Record<string, any> {
   for (const pattern of namePatterns) {
     const match = context.match(pattern);
     if (match && match[1] && match[1].trim().length > 2) {
-      fields.council_member_name = match[1].trim();
+      const rawName = match[1].trim();
+      const validation = findCouncilMemberMatches(rawName);
+      
+      if (validation.found && validation.matches.length === 1) {
+        fields.council_member_name = validation.matches[0].name;
+        fields.council_member_party = validation.matches[0].party;
+      } else {
+        // Store raw name for AI to validate
+        fields.council_member_name = rawName;
+        fields._ambiguous_name = true;
+        fields._possible_matches = validation.matches.map(m => `${m.name} (${m.party})`);
+      }
       break;
     }
   }
@@ -285,12 +388,15 @@ const tools = [
         properties: {
           category: {
             type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "area_verde", "outro"],
-            description: "Inferir: iluminacao (poste, luz), calcada (buraco, passeio), via_publica (asfalto, semáforo), lixo (entulho), area_verde (praça, árvore), outro (feedback câmara)"
+            enum: ["iluminacao", "calcada", "via_publica", "lixo", "area_verde", "feedback_camara", "outro"],
+            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (asfalto, semáforo), lixo (entulho), area_verde (praça, árvore), feedback_camara (sobre vereador/câmara), outro"
           },
-          subcategory: { type: "string", description: "Tipo específico do problema" },
-          description: { type: "string", description: "Resumo completo do problema" },
-          location_address: { type: "string", description: "Localização (rua, bairro, referência)" }
+          subcategory: { type: "string", description: "Subcategoria específica (para feedback_camara: elogio, reclamacao, sugestao)" },
+          description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
+          location_address: { type: "string", description: "OBRIGATÓRIO para problemas urbanos: rua, bairro ou ponto de referência" },
+          neighborhood: { type: "string", description: "Bairro inferido do endereço" },
+          council_member_name: { type: "string", description: "Para feedback_camara: nome COMPLETO do vereador (verificar na lista oficial)" },
+          council_member_party: { type: "string", description: "Para feedback_camara: partido do vereador" }
         },
         required: ["category", "description"]
       }
@@ -309,12 +415,17 @@ const tools = [
             enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "outro"],
             description: "Tipo do problema"
           },
-          description: { type: "string", description: "Descrição do problema" },
+          description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
-          occurrence_time: { type: "string", description: "Horário HH:MM" },
-          line_code: { type: "string", description: "Linha de ônibus/metrô" },
+          occurrence_time: { type: "string", description: "Horário HH:MM (perguntar horário aproximado)" },
+          line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
           location: { type: "string", description: "Ponto, estação ou trecho" },
-          impact_description: { type: "string", description: "Como afetou a rotina" }
+          severity: {
+            type: "string",
+            enum: ["baixa", "media", "alta", "critica"],
+            description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
+          },
+          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" }
         },
         required: ["report_type", "description", "occurrence_date"]
       }
@@ -328,21 +439,22 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          service_name: { type: "string", description: "Nome do serviço avaliado" },
           service_type: {
             type: "string",
             enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "Tipo do serviço"
+            description: "PERGUNTAR PRIMEIRO: tipo do serviço"
           },
+          service_name: { type: "string", description: "Nome do serviço avaliado (sugerir serviços existentes se possível)" },
+          service_neighborhood: { type: "string", description: "Bairro onde fica o serviço (ajuda a localizar)" },
           rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Nota 1-5 estrelas" },
-          rating_text: { type: "string", description: "Comentário da avaliação" },
+          rating_text: { type: "string", description: "Comentário da avaliação (mínimo 10 caracteres)" },
           sentiment: {
             type: "string",
             enum: ["positive", "neutral", "negative"],
-            description: "Sentimento geral"
+            description: "Sentimento inferido do comentário"
           }
         },
-        required: ["service_name", "service_type", "rating_stars", "rating_text", "sentiment"]
+        required: ["service_type", "service_name", "rating_stars", "rating_text", "sentiment"]
       }
     }
   },
@@ -469,15 +581,22 @@ TEMPLATES DE PRIMEIRA RESPOSTA (seguir rigorosamente):
 
 RELATO URBANO (problema na cidade):
 → "Qual é o problema? (buraco, poste apagado, lixo, calçada quebrada...)"
-→ Após: "Onde fica? (rua, bairro ou ponto de referência)"
+→ Após: "Onde fica? (rua, bairro ou ponto de referência)" - OBRIGATÓRIO
 
 TRANSPORTE (ônibus, metrô, trem):
 → "Qual linha ou estação teve o problema?"
 → Após: "O que aconteceu? (atraso, lotação, segurança, limpeza)"
+→ Perguntar: "Que horário aproximado?"
 
 AVALIAÇÃO DE SERVIÇO:
 → "Qual serviço você quer avaliar? (UBS, escola, hospital, CEU...)"
-→ Após: "De 1 a 5, que nota você dá? Por quê?"
+→ Após: "Qual o nome e bairro do serviço?"
+→ "De 1 a 5, que nota você dá? Por quê?"
+
+FEEDBACK SOBRE VEREADOR/CÂMARA:
+→ "Qual o nome completo do vereador?" (validar contra lista oficial)
+→ Se só primeiro nome: "Qual [Nome]? Temos: [listar opções com partido]"
+→ "É um elogio, reclamação ou sugestão?"
 
 SERVIÇOS PRÓXIMOS:
 → "Que tipo de serviço você procura? (UBS, escola, hospital...)"
@@ -501,6 +620,28 @@ CAPACIDADES (use as tools quando apropriado):
 • Histórico do cidadão (relatos, avaliações, participações) → get_citizen_history
 • Sugerir vereador para demanda → suggest_council_member
 
+VALIDAÇÃO INTELIGENTE DE DADOS:
+
+🏛️ VEREADORES (CRÍTICO):
+- Se cidadão mencionar apenas primeiro nome (ex: "José"), perguntar:
+  "Qual José? Temos José Turin (Republicanos), José Ferreira (MDB)..."
+- Sempre confirmar nome COMPLETO e partido antes de registrar
+- Lista oficial: Milton Leite (UNIÃO), Rodrigo Goulart (PSD), Celso Giannazi (PSOL), 
+  Soninha Francine (CIDADANIA), Erika Hilton (PSOL), Amanda Paschoal (PSOL), 
+  Luna Zarattini (PT), Janaína Lima (PP), Rinaldi Digilio (REPUBLICANOS),
+  José Turin (REPUBLICANOS), José Ferreira (MDB), Juliana Cardoso (PT),
+  Eduardo Suplicy (PT), Professor Toninho Vespoli (PSOL), Sandra Tadeu (PL)...
+
+📍 LOCALIZAÇÃO (para relatos urbanos):
+- SEMPRE perguntar endereço ou ponto de referência
+- Aceitar: "perto do metrô X", "na frente da escola Y", "Rua Z"
+- NÃO finalizar relato urbano sem localização mínima
+
+🏥 SERVIÇOS PÚBLICOS:
+- Perguntar tipo do serviço PRIMEIRO
+- Sugerir serviços existentes na região se possível
+- Se cidadão não souber o nome exato, ajudar a identificar pelo bairro
+
 COLETA DE DADOS:
 - Converse naturalmente, extraia informações do contexto
 - Pergunte apenas o essencial (1-2 perguntas por vez)
@@ -515,9 +656,10 @@ Tipos válidos: urban_report, transport_report, service_rating
 
 Exemplos:
 - Cidadão disse "tem um buraco na rua": [COLLECTION_PROGRESS:urban_report:{"category":"via_publica"}]
-- Cidadão disse "buraco enorme na Rua Augusta": [COLLECTION_PROGRESS:urban_report:{"category":"via_publica","location_address":"Rua Augusta"}]
-- Cidadão disse "ônibus atrasou hoje de manhã": [COLLECTION_PROGRESS:transport_report:{"report_type":"atraso","occurrence_date":"${new Date().toISOString().split('T')[0]}"}]
+- Cidadão disse "buraco enorme na Rua Augusta, Consolação": [COLLECTION_PROGRESS:urban_report:{"category":"via_publica","location_address":"Rua Augusta","neighborhood":"Consolação"}]
+- Cidadão disse "ônibus atrasou hoje de manhã": [COLLECTION_PROGRESS:transport_report:{"report_type":"atraso","occurrence_date":"${new Date().toISOString().split('T')[0]}","occurrence_time":"08:00"}]
 - Cidadão disse "quero avaliar a UBS do meu bairro com 4 estrelas": [COLLECTION_PROGRESS:service_rating:{"service_type":"ubs","rating_stars":4}]
+- Cidadão disse "reclamar do vereador José Turin": [COLLECTION_PROGRESS:urban_report:{"category":"feedback_camara","subcategory":"reclamacao","council_member_name":"José Turin","council_member_party":"REPUBLICANOS"}]
 
 IMPORTANTE: Envie o marcador APENAS quando detectar novas informações relevantes para coleta. O marcador deve refletir TODOS os campos já inferidos até o momento.
 

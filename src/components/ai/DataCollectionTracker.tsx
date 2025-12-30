@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User } from "lucide-react";
+import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,8 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     fields: [
       { key: 'category', label: 'Categoria', icon: Tag, required: true },
       { key: 'description', label: 'Descrição', icon: MessageSquare, required: true },
-      { key: 'location_address', label: 'Localização', icon: MapPin, required: false },
+      { key: 'location_address', label: 'Localização', icon: MapPin, required: true }, // Obrigatório
+      { key: 'neighborhood', label: 'Bairro', icon: Building, required: false },
     ]
   },
   transport_report: {
@@ -45,16 +46,19 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'report_type', label: 'Tipo', icon: Tag, required: true },
       { key: 'description', label: 'Descrição', icon: MessageSquare, required: true },
       { key: 'occurrence_date', label: 'Data', icon: Clock, required: true },
+      { key: 'occurrence_time', label: 'Horário', icon: Clock, required: false },
       { key: 'line_code', label: 'Linha', icon: Bus, required: false },
       { key: 'location', label: 'Local', icon: MapPin, required: false },
+      { key: 'severity', label: 'Gravidade', icon: AlertCircle, required: false },
     ]
   },
   service_rating: {
     title: "Avaliando serviço público",
     icon: Star,
     fields: [
-      { key: 'service_name', label: 'Serviço', icon: FileText, required: true },
       { key: 'service_type', label: 'Tipo', icon: Tag, required: true },
+      { key: 'service_name', label: 'Serviço', icon: FileText, required: true },
+      { key: 'service_neighborhood', label: 'Bairro', icon: Building, required: false },
       { key: 'rating_stars', label: 'Nota', icon: Star, required: true },
       { key: 'rating_text', label: 'Comentário', icon: MessageSquare, required: true },
     ]
@@ -68,11 +72,13 @@ const CHAMBER_FEEDBACK_CONFIG: CollectionConfig = {
   fields: [
     { key: 'subcategory', label: 'Tipo', icon: Tag, required: true },
     { key: 'council_member_name', label: 'Vereador(a)', icon: User, required: false },
+    { key: 'council_member_party', label: 'Partido', icon: Tag, required: false },
     { key: 'description', label: 'Detalhes', icon: MessageSquare, required: true },
   ]
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
+  // Urban report categories
   iluminacao: 'Iluminação',
   calcada: 'Calçada',
   via_publica: 'Via Pública',
@@ -80,11 +86,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   area_verde: 'Área Verde',
   outro: 'Outro',
   feedback_camara: 'Feedback Câmara',
+  // Transport report types
   atraso: 'Atraso',
   lotacao: 'Lotação',
   seguranca: 'Segurança',
   acessibilidade: 'Acessibilidade',
   limpeza: 'Limpeza',
+  // Service types
   ubs: 'UBS',
   school: 'Escola',
   ceu: 'CEU',
@@ -95,6 +103,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   elogio: 'Elogio',
   reclamacao: 'Reclamação',
   sugestao: 'Sugestão',
+  // Severity levels
+  baixa: 'Baixa',
+  media: 'Média',
+  alta: 'Alta',
+  critica: 'Crítica',
 };
 
 const DataCollectionTracker = ({ 
