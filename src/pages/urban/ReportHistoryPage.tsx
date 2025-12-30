@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 
 interface Report {
   id: string;
+  protocol_code: string | null;
   category: string;
   subcategory: string | null;
   description: string | null;
@@ -102,7 +103,7 @@ export default function ReportHistoryPage() {
     try {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("id, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
+        .select("id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -134,7 +135,7 @@ export default function ReportHistoryPage() {
     try {
       let query = supabase
         .from("urban_reports")
-        .select("id, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
+        .select("id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -243,6 +244,11 @@ export default function ReportHistoryPage() {
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">
+              {report.protocol_code && (
+                <p className="text-xs font-mono text-primary mb-1">
+                  {report.protocol_code}
+                </p>
+              )}
               {report.subcategory && (
                 <h3 className="font-semibold text-foreground mb-1">
                   {report.subcategory}

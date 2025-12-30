@@ -668,6 +668,30 @@ export type Database = {
         }
         Relationships: []
       }
+      protocol_sequences: {
+        Row: {
+          current_sequence: number
+          current_year: number
+          id: string
+          sequence_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          current_sequence?: number
+          current_year: number
+          id?: string
+          sequence_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          current_sequence?: number
+          current_year?: number
+          id?: string
+          sequence_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       public_services: {
         Row: {
           address: string
@@ -1294,6 +1318,7 @@ export type Database = {
           n8n_workflow_id: string | null
           occurrence_date: string
           occurrence_time: string | null
+          protocol_code: string | null
           report_type: string
           responded_at: string | null
           severity: string
@@ -1322,6 +1347,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date: string
           occurrence_time?: string | null
+          protocol_code?: string | null
           report_type: string
           responded_at?: string | null
           severity?: string
@@ -1350,6 +1376,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date?: string
           occurrence_time?: string | null
+          protocol_code?: string | null
           report_type?: string
           responded_at?: string | null
           severity?: string
@@ -1496,6 +1523,7 @@ export type Database = {
           n8n_workflow_id: string | null
           neighborhood: string | null
           photos: string[] | null
+          protocol_code: string | null
           reference_point: string | null
           risk_level: string | null
           risk_types: string[] | null
@@ -1530,6 +1558,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           neighborhood?: string | null
           photos?: string[] | null
+          protocol_code?: string | null
           reference_point?: string | null
           risk_level?: string | null
           risk_types?: string[] | null
@@ -1564,6 +1593,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           neighborhood?: string | null
           photos?: string[] | null
+          protocol_code?: string | null
           reference_point?: string | null
           risk_level?: string | null
           risk_types?: string[] | null
@@ -1795,6 +1825,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_protocol_code: { Args: { p_type: string }; Returns: string }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
