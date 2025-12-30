@@ -115,14 +115,16 @@ const AgentChatArea = () => {
 
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
-    clearMessages();
     
-    // Define o tipo de coleta imediatamente para ativar o tracker
+    // Define o tipo de coleta ANTES de limpar para preservar
     if (collectionTypePreset) {
       setPresetCollectionType(collectionTypePreset as CollectionType);
     } else {
       setPresetCollectionType(null);
     }
+    
+    // Limpa mensagens mas preserva collectionType quando há preset
+    clearMessages(!!collectionTypePreset);
     
     // UI otimista: adiciona mensagem do usuário imediatamente
     if (initialMessage) {
