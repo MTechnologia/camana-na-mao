@@ -1475,6 +1475,9 @@ export type Database = {
       }
       urban_reports: {
         Row: {
+          active_consequences: string[] | null
+          affected_estimate: number | null
+          affected_scope: string | null
           ai_classification: Json | null
           category: string
           cep: string | null
@@ -1494,15 +1497,21 @@ export type Database = {
           neighborhood: string | null
           photos: string[] | null
           reference_point: string | null
+          risk_level: string | null
+          risk_types: string[] | null
           severity: string | null
           status: string | null
           street: string | null
           street_number: string | null
           subcategory: string | null
           updated_at: string | null
+          urgency_reason: string | null
           user_id: string
         }
         Insert: {
+          active_consequences?: string[] | null
+          affected_estimate?: number | null
+          affected_scope?: string | null
           ai_classification?: Json | null
           category: string
           cep?: string | null
@@ -1522,15 +1531,21 @@ export type Database = {
           neighborhood?: string | null
           photos?: string[] | null
           reference_point?: string | null
+          risk_level?: string | null
+          risk_types?: string[] | null
           severity?: string | null
           status?: string | null
           street?: string | null
           street_number?: string | null
           subcategory?: string | null
           updated_at?: string | null
+          urgency_reason?: string | null
           user_id: string
         }
         Update: {
+          active_consequences?: string[] | null
+          affected_estimate?: number | null
+          affected_scope?: string | null
           ai_classification?: Json | null
           category?: string
           cep?: string | null
@@ -1550,12 +1565,15 @@ export type Database = {
           neighborhood?: string | null
           photos?: string[] | null
           reference_point?: string | null
+          risk_level?: string | null
+          risk_types?: string[] | null
           severity?: string | null
           status?: string | null
           street?: string | null
           street_number?: string | null
           subcategory?: string | null
           updated_at?: string | null
+          urgency_reason?: string | null
           user_id?: string
         }
         Relationships: []

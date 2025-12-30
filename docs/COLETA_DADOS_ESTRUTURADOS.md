@@ -47,14 +47,30 @@ service_rating ───── Avaliação de serviços públicos municipais
 
 Registra problemas físicos na cidade como buracos, iluminação, lixo, calçadas, áreas verdes.
 
-### Campos
+### Campos Básicos
 
 | Campo | Label | Tipo | Obrigatório | Valores Aceitos |
 |-------|-------|------|-------------|-----------------|
 | `category` | Categoria | enum | ✅ Sim | `iluminacao`, `calcada`, `via_publica`, `lixo`, `area_verde`, `feedback_camara`, `outro` |
 | `description` | Descrição | string | ✅ Sim | Mínimo 15 caracteres |
-| `location_address` | Localização | string | ✅ Sim | Rua, endereço ou ponto de referência |
-| `neighborhood` | Bairro | string | ❌ Não | Inferido do endereço quando possível |
+| `cep` | CEP | string | ❌ Não | Formato 00000-000 |
+| `street` | Rua | string | ✅ Sim | Nome da rua/avenida |
+| `street_number` | Número | string | ❌ Não | Número ou referência |
+| `neighborhood` | Bairro | string | ✅ Sim | Bairro de São Paulo |
+| `reference_point` | Referência | string | ❌ Não | Ponto de referência |
+
+### Campos de Impacto (Novo - para categorias de risco)
+
+Para categorias de risco (`via_publica`, `iluminacao`, `esgoto`, `area_verde`), o sistema coleta dados adicionais de impacto:
+
+| Campo | Label | Tipo | Obrigatório | Valores Aceitos |
+|-------|-------|------|-------------|-----------------|
+| `risk_level` | Nível de Risco | enum | ❌ Não | `critical`, `moderate`, `low`, `none` |
+| `risk_types` | Tipos de Risco | array | ❌ Não | `electrical`, `traffic`, `flooding`, `structural`, `health`, `fire` |
+| `affected_scope` | Alcance | enum | ❌ Não | `individual`, `street`, `neighborhood`, `zone`, `city` |
+| `affected_estimate` | Pessoas Afetadas | integer | ❌ Não | Estimativa numérica |
+| `active_consequences` | Consequências | array | ❌ Não | `power_outage`, `water_outage`, `traffic_blocked`, `flooding`, `health_hazard`, `service_disruption` |
+| `urgency_reason` | Motivo de Urgência | string | ❌ Não | Palavras do cidadão |
 
 ### Regras de Negócio
 
@@ -66,19 +82,30 @@ Registra problemas físicos na cidade como buracos, iluminação, lixo, calçada
    - "lixo", "entulho", "sujeira" → `lixo`
    - "árvore", "praça", "poda", "mato" → `area_verde`
 3. **Bairro Inferido**: Detectado automaticamente via regex quando cidadão menciona "bairro X", "região Y"
+4. **Coleta de Impacto**: Para categorias de risco, o agente pergunta sobre risco imediato, alcance da afetação e consequências ativas
 
-### Exemplo de Coleta
+### Exemplo de Coleta com Impacto
 
 ```
-Cidadão: "Tem um buraco enorme na Rua Augusta"
-→ Campos inferidos: { category: "via_publica", location_address: "Rua Augusta" }
-→ Falta: description (mais detalhes)
+Cidadão: "Poste caiu na rua e tem fios expostos"
+→ Campos inferidos: { category: "iluminacao", risk_level: "critical" }
 
-Agente: "Pode descrever melhor o tamanho e como está afetando a via?"
+Agente: "Qual o CEP do local?"
+Cidadão: "05005-000"
+→ CEP validado, endereço preenchido
 
-Cidadão: "É um buraco de uns 50cm que está causando acidentes"
-→ Campos completos: { category: "via_publica", location_address: "Rua Augusta", description: "Buraco de 50cm causando acidentes" }
-→ Tool chamada: create_urban_report
+Agente: "Qual o número ou referência?"
+Cidadão: "Em frente ao número 150"
+
+Agente: "A rua está bloqueada? Está afetando outros moradores?"
+Cidadão: "Sim, a rua toda está sem luz e ninguém passa"
+→ Campos de impacto: { 
+    risk_types: ["electrical", "traffic"], 
+    affected_scope: "street", 
+    active_consequences: ["power_outage", "traffic_blocked"] 
+  }
+
+→ Tool chamada: create_urban_report COM dados de impacto
 ```
 
 ---
