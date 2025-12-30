@@ -5,6 +5,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface PlacePrediction {
+  place: string;
+  placeId: string;
+  text: { text: string };
+  structuredFormat?: {
+    mainText: { text: string };
+    secondaryText?: { text: string };
+  };
+}
+
+interface AutocompleteResponse {
+  suggestions?: Array<{
+    placePrediction: PlacePrediction;
+  }>;
+  error?: {
+    code: number;
+    message: string;
+    status: string;
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -30,44 +51,59 @@ serve(async (req) => {
       );
     }
 
-    // Build Google Places Autocomplete URL
-    const params = new URLSearchParams({
+    // Build request body for Places API (New)
+    const requestBody: Record<string, unknown> = {
       input: query,
-      key: apiKey,
-      language: 'pt-BR',
-      components: 'country:br',
-      types: 'address',
-      // Bias results to São Paulo
-      locationbias: 'circle:50000@-23.5505,-46.6333',
-    });
+      languageCode: 'pt-BR',
+      includedRegionCodes: ['BR'],
+      includedPrimaryTypes: ['street_address', 'route', 'premise', 'subpremise'],
+      locationBias: {
+        circle: {
+          center: { latitude: -23.5505, longitude: -46.6333 }, // São Paulo center
+          radius: 50000.0 // 50km radius
+        }
+      }
+    };
 
     // Add session token if provided (helps with billing optimization)
     if (sessionToken) {
-      params.append('sessiontoken', sessionToken);
+      requestBody.sessionToken = sessionToken;
     }
 
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`;
+    const url = 'https://places.googleapis.com/v1/places:autocomplete';
     
-    console.log('Fetching Google Places Autocomplete:', query);
+    console.log('Fetching Google Places Autocomplete (New API):', query);
     
-    const response = await fetch(url);
-    const data = await response.json();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', data.status, data.error_message);
+    const data: AutocompleteResponse = await response.json();
+
+    // Check for API errors
+    if (data.error) {
+      console.error('Google Places API error:', data.error.status, data.error.message);
       return new Response(
-        JSON.stringify({ error: `Google API error: ${data.status}`, predictions: [] }),
+        JSON.stringify({ error: `Google API error: ${data.error.status}`, predictions: [] }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Transform predictions to a simpler format
-    const predictions = (data.predictions || []).map((p: any) => ({
-      placeId: p.place_id,
-      description: p.description,
-      mainText: p.structured_formatting?.main_text || p.description,
-      secondaryText: p.structured_formatting?.secondary_text || '',
-    }));
+    // Transform suggestions to match the expected format (retrocompatible)
+    const predictions = (data.suggestions || []).map((suggestion) => {
+      const pred = suggestion.placePrediction;
+      return {
+        placeId: pred.placeId,
+        description: pred.text?.text || '',
+        mainText: pred.structuredFormat?.mainText?.text || pred.text?.text || '',
+        secondaryText: pred.structuredFormat?.secondaryText?.text || '',
+      };
+    });
 
     console.log(`Found ${predictions.length} predictions for "${query}"`);
 

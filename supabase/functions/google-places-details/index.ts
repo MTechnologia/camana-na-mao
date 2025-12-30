@@ -6,9 +6,24 @@ const corsHeaders = {
 };
 
 interface AddressComponent {
-  long_name: string;
-  short_name: string;
+  longText: string;
+  shortText: string;
   types: string[];
+}
+
+interface PlaceDetailsResponse {
+  id?: string;
+  formattedAddress?: string;
+  addressComponents?: AddressComponent[];
+  location?: {
+    latitude: number;
+    longitude: number;
+  };
+  error?: {
+    code: number;
+    message: string;
+    status: string;
+  };
 }
 
 interface StructuredAddress {
@@ -28,7 +43,7 @@ function extractAddressComponent(
   type: string
 ): string {
   const component = components.find(c => c.types.includes(type));
-  return component?.long_name || '';
+  return component?.longText || '';
 }
 
 function parseAddressComponents(components: AddressComponent[]): Partial<StructuredAddress> {
@@ -72,36 +87,39 @@ serve(async (req) => {
       );
     }
 
-    // Build Google Places Details URL
-    const params = new URLSearchParams({
-      place_id: placeId,
-      key: apiKey,
-      language: 'pt-BR',
-      fields: 'address_component,formatted_address,geometry',
-    });
+    // Build URL for Places API (New) - GET request with place ID in path
+    const url = `https://places.googleapis.com/v1/places/${placeId}`;
+    
+    console.log('Fetching Google Places Details (New API) for:', placeId);
+    
+    // Build headers with field mask for the data we need
+    const headers: Record<string, string> = {
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'id,formattedAddress,addressComponents,location',
+    };
 
     // Add session token if provided
     if (sessionToken) {
-      params.append('sessiontoken', sessionToken);
+      headers['X-Goog-Session-Token'] = sessionToken;
     }
 
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?${params}`;
-    
-    console.log('Fetching Google Places Details for:', placeId);
-    
-    const response = await fetch(url);
-    const data = await response.json();
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
 
-    if (data.status !== 'OK') {
-      console.error('Google Places Details API error:', data.status, data.error_message);
+    const data: PlaceDetailsResponse = await response.json();
+
+    // Check for API errors
+    if (data.error) {
+      console.error('Google Places Details API error:', data.error.status, data.error.message);
       return new Response(
-        JSON.stringify({ error: `Google API error: ${data.status}` }),
+        JSON.stringify({ error: `Google API error: ${data.error.status}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const result = data.result;
-    const addressParts = parseAddressComponents(result.address_components || []);
+    const addressParts = parseAddressComponents(data.addressComponents || []);
     
     const structuredAddress: StructuredAddress = {
       street: addressParts.street || '',
@@ -110,9 +128,9 @@ serve(async (req) => {
       city: addressParts.city || '',
       state: addressParts.state || '',
       cep: (addressParts.cep || '').replace(/\D/g, ''),
-      formattedAddress: result.formatted_address || '',
-      latitude: result.geometry?.location?.lat || 0,
-      longitude: result.geometry?.location?.lng || 0,
+      formattedAddress: data.formattedAddress || '',
+      latitude: data.location?.latitude || 0,
+      longitude: data.location?.longitude || 0,
     };
 
     console.log('Structured address:', structuredAddress);
