@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Mic, ArrowUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,36 @@ interface ChatInputProps {
   placeholder?: string;
   onFocus?: () => void;
   autoFocus?: boolean;
+  draftKey?: string | null;
 }
 
-const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer coisa...", onFocus, autoFocus = true }: ChatInputProps) => {
+const ChatInput = ({
+  onSendMessage,
+  disabled,
+  placeholder = "Pergunte qualquer coisa...",
+  onFocus,
+  autoFocus = true,
+  draftKey,
+}: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasLoadedDraftRef = useRef(false);
   const { toast } = useToast();
+
+  const draftStorageKey = `cmsp_chat_input_draft_${draftKey || "new"}`;
+
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+
+    el.style.height = "auto";
+    const maxHeight = 120;
+    const next = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${Math.max(next, 44)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, []);
 
   // Auto-focus when disabled changes from true to false (agent finished responding)
   useEffect(() => {
@@ -68,10 +90,49 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
     };
   }, [toast]);
 
+  // Load draft once per draftKey
+  useEffect(() => {
+    if (hasLoadedDraftRef.current) return;
+    hasLoadedDraftRef.current = true;
+
+    try {
+      const stored = sessionStorage.getItem(draftStorageKey);
+      if (stored) {
+        setInputValue(stored);
+        // Let React paint before measuring
+        requestAnimationFrame(() => adjustTextareaHeight());
+      }
+    } catch {
+      // ignore
+    }
+  }, [draftStorageKey, adjustTextareaHeight]);
+
+  // Persist draft while typing (prevents losing text on refresh)
+  useEffect(() => {
+    try {
+      const t = window.setTimeout(() => {
+        sessionStorage.setItem(draftStorageKey, inputValue);
+      }, 250);
+      return () => window.clearTimeout(t);
+    } catch {
+      return;
+    }
+  }, [draftStorageKey, inputValue]);
+
+  // Auto-grow textarea
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputValue, adjustTextareaHeight]);
+
   const handleSend = () => {
     if (inputValue.trim() && !disabled) {
       onSendMessage(inputValue.trim());
       setInputValue("");
+      try {
+        sessionStorage.removeItem(draftStorageKey);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -110,12 +171,13 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
             ref={textareaRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onInput={adjustTextareaHeight}
             onKeyPress={handleKeyPress}
             onFocus={onFocus}
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
-            className="w-full rounded-2xl border-2 border-border bg-card pl-3 sm:pl-4 pr-10 sm:pr-12 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground"
+            className="w-full rounded-2xl border-2 border-border bg-card pl-3 sm:pl-4 pr-10 sm:pr-12 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground overflow-y-auto"
             style={{ maxHeight: "120px" }}
           />
           
