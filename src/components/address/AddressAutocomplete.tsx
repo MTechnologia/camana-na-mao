@@ -47,6 +47,40 @@ export function AddressAutocomplete({
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Check if input looks like a CEP (8 digits, optionally with hyphen)
+  const isCepFormat = (input: string): boolean => {
+    const cleaned = input.replace(/\D/g, '');
+    return cleaned.length === 8;
+  };
+
+  // Fetch address from ViaCEP
+  const fetchFromViaCep = useCallback(async (cep: string): Promise<StructuredAddress | null> => {
+    const cleaned = cep.replace(/\D/g, '');
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleaned}/json/`);
+      const data = await response.json();
+      
+      if (data.erro) {
+        return null;
+      }
+      
+      return {
+        street: data.logradouro || '',
+        streetNumber: '',
+        neighborhood: data.bairro || '',
+        city: data.localidade || '',
+        state: data.uf || '',
+        cep: data.cep?.replace('-', '') || cleaned,
+        formattedAddress: `${data.logradouro || ''}, ${data.bairro || ''} - ${data.localidade || ''}/${data.uf || ''}`,
+        latitude: 0,
+        longitude: 0,
+      };
+    } catch (err) {
+      console.error('ViaCEP error:', err);
+      return null;
+    }
+  }, []);
+
   // Fetch predictions when query changes
   const fetchPredictions = useCallback(async (searchQuery: string) => {
     if (searchQuery.length < 3) {
@@ -58,6 +92,29 @@ export function AddressAutocomplete({
     setIsLoading(true);
     setError(null);
 
+    // Check if it's a CEP - use ViaCEP instead of Google Places
+    if (isCepFormat(searchQuery)) {
+      const viaCepAddress = await fetchFromViaCep(searchQuery);
+      if (viaCepAddress && viaCepAddress.street) {
+        // Create a synthetic prediction for the CEP result
+        setPredictions([{
+          placeId: `viacep-${viaCepAddress.cep}`,
+          description: viaCepAddress.formattedAddress,
+          mainText: viaCepAddress.street,
+          secondaryText: `${viaCepAddress.neighborhood}, ${viaCepAddress.city} - ${viaCepAddress.state}`,
+        }]);
+        setShowDropdown(true);
+        setSelectedIndex(-1);
+      } else {
+        setError("CEP não encontrado");
+        setPredictions([]);
+        setShowDropdown(false);
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    // Use Google Places for regular address search
     try {
       const { data, error: fnError } = await supabase.functions.invoke(
         "google-places-autocomplete",
@@ -85,7 +142,7 @@ export function AddressAutocomplete({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchFromViaCep]);
 
   // Debounced search
   useEffect(() => {
@@ -110,6 +167,20 @@ export function AddressAutocomplete({
     setShowDropdown(false);
     setQuery(prediction.description);
 
+    // Check if this is a ViaCEP result (synthetic placeId)
+    if (prediction.placeId.startsWith('viacep-')) {
+      const cep = prediction.placeId.replace('viacep-', '');
+      const viaCepAddress = await fetchFromViaCep(cep);
+      if (viaCepAddress) {
+        onSelect(viaCepAddress);
+      } else {
+        setError("Erro ao obter detalhes do CEP");
+      }
+      setIsFetchingDetails(false);
+      return;
+    }
+
+    // Use Google Places for regular selection
     try {
       const { data, error: fnError } = await supabase.functions.invoke(
         "google-places-details",
