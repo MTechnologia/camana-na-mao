@@ -6,7 +6,7 @@ import { useAIJourney } from "@/contexts/AIJourneyContext";
 import { useProfile } from "@/hooks/useProfile";
 import ChatMessageBubble from "./ChatMessageBubble";
 import ChatInput from "./ChatInput";
-import { ReportSuccessCard } from "@/components/shared/ReportSuccessCard";
+// ReportSuccessCard removed - success summary now shown in agent message
 import ContextualGreeting from "./ContextualGreeting";
 import ContextualFeed from "./ContextualFeed";
 import PriorityAction from "./PriorityAction";
@@ -232,19 +232,7 @@ const AgentChatArea = () => {
                   </motion.div>
                 ))}
                 
-                {createdReport && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <ReportSuccessCard 
-                      reportId={createdReport.id}
-                      variant={createdReport.type === 'transport' ? 'transport' : 'urban'}
-                      onNewReport={handleNewReport}
-                    />
-                  </motion.div>
-                )}
+                {/* ReportSuccessCard removed - success summary now shown in agent message */}
                 
                 {isLoading && !createdReport && (
                   <motion.div
@@ -263,22 +251,20 @@ const AgentChatArea = () => {
         )}
       </AnimatePresence>
 
-      {!createdReport && (
-        <motion.div 
-          className="border-t border-border bg-card p-3 sm:p-4 shrink-0"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.3 }}
-        >
-          <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
-            <ChatInput
-              onSendMessage={handleSendMessage} 
-              disabled={isLoading}
-              placeholder="Digite sua mensagem..."
-            />
-          </div>
-        </motion.div>
-      )}
+      <motion.div 
+        className="border-t border-border bg-card p-3 sm:p-4 shrink-0"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+      >
+        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
+          <ChatInput
+            onSendMessage={handleSendMessage} 
+            disabled={isLoading}
+            placeholder="Digite sua mensagem..."
+          />
+        </div>
+      </motion.div>
       {/* Capabilities Discovery Overlay */}
       <CapabilitiesOverlay
         isOpen={isDiscoveryOpen}

@@ -1540,7 +1540,7 @@ async function executeTool(
           console.error('[executeTool] N8N notification failed:', n8nError);
         }
         
-        // Build success message with CTA
+        // Build comprehensive success message with full summary
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
@@ -1556,9 +1556,72 @@ async function executeTool(
         };
         const categoryLabel = categoryLabels[args.category] || args.category;
         
+        const riskLabels: Record<string, string> = {
+          critical: 'Crítico',
+          moderate: 'Moderado',
+          low: 'Baixo'
+        };
+        
+        const scopeLabels: Record<string, string> = {
+          individual: 'Apenas eu',
+          building: 'Meu prédio/vizinhança',
+          block: 'Quadra inteira',
+          neighborhood: 'Bairro todo'
+        };
+        
+        // Build address section
+        let addressParts = [];
+        if (args.street) addressParts.push(args.street);
+        if (args.street_number) addressParts.push(args.street_number);
+        const addressLine = addressParts.join(', ');
+        const neighborhoodLine = args.neighborhood || '';
+        const cepLine = args.cep ? `CEP ${args.cep}` : '';
+        
+        // Build impact section (only for risk categories)
+        let impactSection = '';
+        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
+        if (riskCategories.includes(args.category) && args.risk_level) {
+          const impactParts = [];
+          if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
+          if (args.risk_types?.length) impactParts.push(`- **Tipo de risco:** ${args.risk_types.join(', ')}`);
+          if (args.affected_scope) impactParts.push(`- **Escopo:** ${scopeLabels[args.affected_scope] || args.affected_scope}`);
+          if (args.affected_estimate) impactParts.push(`- **Pessoas afetadas:** ~${args.affected_estimate}`);
+          if (args.active_consequences?.length) impactParts.push(`- **Consequências:** ${args.active_consequences.join(', ')}`);
+          
+          if (impactParts.length > 0) {
+            impactSection = `\n\n⚠️ **Avaliação de Impacto:**\n${impactParts.join('\n')}`;
+          }
+        }
+        
+        // Compose full message
+        const successMessage = [
+          `[REPORT_CREATED:${data.id}]`,
+          '',
+          '✅ **Relato registrado com sucesso!**',
+          '',
+          '**Resumo do seu relato:**',
+          '',
+          `📋 **Categoria:** ${categoryLabel}${args.subcategory ? ` - ${args.subcategory}` : ''}`,
+          '',
+          `📝 **Descrição:** ${args.description}`,
+          '',
+          `📍 **Endereço:**`,
+          addressLine ? `- ${addressLine}` : '',
+          neighborhoodLine ? `- ${neighborhoodLine}` : '',
+          cepLine ? `- ${cepLine}` : '',
+          args.reference_point ? `- Referência: ${args.reference_point}` : '',
+          impactSection,
+          '',
+          '---',
+          '',
+          '🔗 [Ver Meus Relatos](/relato-urbano/historico) para acompanhar o status',
+          '',
+          'Posso ajudar com mais alguma coisa?'
+        ].filter(line => line !== '').join('\n');
+        
         return { 
           success: true, 
-          message: `[REPORT_CREATED:${data.id}]\n\n✅ **Relato registrado com sucesso!**\n\n📍 **Local:** ${args.street}${args.street_number ? `, ${args.street_number}` : ''} - ${args.neighborhood}\n📋 **Categoria:** ${categoryLabel}\n\n👉 Acesse [Meus Relatos](/relato-urbano/historico) para acompanhar.\n\nPosso ajudar com mais alguma coisa?`,
+          message: successMessage,
           data: { id: data.id, type: 'urban' }
         };
       }
