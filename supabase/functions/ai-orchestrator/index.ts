@@ -1056,7 +1056,7 @@ async function executeTool(
     }
   } catch (error) {
     console.error(`[executeTool] Error executing ${name}:`, error);
-    return { success: false, message: `Erro ao executar ${name}: ${error.message}` };
+    return { success: false, message: `Erro ao executar ${name}: ${(error as Error).message}` };
   }
 }
 
@@ -1169,7 +1169,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       content: 'Desculpe, tive um problema técnico. Pode tentar novamente?',
       success: false,
-      error: error.message
+      error: (error as Error).message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
