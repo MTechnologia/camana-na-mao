@@ -153,7 +153,7 @@ const DataCollectionTracker = ({
     const baseConfig = DEFAULT_CONFIGS[collectionType];
     if (!baseConfig) return null;
     
-    // For urban reports with risk categories, show impact fields
+    // For urban reports with risk categories, show impact fields as REQUIRED
     // For other categories, hide risk_level and affected_scope
     if (collectionType === 'urban_report') {
       const category = collectedFields.category;
@@ -165,6 +165,16 @@ const DataCollectionTracker = ({
           ...baseConfig,
           fields: baseConfig.fields.filter(f => 
             f.key !== 'risk_level' && f.key !== 'affected_scope'
+          )
+        };
+      } else {
+        // Mark risk_level and affected_scope as REQUIRED for risk categories
+        return {
+          ...baseConfig,
+          fields: baseConfig.fields.map(f => 
+            (f.key === 'risk_level' || f.key === 'affected_scope')
+              ? { ...f, required: true }
+              : f
           )
         };
       }

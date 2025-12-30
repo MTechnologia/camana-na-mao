@@ -827,8 +827,14 @@ Quando detectar que o cidadão quer fazer um RELATO URBANO, você DEVE:
    - Descrição >= 30 caracteres
    - Rua (street) - via CEP ou manual
    - Bairro (neighborhood) - via CEP ou manual
+   - **PARA CATEGORIAS DE RISCO** (via_publica, iluminacao, esgoto, area_verde):
+     → risk_level é OBRIGATÓRIO (a tool vai REJEITAR sem ele)
+     → affected_scope é OBRIGATÓRIO se risco >= moderate
 
-=== REGRA DE COLETA DE IMPACTO (NOVO) ===
+⚠️ **BLOQUEIO HARD**: A função create_urban_report vai RECUSAR relatos de categorias
+de risco sem risk_level. Você DEVE coletar esses dados ANTES de chamar a tool.
+
+=== REGRA DE COLETA DE IMPACTO ===
 
 CATEGORIAS QUE EXIGEM PERGUNTAS DE IMPACTO:
 - via_publica (buraco, asfalto)
@@ -1287,6 +1293,34 @@ async function executeTool(
             success: false,
             message: 'Preciso saber a rua e o bairro para registrar o relato. Qual o CEP ou endereço do local?'
           };
+        }
+        
+        // === HARD VALIDATION FOR RISK CATEGORIES ===
+        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+        
+        if (RISK_CATEGORIES.includes(args.category)) {
+          // Require risk_level for risk categories
+          if (!args.risk_level) {
+            const categoryLabels: Record<string, string> = {
+              via_publica: 'via pública',
+              iluminacao: 'iluminação',
+              esgoto: 'esgoto/alagamento',
+              area_verde: 'área verde'
+            };
+            const label = categoryLabels[args.category] || args.category;
+            return {
+              success: false,
+              message: `Como seu relato é sobre **${label}**, preciso entender a gravidade.\n\nHá algum risco imediato? _(ex: fios expostos, via bloqueada, alagando)_`
+            };
+          }
+          
+          // If risk is moderate or critical, require affected_scope
+          if (['critical', 'moderate'].includes(args.risk_level) && !args.affected_scope) {
+            return {
+              success: false,
+              message: 'Entendi que há risco. Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?'
+            };
+          }
         }
         
         // Category is now directly from classify_report_category (AI classification)
