@@ -141,21 +141,78 @@ export const useUnifiedAIChat = (
             return messagesWithTimestamp;
           });
           
-          // Check for report markers in history
+          // Check for report markers in history AND reconstruct tracker state
           for (const msg of savedMessages) {
             const urbanMatch = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch) {
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
+              
+              // CRITICAL: Reconstruct tracker state from the success message
+              // This ensures tracker persists after navigation away and back
+              setCollectionType('urban_report');
+              
+              const reconstructedFields: CollectedFields = {};
+              
+              // Parse category
+              const catMatch = msg.content?.match(/Categoria:\*?\*?\s*([^\n•\*]+)/i);
+              if (catMatch) {
+                reconstructedFields.category = catMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
+              }
+              
+              // Parse description (from previous user message or summary)
+              const descMatch = msg.content?.match(/Descrição:\*?\*?\s*([^\n•\*]+)/i);
+              if (descMatch) {
+                reconstructedFields.description = descMatch[1].trim();
+              }
+              
+              // Parse address fields
+              const ruaMatch = msg.content?.match(/Rua:\*?\*?\s*([^\n•\*]+)/i);
+              if (ruaMatch) reconstructedFields.street = ruaMatch[1].trim();
+              
+              const bairroMatch = msg.content?.match(/Bairro:\*?\*?\s*([^\n•\*]+)/i);
+              if (bairroMatch) reconstructedFields.neighborhood = bairroMatch[1].trim();
+              
+              const cepMatch = msg.content?.match(/CEP:\*?\*?\s*(\d{5}-?\d{3})/i);
+              if (cepMatch) reconstructedFields.cep = cepMatch[1].replace('-', '');
+              
+              const numMatch = msg.content?.match(/Número:\*?\*?\s*([^\n•\*]+)/i);
+              if (numMatch) reconstructedFields.street_number = numMatch[1].trim();
+              
+              // Parse risk fields
+              const riskMatch = msg.content?.match(/Nível de risco:\*?\*?\s*(\w+)/i);
+              if (riskMatch) {
+                const riskMap: Record<string, string> = {
+                  'crítico': 'critical', 'critico': 'critical',
+                  'moderado': 'moderate', 'baixo': 'low', 'nenhum': 'none'
+                };
+                reconstructedFields.risk_level = riskMap[riskMatch[1].toLowerCase()] || riskMatch[1];
+              }
+              
+              const scopeMatch = msg.content?.match(/Escopo[^:]*:\*?\*?\s*([^\n•\*]+)/i);
+              if (scopeMatch) {
+                const scopeMap: Record<string, string> = {
+                  'bairro todo': 'neighborhood', 'bairro': 'neighborhood',
+                  'rua toda': 'street', 'rua': 'street',
+                  'apenas eu': 'individual', 'zona': 'zone', 'cidade': 'city'
+                };
+                const scopeKey = scopeMatch[1].toLowerCase().trim();
+                reconstructedFields.affected_scope = scopeMap[scopeKey] || scopeKey;
+              }
+              
+              console.log('[useUnifiedAIChat] Reconstructed tracker from history:', reconstructedFields);
+              setCollectedFields(reconstructedFields);
               break;
             }
             const transportMatch = msg.content?.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
+              setCollectionType('transport_report');
               break;
             }
             const ratingMatch = msg.content?.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
+              setCollectionType('service_rating');
               break;
             }
           }
@@ -561,23 +618,20 @@ export const useUnifiedAIChat = (
               setCollectedFields(finalFields);
               
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
-              // Clear tracker from sessionStorage on completion (after syncing)
-              const storageKey = getTrackerStorageKey(conversationIdRef.current);
-              if (storageKey) sessionStorage.removeItem(storageKey);
+              // DO NOT clear sessionStorage - tracker should remain visible after navigation
+              // The tracker serves as a "receipt" showing collected data
             }
             
             const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch && !createdReport) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
-              const storageKey = getTrackerStorageKey(conversationIdRef.current);
-              if (storageKey) sessionStorage.removeItem(storageKey);
+              // DO NOT clear sessionStorage - tracker should remain visible
             }
             
             const ratingMatch = assistantMessage.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch && !createdReport) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
-              const storageKey = getTrackerStorageKey(conversationIdRef.current);
-              if (storageKey) sessionStorage.removeItem(storageKey);
+              // DO NOT clear sessionStorage - tracker should remain visible
             }
             
             // Remove all markers from displayed message (robust regex)
