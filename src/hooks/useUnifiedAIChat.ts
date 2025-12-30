@@ -189,20 +189,80 @@ export const useUnifiedAIChat = (
   }, []);
 
   const sendMessage = useCallback(async (content: string) => {
-    // Heurística: se o assistente acabou de perguntar "número" e o usuário respondeu só com um número,
-    // marcamos street_number imediatamente para o tracker dar check.
-    if (
-      collectionType === 'urban_report' &&
-      !collectedFields.street_number
-    ) {
+    // Heurísticas de UI: quando o assistente faz perguntas estruturadas, atualizamos o tracker
+    // imediatamente no envio do usuário (sem depender de marcadores do backend).
+    if (collectionType === 'urban_report') {
       const lastAssistantText = [...messages].reverse().find(m => m.role === 'assistant')?.content || '';
-      const askedForNumber = /\bn[úu]mero\b/i.test(lastAssistantText);
-      if (askedForNumber) {
-        const raw = content.trim();
-        const match = raw.match(/^(\d+[A-Za-z]?|s\/?n|sem\s*n[úu]mero)$/i) || raw.match(/^(\d+)\b/);
-        if (match) {
-          const extracted = (match[1] || match[0] || raw).toUpperCase();
-          setCollectedFields(prev => ({ ...prev, street_number: extracted }));
+      const lastAssistantLower = lastAssistantText.toLowerCase();
+      const raw = content.trim();
+      const rawLower = raw.toLowerCase();
+
+      // 1) Número / Referência
+      if (!collectedFields.street_number) {
+        const askedForNumber = /\bn[úu]mero\b/i.test(lastAssistantText);
+        if (askedForNumber) {
+          const numberMatch = raw.match(/^(\d+[A-Za-z]?|s\/?n|sem\s*n[úu]mero)$/i) || raw.match(/^(\d+)\b/);
+          if (numberMatch) {
+            const extracted = (numberMatch[1] || numberMatch[0] || raw).toUpperCase();
+            setCollectedFields(prev => ({ ...prev, street_number: extracted }));
+          } else if (!collectedFields.reference_point && raw.length > 0) {
+            // Se não for número, mas a pergunta foi "número ou ponto de referência", marca referência.
+            if (lastAssistantLower.includes('ponto de referência') || lastAssistantLower.includes('referência')) {
+              setCollectedFields(prev => ({ ...prev, reference_point: raw }));
+            }
+          }
+        }
+      }
+
+      // 2) Risco (impacto)
+      if (!collectedFields.risk_level) {
+        const askedForRisk = lastAssistantLower.includes('risco imediato') || /\balgum\s+risco\b/i.test(lastAssistantText);
+        if (askedForRisk && raw.length > 0) {
+          let risk_level: string | null = null;
+          const risk_types: string[] = [];
+
+          if (rawLower.includes('sem risco') || rawLower.includes('não tem risco')) {
+            risk_level = 'none';
+          } else if (
+            rawLower.includes('fios') || rawLower.includes('choque') || rawLower.includes('incênd') || rawLower.includes('fogo') ||
+            rawLower.includes('alag') || rawLower.includes('inund') || rawLower.includes('desab') || rawLower.includes('desmor')
+          ) {
+            risk_level = 'critical';
+            if (rawLower.includes('fios') || rawLower.includes('choque')) risk_types.push('electrical');
+            if (rawLower.includes('alag') || rawLower.includes('inund')) risk_types.push('flooding');
+            if (rawLower.includes('desab') || rawLower.includes('desmor')) risk_types.push('structural');
+            if (rawLower.includes('incênd') || rawLower.includes('fogo')) risk_types.push('fire');
+          } else if (rawLower.includes('acident') || rawLower.includes('trânsit') || rawLower.includes('bloquead')) {
+            risk_level = 'moderate';
+            risk_types.push('traffic');
+          } else if (rawLower.includes('incômod') || rawLower.includes('desconfort')) {
+            risk_level = 'low';
+          }
+
+          if (risk_level) {
+            setCollectedFields(prev => ({
+              ...prev,
+              risk_level,
+              ...(risk_types.length ? { risk_types } : {}),
+            }));
+          }
+        }
+      }
+
+      // 3) Afetação / Escopo
+      if (!collectedFields.affected_scope) {
+        const askedForScope = lastAssistantLower.includes('isso está afetando') || lastAssistantLower.includes('toda a rua') || lastAssistantLower.includes('bairro todo');
+        if (askedForScope && raw.length > 0) {
+          let affected_scope: string | null = null;
+          if (rawLower.includes('só eu') || rawLower.includes('apenas eu') || rawLower.includes('somente eu')) affected_scope = 'individual';
+          else if (rawLower.includes('rua')) affected_scope = 'street';
+          else if (rawLower.includes('bairro')) affected_scope = 'neighborhood';
+          else if (rawLower.includes('zona')) affected_scope = 'zone';
+          else if (rawLower.includes('cidade')) affected_scope = 'city';
+
+          if (affected_scope) {
+            setCollectedFields(prev => ({ ...prev, affected_scope }));
+          }
         }
       }
     }
