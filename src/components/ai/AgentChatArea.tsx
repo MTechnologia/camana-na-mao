@@ -227,21 +227,29 @@ const AgentChatArea = () => {
             
             <ScrollArea className="flex-1">
               <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
-                {messages.map((msg, index) => (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, duration: 0.2 }}
-                  >
-                    <ChatMessageBubble 
-                      message={msg}
-                      userAvatarUrl={userAvatarUrl}
-                      userInitials={userInitials}
-                      onAddressSelected={handleAddressSelected}
-                    />
-                  </motion.div>
-                ))}
+                {messages.map((msg, index) => {
+                  // Find last assistant message index
+                  const lastAssistantIndex = messages.reduce((acc, m, i) => 
+                    m.role === 'assistant' ? i : acc, -1);
+                  const isLastAssistantMessage = msg.role === 'assistant' && index === lastAssistantIndex;
+                  
+                  return (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05, duration: 0.2 }}
+                    >
+                      <ChatMessageBubble 
+                        message={msg}
+                        userAvatarUrl={userAvatarUrl}
+                        userInitials={userInitials}
+                        onAddressSelected={handleAddressSelected}
+                        isLastAssistantMessage={isLastAssistantMessage}
+                      />
+                    </motion.div>
+                  );
+                })}
                 
                 {/* ReportSuccessCard removed - success summary now shown in agent message */}
                 
