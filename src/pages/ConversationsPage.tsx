@@ -113,6 +113,18 @@ const ConversationsPage = () => {
     return <Icon className="h-5 w-5" />;
   };
 
+  // Clean internal markers from text displayed to user
+  const cleanDisplayText = (text: string): string => {
+    if (!text) return "";
+    return text
+      .replace(/\[COLLECTION_PROGRESS:[^\]]+\]/g, "")
+      .replace(/\[REPORT_CREATED:[^\]]+\]/g, "")
+      .replace(/\[TRANSPORT_CREATED:[^\]]+\]/g, "")
+      .replace(/\[RATING_CREATED:[^\]]+\]/g, "")
+      .replace(/\*\*/g, "")
+      .trim() || "Conversa iniciada";
+  };
+
   const formatDate = (date: Date) => {
     return formatRelativeTime(date);
   };
@@ -200,7 +212,7 @@ const ConversationsPage = () => {
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                             {getJourneyIcon(conversation.journeyId)}
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             <div className="flex items-start justify-between gap-2">
                               <h3 className="font-medium text-foreground line-clamp-1">
                                 {conversation.title}
@@ -209,8 +221,8 @@ const ConversationsPage = () => {
                                 {formatDate(conversation.lastMessageAt)}
                               </span>
                             </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                              {conversation.lastMessagePreview || "Sem mensagens"}
+                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1 break-words">
+                              {cleanDisplayText(conversation.lastMessagePreview) || "Sem mensagens"}
                             </p>
                           </div>
                           <Button
