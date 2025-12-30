@@ -317,6 +317,55 @@ function accumulateFieldsFromHistory(
       }
     }
     
+    // NEW: Detect category from assistant confirmations (e.g., "registrar como feedback")
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const role = msg.role;
+      const content = msg.content.toLowerCase();
+      
+      // Category detection from assistant messages (fixes feedback_camara flow)
+      if (role === 'assistant' && !accumulated.category) {
+        const categoryPatterns = [
+          { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
+          { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
+          { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
+          { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
+          { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
+          { pattern: /feedback.*c[âa]mara/i, category: 'feedback_camara' },
+          { pattern: /registrar.*preocupa[çc][ãa]o.*c[âa]mara/i, category: 'feedback_camara' },
+          { pattern: /registrar como feedback/i, category: 'feedback_camara' },
+          { pattern: /feedback geral para a c[âa]mara/i, category: 'feedback_camara' },
+        ];
+        
+        for (const { pattern, category } of categoryPatterns) {
+          if (pattern.test(msg.content)) {
+            accumulated.category = category;
+            console.log('[accumulateFields] Category detected from assistant message:', category);
+            break;
+          }
+        }
+      }
+      
+      // Detect user acceptance of feedback registration offer
+      if (role === 'user' && i > 0 && !accumulated.category) {
+        const prevMsg = messages[i - 1];
+        if (prevMsg && prevMsg.role === 'assistant') {
+          const prevContent = prevMsg.content.toLowerCase();
+          const isOfferingFeedback = prevContent.includes('registrar') && 
+                                     (prevContent.includes('feedback') || prevContent.includes('preocupação') || prevContent.includes('câmara'));
+          const userAccepts = content.includes('sim') || content.includes('desejo') || 
+                             content.includes('quero') || content.includes('pode') || 
+                             content.includes('ok') || content.includes('aceito');
+          
+          if (isOfferingFeedback && userAccepts) {
+            accumulated.category = 'feedback_camara';
+            console.log('[accumulateFields] Category set to feedback_camara from user acceptance');
+          }
+        }
+      }
+    }
+    
     // THEN: Parse assistant questions and user responses for structured fields
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
@@ -1105,6 +1154,20 @@ FEEDBACK VEREADOR:
 - animais: bicho morto, infestação
 - poluicao: fumaça, barulho
 - feedback_camara: sobre vereador/câmara
+- outro: assuntos fora do escopo urbano
+
+=== REGRA PARA TEMAS FORA DO ESCOPO ===
+Quando o cidadão relatar algo FORA do escopo urbano (segurança pública, assaltos, crimes):
+1. Reconhecer que não é escopo direto: "Segurança pública é responsabilidade da Polícia (190)..."
+2. Oferecer registrar como feedback: "Mesmo assim, posso registrar sua preocupação como feedback para a Câmara"
+3. SE CIDADÃO ACEITAR (responder "sim", "desejo", "quero", "pode", "ok"):
+   - CHAMAR classify_report_category com:
+     - category: "feedback_camara"
+     - confidence: 1.0
+     - user_confirmed: true
+     - reasoning: "Usuário optou por registrar tema fora do escopo como feedback para a Câmara"
+   - SÓ ENTÃO prosseguir com coleta de CEP
+NUNCA pular classificação quando cidadão aceitar feedback. A tool classify_report_category DEVE ser chamada.
 
 === OUTRAS CAPACIDADES ===
 • validate_cep → endereço completo via CEP
