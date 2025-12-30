@@ -22,6 +22,7 @@ const COMMISSION_THEMES: Record<string, string[]> = {
 type CollectionIntent = {
   type: 'urban_report' | 'transport_report' | 'service_rating';
   fields: Record<string, any>;
+  accumulatedFields?: Record<string, any>; // All fields collected across conversation
 };
 
 interface DetectionScore {
@@ -128,6 +129,77 @@ function extractUrbanFields(context: string): Record<string, any> {
   // This prevents garbage like "rua fedor na minha rua" or "bairro: rua"
   
   return fields;
+}
+
+// Accumulate fields from all messages in conversation for better tracking
+function accumulateFieldsFromHistory(
+  messages: Array<{ role: string; content: string }>,
+  collectionType: 'urban_report' | 'transport_report' | 'service_rating'
+): Record<string, any> {
+  const accumulated: Record<string, any> = {};
+  
+  // Check for fields already collected via [COLLECTION_PROGRESS] markers
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.content.includes('[COLLECTION_PROGRESS:')) {
+      const match = msg.content.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
+      if (match) {
+        try {
+          const fields = JSON.parse(match[1]);
+          Object.assign(accumulated, fields);
+        } catch (e) {}
+      }
+    }
+  }
+  
+  // For urban reports, parse assistant questions and user responses
+  if (collectionType === 'urban_report') {
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      const nextMsg = messages[i + 1];
+      
+      if (msg.role === 'assistant' && nextMsg?.role === 'user') {
+        const question = msg.content.toLowerCase();
+        const answer = nextMsg.content.trim();
+        
+        // Extract street from specific question-answer pair
+        if ((question.includes('qual o nome da rua') || question.includes('qual é o nome da rua') || 
+             question.includes('qual a rua') || question.includes('qual é a rua')) && 
+            answer.length > 3 && !answer.toLowerCase().includes('não sei')) {
+          // Clean street name - remove common prefixes if duplicated
+          let street = answer;
+          if (street.toLowerCase().startsWith('rua rua ')) {
+            street = street.substring(4);
+          } else if (street.toLowerCase().startsWith('avenida avenida ')) {
+            street = street.substring(8);
+          }
+          accumulated.street = street;
+        }
+        
+        // Extract number/reference from specific question
+        if ((question.includes('qual o número') || question.includes('qual é o número') ||
+             question.includes('número ou ponto')) && answer.length > 0) {
+          // Try to parse as number first
+          const numberMatch = answer.match(/^(\d+)/);
+          if (numberMatch) {
+            accumulated.street_number = numberMatch[1];
+          } else if (answer.toLowerCase().includes('altura') || answer.toLowerCase().includes('perto') || 
+                     answer.toLowerCase().includes('frente') || answer.toLowerCase().includes('próximo')) {
+            accumulated.reference_point = answer;
+          } else {
+            accumulated.street_number = answer;
+          }
+        }
+        
+        // Extract neighborhood from specific question
+        if ((question.includes('qual o bairro') || question.includes('qual é o bairro') ||
+             question.includes('bairro?')) && answer.length > 2) {
+          accumulated.neighborhood = answer;
+        }
+      }
+    }
+  }
+  
+  return accumulated;
 }
 
 // Extract service rating-specific fields
@@ -567,41 +639,50 @@ REGRAS CRÍTICAS DE COLETA DE DADOS:
 
 4. NUNCA chamar create_urban_report sem ter:
    - Categoria definida
-   - Descrição com no mínimo 15 caracteres
+   - Descrição com no mínimo 30 caracteres (pedir mais detalhes se necessário)
    - Nome da rua/avenida (campo street)
    - Bairro de São Paulo (campo neighborhood)
 
-TEMPLATES DE PRIMEIRA RESPOSTA (seguir rigorosamente):
+5. MANTER A CATEGORIA ORIGINAL
+   - Se o cidadão disse "bueiro entupido", a categoria é "esgoto"
+   - NÃO mudar para outra categoria nas perguntas seguintes
+   - A categoria só muda se o cidadão explicitamente corrigir
+
+TEMPLATES DE PERGUNTAS (seguir rigorosamente, UMA POR VEZ):
 
 RELATO URBANO:
 1ª pergunta: "Qual é o problema? (buraco, poste apagado, lixo, mau cheiro, bicho morto...)"
 2ª pergunta: "Qual o nome da rua ou avenida?"
-3ª pergunta: "Qual o número ou ponto de referência?"
-4ª pergunta: "Qual o bairro?"
+3ª pergunta: "Qual o número? (pode dizer 'não sei' ou 'altura de X')"
+4ª pergunta: "Tem algum ponto de referência próximo? (ex: em frente ao mercado)"
+5ª pergunta: "Qual o bairro?"
+6ª pergunta (se descrição < 30 chars): "Pode dar mais detalhes sobre o problema? Como está afetando a região?"
 → Só então chamar create_urban_report
 
 TRANSPORTE:
 1ª pergunta: "Qual linha ou estação teve o problema?"
 2ª pergunta: "O que aconteceu? (atraso, lotação, segurança, limpeza)"
-3ª pergunta: "Que horário aproximado?"
+3ª pergunta: "Quando aconteceu? (data e horário aproximado)"
+4ª pergunta (se descrição < 30 chars): "Pode descrever melhor o que aconteceu?"
 
 AVALIAÇÃO DE SERVIÇO:
 1ª pergunta: "Qual serviço você quer avaliar? (UBS, escola, hospital, CEU...)"
-2ª pergunta: "Qual o nome e bairro do serviço?"
-3ª pergunta: "De 1 a 5, que nota você dá? Por quê?"
+2ª pergunta: "Qual o nome do serviço?"
+3ª pergunta: "Em qual bairro fica?"
+4ª pergunta: "De 1 a 5, que nota você dá? Por quê?"
 
 FEEDBACK SOBRE VEREADOR/CÂMARA:
 1ª pergunta: "Qual o nome completo do vereador?"
 → Se só primeiro nome: "Qual [Nome]? Temos: [listar opções com partido]"
 2ª pergunta: "É um elogio, reclamação ou sugestão?"
-3ª pergunta: "Descreva seu feedback"
+3ª pergunta: "Descreva seu feedback (quanto mais detalhes, melhor)"
 
 CATEGORIAS DE PROBLEMAS URBANOS:
 - iluminacao: poste apagado, falta de luz, escuro
 - via_publica: buraco, asfalto, semáforo
 - calcada: calçada quebrada, passeio
 - lixo: lixo, entulho acumulado
-- esgoto: bueiro, vazamento, alagamento
+- esgoto: bueiro ENTUPIDO, vazamento, alagamento
 - area_verde: árvore, praça, poda, mato
 - higiene_urbana: fedor, sujeira, urina, fezes
 - animais: bicho morto, rato, barata, infestação
@@ -622,14 +703,6 @@ OUTRAS CAPACIDADES:
 • search_audiencias → audiências públicas
 • get_citizen_history → histórico do cidadão
 • suggest_council_member → sugerir vereador para demanda
-
-PROGRESSO DE COLETA:
-Indique progresso com: [COLLECTION_PROGRESS:tipo:{campos_json}]
-Tipos: urban_report, transport_report, service_rating
-
-Exemplos:
-- "tem um buraco" → [COLLECTION_PROGRESS:urban_report:{"category":"via_publica"}]
-- "Rua Augusta, Consolação" → [COLLECTION_PROGRESS:urban_report:{"category":"via_publica","street":"Rua Augusta","neighborhood":"Consolação"}]
 
 TOM: Breve, direto, linguagem simples.
 Data de hoje: ${new Date().toISOString().split('T')[0]}`;
@@ -878,8 +951,8 @@ async function executeTool(
             street: args.street || null,
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
+            neighborhood: args.neighborhood || null, // Save in dedicated column
             ai_classification: {
-              neighborhood: args.neighborhood || null,
               council_member_name: args.council_member_name || null,
               council_member_party: args.council_member_party || null
             },
@@ -904,9 +977,25 @@ async function executeTool(
           console.error('[executeTool] N8N notification failed:', n8nError);
         }
         
+        // Build success message with CTA
+        const categoryLabels: Record<string, string> = {
+          iluminacao: 'Iluminação',
+          via_publica: 'Via Pública',
+          calcada: 'Calçada',
+          lixo: 'Lixo/Entulho',
+          esgoto: 'Esgoto/Bueiro',
+          area_verde: 'Área Verde',
+          higiene_urbana: 'Higiene Urbana',
+          animais: 'Animais',
+          poluicao: 'Poluição',
+          feedback_camara: 'Feedback Câmara',
+          outro: 'Outro'
+        };
+        const categoryLabel = categoryLabels[args.category] || args.category;
+        
         return { 
           success: true, 
-          message: `Relato registrado! ID: ${data.id.slice(0,8)}. Você pode acompanhar o status em "Meus Relatos".`,
+          message: `[REPORT_CREATED:${data.id}]\n\n✅ **Relato registrado com sucesso!**\n\n📍 **Local:** ${args.street}${args.street_number ? `, ${args.street_number}` : ''} - ${args.neighborhood}\n📋 **Categoria:** ${categoryLabel}\n\n👉 [Ver meus relatos](/relato-urbano/historico) para acompanhar o status.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'urban' }
         };
       }
@@ -1095,6 +1184,15 @@ serve(async (req) => {
     const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     const collectionIntent = detectCollectionIntent(lastUserMsg, messages);
     
+    // Accumulate fields from conversation history for better tracking
+    let accumulatedFields: Record<string, any> = {};
+    if (collectionIntent) {
+      accumulatedFields = accumulateFieldsFromHistory(messages, collectionIntent.type);
+      // Merge with detected fields from current message
+      accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
+      console.log('[ai-orchestrator] Accumulated fields:', JSON.stringify(accumulatedFields));
+    }
+    
     // Call AI API (Lovable AI Gateway) with streaming enabled
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -1195,10 +1293,10 @@ serve(async (req) => {
           
           const result = await executeTool(toolCallData.name, toolArgs, user.id, supabase);
           
-          // Inject collection progress if needed
+          // Inject collection progress with accumulated fields
           let responseContent = result.message;
           if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
-            const fieldsJson = JSON.stringify(collectionIntent.fields);
+            const fieldsJson = JSON.stringify(accumulatedFields);
             responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
           }
           
@@ -1221,10 +1319,10 @@ serve(async (req) => {
         }
       }
       
-      // No tool call - inject collection progress and return content as SSE
+      // No tool call - inject collection progress with accumulated fields
       let responseContent = fullContent;
       if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
-        const fieldsJson = JSON.stringify(collectionIntent.fields);
+        const fieldsJson = JSON.stringify(accumulatedFields);
         responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
       }
       
@@ -1257,7 +1355,7 @@ serve(async (req) => {
       
       let responseContent = result.message;
       if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
-        const fieldsJson = JSON.stringify(collectionIntent.fields);
+        const fieldsJson = JSON.stringify(accumulatedFields);
         responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
       }
       
@@ -1273,7 +1371,7 @@ serve(async (req) => {
     // Regular response
     let content = choice.message?.content || '';
     if (collectionIntent && !content.includes('[COLLECTION_PROGRESS:')) {
-      const fieldsJson = JSON.stringify(collectionIntent.fields);
+      const fieldsJson = JSON.stringify(accumulatedFields);
       content = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${content}`;
     }
     
