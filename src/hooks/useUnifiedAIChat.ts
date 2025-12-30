@@ -262,7 +262,7 @@ export const useUnifiedAIChat = (
 
       // 3) Afetação / Escopo
       if (!collectedFields.affected_scope) {
-        const askedForScope = lastAssistantLower.includes('isso está afetando') || lastAssistantLower.includes('toda a rua') || lastAssistantLower.includes('bairro todo');
+        const askedForScope = lastAssistantLower.includes('isso está afetando') || lastAssistantLower.includes('toda a rua') || lastAssistantLower.includes('bairro todo') || lastAssistantLower.includes('[field_request:affected_scope]');
         if (askedForScope && raw.length > 0) {
           let affected_scope: string | null = null;
           if (rawLower.includes('só eu') || rawLower.includes('apenas eu') || rawLower.includes('somente eu')) affected_scope = 'individual';
@@ -274,6 +274,21 @@ export const useUnifiedAIChat = (
           if (affected_scope) {
             setCollectedFields(prev => ({ ...prev, affected_scope }));
           }
+        }
+      }
+      
+      // 4) Descrição - detecta resposta a pedido de detalhes
+      if (!collectedFields.description) {
+        const askedForDescription = 
+          lastAssistantLower.includes('me conte mais') || 
+          lastAssistantLower.includes('descreva') ||
+          lastAssistantLower.includes('mais detalhes') ||
+          lastAssistantLower.includes('o que está acontecendo') ||
+          lastAssistantLower.includes('qual o problema') ||
+          lastAssistantLower.includes('[field_request:description]');
+          
+        if (askedForDescription && raw.length >= 30) {
+          setCollectedFields(prev => ({ ...prev, description: raw }));
         }
       }
     }
