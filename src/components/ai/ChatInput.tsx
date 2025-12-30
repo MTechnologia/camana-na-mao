@@ -3,7 +3,6 @@ import { Mic, AudioWaveform, ArrowUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -157,33 +156,15 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
           onClick={handleActionButtonClick}
           disabled={disabled}
           size="icon"
-          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0 relative overflow-hidden"
+          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0 transition-transform active:scale-95"
           aria-label={hasText ? "Enviar mensagem" : "Modo conversa por voz"}
           title={hasText ? "Enviar mensagem" : "Conversa completa por voz"}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {hasText ? (
-              <motion.div
-                key="send"
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.5, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="voice"
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.5, opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5" />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {hasText ? (
+            <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
+          ) : (
+            <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5" />
+          )}
         </Button>
       </div>
 
