@@ -93,6 +93,14 @@ const ChatMessageBubble = ({ message, userAvatarUrl, userInitials }: ChatMessage
                   li: ({ children }) => <li className="mb-1">{children}</li>,
                   strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                   em: ({ children }) => <em className="italic">{children}</em>,
+                  a: ({ href, children }) => (
+                    <a 
+                      href={href} 
+                      className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                    >
+                      {children}
+                    </a>
+                  ),
                   code: ({ children }) => (
                     <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
                       {children}
