@@ -1559,14 +1559,43 @@ async function executeTool(
         const riskLabels: Record<string, string> = {
           critical: 'Crítico',
           moderate: 'Moderado',
-          low: 'Baixo'
+          low: 'Baixo',
+          none: 'Nenhum'
         };
         
         const scopeLabels: Record<string, string> = {
           individual: 'Apenas eu',
+          street: 'Rua toda',
           building: 'Meu prédio/vizinhança',
           block: 'Quadra inteira',
-          neighborhood: 'Bairro todo'
+          neighborhood: 'Bairro todo',
+          zone: 'Zona',
+          city: 'Cidade toda'
+        };
+        
+        const riskTypeLabels: Record<string, string> = {
+          electrical: 'Elétrico',
+          traffic: 'Trânsito',
+          flooding: 'Alagamento',
+          structural: 'Estrutural',
+          health: 'Saúde',
+          fire: 'Incêndio',
+          pedestrian: 'Pedestre',
+          vehicle: 'Veicular',
+          environmental: 'Ambiental'
+        };
+        
+        const consequenceLabels: Record<string, string> = {
+          power_outage: 'Falta de luz',
+          water_outage: 'Falta de água',
+          traffic_blocked: 'Trânsito bloqueado',
+          flooding: 'Alagamento',
+          health_hazard: 'Risco à saúde',
+          service_disruption: 'Serviço interrompido',
+          pedestrian_blocked: 'Pedestres bloqueados',
+          accidents_reported: 'Acidentes reportados',
+          property_damage: 'Dano à propriedade',
+          safety_risk: 'Risco à segurança'
         };
         
         // Build address section
@@ -1583,10 +1612,16 @@ async function executeTool(
         if (riskCategories.includes(args.category) && args.risk_level) {
           const impactParts = [];
           if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
-          if (args.risk_types?.length) impactParts.push(`- **Tipo de risco:** ${args.risk_types.join(', ')}`);
+          if (args.risk_types?.length) {
+            const translatedTypes = args.risk_types.map((t: string) => riskTypeLabels[t] || t);
+            impactParts.push(`- **Tipo de risco:** ${translatedTypes.join(', ')}`);
+          }
           if (args.affected_scope) impactParts.push(`- **Escopo:** ${scopeLabels[args.affected_scope] || args.affected_scope}`);
           if (args.affected_estimate) impactParts.push(`- **Pessoas afetadas:** ~${args.affected_estimate}`);
-          if (args.active_consequences?.length) impactParts.push(`- **Consequências:** ${args.active_consequences.join(', ')}`);
+          if (args.active_consequences?.length) {
+            const translatedConseq = args.active_consequences.map((c: string) => consequenceLabels[c] || c);
+            impactParts.push(`- **Consequências:** ${translatedConseq.join(', ')}`);
+          }
           
           if (impactParts.length > 0) {
             impactSection = `\n\n⚠️ **Avaliação de Impacto:**\n${impactParts.join('\n')}`;

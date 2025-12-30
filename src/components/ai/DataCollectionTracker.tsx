@@ -132,6 +132,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   neighborhood: 'Bairro',
   zone: 'Zona',
   city: 'Cidade',
+  // Risk types (English to Portuguese)
+  traffic: 'Trânsito',
+  pedestrian: 'Pedestre',
+  vehicle: 'Veicular',
+  structural: 'Estrutural',
+  electrical: 'Elétrico',
+  flooding: 'Alagamento',
+  health: 'Saúde',
+  environmental: 'Ambiental',
+  // Active consequences (English to Portuguese)
+  traffic_blocked: 'Trânsito bloqueado',
+  pedestrian_blocked: 'Pedestres bloqueados',
+  accidents_reported: 'Acidentes reportados',
+  service_unavailable: 'Serviço indisponível',
+  property_damage: 'Dano à propriedade',
+  health_risk: 'Risco à saúde',
+  safety_risk: 'Risco à segurança',
 };
 
 const DataCollectionTracker = ({ 
