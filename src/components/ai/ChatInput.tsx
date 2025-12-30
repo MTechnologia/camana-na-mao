@@ -181,14 +181,14 @@ const ChatInput = ({
             style={{ maxHeight: "120px" }}
           />
           
-          {/* Microphone button for dictation */}
+          {/* Microphone button for dictation - aligned to center vertically */}
           <button
             onClick={toggleDictation}
             disabled={disabled}
             className={`absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-full transition-all ${
               isRecording 
-                ? "text-red-500 bg-red-50 animate-pulse" 
-                : "text-muted-foreground hover:text-primary hover:bg-accent"
+                ? "text-white bg-primary animate-pulse" 
+                : "text-muted-foreground hover:text-primary-foreground hover:bg-primary"
             } disabled:opacity-50 disabled:cursor-not-allowed`}
             aria-label="Ditado por voz"
             title="Clique para ditar"
