@@ -345,46 +345,29 @@ export const useUnifiedAIChat = (
             }
             
             // Check for report markers
+            // Check for report markers - keep tracker visible, just mark as created
             const urbanMatch = assistantMessage.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch && !createdReport) {
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
-              setCollectionType(null);
-              setCollectedFields({});
+              // Don't hide tracker - keep it visible after creation
               // Clear tracker from sessionStorage on completion
               const storageKey = getTrackerStorageKey(conversationIdRef.current);
               if (storageKey) sessionStorage.removeItem(storageKey);
-              toast({
-                title: "Relato criado!",
-                description: "Seu relato urbano foi registrado.",
-              });
+              // Toast removed - agent message already confirms creation
             }
             
             const transportMatch = assistantMessage.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch && !createdReport) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
-              setCollectionType(null);
-              setCollectedFields({});
-              // Clear tracker from sessionStorage on completion
               const storageKey = getTrackerStorageKey(conversationIdRef.current);
               if (storageKey) sessionStorage.removeItem(storageKey);
-              toast({
-                title: "Relato registrado!",
-                description: "Seu relato de transporte foi salvo.",
-              });
             }
             
             const ratingMatch = assistantMessage.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch && !createdReport) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
-              setCollectionType(null);
-              setCollectedFields({});
-              // Clear tracker from sessionStorage on completion
               const storageKey = getTrackerStorageKey(conversationIdRef.current);
               if (storageKey) sessionStorage.removeItem(storageKey);
-              toast({
-                title: "Avaliação registrada!",
-                description: "Sua avaliação foi salva.",
-              });
             }
             
             // Remove all markers from displayed message (robust regex)
