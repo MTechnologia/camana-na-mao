@@ -1,10 +1,10 @@
 /**
- * Service Worker "Nuclear Self-Destruct"
- * Este SW se auto-destrói imediatamente e limpa TUDO
- * Versão: 2.0 - Mais agressivo
+ * Service Worker "Clean Self-Destruct"
+ * Este SW se auto-destrói e limpa caches SEM forçar reload
+ * Versão: 3.0 - Sem reload forçado
  */
 
-const SW_VERSION = '2.0-nuclear';
+const SW_VERSION = '3.0-clean';
 
 // Ativar imediatamente
 self.addEventListener('install', (event) => {
@@ -13,12 +13,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log(`[SW ${SW_VERSION}] Ativado. Executando auto-destruição...`);
+  console.log(`[SW ${SW_VERSION}] Ativado. Executando limpeza silenciosa...`);
   
   event.waitUntil(
     (async () => {
       try {
-        // 1. Tomar controle de todos os clientes PRIMEIRO
+        // 1. Tomar controle de todos os clientes
         await self.clients.claim();
         console.log(`[SW ${SW_VERSION}] Controle assumido`);
 
@@ -30,15 +30,14 @@ self.addEventListener('activate', (event) => {
           return caches.delete(key);
         }));
 
-        // 3. Notificar clientes ANTES de se desregistrar
+        // 3. Notificar clientes (sem pedir reload)
         const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         console.log(`[SW ${SW_VERSION}] Notificando ${clients.length} cliente(s)...`);
         
         for (const client of clients) {
           client.postMessage({ 
-            type: 'SW_NUCLEAR_CLEANUP', 
+            type: 'SW_CLEANUP_COMPLETE', 
             version: SW_VERSION,
-            action: 'reload_required',
             timestamp: Date.now()
           });
         }
@@ -50,10 +49,10 @@ self.addEventListener('activate', (event) => {
           console.log(`[SW ${SW_VERSION}] Auto-desregistrado: ${success}`);
         }
 
-        console.log(`[SW ${SW_VERSION}] Auto-destruição completa!`);
+        console.log(`[SW ${SW_VERSION}] Limpeza completa!`);
 
       } catch (err) {
-        console.error(`[SW ${SW_VERSION}] Erro na auto-destruição:`, err);
+        console.error(`[SW ${SW_VERSION}] Erro na limpeza:`, err);
         
         // Tentar desregistrar mesmo em caso de erro
         try {
@@ -67,7 +66,6 @@ self.addEventListener('activate', (event) => {
 // NÃO interceptar NENHUMA requisição - deixar passar direto para a rede
 self.addEventListener('fetch', (event) => {
   // Explicitamente NÃO fazer nada
-  // O browser vai buscar da rede normalmente
   return;
 });
 
