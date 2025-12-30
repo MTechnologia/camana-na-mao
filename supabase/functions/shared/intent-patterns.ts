@@ -1,3 +1,11 @@
+/**
+ * @deprecated Este módulo de detecção por palavras-chave está sendo substituído
+ * pela ferramenta detect_user_intent via IA no ai-orchestrator.
+ * A detecção semântica via IA é mais precisa e consegue distinguir contextos
+ * como "ônibus capotou" (problema urbano) vs "ônibus atrasou" (problema de transporte).
+ * Manter este arquivo apenas para referência e fallback.
+ */
+
 // Módulo compartilhado de padrões de detecção de intenção cross-journey
 // Centralizado para manutenção consistente em todas as Edge Functions
 

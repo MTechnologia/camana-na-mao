@@ -1078,6 +1078,26 @@ export const useUnifiedAIChat = (
     return getMissingRequiredFields().length === 0;
   }, [getMissingRequiredFields]);
 
+  // Handle journey switch decision from UI buttons
+  const handleJourneySwitchDecision = useCallback(async (
+    decision: 'switch' | 'continue',
+    newJourney?: string
+  ) => {
+    if (decision === 'switch' && newJourney) {
+      // Reset current collection and start new one
+      const newCollectionType = newJourney as CollectionType;
+      setCollectionType(newCollectionType);
+      setCollectedFields({});
+      setCreatedReport(null);
+      
+      // Send confirmation message to continue in new journey
+      await sendMessage(`Sim, quero iniciar ${newJourney === 'urban_report' ? 'Relato Urbano' : newJourney === 'transport_report' ? 'Diagnóstico de Transporte' : 'Avaliação de Serviço'}`);
+    } else {
+      // Continue current journey
+      await sendMessage('Quero continuar o relato atual');
+    }
+  }, [sendMessage]);
+
   return {
     messages,
     isLoading,
@@ -1092,5 +1112,6 @@ export const useUnifiedAIChat = (
     collectedFields,
     getMissingRequiredFields,
     isCollectionComplete,
+    handleJourneySwitchDecision,
   };
 };
