@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { AddressPickerDrawer, StructuredAddress } from "@/components/address";
+import { useState, useMemo } from "react";
+import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 
 interface ChatMessage {
   id: string;
@@ -45,144 +45,185 @@ interface ChatMessageBubbleProps {
   userAvatarUrl?: string | null;
   userInitials?: string;
   onAddressSelected?: (address: StructuredAddress) => void;
+  isLastAssistantMessage?: boolean;
 }
 
-const ChatMessageBubble = ({ message, userAvatarUrl, userInitials, onAddressSelected }: ChatMessageBubbleProps) => {
+const ChatMessageBubble = ({ message, userAvatarUrl, userInitials, onAddressSelected, isLastAssistantMessage = false }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
-  const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
+  const [addressSelected, setAddressSelected] = useState(false);
   
-  // Check if message contains [ADDRESS_PICKER] marker
+  // Check if message contains [ADDRESS_PICKER] marker OR asks for CEP/address
   const hasAddressPicker = !isUser && message.content.includes('[ADDRESS_PICKER]');
   
-  // Clean content by removing the marker
-  const cleanContent = message.content.replace(/\[ADDRESS_PICKER\]/g, '').trim();
+  // Detect if the message is asking for CEP or address (for inline autocomplete)
+  const isAskingForAddress = useMemo(() => {
+    if (isUser || addressSelected) return false;
+    
+    const content = message.content.toLowerCase();
+    
+    // Check for explicit field request marker
+    if (message.content.includes('[FIELD_REQUEST:cep]')) return true;
+    
+    // Check for CEP question patterns
+    const cepPatterns = [
+      'qual o cep',
+      'qual é o cep',
+      'cep do local',
+      'me diz o cep',
+      'informe o cep',
+    ];
+    
+    // Check for address question patterns (when user doesn't know CEP)
+    const addressPatterns = [
+      'qual a rua',
+      'qual é a rua', 
+      'qual o endereço',
+      'qual é o endereço',
+      'me diz a rua',
+      'me diz o endereço',
+      'se não souber, me diz a rua',
+      'se não souber o cep',
+    ];
+    
+    const isCepQuestion = cepPatterns.some(p => content.includes(p));
+    const isAddressQuestion = addressPatterns.some(p => content.includes(p));
+    
+    return (isCepQuestion || isAddressQuestion) && isLastAssistantMessage;
+  }, [isUser, message.content, addressSelected, isLastAssistantMessage]);
+  
+  // Clean content by removing markers
+  const cleanContent = message.content
+    .replace(/\[ADDRESS_PICKER\]/g, '')
+    .replace(/\[FIELD_REQUEST:\w+\]/g, '')
+    .trim();
   
   const handleAddressSelected = (address: StructuredAddress) => {
-    setIsAddressPickerOpen(false);
+    setAddressSelected(true);
     if (onAddressSelected) {
       onAddressSelected(address);
     }
   };
   
   return (
-    <>
+    <div
+      className={cn(
+        "flex gap-3 items-start",
+        isUser ? "flex-row-reverse" : "flex-row"
+      )}
+    >
+      {/* Avatar */}
+      {isUser ? (
+        <Avatar className="shrink-0 h-8 w-8">
+          <AvatarImage src={userAvatarUrl || undefined} />
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {userInitials || "?"}
+          </AvatarFallback>
+        </Avatar>
+      ) : (
+        <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+          <Bot className="h-4 w-4" />
+        </div>
+      )}
+
+      {/* Message Content */}
       <div
         className={cn(
-          "flex gap-3 items-start",
-          isUser ? "flex-row-reverse" : "flex-row"
+          "flex flex-col gap-1 max-w-[75%]",
+          isUser ? "items-end" : "items-start"
         )}
       >
-        {/* Avatar */}
-        {isUser ? (
-          <Avatar className="shrink-0 h-8 w-8">
-            <AvatarImage src={userAvatarUrl || undefined} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              {userInitials || "?"}
-            </AvatarFallback>
-          </Avatar>
-        ) : (
-          <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
-            <Bot className="h-4 w-4" />
-          </div>
-        )}
-
-        {/* Message Content */}
         <div
           className={cn(
-            "flex flex-col gap-1 max-w-[75%]",
-            isUser ? "items-end" : "items-start"
+            "px-4 py-3 rounded-2xl",
+            isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-foreground"
           )}
         >
-          <div
-            className={cn(
-              "px-4 py-3 rounded-2xl",
-              isUser
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-foreground"
-            )}
-          >
-            {isUser ? (
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-            ) : (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown
-                  components={{
-                    p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
-                    ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
-                    ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
-                    li: ({ children }) => <li className="mb-1">{children}</li>,
-                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                    em: ({ children }) => <em className="italic">{children}</em>,
-                    a: ({ href, children }) => {
-                      // Check if internal link
-                      const isInternal = href?.startsWith('/') && !href?.startsWith('//');
-                      if (isInternal) {
-                        return (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              navigate(href || '/');
-                            }}
-                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
-                          >
-                            {children}
-                          </button>
-                        );
-                      }
+          {isUser ? (
+            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown
+                components={{
+                  p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                  ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                  ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                  li: ({ children }) => <li className="mb-1">{children}</li>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em className="italic">{children}</em>,
+                  a: ({ href, children }) => {
+                    // Check if internal link
+                    const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                    if (isInternal) {
                       return (
-                        <a 
-                          href={href} 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigate(href || '/');
+                          }}
+                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
                         >
                           {children}
-                        </a>
+                        </button>
                       );
-                    },
-                    code: ({ children }) => (
-                      <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
+                    }
+                    return (
+                      <a 
+                        href={href} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                      >
                         {children}
-                      </code>
-                    ),
-                  }}
-                >
-                  {cleanContent}
-                </ReactMarkdown>
-              </div>
-            )}
-          </div>
-          
-          {/* Address Picker Button */}
-          {hasAddressPicker && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 gap-2"
-              onClick={() => setIsAddressPickerOpen(true)}
-            >
-              <MapPin className="h-4 w-4" />
-              Buscar endereço
-            </Button>
-          )}
-          
-          {formatTimestamp(message.timestamp) && (
-            <span className="text-xs text-muted-foreground px-2">
-              {formatTimestamp(message.timestamp)}
-            </span>
+                      </a>
+                    );
+                  },
+                  code: ({ children }) => (
+                    <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
+                      {children}
+                    </code>
+                  ),
+                }}
+              >
+                {cleanContent}
+              </ReactMarkdown>
+            </div>
           )}
         </div>
+        
+        {/* Inline Address Autocomplete - shown when asking for CEP/address */}
+        {(isAskingForAddress || hasAddressPicker) && !addressSelected && (
+          <div className="mt-2 w-full min-w-[280px] max-w-[320px]">
+            <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              <span>Buscar endereço:</span>
+            </div>
+            <AddressAutocomplete
+              onSelect={handleAddressSelected}
+              placeholder="Digite rua, bairro ou CEP..."
+              className="w-full"
+            />
+          </div>
+        )}
+        
+        {/* Show confirmation when address was selected */}
+        {addressSelected && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+            <MapPin className="h-3 w-3" />
+            <span>Endereço selecionado ✓</span>
+          </div>
+        )}
+        
+        {formatTimestamp(message.timestamp) && (
+          <span className="text-xs text-muted-foreground px-2">
+            {formatTimestamp(message.timestamp)}
+          </span>
+        )}
       </div>
-      
-      {/* Address Picker Drawer */}
-      <AddressPickerDrawer
-        open={isAddressPickerOpen}
-        onOpenChange={setIsAddressPickerOpen}
-        onAddressSelected={handleAddressSelected}
-      />
-    </>
+    </div>
   );
 };
 
