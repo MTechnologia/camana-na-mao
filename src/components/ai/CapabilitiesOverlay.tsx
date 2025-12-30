@@ -256,14 +256,16 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
                       <button
                         key={capability.id}
                         onClick={() => handleSelect(capability.message)}
-                        className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all duration-150 ${
+                        className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all duration-150 border ${
                           isFocused 
-                            ? "bg-primary/10 border border-primary/30" 
-                            : "hover:bg-accent border border-transparent"
+                            ? "bg-muted border-border shadow-sm" 
+                            : "hover:bg-muted/50 border-transparent"
                         }`}
                       >
-                        <div className={`p-2 rounded-lg shrink-0 ${
-                          isFocused ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                        <div className={`p-2 rounded-lg shrink-0 transition-colors ${
+                          isFocused 
+                            ? "bg-primary/15 text-primary" 
+                            : "bg-secondary text-muted-foreground"
                         }`}>
                           <IconComponent className="w-4 h-4" />
                         </div>
