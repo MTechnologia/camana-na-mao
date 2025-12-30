@@ -2182,10 +2182,40 @@ serve(async (req) => {
           
           const result = await executeTool(toolCallData.name, toolArgs, user.id, supabase);
           
-          // Inject collection progress with accumulated fields
+          // CRITICAL: Merge toolArgs into accumulatedFields for COLLECTION_PROGRESS
+          // This ensures fields like risk_level that come directly from AI args are reflected in tracker
+          const finalFields = {
+            ...accumulatedFields,
+            ...(toolArgs.category && { category: toolArgs.category }),
+            ...(toolArgs.description && { description: toolArgs.description }),
+            ...(toolArgs.street && { street: toolArgs.street }),
+            ...(toolArgs.neighborhood && { neighborhood: toolArgs.neighborhood }),
+            ...(toolArgs.cep && { cep: toolArgs.cep }),
+            ...(toolArgs.street_number && { street_number: toolArgs.street_number }),
+            ...(toolArgs.reference_point && { reference_point: toolArgs.reference_point }),
+            ...(toolArgs.risk_level && { risk_level: toolArgs.risk_level }),
+            ...(toolArgs.risk_types && { risk_types: toolArgs.risk_types }),
+            ...(toolArgs.affected_scope && { affected_scope: toolArgs.affected_scope }),
+            ...(toolArgs.affected_estimate && { affected_estimate: toolArgs.affected_estimate }),
+            ...(toolArgs.active_consequences && { active_consequences: toolArgs.active_consequences }),
+            // Transport fields
+            ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+            ...(toolArgs.line_code && { line_code: toolArgs.line_code }),
+            ...(toolArgs.occurrence_date && { occurrence_date: toolArgs.occurrence_date }),
+            ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
+            ...(toolArgs.severity && { severity: toolArgs.severity }),
+            // Service rating fields
+            ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
+            ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
+            ...(toolArgs.sentiment && { sentiment: toolArgs.sentiment }),
+          };
+          
+          console.log('[ai-orchestrator] Final fields for tracker:', Object.keys(finalFields));
+          
+          // Inject collection progress with merged fields
           let responseContent = result.message;
           if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
-            const fieldsJson = JSON.stringify(accumulatedFields);
+            const fieldsJson = JSON.stringify(finalFields);
             responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
           }
           
@@ -2245,9 +2275,25 @@ serve(async (req) => {
       
       const result = await executeTool(toolName, toolArgs, user.id, supabase);
       
+      // Merge toolArgs for non-streaming mode too
+      const finalFields = {
+        ...accumulatedFields,
+        ...(toolArgs.category && { category: toolArgs.category }),
+        ...(toolArgs.description && { description: toolArgs.description }),
+        ...(toolArgs.street && { street: toolArgs.street }),
+        ...(toolArgs.neighborhood && { neighborhood: toolArgs.neighborhood }),
+        ...(toolArgs.cep && { cep: toolArgs.cep }),
+        ...(toolArgs.risk_level && { risk_level: toolArgs.risk_level }),
+        ...(toolArgs.risk_types && { risk_types: toolArgs.risk_types }),
+        ...(toolArgs.affected_scope && { affected_scope: toolArgs.affected_scope }),
+        ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+        ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
+        ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
+      };
+      
       let responseContent = result.message;
       if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
-        const fieldsJson = JSON.stringify(accumulatedFields);
+        const fieldsJson = JSON.stringify(finalFields);
         responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
       }
       
