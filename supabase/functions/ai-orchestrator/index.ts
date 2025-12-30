@@ -1701,6 +1701,9 @@ async function executeTool(
 }
 
 serve(async (req) => {
+  const requestStartTime = Date.now();
+  console.log('[ai-orchestrator] Request started at', new Date().toISOString());
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -1744,25 +1747,47 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Accumulated fields:', JSON.stringify(accumulatedFields));
     }
     
-    // Call AI API (Lovable AI Gateway) with streaming enabled
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-10) // Last 10 messages for context
-        ],
-        tools,
-        tool_choice: 'auto',
-        temperature: 0.7,
-        stream: true, // Enable streaming
-      }),
-    });
+    // Call AI API (Lovable AI Gateway) with streaming enabled and timeout
+    const controller = new AbortController();
+    const apiTimeoutId = setTimeout(() => {
+      console.warn('[ai-orchestrator] API timeout (45s), aborting request');
+      controller.abort();
+    }, 45000);
+
+    let response: Response;
+    try {
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.slice(-10) // Last 10 messages for context
+          ],
+          tools,
+          tool_choice: 'auto',
+          temperature: 0.7,
+          stream: true, // Enable streaming
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(apiTimeoutId);
+    } catch (fetchError: any) {
+      clearTimeout(apiTimeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('[ai-orchestrator] API call timeout after 45s');
+        const timeoutMsg = 'O serviço está demorando mais que o normal. Por favor, tente novamente.';
+        console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (timeout)');
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: timeoutMsg } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
+      throw fetchError;
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -1770,11 +1795,13 @@ serve(async (req) => {
       
       // Handle rate limiting and payment errors
       if (response.status === 429) {
+        console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (rate limit)');
         return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Desculpe, estamos com muitas solicitações no momento. Tente novamente em alguns segundos.' } }] })}\n\ndata: [DONE]\n\n`, {
           headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
         });
       }
       if (response.status === 402) {
+        console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (payment)');
         return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Desculpe, o serviço de IA está temporariamente indisponível. Tente novamente mais tarde.' } }] })}\n\ndata: [DONE]\n\n`, {
           headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
         });
@@ -1795,12 +1822,37 @@ serve(async (req) => {
       let toolCallData: any = null;
       let toolCallArguments = '';
       
-      // Read the entire stream first to check for tool calls
+      // Read the entire stream with timeout protection (30s total, 10s per read)
       let textBuffer = '';
+      const streamStartTime = Date.now();
+      const STREAM_TIMEOUT_MS = 30000;
+      const READ_TIMEOUT_MS = 10000;
+      
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
+        // Check for total stream timeout
+        if (Date.now() - streamStartTime > STREAM_TIMEOUT_MS) {
+          console.warn('[ai-orchestrator] Stream reading timeout after', STREAM_TIMEOUT_MS, 'ms');
+          reader.cancel();
+          break;
+        }
+        
+        // Race between read and timeout
+        try {
+          const readPromise = reader.read();
+          const timeoutPromise = new Promise<{ done: true; value: undefined }>((resolve) => 
+            setTimeout(() => resolve({ done: true, value: undefined }), READ_TIMEOUT_MS)
+          );
+          
+          const { done, value } = await Promise.race([readPromise, timeoutPromise]);
+          if (done) break;
+          if (value) {
+            textBuffer += decoder.decode(value, { stream: true });
+          }
+        } catch (readError) {
+          console.warn('[ai-orchestrator] Stream read error:', readError);
+          reader.cancel();
+          break;
+        }
       }
       
       // Parse SSE events
@@ -1856,6 +1908,7 @@ serve(async (req) => {
             choices: [{ delta: { content: responseContent } }]
           });
           
+          console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (tool call)');
           return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
             headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
           });
@@ -1864,6 +1917,7 @@ serve(async (req) => {
           const errorPayload = JSON.stringify({
             choices: [{ delta: { content: 'Desculpe, houve um erro ao processar sua solicitação. Pode tentar novamente?' } }]
           });
+          console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (tool error)');
           return new Response(`data: ${errorPayload}\n\ndata: [DONE]\n\n`, {
             headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
           });
@@ -1881,6 +1935,7 @@ serve(async (req) => {
         choices: [{ delta: { content: responseContent } }]
       });
       
+      console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (stream)');
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
         headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
       });
@@ -1914,6 +1969,7 @@ serve(async (req) => {
         choices: [{ delta: { content: responseContent } }]
       });
       
+      console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (non-stream tool)');
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
         headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
       });
@@ -1930,19 +1986,19 @@ serve(async (req) => {
       choices: [{ delta: { content } }]
     });
     
+    console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (regular)');
     return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
       headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
     });
     
   } catch (error) {
-    console.error('[ai-orchestrator] Error:', error);
-    return new Response(JSON.stringify({
-      content: 'Desculpe, tive um problema técnico. Pode tentar novamente?',
-      success: false,
-      error: (error as Error).message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    console.error('[ai-orchestrator] Fatal error:', error);
+    console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (error)');
+    
+    // Always return a valid SSE response so frontend doesn't hang
+    const errorMessage = 'Desculpe, ocorreu um erro inesperado. Por favor, tente novamente.';
+    return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: errorMessage } }] })}\n\ndata: [DONE]\n\n`, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
     });
   }
 });
