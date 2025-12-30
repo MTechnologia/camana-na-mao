@@ -1,10 +1,14 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot } from "lucide-react";
+import { Bot, MapPin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { AddressPickerDrawer, StructuredAddress } from "@/components/address";
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -40,106 +44,145 @@ interface ChatMessageBubbleProps {
   message: ChatMessage;
   userAvatarUrl?: string | null;
   userInitials?: string;
+  onAddressSelected?: (address: StructuredAddress) => void;
 }
 
-const ChatMessageBubble = ({ message, userAvatarUrl, userInitials }: ChatMessageBubbleProps) => {
+const ChatMessageBubble = ({ message, userAvatarUrl, userInitials, onAddressSelected }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
+  const [isAddressPickerOpen, setIsAddressPickerOpen] = useState(false);
+  
+  // Check if message contains [ADDRESS_PICKER] marker
+  const hasAddressPicker = !isUser && message.content.includes('[ADDRESS_PICKER]');
+  
+  // Clean content by removing the marker
+  const cleanContent = message.content.replace(/\[ADDRESS_PICKER\]/g, '').trim();
+  
+  const handleAddressSelected = (address: StructuredAddress) => {
+    setIsAddressPickerOpen(false);
+    if (onAddressSelected) {
+      onAddressSelected(address);
+    }
+  };
+  
   return (
-    <div
-      className={cn(
-        "flex gap-3 items-start",
-        isUser ? "flex-row-reverse" : "flex-row"
-      )}
-    >
-      {/* Avatar */}
-      {isUser ? (
-        <Avatar className="shrink-0 h-8 w-8">
-          <AvatarImage src={userAvatarUrl || undefined} />
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-            {userInitials || "?"}
-          </AvatarFallback>
-        </Avatar>
-      ) : (
-        <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
-          <Bot className="h-4 w-4" />
-        </div>
-      )}
-
-      {/* Message Content */}
+    <>
       <div
         className={cn(
-          "flex flex-col gap-1 max-w-[75%]",
-          isUser ? "items-end" : "items-start"
+          "flex gap-3 items-start",
+          isUser ? "flex-row-reverse" : "flex-row"
         )}
       >
+        {/* Avatar */}
+        {isUser ? (
+          <Avatar className="shrink-0 h-8 w-8">
+            <AvatarImage src={userAvatarUrl || undefined} />
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+              {userInitials || "?"}
+            </AvatarFallback>
+          </Avatar>
+        ) : (
+          <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+            <Bot className="h-4 w-4" />
+          </div>
+        )}
+
+        {/* Message Content */}
         <div
           className={cn(
-            "px-4 py-3 rounded-2xl",
-            isUser
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-foreground"
+            "flex flex-col gap-1 max-w-[75%]",
+            isUser ? "items-end" : "items-start"
           )}
         >
-          {isUser ? (
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-          ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
-                  ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
-                  ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
-                  li: ({ children }) => <li className="mb-1">{children}</li>,
-                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                  em: ({ children }) => <em className="italic">{children}</em>,
-                  a: ({ href, children }) => {
-                    // Check if internal link
-                    const isInternal = href?.startsWith('/') && !href?.startsWith('//');
-                    if (isInternal) {
+          <div
+            className={cn(
+              "px-4 py-3 rounded-2xl",
+              isUser
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground"
+            )}
+          >
+            {isUser ? (
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            ) : (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                    ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    a: ({ href, children }) => {
+                      // Check if internal link
+                      const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                      if (isInternal) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(href || '/');
+                            }}
+                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                          >
+                            {children}
+                          </button>
+                        );
+                      }
                       return (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(href || '/');
-                          }}
-                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                        <a 
+                          href={href} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
                         >
                           {children}
-                        </button>
+                        </a>
                       );
-                    }
-                    return (
-                      <a 
-                        href={href} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
-                      >
+                    },
+                    code: ({ children }) => (
+                      <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
                         {children}
-                      </a>
-                    );
-                  },
-                  code: ({ children }) => (
-                    <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
-                      {children}
-                    </code>
-                  ),
-                }}
-              >
-                {message.content}
-              </ReactMarkdown>
-            </div>
+                      </code>
+                    ),
+                  }}
+                >
+                  {cleanContent}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+          
+          {/* Address Picker Button */}
+          {hasAddressPicker && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 gap-2"
+              onClick={() => setIsAddressPickerOpen(true)}
+            >
+              <MapPin className="h-4 w-4" />
+              Buscar endereço
+            </Button>
+          )}
+          
+          {formatTimestamp(message.timestamp) && (
+            <span className="text-xs text-muted-foreground px-2">
+              {formatTimestamp(message.timestamp)}
+            </span>
           )}
         </div>
-        {formatTimestamp(message.timestamp) && (
-          <span className="text-xs text-muted-foreground px-2">
-            {formatTimestamp(message.timestamp)}
-          </span>
-        )}
       </div>
-    </div>
+      
+      {/* Address Picker Drawer */}
+      <AddressPickerDrawer
+        open={isAddressPickerOpen}
+        onOpenChange={setIsAddressPickerOpen}
+        onAddressSelected={handleAddressSelected}
+      />
+    </>
   );
 };
 

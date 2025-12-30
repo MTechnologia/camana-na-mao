@@ -1045,7 +1045,17 @@ e urgency_reason com as palavras do cidadão.
 === TEMPLATES DE PERGUNTAS (1 PERGUNTA POR VEZ) ===
 
 RELATO URBANO:
-1ª: (após classificar) "Qual o CEP do local? Se não souber, me diz rua e bairro."
+1ª: (após classificar) "Qual o CEP do local?"
+
+   Se usuário responder "não sei o CEP", "não lembro", "qual a rua?", "não tenho CEP":
+   → Responder: "Sem problema! Clique no botão abaixo para buscar o endereço:"
+   → SEMPRE INCLUIR o marcador [ADDRESS_PICKER] na resposta
+   → Exemplo: "Sem problema! Clique no botão abaixo para buscar o endereço:\n\n[ADDRESS_PICKER]"
+   
+   Quando receber mensagem do Address Picker (formato JSON com street, neighborhood, cep):
+   → Processar os dados estruturados
+   → Prosseguir para próxima pergunta (número/referência)
+
 2ª: (após CEP/rua) "Qual o número ou ponto de referência?"
 3ª: (se descrição curta) "Pode dar mais detalhes sobre o problema?"
 4ª: (categorias de risco) "Há algum risco imediato? (fios expostos, via bloqueada, alagando)"
