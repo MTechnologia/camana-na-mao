@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users, Eye } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,54 @@ export type CollectionType = 'urban_report' | 'transport_report' | 'service_rati
 export interface CollectedFields {
   [key: string]: any;
 }
+
+// Human-readable labels for field values
+const VALUE_LABELS: Record<string, Record<string, string>> = {
+  risk_level: {
+    critical: 'Crítico',
+    moderate: 'Moderado',
+    low: 'Baixo',
+    none: 'Nenhum'
+  },
+  affected_scope: {
+    individual: 'Individual',
+    local: 'Local (rua/quadra)',
+    regional: 'Regional (bairro)',
+    citywide: 'Cidade toda'
+  },
+  severity: {
+    baixa: 'Baixa',
+    media: 'Média',
+    alta: 'Alta',
+    critica: 'Crítica'
+  },
+  category: {
+    via_publica: 'Via Pública',
+    iluminacao: 'Iluminação',
+    esgoto: 'Esgoto/Saneamento',
+    area_verde: 'Área Verde',
+    limpeza: 'Limpeza Urbana',
+    transito: 'Trânsito',
+    calcada: 'Calçada',
+    sinalizacao: 'Sinalização',
+    feedback_camara: 'Feedback da Câmara',
+    outros: 'Outros'
+  },
+  subcategory: {
+    elogio: 'Elogio',
+    reclamacao: 'Reclamação',
+    sugestao: 'Sugestão'
+  },
+  service_type: {
+    ubs: 'UBS',
+    school: 'Escola',
+    ceu: 'CEU',
+    hospital: 'Hospital',
+    library: 'Biblioteca',
+    sports_center: 'Centro Esportivo',
+    other: 'Outro'
+  }
+};
 
 interface DataCollectionTrackerProps {
   collectionType: CollectionType;
@@ -144,12 +192,40 @@ const FieldIndicator = ({ label, isCollected, isRequired }: {
   </span>
 );
 
+// Format field value for display
+const formatFieldValue = (key: string, value: any): string => {
+  if (value === null || value === undefined) return '';
+  
+  // Check for mapped labels
+  if (VALUE_LABELS[key] && VALUE_LABELS[key][value]) {
+    return VALUE_LABELS[key][value];
+  }
+  
+  // Handle arrays
+  if (Array.isArray(value)) {
+    return value.map(v => VALUE_LABELS[key]?.[v] || v).join(', ');
+  }
+  
+  // Handle rating stars
+  if (key === 'rating_stars' && typeof value === 'number') {
+    return `${'★'.repeat(value)}${'☆'.repeat(5 - value)} (${value}/5)`;
+  }
+  
+  // Truncate long text
+  if (typeof value === 'string' && value.length > 60) {
+    return value.substring(0, 57) + '...';
+  }
+  
+  return String(value);
+};
+
 const DataCollectionTracker = ({ 
   collectionType, 
   collectedFields,
   className 
 }: DataCollectionTrackerProps) => {
   const [showOptional, setShowOptional] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Debug logging for development
   if (process.env.NODE_ENV === 'development' || typeof window !== 'undefined') {
@@ -240,22 +316,65 @@ const DataCollectionTracker = ({
                 Pronto
               </span>
             )}
+            
+            {/* Ver Detalhes Button - spacer to push to end */}
+            <div className="flex-1" />
+            {collectedCount > 0 && (
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className={cn(
+                  "flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors",
+                  showDetails 
+                    ? "bg-primary/10 text-primary" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <Eye className="h-3 w-3" />
+                {showDetails ? 'Ocultar' : 'Ver Detalhes'}
+              </button>
+            )}
           </div>
+
+          {/* Details Panel - Collected Values */}
+          <AnimatePresence>
+            {showDetails && collectedCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.15 }}
+                className="bg-background/60 rounded-md p-2 border border-border/30 space-y-1"
+              >
+                {config.fields.filter(f => collectedFields[f.key]).map(field => (
+                  <div key={field.key} className="flex items-start gap-2 text-xs">
+                    <span className="text-muted-foreground shrink-0 min-w-[70px]">
+                      {field.label}:
+                    </span>
+                    <span className="text-foreground break-words">
+                      {formatFieldValue(field.key, collectedFields[field.key])}
+                    </span>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Required Fields */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {requiredFields.map(field => (
-              <FieldIndicator
-                key={field.key}
-                label={field.label}
-                isCollected={!!collectedFields[field.key]}
-                isRequired={true}
-              />
-            ))}
-          </div>
+          {!showDetails && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {requiredFields.map(field => (
+                <FieldIndicator
+                  key={field.key}
+                  label={field.label}
+                  isCollected={!!collectedFields[field.key]}
+                  isRequired={true}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Optional Fields Toggle + Content */}
-          {hasOptional && (
+          {hasOptional && !showDetails && (
             <>
               <button
                 onClick={() => setShowOptional(!showOptional)}
