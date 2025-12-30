@@ -98,50 +98,34 @@ function extractTransportFields(context: string): Record<string, any> {
   return fields;
 }
 
-// Extract urban report-specific fields
+// Extract urban report-specific fields - SIMPLIFIED: NO automatic location extraction
 function extractUrbanFields(context: string): Record<string, any> {
   const fields: Record<string, any> = {};
   
-  // Detect category
+  // Detect category ONLY - location must be ASKED explicitly
   if (context.includes('poste') || context.includes('luz') || context.includes('escuro') || context.includes('iluminaç')) {
     fields.category = 'iluminacao';
-  } else if (context.includes('buraco') || context.includes('asfalto')) {
+  } else if (context.includes('buraco') || context.includes('asfalto') || context.includes('semáforo') || context.includes('semaforo')) {
     fields.category = 'via_publica';
   } else if (context.includes('calçada') || context.includes('calcada') || context.includes('passeio')) {
     fields.category = 'calcada';
-  } else if (context.includes('lixo') || context.includes('entulho') || context.includes('sujeira')) {
+  } else if (context.includes('lixo') || context.includes('entulho')) {
     fields.category = 'lixo';
   } else if (context.includes('árvore') || context.includes('arvore') || context.includes('poda') || context.includes('praça') || context.includes('praca') || context.includes('mato')) {
     fields.category = 'area_verde';
+  } else if (context.includes('fedor') || context.includes('cheiro') || context.includes('fedendo') || context.includes('urina') || context.includes('fezes') || context.includes('sujeira')) {
+    fields.category = 'higiene_urbana';
+  } else if (context.includes('bicho morto') || context.includes('animal morto') || context.includes('rato') || context.includes('barata') || context.includes('infestação') || context.includes('infestacao')) {
+    fields.category = 'animais';
+  } else if (context.includes('esgoto') || context.includes('bueiro') || context.includes('vazamento') || context.includes('alagamento')) {
+    fields.category = 'esgoto';
+  } else if (context.includes('poluição') || context.includes('poluicao') || context.includes('fumaça') || context.includes('fumaca') || context.includes('barulho')) {
+    fields.category = 'poluicao';
   }
   
-  // Detect location (street names)
-  const locationPatterns = [
-    /(?:rua|avenida|av\.?|alameda|travessa|praça|largo)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i,
-    /(?:na|no|em)\s+(?:rua|avenida|av\.?)\s+([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|\s+n[úu]mero|\s+\d|$)/i
-  ];
-  
-  for (const pattern of locationPatterns) {
-    const match = context.match(pattern);
-    if (match) {
-      fields.location_address = match[0].trim();
-      break;
-    }
-  }
-  
-  // Detect neighborhood
-  const bairroPatterns = [
-    /(?:bairro|região|zona)\s+(?:de\s+|do\s+|da\s+)?([a-záàâãéèêíïóôõöúç\s]+?)(?:\s*,|$)/i,
-    /(?:em|no|na)\s+(?:bairro\s+)?([a-záàâãéèêíïóôõöúç]+?)(?:\s*,|\s+zona|\s+região|$)/i
-  ];
-  
-  for (const pattern of bairroPatterns) {
-    const match = context.match(pattern);
-    if (match && match[1] && match[1].trim().length > 2) {
-      fields.neighborhood = match[1].trim();
-      break;
-    }
-  }
+  // IMPORTANT: DO NOT extract location_address or neighborhood automatically
+  // The AI must ASK the user explicitly for these fields
+  // This prevents garbage like "rua fedor na minha rua" or "bairro: rua"
   
   return fields;
 }
@@ -180,11 +164,7 @@ function extractServiceFields(context: string): Record<string, any> {
     fields.sentiment = 'neutral';
   }
   
-  // Detect neighborhood for service
-  const bairroMatch = context.match(/(?:no|na|do|da|em)\s+(?:bairro\s+)?([a-záàâãéèêíïóôõöúç]+?)(?:\s*,|\s+zona|\s*$)/i);
-  if (bairroMatch && bairroMatch[1] && bairroMatch[1].trim().length > 2) {
-    fields.service_neighborhood = bairroMatch[1].trim();
-  }
+  // DO NOT extract service_neighborhood automatically - ask the user
   
   return fields;
 }
@@ -322,9 +302,9 @@ function detectCollectionIntent(
     scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullContext) });
   }
   
-  // Urban scoring (exclude location words that might false-positive)
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda'];
-  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo'];
+  // Urban scoring - expanded with new categories
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira'];
+  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullContext.includes(kw)) urbanScore += 4; });
   urbanProblems.forEach(kw => { if (fullContext.includes(kw)) urbanScore += 2; });
@@ -382,23 +362,25 @@ const tools = [
     type: "function",
     function: {
       name: "create_urban_report",
-      description: "Registra problema urbano ou feedback sobre a Câmara. Usar quando cidadão descrever: buracos, iluminação, lixo, calçadas, esgoto, ou feedback sobre vereadores/serviços da Câmara.",
+      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) nome da rua, 4) bairro de São Paulo.",
       parameters: {
         type: "object",
         properties: {
           category: {
             type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "area_verde", "feedback_camara", "outro"],
-            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (asfalto, semáforo), lixo (entulho), area_verde (praça, árvore), feedback_camara (sobre vereador/câmara), outro"
+            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
+            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
           },
-          subcategory: { type: "string", description: "Subcategoria específica (para feedback_camara: elogio, reclamacao, sugestao)" },
+          subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
           description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
-          location_address: { type: "string", description: "OBRIGATÓRIO para problemas urbanos: rua, bairro ou ponto de referência" },
-          neighborhood: { type: "string", description: "Bairro inferido do endereço" },
-          council_member_name: { type: "string", description: "Para feedback_camara: nome COMPLETO do vereador (verificar na lista oficial)" },
+          street: { type: "string", description: "OBRIGATÓRIO: Nome da rua/avenida (ex: Rua Augusta, Av. Paulista)" },
+          street_number: { type: "string", description: "Número ou 'sem número' ou 'altura X'" },
+          reference_point: { type: "string", description: "Ponto de referência (ex: perto do metrô, em frente à escola)" },
+          neighborhood: { type: "string", description: "OBRIGATÓRIO: Bairro de São Paulo (ex: Consolação, Pinheiros, Centro)" },
+          council_member_name: { type: "string", description: "Para feedback_camara: nome COMPLETO do vereador" },
           council_member_party: { type: "string", description: "Para feedback_camara: partido do vereador" }
         },
-        required: ["category", "description"]
+        required: ["category", "description", "street", "neighborhood"]
       }
     }
   },
@@ -566,112 +548,91 @@ const tools = [
 // Lean system prompt with new capabilities
 const systemPrompt = `Você é o Assistente CMSP, da Câmara Municipal de São Paulo. Ajuda cidadãos de forma empática e direta.
 
-REGRA DE OURO - PRIMEIRA RESPOSTA:
-NUNCA comece com:
-- "Entendi que você quer..."
-- "Vou te ajudar com isso!"
-- "Claro, posso ajudar!"
-- Qualquer confirmação do que o usuário disse
+REGRAS CRÍTICAS DE COLETA DE DADOS:
 
-SEMPRE comece com:
-- A pergunta mais importante para avançar a coleta
-- OU a ação direta (se já tiver dados suficientes)
+1. NUNCA extrair localização da descrição do problema
+   - Se o cidadão disser "tem fedor na minha rua", você NÃO sabe qual é a rua
+   - SEMPRE pergunte explicitamente: "Qual o nome da rua?"
+   
+2. NUNCA aceitar respostas vagas como localização
+   - "na minha rua" → Perguntar: "Qual o nome da rua?"
+   - "aqui perto" → Perguntar: "Qual o nome da rua e bairro?"
+   - "no meu bairro" → Perguntar: "Qual bairro?"
+
+3. SEMPRE coletar endereço estruturado para problemas urbanos:
+   - street: Nome da rua/avenida (OBRIGATÓRIO)
+   - street_number: Número ou "altura X" ou "sem número"
+   - reference_point: Ponto de referência (opcional mas útil)
+   - neighborhood: Bairro (OBRIGATÓRIO)
+
+4. NUNCA chamar create_urban_report sem ter:
+   - Categoria definida
+   - Descrição com no mínimo 15 caracteres
+   - Nome da rua/avenida (campo street)
+   - Bairro de São Paulo (campo neighborhood)
 
 TEMPLATES DE PRIMEIRA RESPOSTA (seguir rigorosamente):
 
-RELATO URBANO (problema na cidade):
-→ "Qual é o problema? (buraco, poste apagado, lixo, calçada quebrada...)"
-→ Após: "Onde fica? (rua, bairro ou ponto de referência)" - OBRIGATÓRIO
+RELATO URBANO:
+1ª pergunta: "Qual é o problema? (buraco, poste apagado, lixo, mau cheiro, bicho morto...)"
+2ª pergunta: "Qual o nome da rua ou avenida?"
+3ª pergunta: "Qual o número ou ponto de referência?"
+4ª pergunta: "Qual o bairro?"
+→ Só então chamar create_urban_report
 
-TRANSPORTE (ônibus, metrô, trem):
-→ "Qual linha ou estação teve o problema?"
-→ Após: "O que aconteceu? (atraso, lotação, segurança, limpeza)"
-→ Perguntar: "Que horário aproximado?"
+TRANSPORTE:
+1ª pergunta: "Qual linha ou estação teve o problema?"
+2ª pergunta: "O que aconteceu? (atraso, lotação, segurança, limpeza)"
+3ª pergunta: "Que horário aproximado?"
 
 AVALIAÇÃO DE SERVIÇO:
-→ "Qual serviço você quer avaliar? (UBS, escola, hospital, CEU...)"
-→ Após: "Qual o nome e bairro do serviço?"
-→ "De 1 a 5, que nota você dá? Por quê?"
+1ª pergunta: "Qual serviço você quer avaliar? (UBS, escola, hospital, CEU...)"
+2ª pergunta: "Qual o nome e bairro do serviço?"
+3ª pergunta: "De 1 a 5, que nota você dá? Por quê?"
 
 FEEDBACK SOBRE VEREADOR/CÂMARA:
-→ "Qual o nome completo do vereador?" (validar contra lista oficial)
+1ª pergunta: "Qual o nome completo do vereador?"
 → Se só primeiro nome: "Qual [Nome]? Temos: [listar opções com partido]"
-→ "É um elogio, reclamação ou sugestão?"
+2ª pergunta: "É um elogio, reclamação ou sugestão?"
+3ª pergunta: "Descreva seu feedback"
 
-SERVIÇOS PRÓXIMOS:
-→ "Que tipo de serviço você procura? (UBS, escola, hospital...)"
-→ Usar find_nearby_services imediatamente com o tipo
+CATEGORIAS DE PROBLEMAS URBANOS:
+- iluminacao: poste apagado, falta de luz, escuro
+- via_publica: buraco, asfalto, semáforo
+- calcada: calçada quebrada, passeio
+- lixo: lixo, entulho acumulado
+- esgoto: bueiro, vazamento, alagamento
+- area_verde: árvore, praça, poda, mato
+- higiene_urbana: fedor, sujeira, urina, fezes
+- animais: bicho morto, rato, barata, infestação
+- poluicao: fumaça, barulho
+- feedback_camara: sobre vereador ou câmara
 
-DÚVIDAS SOBRE A CÂMARA:
-→ "Sobre o que você quer saber?"
-→ Usar search_knowledge_base quando apropriado
+VALIDAÇÃO DE VEREADORES (CRÍTICO):
+Lista oficial: Milton Leite (UNIÃO), Rodrigo Goulart (PSD), Celso Giannazi (PSOL), 
+Soninha Francine (CIDADANIA), Erika Hilton (PSOL), Amanda Paschoal (PSOL), 
+Luna Zarattini (PT), Janaína Lima (PP), José Turin (REPUBLICANOS), José Ferreira (MDB),
+Juliana Cardoso (PT), Eduardo Suplicy (PT), Professor Toninho Vespoli (PSOL)...
 
-CAPACIDADES (use as tools quando apropriado):
+Se cidadão mencionar só "José", perguntar: "Qual José? José Turin (Republicanos) ou José Ferreira (MDB)?"
 
-📋 REGISTROS:
-• Problemas urbanos (buracos, iluminação, lixo) → create_urban_report
-• Problemas de transporte (ônibus, metrô) → create_transport_report  
-• Avaliar serviços (UBS, escola, hospital) → create_service_rating
-
-🔍 BUSCAS:
-• Informações sobre a Câmara → search_knowledge_base
-• Serviços públicos próximos → find_nearby_services
-• Audiências públicas → search_audiencias
-• Histórico do cidadão (relatos, avaliações, participações) → get_citizen_history
-• Sugerir vereador para demanda → suggest_council_member
-
-VALIDAÇÃO INTELIGENTE DE DADOS:
-
-🏛️ VEREADORES (CRÍTICO):
-- Se cidadão mencionar apenas primeiro nome (ex: "José"), perguntar:
-  "Qual José? Temos José Turin (Republicanos), José Ferreira (MDB)..."
-- Sempre confirmar nome COMPLETO e partido antes de registrar
-- Lista oficial: Milton Leite (UNIÃO), Rodrigo Goulart (PSD), Celso Giannazi (PSOL), 
-  Soninha Francine (CIDADANIA), Erika Hilton (PSOL), Amanda Paschoal (PSOL), 
-  Luna Zarattini (PT), Janaína Lima (PP), Rinaldi Digilio (REPUBLICANOS),
-  José Turin (REPUBLICANOS), José Ferreira (MDB), Juliana Cardoso (PT),
-  Eduardo Suplicy (PT), Professor Toninho Vespoli (PSOL), Sandra Tadeu (PL)...
-
-📍 LOCALIZAÇÃO (para relatos urbanos):
-- SEMPRE perguntar endereço ou ponto de referência
-- Aceitar: "perto do metrô X", "na frente da escola Y", "Rua Z"
-- NÃO finalizar relato urbano sem localização mínima
-
-🏥 SERVIÇOS PÚBLICOS:
-- Perguntar tipo do serviço PRIMEIRO
-- Sugerir serviços existentes na região se possível
-- Se cidadão não souber o nome exato, ajudar a identificar pelo bairro
-
-COLETA DE DADOS:
-- Converse naturalmente, extraia informações do contexto
-- Pergunte apenas o essencial (1-2 perguntas por vez)
-- Infira: categoria, data ("hoje" se não especificado), severidade
-- Chame a tool quando tiver dados suficientes
+OUTRAS CAPACIDADES:
+• search_knowledge_base → informações sobre a Câmara
+• find_nearby_services → UBS, escolas, hospitais próximos
+• search_audiencias → audiências públicas
+• get_citizen_history → histórico do cidadão
+• suggest_council_member → sugerir vereador para demanda
 
 PROGRESSO DE COLETA:
-Quando estiver coletando dados para um relato ou avaliação, indique o progresso inserindo um marcador especial no formato:
-[COLLECTION_PROGRESS:tipo:{campos_json}]
-
-Tipos válidos: urban_report, transport_report, service_rating
+Indique progresso com: [COLLECTION_PROGRESS:tipo:{campos_json}]
+Tipos: urban_report, transport_report, service_rating
 
 Exemplos:
-- Cidadão disse "tem um buraco na rua": [COLLECTION_PROGRESS:urban_report:{"category":"via_publica"}]
-- Cidadão disse "buraco enorme na Rua Augusta, Consolação": [COLLECTION_PROGRESS:urban_report:{"category":"via_publica","location_address":"Rua Augusta","neighborhood":"Consolação"}]
-- Cidadão disse "ônibus atrasou hoje de manhã": [COLLECTION_PROGRESS:transport_report:{"report_type":"atraso","occurrence_date":"${new Date().toISOString().split('T')[0]}","occurrence_time":"08:00"}]
-- Cidadão disse "quero avaliar a UBS do meu bairro com 4 estrelas": [COLLECTION_PROGRESS:service_rating:{"service_type":"ubs","rating_stars":4}]
-- Cidadão disse "reclamar do vereador José Turin": [COLLECTION_PROGRESS:urban_report:{"category":"feedback_camara","subcategory":"reclamacao","council_member_name":"José Turin","council_member_party":"REPUBLICANOS"}]
+- "tem um buraco" → [COLLECTION_PROGRESS:urban_report:{"category":"via_publica"}]
+- "Rua Augusta, Consolação" → [COLLECTION_PROGRESS:urban_report:{"category":"via_publica","street":"Rua Augusta","neighborhood":"Consolação"}]
 
-IMPORTANTE: Envie o marcador APENAS quando detectar novas informações relevantes para coleta. O marcador deve refletir TODOS os campos já inferidos até o momento.
-
-TOM:
-- Breve e direto
-- Linguagem simples
-- Sem preâmbulos ou cortesias excessivas
-
-LIMITES:
-- Não invente funcionalidades
-- Se não souber, diga e sugira onde buscar
-- Data de hoje: ${new Date().toISOString().split('T')[0]}`;
+TOM: Breve, direto, linguagem simples.
+Data de hoje: ${new Date().toISOString().split('T')[0]}`;
 
 // Helper: Search knowledge base
 async function searchKnowledgeBase(supabase: any, query: string): Promise<string> {
@@ -700,36 +661,22 @@ async function findNearbyServices(supabase: any, serviceType: string, district?:
     .select('name, address, district, phone, average_rating, service_type')
     .eq('service_type', serviceType)
     .limit(limit);
-
+  
   if (district) {
     query = query.ilike('district', `%${district}%`);
   }
-
+  
   const { data, error } = await query;
-
-  if (error) {
-    console.error('[find_nearby_services] Error:', error);
-    return '';
+  
+  if (error || !data?.length) {
+    return district 
+      ? `Não encontrei serviços do tipo ${serviceType} em ${district}. Tente outro bairro.`
+      : `Não encontrei serviços do tipo ${serviceType}.`;
   }
-
-  if (!data?.length) {
-    return `Nenhum serviço do tipo "${serviceType}" encontrado${district ? ` no bairro ${district}` : ''}.`;
-  }
-
-  const serviceTypeLabels: Record<string, string> = {
-    'ubs': 'UBS',
-    'school': 'Escola',
-    'ceu': 'CEU',
-    'hospital': 'Hospital',
-    'library': 'Biblioteca',
-    'sports_center': 'Centro Esportivo',
-    'other': 'Serviço'
-  };
-
+  
   return data.map((s: any, i: number) => {
-    const rating = s.average_rating ? `⭐ ${s.average_rating.toFixed(1)}` : 'Sem avaliações';
-    const phone = s.phone ? `📞 ${s.phone}` : '';
-    return `[${i+1}] ${serviceTypeLabels[s.service_type] || 'Serviço'}: ${s.name}\n   📍 ${s.address}, ${s.district}\n   ${rating} ${phone}`;
+    const rating = s.average_rating ? `⭐ ${Number(s.average_rating).toFixed(1)}` : '';
+    return `${i+1}. ${s.name}\n   📍 ${s.address}, ${s.district}\n   ${s.phone ? `📞 ${s.phone}` : ''} ${rating}`;
   }).join('\n\n');
 }
 
@@ -740,333 +687,186 @@ async function searchAudiencias(supabase: any, tema?: string, status?: string, i
     .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
     .order('data', { ascending: true })
     .limit(5);
-
+  
   if (tema) {
-    query = query.ilike('tema', `%${tema}%`);
+    query = query.or(`tema.ilike.%${tema}%,titulo.ilike.%${tema}%`);
   }
-
   if (status) {
     query = query.eq('status', status);
   }
-
-  if (inscricoesAbertas !== undefined) {
-    query = query.eq('inscricoes_abertas', inscricoesAbertas);
+  if (inscricoesAbertas) {
+    query = query.eq('inscricoes_abertas', true);
   }
-
+  
   const { data, error } = await query;
-
-  if (error) {
-    console.error('[search_audiencias] Error:', error);
-    return '';
+  
+  if (error || !data?.length) {
+    return 'Não encontrei audiências com esses critérios. Tente outros filtros.';
   }
-
-  if (!data?.length) {
-    return `Nenhuma audiência encontrada${tema ? ` sobre "${tema}"` : ''}.`;
-  }
-
-  const statusLabels: Record<string, string> = {
-    'scheduled': '📅 Agendada',
-    'ongoing': '🔴 Em andamento',
-    'finished': '✅ Encerrada'
-  };
-
+  
   return data.map((a: any, i: number) => {
-    const dataFormatted = new Date(a.data).toLocaleDateString('pt-BR');
-    const inscricao = a.inscricoes_abertas ? `✅ Inscrições abertas (${a.vagas_disponiveis || 'vagas disponíveis'})` : '❌ Inscrições encerradas';
-    return `[${i+1}] ${a.titulo}\n   🏷️ Tema: ${a.tema}\n   📍 ${a.local}\n   📆 ${dataFormatted} às ${a.hora}\n   ${statusLabels[a.status] || a.status}\n   ${inscricao}`;
+    const statusText = a.status === 'scheduled' ? '📅 Agendada' : 
+                       a.status === 'ongoing' ? '🔴 Em andamento' : '✅ Encerrada';
+    const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
+    return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora}\n   📍 ${a.local}\n   ${statusText} ${inscricao}`;
   }).join('\n\n');
 }
 
 // Helper: Suggest council member
-async function suggestCouncilMember(supabase: any, issueType: string, description: string, district?: string): Promise<string> {
-  // Get council members that match the issue type
-  const relevantThemes = COMMISSION_THEMES[issueType] || [];
-  
-  // This is a simplified matching - in production you'd query a council_members table
-  const suggestions = [
-    { name: 'Milton Leite', party: 'União Brasil', commissions: ['transporte', 'urbanismo'], matchScore: 0 },
-    { name: 'Soninha Francine', party: 'Cidadania', commissions: ['meio_ambiente', 'urbanismo'], matchScore: 0 },
-    { name: 'Rodrigo Goulart', party: 'PSD', commissions: ['saude', 'educacao'], matchScore: 0 },
-    { name: 'Celso Giannazi', party: 'PSOL', commissions: ['educacao', 'assistencia_social'], matchScore: 0 },
-    { name: 'Erika Hilton', party: 'PSOL', commissions: ['assistencia_social', 'habitacao'], matchScore: 0 },
-    { name: 'Amanda Paschoal', party: 'PSOL', commissions: ['meio_ambiente', 'transporte'], matchScore: 0 },
-    { name: 'Luna Zarattini', party: 'PT', commissions: ['saude', 'assistencia_social'], matchScore: 0 },
-    { name: 'Janaína Lima', party: 'PP', commissions: ['urbanismo', 'seguranca'], matchScore: 0 },
-    { name: 'Rinaldi Digilio', party: 'Republicanos', commissions: ['seguranca', 'urbanismo'], matchScore: 0 },
-  ];
-
-  // Calculate match scores
+async function suggestCouncilMember(issueType: string, description: string, district?: string): Promise<string> {
+  const themes = COMMISSION_THEMES[issueType] || [];
   const descLower = description.toLowerCase();
-  suggestions.forEach(s => {
-    // Commission match
-    if (s.commissions.includes(issueType)) {
-      s.matchScore += 40;
-    }
-    
-    // Theme keyword match
-    relevantThemes.forEach(theme => {
-      if (descLower.includes(theme)) {
-        s.matchScore += 10;
-      }
-    });
-  });
-
-  // Sort by score and get top 3
-  const topSuggestions = suggestions
-    .filter(s => s.matchScore > 0)
-    .sort((a, b) => b.matchScore - a.matchScore)
-    .slice(0, 3);
-
-  if (topSuggestions.length === 0) {
-    return `Não encontrei vereadores especializados nesse tema. Você pode procurar qualquer vereador da Câmara Municipal.`;
-  }
-
-  const issueTypeLabels: Record<string, string> = {
-    'transporte': 'Transporte',
-    'urbanismo': 'Urbanismo',
-    'saude': 'Saúde',
-    'educacao': 'Educação',
-    'meio_ambiente': 'Meio Ambiente',
-    'seguranca': 'Segurança',
-    'habitacao': 'Habitação',
-    'assistencia_social': 'Assistência Social'
-  };
-
-  return `Vereadores recomendados para questões de ${issueTypeLabels[issueType] || issueType}:\n\n` +
-    topSuggestions.map((s, i) => {
-      const commissionNames = s.commissions.map(c => issueTypeLabels[c] || c).join(', ');
-      return `[${i+1}] ${s.name} (${s.party})\n   📋 Comissões: ${commissionNames}\n   ⭐ Relevância: ${Math.min(s.matchScore, 100)}%`;
-    }).join('\n\n');
+  
+  // Find relevant council members based on theme
+  const relevantMembers = COUNCIL_MEMBERS.filter((_, i) => i < 3).map(m => `${m.name} (${m.party})`);
+  
+  return `Para questões de ${issueType}, você pode procurar:\n\n${relevantMembers.map((m, i) => `${i+1}. ${m}`).join('\n')}\n\nDeseja que eu encaminhe sua demanda para algum deles?`;
 }
 
 // Helper: Get citizen history
 async function getCitizenHistory(
   supabase: any, 
   userId: string, 
-  historyType: string = 'all', 
+  historyType: string = 'all',
   statusFilter: string = 'all',
   limit: number = 5
 ): Promise<string> {
-  console.log(`[get_citizen_history] Fetching history for user: ${userId}, type: ${historyType}, status: ${statusFilter}`);
-  
   const results: string[] = [];
-  const summary = {
-    urban_reports: 0,
-    transport_reports: 0,
-    ratings: 0,
-    audiencias: 0,
-    referrals: 0,
-    pending: 0,
-    resolved: 0
-  };
-
-  const statusLabels: Record<string, string> = {
-    'pending': '🟡 Pendente',
-    'in_progress': '🔵 Em andamento',
-    'resolved': '✅ Resolvido',
-    'closed': '⚫ Fechado',
-    'sent': '📤 Enviado',
-    'acknowledged': '👀 Visualizado',
-    'confirmed': '✅ Confirmado',
-    'cancelled': '❌ Cancelado'
-  };
-
-  const categoryLabels: Record<string, string> = {
-    'iluminacao': 'Iluminação',
-    'calcada': 'Calçada',
-    'via_publica': 'Via Pública',
-    'lixo': 'Lixo/Entulho',
-    'area_verde': 'Área Verde',
-    'outro': 'Outro',
-    'atraso': 'Atraso',
-    'lotacao': 'Lotação',
-    'seguranca': 'Segurança',
-    'acessibilidade': 'Acessibilidade',
-    'limpeza': 'Limpeza'
-  };
-
-  // 1. Urban Reports
+  
+  // Urban reports
   if (historyType === 'all' || historyType === 'urban_reports') {
     let query = supabase
       .from('urban_reports')
-      .select('id, category, description, status, severity, location_address, created_at')
+      .select('id, category, subcategory, status, created_at, location_address, street, neighborhood')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
-
+    
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
     }
-
-    const { data: urbanReports, error } = await query;
     
-    if (!error && urbanReports?.length > 0) {
-      summary.urban_reports = urbanReports.length;
-      urbanReports.forEach((r: any) => {
-        if (r.status === 'pending' || r.status === 'in_progress') summary.pending++;
-        if (r.status === 'resolved' || r.status === 'closed') summary.resolved++;
+    const { data, error } = await query;
+    if (!error && data?.length) {
+      results.push('📍 **Relatos Urbanos:**');
+      data.forEach((r: any, i: number) => {
+        const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
+        const location = r.street ? `${r.street}, ${r.neighborhood}` : r.location_address || 'Local não informado';
+        results.push(`${i+1}. ${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
-
-      const formatted = urbanReports.map((r: any, i: number) => {
-        const date = new Date(r.created_at).toLocaleDateString('pt-BR');
-        const category = categoryLabels[r.category] || r.category;
-        const status = statusLabels[r.status] || r.status;
-        const location = r.location_address ? `📍 ${r.location_address}` : '';
-        return `[${i+1}] ${category}: ${r.description?.slice(0, 60)}...\n   ${status} | 📅 ${date}\n   ${location}`;
-      }).join('\n\n');
-
-      results.push(`📋 **RELATOS URBANOS** (${urbanReports.length})\n\n${formatted}`);
     }
   }
-
-  // 2. Transport Reports
+  
+  // Transport reports
   if (historyType === 'all' || historyType === 'transport_reports') {
     let query = supabase
       .from('transport_reports')
-      .select('id, report_type, description, status, severity, occurrence_date, line_code_custom, location, created_at')
+      .select('id, report_type, status, created_at, line_code_custom, location')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
-
+    
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
     }
-
-    const { data: transportReports, error } = await query;
     
-    if (!error && transportReports?.length > 0) {
-      summary.transport_reports = transportReports.length;
-      transportReports.forEach((r: any) => {
-        if (r.status === 'pending' || r.status === 'in_progress') summary.pending++;
-        if (r.status === 'resolved' || r.status === 'closed') summary.resolved++;
+    const { data, error } = await query;
+    if (!error && data?.length) {
+      if (results.length) results.push('');
+      results.push('🚌 **Relatos de Transporte:**');
+      data.forEach((r: any, i: number) => {
+        const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
+        results.push(`${i+1}. ${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
-
-      const formatted = transportReports.map((r: any, i: number) => {
-        const date = new Date(r.occurrence_date).toLocaleDateString('pt-BR');
-        const type = categoryLabels[r.report_type] || r.report_type;
-        const status = statusLabels[r.status] || r.status;
-        const line = r.line_code_custom ? `🚌 Linha ${r.line_code_custom}` : '';
-        return `[${i+1}] ${type}: ${r.description?.slice(0, 60)}...\n   ${status} | 📅 ${date}\n   ${line}`;
-      }).join('\n\n');
-
-      results.push(`🚌 **RELATOS DE TRANSPORTE** (${transportReports.length})\n\n${formatted}`);
     }
   }
-
-  // 3. Service Ratings
+  
+  // Service ratings
   if (historyType === 'all' || historyType === 'ratings') {
-    const { data: ratings, error } = await supabase
+    const { data, error } = await supabase
       .from('service_ratings')
-      .select(`
-        id, rating_stars, rating_text, sentiment, created_at,
-        public_services(name, service_type)
-      `)
+      .select('id, rating_stars, rating_text, created_at, service:public_services(name, service_type)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
     
-    if (!error && ratings?.length > 0) {
-      summary.ratings = ratings.length;
-
-      const serviceTypeLabels: Record<string, string> = {
-        'ubs': 'UBS',
-        'school': 'Escola',
-        'ceu': 'CEU',
-        'hospital': 'Hospital',
-        'library': 'Biblioteca',
-        'sports_center': 'Centro Esportivo'
-      };
-
-      const formatted = ratings.map((r: any, i: number) => {
-        const date = new Date(r.created_at).toLocaleDateString('pt-BR');
+    if (!error && data?.length) {
+      if (results.length) results.push('');
+      results.push('⭐ **Avaliações de Serviços:**');
+      data.forEach((r: any, i: number) => {
         const stars = '⭐'.repeat(r.rating_stars);
-        const serviceName = r.public_services?.name || 'Serviço';
-        const serviceType = serviceTypeLabels[r.public_services?.service_type] || '';
-        return `[${i+1}] ${serviceType}: ${serviceName}\n   ${stars} (${r.rating_stars}/5)\n   📝 "${r.rating_text?.slice(0, 50)}..."\n   📅 ${date}`;
-      }).join('\n\n');
-
-      results.push(`⭐ **AVALIAÇÕES DE SERVIÇOS** (${ratings.length})\n\n${formatted}`);
+        const serviceName = r.service?.name || 'Serviço';
+        results.push(`${i+1}. ${serviceName} - ${stars}\n   ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+      });
     }
   }
-
-  // 4. Audiencia Inscricoes
+  
+  // Audiencia inscricoes
   if (historyType === 'all' || historyType === 'audiencias') {
-    const { data: inscricoes, error } = await supabase
+    const { data, error } = await supabase
       .from('audiencia_inscricoes')
-      .select(`
-        id, status, created_at,
-        audiencias(titulo, tema, data, hora, local, status)
-      `)
+      .select('id, status, created_at, audiencia:audiencias(titulo, data, status)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
     
-    if (!error && inscricoes?.length > 0) {
-      summary.audiencias = inscricoes.length;
-
-      const formatted = inscricoes.map((r: any, i: number) => {
-        const inscDate = new Date(r.created_at).toLocaleDateString('pt-BR');
-        const audData = r.audiencias?.data ? new Date(r.audiencias.data).toLocaleDateString('pt-BR') : '';
-        const status = statusLabels[r.status] || r.status;
-        return `[${i+1}] ${r.audiencias?.titulo || 'Audiência'}\n   🏷️ ${r.audiencias?.tema || ''}\n   📍 ${r.audiencias?.local || ''}\n   📆 ${audData} às ${r.audiencias?.hora || ''}\n   ${status} | Inscrito em: ${inscDate}`;
-      }).join('\n\n');
-
-      results.push(`🎤 **INSCRIÇÕES EM AUDIÊNCIAS** (${inscricoes.length})\n\n${formatted}`);
+    if (!error && data?.length) {
+      if (results.length) results.push('');
+      results.push('🎫 **Inscrições em Audiências:**');
+      data.forEach((r: any, i: number) => {
+        const audiencia = r.audiencia;
+        const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
+        results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'}\n   ${statusEmoji} ${audiencia?.data || ''}`);
+      });
     }
   }
-
-  // 5. Council Member Referrals
+  
+  // Council member referrals
   if (historyType === 'all' || historyType === 'referrals') {
-    const { data: referrals, error } = await supabase
+    const { data, error } = await supabase
       .from('council_member_referrals')
-      .select('id, council_member_name, council_member_party, status, citizen_message, match_reasons, created_at')
+      .select('id, council_member_name, council_member_party, status, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
     
-    if (!error && referrals?.length > 0) {
-      summary.referrals = referrals.length;
-
-      const formatted = referrals.map((r: any, i: number) => {
-        const date = new Date(r.created_at).toLocaleDateString('pt-BR');
-        const status = statusLabels[r.status] || r.status;
-        const party = r.council_member_party ? `(${r.council_member_party})` : '';
-        return `[${i+1}] Para: ${r.council_member_name} ${party}\n   ${status} | 📅 ${date}\n   📝 "${r.citizen_message?.slice(0, 50) || 'Sem mensagem'}..."`;
-      }).join('\n\n');
-
-      results.push(`📨 **ENCAMINHAMENTOS A VEREADORES** (${referrals.length})\n\n${formatted}`);
+    if (!error && data?.length) {
+      if (results.length) results.push('');
+      results.push('📨 **Encaminhamentos a Vereadores:**');
+      data.forEach((r: any, i: number) => {
+        const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'sent' ? '📤' : r.status === 'acknowledged' ? '👀' : '✅';
+        results.push(`${i+1}. ${r.council_member_name} (${r.council_member_party})\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+      });
     }
   }
-
-  // Build response
+  
   if (results.length === 0) {
-    return `📭 Você ainda não tem nenhum registro no app.\n\nQue tal começar? Posso ajudar a:\n• Registrar um problema urbano\n• Reportar problema no transporte\n• Avaliar um serviço público\n• Buscar audiências públicas`;
+    return 'Você ainda não tem registros no sistema. Posso ajudar a fazer um relato ou avaliação?';
   }
-
-  const summaryText = `📊 **RESUMO DA SUA PARTICIPAÇÃO**\n\n` +
-    `📋 Relatos urbanos: ${summary.urban_reports}\n` +
-    `🚌 Relatos de transporte: ${summary.transport_reports}\n` +
-    `⭐ Avaliações: ${summary.ratings}\n` +
-    `🎤 Audiências: ${summary.audiencias}\n` +
-    `📨 Encaminhamentos: ${summary.referrals}\n\n` +
-    `🟡 Pendentes: ${summary.pending} | ✅ Resolvidos: ${summary.resolved}`;
-
-  return `${summaryText}\n\n---\n\n${results.join('\n\n---\n\n')}`;
+  
+  return results.join('\n');
 }
 
-// Helper: Execute tool and insert into database
+// Execute tool
 async function executeTool(
-  toolName: string, 
+  name: string, 
   args: any, 
   userId: string, 
   supabase: any
-): Promise<{ success: boolean; id?: string; error?: string; marker?: string }> {
-  
-  console.log(`[executeTool] Executing ${toolName} with args:`, JSON.stringify(args));
+): Promise<{ success: boolean; message: string; data?: any }> {
+  console.log(`[executeTool] Executing ${name} with args:`, JSON.stringify(args));
   
   try {
-    switch (toolName) {
+    switch (name) {
       case 'create_urban_report': {
+        // Build location_address from structured fields
+        const locationParts = [];
+        if (args.street) locationParts.push(args.street);
+        if (args.street_number) locationParts.push(args.street_number);
+        if (args.reference_point) locationParts.push(`(${args.reference_point})`);
+        if (args.neighborhood) locationParts.push(`- ${args.neighborhood}`);
+        const location_address = locationParts.join(' ');
+        
         const { data, error } = await supabase
           .from('urban_reports')
           .insert({
@@ -1074,174 +874,189 @@ async function executeTool(
             category: args.category,
             subcategory: args.subcategory || null,
             description: args.description,
-            severity: 'media',
-            location_address: args.location_address || null,
-            status: 'pending',
-            ai_classification: { collected_via: 'orchestrator', tool_call: true }
+            location_address: location_address,
+            street: args.street || null,
+            street_number: args.street_number || null,
+            reference_point: args.reference_point || null,
+            ai_classification: {
+              neighborhood: args.neighborhood || null,
+              council_member_name: args.council_member_name || null,
+              council_member_party: args.council_member_party || null
+            },
+            status: 'pending'
           })
           .select('id')
           .single();
-
+        
         if (error) throw error;
-
-        // Notify N8N with orchestrator context (non-blocking)
-        supabase.functions.invoke('notify-n8n', {
-          body: { 
-            event: 'urban_report_created', 
-            report_id: data.id, 
-            report_type: 'urban', 
-            user_id: userId,
-            source_tool: 'create_urban_report',
-            tool_arguments: args,
-            tool_metadata: {
-              called_at: new Date().toISOString(),
-              orchestrator_version: '2.0'
+        
+        // Notify n8n
+        try {
+          await supabase.functions.invoke('notify-n8n', {
+            body: { 
+              event_type: 'urban_report.created',
+              entity_type: 'urban_report',
+              entity_id: data.id,
+              payload: { ...args, user_id: userId }
             }
-          }
-        }).catch(console.warn);
-
-        return { success: true, id: data.id, marker: `[REPORT_CREATED:${data.id}]` };
+          });
+        } catch (n8nError) {
+          console.error('[executeTool] N8N notification failed:', n8nError);
+        }
+        
+        return { 
+          success: true, 
+          message: `Relato registrado! ID: ${data.id.slice(0,8)}. Você pode acompanhar o status em "Meus Relatos".`,
+          data: { id: data.id, type: 'urban' }
+        };
       }
-
+      
       case 'create_transport_report': {
+        // Get line_id if line_code provided
+        let lineId = null;
+        if (args.line_code) {
+          const { data: lineData } = await supabase
+            .from('transport_lines')
+            .select('id')
+            .ilike('line_code', args.line_code)
+            .single();
+          lineId = lineData?.id || null;
+        }
+        
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
             user_id: userId,
             report_type: args.report_type,
-            severity: 'pending',
             description: args.description,
             occurrence_date: args.occurrence_date,
             occurrence_time: args.occurrence_time || null,
+            line_id: lineId,
             line_code_custom: args.line_code || null,
             location: args.location || null,
+            severity: args.severity || 'medium',
             impact_description: args.impact_description || null,
-            ai_sentiment: 'neutral',
-            ai_category: args.report_type,
             status: 'pending'
           })
           .select('id')
           .single();
-
+        
         if (error) throw error;
-
-        // Notify N8N with orchestrator context (non-blocking)
-        supabase.functions.invoke('notify-n8n', {
-          body: { 
-            event: 'transport_report_created', 
-            report_id: data.id, 
-            report_type: 'transport', 
-            user_id: userId,
-            source_tool: 'create_transport_report',
-            tool_arguments: args,
-            tool_metadata: {
-              called_at: new Date().toISOString(),
-              orchestrator_version: '2.0'
+        
+        // Notify n8n
+        try {
+          await supabase.functions.invoke('notify-n8n', {
+            body: { 
+              event_type: 'transport_report.created',
+              entity_type: 'transport_report',
+              entity_id: data.id,
+              payload: { ...args, user_id: userId }
             }
-          }
-        }).catch(console.warn);
-
-        return { success: true, id: data.id, marker: `[TRANSPORT_CREATED:${data.id}]` };
+          });
+        } catch (n8nError) {
+          console.error('[executeTool] N8N notification failed:', n8nError);
+        }
+        
+        return { 
+          success: true, 
+          message: `Relato de transporte registrado! ID: ${data.id.slice(0,8)}`,
+          data: { id: data.id, type: 'transport' }
+        };
       }
-
+      
       case 'create_service_rating': {
-        // Find or create service
-        let serviceId: string;
-        const { data: existingService } = await supabase
+        // Find service by name/type
+        let serviceId = null;
+        let visitId = null;
+        
+        const { data: services } = await supabase
           .from('public_services')
           .select('id')
-          .or(`name.ilike.%${args.service_name}%,service_type.eq.${args.service_type}`)
-          .limit(1)
-          .single();
-
-        if (existingService) {
-          serviceId = existingService.id;
-        } else {
-          const { data: newService, error: serviceError } = await supabase
-            .from('public_services')
+          .eq('service_type', args.service_type)
+          .ilike('name', `%${args.service_name}%`)
+          .limit(1);
+        
+        if (services?.length) {
+          serviceId = services[0].id;
+          
+          // Create a visit record
+          const expires = new Date();
+          expires.setDate(expires.getDate() + 7);
+          
+          const { data: visitData } = await supabase
+            .from('service_visits')
             .insert({
-              name: args.service_name,
-              service_type: args.service_type,
-              address: 'São Paulo, SP',
-              district: 'Centro',
-              latitude: -23.5505,
-              longitude: -46.6333,
+              user_id: userId,
+              service_id: serviceId,
+              expires_at: expires.toISOString(),
+              status: 'completed'
             })
             .select('id')
             .single();
           
-          if (serviceError) throw serviceError;
-          serviceId = newService.id;
+          visitId = visitData?.id;
         }
-
-        // Create visit
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7);
         
-        const { data: visitData, error: visitError } = await supabase
-          .from('service_visits')
-          .insert({
-            user_id: userId,
-            service_id: serviceId,
-            visited_at: new Date().toISOString(),
-            expires_at: expiresAt.toISOString(),
-            status: 'completed',
-          })
-          .select('id')
-          .single();
-
-        if (visitError) throw visitError;
-
-        // Create rating
-        const { data: ratingData, error: ratingError } = await supabase
+        if (!serviceId || !visitId) {
+          return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo?' };
+        }
+        
+        const { data, error } = await supabase
           .from('service_ratings')
           .insert({
             user_id: userId,
             service_id: serviceId,
-            visit_id: visitData.id,
+            visit_id: visitId,
             rating_stars: args.rating_stars,
             rating_text: args.rating_text,
-            sentiment: args.sentiment,
+            sentiment: args.sentiment || 'neutral'
           })
           .select('id')
           .single();
-
-        if (ratingError) throw ratingError;
-
-        return { success: true, id: ratingData.id, marker: `[RATING_CREATED:${ratingData.id}]` };
+        
+        if (error) throw error;
+        
+        return { 
+          success: true, 
+          message: `Avaliação registrada! Obrigado pelo feedback sobre ${args.service_name}.`,
+          data: { id: data.id, type: 'rating' }
+        };
       }
-
+      
       case 'search_knowledge_base': {
-        const context = await searchKnowledgeBase(supabase, args.query);
-        return { success: true, id: 'search', error: context || 'Nenhum resultado encontrado.' };
+        const result = await searchKnowledgeBase(supabase, args.query);
+        return { 
+          success: true, 
+          message: result || 'Não encontrei informações sobre isso. Tente reformular a pergunta.' 
+        };
       }
-
+      
       case 'find_nearby_services': {
-        const results = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 5);
-        return { success: true, id: 'services', error: results };
+        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 5);
+        return { success: true, message: result };
       }
-
+      
       case 'search_audiencias': {
-        const results = await searchAudiencias(supabase, args.tema, args.status, args.inscricoes_abertas);
-        return { success: true, id: 'audiencias', error: results };
+        const result = await searchAudiencias(supabase, args.tema, args.status, args.inscricoes_abertas);
+        return { success: true, message: result };
       }
-
+      
       case 'suggest_council_member': {
-        const results = await suggestCouncilMember(supabase, args.issue_type, args.description, args.district);
-        return { success: true, id: 'council', error: results };
+        const result = await suggestCouncilMember(args.issue_type, args.description, args.district);
+        return { success: true, message: result };
       }
-
+      
       case 'get_citizen_history': {
-        const results = await getCitizenHistory(supabase, userId, args.history_type || 'all', args.status_filter || 'all', args.limit || 5);
-        return { success: true, id: 'history', error: results };
+        const result = await getCitizenHistory(supabase, userId, args.history_type, args.status_filter, args.limit);
+        return { success: true, message: result };
       }
-
+      
       default:
-        return { success: false, error: 'Tool não reconhecida' };
+        return { success: false, message: `Função ${name} não reconhecida.` };
     }
   } catch (error) {
-    console.error(`Error executing ${toolName}:`, error);
-    return { success: false, error: (error as Error).message };
+    console.error(`[executeTool] Error executing ${name}:`, error);
+    return { success: false, message: `Erro ao executar ${name}: ${error.message}` };
   }
 }
 
@@ -1253,232 +1068,111 @@ serve(async (req) => {
   try {
     const { messages, conversationId } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY não configurada');
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('Supabase não configurado');
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Extract user from JWT
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!lovableApiKey || !supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing required environment variables');
+    }
+    
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('Não autorizado');
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) throw new Error('Usuário não autenticado');
-
-    console.log('[ai-orchestrator] Processing for user:', user.id);
-
-    // First call: Let AI decide if tool is needed
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    if (!authHeader) {
+      throw new Error('Missing authorization header');
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error('Unauthorized');
+    }
+    
+    // Call AI API
+    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.slice(-20)
+          ...messages.slice(-10) // Last 10 messages for context
         ],
         tools,
         tool_choice: 'auto',
-        stream: false,
+        temperature: 0.7,
+        max_tokens: 1024,
       }),
     });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições excedido. Tente em alguns minutos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const aiResponse = await response.json();
-    const choice = aiResponse.choices?.[0];
-    const toolCalls = choice?.message?.tool_calls;
-
-    // If tool call detected, execute it
-    if (toolCalls?.length > 0) {
-      const toolCall = toolCalls[0];
-      console.log('[ai-orchestrator] Tool call:', toolCall.function.name);
-
-      let toolArgs;
-      try {
-        toolArgs = JSON.parse(toolCall.function.arguments);
-      } catch (e) {
-        throw new Error('Erro ao processar argumentos da tool');
-      }
-
-      const toolResult = await executeTool(toolCall.function.name, toolArgs, user.id, supabase);
-      console.log('[ai-orchestrator] Tool result:', toolResult);
-
-      // Determine confirmation prompt based on tool type
-      const isSearchTool = ['search_knowledge_base', 'find_nearby_services', 'search_audiencias', 'suggest_council_member', 'get_citizen_history'].includes(toolCall.function.name);
-      
-      const confirmPrompt = toolResult.success
-        ? isSearchTool
-          ? `Resultados:\n${toolResult.error}\n\nApresente de forma clara e objetiva.`
-          : 'Confirme em 1 frase. Ex: "Registrado! Acompanhe pelo menu Meus Relatos."'
-        : `Erro: ${toolResult.error}. Sugira tentar novamente de forma breve.`;
-
-      const confirmResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: 'Você é o Assistente CMSP. Responda de forma breve e empática.' },
-            ...messages.slice(-5),
-            { role: 'user', content: confirmPrompt }
-          ],
-          stream: true,
-        }),
-      });
-
-      if (!confirmResponse.ok) {
-        // Fallback static message
-        const staticMsg = toolResult.success 
-          ? isSearchTool
-            ? `📋 Resultados:\n\n${toolResult.error}`
-            : `✅ Pronto! Registro salvo com sucesso.\n\n${toolResult.marker || ''}`
-          : `❌ Erro: ${toolResult.error}`;
-        
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          start(controller) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: staticMsg } }] })}\n\n`));
-            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-            controller.close();
-          }
-        });
-
-        return new Response(stream, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
-        });
-      }
-
-      // Stream response with marker injection
-      const reader = confirmResponse.body!.getReader();
-      const encoder = new TextEncoder();
-      
-      const customStream = new ReadableStream({
-        async start(controller) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-          }
-
-          // Inject success marker at the end (only for non-search tools)
-          if (toolResult.marker && !isSearchTool) {
-            const markerData = `data: ${JSON.stringify({ choices: [{ delta: { content: `\n\n${toolResult.marker}` } }] })}\n\n`;
-            controller.enqueue(encoder.encode(markerData));
-          }
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        }
-      });
-
-      return new Response(customStream, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
-      });
-    }
-
-    // No tool call - detect collection intent and inject marker
-    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop();
-    const collectionIntent = lastUserMessage 
-      ? detectCollectionIntent(lastUserMessage.content, messages)
-      : null;
     
-    console.log('[ai-orchestrator] Collection intent detected:', collectionIntent);
-
-    const streamResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages.slice(-20)
-        ],
-        stream: true,
-      }),
-    });
-
-    if (!streamResponse.ok) {
-      throw new Error(`Stream error: ${streamResponse.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ai-orchestrator] API error:', errorText);
+      throw new Error(`AI API error: ${response.status}`);
     }
-
-    // Save conversation
-    if (conversationId) {
-      await supabase
-        .from('ai_conversations')
-        .update({
-          messages,
-          last_message_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', conversationId)
-        .eq('user_id', user.id);
+    
+    const data = await response.json();
+    const choice = data.choices?.[0];
+    
+    if (!choice) {
+      throw new Error('No response from AI');
     }
-
-    // If collection intent detected, inject marker at the start of stream
-    if (collectionIntent && Object.keys(collectionIntent.fields).length > 0) {
-      const reader = streamResponse.body!.getReader();
-      const encoder = new TextEncoder();
-      const marker = `[COLLECTION_PROGRESS:${collectionIntent.type}:${JSON.stringify(collectionIntent.fields)}]`;
-      console.log('[ai-orchestrator] Injecting collection marker:', marker);
+    
+    // Handle tool calls
+    if (choice.message?.tool_calls?.length) {
+      const toolCall = choice.message.tool_calls[0];
+      const toolName = toolCall.function.name;
+      const toolArgs = JSON.parse(toolCall.function.arguments);
       
-      const customStream = new ReadableStream({
-        async start(controller) {
-          // Inject collection progress marker at the start
-          const markerData = `data: ${JSON.stringify({ choices: [{ delta: { content: marker } }] })}\n\n`;
-          controller.enqueue(encoder.encode(markerData));
-          
-          // Stream the rest of the AI response
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-          }
-          controller.close();
-        }
-      });
-
-      return new Response(customStream, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      console.log(`[ai-orchestrator] Tool call: ${toolName}`);
+      
+      const result = await executeTool(toolName, toolArgs, user.id, supabase);
+      
+      // Return with success marker for frontend
+      return new Response(JSON.stringify({
+        content: result.message,
+        toolResult: result,
+        success: result.success
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    return new Response(streamResponse.body, {
-      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+    
+    // Regular response - check for collection intent
+    let content = choice.message?.content || '';
+    
+    // Detect collection intent from user message
+    const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const collectionIntent = detectCollectionIntent(lastUserMsg, messages);
+    
+    // If we detected intent and response doesn't already have progress marker, inject one
+    if (collectionIntent && !content.includes('[COLLECTION_PROGRESS:')) {
+      const fieldsJson = JSON.stringify(collectionIntent.fields);
+      content += `\n\n[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]`;
+    }
+    
+    return new Response(JSON.stringify({
+      content,
+      success: true
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
-
+    
   } catch (error) {
     console.error('[ai-orchestrator] Error:', error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message || 'Erro interno' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      content: 'Desculpe, tive um problema técnico. Pode tentar novamente?',
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });
