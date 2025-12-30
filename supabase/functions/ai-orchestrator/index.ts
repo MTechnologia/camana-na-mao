@@ -1218,7 +1218,7 @@ async function executeTool(
         
         return {
           success: true,
-          message: `${progressMarker}${confirmationText} Qual o CEP do local? (se não souber, me diz a rua e bairro)`,
+          message: `${progressMarker}${confirmationText}\n\nQual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._`,
           data: { 
             category: args.category, 
             confidence: args.confidence, 
@@ -1243,7 +1243,7 @@ async function executeTool(
           
           return {
             success: true,
-            message: `${progressMarker}✅ CEP válido! Endereço encontrado:\n📍 ${result.street}\n🏘️ ${result.neighborhood}, ${result.city}/${result.state}\n\nQual o número ou ponto de referência próximo?`,
+            message: `${progressMarker}✅ **CEP válido!**\n\n📍 **Endereço encontrado:**\n- Rua: ${result.street}\n- Bairro: ${result.neighborhood}\n- Cidade: ${result.city}/${result.state}\n\nQual o **número** ou **ponto de referência** próximo?`,
             data: addressData
           };
         } else {
@@ -1363,7 +1363,7 @@ async function executeTool(
         
         return { 
           success: true, 
-          message: `[REPORT_CREATED:${data.id}]\n\n✅ **Relato registrado com sucesso!**\n\n📍 **Local:** ${args.street}${args.street_number ? `, ${args.street_number}` : ''} - ${args.neighborhood}\n📋 **Categoria:** ${categoryLabel}\n\n👉 [Ver meus relatos](/relato-urbano/historico) para acompanhar o status.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[REPORT_CREATED:${data.id}]\n\n✅ **Relato registrado com sucesso!**\n\n📍 **Local:** ${args.street}${args.street_number ? `, ${args.street_number}` : ''} - ${args.neighborhood}\n📋 **Categoria:** ${categoryLabel}\n\n👉 Acesse [Meus Relatos](/relato-urbano/historico) para acompanhar.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'urban' }
         };
       }
@@ -1414,9 +1414,20 @@ async function executeTool(
           console.error('[executeTool] N8N notification failed:', n8nError);
         }
         
+        const reportTypeLabels: Record<string, string> = {
+          atraso: 'Atraso',
+          lotacao: 'Lotação',
+          seguranca: 'Segurança',
+          acessibilidade: 'Acessibilidade',
+          limpeza: 'Limpeza',
+          conducao: 'Condução',
+          outro: 'Outro'
+        };
+        const typeLabel = reportTypeLabels[args.report_type] || args.report_type;
+        
         return { 
           success: true, 
-          message: `Relato de transporte registrado! ID: ${data.id.slice(0,8)}`,
+          message: `✅ **Relato de transporte registrado!**\n\n🚌 **Linha:** ${args.line_code || 'Não informada'}\n📋 **Tipo:** ${typeLabel}\n📅 **Data:** ${args.occurrence_date}\n\n👉 Acesse [Meus Relatos](/transporte/meus-relatos) para acompanhar.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'transport' }
         };
       }
@@ -1475,7 +1486,7 @@ async function executeTool(
         
         return { 
           success: true, 
-          message: `Avaliação registrada! Obrigado pelo feedback sobre ${args.service_name}.`,
+          message: `✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${args.service_name}\n⭐ **Nota:** ${'★'.repeat(args.rating_stars)}${'☆'.repeat(5 - args.rating_stars)}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating' }
         };
       }
