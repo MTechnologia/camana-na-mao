@@ -49,6 +49,16 @@ function buildWebhookPayload(payload: NotifyPayload, callbackUrl: string) {
   const reportDataWithoutUserSeverity = { ...payload.report_data };
   delete (reportDataWithoutUserSeverity as Record<string, unknown>).severity;
 
+  // Extract impact data for urban reports
+  const impactData = payload.report_type === 'urban' ? {
+    risk_level: (payload.report_data as Record<string, unknown>).risk_level || null,
+    risk_types: (payload.report_data as Record<string, unknown>).risk_types || [],
+    affected_scope: (payload.report_data as Record<string, unknown>).affected_scope || null,
+    affected_estimate: (payload.report_data as Record<string, unknown>).affected_estimate || null,
+    active_consequences: (payload.report_data as Record<string, unknown>).active_consequences || [],
+    urgency_reason: (payload.report_data as Record<string, unknown>).urgency_reason || null
+  } : null;
+
   return {
     event: payload.event,
     timestamp: new Date().toISOString(),
@@ -58,6 +68,8 @@ function buildWebhookPayload(payload: NotifyPayload, callbackUrl: string) {
       severity_pending_classification: true,
       ...reportDataWithoutUserSeverity
     },
+    // Structured impact data for N8N prioritization (urban reports only)
+    impact: impactData,
     user: {
       id: payload.user_id ? payload.user_id.substring(0, 8) + '...' : 'anonymous'
     },

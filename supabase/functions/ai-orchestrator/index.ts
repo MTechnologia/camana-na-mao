@@ -551,7 +551,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_urban_report",
-      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente).",
+      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Para categorias de risco (via_publica, iluminacao, esgoto, area_verde), coletar também dados de impacto.",
       parameters: {
         type: "object",
         properties: {
@@ -568,7 +568,35 @@ const tools = [
           reference_point: { type: "string", description: "Ponto de referência (ex: perto do metrô, em frente à escola)" },
           neighborhood: { type: "string", description: "OBRIGATÓRIO: Bairro de São Paulo (ex: Consolação, Pinheiros, Centro)" },
           council_member_name: { type: "string", description: "Para feedback_camara: nome COMPLETO do vereador" },
-          council_member_party: { type: "string", description: "Para feedback_camara: partido do vereador" }
+          council_member_party: { type: "string", description: "Para feedback_camara: partido do vereador" },
+          risk_level: { 
+            type: "string", 
+            enum: ["critical", "moderate", "low", "none"],
+            description: "Nível de risco imediato: critical (risco de vida, fios expostos, desabamento), moderate (bloqueio parcial, risco de acidente), low (incômodo, desconforto), none (sem risco)"
+          },
+          risk_types: { 
+            type: "array", 
+            items: { type: "string", enum: ["electrical", "traffic", "flooding", "structural", "health", "fire"] },
+            description: "Tipos de risco presentes: electrical (fios/choque), traffic (via bloqueada), flooding (alagamento), structural (desabamento), health (contaminação), fire (incêndio)"
+          },
+          affected_scope: { 
+            type: "string", 
+            enum: ["individual", "street", "neighborhood", "zone", "city"],
+            description: "Alcance da afetação: individual (só eu), street (toda a rua), neighborhood (bairro todo), zone (zona inteira), city (cidade)"
+          },
+          affected_estimate: { 
+            type: "integer", 
+            description: "Estimativa de pessoas afetadas (quando conseguir inferir)"
+          },
+          active_consequences: { 
+            type: "array", 
+            items: { type: "string", enum: ["power_outage", "water_outage", "traffic_blocked", "flooding", "health_hazard", "service_disruption"] },
+            description: "Consequências já em andamento: power_outage (falta luz), water_outage (falta água), traffic_blocked (trânsito parado), flooding (alagando), health_hazard (risco saúde), service_disruption (serviço interrompido)"
+          },
+          urgency_reason: { 
+            type: "string", 
+            description: "Motivo de urgência descrito pelo cidadão em suas palavras"
+          }
         },
         required: ["category", "description", "street", "neighborhood"]
       }
@@ -787,7 +815,8 @@ Quando detectar que o cidadão quer fazer um RELATO URBANO, você DEVE:
    3º) Se CEP: chamar validate_cep
    4º) Pedir número/referência
    5º) Se descrição < 30 chars: pedir mais detalhes
-   6º) Chamar create_urban_report
+   6º) **PARA CATEGORIAS DE RISCO**: Perguntar sobre impacto (ver abaixo)
+   7º) Chamar create_urban_report COM dados de impacto
 
 2. NUNCA extrair localização da descrição do problema
    - "tem fedor na minha rua" → você NÃO sabe qual é a rua
@@ -799,12 +828,64 @@ Quando detectar que o cidadão quer fazer um RELATO URBANO, você DEVE:
    - Rua (street) - via CEP ou manual
    - Bairro (neighborhood) - via CEP ou manual
 
+=== REGRA DE COLETA DE IMPACTO (NOVO) ===
+
+CATEGORIAS QUE EXIGEM PERGUNTAS DE IMPACTO:
+- via_publica (buraco, asfalto)
+- iluminacao (poste, fios)
+- esgoto (bueiro, vazamento, alagamento)
+- area_verde (árvore caindo)
+
+APÓS coletar localização, PERGUNTAR SOBRE IMPACTO:
+
+1. RISCO IMEDIATO (sempre para categorias acima):
+   Perguntar: "Há algum risco imediato? Por exemplo: fios expostos, via bloqueada, alagamento?"
+   
+   Mapear respostas para risk_level e risk_types:
+   - "fios expostos", "risco de choque" → risk_level: "critical", risk_types: ["electrical"]
+   - "via bloqueada", "não passa carro" → risk_level: "critical", risk_types: ["traffic"]
+   - "alagando", "água subindo" → risk_level: "critical", risk_types: ["flooding"]
+   - "árvore caindo", "pode desabar" → risk_level: "critical", risk_types: ["structural"]
+   - "pode causar acidente" → risk_level: "moderate", risk_types: ["traffic"]
+   - "incômodo", "chato", "desconfortável" → risk_level: "low"
+   - "não tem risco" → risk_level: "none"
+
+2. ALCANCE DA AFETAÇÃO (se risco >= moderate):
+   Perguntar: "Isso está afetando só você, toda a rua ou o bairro todo?"
+   
+   Mapear respostas:
+   - "só eu", "minha casa" → affected_scope: "individual"
+   - "a rua toda", "vizinhos" → affected_scope: "street"
+   - "bairro inteiro" → affected_scope: "neighborhood"
+
+3. CONSEQUÊNCIAS ATIVAS (se risco critical OU afetação > individual):
+   Perguntar: "Já está causando falta de luz, água ou outro problema?"
+   
+   Mapear respostas:
+   - "falta luz", "apagão" → active_consequences: ["power_outage"]
+   - "falta água" → active_consequences: ["water_outage"]
+   - "trânsito parado" → active_consequences: ["traffic_blocked"]
+   - "está alagando" → active_consequences: ["flooding"]
+
+IMPORTANTE: Capturar também urgency_reason com as palavras do cidadão.
+
+Exemplo de fluxo completo:
+Cidadão: "Poste caiu e está com fios na rua"
+→ Classificar: iluminacao, risk_level: critical
+→ Coletar CEP/endereço
+→ Perguntar: "A rua está bloqueada? Está afetando outros moradores?"
+→ Resposta: "Sim, ninguém passa e a rua toda está sem luz"
+→ Mapear: risk_types: ["electrical", "traffic"], affected_scope: "street", active_consequences: ["power_outage", "traffic_blocked"]
+→ Criar relato com todos os dados de impacto
+
 === TEMPLATES DE PERGUNTAS ===
 
 RELATO URBANO:
 1ª: (após classificar) "Qual o CEP do local? (se não souber, me diz rua e bairro)"
 2ª: "Qual o número ou ponto de referência?"
 3ª: (se descrição curta) "Pode dar mais detalhes sobre o problema?"
+4ª: (categorias de risco) "Há algum risco imediato? (fios expostos, via bloqueada, alagamento)"
+5ª: (se risco) "Está afetando só você ou toda a rua/bairro?"
 
 TRANSPORTE:
 1ª: "Qual linha ou estação teve o problema?"
@@ -1236,6 +1317,13 @@ async function executeTool(
               council_member_name: args.council_member_name || null,
               council_member_party: args.council_member_party || null
             },
+            // Impact fields (new)
+            risk_level: args.risk_level || null,
+            risk_types: args.risk_types || [],
+            affected_scope: args.affected_scope || null,
+            affected_estimate: args.affected_estimate || null,
+            active_consequences: args.active_consequences || [],
+            urgency_reason: args.urgency_reason || null,
             status: 'pending'
           })
           .select('id')

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building, Navigation } from "lucide-react";
+import { Check, Circle, MapPin, MessageSquare, FileText, Bus, Star, Clock, Tag, Minimize2, Users, User, AlertCircle, Building, Navigation, ShieldAlert, Target } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,9 @@ interface CollectionConfig {
   fields: FieldConfig[];
 }
 
+// Categories that require impact assessment
+const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+
 const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {
     title: "Registrando problema urbano",
@@ -40,6 +43,9 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'street_number', label: 'Número', icon: Navigation, required: false },
       { key: 'neighborhood', label: 'Bairro', icon: Building, required: true },
       { key: 'reference_point', label: 'Referência', icon: Navigation, required: false },
+      // Impact fields - shown dynamically for risk categories
+      { key: 'risk_level', label: 'Risco', icon: ShieldAlert, required: false },
+      { key: 'affected_scope', label: 'Afetação', icon: Target, required: false },
     ]
   },
   transport_report: {
@@ -115,6 +121,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   media: 'Média',
   alta: 'Alta',
   critica: 'Crítica',
+  // Risk levels (impact)
+  critical: 'Crítico',
+  moderate: 'Moderado',
+  low: 'Baixo',
+  none: 'Nenhum',
+  // Affected scope (impact)
+  individual: 'Individual',
+  street: 'Rua toda',
+  neighborhood: 'Bairro',
+  zone: 'Zona',
+  city: 'Cidade',
 };
 
 const DataCollectionTracker = ({ 
@@ -133,7 +150,27 @@ const DataCollectionTracker = ({
       return CHAMBER_FEEDBACK_CONFIG;
     }
     
-    return DEFAULT_CONFIGS[collectionType] || null;
+    const baseConfig = DEFAULT_CONFIGS[collectionType];
+    if (!baseConfig) return null;
+    
+    // For urban reports with risk categories, show impact fields
+    // For other categories, hide risk_level and affected_scope
+    if (collectionType === 'urban_report') {
+      const category = collectedFields.category;
+      const isRiskCategory = category && RISK_CATEGORIES.includes(category);
+      
+      if (!isRiskCategory) {
+        // Filter out impact fields for non-risk categories
+        return {
+          ...baseConfig,
+          fields: baseConfig.fields.filter(f => 
+            f.key !== 'risk_level' && f.key !== 'affected_scope'
+          )
+        };
+      }
+    }
+    
+    return baseConfig;
   }, [collectionType, collectedFields.category]);
 
   if (!collectionType || !config) {
