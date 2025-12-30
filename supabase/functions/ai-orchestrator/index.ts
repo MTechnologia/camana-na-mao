@@ -1098,8 +1098,8 @@ serve(async (req) => {
         'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        body: JSON.stringify({
+          model: 'openai/gpt-5-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages.slice(-10) // Last 10 messages for context
