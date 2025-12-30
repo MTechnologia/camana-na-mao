@@ -151,6 +151,15 @@ const DataCollectionTracker = ({
 }: DataCollectionTrackerProps) => {
   const [showOptional, setShowOptional] = useState(false);
 
+  // Debug logging for development
+  if (process.env.NODE_ENV === 'development' || typeof window !== 'undefined') {
+    console.log('[DataCollectionTracker] Rendering with:', {
+      collectionType,
+      collectedFields,
+      fieldCount: Object.keys(collectedFields).length
+    });
+  }
+
   const config = useMemo(() => {
     if (!collectionType) return null;
     

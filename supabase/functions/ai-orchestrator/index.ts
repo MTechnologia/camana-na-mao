@@ -300,6 +300,58 @@ function accumulateFieldsFromHistory(
     }
   }
   
+  // === CRITICAL: Parse Google Places address picker format FIRST ===
+  // Format: "Endereço selecionado: Rua X - Bairro, Cidade - CEP: 00000-000"
+  for (const msg of messages) {
+    if (msg.role === 'user' && msg.content.toLowerCase().includes('endereço selecionado:')) {
+      const content = msg.content;
+      
+      // Extract street
+      const streetMatch = content.match(/Endereço selecionado:\s*([^-\n]+)/i);
+      if (streetMatch?.[1]?.trim() && !accumulated.street) {
+        accumulated.street = streetMatch[1].trim();
+      }
+      
+      // Extract neighborhood
+      const neighborhoodMatch = content.match(/-\s*([^,\n]+?)(?:,|\s+-\s+CEP)/i);
+      if (neighborhoodMatch?.[1]?.trim() && !accumulated.neighborhood) {
+        accumulated.neighborhood = neighborhoodMatch[1].trim();
+      }
+      
+      // Extract CEP
+      const cepMatch = content.match(/CEP:\s*(\d{5}-?\d{3})/i);
+      if (cepMatch?.[1] && !accumulated.cep) {
+        accumulated.cep = cepMatch[1].replace('-', '');
+      }
+      
+      console.log('[accumulateFields] Parsed Google Places address:', {
+        street: accumulated.street,
+        neighborhood: accumulated.neighborhood,
+        cep: accumulated.cep
+      });
+    }
+  }
+  
+  // === CRITICAL: Detect description from first long user message ===
+  if (!accumulated.description) {
+    for (const msg of messages) {
+      if (msg.role === 'user' && msg.content.length >= 30) {
+        const contentLower = msg.content.toLowerCase();
+        // Skip structured messages (addresses, numbers, short answers)
+        const isStructured = 
+          contentLower.includes('endereço selecionado:') ||
+          /^\d+$/.test(msg.content.trim()) ||
+          msg.content.trim().length < 30;
+        
+        if (!isStructured) {
+          accumulated.description = msg.content.trim();
+          console.log('[accumulateFields] Auto-detected description from user message');
+          break;
+        }
+      }
+    }
+  }
+  
   // For urban reports, scan ALL user messages for category and structured fields
   if (collectionType === 'urban_report') {
     // FIRST: Scan all user messages for category detection (fixes "bueiro" → "iluminacao" bug)

@@ -197,15 +197,34 @@ export const useUnifiedAIChat = (
       const raw = content.trim();
       const rawLower = raw.toLowerCase();
 
-      // 0) Detect Address Picker structured address (from Google Places)
-      if (rawLower.includes('endereço selecionado:') && rawLower.includes(' - cep:')) {
-        // User selected an address from the picker - mark all location fields
-        setCollectedFields(prev => ({
-          ...prev,
-          street: true,
-          neighborhood: true,
-          cep: true,
-        }));
+      // 0) Detect Address Picker structured address (from Google Places or CEP)
+      // Parse different formats: "Endereço selecionado: Rua X - Bairro, Cidade - CEP: 00000-000"
+      // Or simpler: "Endereço selecionado: Rua X - Bairro, Cidade"
+      if (rawLower.includes('endereço selecionado:')) {
+        const newFields: CollectedFields = {};
+        
+        // Extract street (before first " - ")
+        const streetMatch = raw.match(/Endereço selecionado:\s*([^-\n]+)/i);
+        if (streetMatch?.[1]?.trim()) {
+          newFields.street = streetMatch[1].trim();
+        }
+        
+        // Extract neighborhood (after first " - ", before comma or " - CEP")
+        const neighborhoodMatch = raw.match(/-\s*([^,\n]+?)(?:,|\s+-\s+CEP)/i);
+        if (neighborhoodMatch?.[1]?.trim()) {
+          newFields.neighborhood = neighborhoodMatch[1].trim();
+        }
+        
+        // Extract CEP if present
+        const cepMatch = raw.match(/CEP:\s*(\d{5}-?\d{3})/i);
+        if (cepMatch?.[1]) {
+          newFields.cep = cepMatch[1].replace('-', '');
+        }
+        
+        if (Object.keys(newFields).length > 0) {
+          console.log('[useUnifiedAIChat] Parsed address from picker:', newFields);
+          setCollectedFields(prev => ({ ...prev, ...newFields }));
+        }
       }
       
       // 0.5) Categoria - detecta confirmação de feedback ou classificação na conversa
@@ -313,7 +332,7 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // 4) Descrição - detecta resposta a pedido de detalhes
+      // 4) Descrição - detecta resposta a pedido de detalhes OU primeira mensagem longa
       if (!collectedFields.description) {
         const askedForDescription = 
           lastAssistantLower.includes('me conte mais') || 
@@ -324,6 +343,13 @@ export const useUnifiedAIChat = (
           lastAssistantLower.includes('[field_request:description]');
           
         if (askedForDescription && raw.length >= 30) {
+          setCollectedFields(prev => ({ ...prev, description: raw }));
+        }
+        
+        // Detect description from first/second user message if long enough
+        const userMsgCount = messages.filter(m => m.role === 'user').length;
+        if (userMsgCount <= 2 && raw.length >= 30 && !rawLower.includes('endereço selecionado:')) {
+          // Not a structured address and long enough = likely description
           setCollectedFields(prev => ({ ...prev, description: raw }));
         }
       }
