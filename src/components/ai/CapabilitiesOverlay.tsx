@@ -206,7 +206,7 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
           </DrawerTitle>
           <DrawerClose asChild>
             <button
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-primary text-muted-foreground hover:text-primary-foreground transition-colors"
               aria-label="Fechar"
             >
               <X className="w-5 h-5" />
@@ -258,8 +258,8 @@ const CapabilitiesOverlay = ({ isOpen, onClose, onSelectCapability }: Capabiliti
                         onClick={() => handleSelect(capability.message)}
                         className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all duration-150 border ${
                           isFocused 
-                            ? "bg-muted border-border shadow-sm" 
-                            : "hover:bg-muted/50 border-transparent"
+                            ? "bg-secondary border-border shadow-sm" 
+                            : "hover:bg-secondary/80 border-transparent"
                         }`}
                       >
                         <div className={`p-2 rounded-lg shrink-0 transition-colors ${
