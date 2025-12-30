@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Mic, AudioWaveform, ArrowUp } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Mic, ArrowUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
@@ -17,10 +16,7 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const navigate = useNavigate();
   const { toast } = useToast();
-
-  const hasText = inputValue.trim().length > 0;
 
   // Auto-focus when disabled changes from true to false (agent finished responding)
   useEffect(() => {
@@ -105,18 +101,6 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
     }
   };
 
-  const handleVoiceMode = () => {
-    navigate("/voz");
-  };
-
-  const handleActionButtonClick = () => {
-    if (hasText) {
-      handleSend();
-    } else {
-      handleVoiceMode();
-    }
-  };
-
   return (
     <div className="w-full">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -151,20 +135,16 @@ const ChatInput = ({ onSendMessage, disabled, placeholder = "Pergunte qualquer c
           </button>
         </div>
 
-        {/* Dynamic action button: Voice mode (empty) or Send (with text) */}
+        {/* Send button */}
         <Button
-          onClick={handleActionButtonClick}
-          disabled={disabled}
+          onClick={handleSend}
+          disabled={disabled || !inputValue.trim()}
           size="icon"
-          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0 transition-transform active:scale-95"
-          aria-label={hasText ? "Enviar mensagem" : "Modo conversa por voz"}
-          title={hasText ? "Enviar mensagem" : "Conversa completa por voz"}
+          className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-foreground hover:bg-foreground/90 text-background shrink-0 transition-transform active:scale-95 disabled:opacity-50"
+          aria-label="Enviar mensagem"
+          title="Enviar mensagem"
         >
-          {hasText ? (
-            <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
-          ) : (
-            <AudioWaveform className="w-4 h-4 sm:w-5 sm:h-5" />
-          )}
+          <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
         </Button>
       </div>
 
