@@ -38,16 +38,21 @@ export const useUnifiedAIChat = (
     }
   }, [conversationId]);
 
-  // Reset state when conversation changes (but respect initialCollectionType)
+  // Sincroniza collectionType quando initialCollectionType muda
+  useEffect(() => {
+    if (initialCollectionType) {
+      console.log('[useUnifiedAIChat] Setting collectionType from initial:', initialCollectionType);
+      setCollectionType(initialCollectionType);
+    }
+  }, [initialCollectionType]);
+
+  // Reset state when conversation changes
   useEffect(() => {
     setIsHistoryLoaded(false);
     setCreatedReport(null);
-    // Só reseta collectionType se não houver um inicial definido
-    if (!initialCollectionType) {
-      setCollectionType(null);
-    }
+    // Não reseta collectionType aqui - deixa o effect acima gerenciar
     setCollectedFields({});
-  }, [conversationId, initialCollectionType]);
+  }, [conversationId]);
 
   // Load messages from database when conversationId changes
   useEffect(() => {
@@ -410,11 +415,13 @@ export const useUnifiedAIChat = (
     }
   }, [messages, user, toast, createdReport]);
 
-  const clearMessages = useCallback(() => {
+  const clearMessages = useCallback((preserveCollectionType = false) => {
     setMessages([]);
     setCreatedReport(null);
-    setCollectionType(null);
-    setCollectedFields({});
+    if (!preserveCollectionType) {
+      setCollectionType(null);
+      setCollectedFields({});
+    }
     conversationIdRef.current = null;
   }, []);
 
