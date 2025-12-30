@@ -10,9 +10,89 @@ export interface AIConversation {
   lastMessage: string;
   lastMessagePreview: string;
   lastMessageAt: Date;
+  createdAt: Date;
   messageCount: number;
   status: 'active' | 'archived';
+  reportData?: {
+    category?: string;
+    address?: string;
+    status?: string;
+  };
 }
+
+// Clean internal markers from text
+const cleanInternalMarkers = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/\[COLLECTION_PROGRESS:[^\]]+\]/g, "")
+    .replace(/\[REPORT_CREATED:[^\]]+\]/g, "")
+    .replace(/\[TRANSPORT_CREATED:[^\]]+\]/g, "")
+    .replace(/\[RATING_CREATED:[^\]]+\]/g, "")
+    .replace(/\*\*/g, "")
+    .trim();
+};
+
+// Extract report data from messages
+const extractReportData = (messages: any[]): { category?: string; address?: string; status?: string } | undefined => {
+  for (const msg of messages) {
+    const content = msg?.content || "";
+    
+    // Try to extract from COLLECTION_PROGRESS marker
+    const progressMatch = content.match(/\[COLLECTION_PROGRESS:(\w+):(\{.*?\})\]/);
+    if (progressMatch) {
+      try {
+        const data = JSON.parse(progressMatch[2]);
+        const category = data.category || data.report_type;
+        const address = [data.street, data.street_number, data.neighborhood].filter(Boolean).join(", ");
+        return {
+          category: formatCategory(category),
+          address: address || undefined,
+          status: "Em andamento"
+        };
+      } catch {}
+    }
+    
+    // Try to extract from REPORT_CREATED marker
+    const reportMatch = content.match(/\[REPORT_CREATED:([^\]]+)\]/);
+    if (reportMatch) {
+      return { status: "Registrado" };
+    }
+  }
+  return undefined;
+};
+
+// Format category for display
+const formatCategory = (category: string | undefined): string | undefined => {
+  if (!category) return undefined;
+  const categoryMap: Record<string, string> = {
+    "iluminacao": "Iluminação",
+    "via_publica": "Via Pública",
+    "esgoto": "Esgoto/Saneamento",
+    "lixo": "Lixo/Limpeza",
+    "calcada": "Calçada",
+    "sinalizacao": "Sinalização",
+    "area_verde": "Área Verde",
+    "animais": "Animais",
+    "atraso": "Atraso",
+    "lotacao": "Lotação",
+    "manutencao": "Manutenção",
+    "seguranca": "Segurança",
+    "acessibilidade": "Acessibilidade"
+  };
+  return categoryMap[category.toLowerCase()] || category;
+};
+
+// Generate intelligent title from first user message
+const generateIntelligentTitle = (messages: any[]): string => {
+  const userMessage = messages.find(m => m?.role === "user");
+  if (userMessage?.content) {
+    const cleaned = cleanInternalMarkers(userMessage.content);
+    if (cleaned.length > 0) {
+      return cleaned.length > 60 ? cleaned.substring(0, 60) + "..." : cleaned;
+    }
+  }
+  return "Conversa iniciada";
+};
 
 export const useAIConversations = () => {
   const { user } = useAuth();
@@ -36,17 +116,25 @@ export const useAIConversations = () => {
       const formatted: AIConversation[] = (data || []).map((conv) => {
         const messages = (conv.messages as any[]) || [];
         const lastMsg = messages[messages.length - 1];
-        const lastMsgContent = lastMsg?.content || '';
+        const lastMsgContent = cleanInternalMarkers(lastMsg?.content || '');
+        
+        // Generate intelligent title from first user message
+        const intelligentTitle = generateIntelligentTitle(messages);
+        
+        // Extract report data from messages
+        const reportData = extractReportData(messages);
         
         return {
           id: conv.id,
           journeyId: conv.journey_id || 'general',
-          title: conv.title || 'Conversa sem título',
+          title: intelligentTitle,
           lastMessage: lastMsgContent,
           lastMessagePreview: lastMsgContent.length > 100 ? lastMsgContent.substring(0, 100) + '...' : lastMsgContent,
           lastMessageAt: new Date(conv.last_message_at),
+          createdAt: new Date(conv.created_at),
           messageCount: messages.length,
           status: conv.status as 'active' | 'archived',
+          reportData,
         };
       });
 
