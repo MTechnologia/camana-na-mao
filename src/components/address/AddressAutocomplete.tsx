@@ -210,7 +210,7 @@ export function AddressAutocomplete({
       {showDropdown && predictions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 mt-1 w-full bg-background border rounded-md shadow-lg max-h-60 overflow-auto"
+          className="absolute z-50 bottom-full mb-1 w-full bg-background border rounded-md shadow-lg max-h-60 overflow-auto"
         >
           {predictions.map((prediction, index) => (
             <button
