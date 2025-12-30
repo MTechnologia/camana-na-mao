@@ -3,7 +3,7 @@ import { WifiOff, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface OfflineModeProps {
-  onRetry?: () => Promise<boolean>;
+  onRetry: () => Promise<boolean>;
 }
 
 const AUTO_RETRY_INTERVAL_S = 5;
@@ -17,14 +17,10 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
     
     setIsRetrying(true);
     
-    if (onRetry) {
-      const success = await onRetry();
-      if (!success) {
-        setIsRetrying(false);
-        setCountdown(AUTO_RETRY_INTERVAL_S);
-      }
-    } else {
-      window.location.reload();
+    const success = await onRetry();
+    if (!success) {
+      setIsRetrying(false);
+      setCountdown(AUTO_RETRY_INTERVAL_S);
     }
   };
 

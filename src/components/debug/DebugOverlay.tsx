@@ -30,7 +30,8 @@ export const DebugOverlay = () => {
       window.location.href = url.toString();
     } catch (e) {
       console.error("Erro ao forçar atualização:", e);
-      window.location.reload();
+      // Não fazer reload automático - apenas resetar estado
+      setIsRefreshing(false);
     }
   };
 

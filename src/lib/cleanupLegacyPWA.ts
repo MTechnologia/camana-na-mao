@@ -99,11 +99,13 @@ export const logPWADiagnostics = async (): Promise<void> => {
 
 /**
  * Força limpeza (para uso manual no console)
+ * Retorna true se limpou algo, caller decide se quer reload
  */
-export const forceNuclearCleanup = async (): Promise<void> => {
+export const forceNuclearCleanup = async (): Promise<boolean> => {
   localStorage.removeItem(CLEANUP_KEY);
-  await cleanupLegacyPWA();
-  window.location.reload();
+  const swCleared = await unregisterServiceWorkers();
+  const cachesCleared = await clearCaches();
+  return swCleared > 0 || cachesCleared > 0;
 };
 
 // Expor para debug via console

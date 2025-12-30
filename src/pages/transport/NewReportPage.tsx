@@ -66,6 +66,14 @@ export default function NewReportPage() {
     }
   };
 
+  const handleNewReport = () => {
+    setStep(1);
+    setReportData({});
+    setSuccess(false);
+    setReportId('');
+    setRelatedPattern(null);
+  };
+
   if (success) {
     return (
       <>
@@ -76,7 +84,7 @@ export default function NewReportPage() {
               reportId={reportId}
               variant="transport"
               onViewPatterns={() => navigate('/transporte/padroes')}
-              onNewReport={() => window.location.reload()}
+              onNewReport={handleNewReport}
             />
           </div>
         </div>
