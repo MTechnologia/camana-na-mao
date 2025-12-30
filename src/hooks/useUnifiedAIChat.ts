@@ -316,6 +316,7 @@ export const useUnifiedAIChat = (
               .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
               .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
+              .replace(/\[FIELD_REQUEST:\w+\]/g, '') // Remove FIELD_REQUEST markers
               .trim();
             
             setMessages((prev) => {
