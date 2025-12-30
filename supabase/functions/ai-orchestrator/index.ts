@@ -134,27 +134,44 @@ async function lookupCEP(cep: string): Promise<{
 }
 
 // Extract urban report-specific fields - SIMPLIFIED: NO automatic location extraction
+// PRIORITY ORDER: esgoto > higiene_urbana > iluminacao (prevents "bueiro fedido" → iluminacao)
 function extractUrbanFields(context: string): Record<string, any> {
   const fields: Record<string, any> = {};
   
-  // Detect category ONLY - location must be ASKED explicitly
-  if (context.includes('poste') || context.includes('luz') || context.includes('escuro') || context.includes('iluminaç')) {
-    fields.category = 'iluminacao';
-  } else if (context.includes('buraco') || context.includes('asfalto') || context.includes('semáforo') || context.includes('semaforo')) {
-    fields.category = 'via_publica';
-  } else if (context.includes('calçada') || context.includes('calcada') || context.includes('passeio')) {
-    fields.category = 'calcada';
-  } else if (context.includes('lixo') || context.includes('entulho')) {
-    fields.category = 'lixo';
-  } else if (context.includes('árvore') || context.includes('arvore') || context.includes('poda') || context.includes('praça') || context.includes('praca') || context.includes('mato')) {
-    fields.category = 'area_verde';
-  } else if (context.includes('fedor') || context.includes('cheiro') || context.includes('fedendo') || context.includes('urina') || context.includes('fezes') || context.includes('sujeira')) {
-    fields.category = 'higiene_urbana';
-  } else if (context.includes('bicho morto') || context.includes('animal morto') || context.includes('rato') || context.includes('barata') || context.includes('infestação') || context.includes('infestacao')) {
-    fields.category = 'animais';
-  } else if (context.includes('esgoto') || context.includes('bueiro') || context.includes('vazamento') || context.includes('alagamento')) {
+  // PRIORITY 1: Esgoto/bueiro (highest priority - includes "bueiro fedido")
+  if (context.includes('esgoto') || context.includes('bueiro') || context.includes('vazamento') || context.includes('alagamento') || context.includes('alagando')) {
     fields.category = 'esgoto';
-  } else if (context.includes('poluição') || context.includes('poluicao') || context.includes('fumaça') || context.includes('fumaca') || context.includes('barulho')) {
+  }
+  // PRIORITY 2: Animals (before hygiene to handle "bicho morto fedendo")
+  else if (context.includes('bicho morto') || context.includes('animal morto') || context.includes('rato') || context.includes('barata') || context.includes('infestação') || context.includes('infestacao')) {
+    fields.category = 'animais';
+  }
+  // PRIORITY 3: Urban hygiene (fedor/sujeira when NOT related to esgoto)
+  else if (context.includes('fedor') || context.includes('cheiro') || context.includes('fedendo') || context.includes('urina') || context.includes('fezes') || context.includes('sujeira')) {
+    fields.category = 'higiene_urbana';
+  }
+  // PRIORITY 4: Lighting
+  else if (context.includes('poste') || context.includes('luz apagad') || context.includes('escuro') || context.includes('iluminaç')) {
+    fields.category = 'iluminacao';
+  }
+  // PRIORITY 5: Roads
+  else if (context.includes('buraco') || context.includes('asfalto') || context.includes('semáforo') || context.includes('semaforo')) {
+    fields.category = 'via_publica';
+  }
+  // PRIORITY 6: Sidewalk
+  else if (context.includes('calçada') || context.includes('calcada') || context.includes('passeio')) {
+    fields.category = 'calcada';
+  }
+  // PRIORITY 7: Trash
+  else if (context.includes('lixo') || context.includes('entulho')) {
+    fields.category = 'lixo';
+  }
+  // PRIORITY 8: Green areas
+  else if (context.includes('árvore') || context.includes('arvore') || context.includes('poda') || context.includes('praça') || context.includes('praca') || context.includes('mato')) {
+    fields.category = 'area_verde';
+  }
+  // PRIORITY 9: Pollution
+  else if (context.includes('poluição') || context.includes('poluicao') || context.includes('fumaça') || context.includes('fumaca') || context.includes('barulho')) {
     fields.category = 'poluicao';
   }
   
@@ -418,59 +435,64 @@ function detectCollectionIntent(
 ): CollectionIntent | null {
   const msgLower = userMessage.toLowerCase();
   
-  // Combine recent context
-  const recentContext = conversationHistory.slice(-6).map(m => m.content.toLowerCase()).join(' ');
-  const fullContext = `${recentContext} ${msgLower}`;
+  // FIX: Use ONLY user messages for context (prevents assistant examples from contaminating category)
+  const userOnlyContext = conversationHistory
+    .slice(-6)
+    .filter(m => m.role === 'user')
+    .map(m => m.content.toLowerCase())
+    .join(' ');
+  const fullUserContext = `${userOnlyContext} ${msgLower}`;
   
   // Check for intent keywords (REQUIRED to activate tracker)
-  const hasIntent = INTENT_KEYWORDS.some(kw => fullContext.includes(kw));
+  const hasIntent = INTENT_KEYWORDS.some(kw => fullUserContext.includes(kw));
   
   if (!hasIntent) {
     console.log('[detectCollectionIntent] No intent keywords found, skipping tracker activation');
     return null;
   }
   
-  // Calculate scores for each type
+  // Calculate scores for each type using USER-ONLY context
   const scores: DetectionScore[] = [];
   
   // Transport scoring
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
   let transportScore = 0;
-  transportDomain.forEach(kw => { if (fullContext.includes(kw)) transportScore += 4; });
-  transportProblems.forEach(kw => { if (fullContext.includes(kw)) transportScore += 3; });
+  transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
+  transportProblems.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 3; });
   if (transportScore > 0) {
-    scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullContext) });
+    scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullUserContext) });
   }
   
-  // Urban scoring - expanded with new categories
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira'];
+  // Urban scoring - using USER-ONLY context to prevent assistant contamination
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo'];
   const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo'];
   let urbanScore = 0;
-  urbanDomain.forEach(kw => { if (fullContext.includes(kw)) urbanScore += 4; });
-  urbanProblems.forEach(kw => { if (fullContext.includes(kw)) urbanScore += 2; });
+  urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
+  urbanProblems.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 2; });
   if (urbanScore > 0) {
-    scores.push({ type: 'urban_report', score: urbanScore, fields: extractUrbanFields(fullContext) });
+    // FIX: Extract fields from USER-ONLY context
+    scores.push({ type: 'urban_report', score: urbanScore, fields: extractUrbanFields(fullUserContext) });
   }
   
-  // Service rating scoring
+  // Service rating scoring - use user-only context
   const serviceDomain = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto de saúde', 'posto de saude', 'centro esportivo'];
   const ratingTerms = ['avaliar', 'avaliação', 'avaliacao', 'nota', 'estrela', 'atendimento'];
   let serviceScore = 0;
-  serviceDomain.forEach(kw => { if (fullContext.includes(kw)) serviceScore += 4; });
-  ratingTerms.forEach(kw => { if (fullContext.includes(kw)) serviceScore += 3; });
+  serviceDomain.forEach(kw => { if (fullUserContext.includes(kw)) serviceScore += 4; });
+  ratingTerms.forEach(kw => { if (fullUserContext.includes(kw)) serviceScore += 3; });
   if (serviceScore > 0) {
-    scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullContext) });
+    scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullUserContext) });
   }
   
-  // Chamber feedback scoring (new!)
+  // Chamber feedback scoring - use user-only context
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
   const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
   let chamberScore = 0;
-  chamberDomain.forEach(kw => { if (fullContext.includes(kw)) chamberScore += 5; });
-  feedbackTerms.forEach(kw => { if (fullContext.includes(kw)) chamberScore += 4; });
+  chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
+  feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
   if (chamberScore > 0) {
-    scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullContext) });
+    scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
   // No matches found
@@ -1020,16 +1042,21 @@ async function executeTool(
       case 'validate_cep': {
         const result = await lookupCEP(args.cep);
         if (result.valid) {
+          // FIX: Include COLLECTION_PROGRESS marker with validated address data
+          const cleanCep = args.cep.replace(/\D/g, '');
+          const addressData = { 
+            cep: cleanCep,
+            street: result.street, 
+            neighborhood: result.neighborhood,
+            city: result.city,
+            state: result.state
+          };
+          const progressMarker = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(addressData)}]`;
+          
           return {
             success: true,
-            message: `✅ CEP válido! Endereço encontrado:\n📍 ${result.street}\n🏘️ ${result.neighborhood}, ${result.city}/${result.state}\n\nQual o número ou ponto de referência próximo?`,
-            data: { 
-              cep: args.cep.replace(/\D/g, ''),
-              street: result.street, 
-              neighborhood: result.neighborhood,
-              city: result.city,
-              state: result.state
-            }
+            message: `${progressMarker}✅ CEP válido! Endereço encontrado:\n📍 ${result.street}\n🏘️ ${result.neighborhood}, ${result.city}/${result.state}\n\nQual o número ou ponto de referência próximo?`,
+            data: addressData
           };
         } else {
           return {
@@ -1040,6 +1067,31 @@ async function executeTool(
       }
       
       case 'create_urban_report': {
+        // FIX: Hard validation for description length (min 30 chars)
+        if (!args.description || args.description.trim().length < 30) {
+          return {
+            success: false,
+            message: 'Por favor, descreva o problema com mais detalhes (mínimo 30 caracteres). Como está afetando você ou o local?'
+          };
+        }
+        
+        // FIX: Validate required fields
+        if (!args.street || !args.neighborhood) {
+          return {
+            success: false,
+            message: 'Preciso saber a rua e o bairro para registrar o relato. Qual o CEP ou endereço do local?'
+          };
+        }
+        
+        // FIX: Normalize category based on description (server-side last line of defense)
+        let normalizedCategory = args.category;
+        const descLower = args.description.toLowerCase();
+        if (descLower.includes('bueiro') || descLower.includes('esgoto') || descLower.includes('vazamento') || descLower.includes('alagamento') || descLower.includes('alagando')) {
+          normalizedCategory = 'esgoto';
+        } else if (descLower.includes('bicho morto') || descLower.includes('animal morto') || descLower.includes('rato') || descLower.includes('infestação')) {
+          normalizedCategory = 'animais';
+        }
+        
         // Build location_address from structured fields
         const locationParts = [];
         if (args.street) locationParts.push(args.street);
@@ -1052,11 +1104,11 @@ async function executeTool(
           .from('urban_reports')
           .insert({
             user_id: userId,
-            category: args.category,
+            category: normalizedCategory, // Use normalized category
             subcategory: args.subcategory || null,
             description: args.description,
             location_address: location_address,
-            cep: args.cep || null, // Save CEP if provided
+            cep: args.cep || null,
             street: args.street || null,
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,

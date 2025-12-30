@@ -48,9 +48,14 @@ interface Filters {
 const categoryLabels: Record<string, string> = {
   iluminacao: "Iluminação",
   calcada: "Calçada",
-  via: "Via Pública",
+  via_publica: "Via Pública",
   lixo: "Lixo e Limpeza",
-  verde: "Área Verde",
+  area_verde: "Área Verde",
+  esgoto: "Esgoto/Bueiro",
+  higiene_urbana: "Higiene Urbana",
+  animais: "Animais",
+  poluicao: "Poluição",
+  feedback_camara: "Feedback Câmara",
   outro: "Outro"
 };
 
