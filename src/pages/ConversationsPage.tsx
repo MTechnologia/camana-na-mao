@@ -203,14 +203,9 @@ const ConversationsPage = () => {
                             {getJourneyIcon(conversation.journeyId)}
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="font-medium text-foreground line-clamp-2 break-words">
-                                {conversation.title}
-                              </h3>
-                              <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-                                {formatCreatedDate(conversation.createdAt)}
-                              </span>
-                            </div>
+                            <h3 className="font-medium text-foreground line-clamp-2 break-words">
+                              {conversation.title}
+                            </h3>
                             {conversation.reportData && (
                               <div className="flex flex-wrap items-center gap-1 mt-1 text-xs text-muted-foreground">
                                 {conversation.reportData.category && (
@@ -219,13 +214,8 @@ const ConversationsPage = () => {
                                   </span>
                                 )}
                                 {conversation.reportData.address && (
-                                  <span className="truncate max-w-[200px]">
+                                  <span className="truncate">
                                     {conversation.reportData.address}
-                                  </span>
-                                )}
-                                {conversation.reportData.status && (
-                                  <span className="text-emerald-600 dark:text-emerald-400">
-                                    • {conversation.reportData.status}
                                   </span>
                                 )}
                               </div>
@@ -235,15 +225,20 @@ const ConversationsPage = () => {
                                 {conversation.lastMessagePreview}
                               </p>
                             )}
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-xs text-muted-foreground">
+                                {formatCreatedDate(conversation.createdAt)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => handleDeleteClick(e, conversation)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
-                            onClick={(e) => handleDeleteClick(e, conversation)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       </Card>
                     ))}
