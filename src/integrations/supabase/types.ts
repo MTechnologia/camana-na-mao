@@ -1490,6 +1490,7 @@ export type Database = {
           n8n_tags: string[] | null
           n8n_validated_category: string | null
           n8n_workflow_id: string | null
+          neighborhood: string | null
           photos: string[] | null
           reference_point: string | null
           severity: string | null
@@ -1516,6 +1517,7 @@ export type Database = {
           n8n_tags?: string[] | null
           n8n_validated_category?: string | null
           n8n_workflow_id?: string | null
+          neighborhood?: string | null
           photos?: string[] | null
           reference_point?: string | null
           severity?: string | null
@@ -1542,6 +1544,7 @@ export type Database = {
           n8n_tags?: string[] | null
           n8n_validated_category?: string | null
           n8n_workflow_id?: string | null
+          neighborhood?: string | null
           photos?: string[] | null
           reference_point?: string | null
           severity?: string | null
