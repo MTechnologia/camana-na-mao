@@ -44,7 +44,6 @@ const InterestsPage = lazy(() => import("./pages/profile/InterestsPage"));
 // CITIZEN PAGES - Lazy loaded
 // ============================================
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
-const Voz = lazy(() => import("./pages/Voz"));
 const SearchPage = lazy(() => import("./pages/Search"));
 const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
 
@@ -189,7 +188,6 @@ const AppContent = () => {
           {/* Citizen routes */}
           <Route path="/search" element={<SearchPage />} />
           <Route path="/conversas" element={<ConversationsPage />} />
-          <Route path="/voz" element={<Voz />} />
           <Route path="/favoritos" element={<FavoritesPage />} />
           <Route path="/audiencias" element={<Audiencias />} />
           <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />

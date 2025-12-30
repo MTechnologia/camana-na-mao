@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 
@@ -13,7 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
-import { useWebSpeechChat } from "@/hooks/useWebSpeechChat";
 
 const categories = [
   { value: "iluminacao", label: "Iluminação Pública" },
@@ -75,10 +74,12 @@ export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useProfile();
-  const { isRecording, isProcessing, startRecording, stopRecording, isSupported } = useWebSpeechChat();
   const [loading, setLoading] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const isSupported = typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
   const [formData, setFormData] = useState({
     category: "",
     title: "",
@@ -88,17 +89,52 @@ export default function ManualReportPage() {
     longitude: null as number | null
   });
 
-  const handleVoiceInput = async () => {
-    if (isRecording) {
-      const text = await stopRecording();
-      if (text) {
+  // Initialize Web Speech API
+  useEffect(() => {
+    if (isSupported) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.lang = 'pt-BR';
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
         setFormData(prev => ({
           ...prev,
-          description: prev.description + (prev.description ? ' ' : '') + text
+          description: prev.description + (prev.description ? ' ' : '') + transcript
         }));
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsRecording(false);
+        toast.error("Erro no reconhecimento de voz");
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsRecording(false);
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
       }
+    };
+  }, [isSupported]);
+
+  const handleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      toast.error("Reconhecimento de voz não suportado");
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
     } else {
-      await startRecording();
+      recognitionRef.current.start();
+      setIsRecording(true);
     }
   };
 
@@ -299,7 +335,7 @@ export default function ManualReportPage() {
                     size="icon"
                     className="absolute right-2 bottom-2"
                     onClick={handleVoiceInput}
-                    disabled={isProcessing || !isSupported}
+                    disabled={!isSupported}
                   >
                     {isRecording ? (
                       <MicOff className="w-5 h-5 text-destructive" />
