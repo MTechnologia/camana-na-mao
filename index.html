@@ -139,6 +139,14 @@
       html, body {
         overscroll-behavior: none;
         background: #ffffff;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Hide scrollbar on html/body during shell display */
+      html:has(#app-shell:not([data-hidden="true"])),
+      html:has(#app-shell:not([data-hidden="true"])) body {
+        overflow: hidden !important;
       }
     </style>
   </head>
