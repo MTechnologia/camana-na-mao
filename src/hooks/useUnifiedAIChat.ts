@@ -42,6 +42,10 @@ export const useUnifiedAIChat = (
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Storage key for tracker persistence
+  const getTrackerStorageKey = (convId: string | null) => 
+    convId ? `cmsp_tracker_${convId}` : null;
+
   // Sync conversationIdRef with prop changes
   useEffect(() => {
     if (conversationId !== conversationIdRef.current) {
@@ -57,13 +61,42 @@ export const useUnifiedAIChat = (
     }
   }, [initialCollectionType]);
 
-  // Reset state when conversation changes
+  // Load tracker state from sessionStorage when conversation changes
   useEffect(() => {
+    const storageKey = getTrackerStorageKey(conversationId || null);
+    if (storageKey) {
+      try {
+        const saved = sessionStorage.getItem(storageKey);
+        if (saved) {
+          const { type, fields } = JSON.parse(saved);
+          console.log('[useUnifiedAIChat] Restored tracker from session:', type, fields);
+          if (type) setCollectionType(type);
+          if (fields && Object.keys(fields).length > 0) setCollectedFields(fields);
+          return; // Don't reset if we restored
+        }
+      } catch (e) {
+        console.warn('[useUnifiedAIChat] Failed to restore tracker:', e);
+      }
+    }
+    // Reset if no saved state (but respect initialCollectionType)
     setIsHistoryLoaded(false);
     setCreatedReport(null);
-    // Não reseta collectionType aqui - deixa o effect acima gerenciar
+    if (!initialCollectionType) {
+      setCollectionType(null);
+    }
     setCollectedFields({});
-  }, [conversationId]);
+  }, [conversationId, initialCollectionType]);
+
+  // Persist tracker state to sessionStorage when it changes
+  useEffect(() => {
+    const storageKey = getTrackerStorageKey(conversationIdRef.current);
+    if (storageKey && (collectionType || Object.keys(collectedFields).length > 0)) {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        type: collectionType,
+        fields: collectedFields
+      }));
+    }
+  }, [collectionType, collectedFields]);
 
   // Load messages from database when conversationId changes
   useEffect(() => {
@@ -317,6 +350,9 @@ export const useUnifiedAIChat = (
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
               setCollectionType(null);
               setCollectedFields({});
+              // Clear tracker from sessionStorage on completion
+              const storageKey = getTrackerStorageKey(conversationIdRef.current);
+              if (storageKey) sessionStorage.removeItem(storageKey);
               toast({
                 title: "Relato criado!",
                 description: "Seu relato urbano foi registrado.",
@@ -328,6 +364,9 @@ export const useUnifiedAIChat = (
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
               setCollectionType(null);
               setCollectedFields({});
+              // Clear tracker from sessionStorage on completion
+              const storageKey = getTrackerStorageKey(conversationIdRef.current);
+              if (storageKey) sessionStorage.removeItem(storageKey);
               toast({
                 title: "Relato registrado!",
                 description: "Seu relato de transporte foi salvo.",
@@ -339,6 +378,9 @@ export const useUnifiedAIChat = (
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
               setCollectionType(null);
               setCollectedFields({});
+              // Clear tracker from sessionStorage on completion
+              const storageKey = getTrackerStorageKey(conversationIdRef.current);
+              if (storageKey) sessionStorage.removeItem(storageKey);
               toast({
                 title: "Avaliação registrada!",
                 description: "Sua avaliação foi salva.",
@@ -457,6 +499,9 @@ export const useUnifiedAIChat = (
     if (!preserveCollectionType) {
       setCollectionType(null);
       setCollectedFields({});
+      // Clear tracker from sessionStorage
+      const storageKey = getTrackerStorageKey(conversationIdRef.current);
+      if (storageKey) sessionStorage.removeItem(storageKey);
     }
     conversationIdRef.current = null;
   }, []);
