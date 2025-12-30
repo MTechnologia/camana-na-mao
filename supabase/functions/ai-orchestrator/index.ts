@@ -1038,6 +1038,67 @@ const tools = [
         required: []
       }
     }
+  },
+  // === JORNADA CONSCIENTE: Tools de Detecção e Transição ===
+  {
+    type: "function",
+    function: {
+      name: "detect_user_intent",
+      description: "USAR NA PRIMEIRA MENSAGEM do cidadão (quando não usar prompt chips). Classifica semanticamente a intenção do usuário para ativar a jornada correta. Analisa contexto semântico para distinguir entre: urban_report (problemas urbanos), transport_report (transporte público), service_rating (avaliar serviço), services (buscar serviços próximos), general (dúvidas sobre a Câmara).",
+      parameters: {
+        type: "object",
+        properties: {
+          intent: {
+            type: "string",
+            enum: ["urban_report", "transport_report", "service_rating", "services", "general", "unknown"],
+            description: "Intenção detectada semanticamente. Exemplos: 'ônibus capotou na avenida' = urban_report (acidente urbano, não serviço de transporte), 'ônibus atrasou 30 minutos' = transport_report (problema de serviço)"
+          },
+          confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            description: "Nível de confiança (0.0-1.0). Se >= 0.8, ativar jornada automaticamente. Se < 0.8, perguntar ao usuário."
+          },
+          reasoning: {
+            type: "string",
+            description: "Justificativa semântica da classificação (ex: 'Usuário menciona capotamento de ônibus como evento urbano, não como problema de serviço de transporte')"
+          },
+          suggested_alternatives: {
+            type: "array",
+            items: { type: "string" },
+            description: "Se confiança < 80%, listar alternativas prováveis para perguntar ao usuário"
+          }
+        },
+        required: ["intent", "confidence", "reasoning"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "confirm_journey_switch",
+      description: "USAR quando detectar mudança de intenção durante uma jornada de coleta estruturada (urban_report, transport_report, service_rating). Gera prompt de confirmação com botões para o usuário decidir. NÃO usar para jornadas leves (services, general).",
+      parameters: {
+        type: "object",
+        properties: {
+          current_journey: {
+            type: "string",
+            enum: ["urban_report", "transport_report", "service_rating"],
+            description: "Jornada atual em andamento"
+          },
+          detected_journey: {
+            type: "string",
+            enum: ["urban_report", "transport_report", "service_rating", "services", "general"],
+            description: "Nova jornada detectada"
+          },
+          current_progress_summary: {
+            type: "string",
+            description: "Resumo do que já foi coletado na jornada atual (ex: 'Problema de iluminação na Rua Augusta')"
+          }
+        },
+        required: ["current_journey", "detected_journey", "current_progress_summary"]
+      }
+    }
   }
 ];
 
@@ -1228,6 +1289,41 @@ NUNCA pular classificação quando cidadão aceitar feedback. A tool classify_re
 • search_audiencias → audiências públicas
 • get_citizen_history → histórico do cidadão
 • suggest_council_member → vereador para demanda
+• detect_user_intent → detectar intenção na primeira mensagem
+• confirm_journey_switch → confirmar mudança de jornada
+
+=== JORNADA CONSCIENTE - REGRAS DE DETECÇÃO E TRANSIÇÃO ===
+
+**PRIMEIRA MENSAGEM (sem prompt chip):**
+1. Se é a PRIMEIRA mensagem do cidadão e NÃO veio de um prompt chip predefinido:
+   → CHAMAR detect_user_intent para classificar semanticamente a intenção
+2. Se confiança >= 80%: ativar jornada automaticamente, responder naturalmente
+3. Se confiança < 80%: perguntar ao usuário qual é sua intenção real
+
+**EXEMPLOS DE CLASSIFICAÇÃO SEMÂNTICA (CRÍTICO):**
+- "Ônibus capotou na Paulista" → urban_report (é um EVENTO URBANO, não problema de serviço)
+- "Ônibus da linha 875 atrasou 40 minutos" → transport_report (problema de SERVIÇO de transporte)
+- "Tem muito lixo no ponto de ônibus" → urban_report (problema urbano no LOCAL)
+- "Quero avaliar a UBS Consolação" → service_rating
+- "UBS mais perto de mim?" → services (BUSCA, não avaliação)
+- "Como funciona a Câmara?" → general
+
+**DURANTE JORNADA ESTRUTURADA ATIVA (urban_report, transport_report, service_rating):**
+1. Se detectar intenção para OUTRA jornada ESTRUTURADA:
+   → Chamar confirm_journey_switch
+   → Incluir marcador [JOURNEY_SWITCH_PROMPT:nova_jornada:jornada_atual] na resposta
+2. Se detectar intenção para jornada LEVE (services, general):
+   → Responder normalmente SEM interromper a coleta atual
+3. NUNCA abandonar jornada silenciosamente
+
+**EXEMPLO DE USO DO confirm_journey_switch:**
+Cenário: Cidadão estava relatando problema urbano e disse "quero reclamar do ônibus"
+→ Chamar confirm_journey_switch com:
+  - current_journey: "urban_report"
+  - detected_journey: "transport_report"
+  - current_progress_summary: "Problema de iluminação na Rua Augusta"
+→ Responder: "Percebi que você quer falar sobre transporte. Ainda não terminamos seu relato sobre iluminação na Rua Augusta. [JOURNEY_SWITCH_PROMPT:transport_report:urban_report]"
+→ Frontend renderiza botões: "Sim, iniciar Transporte" / "Não, continuar Relato Urbano"
 
 TOM: Breve, direto, linguagem simples.
 Data de hoje: ${new Date().toISOString().split('T')[0]}`;
@@ -1975,6 +2071,113 @@ async function executeTool(
       case 'get_citizen_history': {
         const result = await getCitizenHistory(supabase, userId, args.history_type, args.status_filter, args.limit);
         return { success: true, message: result };
+      }
+      
+      // === JORNADA CONSCIENTE: Handlers de Detecção e Transição ===
+      case 'detect_user_intent': {
+        const { intent, confidence, reasoning, suggested_alternatives } = args;
+        
+        console.log('[detect_user_intent] Intent:', intent, 'Confidence:', confidence);
+        console.log('[detect_user_intent] Reasoning:', reasoning);
+        
+        // Map intent to collection type for tracker
+        const intentToCollection: Record<string, string | null> = {
+          'urban_report': 'urban_report',
+          'transport_report': 'transport_report',
+          'service_rating': 'service_rating',
+          'services': null, // Light journey, no tracker
+          'general': null,  // Light journey, no tracker
+          'unknown': null
+        };
+        
+        const collectionType = intentToCollection[intent];
+        
+        // Human-readable names for intents
+        const intentNames: Record<string, string> = {
+          'urban_report': 'Relato Urbano',
+          'transport_report': 'Diagnóstico de Transporte',
+          'service_rating': 'Avaliação de Serviço',
+          'services': 'Busca de Serviços',
+          'general': 'Dúvidas Gerais'
+        };
+        
+        if (confidence >= 0.8 && collectionType) {
+          // High confidence: activate journey automatically
+          const progressMarker = `[COLLECTION_PROGRESS:${collectionType}:{}]`;
+          
+          return {
+            success: true,
+            message: `${progressMarker}Jornada de **${intentNames[intent]}** detectada com ${Math.round(confidence * 100)}% de confiança. Prosseguindo...`,
+            data: {
+              status: 'activated',
+              journey: intent,
+              collection_type: collectionType,
+              confidence: confidence
+            }
+          };
+        } else if (confidence < 0.8 && collectionType) {
+          // Low confidence: return alternatives for user choice
+          const alternativesList = (suggested_alternatives || [])
+            .map((alt: string) => intentNames[alt] || alt)
+            .slice(0, 3)
+            .join(', ');
+          
+          return {
+            success: true,
+            message: `Não tenho certeza se você quer fazer um **${intentNames[intent]}**${alternativesList ? ` ou ${alternativesList}` : ''}. Pode me confirmar?`,
+            data: {
+              status: 'needs_confirmation',
+              detected: intent,
+              alternatives: suggested_alternatives || [],
+              confidence: confidence
+            }
+          };
+        } else {
+          // Light journey or unknown: proceed without tracker
+          return {
+            success: true,
+            message: `Entendi sua solicitação.`,
+            data: {
+              status: 'light_journey',
+              intent: intent
+            }
+          };
+        }
+      }
+      
+      case 'confirm_journey_switch': {
+        const { current_journey, detected_journey, current_progress_summary } = args;
+        
+        console.log('[confirm_journey_switch] Current:', current_journey, 'Detected:', detected_journey);
+        console.log('[confirm_journey_switch] Progress summary:', current_progress_summary);
+        
+        // Human-readable names
+        const journeyNames: Record<string, string> = {
+          'urban_report': 'Relato Urbano',
+          'transport_report': 'Diagnóstico de Transporte',
+          'service_rating': 'Avaliação de Serviço',
+          'services': 'Busca de Serviços',
+          'general': 'Dúvidas Gerais'
+        };
+        
+        const currentName = journeyNames[current_journey] || current_journey;
+        const detectedName = journeyNames[detected_journey] || detected_journey;
+        
+        // The frontend will render buttons based on this marker
+        const switchMarker = `[JOURNEY_SWITCH_PROMPT:${detected_journey}:${current_journey}]`;
+        
+        return {
+          success: true,
+          message: `Percebi que você quer falar sobre **${detectedName}**, mas ainda não terminamos seu **${currentName}**${current_progress_summary ? ` (${current_progress_summary})` : ''}. O que prefere fazer?\n\n${switchMarker}`,
+          data: {
+            status: 'switch_pending',
+            current: current_journey,
+            current_name: currentName,
+            detected: detected_journey,
+            detected_name: detectedName,
+            progress: current_progress_summary
+          }
+        };
       }
       
       default:

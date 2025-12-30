@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -40,18 +40,46 @@ const formatTimestamp = (timestamp: string | Date | undefined): string => {
   return '';
 };
 
+// Human-readable journey names
+const JOURNEY_NAMES: Record<string, string> = {
+  'urban_report': 'Relato Urbano',
+  'transport_report': 'Diagnóstico de Transporte',
+  'service_rating': 'Avaliação de Serviço',
+  'services': 'Busca de Serviços',
+  'general': 'Dúvidas Gerais'
+};
+
 interface ChatMessageBubbleProps {
   message: ChatMessage;
   userAvatarUrl?: string | null;
   userInitials?: string;
   onAddressSelected?: (address: StructuredAddress) => void;
+  onJourneySwitchDecision?: (decision: 'switch' | 'continue', newJourney?: string) => void;
   isLastAssistantMessage?: boolean;
 }
 
-const ChatMessageBubble = ({ message, userAvatarUrl, userInitials, onAddressSelected, isLastAssistantMessage = false }: ChatMessageBubbleProps) => {
+const ChatMessageBubble = ({ 
+  message, 
+  userAvatarUrl, 
+  userInitials, 
+  onAddressSelected, 
+  onJourneySwitchDecision,
+  isLastAssistantMessage = false 
+}: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
   const [addressSelected, setAddressSelected] = useState(false);
+  const [decisionMade, setDecisionMade] = useState(false);
+  
+  // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
+  const journeySwitchMatch = useMemo(() => {
+    if (isUser || decisionMade) return null;
+    const match = message.content.match(/\[JOURNEY_SWITCH_PROMPT:(\w+):(\w+)\]/);
+    if (match) {
+      return { newJourney: match[1], currentJourney: match[2] };
+    }
+    return null;
+  }, [isUser, message.content, decisionMade]);
   
   // Check if message contains [ADDRESS_PICKER] marker OR asks for CEP/address
   const hasAddressPicker = !isUser && message.content.includes('[ADDRESS_PICKER]');
@@ -96,12 +124,20 @@ const ChatMessageBubble = ({ message, userAvatarUrl, userInitials, onAddressSele
   const cleanContent = message.content
     .replace(/\[ADDRESS_PICKER\]/g, '')
     .replace(/\[FIELD_REQUEST:\w+\]/g, '')
+    .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .trim();
   
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
     if (onAddressSelected) {
       onAddressSelected(address);
+    }
+  };
+  
+  const handleJourneyDecision = (decision: 'switch' | 'continue') => {
+    setDecisionMade(true);
+    if (onJourneySwitchDecision && journeySwitchMatch) {
+      onJourneySwitchDecision(decision, decision === 'switch' ? journeySwitchMatch.newJourney : undefined);
     }
   };
   
@@ -214,6 +250,37 @@ const ChatMessageBubble = ({ message, userAvatarUrl, userInitials, onAddressSele
           <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
             <MapPin className="h-3 w-3" />
             <span>Endereço selecionado ✓</span>
+          </div>
+        )}
+        
+        {/* Journey Switch Confirmation Buttons */}
+        {journeySwitchMatch && isLastAssistantMessage && !decisionMade && (
+          <div className="mt-3 flex flex-col gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => handleJourneyDecision('switch')}
+              className="w-full justify-between"
+            >
+              <span>Sim, iniciar {JOURNEY_NAMES[journeySwitchMatch.newJourney] || journeySwitchMatch.newJourney}</span>
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleJourneyDecision('continue')}
+              className="w-full justify-between"
+            >
+              <span>Não, continuar {JOURNEY_NAMES[journeySwitchMatch.currentJourney] || journeySwitchMatch.currentJourney}</span>
+              <RotateCcw className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        )}
+        
+        {/* Show confirmation when journey decision was made */}
+        {decisionMade && journeySwitchMatch && (
+          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Decisão registrada ✓</span>
           </div>
         )}
         

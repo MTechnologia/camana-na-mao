@@ -52,7 +52,8 @@ const AgentChatArea = () => {
     clearMessages,
     addOptimisticMessage,
     collectionType,
-    collectedFields
+    collectedFields,
+    handleJourneySwitchDecision
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
@@ -245,6 +246,7 @@ const AgentChatArea = () => {
                         userAvatarUrl={userAvatarUrl}
                         userInitials={userInitials}
                         onAddressSelected={handleAddressSelected}
+                        onJourneySwitchDecision={handleJourneySwitchDecision}
                         isLastAssistantMessage={isLastAssistantMessage}
                       />
                     </motion.div>
