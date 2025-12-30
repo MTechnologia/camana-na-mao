@@ -268,6 +268,13 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
         result.active_consequences = consequences;
       }
       break;
+      
+    case 'description':
+      // Any response with 30+ chars is considered a valid description
+      if (response.length >= 30) {
+        result.description = response;
+      }
+      break;
   }
   
   return result;
@@ -401,6 +408,14 @@ function accumulateFieldsFromHistory(
              question.includes('causando')) && !accumulated.active_consequences) {
           const parsedConsequences = parseFieldResponse('active_consequences', answer);
           Object.assign(accumulated, parsedConsequences);
+        }
+        
+        // === DESCRIPTION detection from detailed questions ===
+        if ((question.includes('me conte mais') || question.includes('descreva') || 
+             question.includes('mais detalhes') || question.includes('o que está acontecendo') ||
+             question.includes('qual o problema') || question.includes('qual é o problema')) && 
+            answer.length >= 30 && !accumulated.description) {
+          accumulated.description = answer;
         }
       }
     }
@@ -1057,9 +1072,11 @@ RELATO URBANO:
    → Prosseguir para próxima pergunta (número/referência)
 
 2ª: (após CEP/rua) "Qual o número ou ponto de referência?"
-3ª: (se descrição curta) "Pode dar mais detalhes sobre o problema?"
-4ª: (categorias de risco) "Há algum risco imediato? (fios expostos, via bloqueada, alagando)"
-5ª: (se risco >= moderate) "Está afetando só você ou toda a rua/bairro?"
+3ª: (se descrição < 30 chars) "[FIELD_REQUEST:description]Pode dar mais detalhes sobre o problema? O que está acontecendo exatamente?"
+4ª: (categorias de risco) "[FIELD_REQUEST:risk_level]Há algum risco imediato? (fios expostos, via bloqueada, alagando)"
+5ª: (se risco >= moderate) "[FIELD_REQUEST:affected_scope]Está afetando só você ou toda a rua/bairro?"
+
+IMPORTANTE: Use os marcadores [FIELD_REQUEST:campo] nas perguntas para captura determinística.
 
 TRANSPORTE:
 1ª: "Qual linha ou estação teve o problema?"
@@ -1452,7 +1469,7 @@ async function executeTool(
         if (!args.description || args.description.trim().length < 30) {
           return {
             success: false,
-            message: 'Por favor, descreva o problema com mais detalhes (mínimo 30 caracteres). Como está afetando você ou o local?'
+            message: '[FIELD_REQUEST:description]Por favor, descreva o problema com mais detalhes (mínimo 30 caracteres). O que está acontecendo exatamente?'
           };
         }
         
