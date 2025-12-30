@@ -262,6 +262,7 @@ const AgentChatArea = () => {
             onSendMessage={handleSendMessage} 
             disabled={isLoading}
             placeholder="Digite sua mensagem..."
+            draftKey={activeConversationId || "new"}
           />
         </div>
       </motion.div>
