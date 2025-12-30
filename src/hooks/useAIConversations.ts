@@ -82,15 +82,41 @@ const formatCategory = (category: string | undefined): string | undefined => {
   return categoryMap[category.toLowerCase()] || category;
 };
 
-// Generate intelligent title from first user message
+// Generate intelligent title from user messages (skip generic starts, find descriptive content)
 const generateIntelligentTitle = (messages: any[]): string => {
-  const userMessage = messages.find(m => m?.role === "user");
-  if (userMessage?.content) {
-    const cleaned = cleanInternalMarkers(userMessage.content);
+  const userMessages = messages.filter(m => m?.role === "user");
+  
+  // Generic phrases to skip
+  const genericPhrases = [
+    "quero registrar um problema urbano",
+    "quero fazer um relato",
+    "quero registrar",
+    "preciso registrar",
+    "problema urbano",
+    "relato urbano"
+  ];
+  
+  for (const msg of userMessages) {
+    const cleaned = cleanInternalMarkers(msg.content || "").trim();
+    const lowerCleaned = cleaned.toLowerCase();
+    
+    // Skip generic/short messages
+    if (cleaned.length < 5) continue;
+    if (genericPhrases.some(phrase => lowerCleaned.includes(phrase))) continue;
+    
+    // Found a descriptive message
+    return cleaned.length > 80 ? cleaned.substring(0, 80) + "..." : cleaned;
+  }
+  
+  // Fallback to first user message if no descriptive one found
+  const firstUser = userMessages[0];
+  if (firstUser?.content) {
+    const cleaned = cleanInternalMarkers(firstUser.content);
     if (cleaned.length > 0) {
-      return cleaned.length > 60 ? cleaned.substring(0, 60) + "..." : cleaned;
+      return cleaned.length > 80 ? cleaned.substring(0, 80) + "..." : cleaned;
     }
   }
+  
   return "Conversa iniciada";
 };
 
