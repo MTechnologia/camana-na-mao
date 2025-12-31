@@ -74,7 +74,7 @@ const AdvancedAnalytics = () => {
           <p className="text-muted-foreground mb-4">
             Você não tem permissão para acessar análises avançadas.
           </p>
-          <Button onClick={() => navigate('/analytics')}>Voltar ao Dashboard</Button>
+          <Button onClick={() => navigate('/paineis')}>Voltar ao Dashboard</Button>
         </div>
       </div>
     );
@@ -95,7 +95,7 @@ const AdvancedAnalytics = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PageHeader title="Análise Avançada" backTo="/analytics" />
+      <PageHeader title="Análise Avançada" backTo="/paineis" />
 
       <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6 animate-fade-in">
         {/* Filter Bar */}

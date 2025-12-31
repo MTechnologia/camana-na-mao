@@ -58,7 +58,7 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       id: 1, 
       label: "Meu Perfil", 
       icon: User,
-      route: "/profile"
+      route: "/perfil"
     },
     { 
       id: 2, 
@@ -76,13 +76,13 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       id: 4, 
       label: "Acessibilidade", 
       icon: Accessibility,
-      route: "/settings/accessibility"
+      route: "/configuracoes/acessibilidade"
     },
     { 
       id: 5, 
       label: "Preferências", 
       icon: Settings,
-      route: "/profile/preferences"
+      route: "/perfil/preferencias"
     },
   ];
 

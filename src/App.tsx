@@ -126,8 +126,8 @@ const RoutePrefetcher = () => {
     // Prefetch common routes after initial render
     const timer = setTimeout(() => {
       prefetchMultiple([
-        "/profile",
-        "/notifications",
+        "/perfil",
+        "/notificacoes",
         "/audiencias",
       ]);
     }, 1000);
@@ -139,7 +139,7 @@ const RoutePrefetcher = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (location.pathname === "/") {
-        prefetchMultiple(["/search", "/favoritos", "/conversas"]);
+        prefetchMultiple(["/busca", "/favoritos", "/conversas"]);
       } else if (location.pathname.startsWith("/transporte")) {
         prefetchMultiple(["/transporte/novo", "/transporte/meus-relatos"]);
       } else if (location.pathname.startsWith("/institucional")) {
@@ -173,20 +173,33 @@ const AppContent = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
           
-          {/* Profile routes - Critical page loaded immediately */}
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/personal" element={<PersonalInfoPage />} />
-          <Route path="/profile/interests" element={<InterestsPage />} />
-          <Route path="/profile/demographics" element={<DemographicsPage />} />
-          <Route path="/profile/address" element={<AddressPage />} />
-          <Route path="/profile/preferences" element={<PreferencesPage />} />
-          <Route path="/settings/accessibility" element={<AccessibilityPage />} />
+          {/* Profile routes - PT */}
+          <Route path="/perfil" element={<Profile />} />
+          <Route path="/perfil/dados-pessoais" element={<PersonalInfoPage />} />
+          <Route path="/perfil/interesses" element={<InterestsPage />} />
+          <Route path="/perfil/dados-demograficos" element={<DemographicsPage />} />
+          <Route path="/perfil/endereco" element={<AddressPage />} />
+          <Route path="/perfil/preferencias" element={<PreferencesPage />} />
+          <Route path="/configuracoes/acessibilidade" element={<AccessibilityPage />} />
           
-          {/* Notifications - Critical page loaded immediately */}
-          <Route path="/notifications" element={<Notifications />} />
+          {/* Profile routes - Redirects for backward compatibility */}
+          <Route path="/profile" element={<Navigate to="/perfil" replace />} />
+          <Route path="/profile/personal" element={<Navigate to="/perfil/dados-pessoais" replace />} />
+          <Route path="/profile/interests" element={<Navigate to="/perfil/interesses" replace />} />
+          <Route path="/profile/demographics" element={<Navigate to="/perfil/dados-demograficos" replace />} />
+          <Route path="/profile/address" element={<Navigate to="/perfil/endereco" replace />} />
+          <Route path="/profile/preferences" element={<Navigate to="/perfil/preferencias" replace />} />
+          <Route path="/settings/accessibility" element={<Navigate to="/configuracoes/acessibilidade" replace />} />
+          
+          {/* Notifications - PT */}
+          <Route path="/notificacoes" element={<Notifications />} />
+          <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
+          
+          {/* Search - PT */}
+          <Route path="/busca" element={<SearchPage />} />
+          <Route path="/search" element={<Navigate to="/busca" replace />} />
           
           {/* Citizen routes */}
-          <Route path="/search" element={<SearchPage />} />
           <Route path="/conversas" element={<ConversationsPage />} />
           <Route path="/favoritos" element={<FavoritesPage />} />
           <Route path="/audiencias" element={<Audiencias />} />
@@ -215,10 +228,15 @@ const AppContent = () => {
           <Route path="/transporte/padroes" element={<PatternsPage />} />
           <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
           
-          {/* Analytics routes */}
-          <Route path="/analytics" element={<AnalyticsDashboard />} />
-          <Route path="/analytics/advanced" element={<AdvancedAnalytics />} />
-          <Route path="/analytics/criar-painel" element={<CreateDashboard />} />
+          {/* Analytics routes - PT */}
+          <Route path="/paineis" element={<AnalyticsDashboard />} />
+          <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
+          <Route path="/paineis/criar" element={<CreateDashboard />} />
+          
+          {/* Analytics routes - Redirects for backward compatibility */}
+          <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
+          <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
+          <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
           
           {/* Urban report routes */}
           <Route path="/relato-urbano" element={<UrbanReportPage />} />

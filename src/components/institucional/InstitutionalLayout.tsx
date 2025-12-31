@@ -46,7 +46,7 @@ const InstitutionalLayout = ({
           <div className="flex items-center gap-1">
             {showSearch && (
               <button
-                onClick={() => navigate("/search")}
+                onClick={() => navigate("/busca")}
                 className="p-2 hover:bg-muted rounded-lg transition-colors"
                 aria-label="Buscar"
               >

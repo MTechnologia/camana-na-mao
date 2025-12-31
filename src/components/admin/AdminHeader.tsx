@@ -132,7 +132,7 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <DropdownMenuItem onClick={() => navigate('/perfil')}>
                 Perfil
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/admin/settings/accessibility')}>

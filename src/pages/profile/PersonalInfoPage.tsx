@@ -64,7 +64,7 @@ const PersonalInfoPage = () => {
       if (error) throw error;
 
       toast.success("Informações atualizadas!");
-      navigate("/profile");
+      navigate("/perfil");
     } catch (error: any) {
       toast.error(error.message || "Erro ao atualizar");
     } finally {
@@ -74,7 +74,7 @@ const PersonalInfoPage = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader title="Informações Pessoais" backTo="/profile" />
+      <PageHeader title="Informações Pessoais" backTo="/perfil" />
 
       <div className="p-6">
         <div className="space-y-4">
@@ -111,7 +111,7 @@ const PersonalInfoPage = () => {
           <div className="flex gap-2 pt-4">
             <Button
               variant="outline"
-              onClick={() => navigate("/profile")}
+              onClick={() => navigate("/perfil")}
               className="flex-1"
               disabled={loading}
             >

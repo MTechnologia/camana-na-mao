@@ -228,7 +228,7 @@ const AgentHeader = () => {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => navigate('/notifications')}
+                onClick={() => navigate('/notificacoes')}
                 className="relative"
               >
                 <Bell className="h-5 w-5" />
