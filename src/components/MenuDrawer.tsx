@@ -20,12 +20,6 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/ui/card";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
 import { usePrefetch } from "@/components/navigation/PrefetchLink";
 import { useCallback } from "react";
 
@@ -192,42 +186,29 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
 
         {/* Menu Items - Scrollable */}
         <div className="flex-1 overflow-y-auto py-4 px-4">
-          {/* Minha Conta Section - Carousel */}
+          {/* Minha Conta Section */}
           <div className="mb-4">
             <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Minha Conta
             </h3>
             
-            <Carousel
-              opts={{
-                align: "start",
-                loop: false,
-              }}
-              className="w-full"
-            >
-              <CarouselContent className="-ml-2">
-                {accountOptions.map((option) => {
-                  const Icon = option.icon;
-                  return (
-                    <CarouselItem key={option.id} className="pl-2 basis-1/3">
-                      <Card
-                        onClick={() => handleMenuClick(option.route)}
-                        onMouseEnter={() => handlePrefetch(option.route)}
-                        onFocus={() => handlePrefetch(option.route)}
-                        className="p-3 cursor-pointer hover:bg-muted transition-colors border-border h-[80px] flex flex-col items-center justify-center gap-2"
-                      >
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <Icon className="text-primary" size={18} />
-                        </div>
-                        <span className="text-[11px] font-medium text-foreground text-center leading-tight">
-                          {option.label}
-                        </span>
-                      </Card>
-                    </CarouselItem>
-                  );
-                })}
-              </CarouselContent>
-            </Carousel>
+            {accountOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleMenuClick(option.route)}
+                  onMouseEnter={() => handlePrefetch(option.route)}
+                  onFocus={() => handlePrefetch(option.route)}
+                  className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
+                    <Icon className="text-primary" size={16} />
+                  </div>
+                  <span className="text-foreground font-medium text-sm">{option.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="my-4 border-t border-border" />
