@@ -2102,12 +2102,29 @@ async function executeTool(
         };
         
         if (confidence >= 0.8 && collectionType) {
-          // High confidence: activate journey automatically
+          // High confidence: activate journey and immediately start data collection
           const progressMarker = `[COLLECTION_PROGRESS:${collectionType}:{}]`;
+          
+          // Generate natural response based on intent type that immediately starts collection
+          let naturalResponse = '';
+          
+          switch (intent) {
+            case 'urban_report':
+              naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema. Para localizar o local exato, qual o **CEP**?\n\n_Se não souber, me diz a rua e bairro._`;
+              break;
+            case 'transport_report':
+              naturalResponse = `${progressMarker}Entendi! Vou registrar o problema no transporte. Qual **linha ou estação** teve o problema?`;
+              break;
+            case 'service_rating':
+              naturalResponse = `${progressMarker}Entendi! Vou registrar sua avaliação. Qual **tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU...)`;
+              break;
+            default:
+              naturalResponse = `${progressMarker}Entendi! Como posso ajudar?`;
+          }
           
           return {
             success: true,
-            message: `${progressMarker}Jornada de **${intentNames[intent]}** detectada com ${Math.round(confidence * 100)}% de confiança. Prosseguindo...`,
+            message: naturalResponse,
             data: {
               status: 'activated',
               journey: intent,
@@ -2116,15 +2133,15 @@ async function executeTool(
             }
           };
         } else if (confidence < 0.8 && collectionType) {
-          // Low confidence: return alternatives for user choice
+          // Low confidence: ask for clarification naturally
           const alternativesList = (suggested_alternatives || [])
             .map((alt: string) => intentNames[alt] || alt)
-            .slice(0, 3)
-            .join(', ');
+            .slice(0, 2)
+            .join(' ou ');
           
           return {
             success: true,
-            message: `Não tenho certeza se você quer fazer um **${intentNames[intent]}**${alternativesList ? ` ou ${alternativesList}` : ''}. Pode me confirmar?`,
+            message: `Isso é um problema para **${intentNames[intent]}** ou ${alternativesList}? Me ajuda a entender melhor.`,
             data: {
               status: 'needs_confirmation',
               detected: intent,
@@ -2133,10 +2150,10 @@ async function executeTool(
             }
           };
         } else {
-          // Light journey or unknown: proceed without tracker
+          // Light journey (services, general): respond naturally
           return {
             success: true,
-            message: `Entendi sua solicitação.`,
+            message: `Claro! Como posso ajudar?`,
             data: {
               status: 'light_journey',
               intent: intent
