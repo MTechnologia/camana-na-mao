@@ -1932,6 +1932,34 @@ async function executeTool(
       }
       
       case 'create_transport_report': {
+        // === VALIDAÇÃO OBRIGATÓRIA DE CAMPOS ===
+        
+        // 1. Validar report_type (obrigatório)
+        if (!args.report_type || args.report_type === 'outro') {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:report_type]Qual foi o **tipo do problema**?\n\n- **Atraso** (ônibus/trem atrasou)\n- **Lotação** (veículo cheio demais)\n- **Segurança** (assalto, assédio)\n- **Acessibilidade** (elevador quebrado, rampa)\n- **Limpeza** (sujeira, mau cheiro)\n- **Outro**'
+          };
+        }
+        
+        // 2. Validar description (mínimo 20 caracteres)
+        if (!args.description || args.description.trim().length < 20) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:description]Por favor, **descreva o problema** com mais detalhes. O que aconteceu exatamente? (mínimo 20 caracteres)'
+          };
+        }
+        
+        // 3. Validar occurrence_date (obrigatório - não assumir automaticamente)
+        if (!args.occurrence_date) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_date]**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)'
+          };
+        }
+        
+        // === PROCESSAMENTO APÓS VALIDAÇÃO ===
+        
         // Get line_id if line_code provided
         let lineId = null;
         if (args.line_code) {
@@ -1964,7 +1992,7 @@ async function executeTool(
             line_id: lineId,
             line_code_custom: args.line_code || null,
             location: args.location || null,
-            severity: args.severity || 'medium',
+            severity: args.severity || 'media',
             impact_description: args.impact_description || null,
             status: 'pending'
           })
@@ -2182,7 +2210,21 @@ async function executeTool(
               }
               break;
             case 'transport_report':
-              naturalResponse = `${progressMarker}Entendi! Vou registrar o problema no transporte. Qual **linha ou estação** teve o problema?`;
+              // Perguntar tipo PRIMEIRO se não foi detectado
+              if (transport_type && (category_confidence || 0) >= 0.8) {
+                const typeLabels: Record<string, string> = {
+                  atraso: 'Atraso',
+                  lotacao: 'Lotação',
+                  seguranca: 'Segurança',
+                  acessibilidade: 'Acessibilidade',
+                  limpeza: 'Limpeza',
+                  outro: 'Outro'
+                };
+                const typeLabel = typeLabels[transport_type] || transport_type;
+                naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema de **${typeLabel}** no transporte. Qual **linha ou estação** teve o problema?`;
+              } else {
+                naturalResponse = `${progressMarker}Entendi! Vou registrar o problema no transporte. Qual foi o **tipo do problema**?\n\n- **Atraso** (ônibus/trem atrasou)\n- **Lotação** (veículo cheio demais)\n- **Segurança** (assalto, assédio)\n- **Acessibilidade** (elevador quebrado, rampa)\n- **Limpeza** (sujeira, mau cheiro)\n- **Outro**`;
+              }
               break;
             case 'service_rating':
               naturalResponse = `${progressMarker}Entendi! Vou registrar sua avaliação. Qual **tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU...)`;
