@@ -1934,11 +1934,11 @@ async function executeTool(
       case 'create_transport_report': {
         // === VALIDAÇÃO OBRIGATÓRIA DE CAMPOS ===
         
-        // 1. Validar report_type (obrigatório)
+        // 1. Validar report_type (obrigatório) - pergunta ABERTA, sem viés
         if (!args.report_type || args.report_type === 'outro') {
           return {
             success: false,
-            message: '[FIELD_REQUEST:report_type]Qual foi o **tipo do problema**?\n\n- **Atraso** (ônibus/trem atrasou)\n- **Lotação** (veículo cheio demais)\n- **Segurança** (assalto, assédio)\n- **Acessibilidade** (elevador quebrado, rampa)\n- **Limpeza** (sujeira, mau cheiro)\n- **Outro**'
+            message: '[FIELD_REQUEST:report_type]**O que aconteceu?** Me conta o problema no transporte.'
           };
         }
         
@@ -2186,11 +2186,14 @@ async function executeTool(
               progressData.description = extracted_description;
             }
           } else if (intent === 'transport_report') {
-            // Include report_type if extracted
-            if (transport_type && (category_confidence || 0) >= 0.8) {
+            // Include report_type if extracted - EXCLUDE "outro" (it's not a real classification)
+            if (transport_type && transport_type !== 'outro' && (category_confidence || 0) >= 0.8) {
               progressData.report_type = transport_type;
             }
-            if (extracted_description && extracted_description.length >= 10) {
+            // Only include description if it's substantive (>= 30 chars, not generic)
+            const genericPhrases = ['problema no transporte', 'reclamar do transporte', 'problema com onibus', 'problema com ônibus'];
+            const isGeneric = genericPhrases.some(p => (extracted_description || '').toLowerCase().includes(p));
+            if (extracted_description && extracted_description.length >= 30 && !isGeneric) {
               progressData.description = extracted_description;
             }
           }
@@ -2210,20 +2213,20 @@ async function executeTool(
               }
               break;
             case 'transport_report':
-              // Perguntar tipo PRIMEIRO se não foi detectado
-              if (transport_type && (category_confidence || 0) >= 0.8) {
+              // Perguntar tipo PRIMEIRO se não foi detectado (pergunta ABERTA, sem viés)
+              if (transport_type && transport_type !== 'outro' && (category_confidence || 0) >= 0.8) {
                 const typeLabels: Record<string, string> = {
                   atraso: 'Atraso',
                   lotacao: 'Lotação',
                   seguranca: 'Segurança',
                   acessibilidade: 'Acessibilidade',
-                  limpeza: 'Limpeza',
-                  outro: 'Outro'
+                  limpeza: 'Limpeza'
                 };
                 const typeLabel = typeLabels[transport_type] || transport_type;
                 naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema de **${typeLabel}** no transporte. Qual **linha ou estação** teve o problema?`;
               } else {
-                naturalResponse = `${progressMarker}Entendi! Vou registrar o problema no transporte. Qual foi o **tipo do problema**?\n\n- **Atraso** (ônibus/trem atrasou)\n- **Lotação** (veículo cheio demais)\n- **Segurança** (assalto, assédio)\n- **Acessibilidade** (elevador quebrado, rampa)\n- **Limpeza** (sujeira, mau cheiro)\n- **Outro**`;
+                // Pergunta ABERTA sem listar opções (evita viés)
+                naturalResponse = `${progressMarker}Entendi! Vou registrar o problema no transporte.\n\n**O que aconteceu?** Me conta o problema.`;
               }
               break;
             case 'service_rating':
