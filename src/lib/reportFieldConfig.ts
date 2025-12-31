@@ -31,7 +31,7 @@ export const URBAN_REPORT_FIELDS: FieldConfig[] = [
 
 export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'report_type', label: 'Tipo', required: true },
-  { key: 'description', label: 'Descrição', required: true },
+  { key: 'description', label: 'Descrição', required: true, minLength: 20 },
   { key: 'occurrence_date', label: 'Data', required: true },
   { key: 'occurrence_time', label: 'Horário', required: false },
   { key: 'line_code', label: 'Linha', required: false },
