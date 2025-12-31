@@ -64,7 +64,7 @@ export default function CreateDashboard() {
           : 'Painel privado criado com sucesso!'
       );
       
-      navigate('/analytics');
+      navigate('/paineis');
     } catch (error: any) {
       console.error('Error saving dashboard:', error);
       toast.error(error.message || 'Erro ao salvar o painel');
@@ -77,7 +77,7 @@ export default function CreateDashboard() {
     <div className="min-h-screen bg-gray-50">
       <PageHeader
         title="Criar Painel Personalizado"
-        onBack={() => navigate('/analytics')}
+        onBack={() => navigate('/paineis')}
       />
 
       <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6 animate-fade-in">
@@ -179,7 +179,7 @@ export default function CreateDashboard() {
 
         {/* Save Button */}
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={() => navigate('/analytics')}>
+          <Button variant="outline" onClick={() => navigate('/paineis')}>
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={saving}>

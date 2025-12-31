@@ -134,18 +134,7 @@ const AnalyticsDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PageHeader
-        title="Análise de Dados"
-        rightElement={
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/analytics/settings')}
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-        }
-      />
+      <PageHeader title="Análise de Dados" />
 
       <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6 animate-fade-in">
         {/* Filter Bar */}
@@ -165,7 +154,7 @@ const AnalyticsDashboard = () => {
           <div className="flex gap-3">
             <Button
               variant="outline"
-              onClick={() => navigate('/analytics/criar-painel')}
+              onClick={() => navigate('/paineis/criar')}
               className="gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -174,7 +163,7 @@ const AnalyticsDashboard = () => {
             {canAccessAdvancedAnalytics && (
               <Button
                 variant="outline"
-                onClick={() => navigate('/analytics/advanced')}
+                onClick={() => navigate('/paineis/avancado')}
                 className="gap-2"
               >
                 <BarChart3 className="w-4 h-4" />
@@ -230,7 +219,7 @@ const AnalyticsDashboard = () => {
           <ChartCard
             title="Evolução Temporal"
             subtitle="Relatos e satisfação ao longo do tempo"
-            onDrillDown={() => navigate('/analytics/advanced')}
+            onDrillDown={() => navigate('/paineis/avancado')}
             lastUpdated={new Date().toLocaleString('pt-BR')}
           >
             <ResponsiveContainer width="100%" height={300}>
@@ -267,7 +256,7 @@ const AnalyticsDashboard = () => {
           <ChartCard
             title="Distribuição por Categoria"
             subtitle="Volume de demandas por área"
-            onDrillDown={() => navigate('/analytics/advanced')}
+            onDrillDown={() => navigate('/paineis/avancado')}
             lastUpdated={new Date().toLocaleString('pt-BR')}
           >
             <ResponsiveContainer width="100%" height={300}>
@@ -296,13 +285,13 @@ const AnalyticsDashboard = () => {
         <ChartCard
           title="Mapa de Calor - Demandas por Região e Dia"
           subtitle="Intensidade de ocorrências ao longo da semana"
-          onDrillDown={() => navigate('/analytics/advanced')}
+          onDrillDown={() => navigate('/paineis/avancado')}
           lastUpdated={new Date().toLocaleString('pt-BR')}
           className="mb-6"
         >
           <HeatmapChart
             data={heatmapData}
-            onCellClick={() => navigate('/analytics/advanced')}
+            onCellClick={() => navigate('/paineis/avancado')}
           />
         </ChartCard>
 

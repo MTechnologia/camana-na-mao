@@ -11,12 +11,12 @@ const InterestsPage = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader title="Interesses" backTo="/profile" />
+      <PageHeader title="Interesses" backTo="/perfil" />
 
       <div className="p-6">
         <InterestsForm 
           userId={user.id} 
-          onSuccess={() => navigate("/profile")}
+          onSuccess={() => navigate("/perfil")}
         />
       </div>
     </div>

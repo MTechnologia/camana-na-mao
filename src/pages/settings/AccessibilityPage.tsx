@@ -26,7 +26,7 @@ const AccessibilityPage = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader title="Acessibilidade" backTo="/profile" />
+      <PageHeader title="Acessibilidade" backTo="/perfil" />
 
       {/* Content */}
       <div className="p-6 space-y-4 pb-8">
@@ -140,7 +140,7 @@ const AccessibilityPage = () => {
             <Button
               variant="ghost"
               className="w-full justify-start gap-3 h-auto py-3"
-              onClick={() => navigate('/profile/preferences')}
+              onClick={() => navigate('/perfil/preferencias')}
             >
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <Settings className="h-5 w-5 text-primary" />

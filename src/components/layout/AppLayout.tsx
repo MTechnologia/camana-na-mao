@@ -24,17 +24,26 @@ const HEADERLESS_ROUTES = [
 
 // Route to title mapping
 const ROUTE_TITLES: Record<string, string> = {
-  "/profile": "Meu Perfil",
-  "/profile/personal": "Informações Pessoais",
-  "/profile/demographics": "Dados Demográficos",
-  "/profile/address": "Endereço",
-  "/profile/preferences": "Preferências",
-  "/profile/interests": "Interesses",
-  "/notifications": "Notificações",
-  "/audiencias": "Audiências Públicas",
-  "/search": "Buscar",
+  // Perfil - PT
+  "/perfil": "Meu Perfil",
+  "/perfil/dados-pessoais": "Informações Pessoais",
+  "/perfil/dados-demograficos": "Dados Demográficos",
+  "/perfil/endereco": "Endereço",
+  "/perfil/preferencias": "Preferências",
+  "/perfil/interesses": "Interesses",
+  // Configurações - PT
+  "/configuracoes/acessibilidade": "Acessibilidade",
+  // Cidadão - PT
+  "/notificacoes": "Notificações",
+  "/busca": "Buscar",
   "/favoritos": "Favoritos",
   "/conversas": "Conversas",
+  // Analytics - PT
+  "/paineis": "Painéis Analíticos",
+  "/paineis/avancado": "Análise Avançada",
+  "/paineis/criar": "Criar Painel",
+  // Demais rotas
+  "/audiencias": "Audiências Públicas",
   "/servicos-proximos": "Serviços Próximos",
   "/avaliar": "Avaliar Serviço",
   "/transporte": "Transporte",
@@ -44,16 +53,12 @@ const ROUTE_TITLES: Record<string, string> = {
   "/relato-urbano": "Relato Urbano",
   "/relato-urbano/manual": "Novo Relato",
   "/relato-urbano/historico": "Histórico",
-  "/analytics": "Analytics",
-  "/analytics/advanced": "Análise Avançada",
-  "/analytics/criar-painel": "Criar Painel",
   "/institucional/agenda": "Agenda da Câmara",
   "/institucional/vereadores": "Vereadores",
   "/institucional/conheca-camara": "Conheça a Câmara",
   "/institucional/camara-explica": "Câmara Explica",
   "/institucional/escola-parlamento": "Escola do Parlamento",
   "/institucional/noticias": "Notícias",
-  "/settings/accessibility": "Acessibilidade",
   "/docs/overview": "Documentação",
 };
 

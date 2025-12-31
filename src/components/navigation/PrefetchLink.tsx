@@ -3,13 +3,13 @@ import { ReactNode, useCallback } from "react";
 
 // Map of routes to their lazy import functions for prefetching
 const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
-  // Critical routes (already loaded, but kept for consistency)
-  "/profile": () => import("@/pages/Profile"),
-  "/notifications": () => import("@/pages/Notifications"),
+  // Perfil - PT
+  "/perfil": () => import("@/pages/Profile"),
+  "/notificacoes": () => import("@/pages/Notifications"),
   
   // Citizen pages
   "/audiencias": () => import("@/pages/Audiencias"),
-  "/search": () => import("@/pages/Search"),
+  "/busca": () => import("@/pages/Search"),
   "/favoritos": () => import("@/pages/FavoritesPage"),
   "/conversas": () => import("@/pages/ConversationsPage"),
   "/servicos-proximos": () => import("@/pages/NearbyServicesPage"),
@@ -17,9 +17,13 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   "/relato-urbano": () => import("@/pages/UrbanReportPage"),
   "/avaliacao": () => import("@/pages/EvaluationPage"),
   
-  // Analytics
-  "/analytics": () => import("@/pages/analytics/AnalyticsDashboard"),
-  "/analytics/advanced": () => import("@/pages/analytics/AdvancedAnalytics"),
+  // Analytics - PT
+  "/paineis": () => import("@/pages/analytics/AnalyticsDashboard"),
+  "/paineis/avancado": () => import("@/pages/analytics/AdvancedAnalytics"),
+  "/paineis/criar": () => import("@/pages/analytics/CreateDashboard"),
+  
+  // Settings - PT
+  "/configuracoes/acessibilidade": () => import("@/pages/settings/AccessibilityPage"),
   
   // Institutional pages
   "/institucional/agenda": () => import("@/pages/institucional/AgendaCMSP"),
@@ -28,9 +32,6 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   "/institucional/camara-explica": () => import("@/pages/institucional/CamaraExplica"),
   "/institucional/escola-parlamento": () => import("@/pages/institucional/EscolaParlamento"),
   "/institucional/noticias": () => import("@/pages/institucional/Noticias"),
-  
-  // Settings
-  "/settings/accessibility": () => import("@/pages/settings/AccessibilityPage"),
   
   // Admin pages
   "/admin": () => import("@/pages/admin/AdminDashboard"),

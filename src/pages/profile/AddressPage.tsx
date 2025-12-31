@@ -9,7 +9,7 @@ const AddressPage = () => {
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
-      <PageHeader title="Endereço" backTo="/profile" />
+      <PageHeader title="Endereço" backTo="/perfil" />
 
       <div className="p-6">
         <AddressForm userId={user.id} />
