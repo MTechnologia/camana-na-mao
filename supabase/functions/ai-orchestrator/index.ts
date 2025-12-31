@@ -1044,29 +1044,50 @@ const tools = [
     type: "function",
     function: {
       name: "detect_user_intent",
-      description: "USAR NA PRIMEIRA MENSAGEM do cidadão (quando não usar prompt chips). Classifica semanticamente a intenção do usuário para ativar a jornada correta. Analisa contexto semântico para distinguir entre: urban_report (problemas urbanos), transport_report (transporte público), service_rating (avaliar serviço), services (buscar serviços próximos), general (dúvidas sobre a Câmara).",
+      description: "USAR NA PRIMEIRA MENSAGEM do cidadão (quando não usar prompt chips). Classifica semanticamente a intenção E extrai dados iniciais (categoria para urban_report, tipo para transport_report). Se a mensagem já contém descrição do problema (>= 30 chars), extrair também.",
       parameters: {
         type: "object",
         properties: {
           intent: {
             type: "string",
             enum: ["urban_report", "transport_report", "service_rating", "services", "general", "unknown"],
-            description: "Intenção detectada semanticamente. Exemplos: 'ônibus capotou na avenida' = urban_report (acidente urbano, não serviço de transporte), 'ônibus atrasou 30 minutos' = transport_report (problema de serviço)"
+            description: "Intenção detectada semanticamente. Exemplos: 'ônibus capotou na avenida' = urban_report (acidente urbano), 'ônibus atrasou 30 minutos' = transport_report (problema de serviço)"
           },
           confidence: {
             type: "number",
             minimum: 0,
             maximum: 1,
-            description: "Nível de confiança (0.0-1.0). Se >= 0.8, ativar jornada automaticamente. Se < 0.8, perguntar ao usuário."
+            description: "Nível de confiança (0.0-1.0). Se >= 0.8, ativar jornada automaticamente."
           },
           reasoning: {
             type: "string",
-            description: "Justificativa semântica da classificação (ex: 'Usuário menciona capotamento de ônibus como evento urbano, não como problema de serviço de transporte')"
+            description: "Justificativa semântica da classificação"
           },
           suggested_alternatives: {
             type: "array",
             items: { type: "string" },
-            description: "Se confiança < 80%, listar alternativas prováveis para perguntar ao usuário"
+            description: "Se confiança < 80%, listar alternativas prováveis"
+          },
+          // NOVO: Campos extraídos da mensagem inicial
+          urban_category: {
+            type: "string",
+            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
+            description: "PARA urban_report: categoria inferida do problema. Ex: 'ônibus capotou' = via_publica, 'poste apagado' = iluminacao, 'bueiro entupido' = esgoto"
+          },
+          transport_type: {
+            type: "string",
+            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "outro"],
+            description: "PARA transport_report: tipo de problema inferido"
+          },
+          extracted_description: {
+            type: "string",
+            description: "Se a mensagem inicial já contém descrição detalhada do problema (>= 30 chars), extrair aqui. Ex: 'Ônibus capotou na Paulista' → 'Ônibus capotou na Avenida Paulista'"
+          },
+          category_confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            description: "Confiança na categoria/tipo extraído (0.0-1.0)"
           }
         },
         required: ["intent", "confidence", "reasoning"]
@@ -2075,10 +2096,14 @@ async function executeTool(
       
       // === JORNADA CONSCIENTE: Handlers de Detecção e Transição ===
       case 'detect_user_intent': {
-        const { intent, confidence, reasoning, suggested_alternatives } = args;
+        const { 
+          intent, confidence, reasoning, suggested_alternatives,
+          urban_category, transport_type, extracted_description, category_confidence 
+        } = args;
         
         console.log('[detect_user_intent] Intent:', intent, 'Confidence:', confidence);
         console.log('[detect_user_intent] Reasoning:', reasoning);
+        console.log('[detect_user_intent] Extracted - Category:', urban_category, 'Type:', transport_type, 'Description:', extracted_description);
         
         // Map intent to collection type for tracker
         const intentToCollection: Record<string, string | null> = {
@@ -2092,6 +2117,21 @@ async function executeTool(
         
         const collectionType = intentToCollection[intent];
         
+        // Human-readable category names
+        const categoryLabels: Record<string, string> = {
+          iluminacao: 'Iluminação',
+          via_publica: 'Via Pública',
+          calcada: 'Calçada',
+          lixo: 'Lixo/Entulho',
+          esgoto: 'Esgoto/Bueiro',
+          area_verde: 'Área Verde',
+          higiene_urbana: 'Higiene Urbana',
+          animais: 'Animais',
+          poluicao: 'Poluição',
+          feedback_camara: 'Feedback Câmara',
+          outro: 'Outro'
+        };
+        
         // Human-readable names for intents
         const intentNames: Record<string, string> = {
           'urban_report': 'Relato Urbano',
@@ -2102,15 +2142,44 @@ async function executeTool(
         };
         
         if (confidence >= 0.8 && collectionType) {
-          // High confidence: activate journey and immediately start data collection
-          const progressMarker = `[COLLECTION_PROGRESS:${collectionType}:{}]`;
+          // High confidence: activate journey with extracted data
           
-          // Generate natural response based on intent type that immediately starts collection
+          // Build progress data including category/description if extracted
+          const progressData: Record<string, any> = {};
+          
+          if (intent === 'urban_report') {
+            // Include category if extracted with high confidence
+            if (urban_category && (category_confidence || 0) >= 0.8) {
+              progressData.category = urban_category;
+              progressData.category_confidence = category_confidence;
+            }
+            // Include description if extracted (>= 30 chars)
+            if (extracted_description && extracted_description.length >= 30) {
+              progressData.description = extracted_description;
+            }
+          } else if (intent === 'transport_report') {
+            // Include report_type if extracted
+            if (transport_type && (category_confidence || 0) >= 0.8) {
+              progressData.report_type = transport_type;
+            }
+            if (extracted_description && extracted_description.length >= 10) {
+              progressData.description = extracted_description;
+            }
+          }
+          
+          const progressMarker = `[COLLECTION_PROGRESS:${collectionType}:${JSON.stringify(progressData)}]`;
+          
+          // Generate natural response based on intent and extracted data
           let naturalResponse = '';
           
           switch (intent) {
             case 'urban_report':
-              naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema. Para localizar o local exato, qual o **CEP**?\n\n_Se não souber, me diz a rua e bairro._`;
+              if (urban_category && (category_confidence || 0) >= 0.8) {
+                const catLabel = categoryLabels[urban_category] || urban_category;
+                naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema de **${catLabel}**. Para localizar o local exato, qual o **CEP**?\n\n_Se não souber, me diz a rua e bairro._`;
+              } else {
+                naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema. Para localizar o local exato, qual o **CEP**?\n\n_Se não souber, me diz a rua e bairro._`;
+              }
               break;
             case 'transport_report':
               naturalResponse = `${progressMarker}Entendi! Vou registrar o problema no transporte. Qual **linha ou estação** teve o problema?`;
@@ -2129,7 +2198,8 @@ async function executeTool(
               status: 'activated',
               journey: intent,
               collection_type: collectionType,
-              confidence: confidence
+              confidence: confidence,
+              extracted_data: progressData
             }
           };
         } else if (confidence < 0.8 && collectionType) {
