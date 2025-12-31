@@ -8,7 +8,7 @@ import PageHeader from "@/components/ui/page-header";
 import AvatarUpload from "@/components/profile/AvatarUpload";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
-import { User, MapPin, BarChart3, ChevronRight, Heart } from "lucide-react";
+import { User, MapPin, BarChart3, ChevronRight, Heart, Settings } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -81,6 +81,13 @@ const Profile = () => {
       description: 'CEP, rua e complemento',
       icon: MapPin,
       path: '/profile/address',
+    },
+    {
+      id: 'preferences',
+      title: 'Preferências',
+      description: 'Notificações e privacidade',
+      icon: Settings,
+      path: '/profile/preferences',
     },
   ];
 
