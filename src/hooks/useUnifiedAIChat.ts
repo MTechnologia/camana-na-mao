@@ -523,20 +523,31 @@ export const useUnifiedAIChat = (
       const raw = content.trim();
       const rawLower = raw.toLowerCase();
       
-      // Detectar tipo de problema
+      // Detectar tipo de problema (mapeamento para enums reais do banco)
       if (!collectedFields.report_type) {
-        const problemTypes: Record<string, string> = {
-          'atraso': 'delay', 'atrasado': 'delay', 'demora': 'delay', 'demorou': 'delay',
-          'lotado': 'overcrowding', 'lotação': 'overcrowding', 'cheio': 'overcrowding',
-          'quebrado': 'breakdown', 'quebrou': 'breakdown', 'pane': 'breakdown',
-          'sujo': 'cleanliness', 'sujeira': 'cleanliness', 'limpeza': 'cleanliness',
-          'inseguro': 'safety', 'assalto': 'safety', 'perigoso': 'safety'
-        };
-        for (const [keyword, type] of Object.entries(problemTypes)) {
-          if (rawLower.includes(keyword)) {
-            setCollectedFields(prev => ({ ...prev, report_type: type }));
-            break;
-          }
+        // SEGURANÇA - prioridade (termos graves)
+        if (/ass[ée]dio|encox|importunação|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest|insegur|perigos/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, report_type: 'seguranca' }));
+        }
+        // ATRASO
+        else if (/atras|demor|não (veio|passou|chegou)|espera|aguard|\d+\s*min|meia hora|uma hora/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, report_type: 'atraso' }));
+        }
+        // LOTAÇÃO
+        else if (/lot[aç]|cheio|superlot|aperta|empurr|não (coube|cabe)|sardinha/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, report_type: 'lotacao' }));
+        }
+        // ACESSIBILIDADE
+        else if (/elevador|rampa|cadeira|deficien|acessib|cego|surdo|mobilidade/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, report_type: 'acessibilidade' }));
+        }
+        // LIMPEZA
+        else if (/suj[oa]|lixo|fedido|mal cheiro|imundo|nojento|barata|rato|inseto/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, report_type: 'limpeza' }));
+        }
+        // CONDUÇÃO
+        else if (/motorista|dirig|freiada|acelera|imprudên|costur/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, report_type: 'conducao' }));
         }
       }
       
@@ -550,12 +561,23 @@ export const useUnifiedAIChat = (
       
       // Detectar data (hoje, ontem, ou data específica)
       if (!collectedFields.occurrence_date) {
-        if (rawLower.includes('hoje')) {
+        if (/\bhoje\b/i.test(rawLower)) {
           setCollectedFields(prev => ({ ...prev, occurrence_date: new Date().toISOString().split('T')[0] }));
-        } else if (rawLower.includes('ontem')) {
+        } else if (/\bontem\b/i.test(rawLower)) {
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
           setCollectedFields(prev => ({ ...prev, occurrence_date: yesterday.toISOString().split('T')[0] }));
+        } else if (/\banteontem\b/i.test(rawLower)) {
+          const dayBefore = new Date();
+          dayBefore.setDate(dayBefore.getDate() - 2);
+          setCollectedFields(prev => ({ ...prev, occurrence_date: dayBefore.toISOString().split('T')[0] }));
+        }
+        // Data explícita dd/mm/aaaa
+        const dateMatch = rawLower.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+        if (dateMatch) {
+          const [, d, m, y] = dateMatch;
+          const year = y.length === 2 ? `20${y}` : y;
+          setCollectedFields(prev => ({ ...prev, occurrence_date: `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}` }));
         }
       }
       
@@ -569,15 +591,23 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // Detectar descrição (mensagem longa)
-      if (!collectedFields.description && raw.length >= 30) {
-        const askedForDescription = 
-          lastAssistantLower.includes('descreva') ||
-          lastAssistantLower.includes('me conte') ||
-          lastAssistantLower.includes('detalhes') ||
-          lastAssistantLower.includes('[field_request:description]');
-        if (askedForDescription || messages.filter(m => m.role === 'user').length <= 2) {
-          setCollectedFields(prev => ({ ...prev, description: raw }));
+      // Detectar descrição (mensagem longa >= 20 caracteres)
+      if (!collectedFields.description && raw.length >= 20) {
+        // Não capturar respostas curtas como linha, data, etc.
+        const isShortResponse = /^(hoje|ontem|anteontem|\d{3,4}[A-Za-z]?|\d{1,2}[h:]\d{2}|sim|não|ok)$/i.test(raw);
+        if (!isShortResponse) {
+          const askedForDescription = 
+            lastAssistantLower.includes('descreva') ||
+            lastAssistantLower.includes('me cont') ||
+            lastAssistantLower.includes('o que aconteceu') ||
+            lastAssistantLower.includes('detalhes') ||
+            lastAssistantLower.includes('[field_request:description]');
+          
+          // Ou é uma das primeiras mensagens (descrição inicial)
+          const userMsgCount = messages.filter(m => m.role === 'user').length;
+          if (askedForDescription || userMsgCount <= 2) {
+            setCollectedFields(prev => ({ ...prev, description: raw }));
+          }
         }
       }
     }

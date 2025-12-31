@@ -1261,10 +1261,23 @@ RELATO URBANO:
 
 IMPORTANTE: Use os marcadores [FIELD_REQUEST:campo] nas perguntas para captura determinística.
 
-TRANSPORTE:
-1ª: "Qual linha ou estação teve o problema?"
-2ª: "O que aconteceu? (atraso, lotação, segurança)"
-3ª: "Quando? (data e horário aproximado)"
+TRANSPORTE (COLETA SEQUENCIAL OBRIGATÓRIA):
+⚠️ **NUNCA ASSUMIR DATA COMO HOJE** - O usuário DEVE dizer explicitamente "hoje", "ontem" ou uma data.
+⚠️ **NUNCA CHAMAR create_transport_report sem todos os campos coletados**
+
+1ª: "[FIELD_REQUEST:description]O que aconteceu? Me conta o problema." (captura descrição >= 20 chars)
+2ª: "[FIELD_REQUEST:line_code]Qual linha ou estação teve o problema?"
+3ª: "[FIELD_REQUEST:occurrence_date]Quando isso aconteceu? (hoje, ontem, ou me diz a data)"
+4ª (opcional): "[FIELD_REQUEST:occurrence_time]Que horas mais ou menos?"
+5ª (opcional): "[FIELD_REQUEST:location]Em qual ponto/estação/trecho?"
+
+O tipo de problema (report_type) será INFERIDO da descrição automaticamente:
+- Segurança: assédio, encoxada, roubo, agressão
+- Atraso: atrasou, demorou, não veio
+- Lotação: lotado, cheio, empurrado
+- Acessibilidade: elevador, rampa, cadeira de rodas
+- Limpeza: sujo, fedido, lixo
+- Condução: motorista, freada brusca
 
 AVALIAÇÃO DE SERVIÇO:
 1ª: "Qual serviço? (UBS, escola, hospital, CEU...)"
@@ -1932,29 +1945,94 @@ async function executeTool(
       }
       
       case 'create_transport_report': {
-        // === VALIDAÇÃO OBRIGATÓRIA DE CAMPOS ===
+        // === VALIDAÇÃO ESTRITA (coleta sequencial obrigatória) ===
         
-        // 1. Validar report_type (obrigatório) - pergunta ABERTA, sem viés
-        if (!args.report_type || args.report_type === 'outro') {
-          return {
-            success: false,
-            message: '[FIELD_REQUEST:report_type]**O que aconteceu?** Me conta o problema no transporte.'
-          };
-        }
+        // Helper: inferir report_type de forma robusta (dicionário expandido)
+        const inferReportTypeFromDesc = (description: string): string | null => {
+          const desc = description.toLowerCase();
+          
+          // SEGURANÇA (prioridade - termos graves)
+          if (/ass[ée]dio|encox|importunação|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest/i.test(desc)) {
+            return 'seguranca';
+          }
+          
+          // ATRASO
+          if (/atras|demor|não (veio|passou|chegou)|espera|aguard|15\s*min|20\s*min|30\s*min|meia hora|uma hora/i.test(desc)) {
+            return 'atraso';
+          }
+          
+          // LOTAÇÃO
+          if (/lot[aç]|cheio|superlot|aperta|empurr|não (coube|cabe)|sardinha/i.test(desc)) {
+            return 'lotacao';
+          }
+          
+          // ACESSIBILIDADE
+          if (/elevador|rampa|cadeira|deficien|acessib|cego|surdo|mobilidade/i.test(desc)) {
+            return 'acessibilidade';
+          }
+          
+          // LIMPEZA
+          if (/suj[oa]|lixo|fedido|mal cheiro|imundo|nojento|barata|rato|inseto/i.test(desc)) {
+            return 'limpeza';
+          }
+          
+          // CONDUÇÃO
+          if (/motorista|dirig|freiada|acelera|imprudên|perigos|costur/i.test(desc)) {
+            return 'conducao';
+          }
+          
+          return null;
+        };
         
-        // 2. Validar description (mínimo 20 caracteres)
+        // === COLETA SEQUENCIAL OBRIGATÓRIA ===
+        // 1. DESCRIÇÃO (obrigatória, mínimo 20 caracteres)
         if (!args.description || args.description.trim().length < 20) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:description]Por favor, **descreva o problema** com mais detalhes. O que aconteceu exatamente? (mínimo 20 caracteres)'
+            message: '[FIELD_REQUEST:description]**O que aconteceu?** Me conta o problema com mais detalhes. (mínimo 20 caracteres)'
           };
         }
         
-        // 3. Validar occurrence_date (obrigatório - não assumir automaticamente)
+        // 2. REPORT_TYPE (obrigatório, inferido da descrição se não veio)
+        let validReportType = args.report_type;
+        if (!validReportType || validReportType === 'outro') {
+          const inferred = inferReportTypeFromDesc(args.description);
+          if (inferred) {
+            validReportType = inferred;
+            console.log('[create_transport_report] Inferred report_type:', validReportType, 'from description');
+          } else {
+            return {
+              success: false,
+              message: '[FIELD_REQUEST:report_type]**Qual foi o tipo de problema?** (atraso, lotação, segurança, acessibilidade, limpeza, condução)'
+            };
+          }
+        }
+        
+        // 3. LINHA (obrigatória)
+        if (!args.line_code) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:line_code]**Qual linha ou estação** teve o problema?'
+          };
+        }
+        
+        // 4. DATA (obrigatória - modelo DEVE ter coletado explicitamente, NUNCA assumir)
+        // O modelo PRECISA ter perguntado e o usuário respondido "hoje", "ontem" ou data específica
         if (!args.occurrence_date) {
           return {
             success: false,
             message: '[FIELD_REQUEST:occurrence_date]**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)'
+          };
+        }
+        
+        // VALIDAÇÃO EXTRA: Se a data é hoje e não veio flag de confirmação, perguntar mesmo assim
+        // Isso evita que o modelo "chute" a data como hoje
+        const today = new Date().toISOString().split('T')[0];
+        if (args.occurrence_date === today && !args.date_confirmed) {
+          console.log('[create_transport_report] Date is today but not explicitly confirmed, asking user');
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_date]Isso aconteceu **hoje**? Me confirma a data.'
           };
         }
         
@@ -1971,6 +2049,9 @@ async function executeTool(
           lineId = lineData?.id || null;
         }
         
+        // Inferir severidade para incidentes de segurança
+        const inferredSeverity = validReportType === 'seguranca' ? 'alta' : (args.severity || 'media');
+        
         // Generate protocol code atomically
         const { data: protocolData, error: protocolError } = await supabase
           .rpc('generate_protocol_code', { p_type: 'transport' });
@@ -1985,14 +2066,14 @@ async function executeTool(
           .insert({
             user_id: userId,
             protocol_code: protocolCode,
-            report_type: args.report_type,
+            report_type: validReportType,
             description: args.description,
             occurrence_date: args.occurrence_date,
             occurrence_time: args.occurrence_time || null,
             line_id: lineId,
             line_code_custom: args.line_code || null,
             location: args.location || null,
-            severity: args.severity || 'media',
+            severity: inferredSeverity,
             impact_description: args.impact_description || null,
             status: 'pending'
           })
@@ -2024,13 +2105,41 @@ async function executeTool(
           conducao: 'Condução',
           outro: 'Outro'
         };
-        const typeLabel = reportTypeLabels[args.report_type] || args.report_type;
+        const typeLabel = reportTypeLabels[validReportType] || validReportType;
         
-        const protocolLine = data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n\n` : '';
+        const severityLabels: Record<string, string> = {
+          baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica'
+        };
+        const severityLabel = severityLabels[inferredSeverity] || inferredSeverity;
+        
+        // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
+        const successMessage = [
+          `[TRANSPORT_CREATED:${data.id}]`,
+          '',
+          '✅ **Relato de transporte registrado!**',
+          '',
+          data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : '',
+          '**Resumo do seu relato:**',
+          '',
+          `📋 **Tipo:** ${typeLabel}`,
+          `🚌 **Linha:** ${args.line_code || 'Não informada'}`,
+          `📅 **Data:** ${args.occurrence_date}`,
+          args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
+          args.location ? `📍 **Local:** ${args.location}` : '',
+          `⚠️ **Gravidade:** ${severityLabel}`,
+          '',
+          `📝 **Descrição:** ${args.description.substring(0, 100)}${args.description.length > 100 ? '...' : ''}`,
+          '',
+          '---',
+          '',
+          '🔗 [Ver Meus Relatos](/transporte/meus-relatos) para acompanhar.',
+          '',
+          'Posso ajudar com mais alguma coisa?'
+        ].filter(line => line !== '').join('\n');
         
         return { 
           success: true, 
-          message: `✅ **Relato de transporte registrado!**\n\n${protocolLine}🚌 **Linha:** ${args.line_code || 'Não informada'}\n📋 **Tipo:** ${typeLabel}\n📅 **Data:** ${args.occurrence_date}\n\n👉 Acesse [Meus Relatos](/transporte/meus-relatos) para acompanhar.\n\nPosso ajudar com mais alguma coisa?`,
+          message: successMessage,
           data: { id: data.id, protocol_code: data.protocol_code, type: 'transport' }
         };
       }
