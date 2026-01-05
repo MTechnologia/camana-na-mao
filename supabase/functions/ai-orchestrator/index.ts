@@ -1360,13 +1360,73 @@ Cenário: Cidadão estava relatando problema urbano e disse "quero reclamar do �
 → Responder: "Percebi que você quer falar sobre transporte. Ainda não terminamos seu relato sobre iluminação na Rua Augusta. [JOURNEY_SWITCH_PROMPT:transport_report:urban_report]"
 → Frontend renderiza botões: "Sim, iniciar Transporte" / "Não, continuar Relato Urbano"
 
-TOM: Breve, direto, linguagem simples.
+=== REGRA DE OURO: NUNCA RESPONDER NEGATIVAMENTE ===
+
+Quando uma busca NÃO retornar resultados exatos, SEMPRE:
+1. Reconheça brevemente que não encontrou o específico
+2. Ofereça a ALTERNATIVA MAIS PRÓXIMA disponível
+3. Pergunte se ajuda (rota, notificação, mais opções)
+
+EXEMPLOS:
+❌ ERRADO: "Não encontrei UBS em Pinheiros."
+✅ CERTO: "Não encontrei UBS em Pinheiros, mas a UBS Vila Mariana fica próxima. Quer que eu calcule a rota?"
+
+❌ ERRADO: "Não há audiências sobre esse tema."
+✅ CERTO: "Não encontrei audiências sobre educação no momento, mas aqui estão as próximas agendadas: [lista]. Quer que eu te avise quando houver?"
+
+❌ ERRADO: "Não encontrei esse serviço."
+✅ CERTO: "Não encontrei 'UBS Consolação' exatamente. Seria algum destes? [lista de UBS similares]"
+
+NUNCA deixar o cidadão sem opção útil!
+
+TOM: Breve, direto, linguagem simples, sempre construtivo.
 Data de hoje: ${new Date().toISOString().split('T')[0]}`;
 
-// Helper: Search knowledge base
+// Helper: Get friendly service type name
+function getServiceTypeName(type: string): string {
+  const names: Record<string, string> = {
+    'ubs': 'UBS',
+    'school': 'escolas',
+    'ceu': 'CEUs',
+    'hospital': 'hospitais',
+    'library': 'bibliotecas',
+    'sports_center': 'centros esportivos',
+    'other': 'serviços'
+  };
+  return names[type] || 'serviços';
+}
+
+// Helper: Format services with positive context (Never Negative pattern)
+function formatServicesWithContext(
+  services: any[], 
+  serviceType: string, 
+  originalDistrict: string | null,
+  isExpanded: boolean
+): string {
+  const typeName = getServiceTypeName(serviceType);
+  const header = isExpanded 
+    ? `Não encontrei ${typeName} em ${originalDistrict}, mas aqui estão as opções mais próximas:`
+    : `Encontrei ${services.length} ${typeName}:`;
+  
+  const list = services.map((s: any, i: number) => {
+    const districtInfo = isExpanded ? ` (${s.district})` : '';
+    const rating = s.average_rating ? ` ⭐ ${Number(s.average_rating).toFixed(1)}` : '';
+    return `${i+1}. ${s.name}${districtInfo}\n   📍 ${s.address}${rating}`;
+  }).join('\n\n');
+  
+  const footer = isExpanded 
+    ? '\n\n💡 Quer que eu calcule a rota para alguma delas?' 
+    : '';
+  
+  return `${header}\n\n${list}${footer}`;
+}
+
+// Helper: Search knowledge base (with positive alternatives)
 async function searchKnowledgeBase(supabase: any, query: string): Promise<string> {
   const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
-  if (searchTerms.length === 0) return '';
+  if (searchTerms.length === 0) {
+    return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
+  }
 
   const { data, error } = await supabase
     .from('knowledge_base')
@@ -1374,7 +1434,16 @@ async function searchKnowledgeBase(supabase: any, query: string): Promise<string
     .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
     .limit(5);
 
-  if (error || !data?.length) return '';
+  if (error || !data?.length) {
+    // NEVER NEGATIVE: Suggest alternatives instead of just saying "not found"
+    const suggestions = [
+      '• Como funciona a Câmara Municipal',
+      '• Próximas audiências públicas',
+      '• Informações sobre vereadores',
+      '• Serviços públicos na cidade'
+    ];
+    return `Não encontrei informações específicas sobre "${query}", mas posso te ajudar com:\n\n${suggestions.join('\n')}\n\n📌 Ou você pode visitar cmsp.sp.gov.br para mais detalhes.`;
+  }
 
   return data.map((doc: any, i: number) => {
     const source = doc.content_type === 'noticia' ? 'Notícia' : 
@@ -1383,33 +1452,65 @@ async function searchKnowledgeBase(supabase: any, query: string): Promise<string
   }).join('\n\n');
 }
 
-// Helper: Find nearby services
+// Helper: Find nearby services (with progressive geographic fallback)
 async function findNearbyServices(supabase: any, serviceType: string, district?: string, limit: number = 5): Promise<string> {
-  let query = supabase
-    .from('public_services')
-    .select('name, address, district, phone, average_rating, service_type')
-    .eq('service_type', serviceType)
-    .limit(limit);
+  const typeName = getServiceTypeName(serviceType);
   
+  // 1st attempt: specific district
   if (district) {
-    query = query.ilike('district', `%${district}%`);
+    const { data, error } = await supabase
+      .from('public_services')
+      .select('name, address, district, phone, average_rating, service_type')
+      .eq('service_type', serviceType)
+      .ilike('district', `%${district}%`)
+      .limit(limit);
+    
+    if (!error && data?.length) {
+      return formatServicesWithContext(data, serviceType, district, false);
+    }
+    
+    // 2nd attempt: NEVER NEGATIVE - expand to entire city
+    console.log(`[findNearbyServices] No results in ${district}, expanding to city-wide search`);
+    const { data: cityWide, error: cityError } = await supabase
+      .from('public_services')
+      .select('name, address, district, phone, average_rating, service_type')
+      .eq('service_type', serviceType)
+      .limit(limit * 2);
+    
+    if (!cityError && cityWide?.length) {
+      // Return with expanded context (NEVER NEGATIVE)
+      return formatServicesWithContext(cityWide, serviceType, district, true);
+    }
+  } else {
+    // No district specified, search city-wide
+    const { data, error } = await supabase
+      .from('public_services')
+      .select('name, address, district, phone, average_rating, service_type')
+      .eq('service_type', serviceType)
+      .limit(limit);
+    
+    if (!error && data?.length) {
+      return formatServicesWithContext(data, serviceType, null, false);
+    }
   }
   
-  const { data, error } = await query;
+  // NEVER NEGATIVE: If still no results, suggest other service types
+  const { data: otherTypes } = await supabase
+    .from('public_services')
+    .select('service_type')
+    .limit(20);
   
-  if (error || !data?.length) {
-    return district 
-      ? `Não encontrei serviços do tipo ${serviceType} em ${district}. Tente outro bairro.`
-      : `Não encontrei serviços do tipo ${serviceType}.`;
+  const availableTypes = [...new Set((otherTypes || []).map((s: any) => s.service_type))] as string[];
+  const typeNames = availableTypes.map((t: string) => getServiceTypeName(t)).slice(0, 4);
+  
+  if (typeNames.length > 0) {
+    return `Ainda não tenho ${typeName} cadastradas no sistema, mas posso te ajudar a encontrar:\n\n${typeNames.map((t, i) => `${i+1}. ${t}`).join('\n')}\n\nQual desses te interessa?`;
   }
   
-  return data.map((s: any, i: number) => {
-    const rating = s.average_rating ? `⭐ ${Number(s.average_rating).toFixed(1)}` : '';
-    return `${i+1}. ${s.name}\n   📍 ${s.address}, ${s.district}\n   ${s.phone ? `📞 ${s.phone}` : ''} ${rating}`;
-  }).join('\n\n');
+  return `Estou atualizando minha base de serviços. Por enquanto, você pode buscar ${typeName} em sp156.prefeitura.sp.gov.br`;
 }
 
-// Helper: Search audiencias
+// Helper: Search audiencias (with fallback to upcoming or related)
 async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
   let query = supabase
     .from('audiencias')
@@ -1430,7 +1531,39 @@ async function searchAudiencias(supabase: any, tema?: string, status?: string, i
   const { data, error } = await query;
   
   if (error || !data?.length) {
-    return 'Não encontrei audiências com esses critérios. Tente outros filtros.';
+    // NEVER NEGATIVE: Fallback to any upcoming audiencias
+    console.log(`[searchAudiencias] No results for tema="${tema}", falling back to upcoming`);
+    
+    const { data: upcoming } = await supabase
+      .from('audiencias')
+      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+      .eq('status', 'scheduled')
+      .order('data', { ascending: true })
+      .limit(3);
+    
+    if (upcoming?.length) {
+      const formattedUpcoming = upcoming.map((a: any, i: number) => {
+        const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas` : '';
+        return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora} ${inscricao}`;
+      }).join('\n\n');
+      
+      const temaText = tema ? `sobre "${tema}"` : 'com esses critérios';
+      return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\n📬 Quer que eu te avise quando houver audiências sobre ${tema || 'seu tema de interesse'}?`;
+    }
+    
+    // Fallback 2: Suggest available themes
+    const { data: allAudiencias } = await supabase
+      .from('audiencias')
+      .select('tema')
+      .limit(50);
+    
+    const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema))].slice(0, 5);
+    
+    if (availableThemes.length > 0) {
+      return `Não há audiências ${tema ? `sobre "${tema}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t, i) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses?`;
+    }
+    
+    return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
   }
   
   return data.map((a: any, i: number) => {
