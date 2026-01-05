@@ -44,6 +44,11 @@ function getToolHintForIntent(intentType: string): string | null {
 
 // Intent keywords - EXPANDED for natural language detection
 const INTENT_KEYWORDS = [
+  // === Mensagens dos chips (PromptChips.tsx) - HIGH PRIORITY ===
+  'relatar um problema', 'problema na cidade', 'problema no transporte',
+  'avaliar um serviço', 'me diz o que está acontecendo', 'qual linha e o que aconteceu',
+  'quero relatar um problema', 'problema urbano',
+  
   // === Verbos de ação explícitos ===
   'quero reclamar', 'preciso relatar', 'quero reportar', 'aconteceu',
   'tem um problema', 'está com problema', 'não está funcionando',
@@ -2662,7 +2667,12 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationId } = await req.json();
+    const { messages, conversationId, collectionType: frontendCollectionType } = await req.json();
+    
+    // Log frontend collection type for debugging
+    if (frontendCollectionType) {
+      console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
+    }
     
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -2689,7 +2699,23 @@ serve(async (req) => {
     
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
-    const collectionIntent = detectCollectionIntent(lastUserMsg, messages);
+    
+    // PRIORITY: Use frontend collection type if it's a structured journey type
+    const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
+    let collectionIntent: CollectionIntent | null;
+    
+    if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
+      // Frontend already knows the journey type - trust it
+      console.log('[ai-orchestrator] Using frontend collectionType:', frontendCollectionType);
+      const detectedFields = detectCollectionIntent(lastUserMsg, messages)?.fields || {};
+      collectionIntent = {
+        type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
+        fields: detectedFields,
+      };
+    } else {
+      // Fallback: detect intent from message content
+      collectionIntent = detectCollectionIntent(lastUserMsg, messages);
+    }
     
     // Accumulate fields from conversation history for better tracking
     let accumulatedFields: Record<string, any> = {};
@@ -2697,6 +2723,7 @@ serve(async (req) => {
       accumulatedFields = accumulateFieldsFromHistory(messages, collectionIntent.type);
       // Merge with detected fields from current message
       accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
+      console.log('[ai-orchestrator] Effective collectionType:', collectionIntent.type);
       console.log('[ai-orchestrator] Accumulated fields:', JSON.stringify(accumulatedFields));
     }
     
