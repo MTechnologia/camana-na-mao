@@ -53,7 +53,13 @@ export function KanbanColumn({
   onReferral,
   onDelete,
 }: KanbanColumnProps) {
-  const { setNodeRef } = useDroppable({ id: status });
+  const { setNodeRef } = useDroppable({ 
+    id: status,
+    data: {
+      type: 'container',
+      status: status,
+    }
+  });
   const config = statusConfig[status] || statusConfig.pending;
   const StatusIcon = config.icon;
 
