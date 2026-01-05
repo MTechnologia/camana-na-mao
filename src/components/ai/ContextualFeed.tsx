@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { noticias } from "@/data/noticias";
 import { isToday, isTomorrow, differenceInHours, differenceInDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Sparkles } from "lucide-react";
+
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
@@ -186,8 +186,7 @@ const ContextualFeed = () => {
       transition={{ duration: 0.4 }}
     >
       {/* Section Title */}
-      <div className="flex items-center gap-2 mb-3 px-4">
-        <Sparkles className="w-4 h-4 text-primary" />
+      <div className="mb-3 px-4">
         <span className="text-sm font-semibold text-foreground">
           Destaques
         </span>
