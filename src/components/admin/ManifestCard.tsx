@@ -19,7 +19,7 @@ import {
 import { 
   Building2, Bus, Star, MessageSquare, MoreVertical,
   Clock, TrendingUp, CheckCircle2, XCircle, Forward, 
-  Reply, Eye, Trash2, ExternalLink
+  Reply, Eye, Trash2, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -132,6 +132,19 @@ export const ManifestCard = ({
           {manifest.severity && severityConfig[manifest.severity] && (
             <Badge variant="outline" className={`${severityConfig[manifest.severity].color} shrink-0`}>
               {severityConfig[manifest.severity].label}
+            </Badge>
+          )}
+          {/* Protocol badge */}
+          {(manifest.urban_data?.protocol_code || manifest.transport_data?.protocol_code) && (
+            <Badge variant="outline" className="font-mono text-xs shrink-0">
+              {manifest.urban_data?.protocol_code || manifest.transport_data?.protocol_code}
+            </Badge>
+          )}
+          {/* Critical risk badge */}
+          {manifest.urban_data?.risk_level === 'critical' && (
+            <Badge variant="destructive" className="shrink-0">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Risco Crítico
             </Badge>
           )}
           {manifest.type === 'evaluation' && manifest.evaluation_data && (

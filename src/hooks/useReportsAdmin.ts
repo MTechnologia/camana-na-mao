@@ -29,6 +29,19 @@ export interface UnifiedManifest {
     likes_count: number;
     comments_count: number;
     ai_classification: Record<string, unknown> | null;
+    // Structured address fields
+    protocol_code: string | null;
+    street: string | null;
+    street_number: string | null;
+    cep: string | null;
+    neighborhood: string | null;
+    reference_point: string | null;
+    // Impact assessment fields
+    risk_level: string | null;
+    risk_types: string[] | null;
+    affected_scope: string | null;
+    affected_estimate: number | null;
+    urgency_reason: string | null;
   };
   // Transport-specific fields
   transport_data?: {
@@ -44,6 +57,7 @@ export interface UnifiedManifest {
     ai_pattern_detected: boolean | null;
     responded_at: string | null;
     responses_count: number;
+    protocol_code: string | null;
   };
   // Evaluation-specific fields
   evaluation_data?: {
@@ -300,6 +314,19 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               likes_count: likesCount.get(r.id) || 0,
               comments_count: commentsCount.get(r.id) || 0,
               ai_classification: r.ai_classification as Record<string, unknown> | null,
+              // Structured address
+              protocol_code: r.protocol_code,
+              street: r.street,
+              street_number: r.street_number,
+              cep: r.cep,
+              neighborhood: r.neighborhood,
+              reference_point: r.reference_point,
+              // Impact assessment
+              risk_level: r.risk_level,
+              risk_types: r.risk_types,
+              affected_scope: r.affected_scope,
+              affected_estimate: r.affected_estimate,
+              urgency_reason: r.urgency_reason,
             },
             n8n_processed: r.n8n_processed,
             n8n_priority: r.n8n_priority,
@@ -350,6 +377,19 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               likes_count: 0,
               comments_count: 0,
               ai_classification: r.ai_classification as Record<string, unknown> | null,
+              // Structured address - feedback doesn't use these
+              protocol_code: null,
+              street: null,
+              street_number: null,
+              cep: null,
+              neighborhood: null,
+              reference_point: null,
+              // Impact assessment - feedback doesn't use these
+              risk_level: null,
+              risk_types: null,
+              affected_scope: null,
+              affected_estimate: null,
+              urgency_reason: null,
             },
           })));
         }
@@ -409,6 +449,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               ai_pattern_detected: r.ai_pattern_detected,
               responded_at: r.responded_at,
               responses_count: responsesCount.get(r.id) || 0,
+              protocol_code: r.protocol_code,
             },
             n8n_processed: r.n8n_processed,
             n8n_priority: r.n8n_priority,

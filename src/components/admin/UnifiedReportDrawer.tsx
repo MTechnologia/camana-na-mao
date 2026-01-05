@@ -58,6 +58,23 @@ const severityConfig: Record<string, { label: string; color: string }> = {
   low: { label: 'Baixa', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 };
 
+const riskLevelConfig: Record<string, { label: string; color: string }> = {
+  critical: { label: 'Crítico', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
+  moderate: { label: 'Moderado', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+  low: { label: 'Baixo', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  none: { label: 'Nenhum', color: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
+};
+
+const affectedScopeLabels: Record<string, string> = {
+  individual: 'Individual (1-5 pessoas)',
+  street: 'Rua toda',
+  building: 'Prédio/Vizinhança',
+  block: 'Quarteirão',
+  neighborhood: 'Bairro todo',
+  zone: 'Zona da cidade',
+  city: 'Cidade toda',
+};
+
 export const UnifiedReportDrawer = ({
   open,
   onOpenChange,
@@ -181,6 +198,12 @@ export const UnifiedReportDrawer = ({
             </div>
             <div className="flex-1 min-w-0">
               <SheetTitle className="text-left truncate">{manifest.title}</SheetTitle>
+              {/* Protocol code */}
+              {(manifest.urban_data?.protocol_code || manifest.transport_data?.protocol_code) && (
+                <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                  {manifest.urban_data?.protocol_code || manifest.transport_data?.protocol_code}
+                </p>
+              )}
               <div className="flex flex-wrap gap-1.5 mt-1">
                 <Badge variant="outline" className={typeConfig[manifest.type].color}>
                   {typeConfig[manifest.type].label}
@@ -257,6 +280,77 @@ export const UnifiedReportDrawer = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Structured Address Section */}
+                  {manifest.urban_data.street && (
+                    <div className="p-4 rounded-lg border bg-muted/30">
+                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Endereço Completo
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs">Logradouro</p>
+                          <p>{manifest.urban_data.street}{manifest.urban_data.street_number ? `, ${manifest.urban_data.street_number}` : ''}</p>
+                        </div>
+                        {manifest.urban_data.neighborhood && (
+                          <div>
+                            <p className="text-muted-foreground text-xs">Bairro</p>
+                            <p>{manifest.urban_data.neighborhood}</p>
+                          </div>
+                        )}
+                        {manifest.urban_data.cep && (
+                          <div>
+                            <p className="text-muted-foreground text-xs">CEP</p>
+                            <p className="font-mono">{manifest.urban_data.cep}</p>
+                          </div>
+                        )}
+                        {manifest.urban_data.reference_point && (
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground text-xs">Ponto de Referência</p>
+                            <p>{manifest.urban_data.reference_point}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Impact Assessment Section */}
+                  {manifest.urban_data.risk_level && (
+                    <div className="p-4 rounded-lg border bg-muted/30">
+                      <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Avaliação de Impacto
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground text-xs">Nível de Risco</p>
+                          <Badge variant="outline" className={riskLevelConfig[manifest.urban_data.risk_level]?.color || ''}>
+                            {riskLevelConfig[manifest.urban_data.risk_level]?.label || manifest.urban_data.risk_level}
+                          </Badge>
+                        </div>
+                        {manifest.urban_data.affected_scope && (
+                          <div>
+                            <p className="text-muted-foreground text-xs">Escopo Afetado</p>
+                            <p>{affectedScopeLabels[manifest.urban_data.affected_scope] || manifest.urban_data.affected_scope}</p>
+                          </div>
+                        )}
+                        {manifest.urban_data.affected_estimate && (
+                          <div>
+                            <p className="text-muted-foreground text-xs">Pessoas Afetadas</p>
+                            <p>~{manifest.urban_data.affected_estimate}</p>
+                          </div>
+                        )}
+                        {manifest.urban_data.urgency_reason && (
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground text-xs">Motivo da Urgência</p>
+                            <p>{manifest.urban_data.urgency_reason}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Heart className="h-4 w-4" /> {manifest.urban_data.likes_count} curtidas
