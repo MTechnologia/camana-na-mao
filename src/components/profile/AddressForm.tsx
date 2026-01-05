@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addressSchema } from "@/lib/validations";
-import { MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2 } from "lucide-react";
 
 interface AddressFormProps {
   userId: string;
@@ -22,6 +22,11 @@ interface ViaCepResponse {
   erro?: boolean;
 }
 
+interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
 const ESTADOS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
   "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
@@ -31,6 +36,7 @@ const ESTADOS = [
 const AddressForm = ({ userId }: AddressFormProps) => {
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [zipCode, setZipCode] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -40,6 +46,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
   const [state, setState] = useState("");
   const [isPrimary, setIsPrimary] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
 
   useEffect(() => {
     loadAddress();
@@ -66,9 +73,67 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setCity(data.city);
         setState(data.state);
         setIsPrimary(data.is_primary);
+        
+        // Carregar coordenadas existentes
+        if (data.latitude && data.longitude) {
+          setCoordinates({
+            latitude: data.latitude,
+            longitude: data.longitude,
+          });
+        }
       }
     } catch (error: any) {
       console.error("Error loading address:", error);
+    }
+  };
+
+  const geocodeAddress = async (fullAddress: string): Promise<Coordinates | null> => {
+    setGeocoding(true);
+    try {
+      // Primeiro, buscar sugestões de autocomplete
+      const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke(
+        'google-places-autocomplete',
+        { body: { query: fullAddress } }
+      );
+
+      if (autocompleteError) {
+        console.error('Autocomplete error:', autocompleteError);
+        return null;
+      }
+
+      if (!autocompleteData?.predictions?.length) {
+        console.log('No predictions found for address:', fullAddress);
+        return null;
+      }
+
+      // Buscar detalhes do primeiro resultado para obter coordenadas
+      const placeId = autocompleteData.predictions[0].place_id;
+      
+      const { data: detailsData, error: detailsError } = await supabase.functions.invoke(
+        'google-places-details',
+        { body: { placeId } }
+      );
+
+      if (detailsError) {
+        console.error('Details error:', detailsError);
+        return null;
+      }
+
+      if (detailsData?.structuredAddress?.latitude && detailsData?.structuredAddress?.longitude) {
+        const coords: Coordinates = {
+          latitude: detailsData.structuredAddress.latitude,
+          longitude: detailsData.structuredAddress.longitude,
+        };
+        setCoordinates(coords);
+        return coords;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Geocoding failed:', error);
+      return null;
+    } finally {
+      setGeocoding(false);
     }
   };
 
@@ -76,6 +141,11 @@ const AddressForm = ({ userId }: AddressFormProps) => {
     // Remove caracteres não numéricos
     const cleanedZipCode = value.replace(/\D/g, "");
     setZipCode(cleanedZipCode);
+    
+    // Limpar coordenadas quando CEP mudar
+    if (cleanedZipCode.length < 8) {
+      setCoordinates(null);
+    }
 
     if (cleanedZipCode.length === 8) {
       setLoadingCep(true);
@@ -93,7 +163,15 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setCity(data.localidade);
         setState(data.uf);
         
-        toast.success("Endereço encontrado!");
+        // Geocodificar o endereço para obter coordenadas
+        const fullAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade}, ${data.uf}, Brasil`;
+        const coords = await geocodeAddress(fullAddress);
+        
+        if (coords) {
+          toast.success("Endereço encontrado com localização mapeada!");
+        } else {
+          toast.success("Endereço encontrado!");
+        }
       } catch (error) {
         toast.error("Erro ao buscar CEP");
       } finally {
@@ -124,20 +202,24 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
       setLoading(true);
 
+      const addressData = {
+        zip_code: validated.zipCode,
+        street: validated.street,
+        number: validated.number,
+        complement: validated.complement || null,
+        neighborhood: validated.neighborhood,
+        city: validated.city,
+        state: validated.state,
+        is_primary: validated.isPrimary,
+        latitude: coordinates?.latitude || null,
+        longitude: coordinates?.longitude || null,
+      };
+
       if (addressId) {
         // Update
         const { error } = await supabase
           .from('user_addresses')
-          .update({
-            zip_code: validated.zipCode,
-            street: validated.street,
-            number: validated.number,
-            complement: validated.complement || null,
-            neighborhood: validated.neighborhood,
-            city: validated.city,
-            state: validated.state,
-            is_primary: validated.isPrimary,
-          })
+          .update(addressData)
           .eq('id', addressId);
 
         if (error) throw error;
@@ -147,14 +229,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
           .from('user_addresses')
           .insert({
             user_id: userId,
-            zip_code: validated.zipCode,
-            street: validated.street,
-            number: validated.number,
-            complement: validated.complement || null,
-            neighborhood: validated.neighborhood,
-            city: validated.city,
-            state: validated.state,
-            is_primary: validated.isPrimary,
+            ...addressData,
           });
 
         if (error) throw error;
@@ -190,16 +265,24 @@ const AddressForm = ({ userId }: AddressFormProps) => {
             className="h-12 pr-10"
             maxLength={9}
           />
-          {loadingCep && (
+          {(loadingCep || geocoding) && (
             <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground" />
           )}
-          {!loadingCep && zipCode.length === 8 && (
+          {!loadingCep && !geocoding && zipCode.length === 8 && (
             <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-500" />
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           Digite o CEP para buscar automaticamente
         </p>
+        
+        {/* Indicador de geolocalização */}
+        {coordinates && (
+          <div className="flex items-center gap-1.5 text-xs text-green-600 mt-2">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Localização mapeada ✓</span>
+          </div>
+        )}
       </div>
 
       <div>
