@@ -27,21 +27,24 @@ const chips: PromptChip[] = [
   {
     id: "urban",
     label: "Problema urbano",
-    message: "Quero registrar um problema urbano",
+    // Mensagem direta que já inicia coleta: pergunta problema E localização
+    message: "Quero relatar um problema na cidade. Me diz o que está acontecendo e onde fica.",
     icon: Building2,
     collectionType: "urban_report",
   },
   {
     id: "transport",
     label: "Transporte",
-    message: "Tive um problema no transporte",
+    // Mensagem direta que já pede os dados principais
+    message: "Tive um problema no transporte. Qual linha e o que aconteceu?",
     icon: Bus,
     collectionType: "transport_report",
   },
   {
     id: "evaluate",
     label: "Avaliar serviço",
-    message: "Quero avaliar um serviço público",
+    // Mensagem que já pede tipo e nota
+    message: "Quero avaliar um serviço público. Qual serviço e que nota você dá?",
     icon: Star,
     collectionType: "service_rating",
   },
@@ -55,7 +58,7 @@ const chips: PromptChip[] = [
   {
     id: "question",
     label: "Tirar dúvida",
-    message: "Tenho uma dúvida",
+    message: "Tenho uma dúvida sobre a Câmara ou serviços da cidade",
     icon: HelpCircle,
     collectionType: null,
   },

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -64,6 +64,20 @@ const AgentChatArea = () => {
   
   const { createConversation } = useAIConversations();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Extrai o campo atual sendo solicitado da última mensagem do assistente
+  const currentField = useMemo(() => {
+    const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+    if (!lastAssistantMsg) return undefined;
+    
+    // Procura pelo marcador [FIELD_REQUEST:field_name]
+    const fieldRequestMatch = lastAssistantMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
+    if (fieldRequestMatch) {
+      return fieldRequestMatch[1];
+    }
+    
+    return undefined;
+  }, [messages]);
 
   // Força re-render após hydration completa
   useEffect(() => {
@@ -230,6 +244,7 @@ const AgentChatArea = () => {
             <DataCollectionTracker 
               collectionType={collectionType}
               collectedFields={collectedFields}
+              currentField={currentField}
             />
             
             <ScrollArea className="flex-1">

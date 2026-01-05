@@ -60,6 +60,7 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
 interface DataCollectionTrackerProps {
   collectionType: CollectionType;
   collectedFields: CollectedFields;
+  currentField?: string; // Campo sendo solicitado atualmente (destaque visual)
   className?: string;
 }
 
@@ -166,22 +167,27 @@ const CircularProgress = ({ progress, size = 20, isComplete }: { progress: numbe
   );
 };
 
-// Field indicator component - mobile-friendly, no tooltip dependency
-const FieldIndicator = ({ label, isCollected, isRequired }: { 
+// Field indicator component - mobile-friendly, with current field highlight
+const FieldIndicator = ({ label, isCollected, isRequired, isCurrent }: { 
   label: string; 
   isCollected: boolean; 
   isRequired: boolean;
+  isCurrent?: boolean;
 }) => (
   <span className={cn(
-    "inline-flex items-center gap-1 text-xs whitespace-nowrap",
-    isCollected 
-      ? "text-green-600 dark:text-green-400" 
-      : isRequired
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-muted-foreground"
+    "inline-flex items-center gap-1 text-xs whitespace-nowrap transition-all duration-200",
+    isCurrent && !isCollected
+      ? "text-primary font-medium bg-primary/10 px-1.5 py-0.5 rounded-full border border-primary/30 animate-pulse"
+      : isCollected 
+        ? "text-green-600 dark:text-green-400" 
+        : isRequired
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-muted-foreground"
   )}>
     {isCollected ? (
       <Check className="h-3 w-3 flex-shrink-0" />
+    ) : isCurrent ? (
+      <Circle className="h-3 w-3 flex-shrink-0 fill-primary/30" />
     ) : (
       <Circle className={cn(
         "h-3 w-3 flex-shrink-0",
@@ -189,6 +195,9 @@ const FieldIndicator = ({ label, isCollected, isRequired }: {
       )} />
     )}
     {label}
+    {isCurrent && !isCollected && (
+      <span className="text-[10px] ml-0.5">←</span>
+    )}
   </span>
 );
 
@@ -222,6 +231,7 @@ const formatFieldValue = (key: string, value: any): string => {
 const DataCollectionTracker = ({ 
   collectionType, 
   collectedFields,
+  currentField,
   className 
 }: DataCollectionTrackerProps) => {
   const [showOptional, setShowOptional] = useState(false);
@@ -368,6 +378,7 @@ const DataCollectionTracker = ({
                   label={field.label}
                   isCollected={!!collectedFields[field.key]}
                   isRequired={true}
+                  isCurrent={currentField === field.key}
                 />
               ))}
             </div>
@@ -405,6 +416,7 @@ const DataCollectionTracker = ({
                         label={field.label}
                         isCollected={!!collectedFields[field.key]}
                         isRequired={false}
+                        isCurrent={currentField === field.key}
                       />
                     ))}
                   </motion.div>
