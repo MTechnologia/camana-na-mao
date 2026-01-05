@@ -15,7 +15,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { UnifiedManifest, ManifestType } from '@/hooks/useReportsAdmin';
 import { KanbanColumn } from './KanbanColumn';
-import { KanbanCard } from './KanbanCard';
+import { KanbanCardDragPreview } from './KanbanCardDragPreview';
 
 const STATUSES = ['pending', 'in_progress', 'resolved', 'rejected'];
 
@@ -111,6 +111,12 @@ export function KanbanBoard({
 
   const activeManifest = activeId ? getManifestById(activeId) : null;
 
+  // Custom drop animation for smoother transitions
+  const dropAnimation = {
+    duration: 200,
+    easing: 'ease-out' as const,
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -135,17 +141,10 @@ export function KanbanBoard({
         ))}
       </div>
 
-      {/* Drag Overlay - shows the dragged card */}
-      <DragOverlay>
+      {/* Drag Overlay - shows the dragged card preview */}
+      <DragOverlay dropAnimation={dropAnimation}>
         {activeManifest ? (
-          <div className="opacity-90 rotate-3 scale-105">
-            <KanbanCard
-              manifest={activeManifest}
-              onViewDetails={() => {}}
-              onReferral={() => {}}
-              onDelete={() => {}}
-            />
-          </div>
+          <KanbanCardDragPreview manifest={activeManifest} />
         ) : null}
       </DragOverlay>
     </DndContext>
