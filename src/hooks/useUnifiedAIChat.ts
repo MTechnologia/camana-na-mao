@@ -1128,6 +1128,44 @@ export const useUnifiedAIChat = (
     }
   }, [sendMessage]);
 
+  // Handle line selection from inline picker
+  const handleLineSelected = useCallback((lineCode: string, lineName: string) => {
+    setCollectedFields(prev => ({ ...prev, line_code: lineCode }));
+    sendMessage(`Linha selecionada: ${lineCode}${lineName !== lineCode ? ` (${lineName})` : ''}`);
+  }, [sendMessage]);
+
+  // Handle date selection from inline picker
+  const handleDateSelected = useCallback((date: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, occurrence_date: date }));
+    sendMessage(`Data: ${displayText}`);
+  }, [sendMessage]);
+
+  // Handle time selection from inline picker
+  const handleTimeSelected = useCallback((time: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, occurrence_time: time }));
+    sendMessage(`Horário: ${displayText}`);
+  }, [sendMessage]);
+
+  // Handle rating selection from inline picker
+  const handleRatingSelected = useCallback((stars: number) => {
+    setCollectedFields(prev => ({ ...prev, rating_stars: stars }));
+    sendMessage(`Nota: ${stars} estrelas`);
+  }, [sendMessage]);
+
+  // Handle service type selection from inline picker
+  const handleServiceTypeSelected = useCallback((type: string, displayName: string) => {
+    setCollectedFields(prev => ({ ...prev, service_type: type }));
+    sendMessage(`Tipo de serviço: ${displayName}`);
+  }, [sendMessage]);
+
+  // Handle service selection from inline picker
+  const handleServiceSelected = useCallback((name: string, neighborhood: string, serviceId?: string) => {
+    const newFields: Record<string, unknown> = { service_name: name };
+    if (neighborhood) newFields.service_neighborhood = neighborhood;
+    setCollectedFields(prev => ({ ...prev, ...newFields }));
+    sendMessage(`Serviço: ${name}${neighborhood ? ` - ${neighborhood}` : ''}`);
+  }, [sendMessage]);
+
   return {
     messages,
     isLoading,
@@ -1143,5 +1181,11 @@ export const useUnifiedAIChat = (
     getMissingRequiredFields,
     isCollectionComplete,
     handleJourneySwitchDecision,
+    handleLineSelected,
+    handleDateSelected,
+    handleTimeSelected,
+    handleRatingSelected,
+    handleServiceTypeSelected,
+    handleServiceSelected,
   };
 };

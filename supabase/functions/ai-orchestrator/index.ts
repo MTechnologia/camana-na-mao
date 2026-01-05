@@ -1261,14 +1261,14 @@ RELATO URBANO:
 
 IMPORTANTE: Use os marcadores [FIELD_REQUEST:campo] nas perguntas para captura determinística.
 
-TRANSPORTE (COLETA SEQUENCIAL OBRIGATÓRIA):
+TRANSPORTE (COLETA SEQUENCIAL COM PICKERS):
 ⚠️ **NUNCA ASSUMIR DATA COMO HOJE** - O usuário DEVE dizer explicitamente "hoje", "ontem" ou uma data.
 ⚠️ **NUNCA CHAMAR create_transport_report sem todos os campos coletados**
 
 1ª: "[FIELD_REQUEST:description]O que aconteceu? Me conta o problema." (captura descrição >= 20 chars)
-2ª: "[FIELD_REQUEST:line_code]Qual linha ou estação teve o problema?"
-3ª: "[FIELD_REQUEST:occurrence_date]Quando isso aconteceu? (hoje, ontem, ou me diz a data)"
-4ª (opcional): "[FIELD_REQUEST:occurrence_time]Que horas mais ou menos?"
+2ª: "[FIELD_REQUEST:line_code]Qual linha ou estação teve o problema?[LINE_PICKER]"
+3ª: "[FIELD_REQUEST:occurrence_date]Quando isso aconteceu?[DATE_PICKER]"
+4ª (opcional): "[FIELD_REQUEST:occurrence_time]Que horas mais ou menos?[TIME_PICKER]"
 5ª (opcional): "[FIELD_REQUEST:location]Em qual ponto/estação/trecho?"
 
 O tipo de problema (report_type) será INFERIDO da descrição automaticamente:
@@ -1279,11 +1279,12 @@ O tipo de problema (report_type) será INFERIDO da descrição automaticamente:
 - Limpeza: sujo, fedido, lixo
 - Condução: motorista, freada brusca
 
-AVALIAÇÃO DE SERVIÇO:
-1ª: "Qual serviço? (UBS, escola, hospital, CEU...)"
-2ª: "Qual o nome?"
-3ª: "Em qual bairro?"
-4ª: "De 1 a 5, que nota? Por quê?"
+AVALIAÇÃO DE SERVIÇO (COLETA SEQUENCIAL COM PICKERS):
+1ª: "[FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]" (UBS, Escola, Hospital, CEU...)
+2ª: "[FIELD_REQUEST:service_name]Qual o nome do serviço?[SERVICE_PICKER]"
+3ª: "[FIELD_REQUEST:service_neighborhood]Em qual bairro?"
+4ª: "[FIELD_REQUEST:rating_stars]De 1 a 5, que nota você dá?[RATING_PICKER]"
+5ª: "[FIELD_REQUEST:rating_text]Conta como foi sua experiência" (captura comentário >= 20 chars)
 
 FEEDBACK VEREADOR:
 1ª: "Qual o nome completo do vereador?"

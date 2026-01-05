@@ -1,13 +1,19 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
+import InlineDatePicker from "./InlineDatePicker";
+import InlineTimePicker from "./InlineTimePicker";
+import InlineLinePicker from "./InlineLinePicker";
+import InlineRatingPicker from "./InlineRatingPicker";
+import InlineServiceTypePicker from "./InlineServiceTypePicker";
+import InlineServicePicker from "./InlineServicePicker";
 
 interface ChatMessage {
   id: string;
@@ -55,6 +61,13 @@ interface ChatMessageBubbleProps {
   userInitials?: string;
   onAddressSelected?: (address: StructuredAddress) => void;
   onJourneySwitchDecision?: (decision: 'switch' | 'continue', newJourney?: string) => void;
+  // New picker callbacks
+  onLineSelected?: (lineCode: string, lineName: string) => void;
+  onDateSelected?: (date: string, displayText: string) => void;
+  onTimeSelected?: (time: string, displayText: string) => void;
+  onRatingSelected?: (stars: number) => void;
+  onServiceTypeSelected?: (type: string, displayName: string) => void;
+  onServiceSelected?: (name: string, neighborhood: string, serviceId?: string) => void;
   isLastAssistantMessage?: boolean;
 }
 
@@ -64,12 +77,24 @@ const ChatMessageBubble = ({
   userInitials, 
   onAddressSelected, 
   onJourneySwitchDecision,
+  onLineSelected,
+  onDateSelected,
+  onTimeSelected,
+  onRatingSelected,
+  onServiceTypeSelected,
+  onServiceSelected,
   isLastAssistantMessage = false 
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
   const [addressSelected, setAddressSelected] = useState(false);
   const [decisionMade, setDecisionMade] = useState(false);
+  const [lineSelected, setLineSelected] = useState(false);
+  const [dateSelected, setDateSelected] = useState(false);
+  const [timeSelected, setTimeSelected] = useState(false);
+  const [ratingSelected, setRatingSelected] = useState(false);
+  const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
+  const [serviceSelected, setServiceSelected] = useState(false);
   
   // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
   const journeySwitchMatch = useMemo(() => {
@@ -83,6 +108,14 @@ const ChatMessageBubble = ({
   
   // Check if message contains [ADDRESS_PICKER] marker OR asks for CEP/address
   const hasAddressPicker = !isUser && message.content.includes('[ADDRESS_PICKER]');
+  
+  // Detect picker markers
+  const hasLinePicker = !isUser && message.content.includes('[LINE_PICKER]');
+  const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
+  const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
+  const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
+  const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
+  const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -120,11 +153,78 @@ const ChatMessageBubble = ({
     return (isCepQuestion || isAddressQuestion) && isLastAssistantMessage;
   }, [isUser, message.content, addressSelected, isLastAssistantMessage]);
   
+  // Detect line question without explicit marker
+  const isAskingForLine = useMemo(() => {
+    if (isUser || lineSelected || hasLinePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:line_code]') ||
+      (content.includes('qual linha') && isLastAssistantMessage)
+    );
+  }, [isUser, message.content, lineSelected, hasLinePicker, isLastAssistantMessage]);
+  
+  // Detect date question without explicit marker
+  const isAskingForDate = useMemo(() => {
+    if (isUser || dateSelected || hasDatePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:occurrence_date]') ||
+      (content.includes('quando') && content.includes('aconteceu') && isLastAssistantMessage)
+    );
+  }, [isUser, message.content, dateSelected, hasDatePicker, isLastAssistantMessage]);
+  
+  // Detect time question without explicit marker
+  const isAskingForTime = useMemo(() => {
+    if (isUser || timeSelected || hasTimePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:occurrence_time]') ||
+      (content.includes('que horas') && isLastAssistantMessage)
+    );
+  }, [isUser, message.content, timeSelected, hasTimePicker, isLastAssistantMessage]);
+  
+  // Detect rating question without explicit marker
+  const isAskingForRating = useMemo(() => {
+    if (isUser || ratingSelected || hasRatingPicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:rating_stars]') ||
+      ((content.includes('que nota') || content.includes('de 1 a 5')) && isLastAssistantMessage)
+    );
+  }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
+  
+  // Detect service type question
+  const isAskingForServiceType = useMemo(() => {
+    if (isUser || serviceTypeSelected || hasServiceTypePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:service_type]') ||
+      (content.includes('qual serviço') && content.includes('ubs') && isLastAssistantMessage)
+    );
+  }, [isUser, message.content, serviceTypeSelected, hasServiceTypePicker, isLastAssistantMessage]);
+  
+  // Detect service name question
+  const isAskingForService = useMemo(() => {
+    if (isUser || serviceSelected || hasServicePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:service_name]') ||
+      (content.includes('qual o nome') && isLastAssistantMessage)
+    );
+  }, [isUser, message.content, serviceSelected, hasServicePicker, isLastAssistantMessage]);
+  
   // Clean content by removing markers
   const cleanContent = message.content
     .replace(/\[ADDRESS_PICKER\]/g, '')
+    .replace(/\[LINE_PICKER\]/g, '')
+    .replace(/\[DATE_PICKER\]/g, '')
+    .replace(/\[TIME_PICKER\]/g, '')
+    .replace(/\[RATING_PICKER\]/g, '')
+    .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
+    .replace(/\[SERVICE_PICKER\]/g, '')
     .replace(/\[FIELD_REQUEST:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
+    .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
     .trim();
   
   const handleAddressSelected = (address: StructuredAddress) => {
@@ -138,6 +238,48 @@ const ChatMessageBubble = ({
     setDecisionMade(true);
     if (onJourneySwitchDecision && journeySwitchMatch) {
       onJourneySwitchDecision(decision, decision === 'switch' ? journeySwitchMatch.newJourney : undefined);
+    }
+  };
+  
+  const handleLineSelected = (lineCode: string, lineName: string) => {
+    setLineSelected(true);
+    if (onLineSelected) {
+      onLineSelected(lineCode, lineName);
+    }
+  };
+  
+  const handleDateSelected = (date: string, displayText: string) => {
+    setDateSelected(true);
+    if (onDateSelected) {
+      onDateSelected(date, displayText);
+    }
+  };
+  
+  const handleTimeSelected = (time: string, displayText: string) => {
+    setTimeSelected(true);
+    if (onTimeSelected) {
+      onTimeSelected(time, displayText);
+    }
+  };
+  
+  const handleRatingSelected = (stars: number) => {
+    setRatingSelected(true);
+    if (onRatingSelected) {
+      onRatingSelected(stars);
+    }
+  };
+  
+  const handleServiceTypeSelected = (type: string, displayName: string) => {
+    setServiceTypeSelected(true);
+    if (onServiceTypeSelected) {
+      onServiceTypeSelected(type, displayName);
+    }
+  };
+  
+  const handleServiceSelected = (name: string, neighborhood: string, serviceId?: string) => {
+    setServiceSelected(true);
+    if (onServiceSelected) {
+      onServiceSelected(name, neighborhood, serviceId);
     }
   };
   
@@ -251,6 +393,36 @@ const ChatMessageBubble = ({
             <MapPin className="h-3 w-3" />
             <span>Endereço selecionado ✓</span>
           </div>
+        )}
+        
+        {/* Inline Line Picker */}
+        {(hasLinePicker || isAskingForLine) && !lineSelected && isLastAssistantMessage && (
+          <InlineLinePicker onSelect={handleLineSelected} />
+        )}
+        
+        {/* Inline Date Picker */}
+        {(hasDatePicker || isAskingForDate) && !dateSelected && isLastAssistantMessage && (
+          <InlineDatePicker onSelect={handleDateSelected} />
+        )}
+        
+        {/* Inline Time Picker */}
+        {(hasTimePicker || isAskingForTime) && !timeSelected && isLastAssistantMessage && (
+          <InlineTimePicker onSelect={handleTimeSelected} />
+        )}
+        
+        {/* Inline Rating Picker */}
+        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && (
+          <InlineRatingPicker onSelect={handleRatingSelected} />
+        )}
+        
+        {/* Inline Service Type Picker */}
+        {(hasServiceTypePicker || isAskingForServiceType) && !serviceTypeSelected && isLastAssistantMessage && (
+          <InlineServiceTypePicker onSelect={handleServiceTypeSelected} />
+        )}
+        
+        {/* Inline Service Picker */}
+        {(hasServicePicker || isAskingForService) && !serviceSelected && isLastAssistantMessage && (
+          <InlineServicePicker onSelect={handleServiceSelected} />
         )}
         
         {/* Journey Switch Confirmation Buttons */}
