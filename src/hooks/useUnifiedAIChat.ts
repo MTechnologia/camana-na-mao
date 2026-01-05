@@ -737,6 +737,7 @@ export const useUnifiedAIChat = (
           content: msg.content,
         })),
         conversationId: conversationIdRef.current,
+        collectionType: collectionType || undefined, // Pass frontend context to backend
       };
 
       // Always call the unified orchestrator
