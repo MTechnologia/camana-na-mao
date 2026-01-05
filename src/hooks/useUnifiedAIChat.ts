@@ -4,6 +4,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 
+// === PHASE 2: Only structured journey types should update the tracker ===
+const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
+
 // Sanitiza marcadores técnicos do conteúdo das mensagens
 const sanitizeMessageContent = (content: string): string => {
   return content
@@ -802,8 +805,20 @@ export const useUnifiedAIChat = (
               try {
                 const fields = JSON.parse(progressMatch[2]);
                 console.log('[useUnifiedAIChat] Collection progress detected:', type, fields);
-                setCollectionType(type);
-                setCollectedFields(prev => ({ ...prev, ...fields }));
+                
+                // === PHASE 2: Only update collectionType if it's a valid structured type ===
+                // This prevents light intents (services, audiencias, general, history) from
+                // replacing an ongoing structured journey
+                if (VALID_TRACKER_TYPES.includes(type)) {
+                  setCollectionType(type);
+                  setCollectedFields(prev => ({ ...prev, ...fields }));
+                } else {
+                  console.log('[useUnifiedAIChat] Ignoring non-structured type:', type, '- keeping current journey');
+                  // Only update fields if we already have a structured type set
+                  if (collectionType && VALID_TRACKER_TYPES.includes(collectionType)) {
+                    setCollectedFields(prev => ({ ...prev, ...fields }));
+                  }
+                }
               } catch (e) {
                 console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressMatch[2], e);
               }

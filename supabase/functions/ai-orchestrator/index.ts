@@ -755,11 +755,43 @@ function extractChamberFields(context: string): Record<string, any> {
   return fields;
 }
 
+// Structured journey types that use the DataCollectionTracker
+const STRUCTURED_JOURNEY_TYPES = ['urban_report', 'transport_report', 'service_rating'] as const;
+
+// Detect existing structured journey from conversation history
+function detectExistingJourney(
+  conversationHistory: Array<{ role: string; content: string }>
+): 'urban_report' | 'transport_report' | 'service_rating' | null {
+  // Check for COLLECTION_PROGRESS markers in reverse order (most recent first)
+  for (let i = conversationHistory.length - 1; i >= 0; i--) {
+    const msg = conversationHistory[i];
+    if (msg.role === 'assistant') {
+      const progressMatch = msg.content.match(/\[COLLECTION_PROGRESS:(\w+):/);
+      if (progressMatch) {
+        const type = progressMatch[1] as any;
+        if (STRUCTURED_JOURNEY_TYPES.includes(type)) {
+          return type;
+        }
+      }
+      // Check for creation markers (journey completed)
+      if (msg.content.includes('[REPORT_CREATED:') || 
+          msg.content.includes('[TRANSPORT_CREATED:') || 
+          msg.content.includes('[RATING_CREATED:')) {
+        return null; // Journey was completed
+      }
+    }
+  }
+  return null;
+}
+
 function detectCollectionIntent(
   userMessage: string, 
   conversationHistory: Array<{ role: string; content: string }>
 ): CollectionIntent | null {
   const msgLower = userMessage.toLowerCase();
+  
+  // === PHASE 1: Detect existing structured journey ===
+  const existingJourney = detectExistingJourney(conversationHistory);
   
   // FIX: Use ONLY user messages for context (prevents assistant examples from contaminating category)
   const userOnlyContext = conversationHistory
@@ -893,12 +925,27 @@ function detectCollectionIntent(
   const threshold = thresholds[winner.type] || 5;
   if (winner.score < threshold) {
     console.log(`[detectCollectionIntent] Winner score ${winner.score} below threshold ${threshold} for ${winner.type}, skipping`);
+    // === PHASE 1: If there's an existing structured journey, maintain it ===
+    if (existingJourney) {
+      console.log(`[detectCollectionIntent] Maintaining existing journey: ${existingJourney}`);
+      const accumulatedFields = accumulateFieldsFromHistory(conversationHistory, existingJourney);
+      return { type: existingJourney, fields: accumulatedFields };
+    }
     return null;
   }
   
   // Chamber feedback is stored as urban_report with category=feedback_camara
   if (winner.type === 'chamber_feedback') {
     return { type: 'urban_report', fields: winner.fields };
+  }
+  
+  // === PHASE 1: Check if we should maintain existing journey ===
+  // If there's an existing structured journey and the new winner is a "light" type, keep existing
+  const lightTypes = ['services', 'audiencias', 'general', 'history'];
+  if (existingJourney && lightTypes.includes(winner.type)) {
+    console.log(`[detectCollectionIntent] Existing journey ${existingJourney} preserved (new intent was light: ${winner.type})`);
+    const accumulatedFields = accumulateFieldsFromHistory(conversationHistory, existingJourney);
+    return { type: existingJourney, fields: accumulatedFields };
   }
   
   // For light tools, inject tool hint for the AI
