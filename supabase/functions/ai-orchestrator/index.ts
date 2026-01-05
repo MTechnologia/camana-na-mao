@@ -20,26 +20,69 @@ const COMMISSION_THEMES: Record<string, string[]> = {
 
 // Intent detection for collection progress tracking with scoring system
 type CollectionIntent = {
-  type: 'urban_report' | 'transport_report' | 'service_rating';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history';
   fields: Record<string, any>;
   accumulatedFields?: Record<string, any>; // All fields collected across conversation
 };
 
 interface DetectionScore {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history';
   score: number;
   fields: Record<string, any>;
 }
 
-// Intent keywords - REQUIRED to activate tracker (prevents false positives)
+// Tool hint for light journeys (services, audiencias, general, history)
+function getToolHintForIntent(intentType: string): string | null {
+  const hints: Record<string, string> = {
+    'services': '[TOOL_HINT:find_nearby_services]',
+    'audiencias': '[TOOL_HINT:search_audiencias]',
+    'general': '[TOOL_HINT:search_knowledge_base]',
+    'history': '[TOOL_HINT:get_citizen_history]',
+  };
+  return hints[intentType] || null;
+}
+
+// Intent keywords - EXPANDED for natural language detection
 const INTENT_KEYWORDS = [
+  // === Verbos de ação explícitos ===
   'quero reclamar', 'preciso relatar', 'quero reportar', 'aconteceu',
   'tem um problema', 'está com problema', 'não está funcionando',
   'quero avaliar', 'quero elogiar', 'quero denunciar', 'preciso informar',
   'gostaria de registrar', 'vim falar sobre um', 'tenho uma reclamação',
   'quero fazer', 'preciso fazer', 'quero registrar', 'tive um problema',
   'sofri um', 'passei por', 'enfrentei', 'reclamar sobre', 'reclamar do',
-  'agradecer', 'parabenizar', 'sugerir', 'dar uma sugestão'
+  'agradecer', 'parabenizar', 'sugerir', 'dar uma sugestão',
+  
+  // === Frases naturais sem verbo de ação ===
+  'tem um', 'tem uma', 'há um', 'há uma', 'existe um', 'existe uma',
+  'tá cheio', 'tá lotado', 'tá quebrado', 'tá apagado', 'tá fedendo',
+  'está cheio', 'está lotado', 'está quebrado', 'está apagado', 'está fedendo',
+  
+  // === Busca de serviços ===
+  'onde fica', 'onde tem', 'cadê', 'como chego', 'mais perto', 'perto de mim',
+  'perto daqui', 'próximo de mim', 'endereço', 'telefone da', 'horário da',
+  
+  // === Audiências e eventos ===
+  'quando vai ter', 'próxima', 'próximo', 'inscrever', 'participar',
+  'audiência', 'audiencia', 'consulta pública',
+  
+  // === Histórico pessoal ===
+  'meu relato', 'minha reclamação', 'meus relatos', 'minhas avaliações',
+  'status do meu', 'o que eu fiz', 'minha denúncia',
+  
+  // === Avaliações curtas ===
+  'nota para', 'estrelas para', 'avaliar', 'dar nota',
+  
+  // === Gatilhos implícitos de problemas urbanos ===
+  'buraco', 'poste apagado', 'lixo acumulado', 'esgoto', 'fedor',
+  'calçada quebrada', 'árvore caindo', 'bueiro entupido',
+  
+  // === Gatilhos implícitos de transporte ===
+  'ônibus atrasado', 'metrô lotado', 'trem atrasou', 'não passou',
+  'motorista rude', 'falta de ônibus',
+  
+  // === Perguntas sobre a Câmara ===
+  'como funciona', 'o que é', 'quem é', 'me explica', 'dúvida sobre'
 ];
 
 // Extract transport-specific fields
@@ -283,8 +326,12 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
 // Accumulate fields from all messages in conversation for better tracking
 function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
-  collectionType: 'urban_report' | 'transport_report' | 'service_rating'
+  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history'
 ): Record<string, any> {
+  // Only accumulate for structured journeys
+  if (!['urban_report', 'transport_report', 'service_rating'].includes(collectionType)) {
+    return {};
+  }
   const accumulated: Record<string, any> = {};
   
   // Check for fields already collected via [COLLECTION_PROGRESS] markers
@@ -748,25 +795,90 @@ function detectCollectionIntent(
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
+  // === LIGHT TOOLS SCORING (services, audiencias, general, history) ===
+  
+  // Services/Nearby scoring
+  const servicesDomain = ['onde fica', 'onde tem', 'perto de mim', 'mais perto', 'próximo de mim', 'próximo de',
+                          'como chego', 'endereço', 'telefone', 'horário', 'perto daqui', 'qual é o mais perto'];
+  const servicesTypes = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'centro esportivo', 'posto de saúde'];
+  let servicesScore = 0;
+  servicesDomain.forEach(kw => { if (fullUserContext.includes(kw)) servicesScore += 4; });
+  servicesTypes.forEach(kw => { if (fullUserContext.includes(kw)) servicesScore += 2; });
+  // Only add if it's a search (not evaluation)
+  const isEvaluating = ratingTerms.some(term => fullUserContext.includes(term));
+  if (servicesScore > 0 && !isEvaluating) {
+    scores.push({ type: 'services', score: servicesScore, fields: {} });
+  }
+  
+  // Audiencias scoring  
+  const audienciasDomain = ['audiência', 'audiencia', 'consulta pública', 'consulta publica',
+                            'participar', 'inscrever', 'próxima reunião', 'proxima reuniao'];
+  const audienciasTerms = ['quando', 'próxima', 'proxima', 'tema', 'assunto', 'sobre'];
+  let audienciasScore = 0;
+  audienciasDomain.forEach(kw => { if (fullUserContext.includes(kw)) audienciasScore += 5; });
+  audienciasTerms.forEach(kw => { if (fullUserContext.includes(kw)) audienciasScore += 2; });
+  if (audienciasScore > 0) {
+    scores.push({ type: 'audiencias', score: audienciasScore, fields: {} });
+  }
+  
+  // Knowledge base / general scoring
+  const knowledgeDomain = ['como funciona', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e',
+                           'me explica', 'dúvida sobre', 'duvida sobre', 'informação sobre', 'informacao sobre'];
+  let knowledgeScore = 0;
+  knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
+  if (knowledgeScore > 0) {
+    scores.push({ type: 'general', score: knowledgeScore, fields: {} });
+  }
+  
+  // History scoring
+  const historyDomain = ['meu relato', 'meus relatos', 'minhas avaliações', 'minhas avaliacoes',
+                         'minha reclamação', 'minha reclamacao', 'status do meu', 'o que eu fiz',
+                         'minha denúncia', 'minha denuncia', 'meu histórico', 'meu historico'];
+  let historyScore = 0;
+  historyDomain.forEach(kw => { if (fullUserContext.includes(kw)) historyScore += 5; });
+  if (historyScore > 0) {
+    scores.push({ type: 'history', score: historyScore, fields: {} });
+  }
+  
   // No matches found
   if (scores.length === 0) {
     console.log('[detectCollectionIntent] Intent found but no domain keywords matched');
     return null;
   }
   
-  // Sort by score and select winner (threshold of 5)
+  // Sort by score and select winner
   const winner = scores.sort((a, b) => b.score - a.score)[0];
   console.log('[detectCollectionIntent] Scores:', JSON.stringify(scores.map(s => ({ type: s.type, score: s.score }))));
   console.log('[detectCollectionIntent] Winner:', winner.type, 'with score:', winner.score);
   
-  if (winner.score < 5) {
-    console.log('[detectCollectionIntent] Winner score below threshold (5), skipping');
+  // === ADAPTIVE THRESHOLD based on journey type ===
+  // Structured journeys need higher confidence, light tools can be triggered more easily
+  const thresholds: Record<string, number> = {
+    'urban_report': 3,      // Lower: catch natural complaints like "tem um buraco"
+    'transport_report': 3,  // Lower: catch "ônibus lotado"
+    'service_rating': 4,    // Medium: needs service + rating intent
+    'chamber_feedback': 5,  // Higher: needs explicit chamber reference
+    'services': 4,          // Medium: needs location question
+    'audiencias': 4,        // Medium: needs audiencia reference
+    'general': 4,           // Medium: needs knowledge question
+    'history': 4,           // Medium: needs personal reference
+  };
+  
+  const threshold = thresholds[winner.type] || 5;
+  if (winner.score < threshold) {
+    console.log(`[detectCollectionIntent] Winner score ${winner.score} below threshold ${threshold} for ${winner.type}, skipping`);
     return null;
   }
   
   // Chamber feedback is stored as urban_report with category=feedback_camara
   if (winner.type === 'chamber_feedback') {
     return { type: 'urban_report', fields: winner.fields };
+  }
+  
+  // For light tools, inject tool hint for the AI
+  const toolHint = getToolHintForIntent(winner.type);
+  if (toolHint) {
+    console.log(`[detectCollectionIntent] Light journey detected: ${winner.type}, hint: ${toolHint}`);
   }
   
   return { type: winner.type as CollectionIntent['type'], fields: winner.fields };
@@ -1340,8 +1452,10 @@ NUNCA pular classificação quando cidadão aceitar feedback. A tool classify_re
 - "Ônibus da linha 875 atrasou 40 minutos" → transport_report (problema de SERVIÇO de transporte)
 - "Tem muito lixo no ponto de ônibus" → urban_report (problema urbano no LOCAL)
 - "Quero avaliar a UBS Consolação" → service_rating
-- "UBS mais perto de mim?" → services (BUSCA, não avaliação)
-- "Como funciona a Câmara?" → general
+- "UBS mais perto de mim?" → find_nearby_services (BUSCA, não avaliação)
+- "Como funciona a Câmara?" → search_knowledge_base
+- "Meus relatos" → get_citizen_history
+- "Próxima audiência sobre saúde?" → search_audiencias
 
 **DURANTE JORNADA ESTRUTURADA ATIVA (urban_report, transport_report, service_rating):**
 1. Se detectar intenção para OUTRA jornada ESTRUTURADA:
@@ -1359,6 +1473,43 @@ Cenário: Cidadão estava relatando problema urbano e disse "quero reclamar do �
   - current_progress_summary: "Problema de iluminação na Rua Augusta"
 → Responder: "Percebi que você quer falar sobre transporte. Ainda não terminamos seu relato sobre iluminação na Rua Augusta. [JOURNEY_SWITCH_PROMPT:transport_report:urban_report]"
 → Frontend renderiza botões: "Sim, iniciar Transporte" / "Não, continuar Relato Urbano"
+
+=== DETECÇÃO PROATIVA DE INTENÇÃO ===
+
+**REGRA**: Se a mensagem do cidadão indica claramente uma intenção, AGIR imediatamente sem confirmar.
+
+EXEMPLOS DE AÇÃO DIRETA (NÃO PERGUNTAR, AGIR):
+
+| Mensagem | Ação Correta |
+|----------|--------------|
+| "tem um buraco na rua" | Classificar como urban_report (via_publica) → perguntar CEP |
+| "ônibus tá lotado" | Ativar transport_report → perguntar linha |
+| "onde fica a UBS mais perto?" | Chamar find_nearby_services → perguntar bairro |
+| "próxima audiência sobre saúde?" | Chamar search_audiencias → buscar tema saúde |
+| "UBS Vila Mariana nota 5" | Ativar service_rating → confirmar e pedir comentário |
+| "meus relatos" | Chamar get_citizen_history → buscar histórico |
+| "bueiro entupido aqui perto" | Classificar como urban_report (esgoto) → perguntar CEP |
+| "poste apagado" | Classificar como urban_report (iluminacao) → perguntar CEP |
+
+**NÃO PERGUNTE** "posso ajudar com X?" se a intenção JÁ ESTÁ CLARA na mensagem.
+**AGIR** diretamente e fazer a pergunta NECESSÁRIA para prosseguir com a jornada.
+
+=== CLASSIFICAÇÃO SEMÂNTICA CRÍTICA - TRANSPORTE vs URBANO ===
+
+Mensagens sobre TRANSPORTE que são PROBLEMAS URBANOS (VIA/INFRAESTRUTURA):
+- "ônibus capotou" → urban_report (acidente na via)
+- "ponto de ônibus destruído" → urban_report (mobiliário urbano)
+- "metrô alagou" → urban_report (infraestrutura)
+- "tem lixo no ponto" → urban_report (lixo no local)
+
+Mensagens sobre TRANSPORTE que são PROBLEMAS DE SERVIÇO (OPERAÇÃO):
+- "ônibus atrasou" → transport_report
+- "metrô lotado" → transport_report
+- "motorista rude" → transport_report
+- "falta de ônibus" → transport_report
+
+CRITÉRIO: Se afeta a VIA/INFRAESTRUTURA = urban_report
+          Se afeta o SERVIÇO/OPERAÇÃO = transport_report
 
 === REGRA DE OURO: NUNCA RESPONDER NEGATIVAMENTE ===
 
