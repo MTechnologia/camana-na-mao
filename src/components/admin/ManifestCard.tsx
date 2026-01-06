@@ -92,7 +92,7 @@ export const ManifestCard = ({
     } else if (manifest.type === 'transport') {
       onViewDetails(); // Opens drawer on Responses tab
     } else if (manifest.type === 'evaluation' && manifest.evaluation_data?.service_id) {
-      window.open(`/servicos/${manifest.evaluation_data.service_id}`, '_blank');
+      window.open(`/servico/${manifest.evaluation_data.service_id}`, '_blank');
     }
   };
 
