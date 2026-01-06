@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,10 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const menuSections: MenuSection[] = [
     {
       section: null,
-      items: [{ title: 'Dashboard', icon: LayoutDashboard, href: '/admin' }],
+      items: [
+        { title: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
+        { title: 'Executivo', icon: PieChart, href: '/admin/executive' },
+      ],
     },
     {
       section: 'GESTÃO',
