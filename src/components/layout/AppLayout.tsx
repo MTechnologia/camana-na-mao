@@ -67,9 +67,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const navigate = useNavigate();
   const { isMenuOpen, closeMenu } = useMenu();
 
-  // Admin routes have their own layout - skip AppLayout wrapper
+  // Admin routes have their own layout - skip AppLayout wrapper but keep Suspense
   if (location.pathname.startsWith("/admin")) {
-    return <>{children}</>;
+    return (
+      <Suspense fallback={<PageSkeleton />}>
+        {children}
+      </Suspense>
+    );
   }
 
   const isHeaderlessRoute = HEADERLESS_ROUTES.some(
