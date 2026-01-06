@@ -40,16 +40,14 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       section: null,
       items: [
         { title: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
-        { title: 'Executivo', icon: PieChart, href: '/admin/executive' },
       ],
     },
     {
       section: 'GESTÃO',
       items: [
-        { title: 'Gestão de Usuários', icon: Users, href: '/admin/users' },
         { title: 'Manifestações', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
-        { title: 'Análise de Relatos', icon: BarChart3, href: '/admin/reports-analytics' },
+        { title: 'Gestão de Usuários', icon: Users, href: '/admin/users' },
       ],
     },
     {

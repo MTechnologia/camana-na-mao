@@ -12,19 +12,19 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="h-screen flex w-full overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
       <AdminSidebar 
         mobileOpen={mobileOpen} 
         setMobileOpen={setMobileOpen}
         isMobile={isMobile}
       />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
         <AdminHeader 
           onMenuClick={() => setMobileOpen(true)}
           isMobile={isMobile}
         />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
-          <div className="max-w-screen-2xl mx-auto animate-fade-in">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
+          <div className="max-w-screen-2xl mx-auto">
             {children}
           </div>
         </main>
