@@ -3,7 +3,7 @@ import { AdminLayout } from '@/layouts/AdminLayout';
 import { KPICard } from '@/components/analytics/KPICard';
 import { StatusDonut } from '@/components/analytics/StatusDonut';
 import { SentimentGauge } from '@/components/analytics/SentimentGauge';
-import { GeoHeatmap } from '@/components/analytics/GeoHeatmap';
+import { RegionalHotspots } from '@/components/analytics/RegionalHotspots';
 import { RiskDistribution } from '@/components/analytics/RiskDistribution';
 import { TimeDistributionChart } from '@/components/analytics/TimeDistributionChart';
 import { HotspotsList } from '@/components/analytics/HotspotsList';
@@ -171,22 +171,15 @@ const ExecutiveDashboard = () => {
           </Card>
         </div>
 
-        {/* Third Row: Map and Hotspots */}
+        {/* Third Row: Regional Hotspots and Top Regions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Geo Heatmap */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Mapa de Relatos</h3>
-            </div>
-            <div className="h-80">
-              <GeoHeatmap 
-                onPointClick={(point) => console.log('Clicked point:', point)}
-              />
-            </div>
-          </Card>
+          {/* Regional Hotspots - sem dependência externa */}
+          <RegionalHotspots 
+            data={correlations.hotspots || []}
+            onRegionClick={(region) => drillInsight.searchByRegion(region)}
+          />
 
-          {/* Hotspots */}
+          {/* Hotspots List */}
           <HotspotsList 
             hotspots={correlations.hotspots || []}
             onHotspotClick={(region) => {
