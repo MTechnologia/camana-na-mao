@@ -46,6 +46,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       section: 'GESTÃO',
       items: [
         { title: 'Manifestações', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
+        { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
         { title: 'Gestão de Usuários', icon: Users, href: '/admin/users' },
       ],
@@ -66,7 +67,6 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       ],
     },
   ];
-
   const handleNavigate = (href: string) => {
     navigate(href);
     if (isMobile) {
