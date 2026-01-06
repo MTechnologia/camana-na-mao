@@ -30,13 +30,12 @@ export const ExportDialog = ({
   currentFilters,
   estimatedRows = 0,
 }: ExportDialogProps) => {
-  const [format, setFormat] = useState<'xlsx' | 'csv'>('xlsx');
+  const [format, setFormat] = useState<'xlsx' | 'csv'>('csv');
   const [includeFilters, setIncludeFilters] = useState(true);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
 
   const maxRows = format === 'csv' ? 5000000 : 1000000;
-  const isAsync = estimatedRows > 300000;
 
   const handleExport = async () => {
     try {
@@ -45,30 +44,82 @@ export const ExportDialog = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      // Fetch real data based on export type
+      let data: any[] = [];
+      
+      if (exportType === 'urban_reports' || exportType === 'reports') {
+        const { data: urbanData } = await supabase
+          .from('urban_reports')
+          .select('*')
+          .limit(10000);
+        data = urbanData || [];
+      } else if (exportType === 'transport_reports') {
+        const { data: transportData } = await supabase
+          .from('transport_reports')
+          .select('*')
+          .limit(10000);
+        data = transportData || [];
+      } else if (exportType === 'all') {
+        const [{ data: urban }, { data: transport }] = await Promise.all([
+          supabase.from('urban_reports').select('*').limit(5000),
+          supabase.from('transport_reports').select('*').limit(5000)
+        ]);
+        data = [...(urban || []).map(r => ({ ...r, _type: 'urban' })), 
+                ...(transport || []).map(r => ({ ...r, _type: 'transport' }))];
+      }
+
+      if (data.length === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Sem dados',
+          description: 'Não há dados para exportar com os filtros aplicados.',
+        });
+        return;
+      }
+
+      // Generate CSV
+      const headers = Object.keys(data[0]);
+      const csvContent = [
+        headers.join(','),
+        ...data.map(row => 
+          headers.map(h => {
+            const val = row[h];
+            if (val === null || val === undefined) return '';
+            if (typeof val === 'object') return `"${JSON.stringify(val).replace(/"/g, '""')}"`;
+            if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+              return `"${val.replace(/"/g, '""')}"`;
+            }
+            return val;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Download file
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${exportType}_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       // Log export
-      const { error } = await supabase.from('export_logs').insert({
+      await supabase.from('export_logs').insert({
         user_id: user.id,
         export_type: exportType,
         format,
         filters: includeFilters ? currentFilters : null,
-        row_count: estimatedRows,
-        status: isAsync ? 'pending' : 'completed',
+        row_count: data.length,
+        status: 'completed',
+        completed_at: new Date().toISOString()
       });
 
-      if (error) throw error;
-
-      if (isAsync) {
-        toast({
-          title: 'Exportação iniciada',
-          description: 'Você receberá uma notificação quando o arquivo estiver pronto.',
-        });
-      } else {
-        // Simulate download
-        toast({
-          title: 'Exportação concluída',
-          description: `${estimatedRows.toLocaleString('pt-BR')} registros exportados.`,
-        });
-      }
+      toast({
+        title: 'Exportação concluída',
+        description: `${data.length.toLocaleString('pt-BR')} registros exportados.`,
+      });
 
       onClose();
     } catch (error) {
@@ -93,30 +144,20 @@ export const ExportDialog = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Format Selection */}
           <div className="space-y-3">
             <Label>Formato</Label>
             <RadioGroup value={format} onValueChange={(v) => setFormat(v as any)}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="xlsx" id="xlsx" />
-                <Label htmlFor="xlsx" className="flex items-center gap-2 cursor-pointer">
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Excel (.xlsx)
-                  <span className="text-xs text-muted-foreground">até 1M linhas</span>
-                </Label>
-              </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="csv" id="csv" />
                 <Label htmlFor="csv" className="flex items-center gap-2 cursor-pointer">
                   <File className="w-4 h-4" />
                   CSV (.csv)
-                  <span className="text-xs text-muted-foreground">até 5M linhas</span>
+                  <span className="text-xs text-muted-foreground">Recomendado</span>
                 </Label>
               </div>
             </RadioGroup>
           </div>
 
-          {/* Options */}
           <div className="space-y-3">
             <Label>Opções</Label>
             <div className="flex items-center space-x-2">
@@ -126,31 +167,20 @@ export const ExportDialog = ({
                 onCheckedChange={(checked) => setIncludeFilters(checked as boolean)}
               />
               <Label htmlFor="filters" className="cursor-pointer">
-                Incluir filtros aplicados
+                Incluir filtros aplicados no log
               </Label>
             </div>
           </div>
 
-          {/* Info */}
           <div className="bg-muted rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Registros estimados:</span>
               <span className="font-medium">{estimatedRows.toLocaleString('pt-BR')}</span>
             </div>
-            {estimatedRows > maxRows && (
-              <p className="text-xs text-destructive">
-                ⚠️ Volume excede o limite. Considere aplicar filtros adicionais.
-              </p>
-            )}
-            {isAsync && (
-              <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>
-                  A exportação será processada em segundo plano. Você receberá uma notificação quando
-                  estiver pronta.
-                </span>
-              </div>
-            )}
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+              <span>O arquivo será baixado diretamente no seu navegador.</span>
+            </div>
           </div>
         </div>
 
@@ -158,11 +188,7 @@ export const ExportDialog = ({
           <Button variant="outline" onClick={onClose} disabled={exporting}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleExport}
-            disabled={exporting || estimatedRows > maxRows}
-            className="gap-2"
-          >
+          <Button onClick={handleExport} disabled={exporting} className="gap-2">
             <Download className="w-4 h-4" />
             {exporting ? 'Exportando...' : 'Exportar'}
           </Button>

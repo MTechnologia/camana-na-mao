@@ -35,6 +35,7 @@ interface SentimentStats {
   timeline: TimelineDataPoint[];
   keywords: WordData[];
   insights: AIInsight[];
+  byRegion: { region: string; count: number; sentiment: number }[];
 }
 
 export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
@@ -76,7 +77,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
         urbanQuery = urbanQuery.eq('severity', filters.severity);
       }
 
-      const { data: urbanReports, error: urbanError, count: urbanCount } = await urbanQuery;
+      const { data: urbanReports, error: urbanError } = await urbanQuery;
       if (urbanError) throw urbanError;
 
       // Buscar transport reports
@@ -94,7 +95,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
         transportQuery = transportQuery.eq('severity', filters.severity);
       }
 
-      const { data: transportReports, error: transportError, count: transportCount } = await transportQuery;
+      const { data: transportReports, error: transportError } = await transportQuery;
       if (transportError) throw transportError;
 
       // Calcular estatísticas
@@ -120,6 +121,8 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
       let positive = 0, neutral = 0, negative = 0;
       const categoryMap = new Map<string, { total: number; sentiment: number[] }>();
       const keywordsMap = new Map<string, { count: number; sentiment: string }>();
+      const regionMap = new Map<string, { count: number; sentiments: number[] }>();
+      const dateMap = new Map<string, { positive: number; neutral: number; negative: number; total: number }>();
 
       allReports.forEach(report => {
         const sentiment = report.sentiment?.toLowerCase() || 'neutral';
@@ -141,14 +144,41 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
         catStats.total++;
         catStats.sentiment.push(getSentimentScore(report.sentiment));
 
+        // REAL: Region stats from neighborhood
+        const region = (report as any).neighborhood || 'Não especificado';
+        if (!regionMap.has(region)) {
+          regionMap.set(region, { count: 0, sentiments: [] });
+        }
+        const regionStats = regionMap.get(region)!;
+        regionStats.count++;
+        regionStats.sentiments.push(getSentimentScore(report.sentiment));
+
+        // REAL: Timeline from created_at
+        const createdAt = report.created_at;
+        if (createdAt) {
+          const dateKey = new Date(createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          if (!dateMap.has(dateKey)) {
+            dateMap.set(dateKey, { positive: 0, neutral: 0, negative: 0, total: 0 });
+          }
+          const dayStats = dateMap.get(dateKey)!;
+          dayStats.total++;
+          if (sentiment.includes('positive') || sentiment.includes('positivo')) {
+            dayStats.positive++;
+          } else if (sentiment.includes('negative') || sentiment.includes('negativo')) {
+            dayStats.negative++;
+          } else {
+            dayStats.neutral++;
+          }
+        }
+
         // Extract keywords from description
         if (report.description) {
           const words = report.description
             .toLowerCase()
             .split(/\s+/)
-            .filter(w => w.length > 4);
+            .filter((w: string) => w.length > 4);
           
-          words.forEach(word => {
+          words.forEach((word: string) => {
             if (!keywordsMap.has(word)) {
               keywordsMap.set(word, { count: 0, sentiment: 'neutral' });
             }
@@ -162,6 +192,23 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
       const overallScore = total > 0 
         ? Math.round(((positive * 100 + neutral * 50) / total))
         : 50;
+
+      // REAL: Calculate trend comparing current period vs previous period
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      
+      const currentPeriodReports = allReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= sevenDaysAgo
+      ).length;
+      
+      const previousPeriodReports = allReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo
+      ).length;
+      
+      const trend = previousPeriodReports > 0 
+        ? Math.round(((currentPeriodReports - previousPeriodReports) / previousPeriodReports) * 100)
+        : 0;
 
       // Generate category drivers
       const byCategory: DriverData[] = Array.from(categoryMap.entries()).map(([category, data]) => {
@@ -189,18 +236,43 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
           sentiment: data.sentiment as 'positive' | 'neutral' | 'negative'
         }));
 
+      // REAL: Timeline from actual data
+      const timeline: TimelineDataPoint[] = Array.from(dateMap.entries())
+        .map(([date, data]) => ({
+          date,
+          score: data.total > 0 ? Math.round((data.positive * 100 + data.neutral * 50) / data.total) : 50,
+          positive: data.positive,
+          neutral: data.neutral,
+          negative: data.negative,
+          total: data.total
+        }))
+        .slice(-30); // Last 30 days
+
+      // REAL: Region stats from actual neighborhood data
+      const byRegion = Array.from(regionMap.entries())
+        .map(([region, data]) => ({
+          region,
+          count: data.count,
+          sentiment: data.sentiments.length > 0 
+            ? Math.round(data.sentiments.reduce((a, b) => a + b, 0) / data.sentiments.length)
+            : 50
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10); // Top 10 regions
+
       // Generate AI insights
       const insights: AIInsight[] = generateInsights(byCategory, overallScore, total);
 
       setStats({
         overallScore,
-        trend: 5, // Mock trend - would need historical data
+        trend,
         distribution: { positive, neutral, negative },
         total,
         byCategory,
-        timeline: generateMockTimeline(),
+        timeline,
         keywords,
-        insights
+        insights,
+        byRegion
       });
     } catch (error: any) {
       console.error('Error loading sentiment analytics:', error);
@@ -227,6 +299,9 @@ function getCategoryIcon(category: string): string {
     'infraestrutura': '🏗️',
     'limpeza': '🧹',
     'iluminação': '💡',
+    'via_publica': '🛣️',
+    'esgoto': '🚰',
+    'area_verde': '🌲',
   };
   return icons[category.toLowerCase()] || '📋';
 }
@@ -264,33 +339,19 @@ function generateInsights(drivers: DriverData[], score: number, total: number): 
     });
   }
 
-  return insights;
-}
-
-function generateMockTimeline(): TimelineDataPoint[] {
-  const days = 30;
-  const data: TimelineDataPoint[] = [];
-  
-  for (let i = days; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    
-    const positive = Math.floor(Math.random() * 50) + 20;
-    const negative = Math.floor(Math.random() * 30) + 10;
-    const neutral = Math.floor(Math.random() * 40) + 15;
-    const total = positive + negative + neutral;
-    const score = Math.round((positive * 100 + neutral * 50) / total);
-    
-    data.push({
-      date: dateStr,
-      score,
-      positive,
-      neutral,
-      negative,
-      total
+  // Total volume insight
+  if (total > 50) {
+    insights.push({
+      id: '3',
+      type: 'trend',
+      title: 'Volume de contribuições significativo',
+      description: `${total} contribuições no período permitem análises estatisticamente relevantes.`,
+      details: [`Score geral de satisfação: ${score}%`],
+      suggestedAction: 'Utilizar dados para planejamento de ações prioritárias',
+      confidence: 95,
+      priority: 'low'
     });
   }
-  
-  return data;
+
+  return insights;
 }
