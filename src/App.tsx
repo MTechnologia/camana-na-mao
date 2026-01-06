@@ -99,12 +99,10 @@ const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
 // ADMIN PAGES - Lazy loaded (separate bundle)
 // ============================================
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
-const ExecutiveDashboard = lazy(() => import("./pages/admin/ExecutiveDashboard"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const ReportsManagement = lazy(() => import("./pages/admin/ReportsManagement"));
-const ReportsAnalytics = lazy(() => import("./pages/admin/ReportsAnalytics"));
 const SentimentAnalysis = lazy(() => import("./pages/admin/SentimentAnalysis"));
 const N8NIntegration = lazy(() => import("./pages/admin/settings/N8NIntegration"));
 const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"));
@@ -246,19 +244,20 @@ const AppContent = () => {
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/executive" element={<ProtectedAdminRoute><ExecutiveDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedAdminRoute><AnalyticsDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/analytics/advanced" element={<ProtectedAdminRoute><AdvancedAnalytics /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/reports-analytics" element={<ProtectedAdminRoute><ReportsAnalytics /></ProtectedAdminRoute>} />
           <Route path="/admin/sentiment-analysis" element={<ProtectedAdminRoute><SentimentAnalysis /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
           <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
+          {/* Redirects for removed routes */}
+          <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/reports-analytics" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/analytics" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/analytics/advanced" element={<Navigate to="/admin" replace />} />
           
           {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
