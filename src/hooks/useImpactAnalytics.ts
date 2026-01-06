@@ -191,6 +191,21 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
       });
     } catch (error) {
       console.error('Error fetching impact analytics:', error);
+      // Fallback silencioso com valores default
+      setStats({
+        byRiskLevel: [],
+        byAffectedScope: [],
+        totalAffectedEstimate: 0,
+        avgAffectedPerReport: 0,
+        riskTypesFrequency: [],
+        urgencyKeywords: [],
+        categoryRiskMatrix: [],
+        criticalCount: 0,
+        moderateCount: 0,
+        lowCount: 0,
+        noRiskCount: 0,
+        totalWithImpact: 0
+      });
     } finally {
       setIsLoading(false);
     }

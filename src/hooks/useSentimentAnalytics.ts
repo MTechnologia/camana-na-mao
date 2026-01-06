@@ -276,10 +276,17 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
       });
     } catch (error: any) {
       console.error('Error loading sentiment analytics:', error);
-      toast({
-        title: 'Erro ao carregar análises',
-        description: error.message,
-        variant: 'destructive'
+      // Fallback silencioso - sem toast intrusivo
+      setStats({
+        overallScore: 0,
+        trend: 0,
+        distribution: { positive: 0, neutral: 0, negative: 0 },
+        total: 0,
+        byCategory: [],
+        timeline: [],
+        keywords: [],
+        insights: [],
+        byRegion: []
       });
     } finally {
       setIsLoading(false);

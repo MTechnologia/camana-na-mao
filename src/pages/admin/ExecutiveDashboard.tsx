@@ -40,7 +40,7 @@ const ExecutiveDashboard = () => {
 
   // Transform peak hours for chart
   const peakHoursData = useMemo(() => {
-    return correlations.peakHours.slice(0, 24).map(item => ({
+    return (correlations.peakHours || []).slice(0, 24).map(item => ({
       label: `${item.hour}h`,
       count: item.count
     })).sort((a, b) => parseInt(a.label) - parseInt(b.label));
@@ -48,7 +48,7 @@ const ExecutiveDashboard = () => {
 
   // Transform weekday distribution for chart
   const weekdayData = useMemo(() => {
-    return correlations.weekdayDistribution.map(item => ({
+    return (correlations.weekdayDistribution || []).map(item => ({
       label: item.day.slice(0, 3),
       count: item.count
     }));
@@ -131,12 +131,14 @@ const ExecutiveDashboard = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Índice de Satisfação</h3>
             <div className="h-48 flex items-center justify-center">
-              {sentimentStats && (
+              {sentimentStats ? (
                 <SentimentGauge 
-                  score={sentimentStats.overallScore} 
-                  trend={sentimentStats.trend}
+                  score={sentimentStats.overallScore ?? 0} 
+                  trend={sentimentStats.trend ?? 0}
                   onClick={() => drillInsight.searchByOverview()}
                 />
+              ) : (
+                <span className="text-muted-foreground text-sm">Carregando...</span>
               )}
             </div>
           </Card>
@@ -145,11 +147,13 @@ const ExecutiveDashboard = () => {
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Distribuição de Risco</h3>
             <div className="h-48">
-              {impactStats && (
+              {impactStats?.byRiskLevel ? (
                 <RiskDistribution 
                   data={impactStats.byRiskLevel}
                   onSegmentClick={(risk) => drillInsight.searchBySeverity(risk)}
                 />
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Carregando...</div>
               )}
             </div>
           </Card>
@@ -184,8 +188,8 @@ const ExecutiveDashboard = () => {
 
           {/* Hotspots */}
           <HotspotsList 
-            hotspots={correlations.hotspots}
-            onHotspotClick={(region, category) => {
+            hotspots={correlations.hotspots || []}
+            onHotspotClick={(region) => {
               drillInsight.searchByRegion(region);
             }}
           />
@@ -216,7 +220,7 @@ const ExecutiveDashboard = () => {
               <h3 className="text-lg font-semibold">Categorias Mais Críticas</h3>
             </div>
             <div className="space-y-3">
-              {correlations.topCriticalCategories.map((item, index) => (
+              {(correlations.topCriticalCategories || []).map((item, index) => (
                 <div 
                   key={item.category}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
@@ -239,7 +243,7 @@ const ExecutiveDashboard = () => {
                   </div>
                 </div>
               ))}
-              {correlations.topCriticalCategories.length === 0 && (
+              {(!correlations.topCriticalCategories || correlations.topCriticalCategories.length === 0) && (
                 <div className="text-center py-8 text-muted-foreground">
                   Nenhuma categoria crítica identificada
                 </div>
@@ -267,7 +271,7 @@ const ExecutiveDashboard = () => {
             <h3 className="text-lg font-semibold">Distribuição Regional</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {stats.demographics.byRegion.slice(0, 10).map((region) => (
+            {(stats.demographics?.byRegion || []).slice(0, 10).map((region) => (
               <div 
                 key={region.region} 
                 className="p-3 rounded-lg border border-border hover:border-primary/50 cursor-pointer transition-colors"
@@ -280,7 +284,7 @@ const ExecutiveDashboard = () => {
                 <div className="w-full h-1.5 bg-muted rounded-full mt-2">
                   <div
                     className="bg-primary h-1.5 rounded-full transition-all"
-                    style={{ width: `${(region.count / stats.total) * 100}%` }}
+                    style={{ width: `${stats.total > 0 ? (region.count / stats.total) * 100 : 0}%` }}
                   />
                 </div>
               </div>
