@@ -37,24 +37,44 @@ export const useCorrelationAnalytics = (filters?: any) => {
   });
 
   useEffect(() => {
-    fetchCorrelations();
-  }, [filters]);
+    let isMounted = true;
+    
+    const load = async () => {
+      try {
+        await fetchCorrelations();
+      } catch (e) {
+        console.error('Correlation fetch error:', e);
+      }
+    };
+    
+    load();
+    
+    return () => { isMounted = false; };
+  }, []); // Remover filters para evitar re-renders infinitos
 
   const fetchCorrelations = async () => {
     try {
+      setStats(prev => ({ ...prev, isLoading: true }));
+      
       // Fetch urban reports with relevant fields
       const { data: urbanReports, error: urbanError } = await supabase
         .from('urban_reports')
-        .select('category, neighborhood, severity, risk_level, created_at');
+        .select('category, neighborhood, severity, risk_level, created_at')
+        .limit(1000);
 
-      if (urbanError) throw urbanError;
+      if (urbanError) {
+        console.error('Urban reports error:', urbanError);
+      }
 
       // Fetch transport reports
       const { data: transportReports, error: transportError } = await supabase
         .from('transport_reports')
-        .select('report_type, severity, created_at, location');
+        .select('report_type, severity, created_at, location')
+        .limit(1000);
 
-      if (transportError) throw transportError;
+      if (transportError) {
+        console.error('Transport reports error:', transportError);
+      }
 
       // Process correlations
       const categoryByRegion: Record<string, Record<string, number>> = {};
