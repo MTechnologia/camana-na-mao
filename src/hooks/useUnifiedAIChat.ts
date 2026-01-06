@@ -1140,7 +1140,11 @@ export const useUnifiedAIChat = (
       const journeyNames: Record<string, string> = {
         'urban_report': 'Relato Urbano',
         'transport_report': 'Diagnóstico de Transporte',
-        'service_rating': 'Avaliação de Serviço'
+        'service_rating': 'Avaliação de Serviço',
+        'services': 'Busca de Serviços',
+        'audiencias': 'Audiências Públicas',
+        'general': 'Informações',
+        'history': 'Meu Histórico'
       };
       
       // Include marker for backend to recognize this as a confirmed journey switch
