@@ -8,7 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, MapPin, AlertCircle, CheckCircle, Clock, Plus, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Calendar, MapPin, Plus, Trash2, Info, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -17,23 +18,18 @@ import { ReportFilters } from "@/components/urban/ReportFilters";
 import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
-import { AnalysisStatusBadge } from "@/components/shared/AnalysisStatusBadge";
 import { toast } from "@/hooks/use-toast";
 
 interface Report {
   id: string;
-  protocol_code: string | null;
   category: string;
   subcategory: string | null;
   description: string | null;
   severity: string | null;
-  status: string | null;
   location_address: string | null;
   created_at: string;
   user_id: string;
   photos?: string[] | null;
-  n8n_processed?: boolean | null;
-  n8n_priority?: string | null;
   profiles?: {
     full_name: string;
     avatar_url: string | null;
@@ -58,13 +54,6 @@ const categoryLabels: Record<string, string> = {
   poluicao: "Poluição",
   feedback_camara: "Feedback Câmara",
   outro: "Outro"
-};
-
-const statusLabels: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending: { label: "Pendente", variant: "secondary" },
-  in_progress: { label: "Em Andamento", variant: "default" },
-  resolved: { label: "Resolvido", variant: "outline" },
-  rejected: { label: "Rejeitado", variant: "destructive" }
 };
 
 const severityLabels: Record<string, string> = {
@@ -103,13 +92,12 @@ export default function ReportHistoryPage() {
     try {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
+        .select("id, category, subcategory, description, severity, location_address, created_at, user_id, photos")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Buscar perfis separadamente
       const userIds = [...new Set(data?.map(r => r.user_id) || [])];
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -125,7 +113,7 @@ export default function ReportHistoryPage() {
 
       setMyReports(reportsWithProfiles);
     } catch (error) {
-      console.error("Erro ao carregar meus relatos:", error);
+      console.error("Erro ao carregar minhas contribuições:", error);
     } finally {
       setLoading(false);
     }
@@ -135,7 +123,7 @@ export default function ReportHistoryPage() {
     try {
       let query = supabase
         .from("urban_reports")
-        .select("id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, n8n_processed, n8n_priority")
+        .select("id, category, subcategory, description, severity, location_address, created_at, user_id, photos")
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -151,7 +139,6 @@ export default function ReportHistoryPage() {
 
       if (error) throw error;
 
-      // Buscar perfis separadamente
       const userIds = [...new Set(data?.map(r => r.user_id) || [])];
       const { data: profilesData } = await supabase
         .from('profiles')
@@ -167,7 +154,7 @@ export default function ReportHistoryPage() {
 
       setAllReports(reportsWithProfiles);
     } catch (error) {
-      console.error("Erro ao carregar todos os relatos:", error);
+      console.error("Erro ao carregar contribuições:", error);
     }
   };
 
@@ -177,7 +164,6 @@ export default function ReportHistoryPage() {
     try {
       setDeleting(true);
 
-      // Se houver fotos, excluir do storage primeiro
       if (reportToDelete.photos?.length) {
         const photoPaths = reportToDelete.photos.map((url) => {
           const urlParts = url.split("/");
@@ -191,7 +177,6 @@ export default function ReportHistoryPage() {
         }
       }
 
-      // Excluir o relato
       const { error } = await supabase
         .from("urban_reports")
         .delete()
@@ -199,36 +184,22 @@ export default function ReportHistoryPage() {
 
       if (error) throw error;
 
-      // Atualizar lista local
       setMyReports((prev) => prev.filter((r) => r.id !== reportToDelete.id));
 
       toast({
-        title: "Relato excluído",
-        description: "Seu relato foi excluído com sucesso.",
+        title: "Contribuição excluída",
+        description: "Sua contribuição foi removida com sucesso.",
       });
       setReportToDelete(null);
     } catch (error) {
       console.error("Error deleting report:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível excluir o relato. Tente novamente.",
+        description: "Não foi possível excluir a contribuição. Tente novamente.",
         variant: "destructive",
       });
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const getStatusIcon = (status: string | null) => {
-    switch (status) {
-      case "resolved":
-        return <CheckCircle className="w-4 h-4" />;
-      case "in_progress":
-        return <Clock className="w-4 h-4" />;
-      case "rejected":
-        return <AlertCircle className="w-4 h-4" />;
-      default:
-        return <Clock className="w-4 h-4" />;
     }
   };
 
@@ -237,18 +208,11 @@ export default function ReportHistoryPage() {
     showAuthor: boolean = false,
     canDelete: boolean = false
   ) => {
-    const statusInfo = statusLabels[report.status || "pending"];
-
     return (
       <Card key={report.id} className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">
-              {report.protocol_code && (
-                <p className="text-xs font-mono text-primary mb-1">
-                  {report.protocol_code}
-                </p>
-              )}
               {report.subcategory && (
                 <h3 className="font-semibold text-foreground mb-1">
                   {report.subcategory}
@@ -309,16 +273,10 @@ export default function ReportHistoryPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-3 border-t border-border/50">
             <ReportInteractions
               reportId={report.id}
               onCommentClick={() => setSelectedReport(report)}
-            />
-            
-            <AnalysisStatusBadge
-              status={report.status}
-              n8nProcessed={report.n8n_processed}
-              n8nPriority={report.n8n_priority}
             />
           </div>
         </CardContent>
@@ -329,7 +287,7 @@ export default function ReportHistoryPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Relatos Urbanos" />
+        <PageHeader title="Contribuições Urbanas" />
         <div className="p-4 space-y-3">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-32 w-full" />
@@ -341,28 +299,37 @@ export default function ReportHistoryPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Relatos Urbanos" />
+      <PageHeader title="Contribuições Urbanas" />
 
       <div className="p-4">
+        {/* Explicação do propósito */}
+        <Alert className="bg-primary/5 border-primary/20 mb-4">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-sm text-muted-foreground">
+            Suas contribuições sobre problemas urbanos são analisadas em conjunto 
+            para identificar padrões e subsidiar políticas públicas de melhoria da cidade.
+          </AlertDescription>
+        </Alert>
+
         <Tabs defaultValue="my-reports" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="my-reports">Meus Relatos</TabsTrigger>
-            <TabsTrigger value="all-reports">Todos os Relatos</TabsTrigger>
+            <TabsTrigger value="my-reports">Minhas Contribuições</TabsTrigger>
+            <TabsTrigger value="all-reports">Todas as Contribuições</TabsTrigger>
           </TabsList>
 
           <TabsContent value="my-reports" className="space-y-4">
             {myReports.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-4xl mb-3">📝</div>
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-semibold text-foreground mb-1">
-                  Nenhum relato encontrado
+                  Nenhuma contribuição encontrada
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Comece a relatar problemas urbanos para melhorar sua cidade
+                  Compartilhe experiências sobre problemas urbanos para ajudar a melhorar sua cidade
                 </p>
-                <Button onClick={() => navigate("/relato-urbano")}>
+                <Button onClick={() => navigate("/ia")}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Fazer Relato
+                  Compartilhar Experiência
                 </Button>
               </div>
             ) : (
@@ -379,7 +346,7 @@ export default function ReportHistoryPage() {
               <div className="text-center py-12">
                 <div className="text-4xl mb-3">🔍</div>
                 <h3 className="font-semibold text-foreground mb-1">
-                  Nenhum relato encontrado
+                  Nenhuma contribuição encontrada
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   Tente ajustar os filtros
@@ -423,7 +390,6 @@ export default function ReportHistoryPage() {
         report={reportToDelete}
         variant="simple"
       />
-
     </div>
   );
 }

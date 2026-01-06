@@ -26,25 +26,22 @@ interface PromptChipsProps {
 const chips: PromptChip[] = [
   {
     id: "urban",
-    label: "Problema urbano",
-    // Mensagem direta que já inicia coleta: pergunta problema E localização
-    message: "Quero relatar um problema na cidade. Me diz o que está acontecendo e onde fica.",
+    label: "Problema na cidade",
+    message: "Quero compartilhar uma experiência sobre um problema na cidade. Me diz o que está acontecendo e onde fica.",
     icon: Building2,
     collectionType: "urban_report",
   },
   {
     id: "transport",
     label: "Transporte",
-    // Mensagem direta que já pede os dados principais
-    message: "Tive um problema no transporte. Qual linha e o que aconteceu?",
+    message: "Quero compartilhar uma experiência sobre o transporte público. Qual linha e o que aconteceu?",
     icon: Bus,
     collectionType: "transport_report",
   },
   {
     id: "evaluate",
     label: "Avaliar serviço",
-    // Mensagem que já pede tipo e nota
-    message: "Quero avaliar um serviço público. Qual serviço e que nota você dá?",
+    message: "Quero compartilhar minha experiência com um serviço público. Qual serviço e que nota você dá?",
     icon: Star,
     collectionType: "service_rating",
   },
