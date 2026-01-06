@@ -99,6 +99,7 @@ const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
 // ADMIN PAGES - Lazy loaded (separate bundle)
 // ============================================
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPage"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
@@ -244,6 +245,7 @@ const AppContent = () => {
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
           <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
@@ -255,9 +257,8 @@ const AppContent = () => {
           <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
           {/* Redirects for removed routes */}
           <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
-          <Route path="/admin/reports-analytics" element={<Navigate to="/admin" replace />} />
-          <Route path="/admin/analytics" element={<Navigate to="/admin" replace />} />
-          <Route path="/admin/analytics/advanced" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
+          <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
           
           {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
