@@ -80,7 +80,7 @@ const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
 
 const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {
-    title: "Problema urbano",
+    title: "Experiência Urbana",
     icon: FileText,
     fields: [
       { key: 'category', label: 'Categoria', required: true },
@@ -95,7 +95,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     ]
   },
   transport_report: {
-    title: "Transporte",
+    title: "Experiência Transporte",
     icon: Bus,
     fields: [
       { key: 'report_type', label: 'Tipo', required: true },
@@ -108,7 +108,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     ]
   },
   service_rating: {
-    title: "Avaliação",
+    title: "Avaliação de Serviço",
     icon: Star,
     fields: [
       { key: 'service_type', label: 'Tipo', required: true },
@@ -121,7 +121,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
 };
 
 const CHAMBER_FEEDBACK_CONFIG: CollectionConfig = {
-  title: "Feedback",
+  title: "Sua Contribuição",
   icon: Users,
   fields: [
     { key: 'subcategory', label: 'Tipo', required: true },
@@ -323,7 +323,7 @@ const DataCollectionTracker = ({
             
             {allRequiredCollected && (
               <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-                Pronto
+                Registrado ✓
               </span>
             )}
             
