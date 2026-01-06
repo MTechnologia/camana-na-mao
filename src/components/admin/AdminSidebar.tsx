@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       section: null,
       items: [
         { title: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
+        { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: stats.pendingReports > 0 ? stats.pendingReports : null },
       ],
     },
     {

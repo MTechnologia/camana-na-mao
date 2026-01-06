@@ -99,6 +99,7 @@ const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
 // ADMIN PAGES - Lazy loaded (separate bundle)
 // ============================================
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPage"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
@@ -245,6 +246,7 @@ const AppContent = () => {
           
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+          <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
           <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
           <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />

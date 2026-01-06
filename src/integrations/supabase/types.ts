@@ -1855,6 +1855,17 @@ export type Database = {
           title: string
         }[]
       }
+      notify_admins: {
+        Args: {
+          p_action_url?: string
+          p_message: string
+          p_metadata?: Json
+          p_priority?: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "gestor" | "vereador" | "assessor" | "cidadao"
