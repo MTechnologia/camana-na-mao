@@ -1410,6 +1410,7 @@ PEDIR CONFIRMAÇÃO (com confirm_journey_switch):
 
 === APÓS CONFIRMAÇÃO DE TROCA DE JORNADA ===
 
+JORNADAS ESTRUTURADAS:
 Se a mensagem do usuário contiver [JOURNEY_SWITCHED:transport_report]:
 → Responder DIRETAMENTE: "Ok! [FIELD_REQUEST:line_code]Qual linha de ônibus ou metrô?[LINE_PICKER]"
 → NÃO perguntar "o que aconteceu?" - assumir que já foi mencionado antes
@@ -1419,6 +1420,19 @@ Se a mensagem contiver [JOURNEY_SWITCHED:urban_report]:
 
 Se a mensagem contiver [JOURNEY_SWITCHED:service_rating]:
 → Responder: "Ok! [FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]"
+
+JORNADAS LEVES:
+Se a mensagem contiver [JOURNEY_SWITCHED:services]:
+→ Responder: "Ok! [FIELD_REQUEST:service_type]Que tipo de serviço você procura?[SERVICE_TYPE_PICKER]"
+
+Se a mensagem contiver [JOURNEY_SWITCHED:audiencias]:
+→ Responder: "Ok! Qual tema de audiência te interessa? (Ex: transporte, saúde, educação, meio ambiente)"
+
+Se a mensagem contiver [JOURNEY_SWITCHED:general]:
+→ Responder: "Ok! Qual sua dúvida sobre a Câmara Municipal?"
+
+Se a mensagem contiver [JOURNEY_SWITCHED:history]:
+→ Chamar get_citizen_history AUTOMATICAMENTE e mostrar resumo ao usuário
 
 === TEMPLATES DE PERGUNTAS ===
 
