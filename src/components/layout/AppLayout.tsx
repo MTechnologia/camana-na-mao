@@ -67,14 +67,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const navigate = useNavigate();
   const { isMenuOpen, closeMenu } = useMenu();
 
-  // Admin routes have their own layout - skip AppLayout wrapper but keep Suspense
-  if (location.pathname.startsWith("/admin")) {
-    return (
-      <Suspense fallback={<PageSkeleton />}>
-        {children}
-      </Suspense>
-    );
-  }
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   const isHeaderlessRoute = HEADERLESS_ROUTES.some(
     (route) => location.pathname === route || location.pathname.startsWith("/admin")
@@ -102,6 +95,15 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     }
     return "";
   }, [location.pathname]);
+
+  // Admin routes have their own layout - skip AppLayout wrapper but keep Suspense
+  if (isAdminRoute) {
+    return (
+      <Suspense fallback={<PageSkeleton />}>
+        {children}
+      </Suspense>
+    );
+  }
 
   return (
     <>
