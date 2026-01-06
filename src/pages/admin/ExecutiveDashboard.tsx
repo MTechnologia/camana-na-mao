@@ -32,11 +32,20 @@ import {
 
 const ExecutiveDashboard = () => {
   const [showExport, setShowExport] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  
   const { stats, isLoading, refresh } = useReportsAnalytics();
   const { stats: sentimentStats } = useSentimentAnalytics();
   const { stats: impactStats } = useImpactAnalytics();
   const correlations = useCorrelationAnalytics();
   const drillInsight = useDrillInsight();
+
+  // Marcar como carregado após primeira carga completa
+  useMemo(() => {
+    if (!isLoading && stats && !initialLoadDone) {
+      setInitialLoadDone(true);
+    }
+  }, [isLoading, stats, initialLoadDone]);
 
   // Transform peak hours for chart
   const peakHoursData = useMemo(() => {
@@ -54,17 +63,18 @@ const ExecutiveDashboard = () => {
     }));
   }, [correlations.weekdayDistribution]);
 
-  if (isLoading || !stats) {
+  // Mostrar skeleton estável durante carga inicial
+  if (!initialLoadDone || isLoading || !stats) {
     return (
       <AdminLayout>
         <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
+          <div className="h-12 w-full bg-muted rounded" />
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map(i => (
-              <Skeleton key={i} className="h-32" />
+              <div key={i} className="h-32 bg-muted rounded" />
             ))}
           </div>
-          <Skeleton className="h-96 w-full" />
+          <div className="h-96 w-full bg-muted rounded" />
         </div>
       </AdminLayout>
     );
@@ -82,7 +92,7 @@ const ExecutiveDashboard = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={refresh}>
+            <Button variant="outline" size="sm" onClick={() => refresh()}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar
             </Button>

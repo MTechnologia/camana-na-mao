@@ -39,11 +39,10 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
   const [stats, setStats] = useState<ImpactStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchImpactAnalytics();
-  }, [filters]);
+  // Serializar filters para comparação estável
+  const filtersKey = JSON.stringify(filters);
 
-  const fetchImpactAnalytics = async () => {
+  const fetchImpactAnalytics = async (isMounted: boolean) => {
     try {
       setIsLoading(true);
 
@@ -64,6 +63,7 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
       const { data: reports, error } = await query;
 
       if (error) throw error;
+      if (!isMounted) return;
 
       const total = reports?.length || 0;
       
@@ -191,7 +191,7 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
       });
     } catch (error) {
       console.error('Error fetching impact analytics:', error);
-      // Fallback silencioso com valores default
+      if (!isMounted) return;
       setStats({
         byRiskLevel: [],
         byAffectedScope: [],
@@ -207,9 +207,17 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
         totalWithImpact: 0
       });
     } finally {
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
     }
   };
 
-  return { stats, isLoading, refresh: fetchImpactAnalytics };
+  useEffect(() => {
+    let isMounted = true;
+    fetchImpactAnalytics(isMounted);
+    return () => { isMounted = false; };
+  }, [filtersKey]);
+
+  return { stats, isLoading, refresh: () => fetchImpactAnalytics(true) };
 };

@@ -72,12 +72,26 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const [stats, setStats] = useState<ReportsAnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAnalytics();
-  }, [filters]);
+  // Serializar filters para comparação estável
+  const filtersKey = JSON.stringify(filters);
 
-  const fetchAnalytics = async () => {
+  useEffect(() => {
+    let isMounted = true;
+    
+    const load = async () => {
+      if (isMounted) {
+        await fetchAnalytics(isMounted);
+      }
+    };
+    
+    load();
+    
+    return () => { isMounted = false; };
+  }, [filtersKey]);
+
+  const fetchAnalytics = async (isMounted: boolean = true) => {
     try {
+      if (!isMounted) return;
       setIsLoading(true);
 
       // Fetch urban reports with user demographics JOIN
@@ -427,5 +441,5 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     }
   };
 
-  return { stats, isLoading, refresh: fetchAnalytics };
+  return { stats, isLoading, refresh: () => fetchAnalytics(true) };
 };

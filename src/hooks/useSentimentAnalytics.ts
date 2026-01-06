@@ -43,9 +43,22 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
+  // Serializar filters para comparação estável
+  const filtersKey = JSON.stringify(filters);
+
   useEffect(() => {
-    loadAnalytics();
-  }, [filters]);
+    let isMounted = true;
+    
+    const load = async () => {
+      if (isMounted) {
+        await loadAnalytics(isMounted);
+      }
+    };
+    
+    load();
+    
+    return () => { isMounted = false; };
+  }, [filtersKey]);
 
   const getSentimentScore = (sentiment: string | null): number => {
     if (!sentiment) return 50;
@@ -55,8 +68,9 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
     return 50;
   };
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = async (isMounted: boolean = true) => {
     try {
+      if (!isMounted) return;
       setIsLoading(true);
 
       // Buscar urban reports
@@ -293,7 +307,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
     }
   };
 
-  return { stats, isLoading, refresh: loadAnalytics };
+  return { stats, isLoading, refresh: () => loadAnalytics(true) };
 };
 
 function getCategoryIcon(category: string): string {
