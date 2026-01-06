@@ -1136,8 +1136,16 @@ export const useUnifiedAIChat = (
       setCollectedFields({});
       setCreatedReport(null);
       
-      // Send confirmation message to continue in new journey
-      await sendMessage(`Sim, quero iniciar ${newJourney === 'urban_report' ? 'Relato Urbano' : newJourney === 'transport_report' ? 'Diagnóstico de Transporte' : 'Avaliação de Serviço'}`);
+      // Map journey IDs to display names
+      const journeyNames: Record<string, string> = {
+        'urban_report': 'Relato Urbano',
+        'transport_report': 'Diagnóstico de Transporte',
+        'service_rating': 'Avaliação de Serviço'
+      };
+      
+      // Include marker for backend to recognize this as a confirmed journey switch
+      // This triggers the appropriate picker (LINE_PICKER for transport, etc.)
+      await sendMessage(`[JOURNEY_SWITCHED:${newJourney}] Sim, quero iniciar ${journeyNames[newJourney] || newJourney}`);
     } else {
       // Continue current journey
       await sendMessage('Quero continuar o relato atual');

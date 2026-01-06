@@ -1408,6 +1408,18 @@ PEDIR CONFIRMAÇÃO (com confirm_journey_switch):
 - Se >= 2 campos já coletados
 - OU confiança < 90%
 
+=== APÓS CONFIRMAÇÃO DE TROCA DE JORNADA ===
+
+Se a mensagem do usuário contiver [JOURNEY_SWITCHED:transport_report]:
+→ Responder DIRETAMENTE: "Ok! [FIELD_REQUEST:line_code]Qual linha de ônibus ou metrô?[LINE_PICKER]"
+→ NÃO perguntar "o que aconteceu?" - assumir que já foi mencionado antes
+
+Se a mensagem contiver [JOURNEY_SWITCHED:urban_report]:
+→ Responder: "Ok! [FIELD_REQUEST:description]O que está acontecendo?"
+
+Se a mensagem contiver [JOURNEY_SWITCHED:service_rating]:
+→ Responder: "Ok! [FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]"
+
 === TEMPLATES DE PERGUNTAS ===
 
 URBANO:
