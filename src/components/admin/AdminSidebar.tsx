@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAdminStats } from '@/hooks/useAdminStats';
+import { useNotifications } from '@/contexts/NotificationsContext';
 
 interface MenuItem {
   title: string;
@@ -34,13 +35,13 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const [collapsed, setCollapsed] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(['gestão', 'relatos', 'configuracoes']);
   const stats = useAdminStats();
+  const { unreadCount } = useNotifications();
 
   const menuSections: MenuSection[] = [
     {
       section: null,
       items: [
         { title: 'Dashboard', icon: LayoutDashboard, href: '/admin' },
-        { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: stats.pendingReports > 0 ? stats.pendingReports : null },
       ],
     },
     {
@@ -65,6 +66,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         },
         { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
+        { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: unreadCount > 0 ? unreadCount : null },
       ],
     },
   ];
