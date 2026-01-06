@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KPICard } from '@/components/analytics/KPICard';
@@ -51,7 +51,7 @@ export default function ReportsAnalyticsPage() {
   const drillInsight = useDrillInsight();
 
   // Marcar como carregado após primeira carga completa
-  useMemo(() => {
+  useEffect(() => {
     if (!isLoading && stats && !initialLoadDone) {
       setInitialLoadDone(true);
     }
