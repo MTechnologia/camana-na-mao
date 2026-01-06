@@ -610,6 +610,93 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
     }
   }, []);
 
+  const searchByHour = useCallback(async (hour: number) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const { urban, transport } = await fetchAllReports();
+      
+      const filterByHour = (reports: any[], hourToMatch: number) => {
+        return reports.filter(r => {
+          const createdHour = new Date(r.created_at).getHours();
+          return createdHour === hourToMatch;
+        });
+      };
+
+      const filteredUrban = filterByHour(urban, hour);
+      const filteredTransport = filterByHour(transport, hour);
+
+      const allReports = [
+        ...mapUrbanReports(filteredUrban), 
+        ...mapTransportReports(filteredTransport)
+      ];
+      const stats = calculateStats(allReports);
+      const context: DrillContext = { 
+        type: 'period', 
+        value: `${hour}h`, 
+        label: `Horário: ${hour}h - ${hour + 1}h` 
+      };
+      const insight = generateInsight(context, stats);
+
+      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+    } catch (error) {
+      console.error('Error searching by hour:', error);
+      toast.error('Erro ao buscar relatos por horário');
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+
+  const searchByWeekday = useCallback(async (weekday: string) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const weekdayMap: Record<string, number> = {
+        'Dom': 0, 'Seg': 1, 'Ter': 2, 'Qua': 3, 
+        'Qui': 4, 'Sex': 5, 'Sáb': 6, 'Sab': 6
+      };
+      const dayNumber = weekdayMap[weekday] ?? -1;
+
+      if (dayNumber === -1) {
+        throw new Error('Dia da semana inválido');
+      }
+
+      const { urban, transport } = await fetchAllReports();
+      
+      const filterByWeekday = (reports: any[], dayToMatch: number) => {
+        return reports.filter(r => {
+          const createdDay = new Date(r.created_at).getDay();
+          return createdDay === dayToMatch;
+        });
+      };
+
+      const filteredUrban = filterByWeekday(urban, dayNumber);
+      const filteredTransport = filterByWeekday(transport, dayNumber);
+
+      const allReports = [
+        ...mapUrbanReports(filteredUrban), 
+        ...mapTransportReports(filteredTransport)
+      ];
+      const stats = calculateStats(allReports);
+      const fullDayNames: Record<string, string> = {
+        'Dom': 'Domingo', 'Seg': 'Segunda-feira', 'Ter': 'Terça-feira',
+        'Qua': 'Quarta-feira', 'Qui': 'Quinta-feira', 'Sex': 'Sexta-feira',
+        'Sáb': 'Sábado', 'Sab': 'Sábado'
+      };
+      const context: DrillContext = { 
+        type: 'period', 
+        value: weekday, 
+        label: `Dia: ${fullDayNames[weekday] || weekday}` 
+      };
+      const insight = generateInsight(context, stats);
+
+      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+    } catch (error) {
+      console.error('Error searching by weekday:', error);
+      toast.error('Erro ao buscar relatos por dia da semana');
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+
   const close = useCallback(() => {
     setState(prev => ({ ...prev, open: false }));
   }, []);
@@ -634,6 +721,8 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
     searchByEngagement,
     searchBySource,
     searchByPeriod,
+    searchByHour,
+    searchByWeekday,
     close,
     reset,
   };

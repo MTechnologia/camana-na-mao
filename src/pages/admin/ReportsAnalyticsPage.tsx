@@ -173,13 +173,18 @@ export default function ReportsAnalyticsPage() {
                 data={peakHoursData}
                 title="Distribuição por Hora"
                 type="hour"
-                onBarClick={(label) => drillInsight.searchByPeriod(label)}
+                onBarClick={(label) => {
+                  const hour = parseInt(label.replace('h', ''), 10);
+                  if (!isNaN(hour)) {
+                    drillInsight.searchByHour(hour);
+                  }
+                }}
               />
               <TimeDistributionChart
                 data={weekdayData}
                 title="Distribuição por Dia"
                 type="weekday"
-                onBarClick={(label) => drillInsight.searchByPeriod(label)}
+                onBarClick={(label) => drillInsight.searchByWeekday(label)}
               />
             </div>
 
