@@ -2,21 +2,11 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 
 // === PHASE 2: Only structured journey types should update the tracker ===
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
-
-// Sanitiza marcadores técnicos do conteúdo das mensagens
-const sanitizeMessageContent = (content: string): string => {
-  return content
-    .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
-    .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
-    .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
-    .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
-    .replace(/\[FIELD_REQUEST:\w+\]/g, '')
-    .trim();
-};
 
 interface Message {
   id: string;

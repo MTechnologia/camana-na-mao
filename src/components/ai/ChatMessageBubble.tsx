@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2 } from "lucide-react";
@@ -213,19 +214,8 @@ const ChatMessageBubble = ({
     );
   }, [isUser, message.content, serviceSelected, hasServicePicker, isLastAssistantMessage]);
   
-  // Clean content by removing markers
-  const cleanContent = message.content
-    .replace(/\[ADDRESS_PICKER\]/g, '')
-    .replace(/\[LINE_PICKER\]/g, '')
-    .replace(/\[DATE_PICKER\]/g, '')
-    .replace(/\[TIME_PICKER\]/g, '')
-    .replace(/\[RATING_PICKER\]/g, '')
-    .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
-    .replace(/\[SERVICE_PICKER\]/g, '')
-    .replace(/\[FIELD_REQUEST:\w+\]/g, '')
-    .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
-    .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
-    .trim();
+  // Clean content by removing markers using centralized utility
+  const cleanContent = sanitizeMessageContent(message.content);
   
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
