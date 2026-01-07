@@ -322,6 +322,25 @@ export const useUnifiedAIChat = (
       const raw = content.trim();
       const rawLower = raw.toLowerCase();
 
+      // ========== CEP DETECTION (typed manually) ==========
+      // If assistant asked for CEP and user provides 8 digits, capture immediately
+      const cepPattern = /\b(\d{5})-?(\d{3})\b/;
+      const cepMatch = raw.match(cepPattern);
+      if (cepMatch && !collectedFields.cep) {
+        const fullCep = cepMatch[1] + cepMatch[2];
+        console.log('[useUnifiedAIChat] Detected CEP from user input:', fullCep);
+        setCollectedFields(prev => ({ ...prev, cep: fullCep }));
+      }
+      
+      // Also detect pure 8-digit numbers as CEP when assistant asked for it
+      const askedForCep = lastAssistantLower.includes('cep') || 
+                          lastAssistantLower.includes('[field_request:cep]') ||
+                          lastAssistantLower.includes('[address_picker]');
+      if (askedForCep && /^\d{8}$/.test(raw) && !collectedFields.cep) {
+        console.log('[useUnifiedAIChat] Detected 8-digit CEP:', raw);
+        setCollectedFields(prev => ({ ...prev, cep: raw }));
+      }
+
       // 0) Detect Address Picker structured address (from Google Places or CEP)
       // Parse different formats: "Endereço selecionado: Rua X - Bairro, Cidade - CEP: 00000-000"
       // Or simpler: "Endereço selecionado: Rua X - Bairro, Cidade"
@@ -341,9 +360,9 @@ export const useUnifiedAIChat = (
         }
         
         // Extract CEP if present
-        const cepMatch = raw.match(/CEP:\s*(\d{5}-?\d{3})/i);
-        if (cepMatch?.[1]) {
-          newFields.cep = cepMatch[1].replace('-', '');
+        const pickerCepMatch = raw.match(/CEP:\s*(\d{5}-?\d{3})/i);
+        if (pickerCepMatch?.[1]) {
+          newFields.cep = pickerCepMatch[1].replace('-', '');
         }
         
         if (Object.keys(newFields).length > 0) {

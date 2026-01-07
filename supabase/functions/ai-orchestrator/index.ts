@@ -2827,6 +2827,28 @@ serve(async (req) => {
         // Merge with detected fields from current message
         accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
       }
+      
+      // ========== AUTO-LOOKUP CEP ==========
+      // If we have CEP but missing street/neighborhood, auto-resolve via ViaCEP
+      if (accumulatedFields.cep && (!accumulatedFields.street || !accumulatedFields.neighborhood)) {
+        const cepLookup = await lookupCEP(accumulatedFields.cep);
+        if (cepLookup.valid) {
+          console.log('[ai-orchestrator] Auto-resolved CEP:', accumulatedFields.cep, '→', cepLookup.street, cepLookup.neighborhood);
+          if (!accumulatedFields.street && cepLookup.street) {
+            accumulatedFields.street = cepLookup.street;
+          }
+          if (!accumulatedFields.neighborhood && cepLookup.neighborhood) {
+            accumulatedFields.neighborhood = cepLookup.neighborhood;
+          }
+          if (!accumulatedFields.city && cepLookup.city) {
+            accumulatedFields.city = cepLookup.city;
+          }
+          if (!accumulatedFields.state && cepLookup.state) {
+            accumulatedFields.state = cepLookup.state;
+          }
+        }
+      }
+      
       console.log('[ai-orchestrator] Effective collectionType:', collectionIntent.type);
       console.log('[ai-orchestrator] Accumulated fields:', JSON.stringify(accumulatedFields));
     }
@@ -2834,27 +2856,132 @@ serve(async (req) => {
     // Build dynamic system prompt with collected fields context
     let dynamicSystemPrompt = systemPrompt;
     
+    // ========== DETERMINISTIC NEXT STEP ENGINE ==========
+    // Smart field sequencing that prevents repeated questions
+    
+    function getNextMissingField(
+      collectionType: string, 
+      fields: Record<string, any>
+    ): { field: string | null; picker: string | null; prompt: string | null } {
+      
+      if (collectionType === 'urban_report') {
+        // 1. Category first
+        if (!fields.category) {
+          return { field: 'category', picker: null, prompt: 'Qual o tipo de problema? (iluminação, buraco, esgoto, lixo, área verde...)' };
+        }
+        
+        // 2. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
+        const hasLocationViaCep = !!fields.cep && fields.cep.length === 8;
+        const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
+        const hasLocation = hasLocationViaCep || hasLocationViaAddress;
+        
+        if (!hasLocation) {
+          // If user already gave street without neighborhood (or vice versa), ask for the missing one
+          if (fields.street && !fields.neighborhood) {
+            return { field: 'neighborhood', picker: null, prompt: 'Em qual **bairro** fica essa rua?' };
+          }
+          if (fields.neighborhood && !fields.street) {
+            return { field: 'street', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **nome da rua**?' };
+          }
+          // Default: ask for CEP with address picker fallback
+          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
+        }
+        
+        // 3. Street number / reference (optional but helpful)
+        if (!fields.street_number && !fields.reference_point) {
+          return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
+        }
+        
+        // 4. Description (if too short or missing)
+        const descLen = (fields.description || '').length;
+        if (descLen < 15) {
+          return { field: 'description', picker: null, prompt: 'Pode **descrever o problema** com mais detalhes?' };
+        }
+        
+        // 5. Risk assessment for risk categories
+        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
+        if (RISK_CATEGORIES.includes(fields.category)) {
+          if (!fields.risk_level) {
+            return { field: 'risk_level', picker: null, prompt: 'Há algum **risco imediato**? _(ex: fios expostos, via bloqueada, alagando)_' };
+          }
+          if (['critical', 'moderate'].includes(fields.risk_level) && !fields.affected_scope) {
+            return { field: 'affected_scope', picker: null, prompt: 'Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?' };
+          }
+        }
+        
+        // All required fields collected
+        return { field: null, picker: null, prompt: null };
+      }
+      
+      if (collectionType === 'transport_report') {
+        // 1. Description first (captures the problem)
+        const descLen = (fields.description || '').length;
+        if (descLen < 20) {
+          return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
+        }
+        
+        // 2. Report type (can be inferred from description, but ask if not clear)
+        if (!fields.report_type || fields.report_type === 'outro') {
+          return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
+        }
+        
+        // 3. Line/station
+        if (!fields.line_code) {
+          return { field: 'line_code', picker: '[LINE_PICKER]', prompt: 'Qual **linha ou estação** teve o problema?' };
+        }
+        
+        // 4. Date (REQUIRED - user must confirm)
+        if (!fields.occurrence_date) {
+          return { field: 'occurrence_date', picker: '[DATE_PICKER]', prompt: '**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)' };
+        }
+        
+        // All required fields collected
+        return { field: null, picker: null, prompt: null };
+      }
+      
+      if (collectionType === 'service_rating') {
+        // 1. Service type
+        if (!fields.service_type) {
+          return { field: 'service_type', picker: '[SERVICE_TYPE_PICKER]', prompt: 'Qual **tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU...)' };
+        }
+        
+        // 2. Service name
+        if (!fields.service_name || fields.service_name.length < 3) {
+          return { field: 'service_name', picker: '[SERVICE_PICKER]', prompt: 'Qual o **nome** do serviço que você visitou?' };
+        }
+        
+        // 3. Rating stars (REQUIRED 1-5)
+        if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5) {
+          return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+        }
+        
+        // 4. Rating text
+        const textLen = (fields.rating_text || '').length;
+        if (textLen < 10) {
+          return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
+        }
+        
+        // All required fields collected
+        return { field: null, picker: null, prompt: null };
+      }
+      
+      // Unknown collection type
+      return { field: null, picker: null, prompt: null };
+    }
+    
+    // Compute next field ONCE
+    let nextFieldInfo: { field: string | null; picker: string | null; prompt: string | null } = { field: null, picker: null, prompt: null };
+    
+    if (collectionIntent && ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type)) {
+      nextFieldInfo = getNextMissingField(collectionIntent.type, accumulatedFields);
+      console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
+    }
+    
     if (collectionIntent && Object.keys(accumulatedFields).length > 0) {
       const fieldsList = Object.entries(accumulatedFields)
-        .filter(([k, v]) => v && typeof v === 'string' && v.length > 0)
+        .filter(([k, v]) => v && (typeof v === 'string' ? v.length > 0 : true))
         .map(([k, v]) => `• ${k}: ${String(v).substring(0, 100)}`)
         .join('\n');
-      
-      // Determine next missing field based on collection type
-      const requiredFlow: Record<string, string[]> = {
-        urban_report: ['category', 'cep', 'street', 'neighborhood', 'street_number', 'description'],
-        transport_report: ['report_type', 'line_code', 'occurrence_date', 'description'],
-        service_rating: ['service_type', 'service_name', 'rating_stars', 'rating_text']
-      };
-      
-      const fields = requiredFlow[collectionIntent.type] || [];
-      let nextField: string | null = null;
-      for (const field of fields) {
-        if (!accumulatedFields[field] || accumulatedFields[field] === '') {
-          nextField = field;
-          break;
-        }
-      }
       
       const collectionContext = `
 
@@ -2863,15 +2990,48 @@ serve(async (req) => {
 **Jornada ativa:** ${collectionIntent.type}
 **Campos JÁ COLETADOS (NÃO PERGUNTAR NOVAMENTE):**
 ${fieldsList}
-${nextField ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextField}` : '\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta create_urban_report, create_transport_report ou create_service_rating para finalizar.'}
+${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n**PERGUNTA SUGERIDA:** ${nextFieldInfo.prompt || ''}` : '\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta de criação para finalizar.'}
 
-**REGRA CRÍTICA:** Verifique a lista acima ANTES de perguntar qualquer campo. 
-Se cep, street, neighborhood, category, line_code já estão na lista, NÃO peça novamente.
-Pergunte apenas o PRÓXIMO campo faltante listado acima.
+**REGRAS CRÍTICAS:**
+1. NUNCA pergunte por campos já listados acima (cep, street, neighborhood, category, line_code, etc.)
+2. Se o usuário já deu CEP, rua e bairro estão resolvidos via auto-lookup - NÃO peça novamente
+3. Se o usuário deu rua E bairro manualmente, localização está completa - NÃO peça CEP
+4. Pergunte APENAS o próximo campo listado acima
+5. Seja DIRETO: uma pergunta curta por mensagem
 ===`;
       
       dynamicSystemPrompt = systemPrompt + '\n\n' + collectionContext;
-      console.log('[ai-orchestrator] Injected collection context. Next field:', nextField);
+      console.log('[ai-orchestrator] Injected collection context. Next field:', nextFieldInfo.field);
+    }
+    
+    // ========== DETERMINISTIC SHORT-CIRCUIT ==========
+    // If we have a structured journey and know the next field, respond directly without LLM
+    // This prevents the LLM from re-asking already collected fields
+    
+    const shouldShortCircuit = collectionIntent && 
+      nextFieldInfo.field && 
+      !journeySwitchMatch && // Don't short-circuit on journey switch (let LLM confirm)
+      ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type);
+    
+    if (shouldShortCircuit && nextFieldInfo.prompt) {
+      console.log('[ai-orchestrator] SHORT-CIRCUIT: Responding deterministically for field:', nextFieldInfo.field);
+      
+      // Build the deterministic response
+      const fieldsJson = JSON.stringify(accumulatedFields);
+      const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
+      const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
+      const pickerMarker = nextFieldInfo.picker || '';
+      
+      const deterministicResponse = `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+      
+      const ssePayload = JSON.stringify({
+        choices: [{ delta: { content: deterministicResponse } }]
+      });
+      
+      console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (deterministic)');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
     }
 
     // Call AI API (Lovable AI Gateway) with streaming enabled and timeout
