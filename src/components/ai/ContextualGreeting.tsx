@@ -8,7 +8,6 @@ import AnimatedAIAvatar from "./AnimatedAIAvatar";
 const ContextualGreeting = () => {
   const { profile } = useProfile();
   const { pendingRatings } = usePendingRatings();
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [nextAudiencia, setNextAudiencia] = useState<any>(null);
 
   const firstName = profile?.full_name?.split(' ')[0] || "Cidadão";
@@ -19,21 +18,6 @@ const ContextualGreeting = () => {
     if (hour < 18) return "Boa tarde";
     return "Boa noite";
   };
-
-  useEffect(() => {
-    const fetchUnread = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { count } = await supabase
-          .from("notifications")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("is_read", false);
-        setUnreadNotifications(count || 0);
-      }
-    };
-    fetchUnread();
-  }, []);
 
   useEffect(() => {
     const fetchNextAudiencia = async () => {
@@ -55,10 +39,6 @@ const ContextualGreeting = () => {
 
     if (pendingRatings.length > 0) {
       messages.push(`Você tem ${pendingRatings.length} avaliação${pendingRatings.length > 1 ? 'ões' : ''} pendente${pendingRatings.length > 1 ? 's' : ''}.`);
-    }
-
-    if (unreadNotifications > 0) {
-      messages.push(`${unreadNotifications} notificação${unreadNotifications > 1 ? 'ões' : ''} nova${unreadNotifications > 1 ? 's' : ''}.`);
     }
 
     if (nextAudiencia) {
