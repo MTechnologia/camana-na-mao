@@ -29,6 +29,7 @@ const Welcome = lazy(() => import("./pages/Welcome"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 
 // ============================================
@@ -171,6 +172,7 @@ const AppContent = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/nova-senha" element={<UpdatePassword />} />
           <Route path="/onboarding" element={<Onboarding />} />
           
           {/* Profile routes - PT */}
