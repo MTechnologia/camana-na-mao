@@ -1,4 +1,4 @@
-import React from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
@@ -8,4 +8,8 @@ import { cleanupLegacyPWA } from "./lib/cleanupLegacyPWA";
 cleanupLegacyPWA().catch(console.error);
 
 // Renderizar app imediatamente
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);
