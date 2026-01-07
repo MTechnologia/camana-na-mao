@@ -218,6 +218,24 @@ function normalizeTextForMatching(text: string): string {
     .trim();
 }
 
+// Check if text is a generic intent phrase (not a real description)
+function isGenericIntentText(text: string): boolean {
+  const genericPhrases = [
+    /^quero\s*(relatar|reportar|fazer|registrar)/i,
+    /^preciso\s*(relatar|reportar|fazer|registrar)/i,
+    /^tenho\s*um\s*(problema|relato)/i,
+    /^problema\s*(na|no)\s*(cidade|bairro|rua)/i,
+    /^relatar\s*(um\s*)?problema/i,
+    /^fazer\s*(um\s*)?(relato|denuncia)/i,
+    /^quero\s*avaliar/i,
+    /^avaliar\s*(um\s*)?servi[çc]o/i,
+    /^(sim|não|ok|pode|quero|desejo|aceito)$/i,
+  ];
+  
+  const normalized = text.trim().toLowerCase();
+  return genericPhrases.some(pattern => pattern.test(normalized)) || normalized.length < 10;
+}
+
 // Heuristic auto-classification of urban category from description
 function autoClassifyCategory(description: string): { category: string | null; confidence: number } {
   const desc = description.toLowerCase();
@@ -2974,7 +2992,11 @@ serve(async (req) => {
         // === NEW FLOW: Description FIRST, then category, then location ===
         
         // 1. DESCRIPTION first - let user tell us what's happening
-        const descLen = (fields.description || '').length;
+        // CRITICAL: Treat generic phrases as "no description" to ensure we ask for real details
+        const description = fields.description || '';
+        const isGeneric = isGenericIntentText(description);
+        const descLen = isGeneric ? 0 : description.length;
+        
         if (descLen < 15) {
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         }
@@ -3135,14 +3157,18 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     // ========== DETERMINISTIC SHORT-CIRCUIT ==========
     // If we have a structured journey and know the next field, respond directly without LLM
     // This prevents the LLM from re-asking already collected fields
+    // CRITICAL FIX: Also short-circuit on journey switch for structured journeys
     
     const shouldShortCircuit = collectionIntent && 
       nextFieldInfo.field && 
-      !journeySwitchMatch && // Don't short-circuit on journey switch (let LLM confirm)
       ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type);
     
     if (shouldShortCircuit && nextFieldInfo.prompt) {
-      console.log('[ai-orchestrator] SHORT-CIRCUIT: Responding deterministically for field:', nextFieldInfo.field);
+      // If this is a journey switch, add a friendly confirmation prefix
+      const prefix = journeySwitchMatch ? 'Ok! ' : '';
+      
+      console.log('[ai-orchestrator] SHORT-CIRCUIT: Responding deterministically for field:', nextFieldInfo.field, 
+        journeySwitchMatch ? '(journey switch)' : '');
       
       // Build the deterministic response
       const fieldsJson = JSON.stringify(accumulatedFields);
@@ -3150,7 +3176,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
       const pickerMarker = nextFieldInfo.picker || '';
       
-      const deterministicResponse = `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+      const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
       
       const ssePayload = JSON.stringify({
         choices: [{ delta: { content: deterministicResponse } }]
