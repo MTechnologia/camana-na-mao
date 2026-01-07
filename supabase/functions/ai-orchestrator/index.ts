@@ -1242,12 +1242,69 @@ function detectCollectionIntent(
   // Calculate scores for each type using USER-ONLY context
   const scores: DetectionScore[] = [];
   
+  // === EXPLICIT INTENT PHRASES (strongly indicate journey switch) ===
+  const explicitUrbanPhrases = [
+    'quero relatar um problema', 'quero fazer uma reclamação', 'quero fazer reclamação', 'quero fazer reclamacao',
+    'quero denunciar', 'problema na minha rua', 'problema na cidade', 'problema urbano',
+    'tem um buraco', 'poste apagado', 'lixo acumulado', 'quero abrir um chamado',
+    'quero registrar um problema', 'relatar problema urbano', 'fazer um relato urbano'
+  ];
+  
+  const explicitTransportPhrases = [
+    'problema no ônibus', 'problema no onibus', 'problema no metrô', 'problema no metro',
+    'problema no trem', 'quero relatar transporte', 'quero reclamar do transporte',
+    'ônibus atrasado', 'onibus atrasado', 'metrô lotado', 'metro lotado', 'trem não passou',
+    'problema na linha', 'quero falar do ônibus', 'quero falar do onibus',
+    'quero fazer um relato de transporte', 'relatar problema de transporte'
+  ];
+  
+  const explicitRatingPhrases = [
+    'quero fazer uma avaliação', 'quero fazer avaliação', 'quero fazer avaliacão',
+    'quero avaliar', 'fazer uma avaliação', 'fazer avaliação',
+    'quero dar nota', 'quero dar uma nota', 'avaliar um serviço', 'avaliar serviço',
+    'avaliar o serviço', 'dar minha avaliação', 'deixar avaliação', 'avaliar atendimento'
+  ];
+  
+  const explicitServicesPhrases = [
+    'onde fica a ubs', 'onde fica o hospital', 'buscar serviço', 'buscar servico',
+    'quero encontrar', 'preciso encontrar', 'procurar uma escola',
+    'qual ubs mais perto', 'como chegar na ubs', 'serviços perto de mim',
+    'servicos perto de mim', 'onde tem hospital', 'onde tem escola'
+  ];
+  
+  const explicitAudienciasPhrases = [
+    'quero participar de audiência', 'quero participar de audiencia', 'próxima audiência',
+    'proxima audiencia', 'quando tem audiência', 'quando tem audiencia',
+    'audiência pública', 'audiencia publica', 'consulta pública', 'consulta publica',
+    'quero me inscrever na audiência', 'quero me inscrever na audiencia'
+  ];
+  
+  const explicitHistoryPhrases = [
+    'meus relatos', 'meu histórico', 'meu historico', 'o que eu já fiz', 'o que eu ja fiz',
+    'quero ver meus relatos', 'como está minha reclamação', 'como esta minha reclamacao',
+    'status do meu relato', 'minhas reclamações', 'minhas reclamacoes'
+  ];
+  
+  // === INTENT CHANGE INDICATORS (generic signals of topic switch) ===
+  const intentChangeIndicators = [
+    'quero fazer', 'preciso de', 'pode me ajudar com',
+    'na verdade', 'mudando de assunto', 'outra coisa',
+    'deixa isso', 'esquece isso', 'vamos falar de', 'agora quero'
+  ];
+  const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
+
   // Transport scoring
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
   let transportScore = 0;
   transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
   transportProblems.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 3; });
+  // Check for explicit transport intent
+  const hasExplicitTransportIntent = explicitTransportPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitTransportIntent) {
+    transportScore += 5;
+    console.log('[detectCollectionIntent] Explicit transport intent detected');
+  }
   if (transportScore > 0) {
     scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullUserContext) });
   }
@@ -1258,6 +1315,12 @@ function detectCollectionIntent(
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
   urbanProblems.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 2; });
+  // Check for explicit urban intent
+  const hasExplicitUrbanIntent = explicitUrbanPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitUrbanIntent) {
+    urbanScore += 5;
+    console.log('[detectCollectionIntent] Explicit urban intent detected');
+  }
   if (urbanScore > 0) {
     // FIX: Extract fields from USER-ONLY context
     scores.push({ type: 'urban_report', score: urbanScore, fields: extractUrbanFields(fullUserContext) });
@@ -1266,13 +1329,6 @@ function detectCollectionIntent(
   // Service rating scoring - use user-only context
   const serviceDomain = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto de saúde', 'posto de saude', 'centro esportivo'];
   const ratingTerms = ['avaliar', 'avaliação', 'avaliacao', 'nota', 'estrela', 'atendimento'];
-  // Explicit intent phrases that strongly indicate service rating
-  const explicitRatingPhrases = [
-    'quero fazer uma avaliação', 'quero fazer avaliação', 'quero fazer avaliacão',
-    'quero avaliar', 'fazer uma avaliação', 'fazer avaliação',
-    'quero dar nota', 'quero dar uma nota', 'avaliar um serviço', 'avaliar serviço',
-    'avaliar o serviço', 'dar minha avaliação', 'deixar avaliação'
-  ];
   let serviceScore = 0;
   serviceDomain.forEach(kw => { if (fullUserContext.includes(kw)) serviceScore += 4; });
   ratingTerms.forEach(kw => { if (fullUserContext.includes(kw)) serviceScore += 3; });
@@ -1280,7 +1336,7 @@ function detectCollectionIntent(
   const hasExplicitRatingIntent = explicitRatingPhrases.some(phrase => fullUserContext.includes(phrase));
   if (hasExplicitRatingIntent) {
     serviceScore += 5; // Strong boost for explicit intent
-    console.log('[detectCollectionIntent] Explicit rating intent detected:', fullUserContext.slice(0, 50));
+    console.log('[detectCollectionIntent] Explicit rating intent detected');
   }
   if (serviceScore > 0) {
     scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullUserContext) });
@@ -1305,6 +1361,12 @@ function detectCollectionIntent(
   let servicesScore = 0;
   servicesDomain.forEach(kw => { if (fullUserContext.includes(kw)) servicesScore += 4; });
   servicesTypes.forEach(kw => { if (fullUserContext.includes(kw)) servicesScore += 2; });
+  // Check for explicit services intent
+  const hasExplicitServicesIntent = explicitServicesPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitServicesIntent) {
+    servicesScore += 5;
+    console.log('[detectCollectionIntent] Explicit services intent detected');
+  }
   // Only add if it's a search (not evaluation)
   const isEvaluating = ratingTerms.some(term => fullUserContext.includes(term));
   if (servicesScore > 0 && !isEvaluating) {
@@ -1318,6 +1380,12 @@ function detectCollectionIntent(
   let audienciasScore = 0;
   audienciasDomain.forEach(kw => { if (fullUserContext.includes(kw)) audienciasScore += 5; });
   audienciasTerms.forEach(kw => { if (fullUserContext.includes(kw)) audienciasScore += 2; });
+  // Check for explicit audiencias intent
+  const hasExplicitAudienciasIntent = explicitAudienciasPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitAudienciasIntent) {
+    audienciasScore += 5;
+    console.log('[detectCollectionIntent] Explicit audiencias intent detected');
+  }
   if (audienciasScore > 0) {
     scores.push({ type: 'audiencias', score: audienciasScore, fields: {} });
   }
@@ -1337,6 +1405,12 @@ function detectCollectionIntent(
                          'minha denúncia', 'minha denuncia', 'meu histórico', 'meu historico'];
   let historyScore = 0;
   historyDomain.forEach(kw => { if (fullUserContext.includes(kw)) historyScore += 5; });
+  // Check for explicit history intent
+  const hasExplicitHistoryIntent = explicitHistoryPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitHistoryIntent) {
+    historyScore += 5;
+    console.log('[detectCollectionIntent] Explicit history intent detected');
+  }
   if (historyScore > 0) {
     scores.push({ type: 'history', score: historyScore, fields: {} });
   }
@@ -1348,9 +1422,16 @@ function detectCollectionIntent(
   }
   
   // Sort by score and select winner
-  const winner = scores.sort((a, b) => b.score - a.score)[0];
+  let winner = scores.sort((a, b) => b.score - a.score)[0];
   console.log('[detectCollectionIntent] Scores:', JSON.stringify(scores.map(s => ({ type: s.type, score: s.score }))));
   console.log('[detectCollectionIntent] Winner:', winner.type, 'with score:', winner.score);
+  
+  // === INTENT CHANGE BOOST ===
+  // If user signals topic change and winner has some score, boost it
+  if (hasIntentChange && winner.score > 0 && winner.type !== existingJourney) {
+    winner = { ...winner, score: winner.score + 2 };
+    console.log('[detectCollectionIntent] Intent change indicator detected, boosted to:', winner.score);
+  }
   
   // === ADAPTIVE THRESHOLD based on journey type ===
   // Structured journeys need higher confidence, light tools can be triggered more easily
@@ -1367,19 +1448,30 @@ function detectCollectionIntent(
   
   const threshold = thresholds[winner.type] || 5;
   
-  // === EXPLICIT JOURNEY SWITCH DETECTION ===
-  // Check if user explicitly wants to switch to a DIFFERENT structured journey
+  // === UNIVERSAL JOURNEY SWITCH DETECTION ===
+  // Detect switches between ANY journey types (structured or light)
+  const allJourneyTypes = ['urban_report', 'transport_report', 'service_rating', 
+                           'services', 'audiencias', 'general', 'history'] as const;
   const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
+  
+  const isWinnerInAllTypes = allJourneyTypes.includes(winner.type as typeof allJourneyTypes[number]);
+  const isExistingInAllTypes = existingJourney && allJourneyTypes.includes(existingJourney as typeof allJourneyTypes[number]);
   const isWinnerStructured = structuredTypes.includes(winner.type as typeof structuredTypes[number]);
   const isExistingStructured = existingJourney && structuredTypes.includes(existingJourney as typeof structuredTypes[number]);
   
-  // If user wants a different structured journey with reasonable confidence, allow switch
-  if (isExistingStructured && isWinnerStructured && winner.type !== existingJourney && winner.score >= 3) {
-    console.log(`[detectCollectionIntent] Journey switch detected: ${existingJourney} → ${winner.type} (score: ${winner.score})`);
-    // Return the new journey - the AI will use confirm_journey_switch
-    // Cast to valid return type (chamber_feedback is handled separately below)
-    const validType = winner.type as 'urban_report' | 'transport_report' | 'service_rating';
-    return { type: validType, fields: winner.fields };
+  // If user is in ANY journey and wants to switch to ANY other with reasonable confidence
+  if (isExistingInAllTypes && isWinnerInAllTypes && winner.type !== existingJourney && winner.score >= 3) {
+    console.log(`[detectCollectionIntent] Universal journey switch detected: ${existingJourney} → ${winner.type} (score: ${winner.score})`);
+    
+    // For structured -> structured switches, AI will use confirm_journey_switch if there are fields
+    // For any -> light switches, just return the new journey directly
+    if (isWinnerStructured) {
+      const validType = winner.type as 'urban_report' | 'transport_report' | 'service_rating';
+      return { type: validType, fields: winner.fields };
+    }
+    
+    // For light journeys, return as-is (will inject tool hint)
+    return { type: winner.type as CollectionIntent['type'], fields: winner.fields };
   }
   
   if (winner.score < threshold) {
@@ -1399,10 +1491,10 @@ function detectCollectionIntent(
   }
   
   // === PHASE 1: Check if we should maintain existing journey ===
-  // If there's an existing structured journey and the new winner is a "light" type, keep existing
+  // If there's an existing structured journey and the new winner is a "light" type with LOW score, keep existing
   const lightTypes = ['services', 'audiencias', 'general', 'history'];
-  if (existingJourney && lightTypes.includes(winner.type)) {
-    console.log(`[detectCollectionIntent] Existing journey ${existingJourney} preserved (new intent was light: ${winner.type})`);
+  if (existingJourney && isExistingStructured && lightTypes.includes(winner.type) && winner.score < 6) {
+    console.log(`[detectCollectionIntent] Existing journey ${existingJourney} preserved (new intent was light with low score: ${winner.type}=${winner.score})`);
     const accumulatedFields = accumulateFieldsFromHistory(conversationHistory, existingJourney);
     return { type: existingJourney, fields: accumulatedFields };
   }
