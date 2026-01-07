@@ -797,6 +797,20 @@ export const useUnifiedAIChat = (
                 const fields = JSON.parse(progressMatch[2]);
                 console.log('[useUnifiedAIChat] Collection progress detected:', type, fields);
                 
+                // === CRITICAL FIX: Respect explicit JOURNEY_SWITCHED from user ===
+                // If the user just switched journeys, ignore COLLECTION_PROGRESS from different type
+                // This prevents the backend from overriding explicit user journey choice
+                const lastUserMsgContent = [...messages].reverse().find(m => m.role === 'user')?.content || '';
+                const journeySwitchMatch = lastUserMsgContent.match(/\[JOURNEY_SWITCHED:(\w+)\]/);
+                
+                if (journeySwitchMatch) {
+                  const switchedToType = journeySwitchMatch[1];
+                  if (type !== switchedToType) {
+                    console.log('[useUnifiedAIChat] Ignoring stale COLLECTION_PROGRESS:', type, '- user switched to:', switchedToType);
+                    continue; // Skip this progress marker, user explicitly switched
+                  }
+                }
+                
                 // === PHASE 2: Only update collectionType if it's a valid structured type ===
                 // This prevents light intents (services, audiencias, general, history) from
                 // replacing an ongoing structured journey

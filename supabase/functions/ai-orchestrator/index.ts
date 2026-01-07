@@ -1103,19 +1103,19 @@ const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. CHAMAR APENAS quando tiver: 1) tipo do serviço, 2) nome do serviço, 3) nota (1-5), 4) comentário. NÃO CHAMAR para mensagens genéricas como 'quero avaliar'. Usar quando cidadão ESPECIFICAR qual serviço avaliar: UBS, escola, hospital, CEU, biblioteca, centro esportivo.",
+      description: "Registra avaliação de serviço público. NUNCA CHAMAR COM rating_stars=0 ou rating_text vazio. VERIFICAR que todos os campos foram coletados: 1) service_type, 2) service_name (mínimo 3 chars), 3) rating_stars (1-5, NUNCA 0), 4) rating_text (mínimo 10 chars). Se faltar algum dado, PERGUNTAR antes de chamar. NÃO CHAMAR para mensagens genéricas como 'quero avaliar'.",
       parameters: {
         type: "object",
         properties: {
           service_type: {
             type: "string",
             enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "PERGUNTAR PRIMEIRO: tipo do serviço"
+            description: "PERGUNTAR PRIMEIRO: tipo do serviço (ubs, escola, hospital, etc)"
           },
-          service_name: { type: "string", description: "Nome do serviço avaliado (sugerir serviços existentes se possível)" },
+          service_name: { type: "string", description: "Nome do serviço avaliado - MÍNIMO 3 caracteres (ex: UBS Vila Madalena)" },
           service_neighborhood: { type: "string", description: "Bairro onde fica o serviço (ajuda a localizar)" },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Nota 1-5 estrelas" },
-          rating_text: { type: "string", description: "Comentário da avaliação (mínimo 10 caracteres)" },
+          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO: Nota 1-5 estrelas. NUNCA usar 0!" },
+          rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
             type: "string",
             enum: ["positive", "neutral", "negative"],
@@ -2411,6 +2411,43 @@ async function executeTool(
       }
       
       case 'create_service_rating': {
+        // === VALIDATION: Prevent premature tool call with invalid data ===
+        
+        // 1. Validate service_type
+        if (!args.service_type) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo)'
+          };
+        }
+        
+        // 2. Validate service_name
+        if (!args.service_name || args.service_name.trim().length < 3) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII)'
+          };
+        }
+        
+        // 3. Validate rating_stars (CRITICAL: must be 1-5, never 0)
+        const stars = args.rating_stars;
+        if (!stars || stars < 1 || stars > 5) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:rating_stars]**Qual nota de 1 a 5** você dá para o atendimento? [RATING_PICKER]'
+          };
+        }
+        
+        // 4. Validate rating_text
+        if (!args.rating_text || args.rating_text.trim().length < 10) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:rating_text]**Pode descrever sua experiência?** Me conta como foi o atendimento. (mínimo 10 caracteres)'
+          };
+        }
+        
+        // === PROCESSING: All validations passed ===
+        
         // Find service by name/type
         let serviceId = null;
         let visitId = null;
@@ -2444,7 +2481,7 @@ async function executeTool(
         }
         
         if (!serviceId || !visitId) {
-          return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo?' };
+          return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo e o bairro?' };
         }
         
         const { data, error } = await supabase
@@ -2453,8 +2490,8 @@ async function executeTool(
             user_id: userId,
             service_id: serviceId,
             visit_id: visitId,
-            rating_stars: args.rating_stars,
-            rating_text: args.rating_text,
+            rating_stars: stars,
+            rating_text: args.rating_text.trim(),
             sentiment: args.sentiment || 'neutral'
           })
           .select('id')
@@ -2464,7 +2501,7 @@ async function executeTool(
         
         return { 
           success: true, 
-          message: `✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${args.service_name}\n⭐ **Nota:** ${'★'.repeat(args.rating_stars)}${'☆'.repeat(5 - args.rating_stars)}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${args.service_name}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating' }
         };
       }
@@ -2738,11 +2775,33 @@ serve(async (req) => {
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     
+    // === CRITICAL: Check for explicit JOURNEY_SWITCHED marker in last user message ===
+    // When user clicks "Sim, iniciar X" button, the message contains [JOURNEY_SWITCHED:type]
+    // This MUST take precedence over any other detection logic
+    const journeySwitchMatch = lastUserMsg.match(/\[JOURNEY_SWITCHED:(\w+)\]/);
+    
     // PRIORITY: Use frontend collection type if it's a structured journey type
     const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
     let collectionIntent: CollectionIntent | null;
     
-    if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
+    if (journeySwitchMatch) {
+      // User explicitly switched journey via button click - HIGHEST PRIORITY
+      const switchedToType = journeySwitchMatch[1];
+      console.log('[ai-orchestrator] JOURNEY_SWITCHED detected in message, forcing type:', switchedToType);
+      
+      if (STRUCTURED_TYPES_SET.has(switchedToType)) {
+        collectionIntent = {
+          type: switchedToType as 'urban_report' | 'transport_report' | 'service_rating',
+          fields: {}, // Reset fields for new journey
+        };
+      } else {
+        // Light journey switch - still respect it
+        collectionIntent = {
+          type: switchedToType as any,
+          fields: {},
+        };
+      }
+    } else if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
       // Frontend already knows the journey type - trust it
       console.log('[ai-orchestrator] Using frontend collectionType:', frontendCollectionType);
       const detectedFields = detectCollectionIntent(lastUserMsg, messages)?.fields || {};
@@ -2756,11 +2815,18 @@ serve(async (req) => {
     }
     
     // Accumulate fields from conversation history for better tracking
+    // BUT if journey was just switched, start fresh
     let accumulatedFields: Record<string, any> = {};
     if (collectionIntent) {
-      accumulatedFields = accumulateFieldsFromHistory(messages, collectionIntent.type);
-      // Merge with detected fields from current message
-      accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
+      if (journeySwitchMatch) {
+        // Fresh start - don't accumulate from previous journey
+        accumulatedFields = {};
+        console.log('[ai-orchestrator] Journey switched, starting with fresh fields');
+      } else {
+        accumulatedFields = accumulateFieldsFromHistory(messages, collectionIntent.type);
+        // Merge with detected fields from current message
+        accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
+      }
       console.log('[ai-orchestrator] Effective collectionType:', collectionIntent.type);
       console.log('[ai-orchestrator] Accumulated fields:', JSON.stringify(accumulatedFields));
     }
