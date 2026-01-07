@@ -1074,7 +1074,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transport_report",
-      description: "Registra problema no transporte público. Usar quando cidadão falar de: ônibus, metrô, CPTM, atrasos, lotação, segurança em transporte.",
+      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) tipo do problema, 2) descrição (min 10 chars), 3) data da ocorrência. NÃO CHAMAR para mensagens genéricas como 'problema no ônibus' sem detalhes. Usar quando cidadão DESCREVER problema específico de: ônibus, metrô, CPTM, atrasos, lotação, segurança.",
       parameters: {
         type: "object",
         properties: {
@@ -1103,7 +1103,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. Usar quando cidadão quiser avaliar: UBS, escola, hospital, CEU, biblioteca, centro esportivo.",
+      description: "Registra avaliação de serviço público. CHAMAR APENAS quando tiver: 1) tipo do serviço, 2) nome do serviço, 3) nota (1-5), 4) comentário. NÃO CHAMAR para mensagens genéricas como 'quero avaliar'. Usar quando cidadão ESPECIFICAR qual serviço avaliar: UBS, escola, hospital, CEU, biblioteca, centro esportivo.",
       parameters: {
         type: "object",
         properties: {
@@ -1234,7 +1234,7 @@ const tools = [
     type: "function",
     function: {
       name: "detect_user_intent",
-      description: "USAR NA PRIMEIRA MENSAGEM do cidadão (quando não usar prompt chips). Classifica semanticamente a intenção E extrai dados iniciais (categoria para urban_report, tipo para transport_report). Se a mensagem já contém descrição do problema (>= 30 chars), extrair também.",
+      description: "Classificar a intenção do cidadão. USAR APENAS quando a mensagem contiver descrição específica do problema (>= 15 chars com contexto). Para mensagens genéricas como 'quero relatar', 'problema na cidade', 'avaliar serviço' SEM detalhes, NÃO CHAMAR - apenas pergunte 'Qual o problema/serviço e onde fica?'. Se a mensagem já contém descrição detalhada, extrair categoria/tipo junto.",
       parameters: {
         type: "object",
         properties: {
