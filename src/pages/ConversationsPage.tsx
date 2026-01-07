@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, MessageSquare, Plus, Trash2, Bot, Bus, MapPin, FileText, Star } from "lucide-react";
+import { Search, MessageSquare, Plus, Trash2, Bot, Bus, MapPin, FileText, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -120,20 +120,7 @@ const ConversationsPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <header className="flex items-center gap-3 p-4 border-b border-border bg-card">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-          className="shrink-0"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold text-foreground">Minhas Conversas</h1>
-      </header>
-
+    <div className="flex flex-col min-h-[calc(100vh-60px)] bg-background">
       {/* Search */}
       <div className="p-4 border-b border-border">
         <div className="relative">
