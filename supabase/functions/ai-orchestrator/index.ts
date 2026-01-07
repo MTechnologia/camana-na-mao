@@ -218,6 +218,63 @@ function normalizeTextForMatching(text: string): string {
     .trim();
 }
 
+// Heuristic auto-classification of urban category from description
+function autoClassifyCategory(description: string): { category: string | null; confidence: number } {
+  const desc = description.toLowerCase();
+  
+  const patterns: Array<{ keywords: RegExp; category: string; weight: number }> = [
+    // Esgoto / Alagamento / Vazamento (HIGHEST priority for water-related)
+    { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando)|esgoto|córrego|valeta|enchente|inunda/i, category: 'esgoto', weight: 10 },
+    
+    // Iluminação
+    { keywords: /poste\s*(apagado|sem\s*luz|queimado)|luz\s*(apagada|queimada)|ilumina[çc][ãa]o|sem\s*luz|escuro|lâmpada/i, category: 'iluminacao', weight: 9 },
+    
+    // Via Pública / Buraco
+    { keywords: /buraco|asfalto|pavimenta[çc][ãa]o|cratera|semáforo|sinaliza[çc][ãa]o|faixa\s*de\s*pedestre|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    
+    // Calçada
+    { keywords: /cal[çc]ada|passeio\s*público|meio-fio|guia|rampa\s*de\s*acessibilidade/i, category: 'calcada', weight: 8 },
+    
+    // Lixo / Entulho
+    { keywords: /lixo|entulho|descarte|coleta|cata|sujeira|res[ií]duo|lata\s*de\s*lixo|container|caçamba/i, category: 'lixo', weight: 7 },
+    
+    // Área Verde
+    { keywords: /[áa]rvore|poda|galho|pra[çc]a|parque|jardim|mato\s*(alto|crescendo)|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 7 },
+    
+    // Animais
+    { keywords: /rato|barata|inseto|bicho\s*morto|animal\s*(morto|atropelado)|pombo|infesta[çc][ãa]o|escorpi[ãa]o|cobra/i, category: 'animais', weight: 8 },
+    
+    // Higiene Urbana
+    { keywords: /fedor|mau\s*cheiro|fedendo|podre|urina|fezes|defeca[çc][ãa]o/i, category: 'higiene_urbana', weight: 7 },
+    
+    // Poluição
+    { keywords: /fuma[çc]a|polui[çc][ãa]o|barulho\s*(excessivo)?|ru[íi]do|contamina[çc][ãa]o/i, category: 'poluicao', weight: 6 },
+    
+    // Feedback Câmara
+    { keywords: /vereador|c[âa]mara\s*municipal|legislativo|projeto\s*de\s*lei/i, category: 'feedback_camara', weight: 5 },
+  ];
+  
+  let bestMatch: { category: string; score: number } | null = null;
+  
+  for (const pattern of patterns) {
+    const match = desc.match(pattern.keywords);
+    if (match) {
+      const score = pattern.weight;
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { category: pattern.category, score };
+      }
+    }
+  }
+  
+  if (bestMatch) {
+    // Confidence based on score (max is 10)
+    const confidence = Math.min(bestMatch.score / 10, 1);
+    return { category: bestMatch.category, confidence };
+  }
+  
+  return { category: null, confidence: 0 };
+}
+
 // Parse user response for specific field types
 function parseFieldResponse(fieldType: string, userResponse: string): Record<string, any> {
   const response = userResponse.trim();
@@ -237,6 +294,47 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
       } else if (response.length > 0 && response.length < 50) {
         // Short response without reference keywords = treat as number/reference
         result.street_number = response;
+      }
+      break;
+      
+    case 'category':
+      // Direct category answer
+      const categoryMap: Record<string, string> = {
+        'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao',
+        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'semáforo': 'via_publica',
+        'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
+        'lixo': 'lixo', 'entulho': 'lixo',
+        'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto',
+        'área verde': 'area_verde', 'area verde': 'area_verde', 'árvore': 'area_verde', 'arvore': 'area_verde', 'praça': 'area_verde', 'praca': 'area_verde',
+        'higiene': 'higiene_urbana', 'fedor': 'higiene_urbana',
+        'animais': 'animais', 'rato': 'animais', 'barata': 'animais',
+        'poluição': 'poluicao', 'poluicao': 'poluicao', 'barulho': 'poluicao',
+        'outro': 'outro', 'outros': 'outro',
+      };
+      
+      // Check for direct match
+      for (const [key, cat] of Object.entries(categoryMap)) {
+        if (responseLower === key || responseLower.startsWith(key + ' ') || responseLower.includes(key)) {
+          result.category = cat;
+          console.log('[parseFieldResponse] Category matched:', key, '→', cat);
+          break;
+        }
+      }
+      
+      // RECOVERY: If response looks like a description (>= 20 chars), save as description instead
+      // This handles the case where AI asked for category but user gave a detailed description
+      if (!result.category && response.length >= 20) {
+        console.log('[parseFieldResponse] Category recovery: treating as description');
+        result.description = response;
+        
+        // Try to auto-classify from the description
+        const autoClass = autoClassifyCategory(response);
+        if (autoClass.category && autoClass.confidence >= 0.7) {
+          result.category = autoClass.category;
+          result._auto_classified = true;
+          result._classification_confidence = autoClass.confidence;
+          console.log('[parseFieldResponse] Auto-classified category:', autoClass.category, 'confidence:', autoClass.confidence);
+        }
       }
       break;
       
@@ -332,6 +430,14 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
           hasKeyword, 
           preview: response.substring(0, 50) 
         });
+        
+        // Also try to auto-classify category from description
+        const autoClass = autoClassifyCategory(response);
+        if (autoClass.category && autoClass.confidence >= 0.7) {
+          result._suggested_category = autoClass.category;
+          result._classification_confidence = autoClass.confidence;
+          console.log('[parseFieldResponse] Suggested category from description:', autoClass.category);
+        }
       }
       break;
   }
@@ -2865,12 +2971,40 @@ serve(async (req) => {
     ): { field: string | null; picker: string | null; prompt: string | null } {
       
       if (collectionType === 'urban_report') {
-        // 1. Category first
-        if (!fields.category) {
-          return { field: 'category', picker: null, prompt: 'Qual o tipo de problema? (iluminação, buraco, esgoto, lixo, área verde...)' };
+        // === NEW FLOW: Description FIRST, then category, then location ===
+        
+        // 1. DESCRIPTION first - let user tell us what's happening
+        const descLen = (fields.description || '').length;
+        if (descLen < 15) {
+          return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         }
         
-        // 2. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
+        // 2. CATEGORY - try auto-classification, then ask if uncertain
+        if (!fields.category) {
+          // Try to auto-classify from description
+          const autoClass = autoClassifyCategory(fields.description || '');
+          
+          if (autoClass.category && autoClass.confidence >= 0.8) {
+            // High confidence - auto-set and don't ask
+            fields.category = autoClass.category;
+            fields._auto_classified = true;
+            console.log('[getNextMissingField] Auto-classified category:', autoClass.category, 'confidence:', autoClass.confidence);
+          } else if (autoClass.category && autoClass.confidence >= 0.5) {
+            // Medium confidence - ask for confirmation with suggestion
+            const categoryLabels: Record<string, string> = {
+              iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
+              lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
+              higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição'
+            };
+            const suggestion = categoryLabels[autoClass.category] || autoClass.category;
+            return { field: 'category', picker: null, prompt: `Parece ser um problema de **${suggestion}**. Confirma? (ou me diz outra categoria: iluminação, buraco, esgoto, lixo...)` };
+          } else {
+            // Low confidence - ask directly
+            return { field: 'category', picker: null, prompt: 'Qual **tipo de problema** é esse? (iluminação, buraco, esgoto, lixo, área verde...)' };
+          }
+        }
+        
+        // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
         const hasLocationViaCep = !!fields.cep && fields.cep.length === 8;
         const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
         const hasLocation = hasLocationViaCep || hasLocationViaAddress;
@@ -2887,15 +3021,9 @@ serve(async (req) => {
           return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
         }
         
-        // 3. Street number / reference (optional but helpful)
+        // 4. Street number / reference (optional but helpful)
         if (!fields.street_number && !fields.reference_point) {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
-        }
-        
-        // 4. Description (if too short or missing)
-        const descLen = (fields.description || '').length;
-        if (descLen < 15) {
-          return { field: 'description', picker: null, prompt: 'Pode **descrever o problema** com mais detalhes?' };
         }
         
         // 5. Risk assessment for risk categories
