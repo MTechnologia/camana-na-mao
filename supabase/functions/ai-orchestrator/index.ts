@@ -2753,6 +2753,49 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Accumulated fields:', JSON.stringify(accumulatedFields));
     }
     
+    // Build dynamic system prompt with collected fields context
+    let dynamicSystemPrompt = systemPrompt;
+    
+    if (collectionIntent && Object.keys(accumulatedFields).length > 0) {
+      const fieldsList = Object.entries(accumulatedFields)
+        .filter(([k, v]) => v && typeof v === 'string' && v.length > 0)
+        .map(([k, v]) => `• ${k}: ${String(v).substring(0, 100)}`)
+        .join('\n');
+      
+      // Determine next missing field based on collection type
+      const requiredFlow: Record<string, string[]> = {
+        urban_report: ['category', 'cep', 'street', 'neighborhood', 'street_number', 'description'],
+        transport_report: ['report_type', 'line_code', 'occurrence_date', 'description'],
+        service_rating: ['service_type', 'service_name', 'rating_stars', 'rating_text']
+      };
+      
+      const fields = requiredFlow[collectionIntent.type] || [];
+      let nextField: string | null = null;
+      for (const field of fields) {
+        if (!accumulatedFields[field] || accumulatedFields[field] === '') {
+          nextField = field;
+          break;
+        }
+      }
+      
+      const collectionContext = `
+
+=== CONTEXTO ATUAL DA COLETA ===
+
+**Jornada ativa:** ${collectionIntent.type}
+**Campos JÁ COLETADOS (NÃO PERGUNTAR NOVAMENTE):**
+${fieldsList}
+${nextField ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextField}` : '\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta create_urban_report, create_transport_report ou create_service_rating para finalizar.'}
+
+**REGRA CRÍTICA:** Verifique a lista acima ANTES de perguntar qualquer campo. 
+Se cep, street, neighborhood, category, line_code já estão na lista, NÃO peça novamente.
+Pergunte apenas o PRÓXIMO campo faltante listado acima.
+===`;
+      
+      dynamicSystemPrompt = systemPrompt + '\n\n' + collectionContext;
+      console.log('[ai-orchestrator] Injected collection context. Next field:', nextField);
+    }
+
     // Call AI API (Lovable AI Gateway) with streaming enabled and timeout
     const controller = new AbortController();
     const apiTimeoutId = setTimeout(() => {
@@ -2771,7 +2814,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: dynamicSystemPrompt },
             ...messages.slice(-10) // Last 10 messages for context
           ],
           tools,
