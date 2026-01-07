@@ -1266,9 +1266,22 @@ function detectCollectionIntent(
   // Service rating scoring - use user-only context
   const serviceDomain = ['ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto de saúde', 'posto de saude', 'centro esportivo'];
   const ratingTerms = ['avaliar', 'avaliação', 'avaliacao', 'nota', 'estrela', 'atendimento'];
+  // Explicit intent phrases that strongly indicate service rating
+  const explicitRatingPhrases = [
+    'quero fazer uma avaliação', 'quero fazer avaliação', 'quero fazer avaliacão',
+    'quero avaliar', 'fazer uma avaliação', 'fazer avaliação',
+    'quero dar nota', 'quero dar uma nota', 'avaliar um serviço', 'avaliar serviço',
+    'avaliar o serviço', 'dar minha avaliação', 'deixar avaliação'
+  ];
   let serviceScore = 0;
   serviceDomain.forEach(kw => { if (fullUserContext.includes(kw)) serviceScore += 4; });
   ratingTerms.forEach(kw => { if (fullUserContext.includes(kw)) serviceScore += 3; });
+  // Check for explicit rating intent phrases - these should trigger journey switch
+  const hasExplicitRatingIntent = explicitRatingPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitRatingIntent) {
+    serviceScore += 5; // Strong boost for explicit intent
+    console.log('[detectCollectionIntent] Explicit rating intent detected:', fullUserContext.slice(0, 50));
+  }
   if (serviceScore > 0) {
     scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullUserContext) });
   }
@@ -1353,6 +1366,22 @@ function detectCollectionIntent(
   };
   
   const threshold = thresholds[winner.type] || 5;
+  
+  // === EXPLICIT JOURNEY SWITCH DETECTION ===
+  // Check if user explicitly wants to switch to a DIFFERENT structured journey
+  const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
+  const isWinnerStructured = structuredTypes.includes(winner.type as typeof structuredTypes[number]);
+  const isExistingStructured = existingJourney && structuredTypes.includes(existingJourney as typeof structuredTypes[number]);
+  
+  // If user wants a different structured journey with reasonable confidence, allow switch
+  if (isExistingStructured && isWinnerStructured && winner.type !== existingJourney && winner.score >= 3) {
+    console.log(`[detectCollectionIntent] Journey switch detected: ${existingJourney} → ${winner.type} (score: ${winner.score})`);
+    // Return the new journey - the AI will use confirm_journey_switch
+    // Cast to valid return type (chamber_feedback is handled separately below)
+    const validType = winner.type as 'urban_report' | 'transport_report' | 'service_rating';
+    return { type: validType, fields: winner.fields };
+  }
+  
   if (winner.score < threshold) {
     console.log(`[detectCollectionIntent] Winner score ${winner.score} below threshold ${threshold} for ${winner.type}, skipping`);
     // === PHASE 1: If there's an existing structured journey, maintain it ===
