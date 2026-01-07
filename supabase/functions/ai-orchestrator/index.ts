@@ -882,6 +882,165 @@ function accumulateFieldsFromHistory(
     }
   }
   
+  // ========== SERVICE_RATING SPECIFIC PARSING ==========
+  if (collectionType === 'service_rating') {
+    // Service type mapping from display names to IDs
+    const serviceTypeMap: Record<string, string> = {
+      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 
+      'ceu': 'ceu', 'biblioteca': 'library', 'centro esportivo': 'sports_center'
+    };
+    
+    // Parse structured messages from inline pickers
+    for (const msg of messages) {
+      if (msg.role !== 'user') continue;
+      const content = msg.content;
+      const contentLower = content.toLowerCase();
+      
+      // Parse "Tipo de serviço: UBS" format from InlineServiceTypePicker
+      const serviceTypeMatch = content.match(/tipo de serviço:\s*(\w+)/i);
+      if (serviceTypeMatch && !accumulated.service_type) {
+        const typeName = serviceTypeMatch[1].toLowerCase();
+        accumulated.service_type = serviceTypeMap[typeName] || typeName;
+        console.log('[accumulateFields] Parsed service_type from picker:', accumulated.service_type);
+      }
+      
+      // Parse "Serviço: UBS Bela Vista - Centro" format from InlineServicePicker
+      const serviceNameMatch = content.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?$/i);
+      if (serviceNameMatch && !accumulated.service_name) {
+        accumulated.service_name = serviceNameMatch[1].trim();
+        if (serviceNameMatch[2]) {
+          accumulated.service_neighborhood = serviceNameMatch[2].trim();
+        }
+        console.log('[accumulateFields] Parsed service_name from picker:', accumulated.service_name);
+      }
+      
+      // Parse "Nota: X estrelas" format from InlineRatingPicker
+      const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
+      if (ratingMatch && !accumulated.rating_stars) {
+        accumulated.rating_stars = parseInt(ratingMatch[1]);
+        console.log('[accumulateFields] Parsed rating_stars from picker:', accumulated.rating_stars);
+      }
+      
+      // Also detect rating from natural language if not already captured
+      if (!accumulated.rating_stars) {
+        const naturalRatingMatch = contentLower.match(/(\d)\s*(?:estrela|nota)/);
+        if (naturalRatingMatch) {
+          accumulated.rating_stars = parseInt(naturalRatingMatch[1]);
+        }
+      }
+    }
+    
+    // Extract service fields from context using heuristics
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        const contextFields = extractServiceFields(msg.content.toLowerCase());
+        // Only merge if not already set by more explicit parsing
+        for (const [key, value] of Object.entries(contextFields)) {
+          if (!accumulated[key]) {
+            accumulated[key] = value;
+          }
+        }
+      }
+    }
+    
+    // Process FIELD_REQUEST markers in last message exchange
+    const lastMsgIdx = messages.length - 1;
+    if (messages[lastMsgIdx]?.role === 'user' && lastMsgIdx > 0) {
+      const prevMsg = messages[lastMsgIdx - 1];
+      if (prevMsg?.role === 'assistant') {
+        const fieldRequestMatch = prevMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
+        if (fieldRequestMatch) {
+          const fieldType = fieldRequestMatch[1];
+          const answer = messages[lastMsgIdx].content.trim();
+          
+          // Service-specific field parsing
+          switch (fieldType) {
+            case 'service_type':
+              const typeMatch = answer.match(/tipo de serviço:\s*(\w+)/i);
+              if (typeMatch) {
+                accumulated.service_type = serviceTypeMap[typeMatch[1].toLowerCase()] || typeMatch[1].toLowerCase();
+              } else if (serviceTypeMap[answer.toLowerCase()]) {
+                accumulated.service_type = serviceTypeMap[answer.toLowerCase()];
+              } else {
+                // User typed a type name directly
+                accumulated.service_type = answer.toLowerCase();
+              }
+              break;
+            case 'service_name':
+              const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?$/i);
+              if (nameMatch) {
+                accumulated.service_name = nameMatch[1].trim();
+                if (nameMatch[2]) accumulated.service_neighborhood = nameMatch[2].trim();
+              } else {
+                accumulated.service_name = answer;
+              }
+              break;
+            case 'rating_stars':
+              const starsMatch = answer.match(/(\d)/);
+              if (starsMatch) {
+                accumulated.rating_stars = parseInt(starsMatch[1]);
+              }
+              break;
+            case 'rating_text':
+              if (answer.length >= 5) {
+                accumulated.rating_text = answer;
+              }
+              break;
+          }
+        }
+      }
+    }
+  }
+  
+  // ========== TRANSPORT_REPORT SPECIFIC PARSING ==========
+  if (collectionType === 'transport_report') {
+    // Parse structured messages from inline pickers
+    for (const msg of messages) {
+      if (msg.role !== 'user') continue;
+      const content = msg.content;
+      
+      // Parse "Linha selecionada: XXX (Nome)" format from InlineLinePicker
+      const lineMatch = content.match(/linha selecionada:\s*(\S+)/i);
+      if (lineMatch && !accumulated.line_code) {
+        accumulated.line_code = lineMatch[1];
+        console.log('[accumulateFields] Parsed line_code from picker:', accumulated.line_code);
+      }
+      
+      // Parse "Data: DD/MM/YYYY" format from InlineDatePicker
+      const dateMatch = content.match(/data:\s*(.+)/i);
+      if (dateMatch && !accumulated.occurrence_date) {
+        // Try to extract date - could be "hoje", "ontem", or actual date
+        const dateStr = dateMatch[1].trim().toLowerCase();
+        if (dateStr === 'hoje' || dateStr.includes('hoje')) {
+          accumulated.occurrence_date = new Date().toISOString().split('T')[0];
+        } else if (dateStr === 'ontem' || dateStr.includes('ontem')) {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          accumulated.occurrence_date = yesterday.toISOString().split('T')[0];
+        } else {
+          // Try to parse as date
+          const parts = dateStr.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+          if (parts) {
+            const day = parts[1].padStart(2, '0');
+            const month = parts[2].padStart(2, '0');
+            const year = parts[3] ? (parts[3].length === 2 ? '20' + parts[3] : parts[3]) : new Date().getFullYear().toString();
+            accumulated.occurrence_date = `${year}-${month}-${day}`;
+          } else {
+            accumulated.occurrence_date = dateStr;
+          }
+        }
+        console.log('[accumulateFields] Parsed occurrence_date from picker:', accumulated.occurrence_date);
+      }
+      
+      // Parse "Horário: XX:XX" format from InlineTimePicker
+      const timeMatch = content.match(/horário:\s*(\d{1,2}:\d{2})/i);
+      if (timeMatch && !accumulated.occurrence_time) {
+        accumulated.occurrence_time = timeMatch[1];
+        console.log('[accumulateFields] Parsed occurrence_time from picker:', accumulated.occurrence_time);
+      }
+    }
+  }
+  
   return accumulated;
 }
 
