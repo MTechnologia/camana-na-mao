@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { cleanInternalMarkers } from '@/lib/sanitizeMarkers';
 
 export interface AIConversation {
   id: string;
@@ -19,18 +20,6 @@ export interface AIConversation {
     status?: string;
   };
 }
-
-// Clean internal markers from text
-const cleanInternalMarkers = (text: string): string => {
-  if (!text) return "";
-  return text
-    .replace(/\[COLLECTION_PROGRESS:[^\]]+\]/g, "")
-    .replace(/\[REPORT_CREATED:[^\]]+\]/g, "")
-    .replace(/\[TRANSPORT_CREATED:[^\]]+\]/g, "")
-    .replace(/\[RATING_CREATED:[^\]]+\]/g, "")
-    .replace(/\*\*/g, "")
-    .trim();
-};
 
 // Extract report data from messages
 const extractReportData = (messages: any[]): { category?: string; address?: string; status?: string } | undefined => {
