@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 
 // === PHASE 2: Only structured journey types should update the tracker ===
@@ -115,10 +114,11 @@ export const useUnifiedAIChat = (
           // Sem greeting - preserva apenas mensagens otimistas do usuário
           setMessages(prev => prev.filter(msg => msg.role === "user"));
         } else {
-          // Garante que todas as mensagens tenham timestamp e sanitiza conteúdo
+          // CRITICAL FIX: Preserve RAW content (with markers) for backend correlation
+          // Sanitization happens ONLY in ChatMessageBubble for display
           const messagesWithTimestamp = savedMessages.map(msg => ({
             ...msg,
-            content: msg.role === 'assistant' ? sanitizeMessageContent(msg.content || '') : msg.content,
+            content: msg.content || '', // Keep raw content WITH markers
             timestamp: msg.timestamp || ''
           }));
           
@@ -949,21 +949,16 @@ export const useUnifiedAIChat = (
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
             }
             
-            // Remove all markers from displayed message (robust regex)
-            const displayMessage = assistantMessage
-              .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
-              .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
-              .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
-              .replace(/\[COLLECTION_PROGRESS:\w+:\{[^\]]*\}\]/g, '')
-              .replace(/\[FIELD_REQUEST:\w+\]/g, '') // Remove FIELD_REQUEST markers
-              .trim();
+            // CRITICAL FIX: Store RAW message (with markers) in state
+            // Markers are needed for backend correlation on next request
+            // UI sanitization happens in ChatMessageBubble for display only
             
             setMessages((prev) => {
               const lastMsg = prev[prev.length - 1];
               if (lastMsg?.role === "assistant" && lastMsg.id === assistantMessageId) {
                 return prev.slice(0, -1).concat({
                   ...lastMsg,
-                  content: displayMessage,
+                  content: assistantMessage, // RAW content WITH markers
                 });
               }
               return [
@@ -971,7 +966,7 @@ export const useUnifiedAIChat = (
                 {
                   id: assistantMessageId,
                   role: "assistant",
-                  content: displayMessage,
+                  content: assistantMessage, // RAW content WITH markers
                   timestamp: new Date().toLocaleTimeString("pt-BR", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -1008,7 +1003,8 @@ export const useUnifiedAIChat = (
         processSSELine(textBuffer);
       }
 
-      // Save assistant response
+      // Save assistant response - PRESERVE RAW CONTENT WITH MARKERS
+      // This is critical for backend correlation on subsequent requests
       if (conversationIdRef.current && user && assistantMessage) {
         try {
           const { data: currentConv } = await supabase
@@ -1018,10 +1014,13 @@ export const useUnifiedAIChat = (
             .single();
 
           if (currentConv) {
+            // CRITICAL FIX: Save RAW assistantMessage (with markers) to database
+            // The markers are needed for backend deterministic field capture
+            // UI sanitization happens in ChatMessageBubble
             const finalAssistantMsg = {
               id: assistantMessageId,
               role: "assistant",
-              content: sanitizeMessageContent(assistantMessage),
+              content: assistantMessage, // RAW content WITH markers
               timestamp: new Date().toLocaleTimeString("pt-BR", {
                 hour: "2-digit",
                 minute: "2-digit",
