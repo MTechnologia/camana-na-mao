@@ -310,7 +310,7 @@ const ChatMessageBubble = ({
           )}
         >
           {isUser ? (
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap">{sanitizeMessageContent(message.content)}</p>
           ) : (
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown
