@@ -968,7 +968,7 @@ const tools = [
     type: "function",
     function: {
       name: "classify_report_category",
-      description: "OBRIGATÓRIO: Classifica a categoria do relato urbano ANTES de coletar outros dados. Chamar IMEDIATAMENTE quando detectar que cidadão quer fazer um relato urbano. Se confiança >= 80%, classificar automaticamente. Se < 80%, apresentar opções ao cidadão e aguardar confirmação.",
+      description: "Classifica a categoria do relato urbano. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'poste apagado', 'buraco na rua', 'bueiro entupido'). NÃO CHAMAR para mensagens genéricas como 'quero relatar um problema' ou 'problema na cidade'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções.",
       parameters: {
         type: "object",
         properties: {
@@ -1346,12 +1346,24 @@ TRANSPORTE: Se usuário clicar chip:
 AVALIAÇÃO: Se usuário clicar chip:
 → "Qual serviço você quer avaliar e que nota dá (1-5)?"
 
-=== REGRA ZERO: MENSAGEM SEM DESCRIÇÃO ===
+=== REGRA ZERO: MENSAGEM GENÉRICA (CRÍTICO) ===
 
-Quando o cidadão diz algo genérico sem descrever o problema:
-→ APENAS PERGUNTE: "Qual é o problema e onde fica?"
-→ NÃO liste categorias
-→ NÃO tente classificar ainda
+MENSAGENS GENÉRICAS - NÃO classificar, NÃO chamar classify_report_category:
+- "Quero relatar um problema"
+- "Problema na cidade"
+- "Tenho um problema"
+- "Preciso relatar algo"
+- Qualquer frase SEM descrição específica do problema
+
+AÇÃO OBRIGATÓRIA: Perguntar "Qual o problema e onde fica?"
+
+MENSAGENS ESPECÍFICAS - classificar normalmente:
+- "Poste apagado na minha rua"
+- "Buraco perigoso na Avenida Paulista"
+- "Lixo acumulado no parque"
+- "Bueiro entupido fedendo"
+
+AÇÃO: Chamar classify_report_category
 
 === CLASSIFICAÇÃO DE CATEGORIA ===
 
