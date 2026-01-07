@@ -61,6 +61,9 @@ const UpdatePassword = () => {
         throw error;
       }
 
+      // Fazer logout silencioso para forçar novo login com nova senha
+      await supabase.auth.signOut();
+
       setSuccess(true);
       toast.success("Senha alterada com sucesso!");
       
@@ -105,7 +108,7 @@ const UpdatePassword = () => {
             </h1>
             
             <p className="text-gray-600 mb-8">
-              Sua senha foi alterada com sucesso. Você será redirecionado para a tela de login.
+              Sua senha foi alterada com sucesso! Faça login com sua nova senha para continuar.
             </p>
 
             <Button
