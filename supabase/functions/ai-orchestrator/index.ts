@@ -293,6 +293,118 @@ function autoClassifyCategory(description: string): { category: string | null; c
   return { category: null, confidence: 0 };
 }
 
+// Auto-infer risk level from description
+function autoInferRisk(description: string): { 
+  risk_level: string | null; 
+  confidence: number;
+  risk_types?: string[];
+  reason?: string;
+} {
+  const desc = description.toLowerCase();
+  
+  // Critical risk patterns with weights
+  const criticalPatterns: Array<{ pattern: RegExp; weight: number; type?: string; reason: string }> = [
+    // Flooding - most common high-risk
+    { pattern: /completamente\s*alagad[oa]|totalmente\s*alagad[oa]|muito\s*alagad[oa]/, weight: 0.95, type: 'flooding', reason: 'alagamento grave' },
+    { pattern: /alagad[oa]|inundad[oa]|chei[oa]\s*d[e']?\s*[áa]gua/, weight: 0.85, type: 'flooding', reason: 'alagamento' },
+    { pattern: /água\s*subindo|transbordando|enchente/, weight: 0.9, type: 'flooding', reason: 'alagamento crescente' },
+    
+    // Blocking/obstruction
+    { pattern: /bloqueada|bloqueado|não\s*passa|nao\s*passa|via\s*interditada/, weight: 0.9, type: 'traffic', reason: 'via bloqueada' },
+    { pattern: /rua\s*inteira|toda\s*a?\s*rua/, weight: 0.3, reason: 'extensão grande' }, // Booster
+    
+    // Electrical
+    { pattern: /fio[s]?\s*(caíd|caid|expost|pelad)|choque|eletric/, weight: 0.95, type: 'electrical', reason: 'risco elétrico' },
+    { pattern: /poste\s*caíd|poste\s*caid|cabo\s*expost/, weight: 0.9, type: 'electrical', reason: 'risco elétrico' },
+    
+    // Structural
+    { pattern: /desab|caindo|cedendo|rachando|tombou|caiu|desmoron/, weight: 0.9, type: 'structural', reason: 'risco estrutural' },
+    { pattern: /afundando|cratera\s*grande/, weight: 0.85, type: 'structural', reason: 'afundamento' },
+    
+    // Emergency language
+    { pattern: /emergência|urgente|urgência|gravíssimo|muito\s*grave|muito\s*perigoso/, weight: 0.9, reason: 'urgência declarada' },
+    { pattern: /ferido|machucado|hospital|ambulância|samu/, weight: 0.95, reason: 'situação de saúde' },
+    
+    // Intensity modifiers (boosters)
+    { pattern: /completamente|totalmente|extremamente/, weight: 0.2, reason: 'intensificador' },
+  ];
+  
+  // Moderate risk patterns
+  const moderatePatterns: Array<{ pattern: RegExp; weight: number; type?: string; reason: string }> = [
+    { pattern: /risco\s*de|pode\s*causar|perigoso|perigo/, weight: 0.6, reason: 'potencial risco' },
+    { pattern: /acidente|contaminação|doença/, weight: 0.65, type: 'health', reason: 'risco de saúde' },
+    { pattern: /preocupante|arriscado|grande|sério/, weight: 0.55, reason: 'situação séria' },
+  ];
+  
+  // No-risk patterns
+  const noRiskPatterns: Array<{ pattern: RegExp; weight: number }> = [
+    { pattern: /sem\s*risco|não\s*tem\s*risco|nenhum\s*risco/, weight: 0.9 },
+    { pattern: /tranquilo|só\s*incômodo|so\s*incomodo|apenas\s*(estet|visual)/, weight: 0.8 },
+  ];
+  
+  // Check for explicit no-risk first
+  for (const p of noRiskPatterns) {
+    if (p.pattern.test(desc)) {
+      return { risk_level: 'none', confidence: p.weight, reason: 'sem risco declarado' };
+    }
+  }
+  
+  // Calculate critical score
+  let criticalScore = 0;
+  const riskTypes: string[] = [];
+  let primaryReason = '';
+  
+  for (const p of criticalPatterns) {
+    if (p.pattern.test(desc)) {
+      criticalScore += p.weight;
+      if (p.type && !riskTypes.includes(p.type)) {
+        riskTypes.push(p.type);
+      }
+      if (!primaryReason && p.reason !== 'intensificador') {
+        primaryReason = p.reason;
+      }
+    }
+  }
+  
+  // Cap at 1.0
+  criticalScore = Math.min(criticalScore, 1);
+  
+  if (criticalScore >= 0.7) {
+    return { 
+      risk_level: 'critical', 
+      confidence: criticalScore, 
+      risk_types: riskTypes.length > 0 ? riskTypes : undefined,
+      reason: primaryReason || 'padrão crítico detectado'
+    };
+  }
+  
+  // Calculate moderate score
+  let moderateScore = 0;
+  let moderateReason = '';
+  
+  for (const p of moderatePatterns) {
+    if (p.pattern.test(desc)) {
+      moderateScore += p.weight;
+      if (!moderateReason) {
+        moderateReason = p.reason;
+      }
+    }
+  }
+  
+  moderateScore = Math.min(moderateScore, 1);
+  
+  if (moderateScore >= 0.5) {
+    return { 
+      risk_level: 'moderate', 
+      confidence: moderateScore,
+      reason: moderateReason || 'padrão moderado detectado'
+    };
+  }
+  
+  // No clear risk signal
+  return { risk_level: null, confidence: 0 };
+}
+
 // Parse user response for specific field types
 function parseFieldResponse(fieldType: string, userResponse: string): Record<string, any> {
   const response = userResponse.trim();
@@ -357,14 +469,44 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
       break;
       
     case 'risk_level':
-      // Parse risk level from natural language
-      const criticalKeywords = ['bloqueada', 'bloqueado', 'não passa', 'nao passa', 'não dá para', 'nao da para',
-        'fios expostos', 'exposto', 'choque', 'alagando', 'água subindo', 'inundando', 'transbordando',
-        'desabando', 'caindo', 'desmoronando', 'risco imediato', 'emergência', 'urgente'];
-      const moderateKeywords = ['risco de', 'pode causar', 'perigoso', 'perigo', 'acidente', 
-        'risco de doença', 'doença', 'doenças', 'contaminação', 'transtorno', 'prejudica'];
-      const lowKeywords = ['incômodo', 'incomodo', 'chato', 'desconfortável', 'feio', 'ruim'];
-      const noRiskKeywords = ['sem risco', 'não tem risco', 'nenhum risco', 'tranquilo'];
+      // Parse risk level from natural language - EXPANDED VOCABULARY
+      // Simple yes/no responses first
+      if (responseLower === 'sim' || responseLower === 's' || responseLower === 'yes' || responseLower === 'y') {
+        result.risk_level = 'critical';
+        result.urgency_reason = response;
+        break;
+      }
+      if (responseLower === 'não' || responseLower === 'nao' || responseLower === 'n' || responseLower === 'no') {
+        result.risk_level = 'none';
+        result.urgency_reason = response;
+        break;
+      }
+      
+      const criticalKeywords = [
+        // Blocking/obstruction
+        'bloqueada', 'bloqueado', 'não passa', 'nao passa', 'não dá para', 'nao da para',
+        // Electrical
+        'fios expostos', 'exposto', 'choque', 'eletricidade', 'fio caído', 'fio caido',
+        // Flooding - EXPANDED
+        'alagando', 'água subindo', 'inundando', 'transbordando',
+        'alagada', 'alagado', 'inundada', 'inundado', 'cheia de água', 'cheia dágua', 'cheia d\'água',
+        'completamente alagad', 'totalmente alagad', 'muito alagad',
+        // Structural
+        'desabando', 'caindo', 'desmoronando', 'desabou', 'caiu', 'tombou', 'rachando', 'cedendo',
+        // Emergency/urgency
+        'risco imediato', 'emergência', 'urgente', 'urgência', 'gravíssimo', 'muito grave', 'muito perigoso',
+        // Injury/health immediate
+        'ferido', 'machucado', 'hospital', 'ambulância', 'samu',
+        // Intensity boosters (with context)
+        'completamente', 'totalmente', 'extremamente'
+      ];
+      const moderateKeywords = [
+        'risco de', 'pode causar', 'perigoso', 'perigo', 'acidente', 
+        'risco de doença', 'doença', 'doenças', 'contaminação', 'transtorno', 'prejudica',
+        'arriscado', 'preocupante', 'pode machucar', 'pode alagar', 'grande', 'sério'
+      ];
+      const lowKeywords = ['incômodo', 'incomodo', 'chato', 'desconfortável', 'feio', 'ruim', 'só atrapalha', 'so atrapalha'];
+      const noRiskKeywords = ['sem risco', 'não tem risco', 'nao tem risco', 'nenhum risco', 'tranquilo', 'não há risco', 'nao ha risco', 'só incômodo', 'so incomodo'];
       
       if (noRiskKeywords.some(k => responseLower.includes(k))) {
         result.risk_level = 'none';
@@ -372,17 +514,17 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
         result.risk_level = 'critical';
         // Also extract risk types
         const riskTypes: string[] = [];
-        if (responseLower.includes('fio') || responseLower.includes('choque') || responseLower.includes('elétric')) riskTypes.push('electrical');
-        if (responseLower.includes('bloqueada') || responseLower.includes('não passa') || responseLower.includes('trânsito')) riskTypes.push('traffic');
-        if (responseLower.includes('alagando') || responseLower.includes('inundando') || responseLower.includes('água')) riskTypes.push('flooding');
-        if (responseLower.includes('caindo') || responseLower.includes('desab')) riskTypes.push('structural');
+        if (responseLower.includes('fio') || responseLower.includes('choque') || responseLower.includes('elétric') || responseLower.includes('eletric')) riskTypes.push('electrical');
+        if (responseLower.includes('bloqueada') || responseLower.includes('não passa') || responseLower.includes('trânsito') || responseLower.includes('transito')) riskTypes.push('traffic');
+        if (responseLower.includes('alagad') || responseLower.includes('inundad') || responseLower.includes('água') || responseLower.includes('agua') || responseLower.includes('enchente')) riskTypes.push('flooding');
+        if (responseLower.includes('caindo') || responseLower.includes('desab') || responseLower.includes('tomb') || responseLower.includes('rachando')) riskTypes.push('structural');
         if (riskTypes.length > 0) result.risk_types = riskTypes;
       } else if (moderateKeywords.some(k => responseLower.includes(k))) {
         result.risk_level = 'moderate';
         // Extract risk types for moderate too
         const riskTypes: string[] = [];
-        if (responseLower.includes('doença') || responseLower.includes('saúde') || responseLower.includes('contaminação')) riskTypes.push('health');
-        if (responseLower.includes('acidente') || responseLower.includes('trânsito')) riskTypes.push('traffic');
+        if (responseLower.includes('doença') || responseLower.includes('saúde') || responseLower.includes('contaminação') || responseLower.includes('contaminacao')) riskTypes.push('health');
+        if (responseLower.includes('acidente') || responseLower.includes('trânsito') || responseLower.includes('transito')) riskTypes.push('traffic');
         if (riskTypes.length > 0) result.risk_types = riskTypes;
       } else if (lowKeywords.some(k => responseLower.includes(k))) {
         result.risk_level = 'low';
@@ -3048,11 +3190,25 @@ serve(async (req) => {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
         }
         
-        // 5. Risk assessment for risk categories
+        // 5. Risk assessment for risk categories - WITH AUTO-INFERENCE
         const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
         if (RISK_CATEGORIES.includes(fields.category)) {
           if (!fields.risk_level) {
-            return { field: 'risk_level', picker: null, prompt: 'Há algum **risco imediato**? _(ex: fios expostos, via bloqueada, alagando)_' };
+            // TRY AUTO-INFERENCE from description before asking
+            const autoRisk = autoInferRisk(fields.description || '');
+            if (autoRisk.risk_level && autoRisk.confidence >= 0.7) {
+              // High confidence - auto-set and skip question
+              fields.risk_level = autoRisk.risk_level;
+              if (autoRisk.risk_types && autoRisk.risk_types.length > 0) {
+                fields.risk_types = autoRisk.risk_types;
+              }
+              fields.urgency_reason = `Auto-inferido: ${autoRisk.reason}`;
+              console.log('[getNextMissingField] Auto-inferred risk:', autoRisk);
+              // Don't return - continue to next field check
+            } else {
+              // Low confidence - need to ask
+              return { field: 'risk_level', picker: null, prompt: 'Há algum **risco imediato**? (sim/não) _(ex: fios expostos, via bloqueada, alagando)_' };
+            }
           }
           if (['critical', 'moderate'].includes(fields.risk_level) && !fields.affected_scope) {
             return { field: 'affected_scope', picker: null, prompt: 'Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?' };
