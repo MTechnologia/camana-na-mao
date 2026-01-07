@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users, Eye } from "lucide-react";
+import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users, Eye, Sparkles } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 export type CollectionType = 'urban_report' | 'transport_report' | 'service_rating' | null;
 
@@ -60,7 +61,7 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
 interface DataCollectionTrackerProps {
   collectionType: CollectionType;
   collectedFields: CollectedFields;
-  currentField?: string; // Campo sendo solicitado atualmente (destaque visual)
+  currentField?: string;
   className?: string;
 }
 
@@ -131,43 +132,7 @@ const CHAMBER_FEEDBACK_CONFIG: CollectionConfig = {
   ]
 };
 
-// Circular progress indicator
-const CircularProgress = ({ progress, size = 20, isComplete }: { progress: number; size?: number; isComplete: boolean }) => {
-  const strokeWidth = 2.5;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (progress / 100) * circumference;
-
-  return (
-    <svg width={size} height={size} className="transform -rotate-90 flex-shrink-0">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        className="text-border"
-      />
-      <motion.circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset: offset }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className={isComplete ? "text-green-500" : "text-primary"}
-      />
-    </svg>
-  );
-};
-
-// Field indicator component - mobile-friendly, with current field highlight
+// Field indicator component
 const FieldIndicator = ({ label, isCollected, isRequired, isCurrent }: { 
   label: string; 
   isCollected: boolean; 
@@ -205,27 +170,29 @@ const FieldIndicator = ({ label, isCollected, isRequired, isCurrent }: {
 const formatFieldValue = (key: string, value: any): string => {
   if (value === null || value === undefined) return '';
   
-  // Check for mapped labels
   if (VALUE_LABELS[key] && VALUE_LABELS[key][value]) {
     return VALUE_LABELS[key][value];
   }
   
-  // Handle arrays
   if (Array.isArray(value)) {
     return value.map(v => VALUE_LABELS[key]?.[v] || v).join(', ');
   }
   
-  // Handle rating stars
   if (key === 'rating_stars' && typeof value === 'number') {
     return `${'★'.repeat(value)}${'☆'.repeat(5 - value)} (${value}/5)`;
   }
   
-  // Truncate long text
   if (typeof value === 'string' && value.length > 60) {
     return value.substring(0, 57) + '...';
   }
   
   return String(value);
+};
+
+// Get label for a field key
+const getFieldLabel = (key: string, fields: FieldConfig[]): string => {
+  const field = fields.find(f => f.key === key);
+  return field?.label || key;
 };
 
 const DataCollectionTracker = ({ 
@@ -234,17 +201,8 @@ const DataCollectionTracker = ({
   currentField,
   className 
 }: DataCollectionTrackerProps) => {
-  const [showOptional, setShowOptional] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-
-  // Debug logging for development
-  if (process.env.NODE_ENV === 'development' || typeof window !== 'undefined') {
-    console.log('[DataCollectionTracker] Rendering with:', {
-      collectionType,
-      collectedFields,
-      fieldCount: Object.keys(collectedFields).length
-    });
-  }
 
   const config = useMemo(() => {
     if (!collectionType) return null;
@@ -290,6 +248,74 @@ const DataCollectionTracker = ({
   const hasOptional = optionalFields.length > 0;
   const collectedOptionalCount = optionalFields.filter(f => !!collectedFields[f.key]).length;
 
+  const Icon = config.icon;
+
+  // Collapsed (Minimal) Mode
+  if (!isExpanded) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          "bg-muted/40 border-b border-border/40",
+          className
+        )}
+      >
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="w-full px-3 py-2 flex items-center gap-2 hover:bg-muted/60 transition-colors"
+          data-testid="tracker-collapsed"
+        >
+          {/* Progress Bar */}
+          <div className="flex-1 flex items-center gap-2">
+            <Progress 
+              value={progress} 
+              className={cn(
+                "h-1.5 flex-1 max-w-[120px]",
+                allRequiredCollected && "bg-green-500/20"
+              )}
+            />
+            <span className={cn(
+              "text-xs font-medium tabular-nums min-w-[32px]",
+              allRequiredCollected ? "text-green-600 dark:text-green-400" : "text-foreground"
+            )}>
+              {progress}%
+            </span>
+          </div>
+
+          {/* Separator dot */}
+          <span className="text-muted-foreground/50">•</span>
+
+          {/* Title with icon */}
+          <div className="flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">{config.title}</span>
+          </div>
+
+          {/* Current field hint or completion badge */}
+          {allRequiredCollected ? (
+            <motion.span 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex items-center gap-1 text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full"
+            >
+              <Sparkles className="h-3 w-3" />
+              Pronto
+            </motion.span>
+          ) : currentField ? (
+            <span className="text-[10px] text-primary truncate max-w-[100px]">
+              → {getFieldLabel(currentField, config.fields)}
+            </span>
+          ) : null}
+
+          {/* Expand indicator */}
+          <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
+        </button>
+      </motion.div>
+    );
+  }
+
+  // Expanded Mode
   return (
     <AnimatePresence>
       <motion.div
@@ -301,15 +327,37 @@ const DataCollectionTracker = ({
           "bg-muted/40 border-b border-border/40",
           className
         )}
+        data-testid="tracker-expanded"
       >
-        <div className="px-3 py-2 space-y-1.5">
-          {/* Header Row */}
-          <div className="flex items-center gap-1.5">
-            <CircularProgress progress={progress} isComplete={allRequiredCollected} />
-            
-            <span className="text-xs font-medium text-foreground">
-              {config.title}
-            </span>
+        <div className="px-3 py-2 space-y-2">
+          {/* Header Row - Clickable to collapse */}
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="w-full flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
+            {/* Progress */}
+            <div className="flex items-center gap-2">
+              <Progress 
+                value={progress} 
+                className={cn(
+                  "h-1.5 w-[80px]",
+                  allRequiredCollected && "bg-green-500/20"
+                )}
+              />
+              <span className={cn(
+                "text-xs font-medium tabular-nums",
+                allRequiredCollected ? "text-green-600 dark:text-green-400" : "text-foreground"
+              )}>
+                {progress}%
+              </span>
+            </div>
+
+            <span className="text-muted-foreground/50">•</span>
+
+            <div className="flex items-center gap-1.5">
+              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-foreground">{config.title}</span>
+            </div>
             
             <span className="text-[10px] text-muted-foreground">
               {collectedCount}/{totalFields}
@@ -322,16 +370,60 @@ const DataCollectionTracker = ({
             )}
             
             {allRequiredCollected && (
-              <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded">
-                Registrado ✓
+              <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <Sparkles className="h-3 w-3" />
+                Pronto
               </span>
             )}
-            
-            {/* Ver Detalhes Button - spacer to push to end */}
+
             <div className="flex-1" />
-            {collectedCount > 0 && (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          </button>
+
+          {/* Required Fields */}
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {requiredFields.map(field => (
+              <FieldIndicator
+                key={field.key}
+                label={field.label}
+                isCollected={!!collectedFields[field.key]}
+                isRequired={true}
+                isCurrent={currentField === field.key}
+              />
+            ))}
+          </div>
+
+          {/* Optional Fields */}
+          {hasOptional && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wide">
+                <span>Opcionais</span>
+                {collectedOptionalCount > 0 && (
+                  <span className="text-foreground">({collectedOptionalCount}/{optionalFields.length})</span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {optionalFields.map(field => (
+                  <FieldIndicator
+                    key={field.key}
+                    label={field.label}
+                    isCollected={!!collectedFields[field.key]}
+                    isRequired={false}
+                    isCurrent={currentField === field.key}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* View Details Button */}
+          {collectedCount > 0 && (
+            <div className="pt-1 border-t border-border/30">
               <button
-                onClick={() => setShowDetails(!showDetails)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDetails(!showDetails);
+                }}
                 className={cn(
                   "flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors",
                   showDetails 
@@ -340,89 +432,33 @@ const DataCollectionTracker = ({
                 )}
               >
                 <Eye className="h-3 w-3" />
-                {showDetails ? 'Ocultar' : 'Ver Detalhes'}
-              </button>
-            )}
-          </div>
-
-          {/* Details Panel - Collected Values */}
-          <AnimatePresence>
-            {showDetails && collectedCount > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.15 }}
-                className="bg-background/60 rounded-md p-2 border border-border/30 space-y-1"
-              >
-                {config.fields.filter(f => collectedFields[f.key]).map(field => (
-                  <div key={field.key} className="flex items-start gap-2 text-xs">
-                    <span className="text-muted-foreground shrink-0 min-w-[70px]">
-                      {field.label}:
-                    </span>
-                    <span className="text-foreground break-words">
-                      {formatFieldValue(field.key, collectedFields[field.key])}
-                    </span>
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Required Fields */}
-          {!showDetails && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
-              {requiredFields.map(field => (
-                <FieldIndicator
-                  key={field.key}
-                  label={field.label}
-                  isCollected={!!collectedFields[field.key]}
-                  isRequired={true}
-                  isCurrent={currentField === field.key}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Optional Fields Toggle + Content */}
-          {hasOptional && !showDetails && (
-            <>
-              <button
-                onClick={() => setShowOptional(!showOptional)}
-                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {showOptional ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-                <span className="uppercase tracking-wide">
-                  Opcionais {collectedOptionalCount > 0 && `(${collectedOptionalCount}/${optionalFields.length})`}
-                </span>
+                {showDetails ? 'Ocultar detalhes' : 'Ver detalhes coletados'}
               </button>
 
+              {/* Details Panel */}
               <AnimatePresence>
-                {showOptional && (
+                {showDetails && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="flex flex-wrap gap-x-3 gap-y-1"
+                    className="mt-2 bg-background/60 rounded-md p-2 border border-border/30 space-y-1"
                   >
-                    {optionalFields.map(field => (
-                      <FieldIndicator
-                        key={field.key}
-                        label={field.label}
-                        isCollected={!!collectedFields[field.key]}
-                        isRequired={false}
-                        isCurrent={currentField === field.key}
-                      />
+                    {config.fields.filter(f => collectedFields[f.key]).map(field => (
+                      <div key={field.key} className="flex items-start gap-2 text-xs">
+                        <span className="text-muted-foreground shrink-0 min-w-[70px]">
+                          {field.label}:
+                        </span>
+                        <span className="text-foreground break-words">
+                          {formatFieldValue(field.key, collectedFields[field.key])}
+                        </span>
+                      </div>
                     ))}
                   </motion.div>
                 )}
               </AnimatePresence>
-            </>
+            </div>
           )}
         </div>
       </motion.div>
