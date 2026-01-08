@@ -420,8 +420,11 @@ function autoClassifyCategory(description: string): { category: string | null; c
     // Higiene Urbana
     { keywords: /fedor|mau\s*cheiro|fedendo|podre|urina|fezes|defeca[çc][ãa]o/i, category: 'higiene_urbana', weight: 7 },
     
-    // Poluição
-    { keywords: /fuma[çc]a|polui[çc][ãa]o|barulho\s*(excessivo)?|ru[íi]do|contamina[çc][ãa]o/i, category: 'poluicao', weight: 6 },
+    // Poluição - EXPANDED for noise/sound issues
+    { keywords: /fuma[çc]a|polui[çc][ãa]o|barulho|ru[íi]do|contamina[çc][ãa]o|som\s*(alto)?|m[úu]sica\s*(alta)?|perturbação|perturbacao|festa|balada|bar\s*(barulho|barulhento)?|vizinho|obra\s*(barulho|cedo)?|buzina|alarme|latido|bagun[çc]a/i, category: 'poluicao', weight: 6 },
+    
+    // FALLBACK: Catch-all for unrecognized issues
+    { keywords: /problema|situa[çc][ãa]o|reclamar|reclama[çc][ãa]o|denunciar|den[úu]ncia|irregular|ilegal|abandonad|invad|invaz|invasão/i, category: 'outro', weight: 2 },
     
     // Feedback Câmara
     { keywords: /vereador|c[âa]mara\s*municipal|legislativo|projeto\s*de\s*lei/i, category: 'feedback_camara', weight: 5 },
@@ -583,18 +586,22 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
       break;
       
     case 'category':
-      // Direct category answer
+      // Direct category answer - EXPANDED with more synonyms
       const categoryMap: Record<string, string> = {
-        'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao',
-        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'semáforo': 'via_publica',
+        'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
+        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'semáforo': 'via_publica', 'semaforo': 'via_publica', 'rua': 'via_publica',
         'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
-        'lixo': 'lixo', 'entulho': 'lixo',
-        'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto',
-        'área verde': 'area_verde', 'area verde': 'area_verde', 'árvore': 'area_verde', 'arvore': 'area_verde', 'praça': 'area_verde', 'praca': 'area_verde',
-        'higiene': 'higiene_urbana', 'fedor': 'higiene_urbana',
-        'animais': 'animais', 'rato': 'animais', 'barata': 'animais',
-        'poluição': 'poluicao', 'poluicao': 'poluicao', 'barulho': 'poluicao',
-        'outro': 'outro', 'outros': 'outro',
+        'lixo': 'lixo', 'entulho': 'lixo', 'sujeira': 'lixo',
+        'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto', 'água': 'esgoto', 'agua': 'esgoto',
+        'área verde': 'area_verde', 'area verde': 'area_verde', 'árvore': 'area_verde', 'arvore': 'area_verde', 'praça': 'area_verde', 'praca': 'area_verde', 'mato': 'area_verde',
+        'higiene': 'higiene_urbana', 'fedor': 'higiene_urbana', 'cheiro': 'higiene_urbana',
+        'animais': 'animais', 'rato': 'animais', 'barata': 'animais', 'animal': 'animais',
+        // EXPANDED: Poluição with noise-related terms
+        'poluição': 'poluicao', 'poluicao': 'poluicao', 'barulho': 'poluicao', 'ruido': 'poluicao', 'ruído': 'poluicao',
+        'som': 'poluicao', 'som alto': 'poluicao', 'música': 'poluicao', 'musica': 'poluicao', 'festa': 'poluicao',
+        'perturbação': 'poluicao', 'perturbacao': 'poluicao', 'vizinho': 'poluicao', 'bar': 'poluicao', 'balada': 'poluicao',
+        // FALLBACK: "outro" category
+        'outro': 'outro', 'outros': 'outro', 'diferente': 'outro', 'não sei': 'outro', 'nao sei': 'outro', 'outra coisa': 'outro',
       };
       
       // Check for direct match
@@ -614,11 +621,16 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
         
         // Try to auto-classify from the description
         const autoClass = autoClassifyCategory(response);
-        if (autoClass.category && autoClass.confidence >= 0.7) {
+        if (autoClass.category && autoClass.confidence >= 0.5) {
           result.category = autoClass.category;
           result._auto_classified = true;
           result._classification_confidence = autoClass.confidence;
           console.log('[parseFieldResponse] Auto-classified category:', autoClass.category, 'confidence:', autoClass.confidence);
+        } else {
+          // FALLBACK: Use 'outro' when we can't classify
+          result.category = 'outro';
+          result._fallback_category = true;
+          console.log('[parseFieldResponse] Fallback to outro for unrecognized category');
         }
       }
       break;
@@ -2470,6 +2482,16 @@ AVALIAÇÃO:
 === CATEGORIAS URBANAS ===
 iluminacao | via_publica | calcada | lixo | esgoto | area_verde | higiene_urbana | animais | poluicao | feedback_camara | outro
 
+QUANDO USAR 'outro':
+- Problema não se encaixa em nenhuma categoria acima
+- Situação complexa ou única (ex: carro abandonado, invasão, obra irregular)
+- NUNCA DEIXAR CIDADÃO SEM ATENDIMENTO - use 'outro' como fallback seguro
+
+POLUIÇÃO SONORA (categoria: poluicao):
+- Som alto, música, festa, balada, bar barulhento
+- Vizinho fazendo barulho, obra fora de horário
+- Alarmes, buzinas, latidos excessivos
+
 === CLASSIFICAÇÃO SEMÂNTICA TRANSPORTE vs URBANO ===
 
 URBANO (VIA/INFRAESTRUTURA):
@@ -4070,7 +4092,7 @@ serve(async (req) => {
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         }
         
-        // 2. CATEGORY - try auto-classification, then ask if uncertain
+        // 2. CATEGORY - try auto-classification, then ask if uncertain, fallback to 'outro'
         if (!fields.category) {
           // Try to auto-classify from description
           const autoClass = autoClassifyCategory(fields.description || '');
@@ -4085,13 +4107,24 @@ serve(async (req) => {
             const categoryLabels: Record<string, string> = {
               iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
               lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
-              higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição'
+              higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição', outro: 'outro'
             };
             const suggestion = categoryLabels[autoClass.category] || autoClass.category;
             return { field: 'category', picker: null, prompt: `Parece ser um problema de **${suggestion}**. Confirma? (ou me diz outra categoria: iluminação, buraco, esgoto, lixo...)` };
           } else {
-            // Low confidence - ask directly
-            return { field: 'category', picker: null, prompt: 'Qual **tipo de problema** é esse? (iluminação, buraco, esgoto, lixo, área verde...)' };
+            // Low confidence - check if we already asked once
+            const alreadyAskedCategory = fields._asked_category === true;
+            
+            if (alreadyAskedCategory) {
+              // FALLBACK: Already asked and still no match - use 'outro' to avoid loop
+              fields.category = 'outro';
+              fields._fallback_category = true;
+              console.log('[getNextMissingField] Fallback to category=outro (already asked once)');
+            } else {
+              // First time - ask with expanded options including "outro"
+              fields._asked_category = true;
+              return { field: 'category', picker: null, prompt: 'Qual **tipo de problema** é esse? (iluminação, buraco, esgoto, lixo, barulho, ou descreva o problema)' };
+            }
           }
         }
         
