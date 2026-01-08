@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addressSchema } from "@/lib/validations";
-import { MapPin, Loader2, CheckCircle2 } from "lucide-react";
+import { MapPin, Loader2, CheckCircle2, Home, Building2, Navigation } from "lucide-react";
 
 interface AddressFormProps {
   userId: string;
@@ -74,7 +75,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setState(data.state);
         setIsPrimary(data.is_primary);
         
-        // Carregar coordenadas existentes
         if (data.latitude && data.longitude) {
           setCoordinates({
             latitude: data.latitude,
@@ -90,7 +90,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
   const geocodeAddress = async (fullAddress: string): Promise<Coordinates | null> => {
     setGeocoding(true);
     try {
-      // Primeiro, buscar sugestões de autocomplete
       const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke(
         'google-places-autocomplete',
         { body: { query: fullAddress } }
@@ -106,7 +105,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         return null;
       }
 
-      // Buscar detalhes do primeiro resultado para obter coordenadas
       const placeId = autocompleteData.predictions[0].place_id;
       
       const { data: detailsData, error: detailsError } = await supabase.functions.invoke(
@@ -138,11 +136,9 @@ const AddressForm = ({ userId }: AddressFormProps) => {
   };
 
   const handleZipCodeChange = async (value: string) => {
-    // Remove caracteres não numéricos
     const cleanedZipCode = value.replace(/\D/g, "");
     setZipCode(cleanedZipCode);
     
-    // Limpar coordenadas quando CEP mudar
     if (cleanedZipCode.length < 8) {
       setCoordinates(null);
     }
@@ -163,7 +159,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setCity(data.localidade);
         setState(data.uf);
         
-        // Geocodificar o endereço para obter coordenadas
         const fullAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade}, ${data.uf}, Brasil`;
         const coords = await geocodeAddress(fullAddress);
         
@@ -188,7 +183,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
   const handleSave = async () => {
     try {
-      // Validar dados
       const validated = addressSchema.parse({
         zipCode,
         street,
@@ -216,7 +210,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
       };
 
       if (addressId) {
-        // Update
         const { error } = await supabase
           .from('user_addresses')
           .update(addressData)
@@ -224,7 +217,6 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
         if (error) throw error;
       } else {
-        // Insert
         const { error } = await supabase
           .from('user_addresses')
           .insert({
@@ -236,7 +228,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
       }
 
       toast.success("Endereço salvo com sucesso!");
-      loadAddress(); // Recarregar para pegar o ID
+      loadAddress();
     } catch (error: any) {
       if (error.errors) {
         error.errors.forEach((err: any) => {
@@ -252,127 +244,157 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-sm text-muted-foreground mb-2 block">
-          CEP <span className="text-destructive">*</span>
-        </label>
-        <div className="relative">
-          <Input
-            type="text"
-            placeholder="00000-000"
-            value={formatZipCode(zipCode)}
-            onChange={(e) => handleZipCodeChange(e.target.value)}
-            className="h-12 pr-10"
-            maxLength={9}
-          />
-          {(loadingCep || geocoding) && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground" />
-          )}
-          {!loadingCep && !geocoding && zipCode.length === 8 && (
-            <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-500" />
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Digite o CEP para buscar automaticamente
-        </p>
-        
-        {/* Indicador de geolocalização */}
-        {coordinates && (
-          <div className="flex items-center gap-1.5 text-xs text-green-600 mt-2">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Localização mapeada ✓</span>
+      {/* Card: Localização */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            Localização
+          </CardTitle>
+          <CardDescription>
+            Digite o CEP para buscar automaticamente
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <label className="text-sm text-muted-foreground mb-1.5 flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5" />
+              CEP <span className="text-destructive">*</span>
+            </label>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="00000-000"
+                value={formatZipCode(zipCode)}
+                onChange={(e) => handleZipCodeChange(e.target.value)}
+                className="h-11 pr-10"
+                maxLength={9}
+              />
+              {(loadingCep || geocoding) && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground" />
+              )}
+              {!loadingCep && !geocoding && zipCode.length === 8 && (
+                <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-500" />
+              )}
+            </div>
           </div>
-        )}
-      </div>
+          
+          {coordinates && (
+            <div className="flex items-center gap-2 p-2.5 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700 dark:text-green-400 font-medium">
+                Localização mapeada com sucesso
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <div>
-        <label className="text-sm text-muted-foreground mb-2 block">
-          Rua <span className="text-destructive">*</span>
-        </label>
-        <Input
-          type="text"
-          placeholder="Nome da rua"
-          value={street}
-          onChange={(e) => setStreet(e.target.value)}
-          className="h-12"
-        />
-      </div>
+      {/* Card: Endereço Completo */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Home className="h-4 w-4 text-primary" />
+            Endereço Completo
+          </CardTitle>
+          <CardDescription>
+            Detalhes do seu endereço
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm text-muted-foreground mb-1.5 flex items-center gap-2">
+              <Home className="h-3.5 w-3.5" />
+              Rua <span className="text-destructive">*</span>
+            </label>
+            <Input
+              type="text"
+              placeholder="Nome da rua"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              className="h-11"
+            />
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm text-muted-foreground mb-2 block">
-            Número <span className="text-destructive">*</span>
-          </label>
-          <Input
-            type="text"
-            placeholder="123"
-            value={number}
-            onChange={(e) => setNumber(e.target.value)}
-            className="h-12"
-          />
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1.5 block">
+                Número <span className="text-destructive">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="123"
+                value={number}
+                onChange={(e) => setNumber(e.target.value)}
+                className="h-11"
+              />
+            </div>
 
-        <div>
-          <label className="text-sm text-muted-foreground mb-2 block">
-            Complemento
-          </label>
-          <Input
-            type="text"
-            placeholder="Apto 45"
-            value={complement}
-            onChange={(e) => setComplement(e.target.value)}
-            className="h-12"
-          />
-        </div>
-      </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1.5 block">
+                Complemento
+              </label>
+              <Input
+                type="text"
+                placeholder="Apto 45"
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+                className="h-11"
+              />
+            </div>
+          </div>
 
-      <div>
-        <label className="text-sm text-muted-foreground mb-2 block">
-          Bairro <span className="text-destructive">*</span>
-        </label>
-        <Input
-          type="text"
-          placeholder="Nome do bairro"
-          value={neighborhood}
-          onChange={(e) => setNeighborhood(e.target.value)}
-          className="h-12"
-        />
-      </div>
+          <div>
+            <label className="text-sm text-muted-foreground mb-1.5 flex items-center gap-2">
+              <Building2 className="h-3.5 w-3.5" />
+              Bairro <span className="text-destructive">*</span>
+            </label>
+            <Input
+              type="text"
+              placeholder="Nome do bairro"
+              value={neighborhood}
+              onChange={(e) => setNeighborhood(e.target.value)}
+              className="h-11"
+            />
+          </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm text-muted-foreground mb-2 block">
-            Cidade <span className="text-destructive">*</span>
-          </label>
-          <Input
-            type="text"
-            placeholder="Nome da cidade"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="h-12"
-          />
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1.5 flex items-center gap-2">
+                <Navigation className="h-3.5 w-3.5" />
+                Cidade <span className="text-destructive">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="Nome da cidade"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="h-11"
+              />
+            </div>
 
-        <div>
-          <label className="text-sm text-muted-foreground mb-2 block">
-            Estado <span className="text-destructive">*</span>
-          </label>
-          <Select value={state} onValueChange={setState}>
-            <SelectTrigger className="h-12">
-              <SelectValue placeholder="UF" />
-            </SelectTrigger>
-            <SelectContent>
-              {ESTADOS.map((uf) => (
-                <SelectItem key={uf} value={uf}>
-                  {uf}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1.5 block">
+                Estado <span className="text-destructive">*</span>
+              </label>
+              <Select value={state} onValueChange={setState}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="UF" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADOS.map((uf) => (
+                    <SelectItem key={uf} value={uf}>
+                      {uf}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="flex items-center space-x-2 pt-2">
+      <div className="flex items-center space-x-2 px-1">
         <Checkbox
           id="primary"
           checked={isPrimary}
@@ -389,7 +411,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
       <Button
         onClick={handleSave}
         disabled={loading || !zipCode || !street || !number || !neighborhood || !city || !state}
-        className="w-full h-12 bg-foreground text-background hover:bg-foreground/90"
+        className="w-full h-11"
       >
         {loading ? "Salvando..." : "Salvar Endereço"}
       </Button>

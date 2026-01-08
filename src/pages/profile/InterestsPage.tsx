@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 import InterestsForm from "@/components/profile/InterestsForm";
+import ProfilePageHeader from "@/components/profile/ProfilePageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 
 const InterestsPage = () => {
@@ -13,7 +14,8 @@ const InterestsPage = () => {
     <div className="min-h-screen bg-background pt-[60px]">
       <PageHeader title="Interesses" backTo="/perfil" />
 
-      <div className="p-6">
+      <div className="p-4 space-y-4">
+        <ProfilePageHeader subtitle="Áreas de interesse" />
         <InterestsForm 
           userId={user.id} 
           onSuccess={() => navigate("/perfil")}

@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Heart } from "lucide-react";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -64,7 +67,6 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
 
     setLoading(true);
     try {
-      // Deleta interesses antigos
       const { error: deleteError } = await supabase
         .from('user_interests')
         .delete()
@@ -72,7 +74,6 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
 
       if (deleteError) throw deleteError;
 
-      // Insere novos interesses
       const interests = selectedInterests.map(category => ({
         user_id: userId,
         interest_category: category,
@@ -102,44 +103,69 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
     );
   }
 
+  const progressPercentage = (selectedInterests.length / INTEREST_CATEGORIES.length) * 100;
+  const isMinimumMet = selectedInterests.length >= 3;
+
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Selecione pelo menos 3 áreas do seu interesse
-        </p>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Heart className="h-4 w-4 text-primary" />
+            Seus Interesses
+          </CardTitle>
+          <CardDescription>
+            Personalize sua experiência selecionando áreas do seu interesse. Selecione pelo menos 3.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Progress indicator */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {selectedInterests.length} de {INTEREST_CATEGORIES.length} selecionados
+              </span>
+              <span className={isMinimumMet ? "text-green-600 font-medium" : "text-muted-foreground"}>
+                {isMinimumMet ? "✓ Mínimo atingido" : "Mínimo: 3"}
+              </span>
+            </div>
+            <Progress value={progressPercentage} className="h-2" />
+          </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {INTEREST_CATEGORIES.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => toggleInterest(category.id)}
-              className={`p-4 rounded-lg border-2 transition-all text-left ${
-                selectedInterests.includes(category.id)
-                  ? "border-primary bg-primary/10"
-                  : "border-border bg-card hover:border-primary/50"
-              }`}
-            >
-              <div className="text-3xl mb-2">{category.icon}</div>
-              <h3 className="font-semibold text-foreground text-sm mb-1">
-                {category.label}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {category.description}
-              </p>
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          {selectedInterests.length} de 8 selecionados
-        </div>
-      </div>
+          {/* Interest grid */}
+          <div className="grid grid-cols-2 gap-2.5">
+            {INTEREST_CATEGORIES.map((category) => {
+              const isSelected = selectedInterests.includes(category.id);
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => toggleInterest(category.id)}
+                  className={`p-3 rounded-xl border-2 transition-all text-left group ${
+                    isSelected
+                      ? "border-primary bg-primary/10 shadow-sm"
+                      : "border-border bg-card hover:border-primary/50 hover:bg-accent/50"
+                  }`}
+                >
+                  <div className="text-2xl mb-1.5 transition-transform group-hover:scale-110">
+                    {category.icon}
+                  </div>
+                  <h3 className="font-semibold text-foreground text-sm leading-tight">
+                    {category.label}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-tight">
+                    {category.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Button
         onClick={handleSave}
         disabled={selectedInterests.length < 3 || loading}
-        className="w-full h-12"
+        className="w-full h-11"
       >
         {loading ? "Salvando..." : "Salvar Interesses"}
       </Button>
