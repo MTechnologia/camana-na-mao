@@ -120,35 +120,44 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
 
   return (
     <>
-      <div className="relative w-32 h-32 mx-auto group">
-        <div className="w-full h-full rounded-full overflow-hidden bg-muted border-4 border-background shadow-lg">
+      <label
+        htmlFor="avatar-upload"
+        className="relative cursor-pointer group"
+      >
+        {/* Avatar Container */}
+        <div className="w-24 h-24 rounded-full overflow-hidden bg-muted ring-4 ring-background shadow-xl transition-transform group-hover:scale-105">
           {currentAvatarUrl ? (
             <img
               src={currentAvatarUrl}
               alt="Avatar"
               className="w-full h-full object-cover"
             />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-4xl font-bold">
-            {userName ? getInitials(userName) : userId.charAt(0).toUpperCase()}
-          </div>
-        )}
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-primary text-primary-foreground text-3xl font-bold">
+              {userName ? getInitials(userName) : userId.charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
 
-        <label
-          htmlFor="avatar-upload"
-          className="absolute bottom-0 right-0 w-10 h-10 bg-primary text-primary-foreground rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:bg-primary/90 transition-colors"
-        >
-          <Camera size={20} />
-          <input
-            id="avatar-upload"
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-        </label>
-      </div>
+        {/* Camera Badge */}
+        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg ring-2 ring-background transition-all group-hover:scale-110 group-hover:bg-primary/90">
+          <Camera size={16} />
+        </div>
+
+        {/* Hidden Input */}
+        <input
+          id="avatar-upload"
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/webp"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+      </label>
+
+      {/* Hint Text */}
+      <p className="text-xs text-muted-foreground mt-2 text-center">
+        Toque para alterar foto
+      </p>
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">

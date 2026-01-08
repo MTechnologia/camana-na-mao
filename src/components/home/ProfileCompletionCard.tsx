@@ -1,6 +1,4 @@
-import { CheckCircle2, ArrowRight, User, MapPin, Heart, Settings } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, UserCheck } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useNavigate } from "react-router-dom";
 
@@ -21,60 +19,33 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
   if (status.percentage === 100) return null;
 
   const steps = [
-    { key: 'basic', label: 'Informações básicas', icon: User, completed: status.basic, path: '/profile/personal' },
-    { key: 'interests', label: 'Interesses', icon: Heart, completed: status.interests, path: '/profile/interests' },
-    { key: 'demographics', label: 'Dados demográficos', icon: Settings, completed: status.demographics, path: '/profile/demographics' },
-    { key: 'address', label: 'Endereço', icon: MapPin, completed: status.address, path: '/profile/address' },
+    { key: 'basic', label: 'Informações básicas', completed: status.basic, path: '/perfil/dados-pessoais' },
+    { key: 'interests', label: 'Interesses', completed: status.interests, path: '/perfil/interesses' },
+    { key: 'demographics', label: 'Dados demográficos', completed: status.demographics, path: '/perfil/dados-demograficos' },
+    { key: 'address', label: 'Endereço', completed: status.address, path: '/perfil/endereco' },
   ];
 
   const nextStep = steps.find(step => !step.completed);
 
   return (
-    <Card className="p-5 bg-gradient-to-br from-secondary/10 via-secondary/5 to-background border-secondary/20 animate-fade-in">
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div>
-          <h3 className="font-semibold text-foreground text-sm mb-1">Complete seu Perfil</h3>
-          <p className="text-xs text-muted-foreground">
-            {status.percentage}% concluído
-          </p>
-        </div>
-        <div className="text-2xl font-bold text-secondary">
-          {status.percentage}%
-        </div>
+    <button
+      onClick={() => nextStep && navigate(nextStep.path)}
+      className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary/10 border border-secondary/20 hover:bg-secondary/15 transition-colors text-left"
+    >
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center">
+        <UserCheck className="h-5 w-5 text-secondary" />
       </div>
-
-      <Progress value={status.percentage} className="h-2 mb-4" />
-
-      <div className="space-y-2 mb-4">
-        {steps.map((step) => {
-          const Icon = step.icon;
-          return (
-            <div key={step.key} className="flex items-center gap-2 text-xs">
-              {step.completed ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : (
-                <div className="h-4 w-4 rounded-full border-2 border-muted" />
-              )}
-              <span className={step.completed ? "text-muted-foreground line-through" : "text-foreground"}>
-                {step.label}
-              </span>
-            </div>
-          );
-        })}
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm font-medium text-foreground">Complete seu perfil</span>
+          <span className="text-sm font-bold text-secondary">{status.percentage}%</span>
+        </div>
+        <Progress value={status.percentage} className="h-1.5" />
       </div>
-
-      {nextStep && (
-        <Button 
-          onClick={() => navigate(nextStep.path)}
-          variant="secondary"
-          className="w-full"
-          size="sm"
-        >
-          Continuar
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
-      )}
-    </Card>
+      
+      <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+    </button>
   );
 };
 
