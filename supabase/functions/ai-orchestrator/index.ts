@@ -3945,19 +3945,55 @@ serve(async (req) => {
       // Check if user EXPLICITLY wants to switch to a STRUCTURED journey
       // Only switch if user uses explicit intent phrases like "quero relatar", "quero avaliar"
       const explicitSwitchKeywords = [
+        // Relato urbano
         'quero relatar', 'preciso relatar', 'relatar um problema',
+        'problema urbano', 'relatar problema',
+        // Transporte
+        'problema no transporte', 'problema de transporte',
+        'relatar transporte', 'problema no ônibus', 'problema no metrô',
+        // Avaliação - expanded variations
         'quero avaliar', 'preciso avaliar', 'avaliar um serviço',
-        'problema urbano', 'problema no transporte', 'problema de transporte'
+        'quero fazer uma avaliação', 'quero fazer avaliação', 'fazer uma avaliação',
+        'quero dar nota', 'dar minha avaliação', 'avaliar o serviço',
+        'avaliar atendimento', 'avaliar uma ubs', 'avaliar uma escola',
+        'avaliar este serviço', 'avaliar essa', 'quero avaliar essa'
       ];
       const userMsgLower = lastUserMsg.toLowerCase();
       const hasExplicitSwitch = explicitSwitchKeywords.some(kw => userMsgLower.includes(kw));
       
       if (hasExplicitSwitch) {
-        // User explicitly wants to switch - detect which journey and proceed with confirmation
+        // User explicitly wants to switch - detect which journey
         const detectedIntent = detectCollectionIntent(lastUserMsg, messages);
         if (detectedIntent && STRUCTURED_TYPES_SET.has(detectedIntent.type)) {
-          console.log('[ai-orchestrator] Explicit switch from light journey to:', detectedIntent.type);
-          collectionIntent = { type: detectedIntent.type as CollectionIntent['type'], fields: detectedIntent.fields || {} };
+          console.log('[ai-orchestrator] Explicit switch from light journey to structured:', detectedIntent.type);
+          
+          // === RETURN CONFIRMATION PROMPT ===
+          // Ask user to confirm before switching from light to structured journey
+          const journeyNames: Record<string, string> = {
+            'services': 'Busca de Serviços',
+            'service_rating': 'Avaliação de Serviço',
+            'urban_report': 'Relato Urbano',
+            'transport_report': 'Diagnóstico de Transporte',
+            'audiencias': 'Audiências Públicas',
+            'history': 'Meu Histórico',
+            'general': 'Dúvidas Gerais',
+            'vereadores': 'Vereadores',
+            'noticias': 'Notícias'
+          };
+          
+          const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
+          const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
+          
+          const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]` +
+            `Entendi! Você quer iniciar uma **${newName}**.\n\n` +
+            `Você estava em **${currentName}**. Deseja trocar?`;
+          
+          console.log('[ai-orchestrator] Returning journey switch confirmation prompt');
+          
+          return new Response(
+            `data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`,
+            { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } }
+          );
         } else {
           // Can't determine target - stay in light journey
           collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
