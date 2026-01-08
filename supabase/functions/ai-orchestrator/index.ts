@@ -3803,9 +3803,43 @@ serve(async (req) => {
           fields: {},
         };
       }
+    }
+    
+    // === CHECK FOR JOURNEY_DECLINED marker - user wants to continue current ===
+    const journeyDeclinedMatch = lastUserMsg.match(/\[JOURNEY_DECLINED:(\w+)\]/);
+    if (journeyDeclinedMatch) {
+      const declinedType = journeyDeclinedMatch[1];
+      console.log('[ai-orchestrator] User declined switch to:', declinedType, '- continuing current journey');
+      
+      // Force use of frontend type (the one user chose to continue)
+      if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
+        collectionIntent = {
+          type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
+          fields: accumulateFieldsFromHistory(messages, frontendCollectionType),
+        };
+      }
     } else if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
       // Frontend has a journey type - but check if user wants to switch
       console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
+      
+      // === CHECK FOR RECENTLY DECLINED JOURNEY SWITCHES ===
+      const getDeclinedJourneys = (msgs: any[]): Set<string> => {
+        const declined = new Set<string>();
+        for (const msg of msgs) {
+          if (msg.role === 'user') {
+            const declineMatch = msg.content?.match?.(/\[JOURNEY_DECLINED:(\w+)\]/);
+            if (declineMatch) {
+              declined.add(declineMatch[1]);
+            }
+          }
+        }
+        return declined;
+      };
+      
+      const declinedJourneys = getDeclinedJourneys(messages);
+      if (declinedJourneys.size > 0) {
+        console.log('[ai-orchestrator] Declined journeys in history:', Array.from(declinedJourneys));
+      }
       
       // ALWAYS detect intent first to check for journey switch
       const detectedIntent = detectCollectionIntent(lastUserMsg, messages);
@@ -3813,9 +3847,16 @@ serve(async (req) => {
       // Check for JOURNEY CONFLICT (user wants to switch to different structured journey)
       const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
       const isDetectedStructured = detectedIntent && structuredTypes.includes(detectedIntent.type as typeof structuredTypes[number]);
+      const wasRecentlyDeclined = detectedIntent && declinedJourneys.has(detectedIntent.type);
+      
       const isJourneyConflict = detectedIntent && 
         isDetectedStructured &&
-        detectedIntent.type !== frontendCollectionType;
+        detectedIntent.type !== frontendCollectionType &&
+        !wasRecentlyDeclined; // Don't ask again if user already said no
+      
+      if (wasRecentlyDeclined) {
+        console.log(`[ai-orchestrator] Journey ${detectedIntent?.type} was recently declined, skipping confirmation`);
+      }
       
       if (isJourneyConflict) {
         // ALWAYS ask for confirmation - never auto-switch
