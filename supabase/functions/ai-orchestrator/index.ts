@@ -1525,6 +1525,37 @@ function detectCollectionIntent(
     'deixa isso', 'esquece isso', 'vamos falar de', 'agora quero'
   ];
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
+  
+  // === EXPLICIT INTENT OVERRIDE (last message takes priority for journey switching) ===
+  // If the LAST user message contains an explicit intent phrase,
+  // it should override accumulated context for journey switching
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history';
+  const lastMsgExplicitIntent: { type: ExplicitIntentType; boost: number } | null = (() => {
+    // Check explicit phrases in LAST message only (not accumulated context)
+    if (explicitRatingPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'service_rating', boost: 15 };
+    }
+    if (explicitUrbanPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'urban_report', boost: 15 };
+    }
+    if (explicitTransportPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'transport_report', boost: 15 };
+    }
+    if (explicitServicesPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'services', boost: 15 };
+    }
+    if (explicitAudienciasPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'audiencias', boost: 15 };
+    }
+    if (explicitHistoryPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'history', boost: 15 };
+    }
+    return null;
+  })();
+
+  if (lastMsgExplicitIntent) {
+    console.log(`[detectCollectionIntent] Explicit intent in LAST message: ${lastMsgExplicitIntent.type} (boost: ${lastMsgExplicitIntent.boost})`);
+  }
 
   // Transport scoring
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus', 'transporte', 'transporte público', 'transporte publico'];
@@ -1663,7 +1694,33 @@ function detectCollectionIntent(
     return null;
   }
   
-  // Sort by score and select winner
+  // === APPLY EXPLICIT INTENT BOOST FROM LAST MESSAGE ===
+  // This ensures the last user message takes priority for journey switching
+  if (lastMsgExplicitIntent) {
+    const targetScore = scores.find(s => s.type === lastMsgExplicitIntent.type);
+    if (targetScore) {
+      targetScore.score += lastMsgExplicitIntent.boost;
+      console.log(`[detectCollectionIntent] Applied explicit intent boost: ${lastMsgExplicitIntent.type} now has score ${targetScore.score}`);
+    } else {
+      // If no score exists for this type, create one with appropriate fields
+      let fields = {};
+      if (lastMsgExplicitIntent.type === 'urban_report') {
+        fields = extractUrbanFields(msgLower);
+      } else if (lastMsgExplicitIntent.type === 'transport_report') {
+        fields = extractTransportFields(msgLower);
+      } else if (lastMsgExplicitIntent.type === 'service_rating') {
+        fields = extractServiceFields(msgLower);
+      }
+      scores.push({ 
+        type: lastMsgExplicitIntent.type, 
+        score: lastMsgExplicitIntent.boost, 
+        fields 
+      });
+      console.log(`[detectCollectionIntent] Created new score for explicit intent: ${lastMsgExplicitIntent.type} with score ${lastMsgExplicitIntent.boost}`);
+    }
+  }
+  
+  // Sort by score and select winner (AFTER applying explicit intent boost)
   let winner = scores.sort((a, b) => b.score - a.score)[0];
   console.log('[detectCollectionIntent] Scores:', JSON.stringify(scores.map(s => ({ type: s.type, score: s.score }))));
   console.log('[detectCollectionIntent] Winner:', winner.type, 'with score:', winner.score);
