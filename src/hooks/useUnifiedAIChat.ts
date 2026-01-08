@@ -740,14 +740,23 @@ export const useUnifiedAIChat = (
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
+      // CRITICAL: Deduplicate messages when there's an optimistic message
+      // If hasOptimisticMessage is true, the message already exists in 'messages' state
+      // So we don't add userMessage again to avoid duplicates
+      const effectiveMessages = hasOptimisticMessage 
+        ? messages  // Already contains the optimistic message
+        : [...messages, userMessage]; // Add new message
+      
       const payload = {
-        messages: [...messages, userMessage].map((msg) => ({
+        messages: effectiveMessages.map((msg) => ({
           role: msg.role,
           content: msg.content,
         })),
         conversationId: conversationIdRef.current,
         collectionType: collectionType || undefined, // Pass frontend context to backend
       };
+      
+      console.log('[useUnifiedAIChat] Payload message count:', effectiveMessages.length, 'hasOptimistic:', hasOptimisticMessage);
 
       // Always call the unified orchestrator
       const response = await fetch(
