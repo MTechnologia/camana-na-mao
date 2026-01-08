@@ -1181,8 +1181,11 @@ export const useUnifiedAIChat = (
       // Include marker for backend to recognize this as a confirmed journey switch
       // This triggers the appropriate picker (LINE_PICKER for transport, etc.)
       await sendMessage(`[JOURNEY_SWITCHED:${newJourney}] Sim, quero iniciar ${journeyNames[newJourney] || newJourney}`);
+    } else if (newJourney) {
+      // User declined to switch - include marker so backend knows to stop asking
+      await sendMessage(`[JOURNEY_DECLINED:${newJourney}] Quero continuar o relato atual`);
     } else {
-      // Continue current journey
+      // Continue without specific journey context
       await sendMessage('Quero continuar o relato atual');
     }
   }, [sendMessage]);

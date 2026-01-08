@@ -232,7 +232,8 @@ const ChatMessageBubble = ({
   const handleJourneyDecision = (decision: 'switch' | 'continue') => {
     setDecisionMade(true);
     if (onJourneySwitchDecision && journeySwitchMatch) {
-      onJourneySwitchDecision(decision, decision === 'switch' ? journeySwitchMatch.newJourney : undefined);
+      // Always pass newJourney so we can track which journey was declined
+      onJourneySwitchDecision(decision, journeySwitchMatch.newJourney);
     }
   };
   
