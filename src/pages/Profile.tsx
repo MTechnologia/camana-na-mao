@@ -8,7 +8,17 @@ import PageHeader from "@/components/ui/page-header";
 import AvatarUpload from "@/components/profile/AvatarUpload";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
-import { User, MapPin, BarChart3, ChevronRight, Heart, Settings, Accessibility } from "lucide-react";
+import { 
+  User, 
+  MapPin, 
+  BarChart3, 
+  ChevronRight, 
+  Heart, 
+  Settings, 
+  Accessibility,
+  CheckCircle2,
+  LogOut
+} from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -53,12 +63,30 @@ const Profile = () => {
     }
   };
 
-  const profileCards = [
+  // Determinar status de completude de cada seção
+  const getCompletionStatus = (cardId: string): boolean | null => {
+    switch (cardId) {
+      case 'personal':
+        return profileStatus.basic;
+      case 'address':
+        return profileStatus.address;
+      case 'interests':
+        return profileStatus.interests;
+      case 'demographics':
+        return profileStatus.demographics;
+      default:
+        return null; // Configurações não têm status de completude
+    }
+  };
+
+  const dataCards = [
     {
       id: 'personal',
       title: 'Informações Pessoais',
       description: 'Nome, email e telefone',
       icon: User,
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-100',
       path: '/perfil/dados-pessoais',
     },
     {
@@ -66,6 +94,8 @@ const Profile = () => {
       title: 'Endereço',
       description: 'CEP, rua e complemento',
       icon: MapPin,
+      iconColor: 'text-emerald-600',
+      iconBg: 'bg-emerald-100',
       path: '/perfil/endereco',
     },
     {
@@ -73,6 +103,8 @@ const Profile = () => {
       title: 'Interesses',
       description: 'Áreas de interesse e preferências',
       icon: Heart,
+      iconColor: 'text-rose-600',
+      iconBg: 'bg-rose-100',
       path: '/perfil/interesses',
     },
     {
@@ -80,13 +112,20 @@ const Profile = () => {
       title: 'Dados Demográficos',
       description: 'Gênero, idade e classe social',
       icon: BarChart3,
+      iconColor: 'text-violet-600',
+      iconBg: 'bg-violet-100',
       path: '/perfil/dados-demograficos',
     },
+  ];
+
+  const settingsCards = [
     {
       id: 'accessibility',
       title: 'Acessibilidade',
       description: 'Fonte, contraste e leitura',
       icon: Accessibility,
+      iconColor: 'text-orange-600',
+      iconBg: 'bg-orange-100',
       path: '/configuracoes/acessibilidade',
     },
     {
@@ -94,83 +133,109 @@ const Profile = () => {
       title: 'Preferências',
       description: 'Notificações e privacidade',
       icon: Settings,
+      iconColor: 'text-slate-600',
+      iconBg: 'bg-slate-100',
       path: '/perfil/preferencias',
     },
   ];
+
+  const renderCard = (card: typeof dataCards[0], showStatus: boolean = false) => {
+    const Icon = card.icon;
+    const completionStatus = showStatus ? getCompletionStatus(card.id) : null;
+    
+    return (
+      <Card
+        key={card.id}
+        className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50"
+        onClick={() => navigate(card.path)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${card.iconBg}`}>
+                <Icon className={`h-5 w-5 ${card.iconColor}`} />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground text-sm">{card.title}</h3>
+                <p className="text-xs text-muted-foreground">{card.description}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {completionStatus !== null && (
+                completionStatus ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                ) : (
+                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                )
+              )}
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background pt-[60px]">
       <PageHeader title="Meu Perfil" backTo="/" />
 
-      <div className="p-6">
+      <div className="p-4 space-y-6">
         {/* Avatar Section */}
         {user && (
-          <div className="mb-8 flex flex-col items-center">
-            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-8 w-full flex flex-col items-center">
-              <AvatarUpload
-                userId={user.id}
-                userName={profile.fullName}
-                currentAvatarUrl={profile.avatarUrl}
-                onAvatarUpdated={(url) => setProfile(prev => ({ ...prev, avatarUrl: url }))}
-              />
-              <div className="mt-4 text-center">
-                <h2 className="text-2xl font-bold text-foreground">
-                  {profile.fullName || "Sem nome"}
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {user.email}
-                </p>
-              </div>
+          <div className="flex flex-col items-center py-6">
+            <AvatarUpload
+              userId={user.id}
+              userName={profile.fullName}
+              currentAvatarUrl={profile.avatarUrl}
+              onAvatarUpdated={(url) => setProfile(prev => ({ ...prev, avatarUrl: url }))}
+            />
+            <div className="mt-4 text-center">
+              <h2 className="text-xl font-bold text-foreground">
+                {profile.fullName || "Sem nome"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {user.email}
+              </p>
             </div>
           </div>
         )}
 
         {/* Profile Completion Card */}
         {profileStatus.percentage < 100 && (
-          <div className="mb-6">
-            <ProfileCompletionCard status={profileStatus} />
-          </div>
+          <ProfileCompletionCard status={profileStatus} />
         )}
 
-        {/* Profile Cards */}
-        <div className="space-y-3 mb-8">
-          {profileCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <Card
-                key={card.id}
-                className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-                onClick={() => navigate(card.path)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Icon className="h-6 w-6 text-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{card.title}</h3>
-                        <p className="text-sm text-muted-foreground">{card.description}</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        {/* Meus Dados Section */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            Meus Dados
+          </h3>
+          <div className="space-y-2">
+            {dataCards.map(card => renderCard(card, true))}
+          </div>
+        </div>
+
+        {/* Configurações Section */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            Configurações
+          </h3>
+          <div className="space-y-2">
+            {settingsCards.map(card => renderCard(card, false))}
+          </div>
         </div>
 
         {/* Logout Button */}
         <Button
           onClick={signOut}
-          variant="destructive"
-          className="w-full h-12"
+          variant="outline"
+          className="w-full h-12 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
         >
+          <LogOut className="h-4 w-4 mr-2" />
           Sair da Conta
         </Button>
       </div>
-
     </div>
   );
 };
