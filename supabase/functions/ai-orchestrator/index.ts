@@ -1243,11 +1243,14 @@ function detectCollectionIntent(
   const scores: DetectionScore[] = [];
   
   // === EXPLICIT INTENT PHRASES (strongly indicate journey switch) ===
+  // IMPORTANT: Urban phrases must be SPECIFIC to avoid matching transport/other contexts
   const explicitUrbanPhrases = [
-    'quero relatar um problema', 'quero fazer uma reclamação', 'quero fazer reclamação', 'quero fazer reclamacao',
+    'quero fazer uma reclamação', 'quero fazer reclamação', 'quero fazer reclamacao',
     'quero denunciar', 'problema na minha rua', 'problema na cidade', 'problema urbano',
     'tem um buraco', 'poste apagado', 'lixo acumulado', 'quero abrir um chamado',
-    'quero registrar um problema', 'relatar problema urbano', 'fazer um relato urbano'
+    'quero registrar um problema urbano', 'relatar problema urbano', 'fazer um relato urbano',
+    'problema na rua', 'problema no bairro', 'problema de infraestrutura'
+    // REMOVED: 'quero relatar um problema' - too generic, matches transport!
   ];
   
   const explicitTransportPhrases = [
@@ -1255,7 +1258,9 @@ function detectCollectionIntent(
     'problema no trem', 'quero relatar transporte', 'quero reclamar do transporte',
     'ônibus atrasado', 'onibus atrasado', 'metrô lotado', 'metro lotado', 'trem não passou',
     'problema na linha', 'quero falar do ônibus', 'quero falar do onibus',
-    'quero fazer um relato de transporte', 'relatar problema de transporte'
+    'quero fazer um relato de transporte', 'relatar problema de transporte',
+    'problema no transporte', 'problema no transporte público', 'problema no transporte publico',
+    'relatar um problema no transporte', 'problema de transporte'
   ];
   
   const explicitRatingPhrases = [
@@ -1294,7 +1299,7 @@ function detectCollectionIntent(
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
 
   // Transport scoring
-  const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus'];
+  const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus', 'transporte', 'transporte público', 'transporte publico'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
   let transportScore = 0;
   transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
@@ -1321,6 +1326,15 @@ function detectCollectionIntent(
     urbanScore += 5;
     console.log('[detectCollectionIntent] Explicit urban intent detected');
   }
+  
+  // MUTUAL EXCLUSION: If transport keywords present, don't let urban win on generic phrase alone
+  const hasTransportContext = transportDomain.some(kw => fullUserContext.includes(kw));
+  const hasUrbanContext = urbanDomain.some(kw => fullUserContext.includes(kw));
+  if (hasTransportContext && hasExplicitUrbanIntent && !hasUrbanContext) {
+    console.log('[detectCollectionIntent] Suppressing urban score - transport context detected without urban keywords');
+    urbanScore = 0; // Don't count generic urban phrase when transport context exists
+  }
+  
   if (urbanScore > 0) {
     // FIX: Extract fields from USER-ONLY context
     scores.push({ type: 'urban_report', score: urbanScore, fields: extractUrbanFields(fullUserContext) });
