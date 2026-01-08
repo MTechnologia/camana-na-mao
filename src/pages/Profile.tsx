@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PageHeader from "@/components/ui/page-header";
-import AvatarUpload from "@/components/profile/AvatarUpload";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Camera } from "lucide-react";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
 import { 
   User, 
@@ -17,7 +18,8 @@ import {
   Settings, 
   Accessibility,
   CheckCircle2,
-  LogOut
+  LogOut,
+  Pencil
 } from "lucide-react";
 
 const Profile = () => {
@@ -181,24 +183,44 @@ const Profile = () => {
       <PageHeader title="Meu Perfil" backTo="/" />
 
       <div className="p-4 space-y-6">
-        {/* Avatar Section */}
+        {/* Profile Card Compacto */}
         {user && (
-          <div className="flex flex-col items-center py-6">
-            <AvatarUpload
-              userId={user.id}
-              userName={profile.fullName}
-              currentAvatarUrl={profile.avatarUrl}
-              onAvatarUpdated={(url) => setProfile(prev => ({ ...prev, avatarUrl: url }))}
-            />
-            <div className="mt-4 text-center">
-              <h2 className="text-xl font-bold text-foreground">
-                {profile.fullName || "Sem nome"}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {user.email}
-              </p>
-            </div>
-          </div>
+          <Card
+            className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50"
+            onClick={() => navigate('/perfil/dados-pessoais')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                {/* Avatar compacto */}
+                <div className="relative flex-shrink-0">
+                  <Avatar className="w-16 h-16 ring-2 ring-border">
+                    {profile.avatarUrl ? (
+                      <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
+                    ) : null}
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
+                      {profile.fullName ? profile.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-sm">
+                    <Pencil className="h-3 w-3 text-primary-foreground" />
+                  </div>
+                </div>
+                
+                {/* Informações */}
+                <div className="flex-1 min-w-0">
+                  <h2 className="font-semibold text-foreground truncate">
+                    {profile.fullName || "Sem nome"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {user.email}
+                  </p>
+                </div>
+                
+                {/* Seta */}
+                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Profile Completion Card */}
