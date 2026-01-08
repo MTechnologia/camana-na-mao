@@ -203,7 +203,7 @@ const ContextualFeed = () => {
                   ? `/institucional/noticias/${item.id}` 
                   : `/audiencias/${item.id}`
               )}
-              className="group flex-shrink-0 w-[80%] max-w-[300px] text-left"
+              className="group flex-shrink-0 w-[80%] min-w-[240px] max-w-[300px] text-left"
               aria-label={item.title}
             >
               <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-background to-secondary/5 border border-border/60 shadow-sm hover:shadow-lg hover:border-primary/20 backdrop-blur-sm p-4 h-full min-h-[140px] transition-all duration-300">

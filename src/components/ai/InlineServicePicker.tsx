@@ -82,9 +82,9 @@ export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePick
   }
 
   return (
-    <div className="mt-2 w-full min-w-[280px] max-w-[320px]">
+    <div className="mt-2 w-full max-w-xs">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-        <Building2 className="h-3 w-3" />
+        <Building2 className="h-3 w-3 flex-shrink-0" />
         <span>Qual o nome do serviço?</span>
       </div>
       <div className="relative">
