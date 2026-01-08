@@ -1489,10 +1489,13 @@ function detectCollectionIntent(
   ];
   
   const explicitRatingPhrases = [
-    'quero fazer uma avaliação', 'quero fazer avaliação', 'quero fazer avaliacão',
-    'quero avaliar', 'fazer uma avaliação', 'fazer avaliação',
-    'quero dar nota', 'quero dar uma nota', 'avaliar um serviço', 'avaliar serviço',
-    'avaliar o serviço', 'dar minha avaliação', 'deixar avaliação', 'avaliar atendimento'
+    'quero fazer uma avaliação', 'quero fazer avaliação', 'quero fazer avaliacao',
+    'quero avaliar', 'fazer uma avaliação', 'fazer avaliação', 'fazer avaliacao',
+    'quero dar nota', 'quero dar uma nota', 'avaliar um serviço', 'avaliar servico',
+    'avaliar o serviço', 'avaliar o servico', 'dar minha avaliação', 'deixar avaliação',
+    'avaliar atendimento', 'avaliar serviço público', 'avaliar servico publico',
+    'avaliar uma ubs', 'avaliar uma escola', 'avaliar um hospital',
+    'quero avaliar um serviço', 'quero avaliar um servico'
   ];
   
   const explicitServicesPhrases = [
@@ -1677,7 +1680,7 @@ function detectCollectionIntent(
   const thresholds: Record<string, number> = {
     'urban_report': 3,      // Lower: catch natural complaints like "tem um buraco"
     'transport_report': 3,  // Lower: catch "ônibus lotado"
-    'service_rating': 4,    // Medium: needs service + rating intent
+    'service_rating': 3,    // Lower: catch explicit "quero avaliar" - allows journey switch
     'chamber_feedback': 5,  // Higher: needs explicit chamber reference
     'services': 4,          // Medium: needs location question
     'audiencias': 4,        // Medium: needs audiencia reference
