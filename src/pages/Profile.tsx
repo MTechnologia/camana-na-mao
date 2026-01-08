@@ -242,7 +242,7 @@ const Profile = () => {
         className="hidden"
       />
 
-      <div className="flex-1 px-4 pt-2 pb-4 flex flex-col space-y-3 overflow-hidden">
+      <div className="flex-1 px-4 pb-4 flex flex-col space-y-2 overflow-hidden">
         {/* Profile Card Compacto - Agora editável */}
         {user && (
           <Card
@@ -306,33 +306,30 @@ const Profile = () => {
         )}
 
         {/* Meus Dados Section */}
-        <div className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+        <div className="space-y-1">
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
             Meus Dados
           </h3>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {dataCards.map(card => renderCard(card, true))}
           </div>
         </div>
 
         {/* Configurações Section */}
-        <div className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+        <div className="space-y-1">
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
             Configurações
           </h3>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {settingsCards.map(card => renderCard(card, false))}
           </div>
         </div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
 
         {/* Logout Button */}
         <Button
           onClick={signOut}
           variant="outline"
-          className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+          className="w-full h-9 mt-auto text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sair da Conta
