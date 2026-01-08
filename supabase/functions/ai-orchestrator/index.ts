@@ -237,13 +237,15 @@ function extractTransportFields(context: string): Record<string, any> {
   const lineMatch = context.match(/linha\s*(\d{3,4}[a-z]?[-/]?\d*)/i);
   if (lineMatch) fields.line_code = lineMatch[1].toUpperCase();
   
-  // Detect date
+  // Detect date - mark as confirmed when explicitly mentioned
   if (context.includes('hoje') || context.includes('agora') || context.includes('acabou de')) {
     fields.occurrence_date = today;
+    fields.date_confirmed = true;
   } else if (context.includes('ontem')) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     fields.occurrence_date = yesterday.toISOString().split('T')[0];
+    fields.date_confirmed = true;
   }
   
   // Detect time
@@ -1231,7 +1233,7 @@ function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed line_code from picker:', accumulated.line_code);
       }
       
-      // Parse "Data: DD/MM/YYYY" format from InlineDatePicker
+      // Parse "Data: DD/MM/YYYY" format from InlineDatePicker - always mark as confirmed
       const dateMatch = content.match(/data:\s*(.+)/i);
       if (dateMatch && !accumulated.occurrence_date) {
         // Try to extract date - could be "hoje", "ontem", or actual date
@@ -1254,7 +1256,9 @@ function accumulateFieldsFromHistory(
             accumulated.occurrence_date = dateStr;
           }
         }
-        console.log('[accumulateFields] Parsed occurrence_date from picker:', accumulated.occurrence_date);
+        // User explicitly selected via picker = confirmed
+        accumulated.date_confirmed = true;
+        console.log('[accumulateFields] Parsed occurrence_date from picker:', accumulated.occurrence_date, '(confirmed)');
       }
       
       // Parse "Horário: XX:XX" format from InlineTimePicker
@@ -2683,9 +2687,11 @@ async function executeTool(
   name: string, 
   args: any, 
   userId: string, 
-  supabase: any
+  supabase: any,
+  accumulatedFields?: any
 ): Promise<{ success: boolean; message: string; data?: any }> {
   console.log(`[executeTool] Executing ${name} with args:`, JSON.stringify(args));
+  console.log(`[executeTool] Accumulated fields:`, JSON.stringify(accumulatedFields || {}));
   
   try {
     switch (name) {
@@ -3056,8 +3062,16 @@ async function executeTool(
       }
       
       case 'create_transport_report': {
-        // === VALIDAÇÃO ESTRITA (coleta sequencial obrigatória) ===
+        // Merge accumulated fields into args (especially date_confirmed from picker/natural language)
+        if (accumulatedFields?.date_confirmed && !args.date_confirmed) {
+          args.date_confirmed = true;
+          console.log('[create_transport_report] Inherited date_confirmed from accumulatedFields');
+        }
+        if (accumulatedFields?.occurrence_date && !args.occurrence_date) {
+          args.occurrence_date = accumulatedFields.occurrence_date;
+        }
         
+        // === VALIDAÇÃO ESTRITA (coleta sequencial obrigatória) ===
         // Helper: inferir report_type de forma robusta (dicionário expandido)
         const inferReportTypeFromDesc = (description: string): string | null => {
           const desc = description.toLowerCase();
@@ -3136,8 +3150,8 @@ async function executeTool(
           };
         }
         
-        // VALIDAÇÃO EXTRA: Se a data é hoje e não veio flag de confirmação, perguntar mesmo assim
-        // Isso evita que o modelo "chute" a data como hoje
+        // Date confirmation check - args.date_confirmed is set by accumulateFieldsFromHistory
+        // when user explicitly selects via picker or says "hoje"/"ontem"
         const today = new Date().toISOString().split('T')[0];
         if (args.occurrence_date === today && !args.date_confirmed) {
           console.log('[create_transport_report] Date is today but not explicitly confirmed, asking user');
@@ -4154,7 +4168,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
           const toolArgs = JSON.parse(toolCallArguments);
           console.log('[ai-orchestrator] Executing tool:', toolCallData.name, toolArgs);
           
-          const result = await executeTool(toolCallData.name, toolArgs, user.id, supabase);
+          const result = await executeTool(toolCallData.name, toolArgs, user.id, supabase, accumulatedFields);
           
           // CRITICAL: Merge toolArgs into accumulatedFields for COLLECTION_PROGRESS
           // This ensures fields like risk_level that come directly from AI args are reflected in tracker
