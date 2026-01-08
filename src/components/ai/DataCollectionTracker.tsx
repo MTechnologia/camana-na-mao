@@ -21,6 +21,8 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
   affected_scope: {
     individual: 'Individual',
     local: 'Local (rua/quadra)',
+    street: 'Toda a Rua',
+    neighborhood: 'Bairro',
     regional: 'Regional (bairro)',
     citywide: 'Cidade toda'
   },
@@ -35,17 +37,23 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
     iluminacao: 'Iluminação',
     esgoto: 'Esgoto/Saneamento',
     area_verde: 'Área Verde',
-    limpeza: 'Limpeza Urbana',
-    transito: 'Trânsito',
+    lixo: 'Lixo/Entulho',
     calcada: 'Calçada',
-    sinalizacao: 'Sinalização',
+    higiene_urbana: 'Higiene Urbana',
+    animais: 'Animais',
+    poluicao: 'Poluição/Barulho',
     feedback_camara: 'Feedback da Câmara',
-    outros: 'Outros'
+    outro: 'Outro',
+    outros: 'Outro'
   },
-  subcategory: {
-    elogio: 'Elogio',
-    reclamacao: 'Reclamação',
-    sugestao: 'Sugestão'
+  report_type: {
+    atraso: 'Atraso',
+    lotacao: 'Lotação',
+    seguranca: 'Segurança',
+    limpeza: 'Limpeza',
+    acessibilidade: 'Acessibilidade',
+    conducao: 'Condução',
+    outro: 'Outro'
   },
   service_type: {
     ubs: 'UBS',
@@ -85,6 +93,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     icon: FileText,
     fields: [
       { key: 'category', label: 'Categoria', required: true },
+      { key: 'subcategory', label: 'Tipo', required: false },
       { key: 'description', label: 'Descrição', required: true },
       { key: 'cep', label: 'CEP', required: false },
       { key: 'street', label: 'Rua', required: true },
@@ -100,6 +109,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     icon: Bus,
     fields: [
       { key: 'report_type', label: 'Tipo', required: true },
+      { key: 'subcategory', label: 'Detalhe', required: false },
       { key: 'description', label: 'Descrição', required: true },
       { key: 'occurrence_date', label: 'Data', required: true },
       { key: 'occurrence_time', label: 'Horário', required: false },
