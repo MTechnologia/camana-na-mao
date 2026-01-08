@@ -327,7 +327,7 @@ export default function ReportHistoryPage() {
                 <p className="text-sm text-muted-foreground mb-4">
                   Compartilhe experiências sobre problemas urbanos para ajudar a melhorar sua cidade
                 </p>
-                <Button onClick={() => navigate("/ia")}>
+                <Button onClick={() => navigate("/")}>
                   <Plus className="w-4 h-4 mr-2" />
                   Compartilhar Experiência
                 </Button>

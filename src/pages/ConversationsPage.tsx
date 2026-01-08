@@ -83,7 +83,7 @@ const ConversationsPage = () => {
 
   const handleConversationClick = (conversation: AIConversation) => {
     setActiveConversationId(conversation.id);
-    navigate("/ia");
+    navigate("/");
   };
 
   const handleDeleteClick = (e: React.MouseEvent, conversation: AIConversation) => {
@@ -106,7 +106,7 @@ const ConversationsPage = () => {
 
   const handleNewConversation = () => {
     setActiveConversationId(null);
-    navigate("/ia");
+    navigate("/");
   };
 
   const getJourneyIcon = (journeyId: string) => {
