@@ -202,11 +202,11 @@ const Profile = () => {
         className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50"
         onClick={() => navigate(card.path)}
       >
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${card.iconBg}`}>
-                <Icon className={`h-5 w-5 ${card.iconColor}`} />
+              <div className={`p-2 rounded-xl ${card.iconBg}`}>
+                <Icon className={`h-4 w-4 ${card.iconColor}`} />
               </div>
               <div>
                 <h3 className="font-medium text-foreground text-sm">{card.title}</h3>
@@ -216,12 +216,12 @@ const Profile = () => {
             <div className="flex items-center gap-2">
               {completionStatus !== null && (
                 completionStatus ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
                 ) : (
-                  <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  <div className="h-2 w-2 rounded-full bg-amber-400" />
                 )
               )}
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
           </div>
         </CardContent>
@@ -230,7 +230,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pt-[60px]">
+    <div className="h-screen bg-background pt-[60px] flex flex-col overflow-hidden">
       <PageHeader title="Meu Perfil" backTo="/" />
 
       {/* Hidden file input */}
@@ -242,58 +242,58 @@ const Profile = () => {
         className="hidden"
       />
 
-      <div className="px-4 pt-2 pb-4 space-y-4">
+      <div className="flex-1 px-4 pt-2 pb-4 flex flex-col space-y-3 overflow-hidden">
         {/* Profile Card Compacto - Agora editável */}
         {user && (
           <Card
             className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50"
             onClick={() => navigate('/perfil/dados-pessoais')}
           >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
                 {/* Avatar com botão de upload */}
                 <div 
                   className="relative flex-shrink-0 group"
                   onClick={handleAvatarClick}
                 >
-                  <Avatar className="w-16 h-16 ring-2 ring-border transition-opacity group-hover:opacity-80">
+                  <Avatar className="w-14 h-14 ring-2 ring-border transition-opacity group-hover:opacity-80">
                     {profile.avatarUrl ? (
                       <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
                     ) : null}
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-lg font-bold">
                       {profile.fullName ? profile.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110">
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110">
                     {uploadingAvatar ? (
-                      <Loader2 className="h-3.5 w-3.5 text-primary-foreground animate-spin" />
+                      <Loader2 className="h-3 w-3 text-primary-foreground animate-spin" />
                     ) : (
-                      <Camera className="h-3.5 w-3.5 text-primary-foreground" />
+                      <Camera className="h-3 w-3 text-primary-foreground" />
                     )}
                   </div>
                 </div>
                 
                 {/* Informações */}
                 <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold text-foreground truncate">
+                  <h2 className="font-semibold text-foreground text-sm truncate">
                     {profile.fullName || "Sem nome"}
                   </h2>
-                  <p className="text-sm text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate">
                     {user.email}
                   </p>
-                  <p className="text-xs text-primary mt-0.5">
+                  <p className="text-[10px] text-primary mt-0.5">
                     Toque para editar dados
                   </p>
                 </div>
                 
                 {/* Status de completude */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   {profileStatus.basic ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
                   ) : (
-                    <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                    <div className="h-2 w-2 rounded-full bg-amber-400" />
                   )}
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
             </CardContent>
@@ -306,30 +306,33 @@ const Profile = () => {
         )}
 
         {/* Meus Dados Section */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
             Meus Dados
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {dataCards.map(card => renderCard(card, true))}
           </div>
         </div>
 
         {/* Configurações Section */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
             Configurações
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {settingsCards.map(card => renderCard(card, false))}
           </div>
         </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
 
         {/* Logout Button */}
         <Button
           onClick={signOut}
           variant="outline"
-          className="w-full h-12 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+          className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sair da Conta
