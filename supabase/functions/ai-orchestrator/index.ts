@@ -3343,7 +3343,6 @@ serve(async (req) => {
     // PRIORITY: Use frontend collection type if it's a structured journey type
     const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
     let collectionIntent: CollectionIntent | null = null;
-    let forcedSwitch = false;
     
     if (journeySwitchMatch) {
       // User explicitly switched journey via button click - HIGHEST PRIORITY
@@ -3377,56 +3376,43 @@ serve(async (req) => {
         detectedIntent.type !== frontendCollectionType;
       
       if (isJourneyConflict) {
-        // If the user has only provided *generic* progress in the current journey,
-        // auto-switch to reduce friction (common when user just tapped a chip or changed their mind).
+        // ALWAYS ask for confirmation - never auto-switch
+        console.log(`[ai-orchestrator] Journey conflict detected: ${frontendCollectionType} → ${detectedIntent.type}`);
+        
+        const journeyNames: Record<string, string> = {
+          urban_report: 'Relato Urbano',
+          transport_report: 'Relato de Transporte', 
+          service_rating: 'Avaliação de Serviço'
+        };
+        
+        const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
+        const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
+        
+        // Check accumulated fields to show progress (informational only)
         const existingFields = accumulateFieldsFromHistory(messages, frontendCollectionType);
         const rawFieldKeys = Object.keys(existingFields).filter(k => !k.startsWith('_'));
         let meaningfulFieldCount = rawFieldKeys.length;
-
-        // Treat generic “intent phrases” as NOT real progress (e.g., "Quero relatar um problema na cidade")
+        
+        // Treat generic "intent phrases" as NOT real progress
         if (existingFields.description && isGenericIntentText(String(existingFields.description))) {
           meaningfulFieldCount = Math.max(0, meaningfulFieldCount - 1);
         }
-
-        const shouldAutoSwitch = meaningfulFieldCount === 0;
-
-        if (shouldAutoSwitch) {
-          console.log(`[ai-orchestrator] Auto-switching (no meaningful progress): ${frontendCollectionType} → ${detectedIntent.type}`);
-          forcedSwitch = true;
-          collectionIntent = {
-            type: detectedIntent.type as 'urban_report' | 'transport_report' | 'service_rating',
-            fields: {},
-          };
-        } else {
-          // DETECTED JOURNEY SWITCH - return confirmation response directly
-          console.log(`[ai-orchestrator] Journey conflict detected: ${frontendCollectionType} → ${detectedIntent.type}`);
-          
-          const journeyNames: Record<string, string> = {
-            urban_report: 'Relato Urbano',
-            transport_report: 'Relato de Transporte', 
-            service_rating: 'Avaliação de Serviço'
-          };
-          
-          const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
-          const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
-          
-          // Check accumulated fields to show progress
-          const fieldCount = rawFieldKeys.length;
-          const progressNote = fieldCount > 0 
-            ? ` (você já informou ${fieldCount} dado${fieldCount > 1 ? 's' : ''})` 
-            : '';
-          
-          const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}]` +
-            `Parece que você quer iniciar um **${newName}**.\n\n` +
-            `Você estava em **${currentName}**${progressNote}. Deseja:\n\n`;
-          
-          console.log('[ai-orchestrator] Returning journey switch confirmation');
-          
-          return new Response(
-            `data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`,
-            { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } }
-          );
-        }
+        
+        const progressNote = meaningfulFieldCount > 0 
+          ? ` (você já informou ${meaningfulFieldCount} dado${meaningfulFieldCount > 1 ? 's' : ''})` 
+          : '';
+        
+        // FIX: Use correct 2-parameter format that frontend expects
+        const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]` +
+          `Parece que você quer iniciar um **${newName}**.\n\n` +
+          `Você estava em **${currentName}**${progressNote}. Deseja:\n\n`;
+        
+        console.log('[ai-orchestrator] Returning journey switch confirmation with buttons');
+        
+        return new Response(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`,
+          { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } }
+        );
       }
       
       // No conflict - use frontend type with detected fields
@@ -3446,7 +3432,7 @@ serve(async (req) => {
     // BUT if journey was just switched, start fresh
     let accumulatedFields: Record<string, any> = {};
     if (collectionIntent) {
-      if (journeySwitchMatch || forcedSwitch) {
+      if (journeySwitchMatch) {
         // Fresh start - don't accumulate from previous journey
         accumulatedFields = {};
         console.log('[ai-orchestrator] Journey switched, starting with fresh fields');
