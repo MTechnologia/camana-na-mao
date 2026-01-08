@@ -90,22 +90,39 @@ const INTENT_KEYWORDS = [
   'como funciona', 'o que é', 'quem é', 'me explica', 'dúvida sobre'
 ];
 
-// Extract transport-specific fields
+// Extract transport-specific fields - EXPANDED VOCABULARY
 function extractTransportFields(context: string): Record<string, any> {
   const fields: Record<string, any> = {};
   const today = new Date().toISOString().split('T')[0];
   
-  // Detect report_type
-  if (context.includes('atraso') || context.includes('atrasou') || context.includes('demora')) {
+  // Detect report_type - EXPANDED vocabulary for robust detection
+  if (context.includes('atraso') || context.includes('atrasou') || context.includes('demora') ||
+      context.includes('demorou') || context.includes('nao passou') || context.includes('não passou') ||
+      context.includes('esperando muito') || context.includes('nunca chega') || context.includes('atrasado')) {
     fields.report_type = 'atraso';
-  } else if (context.includes('lotad') || context.includes('chei') || context.includes('superlotad')) {
+  } else if (context.includes('lotad') || context.includes('chei') || context.includes('superlotad') ||
+             context.includes('apertado') || context.includes('nao coube') || context.includes('não coube') ||
+             context.includes('sem espaco') || context.includes('sem espaço') || context.includes('lotação')) {
     fields.report_type = 'lotacao';
-  } else if (context.includes('segurança') || context.includes('assalto') || context.includes('roubo')) {
+  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') || 
+             context.includes('roubo') || context.includes('assedio') || context.includes('assédio') ||
+             context.includes('perigo') || context.includes('medo') || context.includes('ameaca') || context.includes('ameaça') ||
+             context.includes('briga') || context.includes('agressao') || context.includes('agressão')) {
     fields.report_type = 'seguranca';
-  } else if (context.includes('sujo') || context.includes('limpeza') || context.includes('fedendo')) {
+  } else if (context.includes('sujo') || context.includes('limpeza') || context.includes('fedendo') ||
+             context.includes('fedor') || context.includes('nojento') || context.includes('imundo') ||
+             context.includes('lixo') || context.includes('vomito') || context.includes('vômito')) {
     fields.report_type = 'limpeza';
-  } else if (context.includes('acessib') || context.includes('cadeirante') || context.includes('elevador')) {
+  } else if (context.includes('acessib') || context.includes('cadeirante') || context.includes('elevador') ||
+             context.includes('rampa') || context.includes('deficiente') || context.includes('muleta') ||
+             context.includes('pcd') || context.includes('mobilidade')) {
     fields.report_type = 'acessibilidade';
+  } else if (context.includes('motorista') || context.includes('cobrador') || context.includes('rude') ||
+             context.includes('grosso') || context.includes('mal educado') || context.includes('mal-educado') ||
+             context.includes('nao parou') || context.includes('não parou') || context.includes('conducao') ||
+             context.includes('condução') || context.includes('freada') || context.includes('direcao perigosa') ||
+             context.includes('direção perigosa')) {
+    fields.report_type = 'conducao';
   }
   
   // Detect line
@@ -994,6 +1011,61 @@ function accumulateFieldsFromHistory(
   
   // ========== TRANSPORT_REPORT SPECIFIC PARSING ==========
   if (collectionType === 'transport_report') {
+    // === CRITICAL: Extract transport fields from ALL user messages using extractTransportFields ===
+    // This ensures natural language responses like "atraso de ônibus" are properly parsed
+    for (const msg of messages) {
+      if (msg.role === 'user') {
+        const contentLower = msg.content.toLowerCase();
+        const contextFields = extractTransportFields(contentLower);
+        
+        // Merge extracted fields (only if not already set by more explicit parsing)
+        for (const [key, value] of Object.entries(contextFields)) {
+          if (!accumulated[key]) {
+            accumulated[key] = value;
+            console.log(`[accumulateFields] Extracted ${key} from transport natural language:`, value);
+          }
+        }
+      }
+    }
+    
+    // === Detect description from transport-related user messages ===
+    if (!accumulated.description) {
+      const transportKeywords = ['atraso', 'atrasado', 'lotado', 'lotacao', 'lotação', 'seguranca', 'segurança', 
+        'limpeza', 'acessibilidade', 'demora', 'cheio', 'sujo', 'assedio', 'assédio', 'onibus', 'ônibus', 
+        'metro', 'metrô', 'trem', 'conducao', 'condução', 'motorista', 'cobrador', 'briga', 'roubo'];
+      
+      for (const msg of messages) {
+        if (msg.role === 'user') {
+          const contentLower = msg.content.toLowerCase();
+          const hasKeyword = transportKeywords.some(kw => contentLower.includes(kw));
+          
+          // Skip structured messages (picker selections)
+          const isStructured = 
+            contentLower.includes('linha selecionada:') ||
+            contentLower.includes('data:') ||
+            contentLower.includes('horário:') ||
+            contentLower.includes('horario:');
+          
+          // Skip generic intent messages
+          const isGeneric = isGenericIntentText(msg.content);
+          
+          // FLEXIBLE: Accept >= 10 chars with keyword OR >= 20 chars without (but not generic)
+          const isValidDescription = !isGeneric && !isStructured && 
+            ((msg.content.length >= 10 && hasKeyword) || msg.content.length >= 20);
+          
+          if (isValidDescription) {
+            accumulated.description = msg.content.trim();
+            console.log('[accumulateFields] Auto-detected transport description:', {
+              length: msg.content.length,
+              hasKeyword,
+              preview: msg.content.substring(0, 50)
+            });
+            break;
+          }
+        }
+      }
+    }
+    
     // Parse structured messages from inline pickers
     for (const msg of messages) {
       if (msg.role !== 'user') continue;
@@ -3568,15 +3640,35 @@ serve(async (req) => {
       }
       
       if (collectionType === 'transport_report') {
-        // 1. Description first (captures the problem)
-        const descLen = (fields.description || '').length;
-        if (descLen < 20) {
+        // 1. Description first (captures the problem) - FLEXIBLE threshold
+        const description = fields.description || '';
+        const isGeneric = isGenericIntentText(description);
+        const descLen = isGeneric ? 0 : description.length;
+        
+        // Transport keywords for flexible threshold
+        const transportKeywords = ['atraso', 'atrasado', 'lotado', 'lotacao', 'seguranca', 'limpeza', 
+          'acessibilidade', 'demora', 'cheio', 'sujo', 'assedio', 'onibus', 'metro', 'trem', 'conducao', 'motorista'];
+        const hasKeyword = transportKeywords.some(kw => description.toLowerCase().includes(kw));
+        
+        // FLEXIBLE: Accept >= 10 chars with keyword OR >= 20 chars without
+        const isValidDescription = (descLen >= 10 && hasKeyword) || descLen >= 20;
+        
+        if (!isValidDescription) {
           return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
         }
         
-        // 2. Report type (can be inferred from description, but ask if not clear)
+        // 2. Report type - TRY AUTO-INFERENCE first before asking
         if (!fields.report_type || fields.report_type === 'outro') {
-          return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
+          // Try to infer from description
+          const inferredFields = extractTransportFields(description.toLowerCase());
+          if (inferredFields.report_type) {
+            fields.report_type = inferredFields.report_type;
+            console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
+            // Don't return - continue to next field check
+          } else {
+            // Could not infer - need to ask
+            return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
+          }
         }
         
         // 3. Line/station
