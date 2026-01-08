@@ -8,7 +8,7 @@ import PageHeader from "@/components/ui/page-header";
 import AvatarUpload from "@/components/profile/AvatarUpload";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
-import { User, MapPin, BarChart3, ChevronRight, Heart, Settings } from "lucide-react";
+import { User, MapPin, BarChart3, ChevronRight, Heart, Settings, Accessibility } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -62,6 +62,13 @@ const Profile = () => {
       path: '/perfil/dados-pessoais',
     },
     {
+      id: 'address',
+      title: 'Endereço',
+      description: 'CEP, rua e complemento',
+      icon: MapPin,
+      path: '/perfil/endereco',
+    },
+    {
       id: 'interests',
       title: 'Interesses',
       description: 'Áreas de interesse e preferências',
@@ -76,11 +83,11 @@ const Profile = () => {
       path: '/perfil/dados-demograficos',
     },
     {
-      id: 'address',
-      title: 'Endereço',
-      description: 'CEP, rua e complemento',
-      icon: MapPin,
-      path: '/perfil/endereco',
+      id: 'accessibility',
+      title: 'Acessibilidade',
+      description: 'Fonte, contraste e leitura',
+      icon: Accessibility,
+      path: '/configuracoes/acessibilidade',
     },
     {
       id: 'preferences',

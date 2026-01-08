@@ -12,8 +12,6 @@ import {
   Lock,
   User,
   MessageSquare,
-  Accessibility,
-  Settings,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -64,18 +62,6 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       label: "Conversas", 
       icon: MessageSquare,
       route: "/conversas"
-    },
-    { 
-      id: 3, 
-      label: "Acessibilidade", 
-      icon: Accessibility,
-      route: "/configuracoes/acessibilidade"
-    },
-    { 
-      id: 4, 
-      label: "Preferências", 
-      icon: Settings,
-      route: "/perfil/preferencias"
     },
   ];
 
