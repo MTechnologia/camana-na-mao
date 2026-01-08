@@ -392,8 +392,60 @@ function hasTransportKeywords(text: string): boolean {
 }
 
 // Heuristic auto-classification of urban category from description
-function autoClassifyCategory(description: string): { category: string | null; confidence: number } {
+// Returns category, confidence, AND a suggested intuitive label for subcategory
+function autoClassifyCategory(description: string): { 
+  category: string | null; 
+  confidence: number;
+  suggestedLabel: string | null;
+} {
   const desc = description.toLowerCase();
+  
+  // Label mapping: more specific patterns → intuitive labels
+  const labelPatterns: Array<{ pattern: RegExp; label: string }> = [
+    // Poluição sonora - labels intuitivos
+    { pattern: /som\s*alto|m[úu]sica\s*alta|musica\s*alta/, label: 'Perturbação Sonora' },
+    { pattern: /bar\s*(barulho|barulhento|som|muito)?|balada|danceteria|boate|casa\s*noturna/, label: 'Estabelecimento Barulhento' },
+    { pattern: /festa|evento|show/, label: 'Evento com Barulho' },
+    { pattern: /vizinho\s*(barulho|som|incomoda)?/, label: 'Perturbação por Vizinho' },
+    { pattern: /obra\s*(barulho|cedo|madrugada|domingo)?/, label: 'Barulho de Obra' },
+    { pattern: /buzina|alarme/, label: 'Poluição Sonora' },
+    { pattern: /latido|cachorro|cao|cães/, label: 'Barulho de Animais' },
+    { pattern: /fuma[çc]a|queimada|fumacca/, label: 'Poluição Atmosférica' },
+    { pattern: /contamina[çc][ãa]o|qu[ií]mico|t[óo]xico/, label: 'Contaminação Ambiental' },
+    
+    // Outro - labels intuitivos para casos não classificados
+    { pattern: /carro\s*abandonad|ve[íi]culo\s*abandonad|moto\s*abandonad/, label: 'Veículo Abandonado' },
+    { pattern: /invas[ãa]o|ocupação\s*irregular|invadid/, label: 'Ocupação Irregular' },
+    { pattern: /obra\s*(irregular|sem\s*alvara|ilegal)/, label: 'Obra Irregular' },
+    { pattern: /com[ée]rcio\s*irregular|ambulante|camelô/, label: 'Comércio Irregular' },
+    { pattern: /ponto\s*de\s*drogas|tr[áa]fico/, label: 'Atividade Ilícita' },
+    { pattern: /morador\s*de\s*rua|pessoa\s*em\s*situa[çc][ãa]o/, label: 'Questão Social' },
+    { pattern: /seguran[çc]a|perigoso|assalto|roubo/, label: 'Questão de Segurança' },
+    
+    // Categorias padrão - labels descritivos
+    { pattern: /poste\s*apagad|sem\s*luz|luz\s*apagad/, label: 'Poste Apagado' },
+    { pattern: /l[âa]mpada\s*(queimad|apagad)/, label: 'Lâmpada Queimada' },
+    { pattern: /buraco\s*(grande|enorme|perigoso)?/, label: 'Buraco na Via' },
+    { pattern: /asfalto\s*(danificad|quebrad)/, label: 'Asfalto Danificado' },
+    { pattern: /sem[áa]foro\s*(quebrad|apagad|com\s*defeito)?/, label: 'Semáforo com Defeito' },
+    { pattern: /bueiro\s*(entupid|transbordando)?/, label: 'Bueiro Entupido' },
+    { pattern: /alagamento|alagad[oa]|enchente/, label: 'Alagamento' },
+    { pattern: /vazamento\s*(de\s*[áa]gua)?/, label: 'Vazamento de Água' },
+    { pattern: /esgoto\s*(aberto|vazando)?/, label: 'Problema de Esgoto' },
+    { pattern: /[áa]rvore\s*(caindo|ca[íi]da|risco)?/, label: 'Árvore com Risco' },
+    { pattern: /mato\s*alto|vegeta[çc][ãa]o/, label: 'Mato Alto' },
+    { pattern: /lixo\s*(acumulad|na\s*rua)?/, label: 'Lixo Acumulado' },
+    { pattern: /entulho/, label: 'Entulho na Via' },
+  ];
+  
+  // Find the best matching label
+  let suggestedLabel: string | null = null;
+  for (const lp of labelPatterns) {
+    if (lp.pattern.test(desc)) {
+      suggestedLabel = lp.label;
+      break;
+    }
+  }
   
   const patterns: Array<{ keywords: RegExp; category: string; weight: number }> = [
     // Esgoto / Alagamento / Vazamento (HIGHEST priority for water-related)
@@ -423,11 +475,11 @@ function autoClassifyCategory(description: string): { category: string | null; c
     // Poluição - EXPANDED for noise/sound issues
     { keywords: /fuma[çc]a|polui[çc][ãa]o|barulho|ru[íi]do|contamina[çc][ãa]o|som\s*(alto)?|m[úu]sica\s*(alta)?|perturbação|perturbacao|festa|balada|bar\s*(barulho|barulhento)?|vizinho|obra\s*(barulho|cedo)?|buzina|alarme|latido|bagun[çc]a/i, category: 'poluicao', weight: 6 },
     
-    // FALLBACK: Catch-all for unrecognized issues
-    { keywords: /problema|situa[çc][ãa]o|reclamar|reclama[çc][ãa]o|denunciar|den[úu]ncia|irregular|ilegal|abandonad|invad|invaz|invasão/i, category: 'outro', weight: 2 },
-    
     // Feedback Câmara
     { keywords: /vereador|c[âa]mara\s*municipal|legislativo|projeto\s*de\s*lei/i, category: 'feedback_camara', weight: 5 },
+    
+    // FALLBACK: Catch-all for unrecognized issues - LOW priority
+    { keywords: /problema|situa[çc][ãa]o|reclamar|reclama[çc][ãa]o|denunciar|den[úu]ncia|irregular|ilegal|abandonad|invad|invaz|invasão/i, category: 'outro', weight: 2 },
   ];
   
   let bestMatch: { category: string; score: number } | null = null;
@@ -445,10 +497,36 @@ function autoClassifyCategory(description: string): { category: string | null; c
   if (bestMatch) {
     // Confidence based on score (max is 10)
     const confidence = Math.min(bestMatch.score / 10, 1);
-    return { category: bestMatch.category, confidence };
+    return { category: bestMatch.category, confidence, suggestedLabel };
   }
   
-  return { category: null, confidence: 0 };
+  return { category: null, confidence: 0, suggestedLabel };
+}
+
+// Generate intuitive label from description when no pattern matches
+function generateLabelFromDescription(description: string): string {
+  if (!description || description.trim().length === 0) {
+    return 'Problema Urbano';
+  }
+  
+  // Capitalize and clean the description to create a label
+  const words = description
+    .replace(/[^\w\sáàâãéèêíìîóòôõúùûçñ]/gi, ' ') // Keep accented chars
+    .split(/\s+/)
+    .filter(w => w.length > 2) // Filter out short words
+    .slice(0, 4); // Take first 4 significant words
+  
+  if (words.length === 0) {
+    return 'Problema Urbano';
+  }
+  
+  // Capitalize each word
+  const label = words
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+  
+  // Limit to 50 chars
+  return label.substring(0, 50) || 'Problema Urbano';
 }
 
 // Auto-infer risk level from description
@@ -1982,14 +2060,18 @@ const tools = [
     type: "function",
     function: {
       name: "classify_report_category",
-      description: "Classifica a categoria do relato urbano. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'poste apagado', 'buraco na rua', 'bueiro entupido'). NÃO CHAMAR para mensagens genéricas como 'quero relatar um problema' ou 'problema na cidade'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções.",
+      description: "Classifica a categoria do relato urbano. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'poste apagado', 'buraco na rua', 'bueiro entupido'). NÃO CHAMAR para mensagens genéricas como 'quero relatar um problema' ou 'problema na cidade'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
       parameters: {
         type: "object",
         properties: {
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria classificada: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento, alagamento), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador), outro"
+            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento, alagamento), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
+          },
+          subcategory_label: {
+            type: "string",
+            description: "Label INTUITIVO em português que descreve o problema específico. SEMPRE gerar. Exemplos: 'Perturbação Sonora' (som alto de bar), 'Barulho de Obra' (obra fora de horário), 'Veículo Abandonado' (carro parado há meses), 'Estabelecimento Barulhento' (bar/balada), 'Poste Apagado', 'Bueiro Entupido', etc."
           },
           confidence: {
             type: "number",
@@ -2011,7 +2093,7 @@ const tools = [
             description: "Quando confiança < 80%, listar 2-3 categorias alternativas mais prováveis"
           }
         },
-        required: ["category", "confidence", "reasoning", "user_confirmed"]
+        required: ["category", "subcategory_label", "confidence", "reasoning", "user_confirmed"]
       }
     }
   },
@@ -2479,18 +2561,41 @@ AVALIAÇÃO:
 3ª: "[FIELD_REQUEST:rating_stars]Nota 1-5?[RATING_PICKER]"
 4ª: "[FIELD_REQUEST:rating_text]Como foi?"
 
-=== CATEGORIAS URBANAS ===
-iluminacao | via_publica | calcada | lixo | esgoto | area_verde | higiene_urbana | animais | poluicao | feedback_camara | outro
+=== CATEGORIAS URBANAS COM SUBCATEGORIAS ===
+
+CATEGORIA PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
+
+| Categoria | Quando Usar | Exemplo de subcategory_label |
+|-----------|-------------|------------------------------|
+| iluminacao | poste, luz | "Poste Apagado", "Lâmpada Queimada" |
+| via_publica | buraco, asfalto, semáforo | "Buraco na Via", "Semáforo com Defeito" |
+| calcada | passeio, acessibilidade | "Calçada Quebrada" |
+| lixo | entulho, coleta | "Lixo Acumulado", "Entulho na Via" |
+| esgoto | bueiro, vazamento, alagamento | "Bueiro Entupido", "Alagamento", "Vazamento" |
+| area_verde | praça, árvore, mato | "Árvore com Risco", "Mato Alto" |
+| higiene_urbana | fedor, sujeira | "Mau Cheiro", "Sujeira na Via" |
+| animais | bicho morto, rato, infestação | "Animal Morto", "Infestação de Ratos" |
+| poluicao | fumaça, BARULHO, som alto, perturbação | "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra" |
+| feedback_camara | vereador, câmara | "Feedback sobre Vereador" |
+| outro | QUALQUER coisa que não encaixe acima | "Veículo Abandonado", "Ocupação Irregular", "Obra Irregular" |
+
+REGRA DE OURO DO SUBCATEGORY_LABEL:
+- SEMPRE gerar label intuitivo em português
+- Usar palavras do cidadão quando possível
+- Se 'poluicao' + barulho → subcategory_label = "Perturbação Sonora" ou "Estabelecimento Barulhento"
+- Se 'outro' → gerar label a partir da descrição (ex: "Bar com Som Alto" → "Perturbação por Estabelecimento")
 
 QUANDO USAR 'outro':
 - Problema não se encaixa em nenhuma categoria acima
 - Situação complexa ou única (ex: carro abandonado, invasão, obra irregular)
 - NUNCA DEIXAR CIDADÃO SEM ATENDIMENTO - use 'outro' como fallback seguro
+- SEMPRE preservar 100% do relato original na descrição
 
 POLUIÇÃO SONORA (categoria: poluicao):
 - Som alto, música, festa, balada, bar barulhento
 - Vizinho fazendo barulho, obra fora de horário
 - Alarmes, buzinas, latidos excessivos
+- subcategory_label: "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra", etc.
 
 === CLASSIFICAÇÃO SEMÂNTICA TRANSPORTE vs URBANO ===
 
@@ -4092,40 +4197,57 @@ serve(async (req) => {
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         }
         
-        // 2. CATEGORY - try auto-classification, then ask if uncertain, fallback to 'outro'
+        // 2. CATEGORY + SUBCATEGORY - try auto-classification with intuitive label, fallback to 'outro'
         if (!fields.category) {
           // Try to auto-classify from description
           const autoClass = autoClassifyCategory(fields.description || '');
           
           if (autoClass.category && autoClass.confidence >= 0.8) {
-            // High confidence - auto-set and don't ask
+            // High confidence - auto-set category AND subcategory label
             fields.category = autoClass.category;
+            fields.subcategory = autoClass.suggestedLabel || generateLabelFromDescription(fields.description || '');
             fields._auto_classified = true;
-            console.log('[getNextMissingField] Auto-classified category:', autoClass.category, 'confidence:', autoClass.confidence);
+            console.log('[getNextMissingField] Auto-classified:', autoClass.category, 'label:', fields.subcategory, 'confidence:', autoClass.confidence);
           } else if (autoClass.category && autoClass.confidence >= 0.5) {
-            // Medium confidence - ask for confirmation with suggestion
+            // Medium confidence - ask for confirmation with suggestion, but prepare subcategory
             const categoryLabels: Record<string, string> = {
               iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
               lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
               higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição', outro: 'outro'
             };
             const suggestion = categoryLabels[autoClass.category] || autoClass.category;
+            // Pre-set subcategory for when user confirms
+            fields._pending_subcategory = autoClass.suggestedLabel || generateLabelFromDescription(fields.description || '');
             return { field: 'category', picker: null, prompt: `Parece ser um problema de **${suggestion}**. Confirma? (ou me diz outra categoria: iluminação, buraco, esgoto, lixo...)` };
           } else {
             // Low confidence - check if we already asked once
             const alreadyAskedCategory = fields._asked_category === true;
             
             if (alreadyAskedCategory) {
-              // FALLBACK: Already asked and still no match - use 'outro' to avoid loop
+              // FALLBACK: Already asked and still no match - use 'outro' with generated label
               fields.category = 'outro';
+              fields.subcategory = generateLabelFromDescription(fields.description || '');
               fields._fallback_category = true;
-              console.log('[getNextMissingField] Fallback to category=outro (already asked once)');
+              console.log('[getNextMissingField] Fallback to outro with label:', fields.subcategory);
             } else {
               // First time - ask with expanded options including "outro"
               fields._asked_category = true;
               return { field: 'category', picker: null, prompt: 'Qual **tipo de problema** é esse? (iluminação, buraco, esgoto, lixo, barulho, ou descreva o problema)' };
             }
           }
+        }
+        
+        // 2b. Ensure subcategory is set when category was just confirmed
+        if (fields.category && !fields.subcategory) {
+          if (fields._pending_subcategory) {
+            fields.subcategory = fields._pending_subcategory;
+            delete fields._pending_subcategory;
+          } else {
+            // Generate from description if missing
+            const autoClass = autoClassifyCategory(fields.description || '');
+            fields.subcategory = autoClass.suggestedLabel || generateLabelFromDescription(fields.description || '');
+          }
+          console.log('[getNextMissingField] Set subcategory:', fields.subcategory);
         }
         
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
