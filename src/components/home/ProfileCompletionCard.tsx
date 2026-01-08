@@ -30,21 +30,21 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
   return (
     <button
       onClick={() => nextStep && navigate(nextStep.path)}
-      className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary/10 border border-secondary/20 hover:bg-secondary/15 transition-colors text-left"
+      className="w-full flex items-center gap-2.5 p-3 rounded-lg bg-secondary/10 border border-secondary/20 hover:bg-secondary/15 transition-colors text-left"
     >
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center">
-        <UserCheck className="h-5 w-5 text-secondary" />
+      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center">
+        <UserCheck className="h-4 w-4 text-secondary" />
       </div>
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-medium text-foreground">Complete seu perfil</span>
-          <span className="text-sm font-bold text-secondary">{status.percentage}%</span>
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-xs font-medium text-foreground">Complete seu perfil</span>
+          <span className="text-xs font-bold text-secondary">{status.percentage}%</span>
         </div>
-        <Progress value={status.percentage} className="h-1.5" />
+        <Progress value={status.percentage} className="h-1" />
       </div>
       
-      <ArrowRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+      <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
     </button>
   );
 };
