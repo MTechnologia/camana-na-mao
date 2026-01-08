@@ -1114,6 +1114,7 @@ export const useUnifiedAIChat = (
       service_rating: [
         { key: 'service_type', required: true },
         { key: 'service_name', required: true },
+        { key: 'service_address_confirmed', required: true },
         { key: 'rating_stars', required: true },
         { key: 'rating_text', required: true },
       ]
@@ -1221,11 +1222,25 @@ export const useUnifiedAIChat = (
   }, [sendMessage]);
 
   // Handle service selection from inline picker
-  const handleServiceSelected = useCallback((name: string, neighborhood: string, serviceId?: string) => {
-    const newFields: Record<string, unknown> = { service_name: name };
+  const handleServiceSelected = useCallback((name: string, neighborhood: string, address: string, serviceId?: string) => {
+    const newFields: Record<string, unknown> = { 
+      service_name: name,
+      service_address: address || ''
+    };
     if (neighborhood) newFields.service_neighborhood = neighborhood;
     setCollectedFields(prev => ({ ...prev, ...newFields }));
-    sendMessage(`Serviço: ${name}${neighborhood ? ` - ${neighborhood}` : ''}`);
+    // Include address in the message so the bot can ask for confirmation
+    sendMessage(`Serviço: ${name}${neighborhood ? ` - ${neighborhood}` : ''}\nEndereço: ${address || 'Não informado'}`);
+  }, [sendMessage]);
+
+  // Handle service address confirmation
+  const handleServiceAddressConfirmed = useCallback((confirmed: boolean) => {
+    if (confirmed) {
+      setCollectedFields(prev => ({ ...prev, service_address_confirmed: true }));
+      sendMessage('Sim, o endereço está correto');
+    } else {
+      sendMessage('Não, preciso corrigir o endereço');
+    }
   }, [sendMessage]);
 
   return {
@@ -1249,5 +1264,6 @@ export const useUnifiedAIChat = (
     handleRatingSelected,
     handleServiceTypeSelected,
     handleServiceSelected,
+    handleServiceAddressConfirmed,
   };
 };

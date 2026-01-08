@@ -1066,14 +1066,29 @@ function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed service_type from picker:', accumulated.service_type);
       }
       
-      // Parse "Serviço: UBS Bela Vista - Centro" format from InlineServicePicker
-      const serviceNameMatch = content.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?$/i);
+      // Parse "Serviço: UBS Bela Vista - Centro\nEndereço: Rua X..." format from InlineServicePicker
+      const serviceNameMatch = content.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?(?:\n|$)/i);
       if (serviceNameMatch && !accumulated.service_name) {
         accumulated.service_name = serviceNameMatch[1].trim();
         if (serviceNameMatch[2]) {
           accumulated.service_neighborhood = serviceNameMatch[2].trim();
         }
         console.log('[accumulateFields] Parsed service_name from picker:', accumulated.service_name);
+      }
+      
+      // Parse "Endereço: ..." format from InlineServicePicker
+      const addressMatch = content.match(/endereço:\s*(.+?)$/im);
+      if (addressMatch && !accumulated.service_address) {
+        accumulated.service_address = addressMatch[1].trim();
+        console.log('[accumulateFields] Parsed service_address from picker:', accumulated.service_address);
+      }
+      
+      // Parse address confirmation responses
+      if ((contentLower.includes('sim') && contentLower.includes('correto')) ||
+          contentLower === 'sim, o endereço está correto' ||
+          contentLower === 'sim, o endereco esta correto') {
+        accumulated.service_address_confirmed = true;
+        console.log('[accumulateFields] Service address confirmed by user');
       }
       
       // Parse "Nota: X estrelas" format from InlineRatingPicker
@@ -3414,7 +3429,7 @@ async function executeTool(
         if (!args.service_type) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo)'
+            message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
           };
         }
         
@@ -3422,11 +3437,20 @@ async function executeTool(
         if (!args.service_name || args.service_name.trim().length < 3) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII)'
+            message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
           };
         }
         
-        // 3. Validate rating_stars (CRITICAL: must be 1-5, never 0)
+        // 3. Validate service_address_confirmed (NEW STEP)
+        if (!args.service_address_confirmed) {
+          const address = args.service_address || accumulatedFields?.service_address || 'Endereço não informado';
+          return {
+            success: false,
+            message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`
+          };
+        }
+        
+        // 4. Validate rating_stars (CRITICAL: must be 1-5, never 0)
         const stars = args.rating_stars;
         if (!stars || stars < 1 || stars > 5) {
           return {
@@ -3435,7 +3459,7 @@ async function executeTool(
           };
         }
         
-        // 4. Validate rating_text
+        // 5. Validate rating_text
         if (!args.rating_text || args.rating_text.trim().length < 10) {
           return {
             success: false,
