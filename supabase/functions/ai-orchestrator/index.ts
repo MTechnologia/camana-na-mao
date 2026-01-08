@@ -18,6 +18,114 @@ const COMMISSION_THEMES: Record<string, string[]> = {
   'assistencia_social': ['social', 'vulnerabilidade', 'morador_rua', 'fome', 'abrigo'],
 };
 
+// ========== TEXT NORMALIZATION & FUZZY MATCHING UTILITIES ==========
+
+// Normalize text: remove accents, lowercase, collapse spaces
+function normalizeForMatching(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')        // Replace punctuation with spaces
+    .replace(/\s+/g, ' ')             // Collapse multiple spaces
+    .trim();
+}
+
+// Simple Levenshtein distance for fuzzy matching
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b[i - 1] === a[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  
+  return matrix[b.length][a.length];
+}
+
+// Transport type keywords for fuzzy matching
+const TRANSPORT_TYPE_KEYWORDS: Record<string, string[]> = {
+  'atraso': ['atraso', 'atrasado', 'atrasou', 'demora', 'demorou', 'esperando', 'espera', 'nao passou', 'nunca chega'],
+  'lotacao': ['lotado', 'lotacao', 'cheio', 'superlotado', 'apertado', 'sem espaco', 'nao coube'],
+  'seguranca': ['seguranca', 'assalto', 'roubo', 'assedio', 'perigo', 'medo', 'ameaca', 'briga', 'agressao'],
+  'limpeza': ['sujo', 'sujeira', 'limpeza', 'fedendo', 'fedor', 'nojento', 'imundo', 'lixo', 'vomito'],
+  'acessibilidade': ['acessibilidade', 'cadeirante', 'elevador', 'rampa', 'deficiente', 'muleta', 'pcd', 'mobilidade'],
+  'conducao': ['motorista', 'cobrador', 'rude', 'grosso', 'mal educado', 'nao parou', 'conducao', 'freada', 'perigoso'],
+};
+
+// Fuzzy match a token against a list of keywords (returns true if match found)
+function fuzzyMatchKeyword(token: string, keywords: string[], maxDistance: number = 1): boolean {
+  const normalizedToken = normalizeForMatching(token);
+  if (normalizedToken.length < 3) return false; // Too short for fuzzy
+  
+  for (const kw of keywords) {
+    const normalizedKw = normalizeForMatching(kw);
+    
+    // Exact match after normalization
+    if (normalizedToken === normalizedKw) return true;
+    
+    // Contains match (for multi-word keywords)
+    if (normalizedToken.includes(normalizedKw) || normalizedKw.includes(normalizedToken)) return true;
+    
+    // Fuzzy match with Levenshtein distance
+    // Allow more distance for longer words
+    const allowedDist = normalizedKw.length > 6 ? 2 : maxDistance;
+    if (levenshteinDistance(normalizedToken, normalizedKw) <= allowedDist) {
+      console.log(`[fuzzyMatch] Matched "${normalizedToken}" to "${normalizedKw}" (dist: ${levenshteinDistance(normalizedToken, normalizedKw)})`);
+      return true;
+    }
+  }
+  return false;
+}
+
+// Infer transport report_type from text using normalized + fuzzy matching
+function inferTransportTypeFromText(text: string): string | null {
+  const normalized = normalizeForMatching(text);
+  const tokens = normalized.split(' ').filter(t => t.length >= 3);
+  
+  console.log('[inferTransportTypeFromText] Tokens:', tokens.slice(0, 10));
+  
+  for (const [type, keywords] of Object.entries(TRANSPORT_TYPE_KEYWORDS)) {
+    // First: check if any keyword is contained in the normalized text
+    for (const kw of keywords) {
+      const normalizedKw = normalizeForMatching(kw);
+      if (normalized.includes(normalizedKw)) {
+        console.log(`[inferTransportTypeFromText] Direct match: "${normalizedKw}" -> ${type}`);
+        return type;
+      }
+    }
+    
+    // Second: fuzzy match each token
+    for (const token of tokens) {
+      if (fuzzyMatchKeyword(token, keywords)) {
+        console.log(`[inferTransportTypeFromText] Fuzzy match: "${token}" -> ${type}`);
+        return type;
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Intent detection for collection progress tracking with scoring system
 type CollectionIntent = {
   type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history';
@@ -3706,15 +3814,23 @@ serve(async (req) => {
           return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
         }
         
-        // 2. Report type - TRY AUTO-INFERENCE from description
+        // 2. Report type - TRY AUTO-INFERENCE from description using FUZZY MATCHING
         if (!fields.report_type || fields.report_type === 'outro') {
-          const inferredFields = extractTransportFields(description.toLowerCase());
-          if (inferredFields.report_type) {
-            fields.report_type = inferredFields.report_type;
-            console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
+          // First try the new fuzzy inference
+          const fuzzyInferredType = inferTransportTypeFromText(description);
+          if (fuzzyInferredType) {
+            fields.report_type = fuzzyInferredType;
+            console.log('[getNextMissingField] Fuzzy-inferred transport report_type:', fields.report_type);
           } else {
-            // Could not infer - need to ask
-            return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
+            // Fallback to extractTransportFields for exact matching
+            const inferredFields = extractTransportFields(description.toLowerCase());
+            if (inferredFields.report_type) {
+              fields.report_type = inferredFields.report_type;
+              console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
+            } else {
+              // Could not infer - need to ask
+              return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
+            }
           }
         }
         
