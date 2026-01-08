@@ -10,7 +10,6 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   // Citizen pages
   "/audiencias": () => import("@/pages/Audiencias"),
   "/busca": () => import("@/pages/Search"),
-  "/favoritos": () => import("@/pages/FavoritesPage"),
   "/conversas": () => import("@/pages/ConversationsPage"),
   "/servicos-proximos": () => import("@/pages/NearbyServicesPage"),
   "/transporte": () => import("@/pages/TransportReportPage"),

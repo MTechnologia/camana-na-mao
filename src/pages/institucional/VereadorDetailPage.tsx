@@ -1,18 +1,16 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Heart, Share2, Building2, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Share2, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { vereadores } from "@/data/vereadores";
-import { useFavorites } from "@/contexts/FavoritesContext";
 import { toast } from "sonner";
 
 const VereadorDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { toggleFavorite, isFavorited } = useFavorites();
 
   const vereador = vereadores.find((v) => v.id === id);
 
@@ -46,8 +44,6 @@ const VereadorDetailPage = () => {
     }
   };
 
-  const favoriteId = `vereador-${vereador.id}`;
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -60,28 +56,6 @@ const VereadorDetailPage = () => {
             {vereador.name}
           </h1>
           <div className="flex gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                toggleFavorite({
-                  id: favoriteId,
-                  type: "vereador",
-                  title: vereador.name,
-                  subtitle: vereador.party,
-                  path: `/institucional/vereadores/${vereador.id}`,
-                  image: vereador.photo,
-                })
-              }
-            >
-              <Heart
-                className={`h-5 w-5 ${
-                  isFavorited(favoriteId)
-                    ? "fill-pink-500 text-pink-500"
-                    : ""
-                }`}
-              />
-            </Button>
             <Button variant="ghost" size="icon" onClick={handleShare}>
               <Share2 className="h-5 w-5" />
             </Button>

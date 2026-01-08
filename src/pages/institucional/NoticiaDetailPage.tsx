@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, Eye, Share2, Heart } from "lucide-react";
+import { Calendar, Clock, Eye, Share2 } from "lucide-react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import ContentArticle from "@/components/institucional/ContentArticle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getNoticiaById, categoryConfig } from "@/data/noticias";
@@ -40,10 +39,6 @@ const NoticiaDetailPage = () => {
       navigator.clipboard.writeText(window.location.href);
       toast.success("Link copiado para a área de transferência");
     }
-  };
-
-  const handleFavorite = () => {
-    toast.success("Notícia adicionada aos favoritos");
   };
 
   return (
@@ -117,14 +112,6 @@ const NoticiaDetailPage = () => {
 
         {/* Ações */}
         <div className="flex gap-3 pt-6 border-t border-border">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={handleFavorite}
-          >
-            <Heart className="w-4 h-4 mr-2" />
-            Favoritar
-          </Button>
           <Button
             variant="outline"
             className="flex-1"

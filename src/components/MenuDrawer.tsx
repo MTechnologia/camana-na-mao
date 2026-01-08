@@ -13,7 +13,6 @@ import {
   User,
   MessageSquare,
   Accessibility,
-  Heart,
   Settings,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -68,18 +67,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
     { 
       id: 3, 
-      label: "Favoritos", 
-      icon: Heart,
-      route: "/favoritos"
-    },
-    { 
-      id: 4, 
       label: "Acessibilidade", 
       icon: Accessibility,
       route: "/configuracoes/acessibilidade"
     },
     { 
-      id: 5, 
+      id: 4, 
       label: "Preferências", 
       icon: Settings,
       route: "/perfil/preferencias"

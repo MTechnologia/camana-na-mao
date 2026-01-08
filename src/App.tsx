@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AIJourneyProvider } from "@/contexts/AIJourneyContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MenuProvider } from "@/contexts/MenuContext";
-import { FavoritesProvider } from "@/contexts/FavoritesContext";
+
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import AppLayout from "@/components/layout/AppLayout";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
@@ -46,7 +46,7 @@ const InterestsPage = lazy(() => import("./pages/profile/InterestsPage"));
 // ============================================
 const ConversationsPage = lazy(() => import("./pages/ConversationsPage"));
 const SearchPage = lazy(() => import("./pages/Search"));
-const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
+
 
 // ============================================
 // AUDIENCIAS PAGES - Lazy loaded
@@ -140,7 +140,7 @@ const RoutePrefetcher = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (location.pathname === "/") {
-        prefetchMultiple(["/busca", "/favoritos", "/conversas"]);
+        prefetchMultiple(["/busca", "/conversas"]);
       } else if (location.pathname.startsWith("/transporte")) {
         prefetchMultiple(["/transporte/novo", "/transporte/meus-relatos"]);
       } else if (location.pathname.startsWith("/institucional")) {
@@ -203,7 +203,6 @@ const AppContent = () => {
           
           {/* Citizen routes */}
           <Route path="/conversas" element={<ConversationsPage />} />
-          <Route path="/favoritos" element={<FavoritesPage />} />
           <Route path="/audiencias" element={<Audiencias />} />
           <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
           <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
@@ -294,13 +293,11 @@ const App = () => (
         <AuthProvider>
           <MenuProvider>
             <OnboardingProvider>
-              <FavoritesProvider>
-                <AIJourneyProvider>
-                  <NotificationsProvider>
-                    <AppContent />
-                  </NotificationsProvider>
-                </AIJourneyProvider>
-              </FavoritesProvider>
+              <AIJourneyProvider>
+                <NotificationsProvider>
+                  <AppContent />
+                </NotificationsProvider>
+              </AIJourneyProvider>
             </OnboardingProvider>
           </MenuProvider>
         </AuthProvider>
