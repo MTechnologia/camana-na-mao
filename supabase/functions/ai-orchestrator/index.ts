@@ -707,13 +707,16 @@ function accumulateFieldsFromHistory(
   }
   
   // === CRITICAL: Detect description from user messages with FLEXIBLE threshold ===
+  // IMPORTANT: Filter out generic intent texts to prevent them from being captured as descriptions
   if (!accumulated.description) {
     const categoryKeywords = ['buraco', 'poste', 'lixo', 'bueiro', 'esgoto', 'luz', 'apagado', 
       'arvore', 'árvore', 'calcada', 'calçada', 'fedor', 'fedido', 'rato', 'bicho', 'entulho',
       'alagamento', 'vazamento', 'quebrado', 'lotado', 'atrasado', 'atraso', 'sujo', 'lotação',
       'demora', 'segurança', 'assédio'];
     
-    for (const msg of messages) {
+    // Process messages from newest to oldest to capture the LATEST valid description
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
       if (msg.role === 'user') {
         const contentLower = msg.content.toLowerCase();
         const hasKeyword = categoryKeywords.some(kw => contentLower.includes(kw));
@@ -726,14 +729,18 @@ function accumulateFieldsFromHistory(
           contentLower.includes('data:') ||
           /^\d+$/.test(msg.content.trim());
         
-        // FLEXIBLE: Accept >= 30 chars OR (>= 15 chars + keyword)
-        const isValidDescription = msg.content.length >= 30 || (msg.content.length >= 15 && hasKeyword);
+        // Skip generic intent messages that don't describe a specific problem
+        const isGeneric = isGenericIntentText(msg.content);
+        
+        // FLEXIBLE: Accept >= 30 chars OR (>= 15 chars + keyword), but NEVER generic intent
+        const isValidDescription = !isGeneric && (msg.content.length >= 30 || (msg.content.length >= 15 && hasKeyword));
         
         if (!isStructured && isValidDescription) {
           accumulated.description = msg.content.trim();
           console.log('[accumulateFields] Auto-detected description:', { 
             length: msg.content.length, 
-            hasKeyword 
+            hasKeyword,
+            isGeneric: false
           });
           break;
         }
@@ -1058,8 +1065,19 @@ function accumulateFieldsFromHistory(
     
     // === Detect description from transport-related user messages ===
     // VERY FLEXIBLE: Accept short but informative responses (>= 5 chars with keyword)
-    if (!accumulated.description) {
-      for (const msg of messages) {
+    // Allow overwriting if current description is generic (e.g., "Quero relatar um problema...")
+    const shouldDetectDescription = !accumulated.description || isGenericIntentText(accumulated.description);
+    
+    console.log('[accumulateFields] Transport description check:', {
+      currentDescription: accumulated.description?.substring(0, 40),
+      isCurrentGeneric: accumulated.description ? isGenericIntentText(accumulated.description) : 'N/A',
+      shouldDetectDescription
+    });
+    
+    if (shouldDetectDescription) {
+      // Process messages from newest to oldest to capture the LATEST valid description
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
         if (msg.role === 'user') {
           const contentLower = msg.content.toLowerCase();
           const hasKeyword = hasTransportKeywords(msg.content);
