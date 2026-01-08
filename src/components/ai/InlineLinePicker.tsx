@@ -75,9 +75,9 @@ export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
   }
 
   return (
-    <div className="mt-2 w-full min-w-[280px] max-w-[320px]">
+    <div className="mt-2 w-full max-w-xs">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-        <Bus className="h-3 w-3" />
+        <Bus className="h-3 w-3 flex-shrink-0" />
         <span>Qual linha ou estação?</span>
       </div>
       <div className="relative">

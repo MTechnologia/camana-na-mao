@@ -33,9 +33,9 @@ export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerPro
   }
 
   return (
-    <div className="mt-2 w-full">
+    <div className="mt-2 w-full max-w-xs">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-        <Building2 className="h-3 w-3" />
+        <Building2 className="h-3 w-3 flex-shrink-0" />
         <span>Qual tipo de serviço?</span>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -45,10 +45,10 @@ export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerPro
             variant="outline"
             size="sm"
             onClick={() => handleSelect(id, label)}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-1.5 flex-shrink-0"
           >
-            <Icon className={`h-4 w-4 ${color}`} />
-            <span>{label}</span>
+            <Icon className={`h-4 w-4 ${color} flex-shrink-0`} />
+            <span className="whitespace-nowrap">{label}</span>
           </Button>
         ))}
       </div>

@@ -364,9 +364,9 @@ const ChatMessageBubble = ({
         
         {/* Inline Address Autocomplete - shown when asking for CEP/address */}
         {(isAskingForAddress || hasAddressPicker) && !addressSelected && (
-          <div className="mt-2 w-full min-w-[280px] max-w-[320px]">
+          <div className="mt-2 w-full max-w-xs">
             <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" />
+              <MapPin className="h-3 w-3 flex-shrink-0" />
               <span>Buscar endereço:</span>
             </div>
             <AddressAutocomplete
@@ -417,24 +417,24 @@ const ChatMessageBubble = ({
         
         {/* Journey Switch Confirmation Buttons */}
         {journeySwitchMatch && isLastAssistantMessage && !decisionMade && (
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
             <Button
               variant="default"
               size="sm"
               onClick={() => handleJourneyDecision('switch')}
-              className="w-full justify-between"
+              className="w-full justify-between min-h-[40px]"
             >
-              <span>Sim, iniciar {JOURNEY_NAMES[journeySwitchMatch.newJourney] || journeySwitchMatch.newJourney}</span>
-              <ArrowRight className="h-4 w-4 ml-2" />
+              <span className="truncate flex-1 text-left">Sim, iniciar {JOURNEY_NAMES[journeySwitchMatch.newJourney] || journeySwitchMatch.newJourney}</span>
+              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleJourneyDecision('continue')}
-              className="w-full justify-between"
+              className="w-full justify-between min-h-[40px]"
             >
-              <span>Não, continuar {JOURNEY_NAMES[journeySwitchMatch.currentJourney] || journeySwitchMatch.currentJourney}</span>
-              <RotateCcw className="h-4 w-4 ml-2" />
+              <span className="truncate flex-1 text-left">Não, continuar {JOURNEY_NAMES[journeySwitchMatch.currentJourney] || journeySwitchMatch.currentJourney}</span>
+              <RotateCcw className="h-4 w-4 ml-2 flex-shrink-0" />
             </Button>
           </div>
         )}

@@ -105,8 +105,8 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
     >
-      <div className="flex items-center gap-3">
-        <div className="relative">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="relative flex-shrink-0">
           <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
             <IconComponent className="w-5 h-5 text-primary" />
           </div>
@@ -117,16 +117,16 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
           )}
         </div>
         
-        <div className="flex-1 text-left">
-          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+        <div className="flex-1 text-left min-w-0 overflow-hidden">
+          <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
             {priorityAction.title}
           </h3>
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-muted-foreground truncate">
             {priorityAction.subtitle}
           </p>
         </div>
         
-        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
       </div>
     </motion.button>
   );

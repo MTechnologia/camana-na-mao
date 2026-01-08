@@ -381,7 +381,7 @@ const DataCollectionTracker = ({
           </button>
 
           {/* Required Fields */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 overflow-x-auto">
             {requiredFields.map(field => (
               <FieldIndicator
                 key={field.key}
@@ -402,7 +402,7 @@ const DataCollectionTracker = ({
                   <span className="text-foreground">({collectedOptionalCount}/{optionalFields.length})</span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <div className="flex flex-wrap gap-x-3 gap-y-1 overflow-x-auto">
                 {optionalFields.map(field => (
                   <FieldIndicator
                     key={field.key}
