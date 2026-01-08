@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Lock, Eye, MessageSquare } from "lucide-react";
+import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, MessageCircle } from "lucide-react";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 
 interface PreferencesFormProps {
@@ -53,7 +54,6 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
 
   const loadPreferences = async () => {
     try {
-      // Load notification settings
       const { data: notifData, error: notifError } = await supabase
         .from('notification_settings')
         .select('*')
@@ -74,7 +74,6 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         });
       }
 
-      // Load privacy settings from user_preferences
       const { data: privData, error: privError } = await supabase
         .from('user_preferences')
         .select('profile_visibility, show_email, show_phone')
@@ -98,7 +97,6 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Save notification settings
       const { error: notifError } = await supabase
         .from('notification_settings')
         .upsert({
@@ -116,7 +114,6 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
 
       if (notifError) throw notifError;
 
-      // Save privacy settings
       const { error: privError } = await supabase
         .from('user_preferences')
         .upsert({
@@ -124,7 +121,6 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           profile_visibility: privacySettings.profile_visibility,
           show_email: privacySettings.show_email,
           show_phone: privacySettings.show_phone,
-          // Keep existing notification fields synced
           push_notifications: notificationSettings.push_enabled,
           email_notifications: notificationSettings.email_enabled,
           sms_notifications: notificationSettings.sms_enabled,
@@ -154,23 +150,30 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Notificações */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Bell className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Notificações</h3>
-        </div>
-
-        <div className="space-y-4 pl-7">
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="email-notif" className="text-base">
-                E-mail
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Receber notificações por e-mail
-              </p>
+    <div className="space-y-4">
+      {/* Card: Notificações */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Bell className="h-4 w-4 text-primary" />
+            Notificações
+          </CardTitle>
+          <CardDescription>
+            Escolha como deseja receber atualizações
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-3">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="email-notif" className="text-sm font-medium">
+                  E-mail
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Receber por e-mail
+                </p>
+              </div>
             </div>
             <Switch
               id="email-notif"
@@ -181,14 +184,17 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             />
           </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="push-notif" className="text-base">
-                Push
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Receber notificações push no navegador
-              </p>
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-3">
+              <Smartphone className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="push-notif" className="text-sm font-medium">
+                  Push
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Notificações no navegador
+                </p>
+              </div>
             </div>
             <Switch
               id="push-notif"
@@ -199,14 +205,17 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             />
           </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="sms-notif" className="text-base">
-                SMS
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Receber notificações por SMS
-              </p>
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-3">
+              <MessageCircle className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="sms-notif" className="text-sm font-medium">
+                  SMS
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Mensagens de texto
+                </p>
+              </div>
             </div>
             <Switch
               id="sms-notif"
@@ -217,14 +226,17 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             />
           </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="newsletter" className="text-base">
-                Newsletter
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Receber newsletter e atualizações
-              </p>
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-3">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="newsletter" className="text-sm font-medium">
+                  Newsletter
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Resumo semanal
+                </p>
+              </div>
             </div>
             <Switch
               id="newsletter"
@@ -235,13 +247,15 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             />
           </div>
 
-          {/* Categorias de Notificação */}
-          <div className="space-y-3 pt-2 border-t">
-            <Label className="text-base">Categorias de interesse</Label>
-            <p className="text-sm text-muted-foreground">
-              Selecione quais tipos de notificação deseja receber
-            </p>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Categorias */}
+          <div className="pt-3 border-t space-y-3">
+            <div>
+              <Label className="text-sm font-medium">Categorias</Label>
+              <p className="text-xs text-muted-foreground">
+                Tipos de notificação que deseja receber
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               {NOTIFICATION_CATEGORIES.map((category) => (
                 <div key={category.value} className="flex items-center space-x-2">
                   <Checkbox
@@ -251,7 +265,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                   />
                   <Label 
                     htmlFor={`cat-${category.value}`}
-                    className="text-sm font-normal cursor-pointer"
+                    className="text-xs font-normal cursor-pointer"
                   >
                     {category.label}
                   </Label>
@@ -259,19 +273,23 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               ))}
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Privacidade */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Lock className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Privacidade</h3>
-        </div>
-
-        <div className="space-y-4 pl-7">
+      {/* Card: Privacidade */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Lock className="h-4 w-4 text-primary" />
+            Privacidade
+          </CardTitle>
+          <CardDescription>
+            Controle a visibilidade do seu perfil
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="visibility" className="text-base">
+            <Label htmlFor="visibility" className="text-sm font-medium">
               Visibilidade do Perfil
             </Label>
             <Select
@@ -280,7 +298,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                 setPrivacySettings(prev => ({ ...prev, profile_visibility: value }))
               }
             >
-              <SelectTrigger id="visibility" className="h-12">
+              <SelectTrigger id="visibility" className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -304,19 +322,19 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                 </SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-sm text-muted-foreground">
-              Controle quem pode ver seu perfil
-            </p>
           </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="show-email" className="text-base">
-                Mostrar E-mail
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Exibir e-mail publicamente no perfil
-              </p>
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-3">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="show-email" className="text-sm font-medium">
+                  Mostrar E-mail
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Exibir no perfil público
+                </p>
+              </div>
             </div>
             <Switch
               id="show-email"
@@ -327,14 +345,17 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
             />
           </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="show-phone" className="text-base">
-                Mostrar Telefone
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Exibir telefone publicamente no perfil
-              </p>
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-3">
+              <Smartphone className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label htmlFor="show-phone" className="text-sm font-medium">
+                  Mostrar Telefone
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Exibir no perfil público
+                </p>
+              </div>
             </div>
             <Switch
               id="show-phone"
@@ -344,13 +365,13 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               }
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       <Button
         onClick={handleSave}
         disabled={loading}
-        className="w-full h-12 bg-foreground text-background hover:bg-foreground/90"
+        className="w-full h-11"
       >
         {loading ? "Salvando..." : "Salvar Preferências"}
       </Button>
