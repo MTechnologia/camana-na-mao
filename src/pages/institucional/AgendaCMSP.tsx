@@ -1,14 +1,13 @@
 import { useState, useMemo } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, MapPin, Users, Heart, Search, X, CalendarPlus } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Search, X, CalendarPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
-import { useFavorites } from "@/contexts/FavoritesContext";
 import {
   Sheet,
   SheetContent,
@@ -90,7 +89,6 @@ const typeFilterOptions = [
 ];
 
 const AgendaCMSP = () => {
-  const { toggleFavorite, isFavorited } = useFavorites();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<AgendaItem | null>(null);
@@ -232,29 +230,6 @@ const AgendaCMSP = () => {
                     onClick={() => setSelectedEvent(item)}
                     className="p-4 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
                   >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite({
-                          id: `agenda-${item.id}`,
-                          type: 'agenda',
-                          title: item.title,
-                          subtitle: typeInfo.label,
-                          path: `/institucional/agenda`,
-                          metadata: { date: item.date, time: item.time, location: item.location },
-                        });
-                      }}
-                      className="absolute top-3 right-3 p-2 hover:bg-muted/50 rounded-full transition-colors z-10"
-                      aria-label="Favoritar evento da agenda"
-                    >
-                      <Heart
-                        className={`h-5 w-5 ${
-                          isFavorited(`agenda-${item.id}`)
-                            ? "fill-pink-500 text-pink-500"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                    </button>
                     <div className="space-y-3">
                       <Badge
                         variant="outline"
@@ -384,27 +359,6 @@ const AgendaCMSP = () => {
                 >
                   <CalendarPlus className="h-4 w-4 mr-2" />
                   Adicionar ao Calendário
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    toggleFavorite({
-                      id: `agenda-${selectedEvent.id}`,
-                      type: 'agenda',
-                      title: selectedEvent.title,
-                      subtitle: typeLabels[selectedEvent.type].label,
-                      path: `/institucional/agenda`,
-                      metadata: { date: selectedEvent.date, time: selectedEvent.time, location: selectedEvent.location },
-                    });
-                  }}
-                >
-                  <Heart
-                    className={`h-4 w-4 ${
-                      isFavorited(`agenda-${selectedEvent.id}`)
-                        ? "fill-pink-500 text-pink-500"
-                        : ""
-                    }`}
-                  />
                 </Button>
               </div>
             </>

@@ -36,7 +36,6 @@ const ROUTE_TITLES: Record<string, string> = {
   // Cidadão - PT
   "/notificacoes": "Notificações",
   "/busca": "Buscar",
-  "/favoritos": "Favoritos",
   "/conversas": "Conversas",
   // Analytics - PT
   "/paineis": "Painéis Analíticos",

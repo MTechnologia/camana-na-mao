@@ -1,13 +1,11 @@
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { Clock, Eye, Heart } from "lucide-react";
+import { Clock, Eye } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useFavorites } from "@/contexts/FavoritesContext";
 import { useNavigate } from "react-router-dom";
 import { noticias, categoryConfig } from "@/data/noticias";
 
 const Noticias = () => {
-  const { toggleFavorite, isFavorited } = useFavorites();
   const navigate = useNavigate();
 
   const formatDate = (dateStr: string) => {
@@ -51,29 +49,6 @@ const Noticias = () => {
                   onClick={() => navigate(`/institucional/noticias/${noticia.id}`)}
                   className="p-5 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
                 >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite({
-                        id: `noticia-${noticia.id}`,
-                        type: 'noticia',
-                        title: noticia.title,
-                        subtitle: config?.label || noticia.category,
-                        path: `/institucional/noticias/${noticia.id}`,
-                        metadata: { date: noticia.date, views: noticia.views },
-                      });
-                    }}
-                    className="absolute top-4 right-4 p-2 hover:bg-muted/50 rounded-full transition-colors z-10"
-                    aria-label="Favoritar notícia"
-                  >
-                    <Heart
-                      className={`h-5 w-5 ${
-                        isFavorited(`noticia-${noticia.id}`)
-                          ? "fill-pink-500 text-pink-500"
-                          : "text-muted-foreground"
-                      }`}
-                    />
-                  </button>
                   <div className="space-y-3">
                     <Badge
                       variant="outline"

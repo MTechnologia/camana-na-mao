@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { Search, MapPin, Phone, Mail, Heart, X, Users } from "lucide-react";
+import { Search, MapPin, Phone, Mail, X, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
 import { vereadores } from "@/data/vereadores";
-import { useFavorites } from "@/contexts/FavoritesContext";
 
 // Extract unique parties and regions from data
 const uniqueParties = [...new Set(vereadores.map(v => v.party))].sort();
@@ -23,7 +22,6 @@ const Vereadores = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParty, setSelectedParty] = useState<string>("all");
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
-  const { toggleFavorite, isFavorited } = useFavorites();
 
   const filteredVereadores = useMemo(() => {
     return vereadores.filter((v) => {
@@ -144,30 +142,6 @@ const Vereadores = () => {
                 onClick={() => navigate(`/institucional/vereadores/${vereador.id}`)}
                 className="p-4 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite({
-                      id: `vereador-${vereador.id}`,
-                      type: 'vereador',
-                      title: vereador.name,
-                      subtitle: vereador.party,
-                      path: `/institucional/vereadores/${vereador.id}`,
-                      image: vereador.photo,
-                    });
-                  }}
-                  className="absolute top-3 right-3 p-2 hover:bg-muted/50 rounded-full transition-colors z-10"
-                  aria-label="Favoritar vereador"
-                >
-                  <Heart
-                    className={`h-5 w-5 ${
-                      isFavorited(`vereador-${vereador.id}`)
-                        ? "fill-pink-500 text-pink-500"
-                        : "text-muted-foreground"
-                    }`}
-                  />
-                </button>
-
                 <div className="flex items-start gap-4">
                   <Avatar className="h-14 w-14">
                     <AvatarImage src={vereador.photo} alt={vereador.name} />
