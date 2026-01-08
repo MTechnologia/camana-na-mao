@@ -4,7 +4,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 
-// === PHASE 2: Only structured journey types should update the tracker ===
+// === PHASE 2: Structured vs Light journey types ===
+const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
+const LIGHT_JOURNEY_TYPES: string[] = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 
 interface Message {
@@ -30,6 +32,7 @@ export const useUnifiedAIChat = (
   const [createdReport, setCreatedReport] = useState<CreatedReport | null>(null);
   const [collectionType, setCollectionType] = useState<CollectionType>(initialCollectionType || null);
   const [collectedFields, setCollectedFields] = useState<CollectedFields>({});
+  const [lightJourneyType, setLightJourneyType] = useState<string | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -753,7 +756,8 @@ export const useUnifiedAIChat = (
           content: msg.content,
         })),
         conversationId: conversationIdRef.current,
-        collectionType: collectionType || undefined, // Pass frontend context to backend
+        // Pass frontend context: structured type OR light journey type
+        collectionType: collectionType || lightJourneyType || undefined,
       };
       
       console.log('[useUnifiedAIChat] Payload message count:', effectiveMessages.length, 'hasOptimistic:', hasOptimisticMessage);
@@ -854,6 +858,21 @@ export const useUnifiedAIChat = (
                 }
               } catch (e) {
                 console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressMatch[2], e);
+              }
+            }
+            
+            // Detect LIGHT_JOURNEY markers from backend (for services, audiencias, etc.)
+            const lightJourneyMatch = assistantMessage.match(/\[LIGHT_JOURNEY:(\w+)\]/);
+            if (lightJourneyMatch) {
+              const journey = lightJourneyMatch[1];
+              if (LIGHT_JOURNEY_TYPES.includes(journey) && lightJourneyType !== journey) {
+                console.log('[useUnifiedAIChat] Light journey detected:', journey);
+                setLightJourneyType(journey);
+                // Clear structured journey when entering light journey
+                if (collectionType) {
+                  setCollectionType(null);
+                  setCollectedFields({});
+                }
               }
             }
             

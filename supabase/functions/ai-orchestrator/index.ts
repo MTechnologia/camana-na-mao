@@ -3808,6 +3808,7 @@ serve(async (req) => {
     
     // PRIORITY: Use frontend collection type if it's a structured journey type
     const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
+    const LIGHT_JOURNEY_TYPES = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
     let collectionIntent: CollectionIntent | null = null;
     
     if (journeySwitchMatch) {
@@ -3936,6 +3937,34 @@ serve(async (req) => {
           type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
           fields: detectedIntent?.fields || {},
         };
+      }
+    } else if (frontendCollectionType && LIGHT_JOURNEY_TYPES.includes(frontendCollectionType)) {
+      // === LIGHT JOURNEY from frontend - maintain context ===
+      console.log('[ai-orchestrator] Frontend light journey received:', frontendCollectionType);
+      
+      // Check if user EXPLICITLY wants to switch to a STRUCTURED journey
+      // Only switch if user uses explicit intent phrases like "quero relatar", "quero avaliar"
+      const explicitSwitchKeywords = [
+        'quero relatar', 'preciso relatar', 'relatar um problema',
+        'quero avaliar', 'preciso avaliar', 'avaliar um serviço',
+        'problema urbano', 'problema no transporte', 'problema de transporte'
+      ];
+      const userMsgLower = lastUserMsg.toLowerCase();
+      const hasExplicitSwitch = explicitSwitchKeywords.some(kw => userMsgLower.includes(kw));
+      
+      if (hasExplicitSwitch) {
+        // User explicitly wants to switch - detect which journey and proceed with confirmation
+        const detectedIntent = detectCollectionIntent(lastUserMsg, messages);
+        if (detectedIntent && STRUCTURED_TYPES_SET.has(detectedIntent.type)) {
+          console.log('[ai-orchestrator] Explicit switch from light journey to:', detectedIntent.type);
+          collectionIntent = { type: detectedIntent.type as CollectionIntent['type'], fields: detectedIntent.fields || {} };
+        } else {
+          // Can't determine target - stay in light journey
+          collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
+        }
+      } else {
+        // Stay in light journey - pass through to AI without deterministic flow
+        collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
       }
     } else {
       // Fallback: detect intent from message content
@@ -4169,6 +4198,15 @@ serve(async (req) => {
     
     // Compute next field ONCE
     let nextFieldInfo: { field: string | null; picker: string | null; prompt: string | null } = { field: null, picker: null, prompt: null };
+    
+    // === LIGHT JOURNEY MARKER ===
+    // If collection intent is a light journey, we'll prepend a marker to the response
+    // so the frontend can persist it
+    let lightJourneyMarker = '';
+    if (collectionIntent && LIGHT_JOURNEY_TYPES.includes(collectionIntent.type)) {
+      lightJourneyMarker = `[LIGHT_JOURNEY:${collectionIntent.type}]`;
+      console.log('[ai-orchestrator] Will emit light journey marker:', lightJourneyMarker);
+    }
     
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type)) {
       nextFieldInfo = getNextMissingField(collectionIntent.type, accumulatedFields);
@@ -4417,6 +4455,12 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
           
           // Inject collection progress with merged fields
           let responseContent = result.message;
+          
+          // Add light journey marker if applicable
+          if (lightJourneyMarker && !responseContent.includes('[LIGHT_JOURNEY:')) {
+            responseContent = lightJourneyMarker + responseContent;
+          }
+          
           if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
             const fieldsJson = JSON.stringify(finalFields);
             responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
@@ -4445,6 +4489,12 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       
       // No tool call - inject collection progress with accumulated fields
       let responseContent = fullContent;
+      
+      // Add light journey marker if applicable
+      if (lightJourneyMarker && !responseContent.includes('[LIGHT_JOURNEY:')) {
+        responseContent = lightJourneyMarker + responseContent;
+      }
+      
       if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
         const fieldsJson = JSON.stringify(accumulatedFields);
         responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
