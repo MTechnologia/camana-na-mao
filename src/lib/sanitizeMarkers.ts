@@ -76,7 +76,8 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[RATING_PICKER\]/g, '')
     .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
     .replace(/\[SERVICE_PICKER\]/g, '')
-  .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
+    .replace(/\[SERVICE_ADDRESS_CONFIRM:[^\]]+\]/g, '')
+    .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
     .trim();

@@ -15,6 +15,7 @@ import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
+import InlineAddressConfirm from "./InlineAddressConfirm";
 
 interface ChatMessage {
   id: string;
@@ -73,7 +74,8 @@ interface ChatMessageBubbleProps {
   onTimeSelected?: (time: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
   onServiceTypeSelected?: (type: string, displayName: string) => void;
-  onServiceSelected?: (name: string, neighborhood: string, serviceId?: string) => void;
+  onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
+  onServiceAddressConfirmed?: (confirmed: boolean) => void;
   isLastAssistantMessage?: boolean;
 }
 
@@ -89,6 +91,7 @@ const ChatMessageBubble = ({
   onRatingSelected,
   onServiceTypeSelected,
   onServiceSelected,
+  onServiceAddressConfirmed,
   isLastAssistantMessage = false 
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
@@ -101,6 +104,7 @@ const ChatMessageBubble = ({
   const [ratingSelected, setRatingSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
+  const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
   
   // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
   const journeySwitchMatch = useMemo(() => {
@@ -122,6 +126,7 @@ const ChatMessageBubble = ({
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
+  const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -272,12 +277,26 @@ const ChatMessageBubble = ({
     }
   };
   
-  const handleServiceSelected = (name: string, neighborhood: string, serviceId?: string) => {
+  const handleServiceSelected = (name: string, neighborhood: string, address: string, serviceId?: string) => {
     setServiceSelected(true);
     if (onServiceSelected) {
-      onServiceSelected(name, neighborhood, serviceId);
+      onServiceSelected(name, neighborhood, address, serviceId);
     }
   };
+  
+  const handleServiceAddressConfirmed = (confirmed: boolean) => {
+    setServiceAddressConfirmed(true);
+    if (onServiceAddressConfirmed) {
+      onServiceAddressConfirmed(confirmed);
+    }
+  };
+  
+  // Extract address from [SERVICE_ADDRESS_CONFIRM:address] marker
+  const serviceAddressToConfirm = useMemo(() => {
+    if (!hasServiceAddressConfirm) return null;
+    const match = message.content.match(/\[SERVICE_ADDRESS_CONFIRM:([^\]]+)\]/);
+    return match ? match[1] : null;
+  }, [hasServiceAddressConfirm, message.content]);
   
   return (
     <div
@@ -419,6 +438,14 @@ const ChatMessageBubble = ({
         {/* Inline Service Picker */}
         {(hasServicePicker || isAskingForService) && !serviceSelected && isLastAssistantMessage && (
           <InlineServicePicker onSelect={handleServiceSelected} />
+        )}
+        
+        {/* Inline Service Address Confirm */}
+        {hasServiceAddressConfirm && serviceAddressToConfirm && !serviceAddressConfirmed && isLastAssistantMessage && (
+          <InlineAddressConfirm 
+            address={serviceAddressToConfirm}
+            onConfirm={handleServiceAddressConfirmed}
+          />
         )}
         
         {/* Journey Switch Confirmation Buttons */}

@@ -14,7 +14,7 @@ interface PublicService {
 
 interface InlineServicePickerProps {
   serviceType?: string;
-  onSelect: (name: string, neighborhood: string, serviceId?: string) => void;
+  onSelect: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
 }
 
 export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePickerProps) => {
@@ -62,13 +62,13 @@ export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePick
 
   const handleSelect = (service: PublicService) => {
     setSelected(true);
-    onSelect(service.name, service.district, service.id);
+    onSelect(service.name, service.district, service.address, service.id);
   };
 
   const handleCustomService = () => {
     if (query.trim()) {
       setSelected(true);
-      onSelect(query, '', undefined);
+      onSelect(query, '', '', undefined);
     }
   };
 
