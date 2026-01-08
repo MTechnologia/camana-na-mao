@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import PageHeader from "@/components/ui/page-header";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Camera } from "lucide-react";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
+import { toast } from "sonner";
 import { 
-  User, 
   MapPin, 
   BarChart3, 
   ChevronRight, 
@@ -19,13 +19,16 @@ import {
   Accessibility,
   CheckCircle2,
   LogOut,
-  Pencil
+  Camera,
+  Loader2
 } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { status: profileStatus } = useProfileCompletion();
+  const { status: profileStatus, checkCompletion } = useProfileCompletion();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profile, setProfile] = useState({
     fullName: "",
     phone: "",
@@ -65,11 +68,68 @@ const Profile = () => {
     }
   };
 
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast.error("Por favor, selecione uma imagem");
+      return;
+    }
+
+    // Validar tamanho (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 5MB");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // Upload para Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      // Atualizar perfil
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile(prev => ({ ...prev, avatarUrl }));
+      checkCompletion();
+      toast.success("Foto atualizada com sucesso!");
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      toast.error("Erro ao atualizar foto");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   // Determinar status de completude de cada seção
   const getCompletionStatus = (cardId: string): boolean | null => {
     switch (cardId) {
-      case 'personal':
-        return profileStatus.basic;
       case 'address':
         return profileStatus.address;
       case 'interests':
@@ -77,20 +137,11 @@ const Profile = () => {
       case 'demographics':
         return profileStatus.demographics;
       default:
-        return null; // Configurações não têm status de completude
+        return null;
     }
   };
 
   const dataCards = [
-    {
-      id: 'personal',
-      title: 'Informações Pessoais',
-      description: 'Nome, email e telefone',
-      icon: User,
-      iconColor: 'text-blue-600',
-      iconBg: 'bg-blue-100',
-      path: '/perfil/dados-pessoais',
-    },
     {
       id: 'address',
       title: 'Endereço',
@@ -182,8 +233,17 @@ const Profile = () => {
     <div className="min-h-screen bg-background pt-[60px]">
       <PageHeader title="Meu Perfil" backTo="/" />
 
+      {/* Hidden file input */}
+      <Input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleAvatarChange}
+        className="hidden"
+      />
+
       <div className="px-4 pt-2 pb-4 space-y-4">
-        {/* Profile Card Compacto */}
+        {/* Profile Card Compacto - Agora editável */}
         {user && (
           <Card
             className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50"
@@ -191,9 +251,12 @@ const Profile = () => {
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                {/* Avatar compacto */}
-                <div className="relative flex-shrink-0">
-                  <Avatar className="w-16 h-16 ring-2 ring-border">
+                {/* Avatar com botão de upload */}
+                <div 
+                  className="relative flex-shrink-0 group"
+                  onClick={handleAvatarClick}
+                >
+                  <Avatar className="w-16 h-16 ring-2 ring-border transition-opacity group-hover:opacity-80">
                     {profile.avatarUrl ? (
                       <AvatarImage src={profile.avatarUrl} alt={profile.fullName} />
                     ) : null}
@@ -201,8 +264,12 @@ const Profile = () => {
                       {profile.fullName ? profile.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-sm">
-                    <Pencil className="h-3 w-3 text-primary-foreground" />
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-primary rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110">
+                    {uploadingAvatar ? (
+                      <Loader2 className="h-3.5 w-3.5 text-primary-foreground animate-spin" />
+                    ) : (
+                      <Camera className="h-3.5 w-3.5 text-primary-foreground" />
+                    )}
                   </div>
                 </div>
                 
@@ -214,10 +281,20 @@ const Profile = () => {
                   <p className="text-sm text-muted-foreground truncate">
                     {user.email}
                   </p>
+                  <p className="text-xs text-primary mt-0.5">
+                    Toque para editar dados
+                  </p>
                 </div>
                 
-                {/* Seta */}
-                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                {/* Status de completude */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {profileStatus.basic ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  )}
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </div>
               </div>
             </CardContent>
           </Card>
