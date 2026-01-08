@@ -451,6 +451,10 @@ function autoClassifyCategory(description: string): {
     // Esgoto / Alagamento / Vazamento (HIGHEST priority for water-related)
     { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando)|esgoto|córrego|valeta|enchente|inunda/i, category: 'esgoto', weight: 10 },
     
+    // === POLUIÇÃO SONORA - HIGH PRIORITY (weight 9) to auto-classify without confirmation ===
+    // Specific noise patterns that should auto-classify
+    { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
+    
     // Iluminação
     { keywords: /poste\s*(apagado|sem\s*luz|queimado)|luz\s*(apagada|queimada)|ilumina[çc][ãa]o|sem\s*luz|escuro|lâmpada/i, category: 'iluminacao', weight: 9 },
     
@@ -472,8 +476,11 @@ function autoClassifyCategory(description: string): {
     // Higiene Urbana
     { keywords: /fedor|mau\s*cheiro|fedendo|podre|urina|fezes|defeca[çc][ãa]o/i, category: 'higiene_urbana', weight: 7 },
     
-    // Poluição - EXPANDED for noise/sound issues
-    { keywords: /fuma[çc]a|polui[çc][ãa]o|barulho|ru[íi]do|contamina[çc][ãa]o|som\s*(alto)?|m[úu]sica\s*(alta)?|perturbação|perturbacao|festa|balada|bar\s*(barulho|barulhento)?|vizinho|obra\s*(barulho|cedo)?|buzina|alarme|latido|bagun[çc]a/i, category: 'poluicao', weight: 6 },
+    // Poluição geral - lower weight for general pollution terms (smoke, contamination)
+    { keywords: /fuma[çc]a|polui[çc][ãa]o\s*(ar|atmosf)|contamina[çc][ãa]o|t[óo]xico|qu[íi]mico/i, category: 'poluicao', weight: 7 },
+    
+    // Poluição sonora genérica - weight 6 (will ask for confirmation)
+    { keywords: /barulho|ru[íi]do|buzina|alarme|latido|bagun[çc]a|obra\s*(barulho|cedo)?/i, category: 'poluicao', weight: 6 },
     
     // Feedback Câmara
     { keywords: /vereador|c[âa]mara\s*municipal|legislativo|projeto\s*de\s*lei/i, category: 'feedback_camara', weight: 5 },
@@ -725,6 +732,24 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
       break;
       
     case 'category':
+      // === CRITICAL: Handle confirmation responses (sim/não) for pending category ===
+      const confirmPatterns = /^(sim|s|yes|y|ok|pode|pode ser|isso|isso mesmo|confirmo|confirma|exato|correto)$/i;
+      const denyPatterns = /^(não|nao|n|no|nope|outra|outro|diferente|errado|não é isso|nao e isso)$/i;
+      
+      if (confirmPatterns.test(responseLower)) {
+        // User confirmed - signal that we should use _pending_category
+        result._category_confirmed = true;
+        console.log('[parseFieldResponse] Category confirmation detected: YES');
+        break;
+      }
+      
+      if (denyPatterns.test(responseLower)) {
+        // User denied - signal that we should clear pending and ask again
+        result._category_denied = true;
+        console.log('[parseFieldResponse] Category confirmation detected: NO');
+        break;
+      }
+      
       // Direct category answer - EXPANDED with more synonyms
       const categoryMap: Record<string, string> = {
         'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
@@ -762,14 +787,16 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
         const autoClass = autoClassifyCategory(response);
         if (autoClass.category && autoClass.confidence >= 0.5) {
           result.category = autoClass.category;
+          result.subcategory = autoClass.suggestedLabel || generateLabelFromDescription(response);
           result._auto_classified = true;
           result._classification_confidence = autoClass.confidence;
-          console.log('[parseFieldResponse] Auto-classified category:', autoClass.category, 'confidence:', autoClass.confidence);
+          console.log('[parseFieldResponse] Auto-classified category:', autoClass.category, 'subcategory:', result.subcategory);
         } else {
           // FALLBACK: Use 'outro' when we can't classify
           result.category = 'outro';
+          result.subcategory = generateLabelFromDescription(response);
           result._fallback_category = true;
-          console.log('[parseFieldResponse] Fallback to outro for unrecognized category');
+          console.log('[parseFieldResponse] Fallback to outro with subcategory:', result.subcategory);
         }
       }
       break;
@@ -1098,6 +1125,27 @@ function accumulateFieldsFromHistory(
         if (fieldRequestMatch) {
           const fieldType = fieldRequestMatch[1];
           const parsedFields = parseFieldResponse(fieldType, answer);
+          
+          // === CRITICAL: Handle category confirmation logic ===
+          if (fieldType === 'category') {
+            if (parsedFields._category_confirmed && accumulated._pending_category) {
+              // User confirmed the pending category
+              accumulated.category = accumulated._pending_category;
+              accumulated.subcategory = accumulated._pending_subcategory || generateLabelFromDescription(accumulated.description || '');
+              delete accumulated._pending_category;
+              delete accumulated._pending_subcategory;
+              console.log('[accumulateFields] Category confirmed:', accumulated.category, 'subcategory:', accumulated.subcategory);
+              continue;
+            } else if (parsedFields._category_denied) {
+              // User denied - clear pending and mark as needing to ask again
+              delete accumulated._pending_category;
+              delete accumulated._pending_subcategory;
+              accumulated._asked_category = false; // Allow asking again
+              console.log('[accumulateFields] Category denied, will ask again');
+              continue;
+            }
+          }
+          
           Object.assign(accumulated, parsedFields);
           continue; // Skip heuristic parsing, we used deterministic capture
         }
@@ -1189,7 +1237,29 @@ function accumulateFieldsFromHistory(
           const fieldType = fieldRequestMatch[1];
           const answer = messages[lastMsgIdx].content.trim();
           const parsedFields = parseFieldResponse(fieldType, answer);
-          Object.assign(accumulated, parsedFields);
+          
+          // === CRITICAL: Handle category confirmation logic for last message ===
+          if (fieldType === 'category') {
+            if (parsedFields._category_confirmed && accumulated._pending_category) {
+              // User confirmed the pending category
+              accumulated.category = accumulated._pending_category;
+              accumulated.subcategory = accumulated._pending_subcategory || generateLabelFromDescription(accumulated.description || '');
+              delete accumulated._pending_category;
+              delete accumulated._pending_subcategory;
+              console.log('[accumulateFields] Last msg: Category confirmed:', accumulated.category, 'subcategory:', accumulated.subcategory);
+            } else if (parsedFields._category_denied) {
+              // User denied - clear pending and mark as needing to ask again
+              delete accumulated._pending_category;
+              delete accumulated._pending_subcategory;
+              accumulated._asked_category = false; // Allow asking again
+              console.log('[accumulateFields] Last msg: Category denied, will ask again');
+            } else {
+              // Direct category match or other response
+              Object.assign(accumulated, parsedFields);
+            }
+          } else {
+            Object.assign(accumulated, parsedFields);
+          }
         }
       }
     }
@@ -4300,16 +4370,20 @@ serve(async (req) => {
             fields._auto_classified = true;
             console.log('[getNextMissingField] Auto-classified:', autoClass.category, 'label:', fields.subcategory, 'confidence:', autoClass.confidence);
           } else if (autoClass.category && autoClass.confidence >= 0.5) {
-            // Medium confidence - ask for confirmation with suggestion, but prepare subcategory
-            const categoryLabels: Record<string, string> = {
-              iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
-              lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
-              higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição', outro: 'outro'
-            };
-            const suggestion = categoryLabels[autoClass.category] || autoClass.category;
-            // Pre-set subcategory for when user confirms
+            // Medium confidence - ask for confirmation using intuitive label if available
+            const intuitiveName = autoClass.suggestedLabel || (() => {
+              const categoryLabels: Record<string, string> = {
+                iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
+                lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
+                higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'barulho/poluição', outro: 'outro'
+              };
+              return categoryLabels[autoClass.category!] || autoClass.category;
+            })();
+            
+            // Pre-set pending category and subcategory for when user confirms
+            fields._pending_category = autoClass.category;
             fields._pending_subcategory = autoClass.suggestedLabel || generateLabelFromDescription(fields.description || '');
-            return { field: 'category', picker: null, prompt: `Parece ser um problema de **${suggestion}**. Confirma? (ou me diz outra categoria: iluminação, buraco, esgoto, lixo...)` };
+            return { field: 'category', picker: null, prompt: `[FIELD_REQUEST:category]Parece ser **${intuitiveName}**. Confirma? (sim/não, ou diga outro tipo)` };
           } else {
             // Low confidence - check if we already asked once
             const alreadyAskedCategory = fields._asked_category === true;
