@@ -247,10 +247,38 @@ function isGenericIntentText(text: string): boolean {
     /^quero\s*avaliar/i,
     /^avaliar\s*(um\s*)?servi[çc]o/i,
     /^(sim|não|ok|pode|quero|desejo|aceito)$/i,
+    // Transport generic intents - NOT actual descriptions
+    /^quero\s*(denunciar|relatar|reportar)\s*(um\s*)?(problema|issue)/i,
+    /^problema\s*(de|no|com)\s*transporte/i,
+    /^relatar.*transporte/i,
   ];
   
   const normalized = text.trim().toLowerCase();
-  return genericPhrases.some(pattern => pattern.test(normalized)) || normalized.length < 10;
+  
+  // Short messages without specifics are generic
+  if (normalized.length < 8) return true;
+  
+  // Check generic patterns
+  if (genericPhrases.some(pattern => pattern.test(normalized))) return true;
+  
+  return false;
+}
+
+// Transport keywords for semantic detection
+const TRANSPORT_KEYWORDS = [
+  'atraso', 'atrasado', 'atrasou', 'demora', 'demorou', 'esperando', 'nunca chega', 'não passou', 'nao passou',
+  'lotado', 'lotação', 'lotacao', 'cheio', 'superlotado', 'apertado', 'sem espaço', 'sem espaco', 'não coube', 'nao coube',
+  'segurança', 'seguranca', 'assalto', 'roubo', 'assédio', 'assedio', 'perigo', 'medo', 'ameaça', 'briga', 'agressão', 'agressao',
+  'sujo', 'sujeira', 'limpeza', 'fedendo', 'fedor', 'nojento', 'imundo', 'lixo', 'vômito', 'vomito',
+  'acessibilidade', 'cadeirante', 'elevador', 'rampa', 'deficiente', 'muleta', 'pcd', 'mobilidade',
+  'motorista', 'cobrador', 'rude', 'grosso', 'mal educado', 'não parou', 'nao parou', 'condução', 'conducao', 'freada', 'perigoso',
+  'ônibus', 'onibus', 'metrô', 'metro', 'trem', 'linha', 'estação', 'estacao', 'ponto', 'terminal'
+];
+
+// Check if text contains transport-specific keywords (for flexible validation)
+function hasTransportKeywords(text: string): boolean {
+  const lower = text.toLowerCase();
+  return TRANSPORT_KEYWORDS.some(kw => lower.includes(kw));
 }
 
 // Heuristic auto-classification of urban category from description
@@ -1029,15 +1057,12 @@ function accumulateFieldsFromHistory(
     }
     
     // === Detect description from transport-related user messages ===
+    // VERY FLEXIBLE: Accept short but informative responses (>= 5 chars with keyword)
     if (!accumulated.description) {
-      const transportKeywords = ['atraso', 'atrasado', 'lotado', 'lotacao', 'lotação', 'seguranca', 'segurança', 
-        'limpeza', 'acessibilidade', 'demora', 'cheio', 'sujo', 'assedio', 'assédio', 'onibus', 'ônibus', 
-        'metro', 'metrô', 'trem', 'conducao', 'condução', 'motorista', 'cobrador', 'briga', 'roubo'];
-      
       for (const msg of messages) {
         if (msg.role === 'user') {
           const contentLower = msg.content.toLowerCase();
-          const hasKeyword = transportKeywords.some(kw => contentLower.includes(kw));
+          const hasKeyword = hasTransportKeywords(msg.content);
           
           // Skip structured messages (picker selections)
           const isStructured = 
@@ -1046,12 +1071,14 @@ function accumulateFieldsFromHistory(
             contentLower.includes('horário:') ||
             contentLower.includes('horario:');
           
-          // Skip generic intent messages
+          // Skip generic intent messages that don't describe a problem
           const isGeneric = isGenericIntentText(msg.content);
           
-          // FLEXIBLE: Accept >= 10 chars with keyword OR >= 20 chars without (but not generic)
+          // VERY FLEXIBLE THRESHOLD:
+          // - >= 5 chars with transport keyword = valid (e.g., "atraso", "lotado", "metro sujo")
+          // - >= 15 chars without keyword = also valid (longer descriptions)
           const isValidDescription = !isGeneric && !isStructured && 
-            ((msg.content.length >= 10 && hasKeyword) || msg.content.length >= 20);
+            ((msg.content.length >= 5 && hasKeyword) || msg.content.length >= 15);
           
           if (isValidDescription) {
             accumulated.description = msg.content.trim();
@@ -3640,38 +3667,40 @@ serve(async (req) => {
       }
       
       if (collectionType === 'transport_report') {
-        // 1. Description first (captures the problem) - FLEXIBLE threshold
         const description = fields.description || '';
         const isGeneric = isGenericIntentText(description);
         const descLen = isGeneric ? 0 : description.length;
+        const hasKeyword = hasTransportKeywords(description);
         
-        // Transport keywords for flexible threshold
-        const transportKeywords = ['atraso', 'atrasado', 'lotado', 'lotacao', 'seguranca', 'limpeza', 
-          'acessibilidade', 'demora', 'cheio', 'sujo', 'assedio', 'onibus', 'metro', 'trem', 'conducao', 'motorista'];
-        const hasKeyword = transportKeywords.some(kw => description.toLowerCase().includes(kw));
+        // VERY FLEXIBLE: >= 5 chars with keyword OR >= 15 chars without
+        const isValidDescription = (descLen >= 5 && hasKeyword) || descLen >= 15;
         
-        // FLEXIBLE: Accept >= 10 chars with keyword OR >= 20 chars without
-        const isValidDescription = (descLen >= 10 && hasKeyword) || descLen >= 20;
+        console.log('[getNextMissingField] Transport description check:', {
+          description: description.substring(0, 40),
+          descLen,
+          hasKeyword,
+          isGeneric,
+          isValidDescription
+        });
         
+        // If no valid description yet, ask for it
         if (!isValidDescription) {
           return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
         }
         
-        // 2. Report type - TRY AUTO-INFERENCE first before asking
+        // 2. Report type - TRY AUTO-INFERENCE from description
         if (!fields.report_type || fields.report_type === 'outro') {
-          // Try to infer from description
           const inferredFields = extractTransportFields(description.toLowerCase());
           if (inferredFields.report_type) {
             fields.report_type = inferredFields.report_type;
             console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
-            // Don't return - continue to next field check
           } else {
             // Could not infer - need to ask
             return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
           }
         }
         
-        // 3. Line/station
+        // 3. Line/station - GO HERE DIRECTLY if we have description + type
         if (!fields.line_code) {
           return { field: 'line_code', picker: '[LINE_PICKER]', prompt: 'Qual **linha ou estação** teve o problema?' };
         }
