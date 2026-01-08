@@ -128,13 +128,13 @@ function inferTransportTypeFromText(text: string): string | null {
 
 // Intent detection for collection progress tracking with scoring system
 type CollectionIntent = {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
   fields: Record<string, any>;
   accumulatedFields?: Record<string, any>; // All fields collected across conversation
 };
 
 interface DetectionScore {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
   score: number;
   fields: Record<string, any>;
 }
@@ -763,7 +763,7 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
 // Accumulate fields from all messages in conversation for better tracking
 function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
-  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history'
+  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias'
 ): Record<string, any> {
   // Only accumulate for structured journeys
   if (!['urban_report', 'transport_report', 'service_rating'].includes(collectionType)) {
@@ -1522,6 +1522,23 @@ function detectCollectionIntent(
     'status do meu relato', 'minhas reclamações', 'minhas reclamacoes'
   ];
   
+  // NEW: Vereadores phrases
+  const explicitVereadoresPhrases = [
+    'vereadores da minha região', 'vereadores da minha regiao',
+    'quais vereadores representam', 'quem me representa na câmara',
+    'quem me representa na camara', 'vereadores do meu bairro',
+    'meus vereadores', 'vereador da zona', 'vereadores da zona',
+    'quais vereadores representam minha região', 'quais vereadores representam minha regiao'
+  ];
+  
+  // NEW: Noticias phrases
+  const explicitNoticiasPhrases = [
+    'últimas notícias', 'ultimas noticias', 'notícias da câmara',
+    'noticias da camara', 'novidades legislativas', 'o que está acontecendo na câmara',
+    'o que esta acontecendo na camara', 'notícias recentes', 'noticias recentes',
+    'quais as últimas notícias', 'quais as ultimas noticias'
+  ];
+  
   // === INTENT CHANGE INDICATORS (generic signals of topic switch) ===
   const intentChangeIndicators = [
     'quero fazer', 'preciso de', 'pode me ajudar com',
@@ -1533,7 +1550,7 @@ function detectCollectionIntent(
   // === EXPLICIT INTENT OVERRIDE (last message takes priority for journey switching) ===
   // If the LAST user message contains an explicit intent phrase,
   // it should override accumulated context for journey switching
-  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history';
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history' | 'vereadores' | 'noticias';
   const lastMsgExplicitIntent: { type: ExplicitIntentType; boost: number } | null = (() => {
     // Check explicit phrases in LAST message only (not accumulated context)
     if (explicitRatingPhrases.some(phrase => msgLower.includes(phrase))) {
@@ -1553,6 +1570,14 @@ function detectCollectionIntent(
     }
     if (explicitHistoryPhrases.some(phrase => msgLower.includes(phrase))) {
       return { type: 'history', boost: 15 };
+    }
+    // NEW: Vereadores explicit intent
+    if (explicitVereadoresPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'vereadores', boost: 15 };
+    }
+    // NEW: Noticias explicit intent
+    if (explicitNoticiasPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'noticias', boost: 15 };
     }
     return null;
   })();
@@ -1692,6 +1717,36 @@ function detectCollectionIntent(
     scores.push({ type: 'history', score: historyScore, fields: {} });
   }
   
+  // NEW: Vereadores scoring
+  const vereadoresDomain = ['vereador', 'vereadora', 'representante', 'parlamentar'];
+  const vereadoresTerms = ['minha região', 'minha regiao', 'meu bairro', 'quem representa', 'zona'];
+  let vereadoresScore = 0;
+  vereadoresDomain.forEach(kw => { if (fullUserContext.includes(kw)) vereadoresScore += 4; });
+  vereadoresTerms.forEach(kw => { if (fullUserContext.includes(kw)) vereadoresScore += 3; });
+  const hasExplicitVereadoresIntent = explicitVereadoresPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitVereadoresIntent) {
+    vereadoresScore += 5;
+    console.log('[detectCollectionIntent] Explicit vereadores intent detected');
+  }
+  if (vereadoresScore > 0 && !isEvaluating) {
+    scores.push({ type: 'vereadores', score: vereadoresScore, fields: {} });
+  }
+  
+  // NEW: Noticias scoring
+  const noticiasDomain = ['notícia', 'noticia', 'novidade', 'acontecendo', 'recente'];
+  const noticiasTerms = ['câmara', 'camara', 'legislativo', 'vereador'];
+  let noticiasScore = 0;
+  noticiasDomain.forEach(kw => { if (fullUserContext.includes(kw)) noticiasScore += 4; });
+  noticiasTerms.forEach(kw => { if (fullUserContext.includes(kw)) noticiasScore += 2; });
+  const hasExplicitNoticiasIntent = explicitNoticiasPhrases.some(phrase => fullUserContext.includes(phrase));
+  if (hasExplicitNoticiasIntent) {
+    noticiasScore += 5;
+    console.log('[detectCollectionIntent] Explicit noticias intent detected');
+  }
+  if (noticiasScore > 0) {
+    scores.push({ type: 'noticias', score: noticiasScore, fields: {} });
+  }
+  
   // No matches found
   if (scores.length === 0) {
     console.log('[detectCollectionIntent] Intent found but no domain keywords matched');
@@ -1747,6 +1802,8 @@ function detectCollectionIntent(
     'audiencias': 4,        // Medium: needs audiencia reference
     'general': 4,           // Medium: needs knowledge question
     'history': 4,           // Medium: needs personal reference
+    'vereadores': 4,        // Medium: needs vereador reference
+    'noticias': 4,          // Medium: needs news reference
   };
   
   const threshold = thresholds[winner.type] || 5;
@@ -1754,7 +1811,8 @@ function detectCollectionIntent(
   // === UNIVERSAL JOURNEY SWITCH DETECTION ===
   // Detect switches between ANY journey types (structured or light)
   const allJourneyTypes = ['urban_report', 'transport_report', 'service_rating', 
-                           'services', 'audiencias', 'general', 'history'] as const;
+                           'services', 'audiencias', 'general', 'history',
+                           'vereadores', 'noticias'] as const;
   const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
   
   const isWinnerInAllTypes = allJourneyTypes.includes(winner.type as typeof allJourneyTypes[number]);
@@ -3554,13 +3612,18 @@ async function executeTool(
         console.log('[confirm_journey_switch] Current:', current_journey, 'Detected:', detected_journey);
         console.log('[confirm_journey_switch] Progress summary:', current_progress_summary);
         
-        // Human-readable names
+        // Human-readable names for ALL journeys
         const journeyNames: Record<string, string> = {
           'urban_report': 'Relato Urbano',
           'transport_report': 'Diagnóstico de Transporte',
           'service_rating': 'Avaliação de Serviço',
           'services': 'Busca de Serviços',
-          'general': 'Dúvidas Gerais'
+          'audiencias': 'Audiências Públicas',
+          'history': 'Meu Histórico',
+          'general': 'Dúvidas Gerais',
+          'vereadores': 'Vereadores da Região',
+          'noticias': 'Notícias Legislativas',
+          'chamber_feedback': 'Feedback sobre Vereador'
         };
         
         const currentName = journeyNames[current_journey] || current_journey;
@@ -3680,8 +3743,15 @@ serve(async (req) => {
         
         const journeyNames: Record<string, string> = {
           urban_report: 'Relato Urbano',
-          transport_report: 'Relato de Transporte', 
-          service_rating: 'Avaliação de Serviço'
+          transport_report: 'Diagnóstico de Transporte', 
+          service_rating: 'Avaliação de Serviço',
+          services: 'Busca de Serviços',
+          audiencias: 'Audiências Públicas',
+          history: 'Meu Histórico',
+          general: 'Dúvidas Gerais',
+          vereadores: 'Vereadores da Região',
+          noticias: 'Notícias Legislativas',
+          chamber_feedback: 'Feedback sobre Vereador'
         };
         
         const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;

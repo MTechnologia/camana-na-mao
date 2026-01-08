@@ -249,7 +249,14 @@ export function detectIntent(message: string): { journey: string | null; confide
 export const JOURNEY_NAMES: Record<string, string> = {
   general: 'Tudo Sobre a Câmara',
   urban_report: 'Fala Cidadão!',
-  transport: 'Diagnóstico de Transporte',
-  evaluate: 'Avaliação de Serviço',
+  transport: 'Meu Ônibus',
+  transport_report: 'Diagnóstico de Transporte',
+  evaluate: 'Avalie Serviços',
+  service_rating: 'Avaliação de Serviço',
   services: 'Serviços Próximos',
+  audiencias: 'Audiências Públicas',
+  history: 'Meu Histórico',
+  vereadores: 'Vereadores da Região',
+  noticias: 'Notícias Legislativas',
+  chamber_feedback: 'Feedback sobre Vereador'
 };

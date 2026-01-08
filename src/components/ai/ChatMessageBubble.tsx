@@ -53,7 +53,12 @@ const JOURNEY_NAMES: Record<string, string> = {
   'transport_report': 'Diagnóstico de Transporte',
   'service_rating': 'Avaliação de Serviço',
   'services': 'Busca de Serviços',
-  'general': 'Dúvidas Gerais'
+  'audiencias': 'Audiências Públicas',
+  'history': 'Meu Histórico',
+  'general': 'Dúvidas Gerais',
+  'vereadores': 'Vereadores da Região',
+  'noticias': 'Notícias Legislativas',
+  'chamber_feedback': 'Feedback sobre Vereador'
 };
 
 interface ChatMessageBubbleProps {
