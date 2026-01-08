@@ -1118,13 +1118,28 @@ function accumulateFieldsFromHistory(
           // Service-specific field parsing
           switch (fieldType) {
             case 'service_type':
+              // Check if answer is actually a journey switch request
+              const isJourneySwitchAttempt = 
+                answer.toLowerCase().includes('falar de') ||
+                answer.toLowerCase().includes('falar do') ||
+                answer.toLowerCase().includes('mudar para') ||
+                answer.toLowerCase().includes('trocar para') ||
+                answer.toLowerCase().includes('quero fazer') ||
+                answer.toLowerCase().includes('na verdade');
+              
+              if (isJourneySwitchAttempt) {
+                // Don't store as field - let intent detection handle this
+                console.log('[accumulateFields] Detected journey switch attempt, skipping service_type capture');
+                break;
+              }
+              
               const typeMatch = answer.match(/tipo de serviço:\s*(\w+)/i);
               if (typeMatch) {
                 accumulated.service_type = serviceTypeMap[typeMatch[1].toLowerCase()] || typeMatch[1].toLowerCase();
               } else if (serviceTypeMap[answer.toLowerCase()]) {
                 accumulated.service_type = serviceTypeMap[answer.toLowerCase()];
-              } else {
-                // User typed a type name directly
+              } else if (answer.length <= 20) {
+                // Only accept short direct answers as type names
                 accumulated.service_type = answer.toLowerCase();
               }
               break;
@@ -1489,7 +1504,10 @@ function detectCollectionIntent(
     'problema na linha', 'quero falar do ônibus', 'quero falar do onibus',
     'quero fazer um relato de transporte', 'relatar problema de transporte',
     'problema no transporte', 'problema no transporte público', 'problema no transporte publico',
-    'relatar um problema no transporte', 'problema de transporte'
+    'relatar um problema no transporte', 'problema de transporte',
+    // Journey switch phrases
+    'quero falar de transporte', 'quero falar do transporte', 'falar de transporte',
+    'falar sobre transporte', 'mudar para transporte', 'trocar para transporte'
   ];
   
   const explicitRatingPhrases = [
@@ -1499,7 +1517,10 @@ function detectCollectionIntent(
     'avaliar o serviço', 'avaliar o servico', 'dar minha avaliação', 'deixar avaliação',
     'avaliar atendimento', 'avaliar serviço público', 'avaliar servico publico',
     'avaliar uma ubs', 'avaliar uma escola', 'avaliar um hospital',
-    'quero avaliar um serviço', 'quero avaliar um servico'
+    'quero avaliar um serviço', 'quero avaliar um servico',
+    // Journey switch phrases
+    'quero falar de avaliação', 'quero falar de avaliaçao', 'falar de avaliação',
+    'mudar para avaliação', 'trocar para avaliação', 'trocar para avaliaçao'
   ];
   
   const explicitServicesPhrases = [
@@ -1543,14 +1564,55 @@ function detectCollectionIntent(
   const intentChangeIndicators = [
     'quero fazer', 'preciso de', 'pode me ajudar com',
     'na verdade', 'mudando de assunto', 'outra coisa',
-    'deixa isso', 'esquece isso', 'vamos falar de', 'agora quero'
+    'deixa isso', 'esquece isso', 'vamos falar de', 'agora quero',
+    'quero falar de', 'quero falar do', 'falar de', 'falar sobre',
+    'mudar para', 'trocar para'
   ];
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
+  
+  // === GENERIC "quero falar de X" PATTERN DETECTION ===
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history' | 'vereadores' | 'noticias';
+  const queroFalarMatch = msgLower.match(/(?:quero|vou|vamos)\s+falar\s+(?:de|do|da|sobre)\s+(\w+)/);
+  let genericTopicIntent: { type: ExplicitIntentType; boost: number } | null = null;
+  if (queroFalarMatch) {
+    const topic = queroFalarMatch[1].toLowerCase();
+    const topicToJourney: Record<string, ExplicitIntentType> = {
+      'transporte': 'transport_report',
+      'ônibus': 'transport_report',
+      'onibus': 'transport_report',
+      'metrô': 'transport_report',
+      'metro': 'transport_report',
+      'trem': 'transport_report',
+      'avaliação': 'service_rating',
+      'avaliaçao': 'service_rating',
+      'serviço': 'service_rating',
+      'servico': 'service_rating',
+      'cidade': 'urban_report',
+      'problema': 'urban_report',
+      'rua': 'urban_report',
+      'bairro': 'urban_report',
+      'serviços': 'services',
+      'servicos': 'services',
+      'audiência': 'audiencias',
+      'audiencia': 'audiencias',
+      'vereador': 'vereadores',
+      'vereadores': 'vereadores',
+      'notícia': 'noticias',
+      'noticia': 'noticias',
+      'histórico': 'history',
+      'historico': 'history'
+    };
+    const mappedJourney = topicToJourney[topic];
+    if (mappedJourney) {
+      genericTopicIntent = { type: mappedJourney, boost: 20 };
+      console.log('[detectCollectionIntent] Generic topic pattern detected:', topic, '→', mappedJourney);
+    }
+  }
   
   // === EXPLICIT INTENT OVERRIDE (last message takes priority for journey switching) ===
   // If the LAST user message contains an explicit intent phrase,
   // it should override accumulated context for journey switching
-  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history' | 'vereadores' | 'noticias';
+  // Note: ExplicitIntentType is already defined above in generic pattern detection
   const lastMsgExplicitIntent: { type: ExplicitIntentType; boost: number } | null = (() => {
     // Check explicit phrases in LAST message only (not accumulated context)
     if (explicitRatingPhrases.some(phrase => msgLower.includes(phrase))) {
@@ -1779,6 +1841,22 @@ function detectCollectionIntent(
     }
   }
   
+  // === Apply genericTopicIntent boost (from "quero falar de X" pattern) ===
+  if (genericTopicIntent) {
+    const existingScore = scores.find(s => s.type === genericTopicIntent!.type);
+    if (existingScore) {
+      existingScore.score += genericTopicIntent.boost;
+      console.log(`[detectCollectionIntent] Applied generic topic boost to ${genericTopicIntent.type}: +${genericTopicIntent.boost}`);
+    } else {
+      scores.push({ 
+        type: genericTopicIntent.type, 
+        score: genericTopicIntent.boost, 
+        fields: {} 
+      });
+      console.log(`[detectCollectionIntent] Created new score from generic topic: ${genericTopicIntent.type} with score ${genericTopicIntent.boost}`);
+    }
+  }
+  
   // Sort by score and select winner (AFTER applying explicit intent boost)
   let winner = scores.sort((a, b) => b.score - a.score)[0];
   console.log('[detectCollectionIntent] Scores:', JSON.stringify(scores.map(s => ({ type: s.type, score: s.score }))));
@@ -1786,9 +1864,11 @@ function detectCollectionIntent(
   
   // === INTENT CHANGE BOOST ===
   // If user signals topic change and winner has some score, boost it
+  // CRITICAL: Use LARGE boost to overcome accumulated context from previous journey
   if (hasIntentChange && winner.score > 0 && winner.type !== existingJourney) {
-    winner = { ...winner, score: winner.score + 2 };
-    console.log('[detectCollectionIntent] Intent change indicator detected, boosted to:', winner.score);
+    const boostAmount = 10; // Increased from 2 to 10
+    winner = { ...winner, score: winner.score + boostAmount };
+    console.log('[detectCollectionIntent] Intent change indicator detected, boosted by', boostAmount, 'to:', winner.score);
   }
   
   // === ADAPTIVE THRESHOLD based on journey type ===
