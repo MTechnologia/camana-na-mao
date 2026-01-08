@@ -529,6 +529,67 @@ function generateLabelFromDescription(description: string): string {
   return label.substring(0, 50) || 'Problema Urbano';
 }
 
+// Generate intuitive label from transport description when no pattern matches
+function generateTransportLabelFromDescription(description: string): string {
+  if (!description || description.trim().length === 0) {
+    return 'Problema no Transporte';
+  }
+  
+  // Transport-specific label patterns
+  const transportLabelPatterns: Array<{ pattern: RegExp; label: string }> = [
+    { pattern: /motorista\s*(rude|grosso|mal\s*educado)?/i, label: 'Problema com Motorista' },
+    { pattern: /cobrador/i, label: 'Problema com Cobrador' },
+    { pattern: /ar\s*condicionado|ar\s*quebrado|calor/i, label: 'Problema de Climatização' },
+    { pattern: /porta\s*(quebrad|não\s*abre)/i, label: 'Porta com Defeito' },
+    { pattern: /banco\s*(quebrad|sujo|rasgad)/i, label: 'Banco Danificado' },
+    { pattern: /freada|freio|freiada\s*bruscas?/i, label: 'Condução Perigosa' },
+    { pattern: /não\s*para|passou\s*direto/i, label: 'Veículo Não Parou' },
+    { pattern: /quebrou|pane|enguiçou/i, label: 'Veículo Quebrado' },
+    { pattern: /rota\s*(errada|diferente)|caminho\s*diferente/i, label: 'Rota Alterada' },
+    { pattern: /integração|baldeação/i, label: 'Problema de Integração' },
+    { pattern: /cartão|bilhete|passagem/i, label: 'Problema com Bilhetagem' },
+  ];
+  
+  // Try to match a specific pattern
+  const descLower = description.toLowerCase();
+  for (const lp of transportLabelPatterns) {
+    if (lp.pattern.test(descLower)) {
+      return lp.label;
+    }
+  }
+  
+  // Fallback: generate from first words
+  const words = description
+    .replace(/[^\w\sáàâãéèêíìîóòôõúùûçñ]/gi, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .slice(0, 4);
+  
+  if (words.length === 0) {
+    return 'Problema no Transporte';
+  }
+  
+  const label = words
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+  
+  return label.substring(0, 50) || 'Problema no Transporte';
+}
+
+// Get friendly label for transport report types
+function getTransportTypeLabel(reportType: string): string {
+  const labels: Record<string, string> = {
+    'atraso': 'Atraso de Veículo',
+    'lotacao': 'Veículo Lotado',
+    'seguranca': 'Problema de Segurança',
+    'acessibilidade': 'Problema de Acessibilidade',
+    'limpeza': 'Problema de Limpeza',
+    'conducao': 'Problema de Condução',
+    'outro': 'Outro Problema'
+  };
+  return labels[reportType] || 'Problema no Transporte';
+}
+
 // Auto-infer risk level from description
 function autoInferRisk(description: string): { 
   risk_level: string | null; 
@@ -2170,14 +2231,18 @@ const tools = [
     type: "function",
     function: {
       name: "create_transport_report",
-      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) tipo do problema, 2) descrição (min 10 chars), 3) data da ocorrência. NÃO CHAMAR para mensagens genéricas como 'problema no ônibus' sem detalhes. Usar quando cidadão DESCREVER problema específico de: ônibus, metrô, CPTM, atrasos, lotação, segurança.",
+      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (min 10 chars), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
       parameters: {
         type: "object",
         properties: {
           report_type: {
             type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "outro"],
-            description: "Tipo do problema"
+            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
+            description: "Tipo PAI mais próximo. Se não encaixar, usar 'outro'."
+          },
+          subcategory_label: {
+            type: "string",
+            description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Veículo Lotado', 'Problema com Motorista', 'Veículo Não Parou', 'Porta com Defeito', etc."
           },
           description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
@@ -2597,6 +2662,22 @@ POLUIÇÃO SONORA (categoria: poluicao):
 - Alarmes, buzinas, latidos excessivos
 - subcategory_label: "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra", etc.
 
+=== TIPOS DE TRANSPORTE COM SUBCATEGORIAS ===
+
+TIPO PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
+
+| Tipo | Quando Usar | Exemplo de subcategory_label |
+|------|-------------|------------------------------|
+| atraso | veículo demorou | "Atraso de Veículo", "Longa Espera" |
+| lotacao | veículo cheio | "Veículo Lotado", "Superlotação" |
+| seguranca | assédio, roubo, briga | "Problema de Segurança", "Assédio" |
+| acessibilidade | cadeirante, elevador | "Problema de Acessibilidade" |
+| limpeza | sujeira, mau cheiro | "Problema de Limpeza" |
+| conducao | motorista, freada | "Problema com Motorista", "Condução Perigosa" |
+| outro | QUALQUER coisa que não encaixe | "Porta com Defeito", "Veículo Quebrado", "Ar Condicionado" |
+
+REGRA: Se não conseguir classificar → usar 'outro' + subcategory_label intuitivo
+
 === CLASSIFICAÇÃO SEMÂNTICA TRANSPORTE vs URBANO ===
 
 URBANO (VIA/INFRAESTRUTURA):
@@ -2609,20 +2690,20 @@ TRANSPORTE (SERVIÇO/OPERAÇÃO):
 - "metrô lotado" → transport_report
 - "motorista rude" → transport_report
 
-=== REGRA DE OURO: NUNCA NEGATIVO ===
+=== REGRA DE OURO: NUNCA BLOQUEAR FLUXO ===
 
-Quando busca retornar vazia:
-1. Reconhecer brevemente
-2. Oferecer alternativa mais próxima
-3. Perguntar se ajuda
+1. Se não conseguir classificar categoria/tipo → usar 'outro' com label gerado
+2. Se busca retornar vazia → oferecer alternativa mais próxima
+3. NUNCA interromper o fluxo pedindo classificação que a IA não conseguiu inferir
+4. SEMPRE preservar 100% do relato original na descrição
 
 EXEMPLO: "Não encontrei UBS em Pinheiros, mas a UBS Vila Mariana fica perto. Quer a rota?"
 
 === TOOLS DISPONÍVEIS ===
-• classify_report_category → classificar categoria
+• classify_report_category → classificar categoria (GERAR subcategory_label)
 • validate_cep → endereço via CEP
 • create_urban_report → registrar problema urbano
-• create_transport_report → registrar problema transporte
+• create_transport_report → registrar problema transporte (GERAR subcategory_label se outro)
 • create_service_rating → registrar avaliação
 • search_knowledge_base → dúvidas sobre Câmara
 • find_nearby_services → serviços próximos
@@ -3398,19 +3479,26 @@ async function executeTool(
           };
         }
         
-        // 2. REPORT_TYPE (obrigatório, inferido da descrição se não veio)
+        // 2. REPORT_TYPE (obrigatório, inferido da descrição, fallback para 'outro' com label)
         let validReportType = args.report_type;
+        let subcategoryLabel = args.subcategory_label || null;
+        
         if (!validReportType || validReportType === 'outro') {
           const inferred = inferReportTypeFromDesc(args.description);
           if (inferred) {
             validReportType = inferred;
             console.log('[create_transport_report] Inferred report_type:', validReportType, 'from description');
           } else {
-            return {
-              success: false,
-              message: '[FIELD_REQUEST:report_type]**Qual foi o tipo de problema?** (atraso, lotação, segurança, acessibilidade, limpeza, condução)'
-            };
+            // FALLBACK: Não conseguiu inferir - usar 'outro' com label gerado
+            validReportType = 'outro';
+            subcategoryLabel = generateTransportLabelFromDescription(args.description);
+            console.log('[create_transport_report] Fallback to outro with label:', subcategoryLabel);
           }
+        }
+        
+        // Se ainda não tem subcategory_label, gerar um
+        if (!subcategoryLabel && validReportType !== 'outro') {
+          subcategoryLabel = getTransportTypeLabel(validReportType);
         }
         
         // 3. LINHA (obrigatória)
@@ -3510,6 +3598,9 @@ async function executeTool(
           conducao: 'Condução',
           outro: 'Outro'
         };
+        
+        // Use subcategoryLabel or fallback to type label
+        const displayLabel = subcategoryLabel || reportTypeLabels[validReportType] || validReportType;
         const typeLabel = reportTypeLabels[validReportType] || validReportType;
         
         const severityLabels: Record<string, string> = {
@@ -3526,7 +3617,7 @@ async function executeTool(
           data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : '',
           '**Resumo do seu relato:**',
           '',
-          `📋 **Tipo:** ${typeLabel}`,
+          `📋 **Tipo:** ${typeLabel}${subcategoryLabel ? ` - ${subcategoryLabel}` : ''}`,
           `🚌 **Linha:** ${args.line_code || 'Não informada'}`,
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
@@ -4324,7 +4415,8 @@ serve(async (req) => {
         }
         
         // 2. Report type - TRY AUTO-INFERENCE from description using FUZZY MATCHING
-        if (!fields.report_type || fields.report_type === 'outro') {
+        // If can't infer, use 'outro' with generated label (NEVER block the flow)
+        if (!fields.report_type) {
           // First try the new fuzzy inference
           const fuzzyInferredType = inferTransportTypeFromText(description);
           if (fuzzyInferredType) {
@@ -4337,8 +4429,10 @@ serve(async (req) => {
               fields.report_type = inferredFields.report_type;
               console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
             } else {
-              // Could not infer - need to ask
-              return { field: 'report_type', picker: null, prompt: 'Qual foi o tipo de problema? (atraso, lotação, segurança, limpeza, acessibilidade)' };
+              // FALLBACK: Can't infer - use 'outro' and continue (NEVER ASK, NEVER BLOCK)
+              fields.report_type = 'outro';
+              fields._fallback_report_type = true;
+              console.log('[getNextMissingField] Fallback transport report_type to outro');
             }
           }
         }
