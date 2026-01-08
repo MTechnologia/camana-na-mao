@@ -182,7 +182,7 @@ const Profile = () => {
     <div className="min-h-screen bg-background pt-[60px]">
       <PageHeader title="Meu Perfil" backTo="/" />
 
-      <div className="p-4 space-y-6">
+      <div className="px-4 pt-2 pb-4 space-y-4">
         {/* Profile Card Compacto */}
         {user && (
           <Card
