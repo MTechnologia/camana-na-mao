@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Search, Download, AlertTriangle, LayoutList, Columns, Filter,
+  Search, Download, AlertTriangle, LayoutList, Columns,
   Building2, Bus, Star, MessageSquare
 } from 'lucide-react';
 import { UnifiedReportDrawer } from '@/components/admin/UnifiedReportDrawer';
@@ -127,18 +127,19 @@ export default function ReportsManagement() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header - stacks on mobile */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Gestão de Relatos</h1>
-            <p className="text-muted-foreground">Gerencie todos os relatos cidadãos em um só lugar</p>
+            <h1 className="text-xl sm:text-2xl font-bold">Gestão de Relatos</h1>
+            <p className="text-sm text-muted-foreground">Gerencie todos os relatos cidadãos</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant={viewMode === 'list' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('list')}
+              className="flex-1 sm:flex-none"
             >
               <LayoutList className="h-4 w-4 mr-1" />
               Lista
@@ -147,6 +148,7 @@ export default function ReportsManagement() {
               variant={viewMode === 'kanban' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setViewMode('kanban')}
+              className="flex-1 sm:flex-none"
             >
               <Columns className="h-4 w-4 mr-1" />
               Kanban
@@ -154,162 +156,165 @@ export default function ReportsManagement() {
           </div>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {/* KPIs - 2x3 on mobile, 3x2 on tablet, 6x1 on desktop */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
           {kpisLoading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="h-8 w-16 mb-2" />
-                  <Skeleton className="h-4 w-24" />
+                <CardContent className="p-3 sm:p-4">
+                  <Skeleton className="h-6 sm:h-8 w-12 sm:w-16 mb-1 sm:mb-2" />
+                  <Skeleton className="h-3 sm:h-4 w-16 sm:w-24" />
                 </CardContent>
               </Card>
             ))
           ) : (
             <>
               <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold">{kpis.total}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xl sm:text-2xl font-bold">{kpis.total}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold text-yellow-600">{kpis.pending}</p>
-                  <p className="text-xs text-muted-foreground">Pendentes</p>
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xl sm:text-2xl font-bold text-yellow-600">{kpis.pending}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Pendentes</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold text-blue-600">{kpis.urban_count}</p>
-                  <p className="text-xs text-muted-foreground">Urbanas</p>
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xl sm:text-2xl font-bold text-blue-600">{kpis.urban_count}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Urbanas</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold text-purple-600">{kpis.transport_count}</p>
-                  <p className="text-xs text-muted-foreground">Transporte</p>
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xl sm:text-2xl font-bold text-purple-600">{kpis.transport_count}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Transporte</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold text-amber-600">{kpis.evaluation_count}</p>
-                  <p className="text-xs text-muted-foreground">Avaliações</p>
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xl sm:text-2xl font-bold text-amber-600">{kpis.evaluation_count}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Avaliações</p>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="p-4">
-                  <p className="text-2xl font-bold text-red-600">{kpis.critical_count}</p>
-                  <p className="text-xs text-muted-foreground">Urgentes</p>
+                <CardContent className="p-3 sm:p-4">
+                  <p className="text-xl sm:text-2xl font-bold text-red-600">{kpis.critical_count}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Urgentes</p>
                 </CardContent>
               </Card>
             </>
           )}
         </div>
 
-        {/* Filters */}
+        {/* Filters - responsive grid layout */}
         <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-end gap-4">
-              {/* Search */}
-              <div className="flex-1 min-w-[200px]">
-                <span className="text-xs font-medium text-muted-foreground mb-1.5 block">Buscar</span>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar relatos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              {/* Tipo */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Tipo</span>
-                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ManifestType | 'all')}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="urban">Urbana</SelectItem>
-                    <SelectItem value="transport">Transporte</SelectItem>
-                    <SelectItem value="evaluation">Avaliação</SelectItem>
-                    <SelectItem value="feedback">Feedback</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Categoria */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Categoria</span>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {availableCategories.map((cat) => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Status */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Status</span>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="in_progress">Em Andamento</SelectItem>
-                    <SelectItem value="resolved">Resolvido</SelectItem>
-                    <SelectItem value="rejected">Rejeitado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Região */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Região</span>
-                <Select value={regionFilter} onValueChange={setRegionFilter}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {availableRegions.map((region) => (
-                      <SelectItem key={region} value={region}>
-                        {region}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Período */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Período</span>
-                <FilterDatePicker
-                  value={dateRange}
-                  onChange={(range) => setDateRange(range || { from: undefined, to: undefined })}
-                  placeholder="Selecionar período"
+          <CardContent className="p-3 sm:p-4">
+            <div className="space-y-3 sm:space-y-4">
+              {/* Search - always full width */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar relatos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
                 />
               </div>
 
-              {/* Export */}
-              <Button variant="outline" onClick={exportToCSV} className="h-9">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+              {/* Filter grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+                {/* Tipo */}
+                <div className="space-y-1">
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Tipo</span>
+                  <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ManifestType | 'all')}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="urban">Urbana</SelectItem>
+                      <SelectItem value="transport">Transporte</SelectItem>
+                      <SelectItem value="evaluation">Avaliação</SelectItem>
+                      <SelectItem value="feedback">Feedback</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Categoria */}
+                <div className="space-y-1">
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Categoria</span>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {availableCategories.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status */}
+                <div className="space-y-1">
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Status</span>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="pending">Pendente</SelectItem>
+                      <SelectItem value="in_progress">Em Andamento</SelectItem>
+                      <SelectItem value="resolved">Resolvido</SelectItem>
+                      <SelectItem value="rejected">Rejeitado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Região */}
+                <div className="space-y-1">
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Região</span>
+                  <Select value={regionFilter} onValueChange={setRegionFilter}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder="Todas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {availableRegions.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {region}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Período - spans 2 cols on mobile */}
+                <div className="space-y-1 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] sm:text-xs font-medium text-muted-foreground">Período</span>
+                  <FilterDatePicker
+                    value={dateRange}
+                    onChange={(range) => setDateRange(range || { from: undefined, to: undefined })}
+                    placeholder="Selecionar período"
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Export - full row on mobile */}
+                <div className="flex items-end col-span-2 sm:col-span-1">
+                  <Button variant="outline" onClick={exportToCSV} className="w-full h-9">
+                    <Download className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar</span>
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -329,25 +334,25 @@ export default function ReportsManagement() {
         {/* List View */}
         {viewMode === 'list' && (
           <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-4">
+            <CardHeader className="pb-2 px-3 sm:px-6">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <Checkbox
                   checked={selectedIds.length === manifests.length && manifests.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   {totalCount} relatos encontrados
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[600px]">
+              <ScrollArea className="h-[500px] sm:h-[600px]">
                 {loading ? (
-                  <div className="p-4 space-y-4">
+                  <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Skeleton className="h-10 w-10 rounded-full" />
-                        <div className="flex-1 space-y-2">
+                      <div key={i} className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg">
+                        <Skeleton className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0" />
+                        <div className="flex-1 space-y-2 min-w-0">
                           <Skeleton className="h-4 w-1/3" />
                           <Skeleton className="h-3 w-1/2" />
                         </div>
@@ -356,8 +361,8 @@ export default function ReportsManagement() {
                   </div>
                 ) : manifests.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-                    <AlertTriangle className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Nenhum relato encontrado</p>
+                    <AlertTriangle className="h-10 w-10 sm:h-12 sm:w-12 mb-3 sm:mb-4 opacity-50" />
+                    <p className="text-sm sm:text-base">Nenhum relato encontrado</p>
                   </div>
                 ) : (
                   <div>
@@ -381,18 +386,19 @@ export default function ReportsManagement() {
               </ScrollArea>
             </CardContent>
 
-            {/* Pagination */}
+            {/* Pagination - stacks on mobile */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 border-t">
+                <p className="text-xs sm:text-sm text-muted-foreground order-2 sm:order-1">
                   Página {page} de {totalPages}
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
+                    className="flex-1 sm:flex-none"
                   >
                     Anterior
                   </Button>
@@ -401,6 +407,7 @@ export default function ReportsManagement() {
                     size="sm"
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page === totalPages}
+                    className="flex-1 sm:flex-none"
                   >
                     Próxima
                   </Button>
@@ -441,21 +448,27 @@ export default function ReportsManagement() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleConfirmDelete}
-        reportDescription={manifestToDelete?.description || undefined}
+        reportDescription={manifestToDelete?.description}
+        variant="admin"
       />
 
       {/* Referral Dialog */}
-      <ReferralDialog
-        open={referralDialogOpen}
-        onOpenChange={setReferralDialogOpen}
-        report={selectedManifest ? {
-          id: selectedManifest.id,
-          type: selectedManifest.type === 'urban' || selectedManifest.type === 'feedback' ? 'urban' : selectedManifest.type === 'transport' ? 'transport' : 'service',
-          title: selectedManifest.title,
-          description: selectedManifest.description || undefined,
-          severity: selectedManifest.severity,
-        } : null}
-      />
+      {selectedManifest && (
+        <ReferralDialog
+          open={referralDialogOpen}
+          onOpenChange={setReferralDialogOpen}
+          report={{
+            id: selectedManifest.id,
+            type: selectedManifest.type === 'urban' ? 'urban' : 
+                  selectedManifest.type === 'transport' ? 'transport' : 'service',
+            title: selectedManifest.title,
+            description: selectedManifest.description,
+            category: selectedManifest.urban_data?.category || selectedManifest.transport_data?.report_type,
+            region: selectedManifest.urban_data?.neighborhood,
+            severity: selectedManifest.severity,
+          }}
+        />
+      )}
     </AdminLayout>
   );
 }
