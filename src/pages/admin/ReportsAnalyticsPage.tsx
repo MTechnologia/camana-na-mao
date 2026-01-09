@@ -44,7 +44,6 @@ import {
 
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [demographicFilters, setDemographicFilters] = useState<DemographicFilterState>({});
   
   // Combine filters for the analytics hook
@@ -52,17 +51,10 @@ export default function ReportsAnalyticsPage() {
     ...demographicFilters,
   }), [demographicFilters]);
   
-  const { stats, isLoading, refresh } = useReportsAnalytics(combinedFilters);
+  const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
   const correlations = useCorrelationAnalytics();
   const drillInsight = useDrillInsight(combinedFilters);
-
-  // Marcar como carregado após primeira carga completa
-  useEffect(() => {
-    if (!isLoading && stats && !initialLoadDone) {
-      setInitialLoadDone(true);
-    }
-  }, [isLoading, stats, initialLoadDone]);
 
   // Transform peak hours for chart
   const peakHoursData = useMemo(() => {
@@ -80,8 +72,8 @@ export default function ReportsAnalyticsPage() {
     }));
   }, [correlations.weekdayDistribution]);
 
-  // Mostrar skeleton estável durante carga inicial
-  if (!initialLoadDone || isLoading || !stats) {
+  // Mostrar skeleton apenas no primeiro carregamento
+  if (isLoading && !stats) {
     return (
       <AdminLayout>
         <div className="space-y-4">
@@ -92,6 +84,39 @@ export default function ReportsAnalyticsPage() {
             ))}
           </div>
           <div className="h-96 w-full bg-muted rounded animate-pulse" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Mostrar erro com opção de retry
+  if (error && !stats) {
+    return (
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <AlertTriangle className="h-16 w-16 text-destructive opacity-60" />
+          <h2 className="text-xl font-semibold text-foreground">Falha ao carregar análises</h2>
+          <p className="text-muted-foreground text-center max-w-md">{error}</p>
+          <Button onClick={() => refresh()} variant="default">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Tentar novamente
+          </Button>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  // Fallback seguro se stats ainda for null
+  if (!stats) {
+    return (
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <BarChart3 className="h-16 w-16 text-muted-foreground opacity-40" />
+          <p className="text-muted-foreground">Nenhum dado disponível</p>
+          <Button onClick={() => refresh()} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Atualizar
+          </Button>
         </div>
       </AdminLayout>
     );
@@ -109,8 +134,8 @@ export default function ReportsAnalyticsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refresh()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowExport(true)}>
@@ -119,6 +144,19 @@ export default function ReportsAnalyticsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Error Banner (when error but stats exist) */}
+        {error && stats && (
+          <Card className="p-4 bg-destructive/10 border-destructive/20">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <p className="text-sm text-destructive flex-1">{error}</p>
+              <Button variant="ghost" size="sm" onClick={() => refresh()}>
+                Tentar novamente
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Demographic Filters */}
         <Card className="p-4">
