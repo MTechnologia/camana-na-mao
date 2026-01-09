@@ -2296,6 +2296,47 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "classify_transport_type",
+      description: "Classifica o tipo de problema no transporte público. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'ônibus atrasou', 'metrô lotado', 'motorista imprudente'). NÃO CHAMAR para mensagens genéricas como 'quero relatar problema no transporte'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
+      parameters: {
+        type: "object",
+        properties: {
+          report_type: {
+            type: "string",
+            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
+            description: "Tipo PAI mais próximo: atraso (demora, espera), lotacao (cheio, superlotado), seguranca (assédio, roubo, briga), acessibilidade (elevador, rampa), limpeza (sujo, fedido), conducao (motorista, freada), outro (quando não encaixar)"
+          },
+          subcategory_label: {
+            type: "string",
+            description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Superlotação', 'Assédio no Transporte', 'Elevador Quebrado', 'Veículo Sujo', 'Freada Brusca', etc."
+          },
+          confidence: {
+            type: "number",
+            minimum: 0,
+            maximum: 1,
+            description: "Nível de confiança (0.0-1.0). Se >= 0.8, classificação automática. Se < 0.8, perguntar ao usuário."
+          },
+          reasoning: {
+            type: "string",
+            description: "Justificativa da classificação (para auditoria)"
+          },
+          user_confirmed: {
+            type: "boolean",
+            description: "Se o usuário confirmou o tipo (true quando usuário escolheu entre opções)"
+          },
+          alternative_types: {
+            type: "array",
+            items: { type: "string" },
+            description: "Quando confiança < 80%, listar 2-3 tipos alternativos mais prováveis"
+          }
+        },
+        required: ["report_type", "subcategory_label", "confidence", "reasoning", "user_confirmed"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "validate_cep",
       description: "Valida CEP e retorna endereço completo. CHAMAR SEMPRE que cidadão informar um CEP (8 dígitos). Retorna rua, bairro, cidade automaticamente.",
       parameters: {
@@ -3262,6 +3303,82 @@ async function executeTool(
           message: `${progressMarker}${confirmationText}\n\nQual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._`,
           data: { 
             category: args.category, 
+            confidence: args.confidence, 
+            user_confirmed: args.user_confirmed 
+          }
+        };
+      }
+      
+      case 'classify_transport_type': {
+        // Validate report_type against enum
+        const validTransportTypes = ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'];
+        if (!validTransportTypes.includes(args.report_type)) {
+          return {
+            success: false,
+            message: `Tipo inválido. Tipos válidos: ${validTransportTypes.join(', ')}`
+          };
+        }
+        
+        // Log classification for audit
+        console.log('[classify_transport_type] Classification:', {
+          report_type: args.report_type,
+          subcategory_label: args.subcategory_label,
+          confidence: args.confidence,
+          reasoning: args.reasoning,
+          user_confirmed: args.user_confirmed,
+          alternatives: args.alternative_types
+        });
+        
+        // Human-readable type labels
+        const transportTypeLabels: Record<string, string> = {
+          atraso: 'Atraso',
+          lotacao: 'Lotação',
+          seguranca: 'Segurança',
+          acessibilidade: 'Acessibilidade',
+          limpeza: 'Limpeza',
+          conducao: 'Condução',
+          outro: 'Outro'
+        };
+        const typeLabel = transportTypeLabels[args.report_type] || args.report_type;
+        
+        // If low confidence and not user confirmed, suggest alternatives
+        if (args.confidence < 0.8 && !args.user_confirmed && args.alternative_types?.length) {
+          const alternatives = args.alternative_types
+            .map((t: string) => transportTypeLabels[t] || t)
+            .join(', ');
+          
+          return {
+            success: true,
+            message: `Não tenho certeza do tipo. É mais um problema de **${typeLabel}** ou de **${alternatives}**?`,
+            data: { 
+              report_type: args.report_type, 
+              subcategory_label: args.subcategory_label,
+              confidence: args.confidence, 
+              user_confirmed: false,
+              needs_confirmation: true
+            }
+          };
+        }
+        
+        // Classification confirmed (high confidence or user confirmed)
+        const transportProgressData = { 
+          report_type: args.report_type,
+          subcategory_label: args.subcategory_label,
+          type_confidence: args.confidence,
+          type_user_confirmed: args.user_confirmed
+        };
+        const transportProgressMarker = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(transportProgressData)}]`;
+        
+        const transportConfirmationText = args.user_confirmed 
+          ? `Entendido, **${typeLabel}**.` 
+          : `Certo, é um problema de **${typeLabel}**.`;
+        
+        return {
+          success: true,
+          message: `${transportProgressMarker}${transportConfirmationText}\n\n**Qual linha ou estação** teve o problema?`,
+          data: { 
+            report_type: args.report_type, 
+            subcategory_label: args.subcategory_label,
             confidence: args.confidence, 
             user_confirmed: args.user_confirmed 
           }
