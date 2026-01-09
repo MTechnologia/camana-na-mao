@@ -23,6 +23,7 @@ interface TimelineDataPoint {
   date: string;
   urban: number;
   transport: number;
+  evaluation: number;
   total: number;
 }
 
@@ -31,6 +32,7 @@ interface ReportsAnalyticsStats {
   total: number;
   urban: number;
   transport: number;
+  evaluation: number;
   pending: number;
   resolved: number;
   critical: number;
@@ -122,6 +124,7 @@ const emptyStats: ReportsAnalyticsStats = {
   total: 0,
   urban: 0,
   transport: 0,
+  evaluation: 0,
   pending: 0,
   resolved: 0,
   critical: 0,
@@ -230,6 +233,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       const total = demographicsFromRpc?.total || 0;
       const urbanCount = demographicsFromRpc?.urban_count || 0;
       const transportCount = demographicsFromRpc?.transport_count || 0;
+      const evaluationCount = demographicsFromRpc?.evaluation_count || 0;
       const critical = demographicsFromRpc?.critical_count || 0;
       const pending = demographicsFromRpc?.pending_count || 0;
       const resolved = demographicsFromRpc?.resolved_count || 0;
@@ -390,6 +394,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           total,
           urban: urbanCount,
           transport: transportCount,
+          evaluation: evaluationCount,
           pending,
           resolved,
           critical,
