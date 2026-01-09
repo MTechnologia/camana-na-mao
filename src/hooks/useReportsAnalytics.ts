@@ -118,9 +118,49 @@ const AGE_GROUP_LABELS: Record<string, string> = {
   not_informed: 'Não informado',
 };
 
+const emptyStats: ReportsAnalyticsStats = {
+  total: 0,
+  urban: 0,
+  transport: 0,
+  pending: 0,
+  resolved: 0,
+  critical: 0,
+  trend: 0,
+  resolvedTrend: 0,
+  criticalTrend: 0,
+  pendingTrend: 0,
+  timeline: [],
+  byStatus: [],
+  categories: [],
+  demographics: {
+    byGender: [],
+    byRace: [],
+    bySocialClass: [],
+    byAgeGroup: [],
+    byRegion: [],
+  },
+  engagement: {
+    totalLikes: 0,
+    totalComments: 0,
+    avgLikesPerReport: 0,
+    avgCommentsPerReport: 0,
+    likesTrend: 0,
+    commentsTrend: 0,
+    topReports: [],
+    conversionFunnel: [],
+  },
+  criticality: {
+    criticalScore: 0,
+    bySeverity: [],
+    patterns: [],
+    criticalPendingReports: [],
+  },
+};
+
 export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const [stats, setStats] = useState<ReportsAnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Serializar filters para comparação estável
   const filtersKey = JSON.stringify(filters);
@@ -129,6 +169,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     try {
       if (!isMounted) return;
       setIsLoading(true);
+      setError(null);
 
       // Mapear filtros para o formato do banco
       const ageGroupMap: Record<string, string> = {
@@ -175,9 +216,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
       if (rpcError) {
         console.error('RPC error:', rpcError);
-        // Se falhou, retornar stats vazias
         if (isMounted) {
-          setStats(null);
+          setError('Não foi possível carregar os dados de análise.');
+          setStats(emptyStats);
           setIsLoading(false);
         }
         return;
@@ -275,7 +316,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             id, description, category, location_address, status, created_at, severity,
             urban_report_likes(count),
             urban_report_comments(count)
-          `);
+          `)
+          .limit(500);
         urbanReports = urbanData || [];
       } catch (err) {
         console.log('Could not fetch engagement data');
@@ -382,9 +424,14 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
             criticalPendingReports: [],
           },
         });
+        setError(null);
       }
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      if (isMounted) {
+        setError('Ocorreu um erro ao carregar os dados. Tente novamente.');
+        setStats(emptyStats);
+      }
     } finally {
       if (isMounted) setIsLoading(false);
     }
@@ -396,5 +443,5 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     return () => { isMounted = false; };
   }, [filtersKey, fetchAnalytics]);
 
-  return { stats, isLoading, refresh: () => fetchAnalytics(true) };
+  return { stats, isLoading, error, refresh: () => fetchAnalytics(true) };
 };
