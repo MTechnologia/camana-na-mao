@@ -1273,11 +1273,35 @@ function accumulateFieldsFromHistory(
       'ceu': 'ceu', 'biblioteca': 'library', 'centro esportivo': 'sports_center'
     };
     
+    // === FLEXIBLE ADDRESS CONFIRMATION PATTERNS ===
+    const addressConfirmPatterns = [
+      /^sim$/i,
+      /^s$/i,
+      /sim.*correto/i,
+      /está correto/i,
+      /esta correto/i,
+      /isso mesmo/i,
+      /pode ser/i,
+      /é isso/i,
+      /e isso/i,
+      /confirmo/i
+    ];
+    const addressDenyPatterns = [
+      /^n[aã]o$/i,
+      /^n$/i,
+      /n[aã]o.*correto/i,
+      /está errado/i,
+      /esta errado/i,
+      /outro endere[çc]o/i,
+      /errado/i,
+      /incorreto/i
+    ];
+    
     // Parse structured messages from inline pickers
     for (const msg of messages) {
       if (msg.role !== 'user') continue;
       const content = msg.content;
-      const contentLower = content.toLowerCase();
+      const contentLower = content.toLowerCase().trim();
       
       // Parse "Tipo de serviço: UBS" format from InlineServiceTypePicker
       const serviceTypeMatch = content.match(/tipo de serviço:\s*(\w+)/i);
@@ -1304,12 +1328,16 @@ function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed service_address from picker:', accumulated.service_address);
       }
       
-      // Parse address confirmation responses
-      if ((contentLower.includes('sim') && contentLower.includes('correto')) ||
-          contentLower === 'sim, o endereço está correto' ||
-          contentLower === 'sim, o endereco esta correto') {
-        accumulated.service_address_confirmed = true;
-        console.log('[accumulateFields] Service address confirmed by user');
+      // === IMPROVED: Parse address confirmation responses with flexible patterns ===
+      // Only parse if we're awaiting confirmation (service_address_confirmed is undefined)
+      if (accumulated.service_address_confirmed === undefined) {
+        if (addressConfirmPatterns.some(p => p.test(contentLower))) {
+          accumulated.service_address_confirmed = true;
+          console.log('[accumulateFields] Service address confirmed by user (flexible match)');
+        } else if (addressDenyPatterns.some(p => p.test(contentLower))) {
+          accumulated.service_address_confirmed = false;
+          console.log('[accumulateFields] Service address denied by user - will ask for neighborhood');
+        }
       }
       
       // Parse "Nota: X estrelas" format from InlineRatingPicker
@@ -1397,6 +1425,43 @@ function accumulateFieldsFromHistory(
             case 'rating_text':
               if (answer.length >= 5) {
                 accumulated.rating_text = answer;
+              }
+              break;
+            case 'service_address_confirmed':
+              // Parse sim/não response for address confirmation
+              const confirmLower = answer.toLowerCase().trim();
+              if (/^(sim|s|isso|correto|confirmo)$/i.test(confirmLower) || 
+                  confirmLower.includes('correto') || confirmLower.includes('isso mesmo')) {
+                accumulated.service_address_confirmed = true;
+                console.log('[accumulateFields] FIELD_REQUEST: Service address confirmed');
+              } else if (/^(n[aã]o|n|errado|incorreto)$/i.test(confirmLower) || 
+                         confirmLower.includes('errado') || confirmLower.includes('outro')) {
+                accumulated.service_address_confirmed = false;
+                console.log('[accumulateFields] FIELD_REQUEST: Service address denied');
+              }
+              break;
+            case 'service_neighborhood':
+              // User provided neighborhood after denying address
+              if (answer.length >= 2 && answer.length <= 60) {
+                accumulated.service_neighborhood = answer.trim();
+                // Update the service address with the new neighborhood
+                if (accumulated.service_name) {
+                  accumulated.service_address = `${accumulated.service_name} - ${answer.trim()}`;
+                }
+                // Reset confirmation to undefined so we can re-ask
+                accumulated.service_address_confirmed = undefined;
+                accumulated._needs_address_reconfirm = true;
+                console.log('[accumulateFields] FIELD_REQUEST: Service neighborhood captured:', answer);
+              }
+              break;
+            case 'service_address_reconfirm':
+              // Parse reconfirmation response
+              const reconfirmLower = answer.toLowerCase().trim();
+              if (/^(sim|s|isso|correto|confirmo)$/i.test(reconfirmLower) || 
+                  reconfirmLower.includes('correto') || reconfirmLower.includes('isso mesmo')) {
+                accumulated.service_address_confirmed = true;
+                accumulated._address_reconfirmed = true;
+                console.log('[accumulateFields] FIELD_REQUEST: Service address reconfirmed');
               }
               break;
           }
@@ -3729,9 +3794,17 @@ async function executeTool(
           };
         }
         
-        // 3. Validate service_address_confirmed (NEW STEP)
-        if (!args.service_address_confirmed) {
-          const address = args.service_address || accumulatedFields?.service_address || 'Endereço não informado';
+        // 3. Validate service_address_confirmed
+        // Check both args and accumulatedFields (deterministic flow sets it there)
+        const addressConfirmed = args.service_address_confirmed || 
+                                 accumulatedFields?.service_address_confirmed ||
+                                 accumulatedFields?._address_reconfirmed;
+        if (!addressConfirmed) {
+          const address = args.service_address || 
+                          accumulatedFields?.service_address || 
+                          (accumulatedFields?.service_neighborhood ? 
+                            `${args.service_name} - ${accumulatedFields.service_neighborhood}` : null) ||
+                          'Endereço não informado';
           return {
             success: false,
             message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`
@@ -4536,12 +4609,64 @@ serve(async (req) => {
           return { field: 'service_name', picker: '[SERVICE_PICKER]', prompt: 'Qual o **nome** do serviço que você visitou?' };
         }
         
-        // 3. Rating stars (REQUIRED 1-5)
+        // 3. Address confirmation (NEW - CRITICAL)
+        // If service_address_confirmed is undefined, we need to ask
+        if (fields.service_address_confirmed === undefined) {
+          const serviceTypeLabel: Record<string, string> = {
+            ubs: 'UBS', school: 'escola', hospital: 'hospital',
+            ceu: 'CEU', library: 'biblioteca', sports_center: 'centro esportivo'
+          };
+          const typeLabel = serviceTypeLabel[fields.service_type] || fields.service_type;
+          
+          // Build address from available info
+          const address = fields.service_address || 
+                          (fields.service_neighborhood ? `${fields.service_name} - ${fields.service_neighborhood}` : null);
+          
+          if (address) {
+            return { 
+              field: 'service_address_confirmed', 
+              picker: `[SERVICE_ADDRESS_CONFIRM:${address}]`, 
+              prompt: `O serviço fica em **${address}**. Está correto? (sim/não)` 
+            };
+          }
+          // If no address info yet, ask for neighborhood first
+          return {
+            field: 'service_neighborhood',
+            picker: null,
+            prompt: `Em qual **bairro** fica a ${typeLabel} que você visitou?`
+          };
+        }
+        
+        // 3b. If user said "no" to address, ask for correct neighborhood
+        if (fields.service_address_confirmed === false && !fields.service_neighborhood) {
+          const serviceTypeLabel: Record<string, string> = {
+            ubs: 'UBS', school: 'escola', hospital: 'hospital',
+            ceu: 'CEU', library: 'biblioteca', sports_center: 'centro esportivo'
+          };
+          const typeLabel = serviceTypeLabel[fields.service_type] || 'serviço';
+          return {
+            field: 'service_neighborhood',
+            picker: null,
+            prompt: `Ok, qual o **bairro** correto onde fica a ${typeLabel}?`
+          };
+        }
+        
+        // 3c. After getting neighborhood, reconfirm address
+        if (fields._needs_address_reconfirm && fields.service_neighborhood && !fields._address_reconfirmed) {
+          const address = fields.service_address || `${fields.service_name} - ${fields.service_neighborhood}`;
+          return {
+            field: 'service_address_reconfirm',
+            picker: `[SERVICE_ADDRESS_CONFIRM:${address}]`,
+            prompt: `Então é **${address}**. Correto?`
+          };
+        }
+        
+        // 4. Rating stars (REQUIRED 1-5)
         if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5) {
           return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
         }
         
-        // 4. Rating text
+        // 5. Rating text
         const textLen = (fields.rating_text || '').length;
         if (textLen < 10) {
           return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
