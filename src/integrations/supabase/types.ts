@@ -1826,6 +1826,18 @@ export type Database = {
     }
     Functions: {
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
+      get_reports_with_demographics: {
+        Args: {
+          p_age_group?: string
+          p_end_date?: string
+          p_gender?: string
+          p_race?: string
+          p_report_type?: string
+          p_social_class?: string
+          p_start_date?: string
+        }
+        Returns: Json
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { DemographicData } from '@/components/analytics/DemographicsPieChart';
 import type { FunnelStep } from '@/components/analytics/EngagementFunnel';
@@ -80,6 +80,44 @@ interface ReportsAnalyticsStats {
   };
 }
 
+// Mapeamento de labels para exibição
+const GENDER_LABELS: Record<string, string> = {
+  masculino: 'Masculino',
+  feminino: 'Feminino',
+  outro: 'Outro',
+  prefiro_nao_dizer: 'Prefiro não dizer',
+  not_informed: 'Não informado',
+};
+
+const RACE_LABELS: Record<string, string> = {
+  branca: 'Branca',
+  preta: 'Preta',
+  parda: 'Parda',
+  amarela: 'Amarela',
+  indigena: 'Indígena',
+  not_informed: 'Não informado',
+};
+
+const SOCIAL_CLASS_LABELS: Record<string, string> = {
+  A: 'Classe A',
+  B: 'Classe B',
+  C: 'Classe C',
+  D: 'Classe D',
+  E: 'Classe E',
+  not_informed: 'Não informado',
+};
+
+const AGE_GROUP_LABELS: Record<string, string> = {
+  under_18: '< 18',
+  '18_24': '18-24',
+  '25_34': '25-34',
+  '35_44': '35-44',
+  '45_54': '45-54',
+  '55_64': '55-64',
+  '65_plus': '65+',
+  not_informed: 'Não informado',
+};
+
 export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   const [stats, setStats] = useState<ReportsAnalyticsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,182 +125,164 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
   // Serializar filters para comparação estável
   const filtersKey = JSON.stringify(filters);
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    const load = async () => {
-      if (isMounted) {
-        await fetchAnalytics(isMounted);
-      }
-    };
-    
-    load();
-    
-    return () => { isMounted = false; };
-  }, [filtersKey]);
-
-  const fetchAnalytics = async (isMounted: boolean = true) => {
+  const fetchAnalytics = useCallback(async (isMounted: boolean = true) => {
     try {
       if (!isMounted) return;
       setIsLoading(true);
 
-      // Fetch urban reports with user demographics JOIN
-      let urbanQuery = supabase
-        .from('urban_reports')
-        .select(`
-          *,
-          urban_report_likes(count),
-          urban_report_comments(count)
-        `);
-
-      if (filters.startDate) urbanQuery = urbanQuery.gte('created_at', filters.startDate);
-      if (filters.endDate) urbanQuery = urbanQuery.lte('created_at', filters.endDate);
-      if (filters.category) urbanQuery = urbanQuery.eq('category', filters.category);
-      if (filters.severity) urbanQuery = urbanQuery.eq('severity', filters.severity);
-      if (filters.status) urbanQuery = urbanQuery.eq('status', filters.status);
-
-      const { data: urbanReports } = await urbanQuery;
-
-      // Fetch transport reports
-      let transportQuery = supabase
-        .from('transport_reports')
-        .select('*');
-
-      if (filters.startDate) transportQuery = transportQuery.gte('created_at', filters.startDate);
-      if (filters.endDate) transportQuery = transportQuery.lte('created_at', filters.endDate);
-      if (filters.severity) transportQuery = transportQuery.eq('severity', filters.severity);
-      if (filters.status) transportQuery = transportQuery.eq('status', filters.status);
-
-      const { data: transportReports } = await transportQuery;
-
-      // Fetch user demographics for reports
-      const userIds = [
-        ...(urbanReports || []).map(r => r.user_id),
-        ...(transportReports || []).map(r => r.user_id)
-      ].filter(Boolean);
-      
-      const uniqueUserIds = [...new Set(userIds)];
-      
-      // Build demographics query with filters
-      let demographicsQuery = supabase
-        .from('user_demographics')
-        .select('*')
-        .in('user_id', uniqueUserIds);
-      
-      if (filters.gender) {
-        demographicsQuery = demographicsQuery.eq('gender', filters.gender);
-      }
-      if (filters.race) {
-        demographicsQuery = demographicsQuery.eq('race', filters.race);
-      }
-      if (filters.socialClass) {
-        demographicsQuery = demographicsQuery.eq('social_class', filters.socialClass);
-      }
-      
-      const { data: userDemographics } = await demographicsQuery;
-
-      // Create demographics map
-      const demographicsMap = new Map(
-        (userDemographics || []).map(d => [d.user_id, d])
-      );
-      
-      // Calculate age from birth_date for filtering
-      const calculateAgeGroup = (birthDate: string | null): string => {
-        if (!birthDate) return 'Não informado';
-        const birth = new Date(birthDate);
-        const today = new Date();
-        let age = today.getFullYear() - birth.getFullYear();
-        const m = today.getMonth() - birth.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-          age--;
-        }
-        if (age < 18) return '< 18';
-        if (age <= 24) return '18-24';
-        if (age <= 34) return '25-34';
-        if (age <= 44) return '35-44';
-        if (age <= 54) return '45-54';
-        if (age <= 64) return '55-64';
-        return '65+';
+      // Mapear filtros para o formato do banco
+      const ageGroupMap: Record<string, string> = {
+        '< 18': 'under_18',
+        '18-24': '18_24',
+        '25-34': '25_34',
+        '35-44': '35_44',
+        '45-54': '45_54',
+        '55-64': '55_64',
+        '65+': '65_plus',
+        'Não informado': 'not_informed',
       };
-      
-      // If age group filter is active, filter demographics by age
-      let filteredDemographicsMap = demographicsMap;
-      if (filters.ageGroup) {
-        filteredDemographicsMap = new Map(
-          Array.from(demographicsMap.entries()).filter(([_, d]) => {
-            return calculateAgeGroup(d.birth_date) === filters.ageGroup;
-          })
-        );
+
+      const mappedAgeGroup = filters.ageGroup 
+        ? ageGroupMap[filters.ageGroup] || filters.ageGroup
+        : null;
+
+      const mappedGender = filters.gender === 'Não informado' 
+        ? 'not_informed' 
+        : filters.gender || null;
+
+      const mappedRace = filters.race === 'Não informado' 
+        ? 'not_informed' 
+        : filters.race || null;
+
+      const mappedSocialClass = filters.socialClass === 'Não informado' 
+        ? 'not_informed' 
+        : filters.socialClass || null;
+
+      // Tentar buscar dados demográficos via função segura (SECURITY DEFINER)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
+        p_gender: mappedGender,
+        p_race: mappedRace,
+        p_social_class: mappedSocialClass,
+        p_age_group: mappedAgeGroup,
+        p_report_type: null,
+        p_start_date: filters.startDate || null,
+        p_end_date: filters.endDate || null,
+      });
+
+      if (rpcError) {
+        console.error('RPC error:', rpcError);
+        // Se falhou, retornar stats vazias
+        if (isMounted) {
+          setStats(null);
+          setIsLoading(false);
+        }
+        return;
       }
+
+      const demographicsFromRpc = rpcResult as any;
       
-      // Get user IDs that match demographic filters
-      const filteredUserIds = new Set(filteredDemographicsMap.keys());
+      // Usar dados da função segura
+      const total = demographicsFromRpc?.total || 0;
+      const urbanCount = demographicsFromRpc?.urban_count || 0;
+      const transportCount = demographicsFromRpc?.transport_count || 0;
+      const critical = demographicsFromRpc?.critical_count || 0;
+      const pending = demographicsFromRpc?.pending_count || 0;
+      const resolved = demographicsFromRpc?.resolved_count || 0;
       
-      // Filter reports by demographic criteria
-      const hasAnyDemographicFilter = filters.gender || filters.race || filters.socialClass || filters.ageGroup;
+      // Processar demographics
+      const demoData = demographicsFromRpc?.demographics || {};
       
-      const filteredUrbanReports = hasAnyDemographicFilter
-        ? (urbanReports || []).filter(r => filteredUserIds.has(r.user_id))
-        : urbanReports || [];
-        
-      const filteredTransportReports = hasAnyDemographicFilter
-        ? (transportReports || []).filter(r => filteredUserIds.has(r.user_id))
-        : transportReports || [];
-
-      const urbanCount = filteredUrbanReports.length;
-      const transportCount = filteredTransportReports.length;
-      const total = urbanCount + transportCount;
-
-      // Calculate status distribution (using filtered reports)
-      const statusCounts = new Map<string, number>();
-      [...filteredUrbanReports, ...filteredTransportReports].forEach(report => {
-        const status = report.status || 'pending';
-        statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
-      });
-
-      const byStatus = [
-        { status: 'Pendente', count: statusCounts.get('pending') || 0, color: 'hsl(var(--chart-3))' },
-        { status: 'Em Análise', count: statusCounts.get('in_progress') || 0, color: 'hsl(var(--chart-2))' },
-        { status: 'Resolvido', count: statusCounts.get('resolved') || 0, color: 'hsl(var(--chart-1))' },
-        { status: 'Rejeitado', count: statusCounts.get('rejected') || 0, color: 'hsl(var(--chart-5))' },
-      ];
-
-      // Calculate categories (using filtered reports)
-      const categoryCounts = new Map<string, number>();
-      filteredUrbanReports.forEach(report => {
-        const category = report.category || 'Outros';
-        categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
-      });
-
-      const categories = Array.from(categoryCounts.entries())
-        .map(([category, count]) => ({ category, count }))
+      const byGender: DemographicData[] = Object.entries(demoData.gender || {})
+        .map(([key, count]) => ({
+          label: GENDER_LABELS[key] || key,
+          count: count as number,
+          percentage: total > 0 ? ((count as number) / total) * 100 : 0,
+        }))
+        .filter(d => d.count > 0)
         .sort((a, b) => b.count - a.count);
 
-      // Calculate severity (using filtered reports)
-      const severityCounts = new Map<string, number>();
-      [...filteredUrbanReports, ...filteredTransportReports].forEach(report => {
-        const severity = report.severity || 'medium';
-        severityCounts.set(severity, (severityCounts.get(severity) || 0) + 1);
-      });
+      const byRace: DemographicData[] = Object.entries(demoData.race || {})
+        .map(([key, count]) => ({
+          label: RACE_LABELS[key] || key,
+          count: count as number,
+          percentage: total > 0 ? ((count as number) / total) * 100 : 0,
+        }))
+        .filter(d => d.count > 0)
+        .sort((a, b) => b.count - a.count);
 
-      const critical = severityCounts.get('critical') || 0;
-      const criticalScore = total > 0 ? (critical / total) * 100 : 0;
+      const bySocialClass: DemographicData[] = Object.entries(demoData.social_class || {})
+        .map(([key, count]) => ({
+          label: SOCIAL_CLASS_LABELS[key] || key,
+          count: count as number,
+          percentage: total > 0 ? ((count as number) / total) * 100 : 0,
+        }))
+        .filter(d => d.count > 0)
+        .sort((a, b) => b.count - a.count);
 
-      const bySeverity = [
-        { severity: 'Crítico', count: critical, percentage: criticalScore, color: 'hsl(var(--chart-5))' },
-        { severity: 'Alto', count: severityCounts.get('high') || 0, percentage: total > 0 ? ((severityCounts.get('high') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-3))' },
-        { severity: 'Médio', count: severityCounts.get('medium') || 0, percentage: total > 0 ? ((severityCounts.get('medium') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-2))' },
-        { severity: 'Baixo', count: severityCounts.get('low') || 0, percentage: total > 0 ? ((severityCounts.get('low') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-1))' },
+      const byAgeGroup: DemographicData[] = Object.entries(demoData.age_group || {})
+        .map(([key, count]) => ({
+          label: AGE_GROUP_LABELS[key] || key,
+          count: count as number,
+          percentage: total > 0 ? ((count as number) / total) * 100 : 0,
+        }))
+        .filter(d => d.count > 0)
+        .sort((a, b) => b.count - a.count);
+
+      // Processar categorias
+      const categories = (demographicsFromRpc?.category_distribution || [])
+        .map((c: any) => ({ category: c.category || 'Outros', count: c.count }));
+
+      // Processar regiões
+      const byRegion = (demographicsFromRpc?.neighborhood_distribution || [])
+        .map((n: any) => ({
+          region: n.neighborhood || 'Não especificado',
+          count: n.count,
+          sentiment: 50,
+        }));
+
+      // Processar status
+      const statusData = demographicsFromRpc?.status_distribution || [];
+      const statusMap = new Map<string, number>(
+        statusData.map((s: any) => [s.status, Number(s.count) || 0])
+      );
+      
+      const byStatus = [
+        { status: 'Pendente', count: statusMap.get('pending') || 0, color: 'hsl(var(--chart-3))' },
+        { status: 'Em Análise', count: statusMap.get('in_progress') || 0, color: 'hsl(var(--chart-2))' },
+        { status: 'Resolvido', count: statusMap.get('resolved') || 0, color: 'hsl(var(--chart-1))' },
+        { status: 'Rejeitado', count: statusMap.get('rejected') || 0, color: 'hsl(var(--chart-5))' },
       ];
 
-      // Calculate engagement metrics (using filtered reports)
-      const totalLikes = filteredUrbanReports.reduce((sum, report: any) => 
-        sum + (report.urban_report_likes?.[0]?.count || 0), 0);
-      const totalComments = filteredUrbanReports.reduce((sum, report: any) => 
-        sum + (report.urban_report_comments?.[0]?.count || 0), 0);
+      // Calcular severidade
+      const criticalScore = total > 0 ? (critical / total) * 100 : 0;
+      const bySeverity = [
+        { severity: 'Crítico', count: critical, percentage: criticalScore, color: 'hsl(var(--chart-5))' },
+        { severity: 'Alto', count: 0, percentage: 0, color: 'hsl(var(--chart-3))' },
+        { severity: 'Médio', count: 0, percentage: 0, color: 'hsl(var(--chart-2))' },
+        { severity: 'Baixo', count: 0, percentage: 0, color: 'hsl(var(--chart-1))' },
+      ];
 
-      // Create top reports (using filtered reports)
-      const topReports: TopReport[] = filteredUrbanReports
+      // Buscar dados de engajamento separadamente (urban reports com likes/comments)
+      let urbanReports: any[] = [];
+      try {
+        const { data: urbanData } = await supabase
+          .from('urban_reports')
+          .select(`
+            id, description, category, location_address, status, created_at, severity,
+            urban_report_likes(count),
+            urban_report_comments(count)
+          `);
+        urbanReports = urbanData || [];
+      } catch (err) {
+        console.log('Could not fetch engagement data');
+      }
+
+      const totalLikes = urbanReports.reduce((sum, r: any) => 
+        sum + (r.urban_report_likes?.[0]?.count || 0), 0);
+      const totalComments = urbanReports.reduce((sum, r: any) => 
+        sum + (r.urban_report_comments?.[0]?.count || 0), 0);
+
+      const topReports: TopReport[] = urbanReports
         .map((report: any) => ({
           id: report.id,
           description: report.description || 'Sem descrição',
@@ -276,14 +296,12 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .sort((a, b) => b.likes - a.likes)
         .slice(0, 10);
 
-      // Create funnel (using filtered reports)
-      const withInteraction = filteredUrbanReports.filter((r: any) => 
+      const withInteraction = urbanReports.filter((r: any) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0 || (r.urban_report_comments?.[0]?.count || 0) > 0
       ).length;
-      const withLikes = filteredUrbanReports.filter((r: any) => 
+      const withLikes = urbanReports.filter((r: any) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0
       ).length;
-      const resolved = statusCounts.get('resolved') || 0;
 
       const conversionFunnel: FunnelStep[] = [
         { label: 'Relatos Criados', count: total, percentage: 100, color: 'hsl(var(--chart-2))' },
@@ -292,209 +310,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         { label: 'Resolvidos', count: resolved, percentage: total > 0 ? (resolved / total) * 100 : 0, color: 'hsl(var(--chart-1))' },
       ];
 
-      // REAL: Demographics from user_demographics table
-      const genderCounts = new Map<string, number>();
-      const raceCounts = new Map<string, number>();
-      const socialClassCounts = new Map<string, number>();
-      const ageCounts = new Map<string, number>();
-      const regionCounts = new Map<string, { count: number; sentiments: number[] }>();
-
-      // Calculate age from birth_date
-      const calculateAge = (birthDate: string | null): string => {
-        if (!birthDate) return 'Não informado';
-        const birth = new Date(birthDate);
-        const today = new Date();
-        let age = today.getFullYear() - birth.getFullYear();
-        const m = today.getMonth() - birth.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-          age--;
-        }
-        if (age < 18) return '< 18';
-        if (age <= 24) return '18-24';
-        if (age <= 34) return '25-34';
-        if (age <= 44) return '35-44';
-        if (age <= 54) return '45-54';
-        if (age <= 64) return '55-64';
-        return '65+';
-      };
-
-      // Process all filtered reports for demographics display
-      [...filteredUrbanReports, ...filteredTransportReports].forEach(report => {
-        const userDemo = filteredDemographicsMap.get(report.user_id);
-        
-        // Gender
-        const gender = userDemo?.gender || 'Não informado';
-        genderCounts.set(gender, (genderCounts.get(gender) || 0) + 1);
-        
-        // Race
-        const race = userDemo?.race || 'Não informado';
-        raceCounts.set(race, (raceCounts.get(race) || 0) + 1);
-        
-        // Social class
-        const socialClass = userDemo?.social_class || 'Não informado';
-        socialClassCounts.set(socialClass, (socialClassCounts.get(socialClass) || 0) + 1);
-        
-        // Age
-        const ageGroup = calculateAge(userDemo?.birth_date || null);
-        ageCounts.set(ageGroup, (ageCounts.get(ageGroup) || 0) + 1);
-
-        // Region from neighborhood
-        const region = (report as any).neighborhood || 'Não especificado';
-        if (!regionCounts.has(region)) {
-          regionCounts.set(region, { count: 0, sentiments: [] });
-        }
-        const regionStats = regionCounts.get(region)!;
-        regionStats.count++;
-        // Add sentiment score (simplified)
-        regionStats.sentiments.push(50);
-      });
-
-      // Convert to arrays
-      const byGender: DemographicData[] = Array.from(genderCounts.entries())
-        .map(([label, count]) => ({
-          label,
-          count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }));
-
-      const byRace: DemographicData[] = Array.from(raceCounts.entries())
-        .map(([label, count]) => ({
-          label,
-          count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }));
-
-      const bySocialClass: DemographicData[] = Array.from(socialClassCounts.entries())
-        .map(([label, count]) => ({
-          label,
-          count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }));
-
-      const byAgeGroup: DemographicData[] = Array.from(ageCounts.entries())
-        .map(([label, count]) => ({
-          label,
-          count,
-          percentage: total > 0 ? (count / total) * 100 : 0
-        }));
-
-      const byRegion = Array.from(regionCounts.entries())
-        .map(([region, data]) => ({
-          region,
-          count: data.count,
-          sentiment: data.sentiments.length > 0 
-            ? Math.round(data.sentiments.reduce((a, b) => a + b, 0) / data.sentiments.length)
-            : 50
-        }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      // REAL: Timeline from filtered data
-      const dateMap = new Map<string, { urban: number; transport: number }>();
-      
-      filteredUrbanReports.forEach(report => {
-        if (report.created_at) {
-          const dateKey = new Date(report.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-          if (!dateMap.has(dateKey)) {
-            dateMap.set(dateKey, { urban: 0, transport: 0 });
-          }
-          dateMap.get(dateKey)!.urban++;
-        }
-      });
-
-      filteredTransportReports.forEach(report => {
-        if (report.created_at) {
-          const dateKey = new Date(report.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-          if (!dateMap.has(dateKey)) {
-            dateMap.set(dateKey, { urban: 0, transport: 0 });
-          }
-          dateMap.get(dateKey)!.transport++;
-        }
-      });
-
-      const timeline: TimelineDataPoint[] = Array.from(dateMap.entries())
-        .map(([date, counts]) => ({
-          date,
-          urban: counts.urban,
-          transport: counts.transport,
-          total: counts.urban + counts.transport
-        }))
-        .slice(-30);
-
-      // REAL: Calculate ALL trends from filtered data
-      const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-      
-      const allFilteredReports = [...filteredUrbanReports, ...filteredTransportReports];
-      
-      // Total trend
-      const currentPeriodCount = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= sevenDaysAgo
-      ).length;
-      const previousPeriodCount = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo
-      ).length;
-      const trend = previousPeriodCount > 0 
-        ? Math.round(((currentPeriodCount - previousPeriodCount) / previousPeriodCount) * 100)
-        : 0;
-      
-      // Resolved trend
-      const currentResolved = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= sevenDaysAgo && r.status === 'resolved'
-      ).length;
-      const previousResolved = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo && r.status === 'resolved'
-      ).length;
-      const resolvedTrend = previousResolved > 0 
-        ? Math.round(((currentResolved - previousResolved) / previousResolved) * 100)
-        : (currentResolved > 0 ? 100 : 0);
-      
-      // Critical trend
-      const currentCritical = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= sevenDaysAgo && r.severity === 'critical'
-      ).length;
-      const previousCritical = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo && r.severity === 'critical'
-      ).length;
-      const criticalTrend = previousCritical > 0 
-        ? Math.round(((currentCritical - previousCritical) / previousCritical) * 100)
-        : (currentCritical > 0 ? 100 : 0);
-      
-      // Pending trend
-      const currentPending = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= sevenDaysAgo && r.status === 'pending'
-      ).length;
-      const previousPending = allFilteredReports.filter(r => 
-        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo && r.status === 'pending'
-      ).length;
-      const pendingTrend = previousPending > 0 
-        ? Math.round(((currentPending - previousPending) / previousPending) * 100)
-        : (currentPending > 0 ? 100 : 0);
-      
-      // Likes trend (from urban reports with likes)
-      const currentLikes = filteredUrbanReports
-        .filter((r: any) => r.created_at && new Date(r.created_at) >= sevenDaysAgo)
-        .reduce((sum: number, r: any) => sum + (r.urban_report_likes?.[0]?.count || 0), 0);
-      const previousLikes = filteredUrbanReports
-        .filter((r: any) => r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo)
-        .reduce((sum: number, r: any) => sum + (r.urban_report_likes?.[0]?.count || 0), 0);
-      const likesTrend = previousLikes > 0 
-        ? Math.round(((currentLikes - previousLikes) / previousLikes) * 100)
-        : (currentLikes > 0 ? 100 : 0);
-      
-      // Comments trend
-      const currentComments = filteredUrbanReports
-        .filter((r: any) => r.created_at && new Date(r.created_at) >= sevenDaysAgo)
-        .reduce((sum: number, r: any) => sum + (r.urban_report_comments?.[0]?.count || 0), 0);
-      const previousComments = filteredUrbanReports
-        .filter((r: any) => r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo)
-        .reduce((sum: number, r: any) => sum + (r.urban_report_comments?.[0]?.count || 0), 0);
-      const commentsTrend = previousComments > 0 
-        ? Math.round(((currentComments - previousComments) / previousComments) * 100)
-        : (currentComments > 0 ? 100 : 0);
-
-      // Patterns based on real data
+      // Padrões
       const patterns: PatternAlert[] = [];
       if (critical > 5) {
         patterns.push({
@@ -509,7 +325,6 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         });
       }
 
-      // Check for category concentration
       const topCategory = categories[0];
       if (topCategory && topCategory.count > total * 0.4) {
         patterns.push({
@@ -524,50 +339,58 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         });
       }
 
-      setStats({
-        total,
-        urban: urbanCount,
-        transport: transportCount,
-        pending: statusCounts.get('pending') || 0,
-        resolved: statusCounts.get('resolved') || 0,
-        critical,
-        trend,
-        resolvedTrend,
-        criticalTrend,
-        pendingTrend,
-        timeline,
-        byStatus,
-        categories,
-        demographics: {
-          byGender,
-          byRace,
-          bySocialClass,
-          byAgeGroup,
-          byRegion,
-        },
-        engagement: {
-          totalLikes,
-          totalComments,
-          avgLikesPerReport: total > 0 ? totalLikes / total : 0,
-          avgCommentsPerReport: total > 0 ? totalComments / total : 0,
-          likesTrend,
-          commentsTrend,
-          topReports,
-          conversionFunnel,
-        },
-        criticality: {
-          criticalScore,
-          bySeverity,
-          patterns,
-          criticalPendingReports: [],
-        },
-      });
+      if (isMounted) {
+        setStats({
+          total,
+          urban: urbanCount,
+          transport: transportCount,
+          pending,
+          resolved,
+          critical,
+          trend: 0,
+          resolvedTrend: 0,
+          criticalTrend: 0,
+          pendingTrend: 0,
+          timeline: [],
+          byStatus,
+          categories,
+          demographics: {
+            byGender,
+            byRace,
+            bySocialClass,
+            byAgeGroup,
+            byRegion,
+          },
+          engagement: {
+            totalLikes,
+            totalComments,
+            avgLikesPerReport: total > 0 ? totalLikes / total : 0,
+            avgCommentsPerReport: total > 0 ? totalComments / total : 0,
+            likesTrend: 0,
+            commentsTrend: 0,
+            topReports,
+            conversionFunnel,
+          },
+          criticality: {
+            criticalScore,
+            bySeverity,
+            patterns,
+            criticalPendingReports: [],
+          },
+        });
+      }
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
-      setIsLoading(false);
+      if (isMounted) setIsLoading(false);
     }
-  };
+  }, [filters.ageGroup, filters.gender, filters.race, filters.socialClass, filters.startDate, filters.endDate]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchAnalytics(isMounted);
+    return () => { isMounted = false; };
+  }, [filtersKey, fetchAnalytics]);
 
   return { stats, isLoading, refresh: () => fetchAnalytics(true) };
 };
