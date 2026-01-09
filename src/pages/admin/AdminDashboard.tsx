@@ -63,7 +63,7 @@ export default function AdminDashboard() {
 
   const quickLinks = [
     {
-      title: 'Ver Manifestações',
+      title: 'Ver Relatos',
       description: 'Gerenciar relatos e solicitações',
       icon: MessageSquare,
       href: '/admin/reports',

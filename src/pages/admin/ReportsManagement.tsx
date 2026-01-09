@@ -131,8 +131,8 @@ export default function ReportsManagement() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Gestão de Manifestações</h1>
-            <p className="text-muted-foreground">Gerencie todas as manifestações cidadãs em um só lugar</p>
+            <h1 className="text-2xl font-bold">Gestão de Relatos</h1>
+            <p className="text-muted-foreground">Gerencie todos os relatos cidadãos em um só lugar</p>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -217,7 +217,7 @@ export default function ReportsManagement() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar manifestações..."
+                    placeholder="Buscar relatos..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"
@@ -336,7 +336,7 @@ export default function ReportsManagement() {
                   onCheckedChange={handleSelectAll}
                 />
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {totalCount} manifestações encontradas
+                  {totalCount} relatos encontrados
                 </CardTitle>
               </div>
             </CardHeader>
@@ -357,7 +357,7 @@ export default function ReportsManagement() {
                 ) : manifests.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
                     <AlertTriangle className="h-12 w-12 mb-4 opacity-50" />
-                    <p>Nenhuma manifestação encontrada</p>
+                    <p>Nenhum relato encontrado</p>
                   </div>
                 ) : (
                   <div>
