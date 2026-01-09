@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Building2, Bus, Star, MessageSquare, MapPin, Calendar, Clock,
-  Heart, Download, Trash2, Forward, ExternalLink, Send,
+  Download, Trash2, Forward, ExternalLink, Send,
   CheckCircle2, AlertCircle, Image as ImageIcon, Activity
 } from 'lucide-react';
 import { formatShortDate, formatLongDateTime, formatDateTime, formatCompactDateTime } from '@/lib/dateUtils';
@@ -351,14 +351,6 @@ export const UnifiedReportDrawer = ({
                     </div>
                   )}
 
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-4 w-4" /> {manifest.urban_data.likes_count} curtidas
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="h-4 w-4" /> {manifest.urban_data.comments_count} comentários
-                    </span>
-                  </div>
                 </>
               )}
 
