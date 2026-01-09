@@ -128,7 +128,7 @@ export default function AdminDashboard() {
           <KPICard
             title="Resolvidos"
             value={stats.resolved}
-            trend={{ value: 15, direction: 'up' }}
+            trend={{ value: Math.abs(stats.resolvedTrend), direction: stats.resolvedTrend >= 0 ? 'up' : 'down' }}
             icon={CheckCircle2}
             className="border-green-500/30"
           />
