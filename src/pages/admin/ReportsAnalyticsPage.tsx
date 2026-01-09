@@ -42,6 +42,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
+// Analytics page for unified reports visualization
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
   const [demographicFilters, setDemographicFilters] = useState<DemographicFilterState>({});
