@@ -230,7 +230,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="h-screen bg-background pt-[60px] flex flex-col overflow-hidden">
+    <div className="h-screen bg-background pt-[80px] flex flex-col overflow-hidden">
       <PageHeader title="Meu Perfil" backTo="/" />
 
       {/* Hidden file input */}
@@ -242,11 +242,11 @@ const Profile = () => {
         className="hidden"
       />
 
-      <div className="flex-1 px-4 py-3 flex flex-col overflow-hidden">
+      <div className="flex-1 px-4 pb-4 flex flex-col overflow-hidden">
         {/* Profile Card Compacto - Agora editável */}
         {user && (
           <Card
-            className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50 mb-3"
+            className="cursor-pointer transition-all hover:shadow-md hover:scale-[1.01] active:scale-[0.99] border-border/50 mb-2"
             onClick={() => navigate('/perfil/dados-pessoais')}
           >
             <CardContent className="p-3">
@@ -302,13 +302,13 @@ const Profile = () => {
 
         {/* Profile Completion Card */}
         {profileStatus.percentage < 100 && (
-          <div className="mb-3">
+          <div className="mb-2">
             <ProfileCompletionCard status={profileStatus} />
           </div>
         )}
 
         {/* Sections Container - grows to fill space */}
-        <div className="flex-1 flex flex-col gap-4 min-h-0">
+        <div className="flex-1 flex flex-col gap-3 min-h-0">
           {/* Meus Dados Section */}
           <div className="space-y-1.5">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
@@ -334,7 +334,7 @@ const Profile = () => {
         <Button
           onClick={signOut}
           variant="outline"
-          className="w-full h-10 mt-3 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 flex-shrink-0"
+          className="w-full h-10 mt-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 flex-shrink-0"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sair da Conta
