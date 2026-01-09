@@ -154,7 +154,7 @@ export default function ReportsAnalyticsPage() {
           <KPICard
             title="Resolvidos"
             value={stats.resolved}
-            trend={{ value: 15, direction: 'up' }}
+            trend={{ value: Math.abs(stats.resolvedTrend), direction: stats.resolvedTrend >= 0 ? 'up' : 'down' }}
             icon={CheckCircle2}
             className="border-green-500/30"
             onClick={() => drillInsight.searchByStatus('resolvido')}
@@ -371,14 +371,14 @@ export default function ReportsAnalyticsPage() {
               <KPICard
                 title="Total de Apoios"
                 value={stats.engagement.totalLikes}
-                trend={{ value: 18, direction: 'up' }}
+                trend={{ value: Math.abs(stats.engagement.likesTrend), direction: stats.engagement.likesTrend >= 0 ? 'up' : 'down' }}
                 icon={TrendingUp}
                 onClick={() => drillInsight.searchByEngagement('apoios')}
               />
               <KPICard
                 title="Comentários"
                 value={stats.engagement.totalComments}
-                trend={{ value: 25, direction: 'up' }}
+                trend={{ value: Math.abs(stats.engagement.commentsTrend), direction: stats.engagement.commentsTrend >= 0 ? 'up' : 'down' }}
                 icon={Activity}
                 onClick={() => drillInsight.searchByEngagement('comentários')}
               />
@@ -390,7 +390,7 @@ export default function ReportsAnalyticsPage() {
               <KPICard
                 title="Taxa Resolução"
                 value={`${((stats.resolved / stats.total) * 100).toFixed(0)}%`}
-                trend={{ value: 8, direction: 'up' }}
+                trend={{ value: Math.abs(stats.resolvedTrend), direction: stats.resolvedTrend >= 0 ? 'up' : 'down' }}
                 icon={Users}
                 onClick={() => drillInsight.searchByStatus('resolvido')}
               />

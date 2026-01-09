@@ -36,6 +36,11 @@ interface ReportsAnalyticsStats {
   critical: number;
   trend: number;
   
+  // REAL Trends (calculated from data)
+  resolvedTrend: number;
+  criticalTrend: number;
+  pendingTrend: number;
+  
   // Temporal
   timeline: TimelineDataPoint[];
   
@@ -60,6 +65,8 @@ interface ReportsAnalyticsStats {
     totalComments: number;
     avgLikesPerReport: number;
     avgCommentsPerReport: number;
+    likesTrend: number;
+    commentsTrend: number;
     topReports: TopReport[];
     conversionFunnel: FunnelStep[];
   };
@@ -414,23 +421,78 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         }))
         .slice(-30);
 
-      // REAL: Calculate trend from filtered data
+      // REAL: Calculate ALL trends from filtered data
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
       
       const allFilteredReports = [...filteredUrbanReports, ...filteredTransportReports];
+      
+      // Total trend
       const currentPeriodCount = allFilteredReports.filter(r => 
         r.created_at && new Date(r.created_at) >= sevenDaysAgo
       ).length;
-      
       const previousPeriodCount = allFilteredReports.filter(r => 
         r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo
       ).length;
-      
       const trend = previousPeriodCount > 0 
         ? Math.round(((currentPeriodCount - previousPeriodCount) / previousPeriodCount) * 100)
         : 0;
+      
+      // Resolved trend
+      const currentResolved = allFilteredReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= sevenDaysAgo && r.status === 'resolved'
+      ).length;
+      const previousResolved = allFilteredReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo && r.status === 'resolved'
+      ).length;
+      const resolvedTrend = previousResolved > 0 
+        ? Math.round(((currentResolved - previousResolved) / previousResolved) * 100)
+        : (currentResolved > 0 ? 100 : 0);
+      
+      // Critical trend
+      const currentCritical = allFilteredReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= sevenDaysAgo && r.severity === 'critical'
+      ).length;
+      const previousCritical = allFilteredReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo && r.severity === 'critical'
+      ).length;
+      const criticalTrend = previousCritical > 0 
+        ? Math.round(((currentCritical - previousCritical) / previousCritical) * 100)
+        : (currentCritical > 0 ? 100 : 0);
+      
+      // Pending trend
+      const currentPending = allFilteredReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= sevenDaysAgo && r.status === 'pending'
+      ).length;
+      const previousPending = allFilteredReports.filter(r => 
+        r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo && r.status === 'pending'
+      ).length;
+      const pendingTrend = previousPending > 0 
+        ? Math.round(((currentPending - previousPending) / previousPending) * 100)
+        : (currentPending > 0 ? 100 : 0);
+      
+      // Likes trend (from urban reports with likes)
+      const currentLikes = filteredUrbanReports
+        .filter((r: any) => r.created_at && new Date(r.created_at) >= sevenDaysAgo)
+        .reduce((sum: number, r: any) => sum + (r.urban_report_likes?.[0]?.count || 0), 0);
+      const previousLikes = filteredUrbanReports
+        .filter((r: any) => r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo)
+        .reduce((sum: number, r: any) => sum + (r.urban_report_likes?.[0]?.count || 0), 0);
+      const likesTrend = previousLikes > 0 
+        ? Math.round(((currentLikes - previousLikes) / previousLikes) * 100)
+        : (currentLikes > 0 ? 100 : 0);
+      
+      // Comments trend
+      const currentComments = filteredUrbanReports
+        .filter((r: any) => r.created_at && new Date(r.created_at) >= sevenDaysAgo)
+        .reduce((sum: number, r: any) => sum + (r.urban_report_comments?.[0]?.count || 0), 0);
+      const previousComments = filteredUrbanReports
+        .filter((r: any) => r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo)
+        .reduce((sum: number, r: any) => sum + (r.urban_report_comments?.[0]?.count || 0), 0);
+      const commentsTrend = previousComments > 0 
+        ? Math.round(((currentComments - previousComments) / previousComments) * 100)
+        : (currentComments > 0 ? 100 : 0);
 
       // Patterns based on real data
       const patterns: PatternAlert[] = [];
@@ -470,6 +532,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         resolved: statusCounts.get('resolved') || 0,
         critical,
         trend,
+        resolvedTrend,
+        criticalTrend,
+        pendingTrend,
         timeline,
         byStatus,
         categories,
@@ -485,6 +550,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           totalComments,
           avgLikesPerReport: total > 0 ? totalLikes / total : 0,
           avgCommentsPerReport: total > 0 ? totalComments / total : 0,
+          likesTrend,
+          commentsTrend,
           topReports,
           conversionFunnel,
         },
