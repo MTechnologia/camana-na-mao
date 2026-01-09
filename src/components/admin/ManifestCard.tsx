@@ -17,6 +17,11 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { 
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { 
   Building2, Bus, Star, MessageSquare, MoreVertical,
   Clock, TrendingUp, CheckCircle2, XCircle, Forward, 
   Reply, Eye, Trash2, ExternalLink, AlertTriangle
@@ -153,9 +158,16 @@ export const ManifestCard = ({
               </Badge>
             )}
           </div>
-          <p className="font-medium truncate">{manifest.title}</p>
-          <p className="text-sm text-muted-foreground truncate">
-            {manifest.description || 'Sem descrição'}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="font-medium truncate cursor-help">{manifest.title}</p>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs z-50">
+              <p className="text-xs">{manifest.description || 'Sem descrição disponível'}</p>
+            </TooltipContent>
+          </Tooltip>
+          <p className="text-xs text-muted-foreground truncate">
+            {manifest.urban_data?.neighborhood || manifest.author?.full_name || 'Clique para ver detalhes'}
           </p>
         </div>
 
@@ -225,7 +237,7 @@ export const ManifestCard = ({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 z-50" sideOffset={5}>
               <DropdownMenuItem onClick={onViewDetails}>
                 <Eye className="h-4 w-4 mr-2" />
                 Ver detalhes
@@ -291,9 +303,16 @@ export const ManifestCard = ({
               </Badge>
             )}
           </div>
-          <p className="font-medium text-sm truncate">{manifest.title}</p>
-          <p className="text-xs text-muted-foreground truncate">
-            {manifest.description || 'Sem descrição'}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="font-medium text-sm truncate cursor-help">{manifest.title}</p>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs z-50">
+              <p className="text-xs">{manifest.description || 'Sem descrição disponível'}</p>
+            </TooltipContent>
+          </Tooltip>
+          <p className="text-[10px] text-muted-foreground truncate">
+            {manifest.urban_data?.neighborhood || manifest.author?.full_name || 'Toque para detalhes'}
           </p>
         </div>
 
@@ -349,34 +368,34 @@ export const ManifestCard = ({
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={onViewDetails}>
-              <Eye className="h-4 w-4 mr-2" />
-              Ver detalhes
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handlePrimaryAction}>
-              <PrimaryIcon className="h-4 w-4 mr-2" />
-              {primaryAction.label}
-            </DropdownMenuItem>
-            {(manifest.type === 'urban' || manifest.type === 'feedback') && (
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onReferral(); }}>
-                <Forward className="h-4 w-4 mr-2" />
-                Encaminhar
+            <DropdownMenuContent align="end" className="w-48 z-50" sideOffset={5}>
+              <DropdownMenuItem onClick={onViewDetails}>
+                <Eye className="h-4 w-4 mr-2" />
+                Ver detalhes
               </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              <DropdownMenuItem onClick={handlePrimaryAction}>
+                <PrimaryIcon className="h-4 w-4 mr-2" />
+                {primaryAction.label}
+              </DropdownMenuItem>
+              {(manifest.type === 'urban' || manifest.type === 'feedback') && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onReferral(); }}>
+                  <Forward className="h-4 w-4 mr-2" />
+                  Encaminhar
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-      {/* Mobile (<640px): Vertical card layout */}
+        {/* Mobile (<640px): Vertical card layout */}
       <div className="sm:hidden p-3 space-y-2">
         {/* Header row: checkbox, avatar, badges, date, menu */}
         <div className="flex items-center gap-2">
@@ -425,7 +444,7 @@ export const ManifestCard = ({
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 z-50" sideOffset={5}>
               <DropdownMenuItem onClick={onViewDetails}>
                 <Eye className="h-4 w-4 mr-2" />
                 Ver detalhes
@@ -455,8 +474,8 @@ export const ManifestCard = ({
         {/* Content */}
         <div onClick={onViewDetails} className="cursor-pointer">
           <p className="font-medium text-sm line-clamp-1">{manifest.title}</p>
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-            {manifest.description || 'Sem descrição'}
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Toque para ver detalhes
           </p>
         </div>
         
