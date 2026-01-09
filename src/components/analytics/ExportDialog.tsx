@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileSpreadsheet, File, CheckCircle2 } from 'lucide-react';
+import { Download, File, FileText, CheckCircle2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,13 +14,46 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { usePDFExport } from '@/hooks/usePDFExport';
+
+interface StatusByItem {
+  status: string;
+  count: number;
+  color: string;
+}
+
+interface CategoryItem {
+  category: string;
+  count: number;
+}
+
+interface AnalyticsStats {
+  total: number;
+  critical: number;
+  pending: number;
+  resolved: number;
+  trend: number;
+  byStatus: StatusByItem[];
+  categories: CategoryItem[];
+}
+
+interface SentimentStats {
+  overallScore: number;
+}
 
 interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
   exportType: string;
-  currentFilters?: any;
+  currentFilters?: {
+    dateRange?: { from?: Date; to?: Date };
+    category?: string;
+    status?: string;
+    region?: string;
+  };
   estimatedRows?: number;
+  analyticsStats?: AnalyticsStats;
+  sentimentStats?: SentimentStats | null;
 }
 
 export const ExportDialog = ({
@@ -29,15 +62,110 @@ export const ExportDialog = ({
   exportType,
   currentFilters,
   estimatedRows = 0,
+  analyticsStats,
+  sentimentStats,
 }: ExportDialogProps) => {
-  const [format, setFormat] = useState<'xlsx' | 'csv'>('csv');
+  const [format, setFormat] = useState<'csv' | 'pdf'>('csv');
   const [includeFilters, setIncludeFilters] = useState(true);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
-
-  const maxRows = format === 'csv' ? 5000000 : 1000000;
+  const { exportToPDF, exporting: pdfExporting } = usePDFExport();
 
   const handleExport = async () => {
+    if (format === 'pdf') {
+      await handlePDFExport();
+      return;
+    }
+    await handleCSVExport();
+  };
+
+  const handlePDFExport = async () => {
+    try {
+      setExporting(true);
+
+      const kpis = analyticsStats ? [
+        { 
+          label: 'Total de Relatos', 
+          value: analyticsStats.total,
+          trend: { value: Math.abs(analyticsStats.trend), direction: analyticsStats.trend >= 0 ? 'up' as const : 'down' as const }
+        },
+        { label: 'Críticos', value: analyticsStats.critical },
+        { label: 'Pendentes', value: analyticsStats.pending },
+        { label: 'Resolvidos', value: analyticsStats.resolved },
+      ] : undefined;
+
+      // Transform byStatus array to object for PDF
+      const statusData = analyticsStats?.byStatus ? {
+        pending: analyticsStats.byStatus.find(s => s.status === 'pending')?.count || 0,
+        in_progress: analyticsStats.byStatus.find(s => s.status === 'in_progress')?.count || 0,
+        resolved: analyticsStats.byStatus.find(s => s.status === 'resolved')?.count || 0,
+        rejected: analyticsStats.byStatus.find(s => s.status === 'rejected')?.count || 0,
+      } : undefined;
+
+      await exportToPDF({
+        title: 'Relatório de Relatos',
+        subtitle: getExportTypeLabel(exportType),
+        kpis,
+        statusData,
+        categories: analyticsStats?.categories?.slice(0, 10).map(c => ({
+          name: c.category,
+          count: c.count
+        })),
+        sentimentScore: sentimentStats?.overallScore,
+        filters: includeFilters ? {
+          dateRange: currentFilters?.dateRange ? {
+            from: currentFilters.dateRange.from?.toISOString(),
+            to: currentFilters.dateRange.to?.toISOString()
+          } : undefined,
+          category: currentFilters?.category,
+          status: currentFilters?.status,
+          region: currentFilters?.region
+        } : undefined,
+        filename: `relatorio_${exportType}_${new Date().toISOString().split('T')[0]}.pdf`,
+      });
+
+      // Log export
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const filtersJson = includeFilters && currentFilters ? {
+          dateRange: currentFilters.dateRange ? {
+            from: currentFilters.dateRange.from?.toISOString(),
+            to: currentFilters.dateRange.to?.toISOString()
+          } : null,
+          category: currentFilters.category || null,
+          status: currentFilters.status || null,
+          region: currentFilters.region || null
+        } : null;
+
+        await supabase.from('export_logs').insert([{
+          user_id: user.id,
+          export_type: exportType,
+          format: 'pdf',
+          filters: filtersJson,
+          row_count: analyticsStats?.total || 0,
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        }]);
+      }
+
+      toast({
+        title: 'PDF exportado',
+        description: 'O relatório foi baixado com sucesso.',
+      });
+
+      onClose();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao exportar PDF',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleCSVExport = async () => {
     try {
       setExporting(true);
 
@@ -106,15 +234,25 @@ export const ExportDialog = ({
       URL.revokeObjectURL(url);
 
       // Log export
-      await supabase.from('export_logs').insert({
+      const filtersJson = includeFilters && currentFilters ? {
+        dateRange: currentFilters.dateRange ? {
+          from: currentFilters.dateRange.from?.toISOString(),
+          to: currentFilters.dateRange.to?.toISOString()
+        } : null,
+        category: currentFilters.category || null,
+        status: currentFilters.status || null,
+        region: currentFilters.region || null
+      } : null;
+
+      await supabase.from('export_logs').insert([{
         user_id: user.id,
         export_type: exportType,
-        format,
-        filters: includeFilters ? currentFilters : null,
+        format: 'csv',
+        filters: filtersJson,
         row_count: data.length,
         status: 'completed',
         completed_at: new Date().toISOString()
-      });
+      }]);
 
       toast({
         title: 'Exportação concluída',
@@ -133,6 +271,18 @@ export const ExportDialog = ({
     }
   };
 
+  const getExportTypeLabel = (type: string): string => {
+    const labels: Record<string, string> = {
+      all: 'Todos os tipos',
+      urban_reports: 'Relatos Urbanos',
+      transport_reports: 'Relatos de Transporte',
+      reports: 'Relatos',
+    };
+    return labels[type] || type;
+  };
+
+  const isProcessing = exporting || pdfExporting;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -146,13 +296,21 @@ export const ExportDialog = ({
         <div className="space-y-6 py-4">
           <div className="space-y-3">
             <Label>Formato</Label>
-            <RadioGroup value={format} onValueChange={(v) => setFormat(v as any)}>
+            <RadioGroup value={format} onValueChange={(v) => setFormat(v as 'csv' | 'pdf')}>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="csv" id="csv" />
                 <Label htmlFor="csv" className="flex items-center gap-2 cursor-pointer">
                   <File className="w-4 h-4" />
                   CSV (.csv)
-                  <span className="text-xs text-muted-foreground">Recomendado</span>
+                  <span className="text-xs text-muted-foreground">Dados brutos</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="pdf" id="pdf" />
+                <Label htmlFor="pdf" className="flex items-center gap-2 cursor-pointer">
+                  <FileText className="w-4 h-4" />
+                  PDF (.pdf)
+                  <span className="text-xs text-muted-foreground">Com gráficos e KPIs</span>
                 </Label>
               </div>
             </RadioGroup>
@@ -167,15 +325,21 @@ export const ExportDialog = ({
                 onCheckedChange={(checked) => setIncludeFilters(checked as boolean)}
               />
               <Label htmlFor="filters" className="cursor-pointer">
-                Incluir filtros aplicados no log
+                {format === 'pdf' ? 'Incluir filtros no rodapé' : 'Incluir filtros no log'}
               </Label>
             </div>
           </div>
 
           <div className="bg-muted rounded-lg p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Registros estimados:</span>
-              <span className="font-medium">{estimatedRows.toLocaleString('pt-BR')}</span>
+              <span className="text-muted-foreground">
+                {format === 'pdf' ? 'Dados incluídos:' : 'Registros estimados:'}
+              </span>
+              <span className="font-medium">
+                {format === 'pdf' 
+                  ? 'KPIs, Status, Categorias' 
+                  : estimatedRows.toLocaleString('pt-BR')}
+              </span>
             </div>
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
@@ -185,12 +349,12 @@ export const ExportDialog = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={exporting}>
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancelar
           </Button>
-          <Button onClick={handleExport} disabled={exporting} className="gap-2">
+          <Button onClick={handleExport} disabled={isProcessing} className="gap-2">
             <Download className="w-4 h-4" />
-            {exporting ? 'Exportando...' : 'Exportar'}
+            {isProcessing ? 'Exportando...' : 'Exportar'}
           </Button>
         </DialogFooter>
       </DialogContent>

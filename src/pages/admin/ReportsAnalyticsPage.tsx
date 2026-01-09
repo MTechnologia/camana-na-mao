@@ -469,6 +469,9 @@ export default function ReportsAnalyticsPage() {
           isOpen={showExport}
           onClose={() => setShowExport(false)}
           exportType="all"
+          estimatedRows={stats.total}
+          analyticsStats={stats}
+          sentimentStats={sentimentStats}
         />
       </div>
     </AdminLayout>
