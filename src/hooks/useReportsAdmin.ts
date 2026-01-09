@@ -541,7 +541,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       setTotalCount(urbanCount + transportCount + evaluationCount);
     } catch (error) {
       console.error('Error fetching manifests:', error);
-      toast.error('Erro ao carregar manifestações');
+      toast.error('Erro ao carregar relatos');
     } finally {
       setLoading(false);
     }
@@ -616,7 +616,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         if (error) throw error;
       }
 
-      toast.success(`${ids.length} manifestações atualizadas`);
+      toast.success(`${ids.length} relatos atualizados`);
       fetchManifests();
       fetchKPIs();
     } catch (error) {
@@ -660,12 +660,12 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         });
       }
 
-      toast.success('Manifestação excluída com sucesso');
+      toast.success('Relato excluído com sucesso');
       fetchManifests();
       fetchKPIs();
     } catch (error) {
       console.error('Error deleting manifest:', error);
-      toast.error('Erro ao excluir manifestação');
+      toast.error('Erro ao excluir relato');
     }
   };
 

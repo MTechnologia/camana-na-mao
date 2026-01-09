@@ -571,7 +571,7 @@ export const UnifiedReportDrawer = ({
                     <Activity className="h-3 w-3 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm">Manifestação criada</p>
+                    <p className="text-sm">Relato criado</p>
                     <p className="text-xs text-muted-foreground">
                       {formatDateTime(manifest.created_at)}
                     </p>
