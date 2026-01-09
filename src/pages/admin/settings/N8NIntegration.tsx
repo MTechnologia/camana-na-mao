@@ -48,7 +48,7 @@ const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/n8n-callback`;
 
 // Template de workflow N8N pré-configurado (v3 Switch Node + v4.2 HTTP Request)
 const n8nWorkflowTemplate = {
-  "name": "Câmara na Mão - Processamento de Manifestações",
+  "name": "Câmara na Mão - Processamento de Relatos",
   "nodes": [
     {
       "parameters": { "httpMethod": "POST", "path": "cmsp-manifestacao", "options": {} },
@@ -695,7 +695,7 @@ const N8NIntegration = () => {
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Importe este template diretamente no N8N para ter um workflow pré-configurado com processamento de manifestações.
+                Importe este template diretamente no N8N para ter um workflow pré-configurado com processamento de relatos.
               </p>
               
               <div className="flex gap-2">

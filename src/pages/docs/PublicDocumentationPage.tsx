@@ -24,7 +24,7 @@ A Câmara Municipal de São Paulo enfrenta desafios significativos na comunicaç
 - **Fragmentação de canais**: Múltiplos pontos de contato desconectados
 - **Baixo engajamento**: Participação cidadã limitada em audiências e consultas
 - **Falta de visibilidade**: Cidadãos desconhecem o trabalho legislativo
-- **Feedback disperso**: Dificuldade em consolidar manifestações e demandas
+- **Feedback disperso**: Dificuldade em consolidar relatos e demandas
 
 ### 1.2 A Solução
 
@@ -69,7 +69,7 @@ graph TB
     
     subgraph "Camada de Dados"
         Q[(PostgreSQL)] --> R[Knowledge Base]
-        Q --> S[Manifestações]
+        Q --> S[Relatos]
         Q --> T[Perfis de Usuário]
     end
     
@@ -166,7 +166,7 @@ Botões de ação rápida que iniciam conversas direcionadas:
 
 | Chip | Ação |
 |------|------|
-| 🗣️ **Relatar problema** | Inicia fluxo de criação de manifestação |
+| 🗣️ **Relatar problema** | Inicia fluxo de criação de relato |
 | ❓ **Tirar dúvida** | Consulta à base de conhecimento |
 | 📍 **Serviços próximos** | Busca geolocalizada |
 
@@ -174,7 +174,7 @@ Botões de ação rápida que iniciam conversas direcionadas:
 
 ## 5. Fluxo de Processamento
 
-### 5.1 Ciclo de Vida de uma Manifestação
+### 5.1 Ciclo de Vida de um Relato
 
 \`\`\`mermaid
 sequenceDiagram
@@ -198,7 +198,7 @@ sequenceDiagram
     DB->>N: Trigger: novo relato
     N->>N: Valida, categoriza, prioriza
     N->>DB: UPDATE com dados enriquecidos
-    G->>DB: Consulta manifestações
+    G->>DB: Consulta relatos
     G->>C: Responde/Encaminha
 \`\`\`
 
@@ -220,7 +220,7 @@ Exemplo de Patterns:
 
 ### 5.3 Processamento Automatizado
 
-O sistema processa automaticamente cada manifestação após criação:
+O sistema processa automaticamente cada relato após criação:
 
 1. **Validação**: Verifica completude dos dados
 2. **Categorização**: Classifica por tema e área
@@ -239,18 +239,18 @@ O painel administrativo oferece gestão completa:
 | Módulo | Funcionalidade |
 |--------|----------------|
 | **Dashboard** | KPIs e métricas em tempo real |
-| **Manifestações** | Gestão unificada com Kanban (urbanos + transporte + avaliações) |
+| **Relatos** | Gestão unificada com Kanban (urbanos + transporte + avaliações) |
 | **Encaminhamentos** | Sistema de referral a vereadores e comissões |
 | **Análise de Sentimento** | Visualização de tendências e drivers |
 | **Analytics** | Dashboards personalizáveis e exportação |
 | **Usuários** | Gestão de perfis e permissões (RBAC) |
 | **Logs de Auditoria** | Rastreabilidade completa de ações |
 
-### 6.2 Gestão de Manifestações
+### 6.2 Gestão de Relatos
 
 \`\`\`mermaid
 stateDiagram-v2
-    [*] --> Pendente: Nova manifestação
+    [*] --> Pendente: Novo relato
     Pendente --> EmAnalise: Gestor abre
     EmAnalise --> Encaminhado: Envia para vereador
     EmAnalise --> Respondido: Resposta direta
@@ -274,7 +274,7 @@ stateDiagram-v2
 
 ### 7.2 Notificações
 
-- **Push**: Atualizações de manifestações
+- **Push**: Atualizações de relatos
 - **Email**: Resumos e confirmações
 - **In-app**: Alertas contextuais
 
@@ -317,7 +317,7 @@ O sistema garante conformidade com a LGPD:
 
 | Métrica | Meta | Descrição |
 |---------|------|-----------|
-| Manifestações processadas/dia | 500+ | Volume de demandas |
+| Relatos processados/dia | 500+ | Volume de demandas |
 | Taxa de detecção automática | 95%+ | Precisão do AI Orchestrator |
 | Encaminhamentos bem-sucedidos | 80%+ | Precisão do roteamento |
 | Tempo de resposta da IA | <3s | Performance do tool-calling |
@@ -360,8 +360,8 @@ O sistema garante conformidade com a LGPD:
 | **AI Orchestrator** | Edge Function central que processa todas as mensagens do chat |
 | **ContextualFeed** | Componente que exibe notícias e audiências relevantes em carousel |
 | **PromptChips** | Botões de ação rápida para iniciar conversas direcionadas |
-| **Manifestação** | Qualquer comunicação do cidadão (relato urbano, transporte, avaliação) |
-| **Encaminhamento** | Direcionamento de manifestação para vereador/comissão relevante |
+| **Relato** | Qualquer comunicação do cidadão (relato urbano, transporte, avaliação) |
+| **Encaminhamento** | Direcionamento de relato para vereador/comissão relevante |
 | **Gestor** | Funcionário da CMSP que administra o sistema |
 | **RLS** | Row Level Security - controle de acesso a nível de linha no banco |
 | **RAG** | Retrieval-Augmented Generation - busca + geração de resposta |
