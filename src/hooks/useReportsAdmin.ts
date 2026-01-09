@@ -274,7 +274,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         if (debouncedSearchTerm) urbanQuery = urbanQuery.or(`description.ilike.%${debouncedSearchTerm}%,location_address.ilike.%${debouncedSearchTerm}%,category.ilike.%${debouncedSearchTerm}%`);
         if (dateRange.from) urbanQuery = urbanQuery.gte('created_at', dateRange.from.toISOString());
         if (dateRange.to) urbanQuery = urbanQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(urbanQuery.order('created_at', { ascending: false }).limit(fetchLimit).then(res => res));
+        queries.push(Promise.resolve(urbanQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
         queryTypes.push('urban');
       }
 
@@ -285,7 +285,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         if (debouncedSearchTerm) feedbackQuery = feedbackQuery.or(`description.ilike.%${debouncedSearchTerm}%,subcategory.ilike.%${debouncedSearchTerm}%`);
         if (dateRange.from) feedbackQuery = feedbackQuery.gte('created_at', dateRange.from.toISOString());
         if (dateRange.to) feedbackQuery = feedbackQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(feedbackQuery.order('created_at', { ascending: false }).limit(fetchLimit).then(res => res));
+        queries.push(Promise.resolve(feedbackQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
         queryTypes.push('feedback');
       }
 
@@ -297,7 +297,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         if (debouncedSearchTerm) transportQuery = transportQuery.or(`description.ilike.%${debouncedSearchTerm}%,location.ilike.%${debouncedSearchTerm}%,report_type.ilike.%${debouncedSearchTerm}%`);
         if (dateRange.from) transportQuery = transportQuery.gte('created_at', dateRange.from.toISOString());
         if (dateRange.to) transportQuery = transportQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(transportQuery.order('created_at', { ascending: false }).limit(fetchLimit).then(res => res));
+        queries.push(Promise.resolve(transportQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
         queryTypes.push('transport');
       }
 
@@ -307,7 +307,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
         if (debouncedSearchTerm) evalQuery = evalQuery.or(`rating_text.ilike.%${debouncedSearchTerm}%`);
         if (dateRange.from) evalQuery = evalQuery.gte('created_at', dateRange.from.toISOString());
         if (dateRange.to) evalQuery = evalQuery.lte('created_at', dateRange.to.toISOString());
-        queries.push(evalQuery.order('created_at', { ascending: false }).limit(fetchLimit).then(res => res));
+        queries.push(Promise.resolve(evalQuery.order('created_at', { ascending: false }).limit(fetchLimit)));
         queryTypes.push('evaluation');
       }
 
