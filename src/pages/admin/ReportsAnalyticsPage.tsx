@@ -21,7 +21,8 @@ import { HotspotsList } from '@/components/analytics/HotspotsList';
 import { TimeDistributionChart } from '@/components/analytics/TimeDistributionChart';
 import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
-import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
+import { DemographicFilters, DemographicFilterState } from '@/components/analytics/DemographicFilters';
+import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
 import { useDrillInsight } from '@/hooks/useDrillInsight';
@@ -44,11 +45,17 @@ import {
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [demographicFilters, setDemographicFilters] = useState<DemographicFilterState>({});
   
-  const { stats, isLoading, refresh } = useReportsAnalytics();
+  // Combine filters for the analytics hook
+  const combinedFilters: ReportsAnalyticsFilters = useMemo(() => ({
+    ...demographicFilters,
+  }), [demographicFilters]);
+  
+  const { stats, isLoading, refresh } = useReportsAnalytics(combinedFilters);
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
   const correlations = useCorrelationAnalytics();
-  const drillInsight = useDrillInsight();
+  const drillInsight = useDrillInsight(combinedFilters);
 
   // Marcar como carregado após primeira carga completa
   useEffect(() => {
@@ -112,6 +119,15 @@ export default function ReportsAnalyticsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Demographic Filters */}
+        <Card className="p-4">
+          <DemographicFilters
+            filters={demographicFilters}
+            onChange={setDemographicFilters}
+            loading={isLoading}
+          />
+        </Card>
 
         {/* Summary KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
