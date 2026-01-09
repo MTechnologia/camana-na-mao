@@ -105,7 +105,7 @@ export default function ReportsAnalyticsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Análise de Relatos</h1>
             <p className="text-muted-foreground">
-              Exploração detalhada com filtros e drill-down
+              Relatos urbanos e de transporte • Avaliações de serviço em outra seção
             </p>
           </div>
           <div className="flex gap-2">
@@ -133,6 +133,7 @@ export default function ReportsAnalyticsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KPICard
             title="Total de Relatos"
+            subtitle="Urbano + Transporte"
             value={stats.total}
             trend={{ value: stats.trend, direction: stats.trend >= 0 ? 'up' : 'down' }}
             icon={BarChart3}
