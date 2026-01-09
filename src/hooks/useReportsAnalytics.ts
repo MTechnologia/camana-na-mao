@@ -158,6 +158,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         ? 'not_informed' 
         : filters.socialClass || null;
 
+      // Converter datas para ISO (TIMESTAMPTZ compatível)
+      const startDateISO = filters.startDate ? new Date(filters.startDate).toISOString() : null;
+      const endDateISO = filters.endDate ? new Date(filters.endDate).toISOString() : null;
+
       // Tentar buscar dados demográficos via função segura (SECURITY DEFINER)
       const { data: rpcResult, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
         p_gender: mappedGender,
@@ -165,8 +169,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         p_social_class: mappedSocialClass,
         p_age_group: mappedAgeGroup,
         p_report_type: null,
-        p_start_date: filters.startDate || null,
-        p_end_date: filters.endDate || null,
+        p_start_date: startDateISO,
+        p_end_date: endDateISO,
       });
 
       if (rpcError) {

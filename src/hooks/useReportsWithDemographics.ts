@@ -84,14 +84,18 @@ export const useReportsWithDemographics = (filters: DemographicFilters = {}) => 
           ? 'not_informed' 
           : filters.socialClass || null;
 
+        // Converter datas para ISO (TIMESTAMPTZ compatível)
+        const startDateISO = filters.startDate ? new Date(filters.startDate).toISOString() : null;
+        const endDateISO = filters.endDate ? new Date(filters.endDate).toISOString() : null;
+
         const { data: result, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
           p_gender: mappedGender,
           p_race: mappedRace,
           p_social_class: mappedSocialClass,
           p_age_group: mappedAgeGroup,
           p_report_type: filters.reportType || null,
-          p_start_date: filters.startDate || null,
-          p_end_date: filters.endDate || null,
+          p_start_date: startDateISO,
+          p_end_date: endDateISO,
         });
 
         if (rpcError) {
@@ -158,14 +162,18 @@ export const useReportsWithDemographics = (filters: DemographicFilters = {}) => 
         ? 'not_informed' 
         : filters.socialClass || null;
 
+      // Converter datas para ISO (TIMESTAMPTZ compatível)
+      const startDateISO = filters.startDate ? new Date(filters.startDate).toISOString() : null;
+      const endDateISO = filters.endDate ? new Date(filters.endDate).toISOString() : null;
+
       const { data: result, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
         p_gender: mappedGender,
         p_race: mappedRace,
         p_social_class: mappedSocialClass,
         p_age_group: mappedAgeGroup,
         p_report_type: filters.reportType || null,
-        p_start_date: filters.startDate || null,
-        p_end_date: filters.endDate || null,
+        p_start_date: startDateISO,
+        p_end_date: endDateISO,
       });
 
       if (rpcError) {
