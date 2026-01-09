@@ -333,7 +333,7 @@ export default function ReportsManagement() {
 
         {/* List View */}
         {viewMode === 'list' && (
-          <Card>
+          <Card className="flex flex-col overflow-hidden">
             <CardHeader className="pb-2 px-3 sm:px-6">
               <div className="flex items-center gap-3 sm:gap-4">
                 <Checkbox
@@ -345,8 +345,8 @@ export default function ReportsManagement() {
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[500px] sm:h-[600px]">
+            <CardContent className="p-0 flex-1 min-h-0">
+              <ScrollArea className="h-[calc(100vh-420px)] min-h-[280px] max-h-[600px]">
                 {loading ? (
                   <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
                     {Array.from({ length: 5 }).map((_, i) => (
