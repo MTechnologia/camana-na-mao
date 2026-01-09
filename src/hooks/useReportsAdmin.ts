@@ -113,8 +113,15 @@ interface UseReportsAdminReturn {
   setSeverityFilter: (severity: string) => void;
   typeFilter: ManifestType | 'all';
   setTypeFilter: (type: ManifestType | 'all') => void;
+  categoryFilter: string;
+  setCategoryFilter: (category: string) => void;
+  regionFilter: string;
+  setRegionFilter: (region: string) => void;
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
+  // Dynamic options
+  availableCategories: { value: string; label: string }[];
+  availableRegions: string[];
   // Pagination
   page: number;
   setPage: (page: number) => void;
@@ -152,7 +159,26 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState<ManifestType | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [regionFilter, setRegionFilter] = useState('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+
+  // Dynamic filter options
+  const [availableRegions, setAvailableRegions] = useState<string[]>([]);
+
+  // Static category options
+  const availableCategories = [
+    { value: 'iluminacao', label: 'Iluminação' },
+    { value: 'calcada', label: 'Calçada' },
+    { value: 'via_publica', label: 'Via Pública' },
+    { value: 'lixo', label: 'Lixo e Limpeza' },
+    { value: 'area_verde', label: 'Área Verde' },
+    { value: 'poluicao', label: 'Poluição' },
+    { value: 'seguranca', label: 'Segurança' },
+    { value: 'transito', label: 'Trânsito' },
+    { value: 'esgoto', label: 'Esgoto' },
+    { value: 'outro', label: 'Outro' },
+  ];
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -269,6 +295,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
 
         if (statusFilter !== 'all') urbanQuery = urbanQuery.eq('status', statusFilter);
         if (severityFilter !== 'all') urbanQuery = urbanQuery.eq('severity', severityFilter);
+        if (categoryFilter !== 'all') urbanQuery = urbanQuery.eq('category', categoryFilter);
+        if (regionFilter !== 'all') urbanQuery = urbanQuery.eq('neighborhood', regionFilter);
         if (searchTerm) urbanQuery = urbanQuery.or(`description.ilike.%${searchTerm}%,location_address.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`);
         if (dateRange.from) urbanQuery = urbanQuery.gte('created_at', dateRange.from.toISOString());
         if (dateRange.to) urbanQuery = urbanQuery.lte('created_at', dateRange.to.toISOString());
@@ -517,7 +545,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, searchTerm, statusFilter, severityFilter, typeFilter, dateRange]);
+  }, [page, pageSize, searchTerm, statusFilter, severityFilter, typeFilter, categoryFilter, regionFilter, dateRange]);
 
   const updateManifestStatus = useCallback(async (id: string, type: ManifestType, newStatus: string) => {
     if (type === 'evaluation') {
@@ -726,6 +754,20 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     toast.success('CSV exportado com sucesso');
   };
 
+  // Fetch available regions on mount
+  useEffect(() => {
+    const fetchRegions = async () => {
+      const { data } = await supabase
+        .from('urban_reports')
+        .select('neighborhood')
+        .not('neighborhood', 'is', null);
+      
+      const uniqueRegions = [...new Set(data?.map(r => r.neighborhood).filter(Boolean) as string[])].sort();
+      setAvailableRegions(uniqueRegions);
+    };
+    fetchRegions();
+  }, []);
+
   useEffect(() => {
     fetchKPIs();
     fetchManifests();
@@ -776,8 +818,14 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     setSeverityFilter,
     typeFilter,
     setTypeFilter,
+    categoryFilter,
+    setCategoryFilter,
+    regionFilter,
+    setRegionFilter,
     dateRange,
     setDateRange,
+    availableCategories,
+    availableRegions,
     page,
     setPage,
     pageSize,

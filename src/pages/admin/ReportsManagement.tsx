@@ -18,6 +18,7 @@ import { KanbanBoard } from '@/components/admin/KanbanBoard';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { DeleteReportConfirmDialog } from '@/components/admin/DeleteReportConfirmDialog';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
+import { FilterDatePicker } from '@/components/filters/FilterDatePicker';
 
 // Config objects
 const typeConfig: Record<ManifestType, { label: string; icon: typeof Building2; color: string }> = {
@@ -48,6 +49,14 @@ export default function ReportsManagement() {
     setSeverityFilter,
     typeFilter,
     setTypeFilter,
+    categoryFilter,
+    setCategoryFilter,
+    regionFilter,
+    setRegionFilter,
+    dateRange,
+    setDateRange,
+    availableCategories,
+    availableRegions,
     page,
     setPage,
     pageSize,
@@ -191,7 +200,7 @@ export default function ReportsManagement() {
               <Card>
                 <CardContent className="p-4">
                   <p className="text-2xl font-bold text-red-600">{kpis.critical_count}</p>
-                  <p className="text-xs text-muted-foreground">Críticas</p>
+                  <p className="text-xs text-muted-foreground">Urgentes</p>
                 </CardContent>
               </Card>
             </>
@@ -201,58 +210,103 @@ export default function ReportsManagement() {
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar manifestações..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+            <div className="flex flex-wrap items-end gap-4">
+              {/* Search */}
+              <div className="flex-1 min-w-[200px]">
+                <span className="text-xs font-medium text-muted-foreground mb-1.5 block">Buscar</span>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar manifestações..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              {/* Tipo */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Tipo</span>
+                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ManifestType | 'all')}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="urban">Urbana</SelectItem>
+                    <SelectItem value="transport">Transporte</SelectItem>
+                    <SelectItem value="evaluation">Avaliação</SelectItem>
+                    <SelectItem value="feedback">Feedback</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Categoria */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Categoria</span>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {availableCategories.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Status</span>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="in_progress">Em Andamento</SelectItem>
+                    <SelectItem value="resolved">Resolvido</SelectItem>
+                    <SelectItem value="rejected">Rejeitado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Região */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Região</span>
+                <Select value={regionFilter} onValueChange={setRegionFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Todas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {availableRegions.map((region) => (
+                      <SelectItem key={region} value={region}>
+                        {region}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Período */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground">Período</span>
+                <FilterDatePicker
+                  value={dateRange}
+                  onChange={(range) => setDateRange(range || { from: undefined, to: undefined })}
+                  placeholder="Selecionar período"
                 />
               </div>
 
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ManifestType | 'all')}>
-                <SelectTrigger className="w-[140px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os tipos</SelectItem>
-                  <SelectItem value="urban">Urbana</SelectItem>
-                  <SelectItem value="transport">Transporte</SelectItem>
-                  <SelectItem value="evaluation">Avaliação</SelectItem>
-                  <SelectItem value="feedback">Feedback</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="in_progress">Em Andamento</SelectItem>
-                  <SelectItem value="resolved">Resolvido</SelectItem>
-                  <SelectItem value="rejected">Rejeitado</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Severidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="critical">Crítica</SelectItem>
-                  <SelectItem value="high">Alta</SelectItem>
-                  <SelectItem value="medium">Média</SelectItem>
-                  <SelectItem value="low">Baixa</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button variant="outline" onClick={exportToCSV}>
+              {/* Export */}
+              <Button variant="outline" onClick={exportToCSV} className="h-9">
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
