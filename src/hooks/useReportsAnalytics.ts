@@ -5,13 +5,18 @@ import type { FunnelStep } from '@/components/analytics/EngagementFunnel';
 import type { TopReport } from '@/components/analytics/TopReportsList';
 import type { PatternAlert } from '@/components/analytics/PatternAlerts';
 
-interface ReportsAnalyticsFilters {
+export interface ReportsAnalyticsFilters {
   startDate?: string;
   endDate?: string;
   category?: string;
   severity?: string;
   status?: string;
   region?: string;
+  // Demographic filters
+  gender?: string;
+  race?: string;
+  socialClass?: string;
+  ageGroup?: string;
 }
 
 interface TimelineDataPoint {
@@ -131,23 +136,79 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       
       const uniqueUserIds = [...new Set(userIds)];
       
-      const { data: userDemographics } = await supabase
+      // Build demographics query with filters
+      let demographicsQuery = supabase
         .from('user_demographics')
         .select('*')
         .in('user_id', uniqueUserIds);
+      
+      if (filters.gender) {
+        demographicsQuery = demographicsQuery.eq('gender', filters.gender);
+      }
+      if (filters.race) {
+        demographicsQuery = demographicsQuery.eq('race', filters.race);
+      }
+      if (filters.socialClass) {
+        demographicsQuery = demographicsQuery.eq('social_class', filters.socialClass);
+      }
+      
+      const { data: userDemographics } = await demographicsQuery;
 
       // Create demographics map
       const demographicsMap = new Map(
         (userDemographics || []).map(d => [d.user_id, d])
       );
+      
+      // Calculate age from birth_date for filtering
+      const calculateAgeGroup = (birthDate: string | null): string => {
+        if (!birthDate) return 'Não informado';
+        const birth = new Date(birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        if (age < 18) return '< 18';
+        if (age <= 24) return '18-24';
+        if (age <= 34) return '25-34';
+        if (age <= 44) return '35-44';
+        if (age <= 54) return '45-54';
+        if (age <= 64) return '55-64';
+        return '65+';
+      };
+      
+      // If age group filter is active, filter demographics by age
+      let filteredDemographicsMap = demographicsMap;
+      if (filters.ageGroup) {
+        filteredDemographicsMap = new Map(
+          Array.from(demographicsMap.entries()).filter(([_, d]) => {
+            return calculateAgeGroup(d.birth_date) === filters.ageGroup;
+          })
+        );
+      }
+      
+      // Get user IDs that match demographic filters
+      const filteredUserIds = new Set(filteredDemographicsMap.keys());
+      
+      // Filter reports by demographic criteria
+      const hasAnyDemographicFilter = filters.gender || filters.race || filters.socialClass || filters.ageGroup;
+      
+      const filteredUrbanReports = hasAnyDemographicFilter
+        ? (urbanReports || []).filter(r => filteredUserIds.has(r.user_id))
+        : urbanReports || [];
+        
+      const filteredTransportReports = hasAnyDemographicFilter
+        ? (transportReports || []).filter(r => filteredUserIds.has(r.user_id))
+        : transportReports || [];
 
-      const urbanCount = urbanReports?.length || 0;
-      const transportCount = transportReports?.length || 0;
+      const urbanCount = filteredUrbanReports.length;
+      const transportCount = filteredTransportReports.length;
       const total = urbanCount + transportCount;
 
-      // Calculate status distribution
+      // Calculate status distribution (using filtered reports)
       const statusCounts = new Map<string, number>();
-      [...(urbanReports || []), ...(transportReports || [])].forEach(report => {
+      [...filteredUrbanReports, ...filteredTransportReports].forEach(report => {
         const status = report.status || 'pending';
         statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
       });
@@ -159,9 +220,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         { status: 'Rejeitado', count: statusCounts.get('rejected') || 0, color: 'hsl(var(--chart-5))' },
       ];
 
-      // Calculate categories
+      // Calculate categories (using filtered reports)
       const categoryCounts = new Map<string, number>();
-      (urbanReports || []).forEach(report => {
+      filteredUrbanReports.forEach(report => {
         const category = report.category || 'Outros';
         categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
       });
@@ -170,9 +231,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .map(([category, count]) => ({ category, count }))
         .sort((a, b) => b.count - a.count);
 
-      // Calculate severity
+      // Calculate severity (using filtered reports)
       const severityCounts = new Map<string, number>();
-      [...(urbanReports || []), ...(transportReports || [])].forEach(report => {
+      [...filteredUrbanReports, ...filteredTransportReports].forEach(report => {
         const severity = report.severity || 'medium';
         severityCounts.set(severity, (severityCounts.get(severity) || 0) + 1);
       });
@@ -187,14 +248,14 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         { severity: 'Baixo', count: severityCounts.get('low') || 0, percentage: total > 0 ? ((severityCounts.get('low') || 0) / total) * 100 : 0, color: 'hsl(var(--chart-1))' },
       ];
 
-      // Calculate engagement metrics
-      const totalLikes = (urbanReports || []).reduce((sum, report: any) => 
+      // Calculate engagement metrics (using filtered reports)
+      const totalLikes = filteredUrbanReports.reduce((sum, report: any) => 
         sum + (report.urban_report_likes?.[0]?.count || 0), 0);
-      const totalComments = (urbanReports || []).reduce((sum, report: any) => 
+      const totalComments = filteredUrbanReports.reduce((sum, report: any) => 
         sum + (report.urban_report_comments?.[0]?.count || 0), 0);
 
-      // Create top reports
-      const topReports: TopReport[] = (urbanReports || [])
+      // Create top reports (using filtered reports)
+      const topReports: TopReport[] = filteredUrbanReports
         .map((report: any) => ({
           id: report.id,
           description: report.description || 'Sem descrição',
@@ -208,11 +269,11 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .sort((a, b) => b.likes - a.likes)
         .slice(0, 10);
 
-      // Create funnel
-      const withInteraction = (urbanReports || []).filter((r: any) => 
+      // Create funnel (using filtered reports)
+      const withInteraction = filteredUrbanReports.filter((r: any) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0 || (r.urban_report_comments?.[0]?.count || 0) > 0
       ).length;
-      const withLikes = (urbanReports || []).filter((r: any) => 
+      const withLikes = filteredUrbanReports.filter((r: any) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0
       ).length;
       const resolved = statusCounts.get('resolved') || 0;
@@ -250,9 +311,9 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return '65+';
       };
 
-      // Process all reports for demographics
-      [...(urbanReports || []), ...(transportReports || [])].forEach(report => {
-        const userDemo = demographicsMap.get(report.user_id);
+      // Process all filtered reports for demographics display
+      [...filteredUrbanReports, ...filteredTransportReports].forEach(report => {
+        const userDemo = filteredDemographicsMap.get(report.user_id);
         
         // Gender
         const gender = userDemo?.gender || 'Não informado';
@@ -321,10 +382,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
-      // REAL: Timeline from actual data
+      // REAL: Timeline from filtered data
       const dateMap = new Map<string, { urban: number; transport: number }>();
       
-      (urbanReports || []).forEach(report => {
+      filteredUrbanReports.forEach(report => {
         if (report.created_at) {
           const dateKey = new Date(report.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
           if (!dateMap.has(dateKey)) {
@@ -334,7 +395,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         }
       });
 
-      (transportReports || []).forEach(report => {
+      filteredTransportReports.forEach(report => {
         if (report.created_at) {
           const dateKey = new Date(report.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
           if (!dateMap.has(dateKey)) {
@@ -353,17 +414,17 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         }))
         .slice(-30);
 
-      // REAL: Calculate trend
+      // REAL: Calculate trend from filtered data
       const now = new Date();
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
       
-      const allReports = [...(urbanReports || []), ...(transportReports || [])];
-      const currentPeriodCount = allReports.filter(r => 
+      const allFilteredReports = [...filteredUrbanReports, ...filteredTransportReports];
+      const currentPeriodCount = allFilteredReports.filter(r => 
         r.created_at && new Date(r.created_at) >= sevenDaysAgo
       ).length;
       
-      const previousPeriodCount = allReports.filter(r => 
+      const previousPeriodCount = allFilteredReports.filter(r => 
         r.created_at && new Date(r.created_at) >= fourteenDaysAgo && new Date(r.created_at) < sevenDaysAgo
       ).length;
       
