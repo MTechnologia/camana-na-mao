@@ -1155,20 +1155,59 @@ function autoClassifyCategory(description: string): {
     { pattern: /morador\s*de\s*rua|pessoa\s*em\s*situa[çc][ãa]o/, label: 'Questão Social' },
     { pattern: /seguran[çc]a|perigoso|assalto|roubo/, label: 'Questão de Segurança' },
     
-    // Categorias padrão - labels descritivos
-    { pattern: /poste\s*apagad|sem\s*luz|luz\s*apagad/, label: 'Poste Apagado' },
-    { pattern: /l[âa]mpada\s*(queimad|apagad)/, label: 'Lâmpada Queimada' },
-    { pattern: /buraco\s*(grande|enorme|perigoso)?/, label: 'Buraco na Via' },
-    { pattern: /asfalto\s*(danificad|quebrad)/, label: 'Asfalto Danificado' },
-    { pattern: /sem[áa]foro\s*(quebrad|apagad|com\s*defeito)?/, label: 'Semáforo com Defeito' },
-    { pattern: /bueiro\s*(entupid|transbordando)?/, label: 'Bueiro Entupido' },
-    { pattern: /alagamento|alagad[oa]|enchente/, label: 'Alagamento' },
-    { pattern: /vazamento\s*(de\s*[áa]gua)?/, label: 'Vazamento de Água' },
-    { pattern: /esgoto\s*(aberto|vazando)?/, label: 'Problema de Esgoto' },
-    { pattern: /[áa]rvore\s*(caindo|ca[íi]da|risco)?/, label: 'Árvore com Risco' },
-    { pattern: /mato\s*alto|vegeta[çc][ãa]o/, label: 'Mato Alto' },
-    { pattern: /lixo\s*(acumulad|na\s*rua)?/, label: 'Lixo Acumulado' },
-    { pattern: /entulho/, label: 'Entulho na Via' },
+    // === ILUMINAÇÃO - padrões expandidos para mensagens curtas ===
+    { pattern: /poste\s*(ca[íi]d|quebrad|danificad|torto|pendend|inclinad|pend[êe]nd)/i, label: 'Poste com Problema' },
+    { pattern: /poste\s*(apagad|sem\s*luz|escuro)/i, label: 'Poste Apagado' },
+    { pattern: /sem\s*luz|falta\s*de?\s*luz|luz\s*apagad/i, label: 'Falta de Iluminação' },
+    { pattern: /l[âa]mpada\s*(queimad|apagad|quebrad)/i, label: 'Lâmpada Queimada' },
+    { pattern: /escuro|escurid[ãa]o|sem\s*ilumina/i, label: 'Área Escura' },
+    
+    // === VIA PÚBLICA - padrões expandidos ===
+    { pattern: /buraco\s*(grande|enorme|perigoso|gigante|profundo)?/i, label: 'Buraco na Via' },
+    { pattern: /asfalto\s*(danificad|quebrad|esburacad|afundad)/i, label: 'Asfalto Danificado' },
+    { pattern: /rua\s*(esburacad|quebrad|danificad|afundad)/i, label: 'Rua Danificada' },
+    { pattern: /cratera|erosão|desmoron/i, label: 'Erosão/Cratera' },
+    { pattern: /sem[áa]foro\s*(quebrad|apagad|com\s*defeito|danificad|não\s*funciona)/i, label: 'Semáforo com Defeito' },
+    { pattern: /sinaliza[çc][ãa]o\s*(apagad|quebrad|danificad|suja)/i, label: 'Sinalização Danificada' },
+    { pattern: /faixa\s*(apagad|suja)/i, label: 'Faixa de Pedestre Apagada' },
+    
+    // === ESGOTO/ALAGAMENTO - padrões expandidos ===
+    { pattern: /bueiro\s*(entupid|transbordand|aberto|tampa|solto)/i, label: 'Bueiro com Problema' },
+    { pattern: /tampa\s*(solt|faltand|aberta|quebrad)/i, label: 'Tampa Solta' },
+    { pattern: /alagamento|alagad[oa]|enchente|inundad/i, label: 'Alagamento' },
+    { pattern: /vazamento\s*(de\s*[áa]gua)?/i, label: 'Vazamento de Água' },
+    { pattern: /esgoto\s*(aberto|vazand|fedend|estoura)/i, label: 'Problema de Esgoto' },
+    { pattern: /água\s*(suja|parad|acumulad)/i, label: 'Água Parada' },
+    
+    // === ÁREA VERDE - padrões expandidos ===
+    { pattern: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)/i, label: 'Árvore com Risco' },
+    { pattern: /galho\s*(ca[íi]d|quebrad|solto|pendend)/i, label: 'Galho Caído' },
+    { pattern: /ra[íi]z\s*(expost|levant|danificand)/i, label: 'Raiz Exposta' },
+    { pattern: /mato\s*(alto|crescend)|capim\s*alto/i, label: 'Mato Alto' },
+    { pattern: /poda|podand|precisa\s*podar/i, label: 'Necessidade de Poda' },
+    
+    // === CALÇADA - padrões expandidos ===
+    { pattern: /cal[çc]ada\s*(quebrad|danificad|esburacad|irregular)/i, label: 'Calçada Danificada' },
+    { pattern: /meio[\s-]?fio\s*(quebrad|danificad|solto)/i, label: 'Meio-fio Danificado' },
+    { pattern: /rampa\s*(de\s*acessibilidade)?/i, label: 'Problema de Acessibilidade' },
+    
+    // === LIXO - padrões expandidos ===
+    { pattern: /lixo\s*(acumulad|na\s*rua|jogad|espalh)/i, label: 'Lixo Acumulado' },
+    { pattern: /entulho\s*(na\s*rua|jogad)?/i, label: 'Entulho na Via' },
+    { pattern: /coleta\s*(atrasad|não\s*passou)/i, label: 'Coleta Atrasada' },
+    { pattern: /lixeira\s*(quebrad|chei|transbord)/i, label: 'Lixeira com Problema' },
+    
+    // === ANIMAIS - padrões expandidos ===
+    { pattern: /rato|ratos|ratazana/i, label: 'Infestação de Ratos' },
+    { pattern: /barata|baratas/i, label: 'Infestação de Baratas' },
+    { pattern: /escorpi[ãa]o|escorpiões/i, label: 'Escorpiões' },
+    { pattern: /animal\s*(mort|atropela|abandon)/i, label: 'Animal Morto/Abandonado' },
+    { pattern: /inseto|mosquito|pernilongo/i, label: 'Infestação de Insetos' },
+    
+    // === HIGIENE URBANA - padrões expandidos ===
+    { pattern: /fedor|fedend|mau\s*cheiro/i, label: 'Mau Cheiro' },
+    { pattern: /urina|fezes|coc[ôo]/i, label: 'Sujeira Orgânica' },
+    { pattern: /suj[oa]|imundo|nojent/i, label: 'Local Sujo' },
   ];
   
   // Find the best matching label
@@ -1181,44 +1220,44 @@ function autoClassifyCategory(description: string): {
   }
   
   const patterns: Array<{ keywords: RegExp; category: string; weight: number }> = [
-    // Esgoto / Alagamento / Vazamento (HIGHEST priority for water-related)
-    { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando)|esgoto|córrego|valeta|enchente|inunda/i, category: 'esgoto', weight: 10 },
+    // === ESGOTO / ALAGAMENTO (HIGHEST priority) ===
+    { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando|aberto|tampa)|esgoto|córrego|valeta|enchente|inundad?[oa]?|transbord/i, category: 'esgoto', weight: 10 },
     
-    // === POLUIÇÃO SONORA - HIGH PRIORITY (weight 9) to auto-classify without confirmation ===
-    // Specific noise patterns that should auto-classify
+    // === ILUMINAÇÃO (EXPANDED - weight 9 para auto-classificar) ===
+    // Padrões curtos como "poste caído" devem classificar com alta confiança
+    { keywords: /poste\s*(apagad|sem\s*luz|queimad|ca[íi]d|quebrad|danificad|torto|pendend|inclinad)|luz\s*(apagad|queimad)|ilumina[çc][ãa]o|sem\s*luz|escuro|escurid[ãa]o|l[âa]mpada\s*(queimad|apagad|quebrad)/i, category: 'iluminacao', weight: 9 },
+    
+    // === POLUIÇÃO SONORA (weight 9) ===
     { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
     
-    // Iluminação
-    { keywords: /poste\s*(apagado|sem\s*luz|queimado)|luz\s*(apagada|queimada)|ilumina[çc][ãa]o|sem\s*luz|escuro|lâmpada/i, category: 'iluminacao', weight: 9 },
+    // === VIA PÚBLICA (EXPANDED - weight 8) ===
+    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
     
-    // Via Pública / Buraco
-    { keywords: /buraco|asfalto|pavimenta[çc][ãa]o|cratera|semáforo|sinaliza[çc][ãa]o|faixa\s*de\s*pedestre|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    // === ÁREA VERDE (EXPANDED - weight 8) ===
+    { keywords: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)?|galho\s*(ca[íi]d|quebrad|solto)|poda|ra[íi]z\s*(expost|levant)|pra[çc]a|parque|jardim|mato\s*(alto|crescend)|capim\s*alto|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 8 },
     
-    // Calçada
-    { keywords: /cal[çc]ada|passeio\s*público|meio-fio|guia|rampa\s*de\s*acessibilidade/i, category: 'calcada', weight: 8 },
+    // === CALÇADA (EXPANDED) ===
+    { keywords: /cal[çc]ada\s*(quebrad|danificad|esburacad)?|passeio\s*p[úu]blic|meio[\s-]?fio|guia|rampa\s*(de\s*acessibilidade)?/i, category: 'calcada', weight: 8 },
     
-    // Lixo / Entulho
-    { keywords: /lixo|entulho|descarte|coleta|cata|sujeira|res[ií]duo|lata\s*de\s*lixo|container|caçamba/i, category: 'lixo', weight: 7 },
+    // === ANIMAIS (weight 8) ===
+    { keywords: /rato|ratazana|barata|inseto|mosquito|pernilongo|bicho\s*mort|animal\s*(mort|atropelad|abandon)|pombo|infesta[çc][ãa]o|escorpi[ãa]o|cobra/i, category: 'animais', weight: 8 },
     
-    // Área Verde
-    { keywords: /[áa]rvore|poda|galho|pra[çc]a|parque|jardim|mato\s*(alto|crescendo)|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 7 },
+    // === LIXO / ENTULHO ===
+    { keywords: /lixo\s*(acumulad|na\s*rua|jogad)?|entulho|descarte|coleta\s*(atrasad)?|cata|sujeira|res[ií]duo|lata\s*de\s*lixo|container|ca[çc]amba|lixeira\s*(chei|quebrad|transbord)/i, category: 'lixo', weight: 7 },
     
-    // Animais
-    { keywords: /rato|barata|inseto|bicho\s*morto|animal\s*(morto|atropelado)|pombo|infesta[çc][ãa]o|escorpi[ãa]o|cobra/i, category: 'animais', weight: 8 },
+    // === HIGIENE URBANA ===
+    { keywords: /fedor|mau\s*cheiro|fedend|podre|urina|fezes|coc[ôo]|defeca[çc][ãa]o|suj[oa]|imundo|nojent/i, category: 'higiene_urbana', weight: 7 },
     
-    // Higiene Urbana
-    { keywords: /fedor|mau\s*cheiro|fedendo|podre|urina|fezes|defeca[çc][ãa]o/i, category: 'higiene_urbana', weight: 7 },
+    // === POLUIÇÃO GERAL (smoke, contamination) ===
+    { keywords: /fuma[çc]a|polui[çc][ãa]o\s*(ar|atmosf)?|contamina[çc][ãa]o|t[óo]xico|qu[íi]mico/i, category: 'poluicao', weight: 7 },
     
-    // Poluição geral - lower weight for general pollution terms (smoke, contamination)
-    { keywords: /fuma[çc]a|polui[çc][ãa]o\s*(ar|atmosf)|contamina[çc][ãa]o|t[óo]xico|qu[íi]mico/i, category: 'poluicao', weight: 7 },
-    
-    // Poluição sonora genérica - weight 6 (will ask for confirmation)
+    // === POLUIÇÃO SONORA GENÉRICA (weight 6 - pede confirmação) ===
     { keywords: /barulho|ru[íi]do|buzina|alarme|latido|bagun[çc]a|obra\s*(barulho|cedo)?/i, category: 'poluicao', weight: 6 },
     
-    // Feedback Câmara
+    // === FEEDBACK CÂMARA ===
     { keywords: /vereador|c[âa]mara\s*municipal|legislativo|projeto\s*de\s*lei/i, category: 'feedback_camara', weight: 5 },
     
-    // FALLBACK: Catch-all for unrecognized issues - LOW priority
+    // === FALLBACK: Catch-all - LOW priority ===
     { keywords: /problema|situa[çc][ãa]o|reclamar|reclama[çc][ãa]o|denunciar|den[úu]ncia|irregular|ilegal|abandonad|invad|invaz|invasão/i, category: 'outro', weight: 2 },
   ];
   
@@ -1328,6 +1367,60 @@ function getTransportTypeLabel(reportType: string): string {
     'outro': 'Outro Problema'
   };
   return labels[reportType] || 'Problema no Transporte';
+}
+
+// ============= SEMANTIC LABEL TO CATEGORY MAPPING =============
+// Maps AI-generated labels or short descriptions to known categories
+function mapLabelToCategory(label: string): string | null {
+  if (!label) return null;
+  const labelLower = label.toLowerCase();
+  
+  // Semantic mapping: keywords that indicate specific categories
+  const semanticMap: Record<string, string[]> = {
+    'iluminacao': [
+      'poste', 'luz', 'lampada', 'lâmpada', 'escuro', 'escuridão', 'iluminação', 
+      'apagado', 'queimado', 'caído', 'caido', 'torto', 'inclinado', 'pendendo'
+    ],
+    'via_publica': [
+      'buraco', 'asfalto', 'rua', 'via', 'semáforo', 'semaforo', 'sinalização', 
+      'sinalizacao', 'cratera', 'pista', 'faixa', 'erosão', 'desmoronamento'
+    ],
+    'calcada': [
+      'calçada', 'calcada', 'passeio', 'guia', 'meio-fio', 'rampa', 'acessibilidade'
+    ],
+    'lixo': [
+      'lixo', 'entulho', 'sujeira', 'descarte', 'resíduo', 'coleta', 'lixeira', 
+      'container', 'caçamba'
+    ],
+    'esgoto': [
+      'esgoto', 'bueiro', 'água', 'alagamento', 'vazamento', 'enchente', 
+      'inundação', 'transbordando', 'tampa'
+    ],
+    'area_verde': [
+      'árvore', 'arvore', 'mato', 'praça', 'praca', 'parque', 'jardim', 
+      'galho', 'poda', 'raiz', 'vegetação', 'capim'
+    ],
+    'poluicao': [
+      'barulho', 'ruído', 'ruido', 'som', 'música', 'musica', 'fumaça', 
+      'fumaca', 'poluição', 'poluicao', 'festa', 'bar', 'buzina', 'alarme'
+    ],
+    'animais': [
+      'rato', 'ratazana', 'barata', 'animal', 'bicho', 'inseto', 'escorpião', 
+      'escorpiao', 'cobra', 'pombo', 'infestação', 'mosquito'
+    ],
+    'higiene_urbana': [
+      'fedor', 'cheiro', 'urina', 'fezes', 'podre', 'fedendo', 'imundo', 
+      'nojento', 'sujo', 'defecação'
+    ],
+  };
+  
+  for (const [category, keywords] of Object.entries(semanticMap)) {
+    if (keywords.some(kw => labelLower.includes(kw))) {
+      return category;
+    }
+  }
+  
+  return null;
 }
 
 // Auto-infer risk level from description
@@ -4383,6 +4476,14 @@ async function executeTool(
           'Posso ajudar com mais alguma coisa?'
         ].filter(line => line !== '').join('\n');
         
+        // Track emerging category patterns for NLP learning (async, non-blocking)
+        try {
+          await detectEmergingCategory(args.description, args.category, supabase);
+          console.log('[executeTool] Emerging category detection completed for urban report');
+        } catch (detectError) {
+          console.error('[executeTool] Emerging category detection failed:', detectError);
+        }
+        
         return { 
           success: true, 
           message: successMessage,
@@ -4600,6 +4701,14 @@ async function executeTool(
           '',
           'Posso ajudar com mais alguma coisa?'
         ].filter(line => line !== '').join('\n');
+        
+        // Track emerging patterns for NLP learning (async, non-blocking)
+        try {
+          await detectEmergingCategory(args.description, validReportType, supabase);
+          console.log('[executeTool] Emerging category detection completed for transport report');
+        } catch (detectError) {
+          console.error('[executeTool] Transport emerging pattern detection failed:', detectError);
+        }
         
         return { 
           success: true, 
