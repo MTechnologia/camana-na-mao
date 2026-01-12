@@ -535,6 +535,12 @@ export const useUnifiedAIChat = (
             /trocar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
             /quero\s*(avaliar|relatar|reportar)\s*(um\s*)?(servi[çc]o|problema|transporte)/i,
             /na\s*verdade,?\s*(quero|preciso|gostaria)/i,
+            // Service search phrases (trigger service discovery)
+            /quero\s*(encontrar|buscar|achar|procurar)\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+            /encontrar\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+            /buscar\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+            /onde\s*(fica|tem|posso\s*encontrar)\s*(um\s*)?(ubs|escola|hospital|posto|ceu)/i,
+            /servi[çc]os?\s*(perto|pr[óo]ximo|perto\s*de\s*mim)/i,
           ];
           return genericPhrases.some(pattern => pattern.test(text.trim().toLowerCase()));
         };
