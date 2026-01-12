@@ -1,6 +1,739 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
+
+/**
+ * Detects affirmative responses in Brazilian Portuguese
+ * Expanded patterns for natural language understanding
+ */
+function isAffirmativeResponse(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  const patterns = [
+    // Direct yes
+    /^s+i*m*$/i, /^s$/i, /^ss+$/i,
+    // Confirmations
+    /^pode$/i, /^pode ser$/i, /^pode sim$/i, /^bora$/i, /^vamos$/i, /^vamos lá$/i,
+    /^ok$/i, /^okay$/i, /^okey$/i, /^beleza$/i, /^blz$/i, /^show$/i,
+    /^quero$/i, /^desejo$/i, /^aceito$/i, /^confirmo$/i, /^confirma$/i,
+    // Affirmations
+    /^isso$/i, /^isso mesmo$/i, /^exato$/i, /^exatamente$/i, /^isso aí$/i, /^isso ai$/i,
+    /^correto$/i, /^certo$/i, /^verdade$/i, /^positivo$/i,
+    /^ta$/i, /^tá$/i, /^ta bom$/i, /^tá bom$/i, /^tá certo$/i, /^tá ok$/i,
+    /^legal$/i, /^ótimo$/i, /^otimo$/i, /^perfeito$/i, /^massa$/i,
+    /^claro$/i, /^com certeza$/i, /^sem dúvida$/i, /^lógico$/i, /^logico$/i,
+    /^é isso$/i, /^e isso$/i, /^é esse$/i, /^é essa$/i,
+    /^manda$/i, /^manda ver$/i, /^segue$/i, /^vai$/i, /^dale$/i, /^bora lá$/i,
+    /^afirmativo$/i, /^positivo$/i, /^certeza$/i,
+    // Emojis
+    /^👍$/i, /^✅$/i, /^✔$/i, /^👌$/i
+  ];
+  return patterns.some(p => p.test(lower)) || 
+         lower.includes('sim') || lower.includes('correto') || 
+         lower.includes('confirmo') || lower.includes('isso mesmo');
+}
+
+/**
+ * Detects negative responses in Brazilian Portuguese
+ */
+function isNegativeResponse(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  const patterns = [
+    // Direct no
+    /^n+[ãa]*o*$/i, /^n$/i, /^nn+$/i, /^nop$/i, /^nope$/i, /^nem$/i,
+    // Negations
+    /^nunca$/i, /^jamais$/i, /^negativo$/i, /^errado$/i,
+    /^não é$/i, /^nao e$/i, /^não é isso$/i, /^nao e isso$/i,
+    /^não quero$/i, /^nao quero$/i, /^não pode$/i, /^nao pode$/i,
+    // Cancellations
+    /^cancela$/i, /^cancelar$/i, /^parar$/i, /^para$/i, /^deixa$/i,
+    /^deixa pra lá$/i, /^deixa quieto$/i, /^esquece$/i, /^desisto$/i,
+    /^outro$/i, /^outra$/i, /^diferente$/i, /^mudar$/i, /^trocar$/i,
+    // Emojis
+    /^👎$/i, /^❌$/i, /^✖$/i
+  ];
+  return patterns.some(p => p.test(lower)) ||
+         lower.startsWith('não') || lower.startsWith('nao') ||
+         lower.includes('errado') || lower.includes('incorreto');
+}
+
+/**
+ * Domain-specific keywords for semantic detection
+ * Used for flexible description validation and intent detection
+ */
+const DOMAIN_KEYWORDS: Record<string, string[]> = {
+  urban: [
+    // Iluminação
+    'poste', 'luz', 'apagado', 'apagada', 'escuro', 'lampada', 'lâmpada', 'iluminação', 'iluminacao',
+    // Via pública  
+    'buraco', 'asfalto', 'semaforo', 'semáforo', 'lombada', 'cratera', 'pavimento', 'pista',
+    // Calçada
+    'calcada', 'calçada', 'passeio', 'rampa', 'degrau', 'meio-fio',
+    // Esgoto/água
+    'bueiro', 'esgoto', 'vazamento', 'alagamento', 'enchente', 'valeta', 'enxurrada', 'córrego',
+    // Lixo
+    'lixo', 'entulho', 'sujeira', 'descarte', 'caçamba', 'cata', 'resíduo',
+    // Área verde
+    'arvore', 'árvore', 'mato', 'poda', 'galho', 'raiz', 'jardim', 'praça', 'praca',
+    // Animais
+    'rato', 'barata', 'escorpião', 'bicho', 'animal', 'pombo', 'cobra', 'infestação',
+    // Estados comuns
+    'caido', 'caído', 'quebrado', 'quebrada', 'danificado', 'estragado',
+    'entupido', 'entupida', 'transbordando', 'vazando', 'fedendo', 'fedido',
+    'acumulado', 'abandonado', 'irregular', 'perigoso',
+    // Modernos (para categorias dinâmicas)
+    'patinete', 'bicicleta', 'bike', 'moto', 'estacionado', 'drone', 'antena'
+  ],
+  transport: [
+    // Atraso
+    'atraso', 'atrasado', 'atrasou', 'demora', 'demorou', 'esperando', 'nunca chega', 'não passou', 'nao passou',
+    // Lotação
+    'lotado', 'lotação', 'lotacao', 'cheio', 'superlotado', 'apertado', 'não coube', 'nao coube', 'sem espaço',
+    // Segurança
+    'segurança', 'seguranca', 'assalto', 'roubo', 'assédio', 'assedio', 'perigo', 'medo', 'briga', 'ameaça',
+    // Limpeza
+    'sujo', 'sujeira', 'fedendo', 'fedor', 'nojento', 'lixo', 'vômito', 'vomito', 'imundo',
+    // Acessibilidade
+    'acessibilidade', 'cadeirante', 'elevador', 'rampa', 'deficiente', 'pcd', 'mobilidade',
+    // Condução
+    'motorista', 'cobrador', 'rude', 'grosso', 'mal educado', 'não parou', 'nao parou', 'freada', 'condução',
+    // Modais
+    'ônibus', 'onibus', 'metrô', 'metro', 'trem', 'linha', 'estação', 'estacao', 'terminal', 'ponto'
+  ],
+  service: [
+    // Tipos de serviço
+    'ubs', 'hospital', 'escola', 'ceu', 'biblioteca', 'posto', 'creche', 'pronto-socorro', 'ama',
+    // Qualidade
+    'atendimento', 'demora', 'fila', 'espera', 'médico', 'medico', 'professor', 'funcionário', 'funcionario',
+    // Experiência
+    'bom', 'ruim', 'péssimo', 'pessimo', 'ótimo', 'otimo', 'excelente', 'terrível', 'terrivel', 'horrível',
+    'rápido', 'rapido', 'lento', 'eficiente', 'ineficiente', 'organizado', 'bagunça', 'bagunca'
+  ],
+  audiencias: [
+    'audiência', 'audiencia', 'consulta', 'pública', 'publica', 'participar', 'inscrever', 'inscrição',
+    'tema', 'sessão', 'sessao', 'reunião', 'reuniao', 'evento', 'câmara', 'camara', 'vereador'
+  ],
+  general: [
+    'informação', 'informacao', 'dúvida', 'duvida', 'pergunta', 'como funciona', 'o que é', 'o que e',
+    'horário', 'horario', 'endereço', 'endereco', 'telefone', 'contato', 'atendimento'
+  ]
+};
+
+/**
+ * Validates if text is a valid description for the given domain
+ * Uses flexible threshold: >= 20 chars OR (>= 8 chars + domain keyword)
+ */
+function isValidDomainDescription(text: string, domain: string): boolean {
+  if (!text || isGenericIntentText(text)) return false;
+  
+  const keywords = DOMAIN_KEYWORDS[domain] || [];
+  const lower = text.toLowerCase();
+  const hasKeyword = keywords.some(kw => lower.includes(kw));
+  
+  // FLEXIBLE: >= 20 chars (detailed) OR >= 8 chars + keyword (short but specific)
+  return text.length >= 20 || (text.length >= 8 && hasKeyword);
+}
+
+/**
+ * Extracts implicit data from user response based on context
+ * Uses the last assistant question to understand what data to infer
+ */
+function extractImplicitData(
+  userMessage: string, 
+  lastAssistantQuestion: string,
+  domain: string
+): Record<string, any> {
+  const lower = userMessage.toLowerCase().trim();
+  const questionLower = lastAssistantQuestion.toLowerCase();
+  const extracted: Record<string, any> = {};
+  
+  // === CONTEXT: Risk/Urgency question ===
+  if (questionLower.includes('risco') || questionLower.includes('urgente') || 
+      questionLower.includes('perigoso') || questionLower.includes('gravidade')) {
+    if (isAffirmativeResponse(userMessage)) {
+      extracted.risk_level = 'moderate';
+    } else if (isNegativeResponse(userMessage)) {
+      extracted.risk_level = 'none';
+    }
+    // Intensifiers override
+    if (/muito|demais|urgente|grave|sério|serio|crítico|critico|perigoso|imediato/i.test(lower)) {
+      extracted.risk_level = 'critical';
+    }
+  }
+  
+  // === CONTEXT: Scope/Extent question ===
+  if (questionLower.includes('afetando') || questionLower.includes('escopo') ||
+      questionLower.includes('só você') || questionLower.includes('so voce') || 
+      questionLower.includes('toda a rua') || questionLower.includes('bairro')) {
+    if (/eu|minha casa|só eu|somente eu|meu apartamento|meu prédio/i.test(lower)) {
+      extracted.affected_scope = 'individual';
+    } else if (/rua|vizinhos|quarteirão|prédio|condomínio|vizinhança/i.test(lower)) {
+      extracted.affected_scope = 'street';
+    } else if (/bairro|região|todo|toda|muito|vários|várias|comunidade/i.test(lower)) {
+      extracted.affected_scope = 'neighborhood';
+    }
+  }
+  
+  // === CONTEXT: Date/Time question ===
+  if (questionLower.includes('quando') || questionLower.includes('data') || 
+      questionLower.includes('hora') || questionLower.includes('dia')) {
+    // Date inference
+    if (/agora|acabou de|agora pouco|neste momento|há pouco|ha pouco|acabei de ver/i.test(lower)) {
+      extracted.occurrence_date = new Date().toISOString().split('T')[0];
+      extracted.occurrence_time = new Date().toTimeString().slice(0,5);
+    } else if (/hoje/i.test(lower)) {
+      extracted.occurrence_date = new Date().toISOString().split('T')[0];
+    } else if (/ontem/i.test(lower)) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      extracted.occurrence_date = yesterday.toISOString().split('T')[0];
+    } else if (/anteontem/i.test(lower)) {
+      const dayBefore = new Date();
+      dayBefore.setDate(dayBefore.getDate() - 2);
+      extracted.occurrence_date = dayBefore.toISOString().split('T')[0];
+    } else if (/semana passada/i.test(lower)) {
+      const lastWeek = new Date();
+      lastWeek.setDate(lastWeek.getDate() - 7);
+      extracted.occurrence_date = lastWeek.toISOString().split('T')[0];
+    }
+    
+    // Time inference
+    if (/manhã|de manhã|cedo|logo cedo/i.test(lower)) {
+      extracted.occurrence_time = '08:00';
+    } else if (/tarde|de tarde|após almoço|depois do almoço/i.test(lower)) {
+      extracted.occurrence_time = '14:00';
+    } else if (/noite|de noite|anoitecer|fim do dia/i.test(lower)) {
+      extracted.occurrence_time = '20:00';
+    } else if (/madrugada|de madrugada/i.test(lower)) {
+      extracted.occurrence_time = '03:00';
+    } else if (/meio-dia|meio dia|almoço/i.test(lower)) {
+      extracted.occurrence_time = '12:00';
+    }
+  }
+  
+  // === CONTEXT: Rating/Stars question (service_rating) ===
+  if (questionLower.includes('nota') || questionLower.includes('estrela') ||
+      questionLower.includes('1 a 5') || questionLower.includes('avaliar') || questionLower.includes('avaliação')) {
+    // Numbers written out
+    const numberWords: Record<string, number> = {
+      'um': 1, 'uma': 1, 'dois': 2, 'duas': 2, 'três': 3, 'tres': 3,
+      'quatro': 4, 'cinco': 5, 'zero': 0
+    };
+    for (const [word, num] of Object.entries(numberWords)) {
+      if (lower.includes(word) && num >= 1 && num <= 5) {
+        extracted.rating_stars = num;
+        break;
+      }
+    }
+    // Qualifiers
+    if (/péssim|pessim|horrível|horrivel|terrível|terrivel|muito ruim|lixo/i.test(lower)) {
+      extracted.rating_stars = 1;
+      extracted.sentiment = 'negative';
+    } else if (/ruim|fraco|mal|insatisf/i.test(lower)) {
+      extracted.rating_stars = 2;
+      extracted.sentiment = 'negative';
+    } else if (/ok|regular|mais ou menos|razoável|razoavel|médio|medio/i.test(lower)) {
+      extracted.rating_stars = 3;
+      extracted.sentiment = 'neutral';
+    } else if (/bom|legal|gostei|satisf|decente/i.test(lower)) {
+      extracted.rating_stars = 4;
+      extracted.sentiment = 'positive';
+    } else if (/ótimo|otimo|excelente|perfeito|maravilhoso|muito bom|sensacional|top/i.test(lower)) {
+      extracted.rating_stars = 5;
+      extracted.sentiment = 'positive';
+    }
+  }
+  
+  // === CONTEXT: Address confirmation ===
+  if (questionLower.includes('correto') || questionLower.includes('confirma') ||
+      questionLower.includes('certo') || questionLower.includes('está correto') || questionLower.includes('este endereço')) {
+    if (isAffirmativeResponse(userMessage)) {
+      extracted.address_confirmed = true;
+      extracted.service_address_confirmed = true;
+    } else if (isNegativeResponse(userMessage)) {
+      extracted.address_confirmed = false;
+      extracted.service_address_confirmed = false;
+    }
+  }
+  
+  // === CONTEXT: Service type question ===
+  if (questionLower.includes('tipo de serviço') || questionLower.includes('qual serviço') || questionLower.includes('que serviço')) {
+    const serviceTypes: Record<string, string> = {
+      'ubs': 'ubs', 'posto de saúde': 'ubs', 'posto de saude': 'ubs', 'postinho': 'ubs',
+      'hospital': 'hospital', 'pronto socorro': 'hospital', 'pronto-socorro': 'hospital', 'ps': 'hospital',
+      'escola': 'school', 'colégio': 'school', 'colegio': 'school',
+      'ceu': 'ceu', 'centro educacional': 'ceu',
+      'biblioteca': 'library',
+      'centro esportivo': 'sports_center', 'quadra': 'sports_center', 'ginásio': 'sports_center', 'ginasio': 'sports_center'
+    };
+    for (const [keyword, type] of Object.entries(serviceTypes)) {
+      if (lower.includes(keyword)) {
+        extracted.service_type = type;
+        break;
+      }
+    }
+  }
+  
+  return extracted;
+}
+
+// ========== INTELLIGENT LABEL GENERATION WITH AI ==========
+
+/**
+ * Tries to match known patterns for label generation
+ * Returns null if no pattern matches
+ */
+function tryPatternBasedLabel(description: string, category: string): string | null {
+  const lower = description.toLowerCase();
+  
+  const patterns: Record<string, Array<{ pattern: RegExp; label: string }>> = {
+    iluminacao: [
+      { pattern: /poste\s*(caido|caído|quebrado)/i, label: 'Poste Caído' },
+      { pattern: /luz\s*(apagad|queimad)/i, label: 'Luz Apagada' },
+      { pattern: /lampada\s*(queimad|quebrad)/i, label: 'Lâmpada Queimada' },
+      { pattern: /rua\s*sem\s*luz/i, label: 'Rua sem Iluminação' },
+      { pattern: /escuro|escuridao|escuridão/i, label: 'Falta de Iluminação' }
+    ],
+    via_publica: [
+      { pattern: /buraco\s*(grande|enorme|gigante)?/i, label: 'Buraco na Via' },
+      { pattern: /asfalto\s*(danificad|quebrad)/i, label: 'Asfalto Danificado' },
+      { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' },
+      { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' }
+    ],
+    calcada: [
+      { pattern: /calcada\s*(quebrad|irregular|danificad)|calçada/i, label: 'Calçada Irregular' },
+      { pattern: /rampa\s*(faltando|irregular)/i, label: 'Rampa de Acessibilidade' }
+    ],
+    lixo: [
+      { pattern: /lixo\s*(acumulad|amontoado)/i, label: 'Lixo Acumulado' },
+      { pattern: /entulho/i, label: 'Entulho Descartado' },
+      { pattern: /descarte\s*irregular/i, label: 'Descarte Irregular' }
+    ],
+    area_verde: [
+      { pattern: /arvore\s*(caid|caind|tombad)|árvore/i, label: 'Árvore Caída' },
+      { pattern: /poda\s*(necessari|urgente)/i, label: 'Necessidade de Poda' },
+      { pattern: /mato\s*(alto|crescendo)/i, label: 'Mato Alto' },
+      { pattern: /galho\s*(pendent|caind)/i, label: 'Galho Pendente' }
+    ],
+    esgoto: [
+      { pattern: /bueiro\s*(entupid|transbordand)/i, label: 'Bueiro Entupido' },
+      { pattern: /esgoto\s*(a\s*ceu\s*aberto|vazand)/i, label: 'Esgoto a Céu Aberto' },
+      { pattern: /vazamento/i, label: 'Vazamento de Água' },
+      { pattern: /alagamento|alagad/i, label: 'Alagamento' }
+    ],
+    poluicao: [
+      { pattern: /barulho|som\s*alto|música\s*alta/i, label: 'Perturbação Sonora' },
+      { pattern: /bar\s*(barulhento|barulho)|balada|festa/i, label: 'Estabelecimento Barulhento' },
+      { pattern: /fumaça|fumaca|queimada/i, label: 'Poluição Atmosférica' }
+    ],
+    outro: [
+      { pattern: /patinete\s*(abandonad|jogad)/i, label: 'Patinete Abandonado' },
+      { pattern: /bicicleta\s*(abandonad|jogad)/i, label: 'Bicicleta Abandonada' },
+      { pattern: /carro\s*(abandonad)/i, label: 'Veículo Abandonado' },
+      { pattern: /moto\s*(abandonad)/i, label: 'Moto Abandonada' }
+    ]
+  };
+  
+  const categoryPatterns = patterns[category] || patterns['outro'];
+  for (const p of categoryPatterns) {
+    if (p.pattern.test(lower)) {
+      return p.label;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Generates an intelligent label using AI for unmatched patterns
+ * Falls back to basic label generation if AI fails
+ */
+async function generateIntelligentLabel(
+  description: string,
+  category: string
+): Promise<string> {
+  // First try pattern-based matching
+  const patternLabel = tryPatternBasedLabel(description, category);
+  if (patternLabel) return patternLabel;
+  
+  // Try AI-based label generation
+  try {
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    if (!lovableApiKey) {
+      return generateLabelFromDescription(description);
+    }
+    
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${lovableApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [{
+          role: 'system',
+          content: `Você é um classificador de problemas urbanos de São Paulo.
+Dado uma descrição de problema, gere um LABEL curto (2-4 palavras) que resuma o problema.
+
+Regras:
+- Máximo 4 palavras
+- Use linguagem clara e direta
+- Foque no problema principal
+- Não use artigos desnecessários
+
+Exemplos:
+- "Tem um poste caído na rua" -> "Poste Caído"
+- "Lixo acumulado na calçada há semanas" -> "Lixo Acumulado"
+- "Buraco grande no asfalto" -> "Buraco na Via"
+- "Patinete abandonado na calçada" -> "Patinete Abandonado"
+- "Bar com som alto de madrugada" -> "Perturbação Sonora"`
+        }, {
+          role: 'user',
+          content: `Categoria: ${category}\nDescrição: ${description}\n\nGere o label:`
+        }],
+        max_tokens: 20,
+        temperature: 0.3
+      })
+    });
+    
+    const data = await response.json();
+    const label = data.choices?.[0]?.message?.content?.trim() || '';
+    
+    if (label && label.length <= 50 && label.length >= 3) {
+      console.log('[generateIntelligentLabel] AI generated:', label);
+      return label;
+    }
+  } catch (error) {
+    console.error('[generateIntelligentLabel] AI error:', error);
+  }
+  
+  // Fallback to basic generation
+  return generateLabelFromDescription(description);
+}
+
+// ========== DYNAMIC CATEGORY SYSTEM ==========
+
+/**
+ * Emerging patterns that should become new categories
+ */
+const EMERGING_PATTERNS = [
+  { pattern: /patinete\s*(eletric|abandonad|jogad)/i, key: 'patinete_abandonado', name: 'Patinete Abandonado', parent: 'outro' },
+  { pattern: /bicicleta\s*(de\s*app|compartilhad|abandonad)/i, key: 'bike_compartilhada', name: 'Bicicleta Compartilhada', parent: 'outro' },
+  { pattern: /5g|antena\s*celular/i, key: 'infraestrutura_telecom', name: 'Infraestrutura de Telecom', parent: 'outro' },
+  { pattern: /drone|drones/i, key: 'drones', name: 'Problema com Drones', parent: 'outro' },
+  { pattern: /carro\s*eletrico|ponto\s*de\s*recarga/i, key: 'infraestrutura_ev', name: 'Infraestrutura Veículos Elétricos', parent: 'outro' },
+  { pattern: /delivery|entregador|motoboy/i, key: 'problemas_delivery', name: 'Problemas com Delivery', parent: 'outro' },
+];
+
+/**
+ * Detects if description matches an emerging category pattern
+ */
+async function detectEmergingCategory(
+  description: string,
+  currentCategory: string,
+  supabaseClient: any
+): Promise<{ shouldCreate: boolean; suggestedKey?: string; suggestedName?: string; parentCategory?: string }> {
+  const lower = description.toLowerCase();
+  
+  for (const ep of EMERGING_PATTERNS) {
+    if (ep.pattern.test(lower)) {
+      // Check if category already exists
+      const { data: existing } = await supabaseClient
+        .from('dynamic_categories')
+        .select('id, usage_count')
+        .eq('category_key', ep.key)
+        .single();
+      
+      if (existing) {
+        // Increment usage count
+        await supabaseClient
+          .from('dynamic_categories')
+          .update({ 
+            usage_count: existing.usage_count + 1, 
+            last_used_at: new Date().toISOString() 
+          })
+          .eq('id', existing.id);
+        console.log(`[detectEmergingCategory] Incremented usage for: ${ep.key}`);
+        return { shouldCreate: false };
+      } else {
+        return { 
+          shouldCreate: true, 
+          suggestedKey: ep.key, 
+          suggestedName: ep.name,
+          parentCategory: ep.parent 
+        };
+      }
+    }
+  }
+  
+  return { shouldCreate: false };
+}
+
+/**
+ * Creates a new dynamic category
+ */
+async function createDynamicCategory(
+  key: string,
+  name: string,
+  parentCategory: string,
+  description: string,
+  supabaseClient: any
+): Promise<void> {
+  const keywords = extractCategoryKeywords(description);
+  
+  try {
+    await supabaseClient
+      .from('dynamic_categories')
+      .insert({
+        category_key: key,
+        parent_category: parentCategory,
+        display_name: name,
+        keywords: keywords,
+        sample_descriptions: [description.substring(0, 200)],
+        status: 'pending'
+      });
+    
+    console.log(`[createDynamicCategory] New category created: ${key} (${name})`);
+  } catch (error) {
+    console.error('[createDynamicCategory] Error:', error);
+  }
+}
+
+/**
+ * Extracts keywords from text for category indexing
+ */
+function extractCategoryKeywords(text: string): string[] {
+  const stopwords = ['o', 'a', 'os', 'as', 'um', 'uma', 'de', 'da', 'do', 'em', 'na', 'no', 'que', 'e', 'para', 'com', 'por'];
+  return text
+    .toLowerCase()
+    .replace(/[^\w\sáàâãéèêíìîóòôõúùûçñ]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !stopwords.includes(w))
+    .slice(0, 10);
+}
+
+/**
+ * Logs category usage for pattern detection
+ */
+async function logCategoryUsage(
+  category: string,
+  subcategory: string | null,
+  description: string,
+  userId: string | null,
+  supabaseClient: any
+): Promise<void> {
+  try {
+    // Simple hash for deduplication
+    const descHash = description.substring(0, 50).replace(/\s+/g, '').toLowerCase();
+    
+    await supabaseClient
+      .from('category_usage_log')
+      .insert({
+        category,
+        subcategory,
+        description_hash: descHash,
+        description_sample: description.substring(0, 200),
+        keywords_detected: extractCategoryKeywords(description),
+        user_id: userId
+      });
+  } catch (error) {
+    console.error('[logCategoryUsage] Error:', error);
+  }
+}
+
+// ========== CITIZEN LEARNING SYSTEM ==========
+
+interface CitizenLearningProfile {
+  preferred_neighborhood?: string;
+  preferred_region?: string;
+  last_known_address?: { street?: string; neighborhood?: string; cep?: string };
+  common_categories: string[];
+  common_keywords: string[];
+  communication_style: 'formal' | 'informal' | 'concise';
+  avg_message_length: number;
+  prefers_short_responses: boolean;
+  frequent_services: string[];
+  frequent_transport_lines: string[];
+  total_reports: number;
+  total_conversations: number;
+}
+
+/**
+ * Loads the citizen's learning profile from database
+ */
+async function loadCitizenProfile(
+  userId: string,
+  supabaseClient: any
+): Promise<CitizenLearningProfile | null> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('citizen_learning_profile')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error || !data) return null;
+    return data as CitizenLearningProfile;
+  } catch (e) {
+    console.error('[loadCitizenProfile] Error:', e);
+    return null;
+  }
+}
+
+/**
+ * Learns from a conversation and updates the citizen's profile
+ */
+async function learnFromConversation(
+  userId: string,
+  messages: Array<{ role: string; content: string }>,
+  reportData: Record<string, any>,
+  supabaseClient: any
+): Promise<void> {
+  try {
+    const userMessages = messages.filter(m => m.role === 'user');
+    if (userMessages.length === 0) return;
+    
+    // Calculate metrics
+    const avgLength = userMessages.reduce((sum, m) => sum + m.content.length, 0) / userMessages.length;
+    
+    // Detect communication style
+    let style: 'formal' | 'informal' | 'concise' = 'informal';
+    if (avgLength < 20) style = 'concise';
+    else if (avgLength > 100) style = 'formal';
+    
+    // Extract neighborhood if mentioned
+    let neighborhood: string | null = null;
+    for (const msg of userMessages) {
+      const match = msg.content.match(/(?:bairro|em|no)\s+([A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+)?)/i);
+      if (match) {
+        neighborhood = match[1];
+        break;
+      }
+    }
+    
+    // Fetch existing profile
+    const { data: existing } = await supabaseClient
+      .from('citizen_learning_profile')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (existing) {
+      // Update existing profile
+      const updates: any = {
+        avg_message_length: Math.round((existing.avg_message_length + avgLength) / 2),
+        communication_style: style,
+        prefers_short_responses: avgLength < 30,
+        total_conversations: existing.total_conversations + 1,
+        last_interaction_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      if (neighborhood && !existing.preferred_neighborhood) {
+        updates.preferred_neighborhood = neighborhood;
+      }
+      
+      // Add category to history
+      if (reportData.category) {
+        const categories = existing.common_categories || [];
+        if (!categories.includes(reportData.category)) {
+          updates.common_categories = [...categories.slice(-9), reportData.category];
+        }
+      }
+      
+      // Update last known address
+      if (reportData.neighborhood || reportData.street) {
+        updates.last_known_address = {
+          street: reportData.street,
+          neighborhood: reportData.neighborhood || neighborhood,
+          cep: reportData.cep
+        };
+      }
+      
+      // Track frequent services
+      if (reportData.service_type) {
+        const services = existing.frequent_services || [];
+        if (!services.includes(reportData.service_type)) {
+          updates.frequent_services = [...services.slice(-4), reportData.service_type];
+        }
+      }
+      
+      // Track frequent transport lines
+      if (reportData.line_code) {
+        const lines = existing.frequent_transport_lines || [];
+        if (!lines.includes(reportData.line_code)) {
+          updates.frequent_transport_lines = [...lines.slice(-4), reportData.line_code];
+        }
+      }
+      
+      await supabaseClient
+        .from('citizen_learning_profile')
+        .update(updates)
+        .eq('user_id', userId);
+      
+      console.log('[learnFromConversation] Profile updated for user:', userId);
+    } else {
+      // Create new profile
+      await supabaseClient
+        .from('citizen_learning_profile')
+        .insert({
+          user_id: userId,
+          preferred_neighborhood: neighborhood,
+          common_categories: reportData.category ? [reportData.category] : [],
+          communication_style: style,
+          avg_message_length: Math.round(avgLength),
+          prefers_short_responses: avgLength < 30,
+          total_conversations: 1,
+          frequent_services: reportData.service_type ? [reportData.service_type] : [],
+          frequent_transport_lines: reportData.line_code ? [reportData.line_code] : [],
+          last_interaction_at: new Date().toISOString()
+        });
+      
+      console.log('[learnFromConversation] Profile created for user:', userId);
+    }
+  } catch (error) {
+    console.error('[learnFromConversation] Error:', error);
+  }
+}
+
+/**
+ * Generates personalized system prompt additions based on citizen profile
+ */
+function getPersonalizedPromptAdditions(profile: CitizenLearningProfile | null): string {
+  if (!profile) return '';
+  
+  const additions: string[] = [];
+  
+  // Communication style adaptation
+  if (profile.communication_style === 'concise') {
+    additions.push('O cidadão prefere respostas CURTAS e diretas. Seja objetivo, evite explicações longas.');
+  } else if (profile.communication_style === 'formal') {
+    additions.push('O cidadão usa linguagem formal. Mantenha tom respeitoso e completo nas respostas.');
+  }
+  
+  // Suggest previous address
+  if (profile.last_known_address?.neighborhood) {
+    additions.push(`SUGESTÃO: Último endereço conhecido: ${profile.last_known_address.neighborhood}. Se o problema for no mesmo local, pergunte "É no mesmo local (${profile.last_known_address.neighborhood})?" em vez de pedir tudo novamente.`);
+  }
+  
+  // Frequent categories
+  if (profile.common_categories?.length > 0) {
+    const topCategories = profile.common_categories.slice(-3);
+    additions.push(`O cidadão costuma relatar problemas de: ${topCategories.join(', ')}.`);
+  }
+  
+  // Frequent transport lines
+  if (profile.frequent_transport_lines?.length > 0) {
+    const lines = profile.frequent_transport_lines.slice(-3);
+    additions.push(`Linhas de transporte frequentes: ${lines.join(', ')}.`);
+  }
+  
+  return additions.length > 0 
+    ? '\n\n=== PERSONALIZAÇÃO DO CIDADÃO ===\n' + additions.join('\n') 
+    : '';
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
