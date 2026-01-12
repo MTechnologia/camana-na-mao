@@ -1642,18 +1642,11 @@ function parseFieldResponse(fieldType: string, userResponse: string): Record<str
       break;
       
     case 'description':
-      // FLEXIBLE THRESHOLD: Accept shorter descriptions with category keywords
-      const categoryKeywords = ['buraco', 'poste', 'lixo', 'bueiro', 'esgoto', 'luz', 'apagado', 
-        'arvore', 'árvore', 'calcada', 'calçada', 'fedor', 'fedido', 'rato', 'bicho', 'entulho',
-        'alagamento', 'vazamento', 'quebrado', 'lotado', 'atrasado', 'atraso', 'sujo'];
-      const hasKeyword = categoryKeywords.some(kw => response.toLowerCase().includes(kw));
-      
-      // Valid if >= 30 chars OR (>= 15 chars + keyword)
-      if (response.length >= 30 || (response.length >= 15 && hasKeyword)) {
+      // USE CENTRALIZED NLP FUNCTION - accepts 8+ chars with keyword
+      if (isValidDomainDescription(response, 'urban')) {
         result.description = response;
-        console.log('[parseFieldResponse] Description accepted:', { 
+        console.log('[parseFieldResponse] Description accepted via isValidDomainDescription:', { 
           length: response.length, 
-          hasKeyword, 
           preview: response.substring(0, 50) 
         });
         
@@ -1727,20 +1720,18 @@ function accumulateFieldsFromHistory(
     }
   }
   
-  // === CRITICAL: Detect description from user messages with FLEXIBLE threshold ===
-  // IMPORTANT: Filter out generic intent texts to prevent them from being captured as descriptions
+  // === CRITICAL: Detect description using CENTRALIZED NLP FUNCTION ===
+  // Uses isValidDomainDescription for flexible threshold (8+ chars with keyword)
   if (!accumulated.description) {
-    const categoryKeywords = ['buraco', 'poste', 'lixo', 'bueiro', 'esgoto', 'luz', 'apagado', 
-      'arvore', 'árvore', 'calcada', 'calçada', 'fedor', 'fedido', 'rato', 'bicho', 'entulho',
-      'alagamento', 'vazamento', 'quebrado', 'lotado', 'atrasado', 'atraso', 'sujo', 'lotação',
-      'demora', 'segurança', 'assédio'];
+    // Determine domain based on collection type
+    const domain = collectionType === 'transport_report' ? 'transport' : 
+                   collectionType === 'service_rating' ? 'service' : 'urban';
     
     // Process messages from newest to oldest to capture the LATEST valid description
     for (let i = messages.length - 1; i >= 0; i--) {
       const msg = messages[i];
       if (msg.role === 'user') {
         const contentLower = msg.content.toLowerCase();
-        const hasKeyword = categoryKeywords.some(kw => contentLower.includes(kw));
         
         // Skip structured messages (addresses, numbers, short answers)
         const isStructured = 
@@ -1753,15 +1744,12 @@ function accumulateFieldsFromHistory(
         // Skip generic intent messages that don't describe a specific problem
         const isGeneric = isGenericIntentText(msg.content);
         
-        // FLEXIBLE: Accept >= 30 chars OR (>= 15 chars + keyword), but NEVER generic intent
-        const isValidDescription = !isGeneric && (msg.content.length >= 30 || (msg.content.length >= 15 && hasKeyword));
-        
-        if (!isStructured && isValidDescription) {
+        // USE CENTRALIZED NLP: accepts 8+ chars with keyword OR 20+ chars OR 15+ with keyword
+        if (!isStructured && !isGeneric && isValidDomainDescription(msg.content, domain)) {
           accumulated.description = msg.content.trim();
-          console.log('[accumulateFields] Auto-detected description:', { 
+          console.log('[accumulateFields] Auto-detected description via isValidDomainDescription:', { 
             length: msg.content.length, 
-            hasKeyword,
-            isGeneric: false
+            domain
           });
           break;
         }
@@ -4165,14 +4153,9 @@ async function executeTool(
           };
         }
         
-        // FLEXIBLE validation for description length
-        const categoryKeywords = ['buraco', 'poste', 'lixo', 'bueiro', 'esgoto', 'luz', 'apagado', 
-          'arvore', 'árvore', 'calcada', 'calçada', 'fedor', 'fedido', 'rato', 'bicho', 'entulho',
-          'alagamento', 'vazamento', 'quebrado'];
-        const descLower = (args.description || '').toLowerCase();
-        const hasKeyword = categoryKeywords.some(kw => descLower.includes(kw));
-        const isValidDescription = args.description && 
-          (args.description.trim().length >= 30 || (args.description.trim().length >= 15 && hasKeyword));
+        // USE CENTRALIZED NLP FUNCTION for flexible description validation
+        // Accepts: 8+ chars with keyword OR 20+ chars OR 15+ with keyword
+        const isValidDescription = args.description && isValidDomainDescription(args.description.trim(), 'urban');
         
         if (!isValidDescription) {
           return {
