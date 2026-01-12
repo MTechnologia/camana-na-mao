@@ -508,7 +508,8 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // 4) Descrição - detecta resposta a pedido de detalhes OU primeira mensagem longa
+      // 4) Descrição - detecta resposta a pedido de detalhes OU primeira mensagem descritiva
+      // SEMANTIC INTERPRETATION: Accept any non-generic text (no character count)
       if (!collectedFields.description) {
         const askedForDescription = 
           lastAssistantLower.includes('me conte mais') || 
@@ -517,15 +518,28 @@ export const useUnifiedAIChat = (
           lastAssistantLower.includes('o que está acontecendo') ||
           lastAssistantLower.includes('qual o problema') ||
           lastAssistantLower.includes('[field_request:description]');
+        
+        // Helper to detect generic intent phrases (same logic as backend)
+        const isGenericIntent = (text: string): boolean => {
+          const genericPhrases = [
+            /^quero\s*(relatar|reportar|fazer|registrar)/i,
+            /^preciso\s*(relatar|reportar|fazer|registrar)/i,
+            /^tenho\s*um\s*(problema|relato)/i,
+            /^(sim|não|nao|ok|pode|quero|desejo|aceito)$/i,
+            /^quero\s*avaliar/i,
+          ];
+          return genericPhrases.some(pattern => pattern.test(text.trim().toLowerCase()));
+        };
           
-        if (askedForDescription && raw.length >= 30) {
+        // Accept any non-empty, non-generic text as description
+        if (askedForDescription && raw.trim().length > 0 && !isGenericIntent(raw)) {
           setCollectedFields(prev => ({ ...prev, description: raw }));
         }
         
-        // Detect description from first/second user message if long enough
+        // Detect description from first/second user message if not generic
         const userMsgCount = messages.filter(m => m.role === 'user').length;
-        if (userMsgCount <= 2 && raw.length >= 30 && !rawLower.includes('endereço selecionado:')) {
-          // Not a structured address and long enough = likely description
+        if (userMsgCount <= 2 && raw.trim().length > 0 && !rawLower.includes('endereço selecionado:') && !isGenericIntent(raw)) {
+          // Not a structured address and not generic = valid description
           setCollectedFields(prev => ({ ...prev, description: raw }));
         }
       }
