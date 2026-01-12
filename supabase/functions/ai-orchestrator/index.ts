@@ -1937,11 +1937,11 @@ function accumulateFieldsFromHistory(
           Object.assign(accumulated, parsedConsequences);
         }
         
-        // === DESCRIPTION detection from detailed questions ===
+        // === DESCRIPTION detection from detailed questions (NLP-based) ===
         if ((question.includes('me conte mais') || question.includes('descreva') || 
              question.includes('mais detalhes') || question.includes('o que está acontecendo') ||
              question.includes('qual o problema') || question.includes('qual é o problema')) && 
-            answer.length >= 30 && !accumulated.description) {
+            isValidDomainDescription(answer, 'urban') && !accumulated.description) {
           accumulated.description = answer;
         }
       }
@@ -4439,11 +4439,11 @@ async function executeTool(
         };
         
         // === COLETA SEQUENCIAL OBRIGATÓRIA ===
-        // 1. DESCRIÇÃO (obrigatória, mínimo 20 caracteres)
-        if (!args.description || args.description.trim().length < 20) {
+        // 1. DESCRIÇÃO (obrigatória, validada via NLP)
+        if (!args.description || !isValidDomainDescription(args.description.trim(), 'transport')) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:description]**O que aconteceu?** Me conta o problema com mais detalhes. (mínimo 20 caracteres)'
+            message: '[FIELD_REQUEST:description]**O que aconteceu?** Me conta o problema com mais detalhes.'
           };
         }
         
@@ -5255,12 +5255,19 @@ serve(async (req) => {
         // === NEW FLOW: Description FIRST, then category, then location ===
         
         // 1. DESCRIPTION first - let user tell us what's happening
-        // CRITICAL: Treat generic phrases as "no description" to ensure we ask for real details
+        // CRITICAL: Use centralized NLP validation (isValidDomainDescription)
         const description = fields.description || '';
         const isGeneric = isGenericIntentText(description);
-        const descLen = isGeneric ? 0 : description.length;
+        const descToCheck = isGeneric ? '' : description;
+        const isValidDesc = isValidDomainDescription(descToCheck, 'urban');
         
-        if (descLen < 15) {
+        console.log('[getNextMissingField] Urban description check:', {
+          description: description.substring(0, 40),
+          isGeneric,
+          isValidDesc
+        });
+        
+        if (!isValidDesc) {
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         }
         
@@ -5375,22 +5382,17 @@ serve(async (req) => {
       if (collectionType === 'transport_report') {
         const description = fields.description || '';
         const isGeneric = isGenericIntentText(description);
-        const descLen = isGeneric ? 0 : description.length;
-        const hasKeyword = hasTransportKeywords(description);
-        
-        // VERY FLEXIBLE: >= 5 chars with keyword OR >= 15 chars without
-        const isValidDescription = (descLen >= 5 && hasKeyword) || descLen >= 15;
+        const descToCheck = isGeneric ? '' : description;
+        const isValidDesc = isValidDomainDescription(descToCheck, 'transport');
         
         console.log('[getNextMissingField] Transport description check:', {
           description: description.substring(0, 40),
-          descLen,
-          hasKeyword,
           isGeneric,
-          isValidDescription
+          isValidDesc
         });
         
         // If no valid description yet, ask for it
-        if (!isValidDescription) {
+        if (!isValidDesc) {
           return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
         }
         
