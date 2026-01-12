@@ -19,7 +19,7 @@ export const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_ver
 
 export const URBAN_REPORT_FIELDS: FieldConfig[] = [
   { key: 'category', label: 'Categoria', required: true },
-  { key: 'description', label: 'Descrição', required: true, minLength: 30 },
+  { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
   { key: 'cep', label: 'CEP', required: false },
   { key: 'street', label: 'Rua', required: true },
   { key: 'street_number', label: 'Número', required: false },
@@ -31,7 +31,7 @@ export const URBAN_REPORT_FIELDS: FieldConfig[] = [
 
 export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'report_type', label: 'Tipo', required: true },
-  { key: 'description', label: 'Descrição', required: true, minLength: 20 },
+  { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
   { key: 'occurrence_date', label: 'Data', required: true },
   { key: 'occurrence_time', label: 'Horário', required: false },
   { key: 'line_code', label: 'Linha', required: false },

@@ -124,14 +124,14 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
  * Uses flexible threshold: >= 20 chars OR (>= 8 chars + domain keyword)
  */
 function isValidDomainDescription(text: string, domain: string): boolean {
-  if (!text || isGenericIntentText(text)) return false;
+  // SEMANTIC INTERPRETATION: Accept any non-empty, non-generic text
+  // The LLM will handle semantic understanding - no character count restrictions
+  if (!text || text.trim().length === 0) return false;
+  if (isGenericIntentText(text)) return false;
   
-  const keywords = DOMAIN_KEYWORDS[domain] || [];
-  const lower = text.toLowerCase();
-  const hasKeyword = keywords.some(kw => lower.includes(kw));
-  
-  // FLEXIBLE: >= 20 chars (detailed) OR >= 8 chars + keyword (short but specific)
-  return text.length >= 20 || (text.length >= 8 && hasKeyword);
+  // Any text that is not a generic intent phrase is a valid description
+  // Examples: "Rua suja", "Poste", "Buraco", "Lixo" are all valid
+  return true;
 }
 
 /**
@@ -1079,6 +1079,7 @@ function normalizeTextForMatching(text: string): string {
 }
 
 // Check if text is a generic intent phrase (not a real description)
+// SEMANTIC INTERPRETATION: Only filter explicit generic phrases, NOT short messages
 function isGenericIntentText(text: string): boolean {
   const genericPhrases = [
     /^quero\s*(relatar|reportar|fazer|registrar)/i,
@@ -1089,7 +1090,7 @@ function isGenericIntentText(text: string): boolean {
     /^fazer\s*(um\s*)?(relato|denuncia)/i,
     /^quero\s*avaliar/i,
     /^avaliar\s*(um\s*)?servi[çc]o/i,
-    /^(sim|não|ok|pode|quero|desejo|aceito)$/i,
+    /^(sim|não|nao|ok|pode|quero|desejo|aceito)$/i,
     // Transport generic intents - NOT actual descriptions
     /^quero\s*(denunciar|relatar|reportar)\s*(um\s*)?(problema|issue)/i,
     /^problema\s*(de|no|com)\s*transporte/i,
@@ -1098,10 +1099,10 @@ function isGenericIntentText(text: string): boolean {
   
   const normalized = text.trim().toLowerCase();
   
-  // Short messages without specifics are generic
-  if (normalized.length < 8) return true;
+  // REMOVED: Character count check - the LLM handles semantic interpretation
+  // Short descriptive words like "Poste", "Buraco", "Lixo" are valid descriptions
   
-  // Check generic patterns
+  // Only filter explicit generic patterns (intent phrases, confirmations)
   if (genericPhrases.some(pattern => pattern.test(normalized))) return true;
   
   return false;
