@@ -1082,6 +1082,7 @@ function normalizeTextForMatching(text: string): string {
 // SEMANTIC INTERPRETATION: Only filter explicit generic phrases, NOT short messages
 function isGenericIntentText(text: string): boolean {
   const genericPhrases = [
+    // Generic report intents (not descriptions)
     /^quero\s*(relatar|reportar|fazer|registrar)/i,
     /^preciso\s*(relatar|reportar|fazer|registrar)/i,
     /^tenho\s*um\s*(problema|relato)/i,
@@ -1095,6 +1096,17 @@ function isGenericIntentText(text: string): boolean {
     /^quero\s*(denunciar|relatar|reportar)\s*(um\s*)?(problema|issue)/i,
     /^problema\s*(de|no|com)\s*transporte/i,
     /^relatar.*transporte/i,
+    
+    // === JOURNEY SWITCH PHRASES (must NOT be treated as descriptions) ===
+    // These trigger journey switching via detect_user_intent
+    /quero\s*falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
+    /falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
+    /mudar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
+    /trocar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
+    /quero\s*(avaliar|relatar|reportar)\s*(um\s*)?(servi[çc]o|problema|transporte)/i,
+    /na\s*verdade,?\s*(quero|preciso|gostaria)/i,
+    /mudando\s*de\s*assunto/i,
+    /outro\s*assunto/i,
   ];
   
   const normalized = text.trim().toLowerCase();
@@ -1102,7 +1114,7 @@ function isGenericIntentText(text: string): boolean {
   // REMOVED: Character count check - the LLM handles semantic interpretation
   // Short descriptive words like "Poste", "Buraco", "Lixo" are valid descriptions
   
-  // Only filter explicit generic patterns (intent phrases, confirmations)
+  // Only filter explicit generic patterns (intent phrases, confirmations, journey switches)
   if (genericPhrases.some(pattern => pattern.test(normalized))) return true;
   
   return false;
