@@ -522,11 +522,19 @@ export const useUnifiedAIChat = (
         // Helper to detect generic intent phrases (same logic as backend)
         const isGenericIntent = (text: string): boolean => {
           const genericPhrases = [
+            // Generic report intents
             /^quero\s*(relatar|reportar|fazer|registrar)/i,
             /^preciso\s*(relatar|reportar|fazer|registrar)/i,
             /^tenho\s*um\s*(problema|relato)/i,
             /^(sim|não|nao|ok|pode|quero|desejo|aceito)$/i,
             /^quero\s*avaliar/i,
+            // Journey switch phrases (must NOT be treated as descriptions)
+            /quero\s*falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
+            /falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
+            /mudar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
+            /trocar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
+            /quero\s*(avaliar|relatar|reportar)\s*(um\s*)?(servi[çc]o|problema|transporte)/i,
+            /na\s*verdade,?\s*(quero|preciso|gostaria)/i,
           ];
           return genericPhrases.some(pattern => pattern.test(text.trim().toLowerCase()));
         };
