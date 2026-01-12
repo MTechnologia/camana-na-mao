@@ -196,6 +196,102 @@ export type Database = {
         }
         Relationships: []
       }
+      category_usage_log: {
+        Row: {
+          category: string
+          created_at: string | null
+          description_hash: string
+          description_sample: string | null
+          id: string
+          keywords_detected: string[] | null
+          subcategory: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description_hash: string
+          description_sample?: string | null
+          id?: string
+          keywords_detected?: string[] | null
+          subcategory?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description_hash?: string
+          description_sample?: string | null
+          id?: string
+          keywords_detected?: string[] | null
+          subcategory?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      citizen_learning_profile: {
+        Row: {
+          avg_message_length: number | null
+          common_categories: string[] | null
+          common_keywords: string[] | null
+          communication_style: string | null
+          created_at: string | null
+          frequent_services: string[] | null
+          frequent_transport_lines: string[] | null
+          id: string
+          last_interaction_at: string | null
+          last_known_address: Json | null
+          preferred_neighborhood: string | null
+          preferred_region: string | null
+          prefers_short_responses: boolean | null
+          report_frequency: string | null
+          total_conversations: number | null
+          total_reports: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avg_message_length?: number | null
+          common_categories?: string[] | null
+          common_keywords?: string[] | null
+          communication_style?: string | null
+          created_at?: string | null
+          frequent_services?: string[] | null
+          frequent_transport_lines?: string[] | null
+          id?: string
+          last_interaction_at?: string | null
+          last_known_address?: Json | null
+          preferred_neighborhood?: string | null
+          preferred_region?: string | null
+          prefers_short_responses?: boolean | null
+          report_frequency?: string | null
+          total_conversations?: number | null
+          total_reports?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avg_message_length?: number | null
+          common_categories?: string[] | null
+          common_keywords?: string[] | null
+          communication_style?: string | null
+          created_at?: string | null
+          frequent_services?: string[] | null
+          frequent_transport_lines?: string[] | null
+          id?: string
+          last_interaction_at?: string | null
+          last_known_address?: Json | null
+          preferred_neighborhood?: string | null
+          preferred_region?: string | null
+          prefers_short_responses?: boolean | null
+          report_frequency?: string | null
+          total_conversations?: number | null
+          total_reports?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       council_member_referrals: {
         Row: {
           acknowledged_at: string | null
@@ -314,6 +410,63 @@ export type Database = {
           title?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      dynamic_categories: {
+        Row: {
+          ai_confidence: number | null
+          approved_at: string | null
+          approved_by: string | null
+          category_key: string
+          created_at: string | null
+          description_patterns: string[] | null
+          display_name: string
+          first_detected_at: string | null
+          id: string
+          keywords: string[]
+          last_used_at: string | null
+          merged_into: string | null
+          parent_category: string
+          sample_descriptions: string[] | null
+          status: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          ai_confidence?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          category_key: string
+          created_at?: string | null
+          description_patterns?: string[] | null
+          display_name: string
+          first_detected_at?: string | null
+          id?: string
+          keywords?: string[]
+          last_used_at?: string | null
+          merged_into?: string | null
+          parent_category?: string
+          sample_descriptions?: string[] | null
+          status?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          ai_confidence?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          category_key?: string
+          created_at?: string | null
+          description_patterns?: string[] | null
+          display_name?: string
+          first_detected_at?: string | null
+          id?: string
+          keywords?: string[]
+          last_used_at?: string | null
+          merged_into?: string | null
+          parent_category?: string
+          sample_descriptions?: string[] | null
+          status?: string | null
+          usage_count?: number | null
         }
         Relationships: []
       }
