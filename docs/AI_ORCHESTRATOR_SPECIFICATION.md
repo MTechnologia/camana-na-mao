@@ -3264,12 +3264,1071 @@ stateDiagram-v2
 
 ---
 
+# PARTE 9: CMS ADMINISTRATIVO
+
+---
+
+## 27. Visão Geral do CMS
+
+### 27.1 Arquitetura de Layout
+
+O CMS Administrativo é a interface de gestão da plataforma Câmara na Mão, destinada a gestores públicos, administradores e equipe da Câmara Municipal.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     AdminLayout (h-screen)                      │
+├──────────────┬──────────────────────────────────────────────────┤
+│              │                    AdminHeader                   │
+│   AdminSidebar│  ┌──────────────────────────────────────────────┤
+│   (Colapsável)│  │                                              │
+│              │  │              Área de Conteúdo                 │
+│  - Dashboard │  │            (overflow-y-auto)                  │
+│  - Relatos   │  │                                               │
+│  - Analytics │  │         <Suspense fallback=PageSkeleton>      │
+│  - Usuários  │  │              {children}                       │
+│  - Auditoria │  │         </Suspense>                           │
+│  - Alertas   │  │                                               │
+│  - Exports   │  │                                               │
+│  - Settings  │  │                                               │
+│              │  └──────────────────────────────────────────────┘
+└──────────────┴──────────────────────────────────────────────────┘
+```
+
+**Características Técnicas:**
+- Layout full-screen (`h-screen`) com scroll interno
+- Sidebar colapsável (desktop) / Sheet drawer (mobile)
+- Header fixo com notificações e menu de usuário
+- Wrapper `<Suspense>` com `<PageSkeleton>` para rotas lazy-loaded
+- Proteção via `ProtectedAdminRoute` (verifica papel não-cidadão)
+
+### 27.2 Hierarquia de Navegação
+
+```
+/admin                    → Dashboard Executivo
+/admin/reports            → Gestão de Relatos (Lista/Kanban)
+/admin/analytics          → Análise de Relatos (Dashboards)
+/admin/referrals          → Gestão de Encaminhamentos
+/admin/users              → Gestão de Usuários
+/admin/notifications      → Central de Alertas
+/admin/audit-logs         → Logs de Auditoria
+/admin/exports            → Logs de Exportação
+/admin/settings/n8n       → Configuração N8N
+/admin/settings/n8n-monitoring → Monitoramento N8N
+/admin/settings/accessibility → Configurações de Acessibilidade
+```
+
+### 27.3 Fluxo de Acesso
+
+```mermaid
+flowchart TD
+    A[Usuário Acessa /admin] --> B{Autenticado?}
+    B -->|Não| C[Redireciona /login]
+    B -->|Sim| D{Tem papel admin/gestor?}
+    D -->|Não| E[Redireciona /]
+    D -->|Sim| F[Carrega AdminLayout]
+    F --> G[Renderiza Dashboard]
+```
+
+---
+
+## 28. Papéis e Permissões (RBAC)
+
+### 28.1 Matriz de Papéis
+
+| Papel | Código DB | Descrição | Cor Badge | Nível |
+|-------|-----------|-----------|-----------|-------|
+| **Administrador** | `admin` | Controle total do sistema | 🔴 Vermelho | 5 |
+| **Gestor** | `gestor` | Análises avançadas e gestão operacional | 🟣 Roxo | 4 |
+| **Vereador** | `vereador` | Acesso aos dados do gabinete e encaminhamentos | 🔵 Azul | 3 |
+| **Assessor** | `assessor` | Suporte ao gabinete do vereador | 🟢 Verde | 2 |
+| **Cidadão** | `cidadao` | Acesso público padrão (sem CMS) | ⚪ Cinza | 1 |
+
+### 28.2 Matriz de Acesso por Módulo
+
+| Módulo | Admin | Gestor | Vereador | Assessor | Cidadão |
+|--------|:-----:|:------:|:--------:|:--------:|:-------:|
+| Dashboard | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
+| Gestão de Relatos | ✅ | ✅ | 👁️ | 👁️ | ❌ |
+| Análise de Relatos | ✅ | ✅ | ⚠️ | ❌ | ❌ |
+| Gestão de Encaminhamentos | ✅ | ✅ | ✅* | ✅* | ❌ |
+| Gestão de Usuários | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Logs de Auditoria | ✅ | 👁️ | ❌ | ❌ | ❌ |
+| Exportação de Dados | ✅ | ✅ | ⚠️ | ❌ | ❌ |
+| Configurações N8N | ✅ | ⚠️ | ❌ | ❌ | ❌ |
+| Central de Alertas | ✅ | ✅ | ✅ | ✅ | ❌ |
+
+**Legenda:**
+- ✅ Acesso total
+- ⚠️ Acesso limitado
+- 👁️ Somente leitura
+- ✅* Apenas próprios/gabinete
+- ❌ Sem acesso
+
+### 28.3 Regras de Atribuição de Papéis
+
+| Código | Regra | Validação |
+|--------|-------|-----------|
+| **RN-ROLE-001** | Um usuário pode ter múltiplos papéis simultaneamente | Array em `user_roles` |
+| **RN-ROLE-002** | Apenas `admin` pode atribuir/remover papéis | Verificação de papel no frontend e RLS |
+| **RN-ROLE-003** | Admin não pode remover seu próprio papel de admin | Validação no `UserRoleModal` |
+| **RN-ROLE-004** | Novos usuários recebem papel `cidadao` por padrão | Trigger no registro |
+| **RN-ROLE-005** | Alterações de papel são registradas em `audit_logs` | Trigger automático |
+| **RN-ROLE-006** | Papel mais alto determina nível de acesso | `Math.max(userRoles.map(r => r.level))` |
+
+### 28.4 Verificação de Acesso no Frontend
+
+```typescript
+// useUserRole.ts
+function useUserRole() {
+  const [roles, setRoles] = useState<string[]>([]);
+  
+  const hasRole = (role: string) => roles.includes(role);
+  const hasAnyRole = (requiredRoles: string[]) => 
+    requiredRoles.some(r => roles.includes(r));
+  const isAdmin = () => hasRole('admin');
+  const isGestor = () => hasRole('gestor') || isAdmin();
+  const canAccessCMS = () => hasAnyRole(['admin', 'gestor', 'vereador', 'assessor']);
+  
+  return { roles, hasRole, hasAnyRole, isAdmin, isGestor, canAccessCMS };
+}
+```
+
+---
+
+## 29. Módulo: Dashboard Executivo
+
+### 29.1 Localização e Rota
+
+- **Rota:** `/admin`
+- **Componente:** `src/pages/admin/AdminDashboard.tsx`
+- **Hooks:** `useAdminDashboardStats`, `useReportsAnalytics`, `useSentimentAnalytics`, `useImpactAnalytics`
+
+### 29.2 KPIs Principais
+
+| KPI | Descrição | Fonte | Cálculo | Cor |
+|-----|-----------|-------|---------|-----|
+| **Total de Relatos** | Soma unificada | RPC | `urban + transport + ratings` | Azul |
+| **Urgentes** | Severidade crítica | Query filtrada | `severity = 'critical'` | Vermelho |
+| **Pendentes** | Aguardando análise | Query filtrada | `status = 'pending'` | Âmbar |
+| **Resolvidos** | Finalizados | Query filtrada | `status = 'resolved'` | Verde |
+
+### 29.3 Visualizações do Dashboard
+
+| Componente | Descrição | Dados |
+|------------|-----------|-------|
+| `KPICard` (x4) | Cards de métricas com trend | Stats agregados |
+| `SentimentGauge` | Índice de satisfação (0-100) | Média de ratings + sentimento |
+| `StatusDonut` | Distribuição por status | Contagem por status |
+| `RiskDistribution` | Distribuição por nível de risco | Contagem por risk_level |
+
+### 29.4 Quick Links
+
+| Link | Destino | Badge |
+|------|---------|-------|
+| Ver Relatos | `/admin/reports` | Contagem de pendentes |
+| Análise Detalhada | `/admin/analytics` | - |
+| Gestão de Usuários | `/admin/users` | - |
+
+### 29.5 Regras do Dashboard
+
+| Código | Regra |
+|--------|-------|
+| **RN-DASH-001** | KPIs são carregados em paralelo (Promise.all) |
+| **RN-DASH-002** | Skeleton é exibido durante carregamento inicial |
+| **RN-DASH-003** | Erro em um KPI não bloqueia os outros |
+| **RN-DASH-004** | Botão "Atualizar" refaz todas as queries |
+| **RN-DASH-005** | Trend é calculado vs 7 dias anteriores |
+
+---
+
+## 30. Módulo: Gestão de Relatos
+
+### 30.1 Localização e Rota
+
+- **Rota:** `/admin/reports`
+- **Componente:** `src/pages/admin/ReportsManagement.tsx`
+- **Hooks:** `useReportsAdmin`
+- **Subcomponentes:** `KanbanBoard`, `UnifiedReportDrawer`, `ManifestCard`
+
+### 30.2 Tipos de Manifestações Unificados
+
+| Tipo | Código | Tabela Fonte | Ícone | Cor Badge |
+|------|--------|--------------|-------|-----------|
+| Urbana | `urban` | `urban_reports` | Building2 | Azul |
+| Transporte | `transport` | `transport_reports` | Bus | Roxo |
+| Avaliação | `evaluation` | `service_ratings` | Star | Âmbar |
+| Feedback | `feedback` | `urban_reports` (cat=feedback_camara) | MessageSquare | Ciano |
+
+### 30.3 KPIs do Módulo
+
+| KPI | Query |
+|-----|-------|
+| Total | `count: 'exact'` em todas as tabelas |
+| Pendentes | `status = 'pending'` |
+| Urbanas | Contagem `urban_reports` |
+| Transporte | Contagem `transport_reports` |
+| Avaliações | Contagem `service_ratings` |
+| Urgentes | `severity = 'critical'` OR `n8n_priority = 'critica'` |
+
+### 30.4 Sistema de Filtros
+
+| Filtro | Tipo UI | Valores | Persistência |
+|--------|---------|---------|--------------|
+| Busca | Input texto | Descrição, endereço, categoria | URL param |
+| Tipo | Select | all, urban, transport, evaluation, feedback | URL param |
+| Categoria | Select | Dinâmico (categorias existentes) | URL param |
+| Status | Select | all, pending, in_progress, resolved, rejected | URL param |
+| Região | Select | Dinâmico (bairros do banco) | URL param |
+| Período | DateRange | Data início → Data fim | URL param |
+
+### 30.5 Modos de Visualização
+
+#### 30.5.1 Modo Lista
+
+```typescript
+interface ListViewConfig {
+  breakpoints: {
+    mobile: '<640px',    // Cards verticais
+    tablet: '640-1023px', // Linhas compactas
+    desktop: '>=1024px'   // Layout horizontal completo
+  };
+  itemsPerPage: 20;
+  scrollHeight: 'h-[calc(100vh-420px)]';
+  features: ['checkbox', 'pagination', 'sort'];
+}
+```
+
+**Campos Exibidos por Breakpoint:**
+
+| Campo | Mobile | Tablet | Desktop |
+|-------|:------:|:------:|:-------:|
+| Checkbox | ✅ | ✅ | ✅ |
+| Tipo (ícone) | ✅ | ✅ | ✅ |
+| Descrição (truncada) | ✅ | ✅ | ✅ |
+| Categoria | ❌ | ✅ | ✅ |
+| Status (badge) | ✅ | ✅ | ✅ |
+| Região | ❌ | ❌ | ✅ |
+| Data | ❌ | ✅ | ✅ |
+| Ações | Menu | Menu | Inline + Menu |
+
+#### 30.5.2 Modo Kanban
+
+```typescript
+interface KanbanConfig {
+  columns: [
+    { id: 'pending', title: 'Pendente', color: 'amber' },
+    { id: 'in_progress', title: 'Em Andamento', color: 'blue' },
+    { id: 'resolved', title: 'Resolvido', color: 'green' },
+    { id: 'rejected', title: 'Rejeitado', color: 'red' }
+  ];
+  dragAndDrop: {
+    enabled: true;
+    collisionDetection: 'closestCorners';
+    modifiers: ['restrictToVerticalAxis'];
+  };
+  stateManagement: 'optimistic'; // Atualiza UI antes do BD
+}
+```
+
+### 30.6 Ações Individuais
+
+| Ação | Descrição | Permissão | Componente |
+|------|-----------|-----------|------------|
+| Ver Detalhes | Abre drawer lateral | Todos | `UnifiedReportDrawer` |
+| Alterar Status | Dropdown inline | Admin, Gestor | `Select` |
+| Encaminhar | Abre wizard de encaminhamento | Todos (exceto Avaliações) | `ReferralWizard` |
+| Excluir | Confirmação modal | Admin | `DeleteReportConfirmDialog` |
+
+### 30.7 Ações em Lote (Bulk Actions)
+
+| Ação | Descrição | Permissão | Confirmação |
+|------|-----------|-----------|-------------|
+| Marcar Em Andamento | `status = 'in_progress'` | Admin, Gestor | Não |
+| Resolver | `status = 'resolved'` | Admin, Gestor | Não |
+| Rejeitar | `status = 'rejected'` | Admin, Gestor | Sim |
+| Excluir | Remove permanentemente | Admin | Sim (dupla) |
+| Limpar Seleção | Desmarca todos | Todos | Não |
+
+### 30.8 Drawer de Detalhes (UnifiedReportDrawer)
+
+**Seções:**
+
+1. **Header**
+   - Protocolo, tipo (badge), status (badge editável)
+   - Data de criação, última atualização
+
+2. **Descrição**
+   - Texto completo do relato
+   - Categoria e subcategoria
+
+3. **Localização**
+   - Endereço formatado
+   - Mapa estático (se coords disponíveis)
+
+4. **Dados de Impacto** (se aplicável)
+   - Nível de risco
+   - Escopo afetado
+   - Estimativa de pessoas
+
+5. **Dados N8N** (se processado)
+   - Prioridade calculada (badge)
+   - Tags automáticas
+   - Categoria validada
+   - Score de prioridade
+
+6. **Mídia**
+   - Galeria de fotos (se houver)
+
+7. **Autor**
+   - Nome, avatar
+   - Link para perfil
+
+8. **Ações**
+   - Alterar status
+   - Encaminhar para vereador
+   - Excluir
+
+### 30.9 Regras de Gestão de Relatos
+
+| Código | Regra |
+|--------|-------|
+| **RN-REP-001** | Consultas usam projeções mínimas na lista (sem fotos/dados pesados) |
+| **RN-REP-002** | Detalhes completos são carregados apenas ao abrir drawer |
+| **RN-REP-003** | Busca é debounced (300ms) |
+| **RN-REP-004** | Filtros são sincronizados com URL params |
+| **RN-REP-005** | Mudança de status no Kanban é otimista (UI antes do BD) |
+| **RN-REP-006** | Erro no Kanban reverte estado local |
+| **RN-REP-007** | Exclusão requer confirmação com digitação |
+| **RN-REP-008** | Ações em lote limitadas a 50 itens |
+
+---
+
+## 31. Módulo: Análise de Relatos
+
+### 31.1 Localização e Rota
+
+- **Rota:** `/admin/analytics`
+- **Componente:** `src/pages/admin/ReportsAnalyticsPage.tsx`
+- **Hooks:** `useReportsAnalytics`, `useSentimentAnalytics`, `useImpactAnalytics`, `useCorrelationAnalytics`
+
+### 31.2 Filtros Demográficos Cruzados
+
+| Filtro | Valores | Fonte |
+|--------|---------|-------|
+| Gênero | Masculino, Feminino, Não-binário, Prefiro não informar | `user_demographics.gender` |
+| Raça | Branca, Preta, Parda, Indígena, Amarela, Não informado | `user_demographics.race` |
+| Classe Social | A, B, C, D, E, Não informado | `user_demographics.social_class` |
+| Faixa Etária | 18-24, 25-34, 35-44, 45-54, 55-64, 65+ | Calculado de `birth_date` |
+
+**Implementação Técnica:**
+
+```sql
+-- RPC: get_reports_with_demographics (SECURITY DEFINER)
+-- Permite admins acessarem dados agregados sem violar RLS individual
+CREATE OR REPLACE FUNCTION get_reports_with_demographics(
+  p_start_date TIMESTAMPTZ,
+  p_end_date TIMESTAMPTZ,
+  p_gender TEXT DEFAULT NULL,
+  p_race TEXT DEFAULT NULL,
+  p_social_class TEXT DEFAULT NULL,
+  p_min_age INT DEFAULT NULL,
+  p_max_age INT DEFAULT NULL
+) RETURNS TABLE (...) 
+SECURITY DEFINER
+```
+
+### 31.3 Abas de Análise
+
+#### Aba: Geral
+
+| Componente | Descrição |
+|------------|-----------|
+| `RegionalHotspots` | Lista de bairros com mais relatos |
+| `TimeDistributionChart` | Distribuição por hora/dia da semana |
+| `CategoryBarChart` | Barras horizontais por categoria |
+| `StatusDonut` | Pizza de distribuição de status |
+
+#### Aba: Sentimento
+
+| Componente | Descrição |
+|------------|-----------|
+| `SentimentGauge` | Gauge 0-100 de satisfação geral |
+| `SentimentDonut` | Pizza positivo/neutro/negativo |
+| `WordCloud` | Nuvem de palavras frequentes |
+| `SentimentTrend` | Linha temporal de sentimento |
+| `SentimentDrivers` | Fatores que impactam sentimento |
+| `AIInsightsCard` | Insights gerados por IA |
+
+#### Aba: Demografia
+
+| Componente | Descrição |
+|------------|-----------|
+| `DemographicsPieChart` (gênero) | Distribuição por gênero |
+| `DemographicsPieChart` (raça) | Distribuição por raça |
+| `DemographicsPieChart` (classe) | Distribuição por classe social |
+| `AgePyramid` | Pirâmide etária dos relatores |
+
+#### Aba: Engajamento
+
+| Componente | Descrição |
+|------------|-----------|
+| KPIs | Total de apoios, comentários, compartilhamentos |
+| `EngagementFunnel` | Funil: visualizações → apoios → comentários |
+| `TopReportsList` | Relatos mais engajados |
+
+#### Aba: Criticidade
+
+| Componente | Descrição |
+|------------|-----------|
+| `CriticalityGauge` | Índice geral de criticidade |
+| `RiskDistribution` | Distribuição por nível de risco |
+| `PatternAlerts` | Padrões detectados automaticamente |
+
+### 31.4 Drill-Down Interativo
+
+```typescript
+interface DrillDownConfig {
+  enabled: true;
+  supportedDimensions: ['region', 'category', 'time', 'sentiment'];
+  behavior: {
+    onChartClick: (dimension: string, value: string) => {
+      // Adiciona filtro e recarrega dados
+      addFilter(dimension, value);
+      refetchData();
+    };
+    onBreadcrumbClick: (index: number) => {
+      // Remove filtros após o índice
+      removeFiltersAfter(index);
+      refetchData();
+    };
+  };
+  maxDepth: 3;
+}
+```
+
+### 31.5 Regras de Analytics
+
+| Código | Regra |
+|--------|-------|
+| **RN-ANA-001** | Dados demográficos são agregados (nunca individuais) |
+| **RN-ANA-002** | Filtros demográficos usam RPC SECURITY DEFINER |
+| **RN-ANA-003** | "Não informado" é exibido para registros incompletos |
+| **RN-ANA-004** | Drill-down preserva filtros anteriores |
+| **RN-ANA-005** | Exportação PDF inclui filtros aplicados |
+| **RN-ANA-006** | Gráficos são capturados via html2canvas |
+| **RN-ANA-007** | Estados de erro exibem "Tentar Novamente" |
+
+---
+
+## 32. Módulo: Gestão de Encaminhamentos
+
+### 32.1 Localização e Rota
+
+- **Rota:** `/admin/referrals`
+- **Componente:** `src/pages/admin/ReferralsManagement.tsx`
+- **Hook:** `useReferralsAdmin`
+
+### 32.2 Campos Exibidos
+
+| Campo | Descrição |
+|-------|-----------|
+| Tipo de Relato | Urbano/Transporte/Avaliação |
+| Descrição (resumo) | Primeiros 100 chars |
+| Vereador | Nome + partido |
+| Status | PENDING/SENT/ACKNOWLEDGED/RESOLVED |
+| Data de Criação | Timestamp formatado |
+| Última Atualização | Timestamp formatado |
+
+### 32.3 Ações
+
+| Ação | Descrição | Permissão |
+|------|-----------|-----------|
+| Ver Detalhes | Abre modal com informações completas | Todos |
+| Reenviar | Dispara novo e-mail ao gabinete | Admin, Gestor |
+| Cancelar | Marca como cancelado | Admin, Gestor |
+| Marcar Resolvido | Finaliza encaminhamento | Admin, Gestor |
+
+### 32.4 Regras de Encaminhamentos
+
+| Código | Regra |
+|--------|-------|
+| **RN-ENC-001** | Vereadores veem apenas encaminhamentos do próprio gabinete |
+| **RN-ENC-002** | Assessores herdam acesso do vereador vinculado |
+| **RN-ENC-003** | Reenvio é limitado a 3 tentativas |
+| **RN-ENC-004** | Após 30 dias sem resposta, status = 'expired' |
+| **RN-ENC-005** | Notificação é enviada ao cidadão a cada mudança de status |
+
+---
+
+## 33. Módulo: Gestão de Usuários
+
+### 33.1 Localização e Rota
+
+- **Rota:** `/admin/users`
+- **Componente:** `src/pages/admin/UserManagement.tsx`
+- **Hook:** `useAdminUsers`
+
+### 33.2 Campos Exibidos
+
+| Campo | Desktop | Mobile |
+|-------|:-------:|:------:|
+| Avatar + Nome | ✅ | ✅ |
+| Email | ✅ | ❌ |
+| Telefone | ✅ | ❌ |
+| Roles (badges) | ✅ | ✅ |
+| Data de Cadastro | ✅ | ❌ |
+| Onboarding Completo | ✅ | ❌ |
+| Ações | ✅ | ✅ |
+
+### 33.3 Ações
+
+| Ação | Descrição | Componente |
+|------|-----------|------------|
+| Editar Roles | Abre modal de edição | `UserRoleModal` |
+| Excluir Usuário | Confirmação + exclusão | `DeleteUserDialog` |
+
+### 33.4 Modal de Edição de Roles
+
+```typescript
+interface UserRoleModalProps {
+  userId: string;
+  currentRoles: string[];
+  onSave: (newRoles: string[]) => Promise<void>;
+}
+
+// Checkboxes disponíveis:
+const AVAILABLE_ROLES = [
+  { value: 'admin', label: 'Administrador', color: 'red' },
+  { value: 'gestor', label: 'Gestor', color: 'purple' },
+  { value: 'vereador', label: 'Vereador', color: 'blue' },
+  { value: 'assessor', label: 'Assessor', color: 'green' },
+];
+```
+
+### 33.5 Regras de Exclusão de Usuário
+
+| Código | Regra |
+|--------|-------|
+| **RN-USER-001** | Apenas `admin` pode excluir usuários |
+| **RN-USER-002** | Admin não pode excluir a si mesmo |
+| **RN-USER-003** | Exclusão chama Edge Function `delete-user` |
+| **RN-USER-004** | Edge Function remove: auth.users, profiles, user_roles |
+| **RN-USER-005** | Dados de relatos são anonimizados, não excluídos |
+| **RN-USER-006** | Exclusão é registrada em `audit_logs` |
+| **RN-USER-007** | Confirmação requer digitar email do usuário |
+
+---
+
+## 34. Módulo: Logs de Auditoria
+
+### 34.1 Localização e Rota
+
+- **Rota:** `/admin/audit-logs`
+- **Componente:** `src/pages/admin/AuditLogs.tsx`
+- **Hook:** `useAuditLog`
+
+### 34.2 Campos Registrados
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | UUID | Identificador único |
+| `action` | string | login, logout, create, update, delete, export |
+| `entity_type` | string | user_role, urban_report, transport_report, etc. |
+| `entity_id` | UUID | ID da entidade afetada |
+| `user_id` | UUID | Quem executou a ação |
+| `ip_address` | string | IP do cliente |
+| `user_agent` | string | Navegador/dispositivo |
+| `old_values` | JSONB | Valores anteriores (para updates) |
+| `new_values` | JSONB | Valores novos |
+| `metadata` | JSONB | Dados adicionais contextuais |
+| `created_at` | timestamp | Data/hora da ação |
+
+### 34.3 Eventos Auditados Automaticamente
+
+| Evento | Trigger | Dados Capturados |
+|--------|---------|------------------|
+| Login | `auth.on('SIGNED_IN')` | user_id, ip, user_agent |
+| Logout | `auth.on('SIGNED_OUT')` | user_id |
+| Criar Relato | Trigger BD | Todos os campos |
+| Atualizar Status | Trigger BD | old_status, new_status |
+| Alterar Roles | Frontend + BD | old_roles, new_roles |
+| Excluir Usuário | Edge Function | user_id, email |
+| Exportar Dados | Frontend | export_type, filters, row_count |
+
+### 34.4 Filtros
+
+| Filtro | Valores |
+|--------|---------|
+| Busca | Texto livre (entity_id, metadata) |
+| Ação | login, create, update, delete, export, all |
+| Tipo de Entidade | user_role, urban_report, transport_report, etc. |
+| Período | Date range |
+
+### 34.5 Exportação
+
+**Formato:** CSV
+**Colunas:** Data, Usuário, Ação, Tipo, ID Entidade, IP, User Agent
+
+### 34.6 Regras de Auditoria
+
+| Código | Regra |
+|--------|-------|
+| **RN-AUD-001** | Logs são imutáveis (sem UPDATE/DELETE) |
+| **RN-AUD-002** | Retenção mínima de 365 dias |
+| **RN-AUD-003** | Apenas admin pode visualizar logs |
+| **RN-AUD-004** | Gestor tem acesso somente leitura |
+| **RN-AUD-005** | Exportação de logs é registrada em novo log |
+| **RN-AUD-006** | IPs são anonimizados após 180 dias |
+
+---
+
+## 35. Módulo: Central de Alertas
+
+### 35.1 Localização e Rota
+
+- **Rota:** `/admin/notifications`
+- **Componente:** `src/pages/admin/AdminNotifications.tsx`
+
+### 35.2 Tipos de Notificação Admin
+
+| Tipo | Descrição | Prioridade | Auto-gerado |
+|------|-----------|------------|-------------|
+| `new_urban_report` | Novo relato urbano | Normal | Trigger BD |
+| `new_transport_report` | Novo relato transporte | Normal | Trigger BD |
+| `critical_report` | Relato prioridade crítica | Alta | N8N callback |
+| `new_user` | Novo usuário cadastrado | Baixa | Trigger BD |
+| `referral_created` | Novo encaminhamento | Normal | Frontend |
+| `referral_acknowledged` | Vereador confirmou | Normal | Webhook |
+| `n8n_error` | Erro no workflow N8N | Alta | Webhook |
+| `sla_warning` | SLA próximo de vencer | Alta | Cron job |
+
+### 35.3 Campos Exibidos
+
+| Campo | Descrição |
+|-------|-----------|
+| Ícone | Baseado no tipo |
+| Título | Resumo da notificação |
+| Mensagem | Detalhes |
+| Data | Timestamp relativo (há X minutos) |
+| Status | Lida/Não lida (badge) |
+| Prioridade | Alta/Normal/Baixa (cor) |
+
+### 35.4 Ações
+
+| Ação | Descrição |
+|------|-----------|
+| Marcar como lida | Individual ou em lote |
+| Marcar todas como lidas | Ação em massa |
+| Excluir | Confirmação necessária |
+| Ir para | Navega para entidade relacionada |
+
+### 35.5 Regras de Notificações Admin
+
+| Código | Regra |
+|--------|-------|
+| **RN-NOT-001** | Cada admin recebe cópia individual (RLS) |
+| **RN-NOT-002** | Prioridade alta é destacada visualmente |
+| **RN-NOT-003** | Badge no header mostra contagem de não lidas |
+| **RN-NOT-004** | Notificações críticas têm som (opcional) |
+| **RN-NOT-005** | Limite de 50 notificações na consulta inicial |
+
+---
+
+## 36. Módulo: Exportação de Dados
+
+### 36.1 Localização e Rota
+
+- **Rota:** `/admin/exports`
+- **Componente:** `src/pages/admin/ExportLogs.tsx`
+
+### 36.2 Formatos Suportados
+
+| Formato | Extensão | Descrição | Uso |
+|---------|----------|-----------|-----|
+| CSV | .csv | Valores separados | Análise em Excel/Sheets |
+| PDF | .pdf | Relatório formatado | Apresentações/Arquivo |
+
+### 36.3 Tipos de Exportação
+
+| Tipo | Dados | Permissão |
+|------|-------|-----------|
+| `reports` | Relatos (urban + transport) | Admin, Gestor |
+| `analytics` | KPIs, tendências, distribuições | Admin, Gestor |
+| `ratings` | Avaliações de serviços | Admin, Gestor |
+| `users` | Lista de usuários | Admin |
+| `audit` | Logs de auditoria | Admin |
+
+### 36.4 Limites
+
+| Recurso | Limite |
+|---------|--------|
+| Registros por exportação | 10.000 |
+| Exportações por dia (usuário) | 20 |
+| Tamanho máximo de arquivo | 50 MB |
+| Período máximo | 365 dias |
+
+### 36.5 Registro de Exportação
+
+```typescript
+interface ExportLog {
+  id: string;
+  user_id: string;
+  export_type: 'reports' | 'analytics' | 'users' | 'audit';
+  format: 'csv' | 'pdf';
+  filters: Record<string, any>;
+  row_count: number;
+  status: 'pending' | 'completed' | 'failed';
+  created_at: string;
+  completed_at: string | null;
+}
+```
+
+### 36.6 Estrutura do PDF
+
+```typescript
+interface PDFExportContent {
+  header: {
+    brasao: string;           // Brasão institucional
+    titulo: "Relatório de Análise";
+    subtitulo: string;        // Período dos dados
+    data_geracao: string;     // Timestamp
+  };
+  kpis: {
+    total: number;
+    criticos: number;
+    pendentes: number;
+    resolvidos: number;
+  };
+  graficos: {
+    status_donut: ImageCapture;
+    categoria_bar: ImageCapture;
+    sentimento_gauge: ImageCapture;
+  };
+  filtros_aplicados: {
+    genero?: string;
+    raca?: string;
+    classe?: string;
+    regiao?: string;
+    periodo?: string;
+  };
+  footer: {
+    texto: "Câmara Municipal de São Paulo - Câmara na Mão";
+    pagina: string;
+  };
+}
+```
+
+### 36.7 Regras de Exportação
+
+| Código | Regra |
+|--------|-------|
+| **RN-EXP-001** | Exportação é registrada em `export_logs` |
+| **RN-EXP-002** | PDF usa jspdf + html2canvas |
+| **RN-EXP-003** | CSV usa encoding UTF-8 com BOM |
+| **RN-EXP-004** | Dados sensíveis são mascarados |
+| **RN-EXP-005** | Limite de 10.000 registros por export |
+| **RN-EXP-006** | Filtros aplicados são incluídos no arquivo |
+
+---
+
+## 37. Módulo: Configurações
+
+### 37.1 Integração N8N
+
+- **Rota:** `/admin/settings/n8n`
+- **Configurações:**
+  - Webhook URL
+  - Secret Key
+  - Eventos habilitados (checkboxes)
+  - Status de conexão (teste)
+
+### 37.2 Monitoramento N8N
+
+- **Rota:** `/admin/settings/n8n-monitoring`
+- **Visualizações:**
+  - Logs de integração recentes
+  - Taxa de sucesso/falha
+  - Tempo médio de processamento
+  - Alertas de erro
+
+### 37.3 Acessibilidade do Sistema
+
+- **Rota:** `/admin/settings/accessibility`
+- **Configurações globais:**
+  - Tamanho de fonte padrão
+  - Modo de leitura
+  - Alto contraste
+  - Espaçamento de texto
+
+---
+
+## 38. Regras de Negócio do CMS
+
+### 38.1 Regras Gerais
+
+| Código | Regra | Implementação |
+|--------|-------|---------------|
+| **RN-CMS-001** | Acesso ao CMS requer papel diferente de `cidadao` | `ProtectedAdminRoute` |
+| **RN-CMS-002** | Todas as ações são registradas em `audit_logs` | Triggers + Frontend |
+| **RN-CMS-003** | Dados sensíveis são mascarados para papéis inferiores | RLS + Frontend |
+| **RN-CMS-004** | Sessão expira após 8 horas de inatividade | Supabase Auth config |
+| **RN-CMS-005** | Tentativas de acesso não autorizado são logadas | RLS + Audit |
+
+### 38.2 Regras de Performance
+
+| Código | Regra | Implementação |
+|--------|-------|---------------|
+| **RN-CMS-006** | Contagens usam `{ count: 'exact', head: true }` | Supabase query |
+| **RN-CMS-007** | Buscas são debounced (300ms) | `useDebounce` hook |
+| **RN-CMS-008** | Detalhes pesados são lazy-loaded | Drawer on-demand |
+| **RN-CMS-009** | Consultas paralelas com Promise.all | Hooks de dados |
+| **RN-CMS-010** | Limite de 1000 registros por query | Supabase default |
+
+### 38.3 Regras de UI
+
+| Código | Regra | Implementação |
+|--------|-------|---------------|
+| **RN-CMS-011** | Estados de erro exibem "Tentar Novamente" | Error boundaries |
+| **RN-CMS-012** | Skeletons apenas no primeiro carregamento | `isInitialLoading` state |
+| **RN-CMS-013** | Scroll interno preserva header/sidebar | `overflow-y-auto` em main |
+| **RN-CMS-014** | Responsividade: Mobile/Tablet/Desktop | Tailwind breakpoints |
+| **RN-CMS-015** | Ações destrutivas requerem confirmação | `AlertDialog` |
+
+### 38.4 Regras do Kanban
+
+| Código | Regra | Implementação |
+|--------|-------|---------------|
+| **RN-KAN-001** | Estado local atualizado otimisticamente | `useState` local |
+| **RN-KAN-002** | Collision detection por coluna | `closestCorners` strategy |
+| **RN-KAN-003** | Drag overlay customizado | `KanbanCardDragPreview` |
+| **RN-KAN-004** | Erro reverte estado local | try/catch + rollback |
+| **RN-KAN-005** | Mudança persiste imediatamente | Supabase update |
+
+---
+
+## 39. Cenários de Uso do CMS
+
+### 39.1 Cenário: Triagem de Relatos Críticos
+
+**Ator:** Gestor
+**Pré-condição:** Existem relatos com prioridade crítica pendentes
+
+**Fluxo:**
+```
+1. Gestor acessa Dashboard (/admin)
+2. Visualiza KPI "Urgentes" com badge vermelho (ex: 3)
+3. Clica no KPI → Navega para /admin/reports?severity=critical
+4. Lista exibe apenas relatos críticos
+5. Seleciona primeiro relato → Abre UnifiedReportDrawer
+6. Analisa descrição, fotos, dados de impacto, localização
+7. Altera status para "Em Andamento" via dropdown
+8. Clica em "Encaminhar" → Abre ReferralWizard
+9. Seleciona vereador sugerido da Comissão de Urbanismo
+10. Adiciona mensagem contextual
+11. Confirma encaminhamento
+12. Sistema registra ação em audit_logs
+13. Cidadão recebe notificação
+```
+
+**Regras Aplicadas:** RN-CMS-002, RN-REP-002, RN-ENC-005
+
+### 39.2 Cenário: Análise Demográfica para Política Pública
+
+**Ator:** Gestor
+**Objetivo:** Identificar padrões de reclamação por grupo demográfico
+
+**Fluxo:**
+```
+1. Gestor acessa Analytics (/admin/analytics)
+2. Aplica filtros:
+   - Gênero: Feminino
+   - Região: Zona Sul
+   - Período: Últimos 30 dias
+3. Visualiza gráficos filtrados
+4. Observa pico de reclamações de "Iluminação"
+5. Clica na categoria "Iluminação" → Drill-down
+6. Visualiza mapa de calor da Zona Sul
+7. Identifica bairro mais afetado: Campo Belo
+8. Clica em "Exportar PDF"
+9. Sistema gera PDF com brasão + dados + filtros
+10. Gestor baixa PDF para apresentação
+```
+
+**Regras Aplicadas:** RN-ANA-002, RN-ANA-004, RN-EXP-006
+
+### 39.3 Cenário: Atribuição de Papel a Novo Assessor
+
+**Ator:** Admin
+**Objetivo:** Dar acesso ao CMS para novo assessor de gabinete
+
+**Fluxo:**
+```
+1. Admin acessa Gestão de Usuários (/admin/users)
+2. Busca por nome: "Maria Silva"
+3. Localiza usuário na lista
+4. Clica em "Editar Roles"
+5. UserRoleModal exibe checkboxes
+6. Marca checkbox "Assessor"
+7. Clica em "Salvar"
+8. Sistema atualiza user_roles
+9. Sistema registra em audit_logs:
+   - action: 'update'
+   - entity_type: 'user_role'
+   - old_values: { roles: ['cidadao'] }
+   - new_values: { roles: ['cidadao', 'assessor'] }
+10. Toast confirma: "Papel atualizado com sucesso"
+```
+
+**Regras Aplicadas:** RN-ROLE-002, RN-ROLE-005, RN-CMS-002
+
+### 39.4 Cenário: Investigação de Ação Suspeita
+
+**Ator:** Admin
+**Objetivo:** Investigar exclusão suspeita de relato
+
+**Fluxo:**
+```
+1. Admin recebe alerta de exclusão em massa
+2. Acessa Logs de Auditoria (/admin/audit-logs)
+3. Filtra por:
+   - Ação: delete
+   - Período: Hoje
+4. Identifica múltiplas exclusões do mesmo user_id
+5. Clica em log para ver detalhes
+6. Visualiza old_values com dados do relato excluído
+7. Identifica padrão: todos relatos de mesma região
+8. Anota IP e horário
+9. Acessa Gestão de Usuários
+10. Localiza usuário pelo ID
+11. Toma ação administrativa (remove papel, notifica)
+12. Documenta incidente
+```
+
+**Regras Aplicadas:** RN-AUD-001, RN-AUD-003, RN-CMS-002
+
+### 39.5 Cenário: Gestão de Relatos via Kanban
+
+**Ator:** Gestor
+**Objetivo:** Organizar fluxo de trabalho visual
+
+**Fluxo:**
+```
+1. Gestor acessa Gestão de Relatos (/admin/reports)
+2. Clica em "Kanban" para alternar visualização
+3. Visualiza 4 colunas: Pendente | Em Andamento | Resolvido | Rejeitado
+4. Identifica card na coluna "Pendente"
+5. Arrasta card para "Em Andamento"
+6. UI atualiza imediatamente (otimista)
+7. Sistema persiste status no banco
+8. Card permanece na nova coluna
+9. Se erro: card retorna para coluna original + toast de erro
+```
+
+**Regras Aplicadas:** RN-KAN-001, RN-KAN-004, RN-KAN-005
+
+---
+
+## 40. Diagrama de Navegação do CMS
+
+```mermaid
+flowchart TD
+    subgraph Auth["Autenticação"]
+        LOGIN[/login] --> CHECK{Papel?}
+        CHECK -->|cidadao| REDIRECT[Redireciona /]
+        CHECK -->|admin/gestor| CMS
+    end
+
+    subgraph CMS["CMS Administrativo"]
+        DASH[Dashboard] 
+        
+        DASH --> REPORTS[Gestão de Relatos]
+        DASH --> ANALYTICS[Análise de Relatos]
+        DASH --> REFERRALS[Encaminhamentos]
+        DASH --> USERS[Usuários]
+        DASH --> AUDIT[Auditoria]
+        DASH --> NOTIF[Alertas]
+        DASH --> EXPORTS[Exportações]
+        DASH --> SETTINGS[Configurações]
+        
+        REPORTS --> LIST[Modo Lista]
+        REPORTS --> KANBAN[Modo Kanban]
+        
+        LIST --> DRAWER[Drawer Detalhes]
+        KANBAN --> DRAWER
+        
+        DRAWER --> REFERRAL_WIZ[Wizard Encaminhamento]
+        DRAWER --> DELETE_CONFIRM[Confirmar Exclusão]
+        
+        ANALYTICS --> TAB_GERAL[Aba Geral]
+        ANALYTICS --> TAB_SENT[Aba Sentimento]
+        ANALYTICS --> TAB_DEMO[Aba Demografia]
+        ANALYTICS --> TAB_ENG[Aba Engajamento]
+        ANALYTICS --> TAB_CRIT[Aba Criticidade]
+        
+        TAB_GERAL --> DRILL[Drill-Down]
+        TAB_SENT --> DRILL
+        TAB_DEMO --> DRILL
+        
+        ANALYTICS --> EXPORT_PDF[Exportar PDF]
+        
+        USERS --> ROLE_MODAL[Modal de Roles]
+        USERS --> DEL_USER[Excluir Usuário]
+        
+        SETTINGS --> N8N[Config N8N]
+        SETTINGS --> N8N_MON[Monitor N8N]
+        SETTINGS --> ACCESS[Acessibilidade]
+    end
+```
+
+---
+
+## 41. Fluxo de Dados do CMS
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário Admin
+    participant F as Frontend (React)
+    participant H as Hooks
+    participant S as Supabase
+    participant N as N8N
+    
+    U->>F: Acessa /admin
+    F->>H: useAdminDashboardStats()
+    H->>S: Promise.all([...queries])
+    S-->>H: Dados agregados
+    H-->>F: { total, pending, critical, ... }
+    F-->>U: Renderiza Dashboard
+    
+    U->>F: Clica em relato
+    F->>H: fetchReportDetails(id)
+    H->>S: SELECT * WHERE id = ?
+    S-->>H: Dados completos + N8N data
+    H-->>F: Report details
+    F-->>U: Abre Drawer
+    
+    U->>F: Altera status (drag Kanban)
+    F->>F: Atualiza estado local (otimista)
+    F->>H: updateReportStatus(id, newStatus)
+    H->>S: UPDATE reports SET status = ?
+    S-->>H: Success
+    
+    alt Sucesso
+        H-->>F: Confirma
+    else Erro
+        H-->>F: Reverte estado local
+        F-->>U: Toast de erro
+    end
+```
+
+---
+
 ## Histórico de Versões
 
 | Versão | Data | Autor | Alterações |
 |--------|------|-------|------------|
 | 1.0.0 | Jan 2026 | Equipe CMSP | Versão inicial completa |
+| 1.1.0 | Jan 2026 | Equipe CMSP | Adicionada PARTE 9: CMS Administrativo (seções 27-41) |
 
 ---
 
-> **Nota**: Este documento é a especificação técnica oficial do AI Orchestrator para o projeto Câmara na Mão. Todas as implementações devem seguir estas definições. Alterações devem ser documentadas no histórico de versões.
+> **Nota**: Este documento é a especificação técnica oficial do AI Orchestrator e CMS Administrativo para o projeto Câmara na Mão. Todas as implementações devem seguir estas definições. Alterações devem ser documentadas no histórico de versões.
