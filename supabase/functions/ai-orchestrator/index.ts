@@ -1115,6 +1115,22 @@ function isGenericIntentText(text: string): boolean {
     /procurar\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
     /onde\s*(fica|tem|posso\s*encontrar)\s*(um\s*)?(ubs|escola|hospital|posto|ceu)/i,
     /servi[çc]os?\s*(perto|pr[óo]ximo|perto\s*de\s*mim)/i,
+    
+    // === LEARNING/KNOWLEDGE PHRASES (trigger knowledge base search) ===
+    /tenho\s*(uma?\s*)?(d[úu]vida|pergunta|quest[ãa]o)\s*(sobre)?/i,
+    /d[úu]vida\s*(sobre|da|do)\s*(c[âa]mara|legislativo|vereador)/i,
+    /como\s+funciona\s+(a\s+)?(c[âa]mara|legislativo|vota[çc][ãa]o)/i,
+    /o\s+que\s+[ée]\s+(uma?\s+)?(audi[êe]ncia|projeto|lei|comiss[ãa]o)/i,
+    /quem\s+[ée]\s+o\s*(vereador|presidente)/i,
+    /me\s+explica\s+(como|o\s+que)/i,
+    /informa[çc][ãa]o\s+sobre/i,
+    /quero\s+(saber|entender|aprender)/i,
+    
+    // === NEWS PHRASES (trigger news search) ===
+    /quais?\s*(as|a)?\s*([úu]ltimas?\s*)?not[íi]cias/i,
+    /not[íi]cias\s*(da|do|sobre)\s*(c[âa]mara|legislativo|vereador)/i,
+    /novidades\s*(da|do)\s*(c[âa]mara|legislativo)/i,
+    /o\s+que\s+est[áa]\s+acontecendo\s+(na|no)\s*(c[âa]mara|legislativo)/i,
   ];
   
   const normalized = text.trim().toLowerCase();
