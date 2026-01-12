@@ -1107,6 +1107,14 @@ function isGenericIntentText(text: string): boolean {
     /na\s*verdade,?\s*(quero|preciso|gostaria)/i,
     /mudando\s*de\s*assunto/i,
     /outro\s*assunto/i,
+    
+    // === SERVICE SEARCH PHRASES (trigger service discovery journey) ===
+    /quero\s*(encontrar|buscar|achar|procurar)\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+    /encontrar\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+    /buscar\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+    /procurar\s*(um\s*)?(servi[çc]o|ubs|escola|hospital|ceu)/i,
+    /onde\s*(fica|tem|posso\s*encontrar)\s*(um\s*)?(ubs|escola|hospital|posto|ceu)/i,
+    /servi[çc]os?\s*(perto|pr[óo]ximo|perto\s*de\s*mim)/i,
   ];
   
   const normalized = text.trim().toLowerCase();
