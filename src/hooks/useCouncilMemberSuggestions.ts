@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { vereadores, Vereador } from '@/data/vereadores';
+import { vereadores as localVereadores, Vereador } from '@/data/vereadores';
 import { useToast } from '@/hooks/use-toast';
 
 interface ReportData {
@@ -27,10 +27,14 @@ export const useCouncilMemberSuggestions = () => {
   const getSuggestions = useCallback(async (reportData: ReportData) => {
     setLoading(true);
     try {
+      // First, fetch fresh vereadores list
+      const { data: vereadorData } = await supabase.functions.invoke('fetch-vereadores');
+      const vereadores = vereadorData?.vereadores || localVereadores;
+
       const { data, error } = await supabase.functions.invoke('suggest-council-members', {
         body: {
           reportData,
-          vereadores: vereadores.map(v => ({
+          vereadores: vereadores.map((v: Vereador) => ({
             id: v.id,
             name: v.name,
             party: v.party,
@@ -45,7 +49,7 @@ export const useCouncilMemberSuggestions = () => {
 
       // Map back to full vereador objects
       const fullSuggestions: SuggestionResult[] = (data.suggestions || []).map((s: any) => ({
-        vereador: vereadores.find(v => v.id === s.vereador.id) || s.vereador,
+        vereador: vereadores.find((v: Vereador) => v.id === s.vereador.id) || s.vereador,
         matchScore: s.matchScore,
         matchReasons: s.matchReasons
       }));
@@ -61,7 +65,7 @@ export const useCouncilMemberSuggestions = () => {
       });
       
       // Fallback to local suggestions
-      const fallbackSuggestions = vereadores.slice(0, 3).map(v => ({
+      const fallbackSuggestions = localVereadores.slice(0, 3).map(v => ({
         vereador: v,
         matchScore: 50,
         matchReasons: ['Vereador disponível para atendimento']

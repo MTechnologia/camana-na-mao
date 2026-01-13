@@ -1,20 +1,41 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Share2, Building2, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Share2, Building2, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { vereadores } from "@/data/vereadores";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useVereador } from "@/hooks/useVereadores";
 import { toast } from "sonner";
 
 const VereadorDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const vereador = vereadores.find((v) => v.id === id);
+  const { vereador, isLoading, fallbackVereador } = useVereador(id);
+  
+  // Use fallback if main data not available
+  const displayVereador = vereador || fallbackVereador;
 
-  if (!vereador) {
+  if (isLoading && !displayVereador) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
+          <div className="flex items-center justify-center px-4 h-14">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        </header>
+        <main className="p-4 max-w-2xl mx-auto space-y-6">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </main>
+      </div>
+    );
+  }
+
+  if (!displayVereador) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
         <p className="text-muted-foreground mb-4">Vereador não encontrado</p>
@@ -27,8 +48,8 @@ const VereadorDetailPage = () => {
 
   const handleShare = async () => {
     const shareData = {
-      title: vereador.name,
-      text: `Conheça o vereador ${vereador.name} (${vereador.party})`,
+      title: displayVereador.name,
+      text: `Conheça o vereador ${displayVereador.name} (${displayVereador.party})`,
       url: window.location.href,
     };
 
@@ -53,7 +74,7 @@ const VereadorDetailPage = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="font-medium text-sm truncate max-w-[200px]">
-            {vereador.name}
+            {displayVereador.name}
           </h1>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" onClick={handleShare}>
@@ -69,24 +90,24 @@ const VereadorDetailPage = () => {
         <Card className="p-6 mb-6">
           <div className="flex flex-col items-center text-center">
             <Avatar className="h-24 w-24 mb-4">
-              <AvatarImage src={vereador.photo} alt={vereador.name} />
+              <AvatarImage src={displayVereador.photo} alt={displayVereador.name} />
               <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                {vereador.initials}
+                {displayVereador.initials}
               </AvatarFallback>
             </Avatar>
 
             <h2 className="text-xl font-bold text-foreground mb-2">
-              {vereador.name}
+              {displayVereador.name}
             </h2>
 
             <Badge variant="outline" className="mb-4">
-              {vereador.party}
+              {displayVereador.party}
             </Badge>
 
-            {vereador.region && (
+            {displayVereador.region && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
-                <span>{vereador.region}</span>
+                <span>{displayVereador.region}</span>
               </div>
             )}
           </div>
@@ -101,7 +122,7 @@ const VereadorDetailPage = () => {
 
           <div className="space-y-4">
             <a
-              href={`tel:${vereador.phone}`}
+              href={`tel:${displayVereador.phone}`}
               className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
             >
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -109,14 +130,14 @@ const VereadorDetailPage = () => {
               </div>
               <div className="flex-1">
                 <p className="text-sm text-muted-foreground">Telefone</p>
-                <p className="font-medium">{vereador.phone}</p>
+                <p className="font-medium">{displayVereador.phone}</p>
               </div>
             </a>
 
             <Separator />
 
             <a
-              href={`mailto:${vereador.email}`}
+              href={`mailto:${displayVereador.email}`}
               className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
             >
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -124,7 +145,7 @@ const VereadorDetailPage = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-muted-foreground">E-mail</p>
-                <p className="font-medium truncate">{vereador.email}</p>
+                <p className="font-medium truncate">{displayVereador.email}</p>
               </div>
             </a>
           </div>
@@ -150,7 +171,7 @@ const VereadorDetailPage = () => {
             <Separator />
             <div className="flex justify-between">
               <span className="text-muted-foreground">Partido</span>
-              <span className="font-medium">{vereador.party}</span>
+              <span className="font-medium">{displayVereador.party}</span>
             </div>
           </div>
         </Card>
