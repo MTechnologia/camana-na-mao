@@ -2,7 +2,7 @@ services:
   - type: static_site
     name: camara-na-mao-web
     env: static
-    buildCommand: npm ci && npm run build
+    buildCommand: bun run build
     staticPublishPath: dist
     pullRequestPreviewsEnabled: true
     routes:
