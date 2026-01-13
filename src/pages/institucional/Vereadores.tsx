@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { Search, MapPin, Phone, Mail, X, Users } from "lucide-react";
+import { Search, MapPin, Phone, Mail, X, Users, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,38 +9,46 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
-import { vereadores } from "@/data/vereadores";
-
-// Extract unique parties and regions from data
-const uniqueParties = [...new Set(vereadores.map(v => v.party))].sort();
-const uniqueRegions = [...new Set(vereadores.map(v => v.region).filter(Boolean))].sort() as string[];
-
-const regionFilterOptions = uniqueRegions.map(r => ({ value: r, label: r }));
+import { Skeleton } from "@/components/ui/skeleton";
+import { useVereadores } from "@/hooks/useVereadores";
 
 const Vereadores = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedParty, setSelectedParty] = useState<string>("all");
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  
+  const { data: vereadores = [], isLoading } = useVereadores();
+
+  // Extract unique parties and regions from data
+  const uniqueParties = useMemo(() => 
+    [...new Set(vereadores.map(v => v.party))].sort(),
+    [vereadores]
+  );
+  const uniqueRegions = useMemo(() => 
+    [...new Set(vereadores.map(v => v.region).filter(Boolean))].sort() as string[],
+    [vereadores]
+  );
+  const regionFilterOptions = useMemo(() => 
+    uniqueRegions.map(r => ({ value: r, label: r })),
+    [uniqueRegions]
+  );
 
   const filteredVereadores = useMemo(() => {
     return vereadores.filter((v) => {
-      // Search filter
       const matchesSearch = searchQuery === "" ||
         v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         v.party.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (v.region && v.region.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      // Party filter
       const matchesParty = selectedParty === "all" || v.party === selectedParty;
 
-      // Region filter
       const matchesRegion = selectedRegions.length === 0 || 
         (v.region && selectedRegions.includes(v.region));
 
       return matchesSearch && matchesParty && matchesRegion;
     });
-  }, [searchQuery, selectedParty, selectedRegions]);
+  }, [vereadores, searchQuery, selectedParty, selectedRegions]);
 
   const hasActiveFilters = searchQuery !== "" || selectedParty !== "all" || selectedRegions.length > 0;
 
@@ -49,6 +57,32 @@ const Vereadores = () => {
     setSelectedParty("all");
     setSelectedRegions([]);
   };
+
+  if (isLoading) {
+    return (
+      <InstitutionalLayout title="Vereadores" category="Institucional">
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Vereadores de São Paulo
+            </h1>
+            <p className="text-muted-foreground">
+              Carregando dados da Câmara Municipal...
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Buscando vereadores...</span>
+          </div>
+          <div className="space-y-3">
+            {Array(5).fill(0).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
+          </div>
+        </div>
+      </InstitutionalLayout>
+    );
+  }
 
   return (
     <InstitutionalLayout
@@ -61,7 +95,7 @@ const Vereadores = () => {
             Vereadores de São Paulo
           </h1>
           <p className="text-muted-foreground">
-            Conheça os 55 vereadores que representam a cidade de São Paulo
+            Conheça os {vereadores.length} vereadores que representam a cidade de São Paulo
           </p>
         </div>
 
@@ -100,18 +134,20 @@ const Vereadores = () => {
           </div>
 
           {/* Region Pills */}
-          <div className="flex items-start gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground pt-1.5 shrink-0">Região:</span>
-            <QuickFilterPills
-              options={regionFilterOptions}
-              selected={selectedRegions}
-              onChange={(value) => setSelectedRegions(value as string[])}
-              mode="multi"
-              showAllOption
-              allLabel="Todas"
-              size="sm"
-            />
-          </div>
+          {uniqueRegions.length > 0 && (
+            <div className="flex items-start gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground pt-1.5 shrink-0">Região:</span>
+              <QuickFilterPills
+                options={regionFilterOptions}
+                selected={selectedRegions}
+                onChange={(value) => setSelectedRegions(value as string[])}
+                mode="multi"
+                showAllOption
+                allLabel="Todas"
+                size="sm"
+              />
+            </div>
+          )}
 
           {/* Results count and clear */}
           {hasActiveFilters && (
@@ -182,9 +218,9 @@ const Vereadores = () => {
         </div>
 
         <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-          <p><strong>Total:</strong> 55 vereadores eleitos</p>
+          <p><strong>Total:</strong> {vereadores.length} vereadores ativos</p>
           <p><strong>Mandato:</strong> 2025-2028</p>
-          <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
+          <p><strong>Fonte:</strong> API oficial da Câmara Municipal de São Paulo</p>
         </div>
       </div>
     </InstitutionalLayout>

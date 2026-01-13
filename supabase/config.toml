@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.google-places-details]
 verify_jwt = false
+
+[functions.fetch-vereadores]
+verify_jwt = false
