@@ -377,6 +377,66 @@ export type Database = {
           },
         ]
       }
+      council_members_cache: {
+        Row: {
+          andar: string | null
+          cached_at: string | null
+          email: string | null
+          gv: string | null
+          id: string
+          initials: string | null
+          is_government_leader: boolean | null
+          is_leader: boolean | null
+          is_on_leave: boolean | null
+          is_substitute: boolean | null
+          name: string
+          party: string
+          phone: string | null
+          photo: string | null
+          region: string | null
+          sala: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          andar?: string | null
+          cached_at?: string | null
+          email?: string | null
+          gv?: string | null
+          id: string
+          initials?: string | null
+          is_government_leader?: boolean | null
+          is_leader?: boolean | null
+          is_on_leave?: boolean | null
+          is_substitute?: boolean | null
+          name: string
+          party: string
+          phone?: string | null
+          photo?: string | null
+          region?: string | null
+          sala?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          andar?: string | null
+          cached_at?: string | null
+          email?: string | null
+          gv?: string | null
+          id?: string
+          initials?: string | null
+          is_government_leader?: boolean | null
+          is_leader?: boolean | null
+          is_on_leave?: boolean | null
+          is_substitute?: boolean | null
+          name?: string
+          party?: string
+          phone?: string | null
+          photo?: string | null
+          region?: string | null
+          sala?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       dashboards: {
         Row: {
           config: Json

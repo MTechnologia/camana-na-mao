@@ -13,10 +13,10 @@ const VereadorDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { vereador, isLoading, fallbackVereador } = useVereador(id);
+  const { vereador, isLoading, error } = useVereador(id);
   
-  // Use fallback if main data not available
-  const displayVereador = vereador || fallbackVereador;
+  // Show vereador data when available
+  const displayVereador = vereador;
 
   if (isLoading && !displayVereador) {
     return (
