@@ -195,6 +195,32 @@ export const useReferralsAdmin = () => {
     }
   };
 
+  const deleteReferral = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('council_member_referrals')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Encaminhamento excluído',
+        description: 'O registro foi removido permanentemente.',
+      });
+
+      fetchReferrals();
+      fetchKPIs();
+    } catch (error) {
+      console.error('Error deleting referral:', error);
+      toast({
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o encaminhamento.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchReferrals();
     fetchKPIs();
@@ -219,6 +245,7 @@ export const useReferralsAdmin = () => {
     totalPages,
     updateReferralStatus,
     addResponse,
+    deleteReferral,
     refetch: fetchReferrals,
   };
 };

@@ -11,9 +11,19 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { KPICard } from '@/components/analytics/KPICard';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   Search, Users, Clock, CheckCircle2, Send, Eye, MessageSquare, 
-  ChevronLeft, ChevronRight, Bus, MapPin, Star, RefreshCw 
+  ChevronLeft, ChevronRight, Bus, MapPin, Star, RefreshCw, Trash2, AlertTriangle 
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,6 +47,7 @@ const ReferralsManagement = () => {
     pageSize,
     updateReferralStatus,
     addResponse,
+    deleteReferral,
     refetch,
   } = useReferralsAdmin();
 
@@ -44,6 +55,9 @@ const ReferralsManagement = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [referralToDelete, setReferralToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -84,6 +98,16 @@ const ReferralsManagement = () => {
     await addResponse(selectedReferral.id, responseText);
     setSubmitting(false);
     setDetailsOpen(false);
+  };
+
+  const handleDeleteReferral = async () => {
+    if (!referralToDelete) return;
+    setDeleting(true);
+    await deleteReferral(referralToDelete.id);
+    setDeleting(false);
+    setDeleteDialogOpen(false);
+    setReferralToDelete(null);
+    if (detailsOpen) setDetailsOpen(false);
   };
 
   return (
@@ -221,10 +245,23 @@ const ReferralsManagement = () => {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(referral)}>
-                        <Eye className="h-4 w-4 mr-1" />
-                        Detalhes
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleViewDetails(referral)}>
+                          <Eye className="h-4 w-4 mr-1" />
+                          Detalhes
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setReferralToDelete(referral);
+                            setDeleteDialogOpen(true);
+                          }}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                       {referral.status === 'pending' && (
                         <Select onValueChange={(value) => updateReferralStatus(referral.id, value)}>
                           <SelectTrigger className="w-32">
@@ -356,7 +393,19 @@ const ReferralsManagement = () => {
               </div>
             )}
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  setReferralToDelete(selectedReferral);
+                  setDeleteDialogOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir
+              </Button>
+              <div className="flex-1" />
               <Button variant="outline" onClick={() => setDetailsOpen(false)}>
                 Fechar
               </Button>
@@ -366,6 +415,45 @@ const ReferralsManagement = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-destructive" />
+                </div>
+                <AlertDialogTitle className="text-xl">
+                  Excluir encaminhamento?
+                </AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  Esta ação não pode ser desfeita. O encaminhamento para{' '}
+                  <strong>{referralToDelete?.council_member_name}</strong> será excluído permanentemente.
+                </p>
+                {referralToDelete?.citizen_message && (
+                  <div className="p-3 bg-muted rounded-md border">
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      "{referralToDelete.citizen_message}"
+                    </p>
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteReferral}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? 'Excluindo...' : 'Excluir permanentemente'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );
