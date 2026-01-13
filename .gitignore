@@ -16,6 +16,10 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 
+# Env files (não commitar segredos)
+.env
+.env.*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
