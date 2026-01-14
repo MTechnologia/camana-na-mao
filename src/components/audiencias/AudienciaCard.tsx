@@ -1,27 +1,29 @@
-import { MapPin, Users, Clock } from "lucide-react";
+import { MapPin, Clock, Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Audiencia } from "@/pages/Audiencias";
+import { AgendaItem, getEventTypeConfig } from "@/hooks/useAgenda";
+import { format, parseISO } from "date-fns";
 
 interface AudienciaCardProps {
-  audiencia: Audiencia;
+  audiencia: AgendaItem;
   onClick: () => void;
 }
 
-const themeColors: Record<string, string> = {
-  "Mobilidade": "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  "Educação": "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  "Saúde": "bg-red-500/10 text-red-600 border-red-500/20",
-  "Meio Ambiente": "bg-green-500/10 text-green-600 border-green-500/20",
-  "Cultura": "bg-pink-500/10 text-pink-600 border-pink-500/20",
-  "Segurança": "bg-orange-500/10 text-orange-600 border-orange-500/20",
-};
-
 const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+    try {
+      const date = parseISO(dateStr);
+      return {
+        day: format(date, "dd"),
+        month: format(date, "MMM").toUpperCase()
+      };
+    } catch {
+      return { day: "--", month: "---" };
+    }
   };
+
+  const dateInfo = formatDate(audiencia.eventDate);
+  const typeConfig = getEventTypeConfig(audiencia.eventType);
 
   return (
     <Card
@@ -33,10 +35,10 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
         <div className="flex-shrink-0">
           <div className="w-16 h-16 bg-primary/10 rounded-xl flex flex-col items-center justify-center">
             <span className="text-xs font-medium text-primary uppercase">
-              {formatDate(audiencia.date).split(" ")[1]}
+              {dateInfo.month}
             </span>
             <span className="text-2xl font-bold text-primary">
-              {formatDate(audiencia.date).split(" ")[0]}
+              {dateInfo.day}
             </span>
           </div>
         </div>
@@ -45,9 +47,9 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
         <div className="flex-1 min-w-0">
           <Badge
             variant="outline"
-            className={`text-xs border mb-2 inline-block ${themeColors[audiencia.theme] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
+            className={`text-xs border mb-2 inline-block ${typeConfig.color}`}
           >
-            {audiencia.theme}
+            {typeConfig.label}
           </Badge>
           <h3 className="font-semibold text-foreground line-clamp-2 mb-2">
             {audiencia.title}
@@ -58,17 +60,15 @@ const AudienciaCard = ({ audiencia, onClick }: AudienciaCardProps) => {
           </p>
 
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>{audiencia.time}</span>
-            </div>
+            {audiencia.eventTime && (
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{audiencia.eventTime}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <MapPin className="h-3 w-3" />
               <span className="line-clamp-1">{audiencia.location.split("-")[0].trim()}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              <span>{audiencia.participants} inscritos</span>
             </div>
           </div>
         </div>
