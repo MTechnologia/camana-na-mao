@@ -1,22 +1,9 @@
 -- RBAC: add "cidadao_engajado" role and align policies with user profile matrix
 
--- 1) Add new role to enum (idempotent)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_enum e
-    JOIN pg_type t ON t.oid = e.enumtypid
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'public'
-      AND t.typname = 'app_role'
-      AND e.enumlabel = 'cidadao_engajado'
-  ) THEN
-    ALTER TYPE public.app_role ADD VALUE 'cidadao_engajado';
-  END IF;
-END $$;
+-- NOTE: the enum value is added in a separate migration file to avoid
+-- "unsafe use of new value of enum" when referencing it in policies.
 
--- 2) Helper: check if user has ANY of the provided roles
+-- 1) Helper: check if user has ANY of the provided roles
 CREATE OR REPLACE FUNCTION public.has_any_role(_user_id UUID, _roles public.app_role[])
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -32,7 +19,7 @@ AS $$
   )
 $$;
 
--- 3) Ensure default role is assigned on signup (cidadao)
+-- 2) Ensure default role is assigned on signup (cidadao)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -61,7 +48,7 @@ WHERE NOT EXISTS (
 )
 ON CONFLICT DO NOTHING;
 
--- 4) Dashboards: viewing public dashboards and creating dashboards require engaged+ (cidadao_engajado/gestor/admin)
+-- 3) Dashboards: viewing public dashboards and creating dashboards require engaged+ (cidadao_engajado/gestor/admin)
 DROP POLICY IF EXISTS "Anyone can view public approved dashboards" ON public.dashboards;
 DROP POLICY IF EXISTS "Users can create dashboards" ON public.dashboards;
 
@@ -82,7 +69,7 @@ WITH CHECK (
   AND public.has_any_role(auth.uid(), ARRAY['cidadao_engajado', 'gestor', 'admin']::public.app_role[])
 );
 
--- 5) Council member referrals: only engaged+ can create referrals (encaminhar para vereador)
+-- 4) Council member referrals: only engaged+ can create referrals (encaminhar para vereador)
 DROP POLICY IF EXISTS "Users can create their own referrals" ON public.council_member_referrals;
 
 CREATE POLICY "Engaged users can create their own referrals"

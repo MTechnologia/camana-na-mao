@@ -63,13 +63,37 @@ const filterConfig: FilterConfig<AnalyticsFilters> = {
 
 const AnalyticsDashboard = () => {
   const navigate = useNavigate();
-  const { loading: roleLoading, canExportData, canAccessAdvancedAnalytics } = useUserRole();
+  const { loading: roleLoading, canExportData, canAccessAdvancedAnalytics, canViewDashboards } = useUserRole();
   const [filters, setFilters] = useState<AnalyticsFilters>({
     search: '',
     category: '',
     dateRange: undefined,
   });
   const [showExport, setShowExport] = useState(false);
+
+  if (roleLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-[60px] max-w-7xl mx-auto px-6 py-6">
+        <div className="space-y-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!canViewDashboards) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-[60px] max-w-3xl mx-auto px-6 py-10">
+        <h1 className="text-2xl font-bold mb-2">Acesso restrito</h1>
+        <p className="text-muted-foreground">
+          Dashboards públicos e analíticos estão disponíveis apenas para <strong>Cidadão Engajado</strong>,{' '}
+          <strong>Gestor</strong> e <strong>Admin</strong>.
+        </p>
+      </div>
+    );
+  }
 
   const activeCount = useMemo(() => {
     let count = 0;

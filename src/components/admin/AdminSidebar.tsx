@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface MenuItem {
   title: string;
@@ -36,6 +37,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(['gestão', 'relatos', 'configuracoes']);
   const stats = useAdminStats();
   const { unreadCount } = useNotifications();
+  const { canManageUsers, canConfigureSystem, canViewAuditLogs } = useUserRole();
 
   const menuSections: MenuSection[] = [
     {
@@ -50,21 +52,21 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
-        { title: 'Gestão de Usuários', icon: Users, href: '/admin/users' },
+        ...(canManageUsers ? [{ title: 'Gestão de Usuários', icon: Users, href: '/admin/users' }] : []),
       ],
     },
     {
       section: 'SISTEMA',
       items: [
-        {
+        ...(canConfigureSystem ? [{
           title: 'Configurações',
           icon: Settings,
           submenu: [
             { title: 'Automação de Workflows', href: '/admin/settings/n8n' },
             { title: 'Acessibilidade', href: '/admin/settings/accessibility' },
           ],
-        },
-        { title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' },
+        }] : []),
+        ...(canViewAuditLogs ? [{ title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' }] : []),
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
         { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: unreadCount > 0 ? unreadCount : null },
       ],

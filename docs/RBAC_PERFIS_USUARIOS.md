@@ -37,6 +37,12 @@
   - RLS/policies aplicadas para:
     - **Dashboards**: visualizar público e criar requer `cidadao_engajado`/`gestor`/`admin`.
     - **Encaminhamento para vereador** (`council_member_referrals`): inserir requer `cidadao_engajado`/`gestor`/`admin`.
+    - **Triagem/gestão de manifestações** (`urban_reports`, `transport_reports`): visualizar tudo e atualizar status requer `gestor`/`admin`.
+    - **Responder manifestações** (`transport_report_responses`): gerenciar requer `gestor`/`admin`.
+    - **Exportação** (`export_logs`): criar e visualizar todos requer `gestor`/`admin`.
+    - **Configuração do sistema** (`system_settings`): acesso restrito a `admin`.
+    - **Gestão de usuários** (`user_roles`): acesso restrito a `admin`.
+    - **Logs de auditoria** (`audit_logs`): acesso total restrito a `admin`.
   - Em signup, usuários recebem role padrão `cidadao`.
 
 - **Frontend**

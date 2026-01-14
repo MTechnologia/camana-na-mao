@@ -75,12 +75,18 @@ export const useUserRole = () => {
 
   // RBAC (baseado na matriz de permissões)
   const canAccessAdvancedAnalytics = isAdmin || isGestor || isAssessor;
-  const canExportData = isAdmin || isGestor || isVereador || isAssessor;
+  const canExportData = isAdmin || isGestor;
 
   const canReferToCouncilMember = isAdmin || isGestor || isCidadaoEngajado;
   const canViewDashboards = isAdmin || isGestor || isCidadaoEngajado;
   const canCreateDashboards = isAdmin || isGestor || isCidadaoEngajado;
   const canManageDashboards = isAdmin || isGestor;
+
+  const canRespondManifests = isAdmin || isGestor;
+  const canManageTriage = isAdmin || isGestor;
+  const canManageUsers = isAdmin;
+  const canConfigureSystem = isAdmin;
+  const canViewAuditLogs = isAdmin;
 
   // Cidadão "puro" (sem permissões adicionais)
   const isBasicCitizen = isCidadao && !isCidadaoEngajado && roles.length === 1;
@@ -101,6 +107,11 @@ export const useUserRole = () => {
     canViewDashboards,
     canCreateDashboards,
     canManageDashboards,
+    canRespondManifests,
+    canManageTriage,
+    canManageUsers,
+    canConfigureSystem,
+    canViewAuditLogs,
     isBasicCitizen,
     refetch: fetchUserRoles,
   };
