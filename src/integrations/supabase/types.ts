@@ -674,6 +674,51 @@ export type Database = {
         }
         Relationships: []
       }
+      news_cache: {
+        Row: {
+          cached_at: string | null
+          category: string | null
+          description: string | null
+          full_content: string | null
+          id: string
+          image_url: string | null
+          link: string | null
+          pub_date: string | null
+          read_time: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          cached_at?: string | null
+          category?: string | null
+          description?: string | null
+          full_content?: string | null
+          id: string
+          image_url?: string | null
+          link?: string | null
+          pub_date?: string | null
+          read_time?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          cached_at?: string | null
+          category?: string | null
+          description?: string | null
+          full_content?: string | null
+          id?: string
+          image_url?: string | null
+          link?: string | null
+          pub_date?: string | null
+          read_time?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Relationships: []
+      }
       noticias: {
         Row: {
           autor: string | null
