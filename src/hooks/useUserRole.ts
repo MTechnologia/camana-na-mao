@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export type UserRole = 'admin' | 'gestor' | 'vereador' | 'assessor' | 'cidadao';
+export type UserRole =
+  | 'admin'
+  | 'gestor'
+  | 'vereador'
+  | 'assessor'
+  | 'cidadao'
+  | 'cidadao_engajado';
 
 export const useUserRole = () => {
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -11,6 +17,7 @@ export const useUserRole = () => {
   const [isVereador, setIsVereador] = useState(false);
   const [isAssessor, setIsAssessor] = useState(false);
   const [isCidadao, setIsCidadao] = useState(false);
+  const [isCidadaoEngajado, setIsCidadaoEngajado] = useState(false);
 
   useEffect(() => {
     fetchUserRoles();
@@ -25,6 +32,7 @@ export const useUserRole = () => {
         setIsVereador(false);
         setIsAssessor(false);
         setIsCidadao(false);
+        setIsCidadaoEngajado(false);
       }
     });
 
@@ -55,6 +63,7 @@ export const useUserRole = () => {
       setIsVereador(userRoles.includes('vereador'));
       setIsAssessor(userRoles.includes('assessor'));
       setIsCidadao(userRoles.includes('cidadao'));
+      setIsCidadaoEngajado(userRoles.includes('cidadao_engajado'));
     } catch (error) {
       console.error('Error fetching user roles:', error);
     } finally {
@@ -64,10 +73,17 @@ export const useUserRole = () => {
 
   const hasRole = (role: UserRole) => roles.includes(role);
 
+  // RBAC (baseado na matriz de permissões)
   const canAccessAdvancedAnalytics = isAdmin || isGestor || isAssessor;
   const canExportData = isAdmin || isGestor || isVereador || isAssessor;
+
+  const canReferToCouncilMember = isAdmin || isGestor || isCidadaoEngajado;
+  const canViewDashboards = isAdmin || isGestor || isCidadaoEngajado;
+  const canCreateDashboards = isAdmin || isGestor || isCidadaoEngajado;
   const canManageDashboards = isAdmin || isGestor;
-  const canViewPublicOnly = isCidadao && roles.length === 1;
+
+  // Cidadão "puro" (sem permissões adicionais)
+  const isBasicCitizen = isCidadao && !isCidadaoEngajado && roles.length === 1;
 
   return {
     roles,
@@ -77,11 +93,15 @@ export const useUserRole = () => {
     isVereador,
     isAssessor,
     isCidadao,
+    isCidadaoEngajado,
     hasRole,
     canAccessAdvancedAnalytics,
     canExportData,
+    canReferToCouncilMember,
+    canViewDashboards,
+    canCreateDashboards,
     canManageDashboards,
-    canViewPublicOnly,
+    isBasicCitizen,
     refetch: fetchUserRoles,
   };
 };
