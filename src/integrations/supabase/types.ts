@@ -2180,7 +2180,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "gestor" | "vereador" | "assessor" | "cidadao"
+      app_role:
+        | "admin"
+        | "gestor"
+        | "vereador"
+        | "assessor"
+        | "cidadao"
+        | "cidadao_engajado"
       referral_status: "pending" | "sent" | "acknowledged" | "resolved"
       service_type:
         | "ubs"
@@ -2318,7 +2324,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "gestor", "vereador", "assessor", "cidadao"],
+      app_role: [
+        "admin",
+        "gestor",
+        "vereador",
+        "assessor",
+        "cidadao",
+        "cidadao_engajado",
+      ],
       referral_status: ["pending", "sent", "acknowledged", "resolved"],
       service_type: [
         "ubs",
