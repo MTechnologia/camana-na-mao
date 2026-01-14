@@ -12,12 +12,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calendar, MapPin, Plus, Trash2, Info, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ReportFilters } from "@/components/urban/ReportFilters";
 import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
+import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { toast } from "@/hooks/use-toast";
 
 interface Report {
@@ -66,6 +68,7 @@ const severityLabels: Record<string, string> = {
 export default function ReportHistoryPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { canReferToCouncilMember } = useUserRole();
   const [myReports, setMyReports] = useState<Report[]>([]);
   const [allReports, setAllReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +80,17 @@ export default function ReportHistoryPage() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [referralDialogOpen, setReferralDialogOpen] = useState(false);
+  const [referralReport, setReferralReport] = useState<{
+    id: string;
+    type: "urban";
+    title: string;
+    description?: string;
+    category?: string;
+    location?: string;
+    severity?: string;
+    date?: string;
+  } | null>(null);
 
   useEffect(() => {
     loadReports();
@@ -208,6 +222,9 @@ export default function ReportHistoryPage() {
     showAuthor: boolean = false,
     canDelete: boolean = false
   ) => {
+    const canShowReferralAction =
+      canReferToCouncilMember && !!user && report.user_id === user.id;
+
     return (
       <Card key={report.id} className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
@@ -274,10 +291,37 @@ export default function ReportHistoryPage() {
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-border/50">
-            <ReportInteractions
-              reportId={report.id}
-              onCommentClick={() => setSelectedReport(report)}
-            />
+            <div className="flex items-center gap-3">
+              <ReportInteractions
+                reportId={report.id}
+                onCommentClick={() => setSelectedReport(report)}
+              />
+
+              {canShowReferralAction && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setReferralReport({
+                      id: report.id,
+                      type: "urban",
+                      title:
+                        report.subcategory ||
+                        categoryLabels[report.category] ||
+                        report.category,
+                      description: report.description || undefined,
+                      category: report.category,
+                      location: report.location_address || undefined,
+                      severity: report.severity || undefined,
+                      date: report.created_at,
+                    });
+                    setReferralDialogOpen(true);
+                  }}
+                >
+                  Encaminhar para vereador
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -389,6 +433,19 @@ export default function ReportHistoryPage() {
         onConfirm={handleDeleteReport}
         report={reportToDelete}
         variant="simple"
+      />
+
+      <ReferralDialog
+        open={referralDialogOpen}
+        onOpenChange={(open) => {
+          setReferralDialogOpen(open);
+          if (!open) setReferralReport(null);
+        }}
+        report={referralReport ? { ...referralReport } : null}
+        onComplete={() => {
+          setReferralDialogOpen(false);
+          setReferralReport(null);
+        }}
       />
     </div>
   );
