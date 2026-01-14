@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.fetch-noticias]
 verify_jwt = false
+
+[functions.fetch-agenda]
+verify_jwt = false

@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, MapPin, Users, Search, X, CalendarPlus } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Search, X, CalendarPlus, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet,
   SheetContent,
@@ -17,75 +18,15 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-
-interface AgendaItem {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  type: "sessao" | "comissao" | "audiencia";
-  participants?: string[];
-}
-
-const mockAgenda: AgendaItem[] = [
-  {
-    id: "1",
-    title: "Sessão Plenária Ordinária",
-    date: "2024-12-15",
-    time: "14:00",
-    location: "Plenário Juscelino Kubitschek",
-    type: "sessao",
-    participants: ["47 Vereadores"],
-  },
-  {
-    id: "2",
-    title: "Comissão de Mobilidade e Transporte",
-    date: "2024-12-16",
-    time: "10:00",
-    location: "Sala das Comissões 1",
-    type: "comissao",
-    participants: ["7 Vereadores", "Especialistas convidados"],
-  },
-  {
-    id: "3",
-    title: "Audiência Pública - Educação Integral",
-    date: "2024-12-18",
-    time: "15:00",
-    location: "Auditório Prestes Maia",
-    type: "audiencia",
-    participants: ["Cidadãos", "Comissão de Educação"],
-  },
-  {
-    id: "4",
-    title: "Comissão de Saúde",
-    date: "2024-12-19",
-    time: "09:00",
-    location: "Sala das Comissões 2",
-    type: "comissao",
-    participants: ["5 Vereadores"],
-  },
-  {
-    id: "5",
-    title: "Sessão Extraordinária",
-    date: "2024-12-20",
-    time: "16:00",
-    location: "Plenário Juscelino Kubitschek",
-    type: "sessao",
-    participants: ["55 Vereadores"],
-  },
-];
-
-const typeLabels = {
-  sessao: { label: "Sessão Plenária", color: "bg-blue-500/10 text-blue-600" },
-  comissao: { label: "Comissão", color: "bg-purple-500/10 text-purple-600" },
-  audiencia: { label: "Audiência Pública", color: "bg-green-500/10 text-green-600" },
-};
+import { useAgenda, AgendaItem, getEventTypeConfig } from "@/hooks/useAgenda";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const typeFilterOptions = [
   { value: "sessao", label: "Sessões" },
   { value: "comissao", label: "Comissões" },
   { value: "audiencia", label: "Audiências" },
+  { value: "cerimonia", label: "Cerimônias" },
 ];
 
 const AgendaCMSP = () => {
@@ -93,26 +34,28 @@ const AgendaCMSP = () => {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<AgendaItem | null>(null);
 
+  const { data: agendaData = [], isLoading, error, refetch } = useAgenda();
+
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("pt-BR", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    try {
+      const date = parseISO(dateStr);
+      return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
   };
 
   const formatShortDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    try {
+      const date = parseISO(dateStr);
+      return format(date, "dd/MM/yyyy");
+    } catch {
+      return dateStr;
+    }
   };
 
   const handleAddToCalendar = (item: AgendaItem) => {
-    const startDate = new Date(`${item.date}T${item.time}:00`);
+    const startDate = new Date(`${item.eventDate}T${item.eventTime || "10:00"}:00`);
     const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // +2 hours
 
     const formatGoogleDate = (d: Date) =>
@@ -123,7 +66,7 @@ const AgendaCMSP = () => {
     )}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(
       endDate
     )}&location=${encodeURIComponent(item.location)}&details=${encodeURIComponent(
-      `Evento da Câmara Municipal de São Paulo\n\nLocal: ${item.location}`
+      `Evento da Câmara Municipal de São Paulo\n\nLocal: ${item.location}\n\n${item.description}`
     )}`;
 
     window.open(googleUrl, "_blank");
@@ -131,18 +74,19 @@ const AgendaCMSP = () => {
   };
 
   const filteredAgenda = useMemo(() => {
-    return mockAgenda.filter((item) => {
+    return agendaData.filter((item) => {
       // Search filter
       const matchesSearch = searchQuery === "" || 
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.location.toLowerCase().includes(searchQuery.toLowerCase());
+        item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase());
 
       // Type filter
-      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.type);
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.eventType);
 
       return matchesSearch && matchesType;
     });
-  }, [searchQuery, selectedTypes]);
+  }, [agendaData, searchQuery, selectedTypes]);
 
   const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0;
 
@@ -158,8 +102,8 @@ const AgendaCMSP = () => {
     >
       <ContentArticle
         title="Agenda da Câmara Municipal"
-        date="Atualizado hoje às 10:30"
-        readTime="Verificação a cada 15 minutos"
+        date="Atualizado automaticamente"
+        readTime="Fonte: Portal da Câmara"
       >
         <p className="text-muted-foreground">
           Acompanhe todas as atividades legislativas da Câmara Municipal de São Paulo.
@@ -215,15 +159,56 @@ const AgendaCMSP = () => {
           </TabsList>
 
           <TabsContent value="proximos" className="space-y-4 mt-4">
-            {filteredAgenda.length === 0 ? (
+            {/* Loading State */}
+            {isLoading && (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="p-4">
+                    <Skeleton className="h-5 w-24 mb-2" />
+                    <Skeleton className="h-6 w-3/4 mb-3" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !isLoading && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  Não foi possível carregar a agenda
+                </p>
+                <Button variant="outline" onClick={() => refetch()}>
+                  <Loader2 className="h-4 w-4 mr-2" />
+                  Tentar novamente
+                </Button>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && filteredAgenda.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  Nenhum evento encontrado com os filtros selecionados
+                  {hasActiveFilters
+                    ? "Nenhum evento encontrado com os filtros selecionados"
+                    : "Nenhum evento programado no momento"}
                 </p>
+                {hasActiveFilters && (
+                  <Button variant="ghost" onClick={clearFilters} className="mt-4">
+                    Limpar filtros
+                  </Button>
+                )}
               </div>
-            ) : (
+            )}
+
+            {/* Events List */}
+            {!isLoading && !error && filteredAgenda.length > 0 && (
               filteredAgenda.map((item) => {
-                const typeInfo = typeLabels[item.type];
+                const typeConfig = getEventTypeConfig(item.eventType);
                 return (
                   <Card 
                     key={item.id} 
@@ -233,9 +218,9 @@ const AgendaCMSP = () => {
                     <div className="space-y-3">
                       <Badge
                         variant="outline"
-                        className={`mb-2 inline-block ${typeInfo.color}`}
+                        className={`mb-2 inline-block ${typeConfig.color}`}
                       >
-                        {typeInfo.label}
+                        {typeConfig.label}
                       </Badge>
                       <h3 className="font-semibold text-foreground mb-2">
                         {item.title}
@@ -244,23 +229,25 @@ const AgendaCMSP = () => {
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span className="capitalize">{formatDate(item.date)}</span>
+                          <span className="capitalize">{formatDate(item.eventDate)}</span>
                         </div>
 
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>{item.time}</span>
-                        </div>
+                        {item.eventTime && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Clock className="h-4 w-4" />
+                            <span>{item.eventTime}</span>
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <MapPin className="h-4 w-4" />
                           <span>{item.location}</span>
                         </div>
 
-                        {item.participants && (
+                        {item.organizer && item.organizer !== 'Câmara Municipal de São Paulo' && (
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Users className="h-4 w-4" />
-                            <span>{item.participants.join(", ")}</span>
+                            <span>{item.organizer}</span>
                           </div>
                         )}
                       </div>
@@ -280,7 +267,7 @@ const AgendaCMSP = () => {
 
         <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
           <p><strong>Fonte:</strong> Portal da Câmara Municipal de São Paulo</p>
-          <p><strong>Atualização:</strong> A cada 15 minutos</p>
+          <p><strong>Atualização:</strong> Automática via API</p>
           <p><strong>Observação:</strong> A agenda pode sofrer alterações. Confirme sempre no dia.</p>
         </div>
       </ContentArticle>
@@ -293,9 +280,9 @@ const AgendaCMSP = () => {
               <SheetHeader className="text-left pb-4">
                 <Badge
                   variant="outline"
-                  className={`w-fit ${typeLabels[selectedEvent.type].color}`}
+                  className={`w-fit ${getEventTypeConfig(selectedEvent.eventType).color}`}
                 >
-                  {typeLabels[selectedEvent.type].label}
+                  {getEventTypeConfig(selectedEvent.eventType).label}
                 </Badge>
                 <SheetTitle className="text-xl">
                   {selectedEvent.title}
@@ -314,20 +301,22 @@ const AgendaCMSP = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Data</p>
-                    <p className="font-medium capitalize">{formatDate(selectedEvent.date)}</p>
-                    <p className="text-sm text-muted-foreground">{formatShortDate(selectedEvent.date)}</p>
+                    <p className="font-medium capitalize">{formatDate(selectedEvent.eventDate)}</p>
+                    <p className="text-sm text-muted-foreground">{formatShortDate(selectedEvent.eventDate)}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Clock className="h-5 w-5 text-primary" />
+                {selectedEvent.eventTime && (
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Horário</p>
+                      <p className="font-medium">{selectedEvent.eventTime}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Horário</p>
-                    <p className="font-medium">{selectedEvent.time}</p>
-                  </div>
-                </div>
+                )}
 
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -339,15 +328,22 @@ const AgendaCMSP = () => {
                   </div>
                 </div>
 
-                {selectedEvent.participants && selectedEvent.participants.length > 0 && (
+                {selectedEvent.organizer && (
                   <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <Users className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Participantes</p>
-                      <p className="font-medium">{selectedEvent.participants.join(", ")}</p>
+                      <p className="text-sm text-muted-foreground">Organizador</p>
+                      <p className="font-medium">{selectedEvent.organizer}</p>
                     </div>
+                  </div>
+                )}
+
+                {selectedEvent.description && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Descrição</p>
+                    <p className="text-sm">{selectedEvent.description}</p>
                   </div>
                 )}
               </div>

@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      agenda_cache: {
+        Row: {
+          cached_at: string | null
+          description: string | null
+          event_date: string | null
+          event_time: string | null
+          event_type: string | null
+          id: string
+          link: string | null
+          location: string | null
+          organizer: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          cached_at?: string | null
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          event_type?: string | null
+          id: string
+          link?: string | null
+          location?: string | null
+          organizer?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          cached_at?: string | null
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          link?: string | null
+          location?: string | null
+          organizer?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           context: string | null
