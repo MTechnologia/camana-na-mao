@@ -71,6 +71,14 @@ const AnalyticsDashboard = () => {
   });
   const [showExport, setShowExport] = useState(false);
 
+  const activeCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.category && filters.category !== 'all') count++;
+    if (filters.dateRange?.from) count++;
+    return count;
+  }, [filters]);
+
   if (roleLoading) {
     return (
       <div className="min-h-screen bg-gray-50 pt-[60px] max-w-7xl mx-auto px-6 py-6">
@@ -94,14 +102,6 @@ const AnalyticsDashboard = () => {
       </div>
     );
   }
-
-  const activeCount = useMemo(() => {
-    let count = 0;
-    if (filters.search) count++;
-    if (filters.category && filters.category !== 'all') count++;
-    if (filters.dateRange?.from) count++;
-    return count;
-  }, [filters]);
 
   // Mock data
   const kpiData = {
@@ -141,20 +141,6 @@ const AnalyticsDashboard = () => {
   ];
 
   const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
-
-  if (roleLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <PageHeader title="Análise de Dados" />
-        <div className="pt-[60px] pb-24 max-w-7xl mx-auto px-6 py-6">
-          <Skeleton className="h-32 w-full mb-6" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-40" />)}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
