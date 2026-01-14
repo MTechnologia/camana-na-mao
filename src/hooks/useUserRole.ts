@@ -48,14 +48,30 @@ export const useUserRole = () => {
         return;
       }
 
+      let userRoles: UserRole[] = [];
+
+      // Prefer direct table read (fast + typed), but fall back to RPC if RLS blocks it.
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (!error) {
+        userRoles = (data || []).map((r) => r.role as UserRole);
+      } else {
+        console.warn('[RBAC] Could not read public.user_roles directly; falling back to get_user_roles()', error);
 
-      const userRoles = (data || []).map(r => r.role as UserRole);
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_roles', {
+          _user_id: user.id,
+        });
+
+        if (rpcError) throw rpcError;
+
+        userRoles = (rpcData || []).map((r) => r as UserRole);
+      }
+
+      // Safety net: if roles are empty (misconfigured DB/migrations), assume default citizen to avoid UI "no permissions".
+      if (userRoles.length === 0) userRoles = ['cidadao'];
       
       setRoles(userRoles);
       setIsAdmin(userRoles.includes('admin'));

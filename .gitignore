@@ -21,6 +21,7 @@ supabase/.branches/
 .env.*
 
 # Editor directories and files
+.cursor/
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -30,3 +31,8 @@ supabase/.branches/
 *.njsproj
 *.sln
 *.sw?
+
+# Office temp files (Word/Excel)
+~$*.docx
+~$*.xlsx
+~WRL*.tmp
