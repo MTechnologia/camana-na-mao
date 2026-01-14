@@ -88,9 +88,6 @@ export const useUserRole = () => {
   const canConfigureSystem = isAdmin;
   const canViewAuditLogs = isAdmin;
 
-  // Cidadão "puro" (sem permissões adicionais)
-  const isBasicCitizen = isCidadao && !isCidadaoEngajado && roles.length === 1;
-
   return {
     roles,
     loading,
@@ -112,7 +109,6 @@ export const useUserRole = () => {
     canManageUsers,
     canConfigureSystem,
     canViewAuditLogs,
-    isBasicCitizen,
     refetch: fetchUserRoles,
   };
 };
