@@ -1,18 +1,74 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, Eye, Share2 } from "lucide-react";
+import { Calendar, Clock, ExternalLink, RefreshCw, Share2 } from "lucide-react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getNoticiaById, categoryConfig } from "@/data/noticias";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useNoticiaById } from "@/hooks/useNoticias";
+import { getCategoryConfig } from "@/data/noticias";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const NoticiaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const noticia = id ? getNoticiaById(id) : undefined;
+  const { noticia, isLoading, error } = useNoticiaById(id);
 
-  if (!noticia) {
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: noticia?.title,
+        text: noticia?.description,
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Link copiado para a área de transferência");
+    }
+  };
+
+  const handleOpenOriginal = () => {
+    if (noticia?.link) {
+      window.open(noticia.link, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const formatFullDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return format(date, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/">
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="w-12 h-12 rounded-full" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-6 w-3/4" />
+          <div className="flex gap-4">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+      </InstitutionalLayout>
+    );
+  }
+
+  if (error || !noticia) {
     return (
       <InstitutionalLayout title="Notícia" category="Comunicação" backTo="/">
         <div className="text-center py-12">
@@ -25,19 +81,17 @@ const NoticiaDetailPage = () => {
     );
   }
 
-  const categoryStyle = categoryConfig[noticia.category];
-  const IconComponent = noticia.icon;
+  const categoryStyle = getCategoryConfig(noticia.category);
+  const IconComponent = categoryStyle.icon;
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: noticia.title,
-        text: noticia.description,
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success("Link copiado para a área de transferência");
+  const isRecent = () => {
+    try {
+      const date = new Date(noticia.pubDate);
+      const now = new Date();
+      const diffHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+      return diffHours < 24;
+    } catch {
+      return false;
     }
   };
 
@@ -62,12 +116,24 @@ const NoticiaDetailPage = () => {
             </Badge>
           </div>
           
-          {noticia.isNew && (
+          {isRecent() && (
             <Badge variant="secondary" className="text-xs">
               NOVO
             </Badge>
           )}
         </div>
+
+        {/* Imagem de capa (se disponível) */}
+        {noticia.imageUrl && (
+          <div className="rounded-lg overflow-hidden">
+            <img 
+              src={noticia.imageUrl} 
+              alt={noticia.title}
+              className="w-full h-48 object-cover"
+              loading="lazy"
+            />
+          </div>
+        )}
 
         {/* Título */}
         <h1 className="text-3xl font-bold text-foreground leading-tight">
@@ -83,15 +149,11 @@ const NoticiaDetailPage = () => {
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground pb-4 border-b border-border">
           <div className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            <span>{noticia.date}</span>
+            <span>{formatFullDate(noticia.pubDate)}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Clock className="h-4 w-4" />
             <span>{noticia.readTime} de leitura</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Eye className="h-4 w-4" />
-            <span>{noticia.views.toLocaleString('pt-BR')} visualizações</span>
           </div>
         </div>
 
@@ -103,11 +165,10 @@ const NoticiaDetailPage = () => {
 
         {/* Conteúdo completo */}
         <div className="prose prose-slate max-w-none">
-          <div className="text-foreground leading-relaxed space-y-4">
-            {noticia.fullContent.split('\n\n').map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
-            ))}
-          </div>
+          <div 
+            className="text-foreground leading-relaxed space-y-4"
+            dangerouslySetInnerHTML={{ __html: noticia.fullContent }}
+          />
         </div>
 
         {/* Ações */}
@@ -119,6 +180,14 @@ const NoticiaDetailPage = () => {
           >
             <Share2 className="w-4 h-4 mr-2" />
             Compartilhar
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={handleOpenOriginal}
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Ver Original
           </Button>
         </div>
 

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { noticias } from "@/data/noticias";
+import { useNoticias } from "@/hooks/useNoticias";
 import { isToday, isTomorrow, differenceInHours, differenceInDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -36,6 +36,9 @@ const ContextualFeed = () => {
   const [proximasAudiencias, setProximasAudiencias] = useState<Audiencia[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  
+  // Use the hook to get news from API
+  const { data: noticiasData = [], isLoading: noticiasLoading } = useNoticias();
   
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { 
@@ -86,7 +89,7 @@ const ContextualFeed = () => {
   }, [emblaApi, onSelect]);
 
   // Get multiple recent news (up to 3)
-  const recentNews = noticias.slice(0, 3);
+  const recentNews = noticiasData.slice(0, 3);
 
   useEffect(() => {
     const fetchProximasAudiencias = async () => {
@@ -155,9 +158,9 @@ const ContextualFeed = () => {
       id: news.id,
       type: "news" as const,
       title: news.title,
-      description: news.description + " " + news.fullContent.slice(0, 80) + "...",
-      date: news.date,
-      badge: isRecentNews(news.date) ? "Novo" : undefined,
+      description: news.description,
+      date: news.pubDate,
+      badge: isRecentNews(news.pubDate) ? "Novo" : undefined,
       badgeColor: "destructive"
     })),
     ...proximasAudiencias.map((audiencia) => ({
@@ -172,7 +175,8 @@ const ContextualFeed = () => {
     }))
   ];
 
-  if (feedItems.length === 0) return null;
+  // Show nothing while loading or if no items
+  if (noticiasLoading || feedItems.length === 0) return null;
 
   const scrollTo = (index: number) => {
     emblaApi?.scrollTo(index);
