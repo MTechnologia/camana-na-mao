@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      agenda_cache: {
+        Row: {
+          cached_at: string | null
+          description: string | null
+          event_date: string | null
+          event_time: string | null
+          event_type: string | null
+          id: string
+          link: string | null
+          location: string | null
+          organizer: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          cached_at?: string | null
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          event_type?: string | null
+          id: string
+          link?: string | null
+          location?: string | null
+          organizer?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          cached_at?: string | null
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          link?: string | null
+          location?: string | null
+          organizer?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           context: string | null
@@ -377,6 +419,66 @@ export type Database = {
           },
         ]
       }
+      council_members_cache: {
+        Row: {
+          andar: string | null
+          cached_at: string | null
+          email: string | null
+          gv: string | null
+          id: string
+          initials: string | null
+          is_government_leader: boolean | null
+          is_leader: boolean | null
+          is_on_leave: boolean | null
+          is_substitute: boolean | null
+          name: string
+          party: string
+          phone: string | null
+          photo: string | null
+          region: string | null
+          sala: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          andar?: string | null
+          cached_at?: string | null
+          email?: string | null
+          gv?: string | null
+          id: string
+          initials?: string | null
+          is_government_leader?: boolean | null
+          is_leader?: boolean | null
+          is_on_leave?: boolean | null
+          is_substitute?: boolean | null
+          name: string
+          party: string
+          phone?: string | null
+          photo?: string | null
+          region?: string | null
+          sala?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          andar?: string | null
+          cached_at?: string | null
+          email?: string | null
+          gv?: string | null
+          id?: string
+          initials?: string | null
+          is_government_leader?: boolean | null
+          is_leader?: boolean | null
+          is_on_leave?: boolean | null
+          is_substitute?: boolean | null
+          name?: string
+          party?: string
+          phone?: string | null
+          photo?: string | null
+          region?: string | null
+          sala?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       dashboards: {
         Row: {
           config: Json
@@ -611,6 +713,51 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           webhook_url?: string
+        }
+        Relationships: []
+      }
+      news_cache: {
+        Row: {
+          cached_at: string | null
+          category: string | null
+          description: string | null
+          full_content: string | null
+          id: string
+          image_url: string | null
+          link: string | null
+          pub_date: string | null
+          read_time: string | null
+          title: string
+          updated_at: string | null
+          views: number | null
+        }
+        Insert: {
+          cached_at?: string | null
+          category?: string | null
+          description?: string | null
+          full_content?: string | null
+          id: string
+          image_url?: string | null
+          link?: string | null
+          pub_date?: string | null
+          read_time?: string | null
+          title: string
+          updated_at?: string | null
+          views?: number | null
+        }
+        Update: {
+          cached_at?: string | null
+          category?: string | null
+          description?: string | null
+          full_content?: string | null
+          id?: string
+          image_url?: string | null
+          link?: string | null
+          pub_date?: string | null
+          read_time?: string | null
+          title?: string
+          updated_at?: string | null
+          views?: number | null
         }
         Relationships: []
       }

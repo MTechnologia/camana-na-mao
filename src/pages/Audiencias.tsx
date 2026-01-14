@@ -1,27 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, Users } from "lucide-react";
+import { Search, Filter, Calendar, Users, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
-import AudienciaCard from "@/components/audiencias/AudienciaCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import AudienciaFilters from "@/components/audiencias/AudienciaFilters";
-
-
-export interface Audiencia {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  theme: string;
-  participants: number;
-  status: 'upcoming' | 'ongoing' | 'finished';
-  organizer: string;
-}
+import { useUpcomingAgenda, AgendaItem, getEventTypeConfig } from "@/hooks/useAgenda";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const Audiencias = () => {
   const navigate = useNavigate();
@@ -33,81 +22,47 @@ const Audiencias = () => {
     period: "all",
   });
 
-  // Mock data - audiências públicas
-  const mockAudiencias: Audiencia[] = [
-    {
-      id: "1",
-      title: "Mobilidade Urbana na Zona Leste",
-      description: "Discussão sobre melhorias no transporte público e ciclovias na região da Zona Leste de São Paulo.",
-      date: "2024-12-15",
-      time: "14:00",
-      location: "Auditório da Câmara Municipal - Viaduto Jacareí, 100",
-      theme: "Mobilidade",
-      participants: 45,
-      status: "upcoming",
-      organizer: "Comissão de Trânsito e Mobilidade"
-    },
-    {
-      id: "2",
-      title: "Educação Digital nas Escolas Públicas",
-      description: "Debate sobre a implementação de tecnologias digitais e inclusão digital nas escolas da rede municipal.",
-      date: "2024-12-18",
-      time: "10:00",
-      location: "Plenário Juscelino Kubitschek",
-      theme: "Educação",
-      participants: 78,
-      status: "upcoming",
-      organizer: "Comissão de Educação"
-    },
-    {
-      id: "3",
-      title: "Saúde Preventiva e UBS",
-      description: "Discussão sobre ampliação e modernização das Unidades Básicas de Saúde nos bairros periféricos.",
-      date: "2024-12-20",
-      time: "16:00",
-      location: "Auditório Prestes Maia",
-      theme: "Saúde",
-      participants: 62,
-      status: "upcoming",
-      organizer: "Comissão de Saúde"
-    },
-    {
-      id: "4",
-      title: "Sustentabilidade e Meio Ambiente",
-      description: "Políticas públicas para gestão de resíduos sólidos e criação de áreas verdes na cidade.",
-      date: "2024-12-22",
-      time: "09:00",
-      location: "Sala das Comissões",
-      theme: "Meio Ambiente",
-      participants: 34,
-      status: "upcoming",
-      organizer: "Comissão de Meio Ambiente"
+  const { data: agendaData = [], isLoading, error, refetch } = useUpcomingAgenda();
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = parseISO(dateStr);
+      return format(date, "dd/MM/yyyy");
+    } catch {
+      return dateStr;
     }
-  ];
+  };
 
-  const filteredAudiencias = mockAudiencias.filter((audiencia) => {
-    // Search filter
-    const matchesSearch =
-      audiencia.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      audiencia.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      audiencia.theme.toLowerCase().includes(searchQuery.toLowerCase());
+  const formatLongDate = (dateStr: string) => {
+    try {
+      const date = parseISO(dateStr);
+      return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
 
-    // Theme filter
-    const matchesTheme =
-      filters.themes.length === 0 || filters.themes.includes(audiencia.theme);
+  const filteredAudiencias = useMemo(() => {
+    return agendaData.filter((item) => {
+      // Search filter
+      const matchesSearch =
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.eventType.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Status filter
-    const matchesStatus =
-      filters.status === "all" || audiencia.status === filters.status;
+      // Type filter (themes)
+      const matchesTheme =
+        filters.themes.length === 0 || filters.themes.includes(item.eventType);
 
-    // Period filter (simplified for mock data)
-    const matchesPeriod = filters.period === "all"; // Would need date logic for real filtering
+      return matchesSearch && matchesTheme;
+    });
+  }, [agendaData, searchQuery, filters.themes]);
 
-    return matchesSearch && matchesTheme && matchesStatus && matchesPeriod;
-  });
-
-  const handleCardClick = (audiencia: Audiencia) => {
-    navigate(`/audiencias/${audiencia.id}`);
+  const handleCardClick = (item: AgendaItem) => {
+    // Navigate to external link if available, otherwise show internal detail
+    if (item.link) {
+      window.open(item.link, '_blank');
+    }
   };
 
   const activeFiltersCount =
@@ -159,8 +114,10 @@ const Audiencias = () => {
                   <Calendar className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{mockAudiencias.length}</p>
-                  <p className="text-xs text-muted-foreground">Próximas</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {isLoading ? "-" : agendaData.length}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Próximos</p>
                 </div>
               </div>
             </Card>
@@ -171,47 +128,126 @@ const Audiencias = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {mockAudiencias.reduce((sum, a) => sum + a.participants, 0)}
+                    {isLoading ? "-" : agendaData.filter(a => a.eventType === 'audiencia').length}
                   </p>
-                  <p className="text-xs text-muted-foreground">Inscritos</p>
+                  <p className="text-xs text-muted-foreground">Audiências</p>
                 </div>
               </div>
             </Card>
           </div>
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-4">
+                  <Skeleton className="h-5 w-20 mb-3" />
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-full mb-4" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-1/3" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !isLoading && (
+            <Card className="p-12 text-center border-border">
+              <div className="flex flex-col items-center gap-4">
+                <div className="p-4 bg-muted rounded-full">
+                  <Calendar className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-1">
+                    Não foi possível carregar a agenda
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Tente novamente em alguns instantes
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => refetch()}>
+                  <Loader2 className="h-4 w-4 mr-2" />
+                  Tentar novamente
+                </Button>
+              </div>
+            </Card>
+          )}
+
           {/* Audiências List */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredAudiencias.length > 0 ? (
-              filteredAudiencias.map((audiencia, index) => (
-                <div
-                  key={audiencia.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${100 + index * 50}ms` }}
-                >
-                  <AudienciaCard audiencia={audiencia} onClick={() => handleCardClick(audiencia)} />
-                </div>
-              ))
-            ) : (
-              <Card className="p-12 text-center border-border animate-fade-in">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="p-4 bg-muted rounded-full">
-                    <Calendar className="h-8 w-8 text-muted-foreground" />
+          {!isLoading && !error && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredAudiencias.length > 0 ? (
+                filteredAudiencias.map((item, index) => {
+                  const typeConfig = getEventTypeConfig(item.eventType);
+                  return (
+                    <div
+                      key={item.id}
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${100 + index * 50}ms` }}
+                    >
+                      <Card 
+                        className="p-4 hover:shadow-md transition-all cursor-pointer h-full"
+                        onClick={() => handleCardClick(item)}
+                      >
+                        <div className="space-y-3">
+                          <Badge
+                            variant="outline"
+                            className={typeConfig.color}
+                          >
+                            {typeConfig.label}
+                          </Badge>
+                          
+                          <h3 className="font-semibold text-foreground line-clamp-2">
+                            {item.title}
+                          </h3>
+                          
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {item.description}
+                          </p>
+                          
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              <span className="capitalize">{formatDate(item.eventDate)}</span>
+                            </div>
+                            {item.eventTime && (
+                              <span>{item.eventTime}</span>
+                            )}
+                          </div>
+                          
+                          <p className="text-xs text-muted-foreground truncate">
+                            📍 {item.location}
+                          </p>
+                        </div>
+                      </Card>
+                    </div>
+                  );
+                })
+              ) : (
+                <Card className="p-12 text-center border-border animate-fade-in col-span-full">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="p-4 bg-muted rounded-full">
+                      <Calendar className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">
+                        Nenhum evento encontrado
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Tente ajustar os filtros ou verifique novamente mais tarde
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => setSearchQuery("")}>
+                      Limpar busca
+                    </Button>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">
-                      Nenhuma audiência encontrada
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Tente ajustar os filtros ou verifique novamente mais tarde
-                    </p>
-                  </div>
-                  <Button variant="outline" onClick={() => setSearchQuery("")}>
-                    Limpar busca
-                  </Button>
-                </div>
-              </Card>
-            )}
-          </div>
+                </Card>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -222,7 +258,6 @@ const Audiencias = () => {
         filters={filters}
         onFiltersChange={setFilters}
       />
-
     </div>
   );
 };
