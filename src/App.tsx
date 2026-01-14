@@ -117,6 +117,7 @@ const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement
 // ============================================
 const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
+const DebugRBAC = lazy(() => import("./pages/debug/DebugRBAC"));
 
 
 // Prefetch common routes on app load
@@ -266,6 +267,9 @@ const AppContent = () => {
           {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
+
+          {/* Debug */}
+          <Route path="/debug/rbac" element={<DebugRBAC />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
