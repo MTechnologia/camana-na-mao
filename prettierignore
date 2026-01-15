@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+mobile/node_modules
+supabase/.temp
+supabase/.branches
+*.lock
+*.lockb
+package-lock.json
+mobile/package-lock.json

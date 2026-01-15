@@ -15,11 +15,13 @@ import { DashboardBuilder } from '@/components/analytics/DashboardBuilder';
 import { DashboardPreview, type DashboardConfig, type WidgetConfig } from '@/components/analytics/DashboardPreview';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 
 export default function CreateDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { loading: roleLoading, canCreateDashboards } = useUserRole();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(false);
@@ -34,6 +36,13 @@ export default function CreateDashboard() {
   };
 
   const handleSave = async () => {
+    if (!roleLoading && !canCreateDashboards) {
+      toast.error('Acesso restrito', {
+        description: 'Criação de dashboards está disponível apenas para Cidadão Engajado, Gestor e Admin.',
+      });
+      return;
+    }
+
     if (!title.trim()) {
       toast.error('Por favor, informe um título para o painel');
       return;

@@ -8,9 +8,23 @@ import PageHeader from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import AudienciaFilters from "@/components/audiencias/AudienciaFilters";
-import { useUpcomingAgenda, AgendaItem, getEventTypeConfig } from "@/hooks/useAgenda";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+type AudienciaRow = {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  data: string;
+  hora: string;
+  local: string;
+  tema: string;
+  status: string;
+  vagas_disponiveis: number | null;
+  inscricoes_abertas: boolean | null;
+};
 
 const Audiencias = () => {
   const navigate = useNavigate();
@@ -22,7 +36,20 @@ const Audiencias = () => {
     period: "all",
   });
 
-  const { data: agendaData = [], isLoading, error, refetch } = useUpcomingAgenda();
+  const { data: audienciasData = [], isLoading, error, refetch } = useQuery({
+    queryKey: ["audiencias"],
+    queryFn: async (): Promise<AudienciaRow[]> => {
+      const { data, error } = await supabase
+        .from("audiencias")
+        .select("id, titulo, descricao, data, hora, local, tema, status, vagas_disponiveis, inscricoes_abertas")
+        .order("data", { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as AudienciaRow[];
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
 
   const formatDate = (dateStr: string) => {
     try {
@@ -43,26 +70,55 @@ const Audiencias = () => {
   };
 
   const filteredAudiencias = useMemo(() => {
-    return agendaData.filter((item) => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    const nextMonthStart = startOfMonth(addMonths(now, 1));
+    const nextMonthEnd = endOfMonth(addMonths(now, 1));
+
+    return audienciasData.filter((a) => {
+      const title = (a.titulo || "").toLowerCase();
+      const desc = (a.descricao || "").toLowerCase();
+      const tema = (a.tema || "").toLowerCase();
+      const status = (a.status || "").toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+
       // Search filter
       const matchesSearch =
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.eventType.toLowerCase().includes(searchQuery.toLowerCase());
+        !q || title.includes(q) || desc.includes(q) || tema.includes(q) || status.includes(q);
 
-      // Type filter (themes)
-      const matchesTheme =
-        filters.themes.length === 0 || filters.themes.includes(item.eventType);
+      // Theme filter
+      const matchesTheme = filters.themes.length === 0 || filters.themes.includes(a.tema);
 
-      return matchesSearch && matchesTheme;
+      // Status filter (heuristic + date fallback)
+      const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
+      const isOngoing = status.includes("andamento") || status.includes("em andamento");
+      const isUpcoming = !isFinished && !isOngoing && a.data >= todayStr;
+
+      const matchesStatus =
+        filters.status === "all" ||
+        (filters.status === "finished" && isFinished) ||
+        (filters.status === "ongoing" && isOngoing) ||
+        (filters.status === "upcoming" && isUpcoming);
+
+      // Period filter
+      const dateObj = new Date(a.data);
+      const matchesPeriod =
+        filters.period === "all" ||
+        (filters.period === "week" && dateObj >= weekStart && dateObj <= weekEnd) ||
+        (filters.period === "month" && dateObj >= monthStart && dateObj <= monthEnd) ||
+        (filters.period === "next-month" && dateObj >= nextMonthStart && dateObj <= nextMonthEnd);
+
+      return matchesSearch && matchesTheme && matchesStatus && matchesPeriod;
     });
-  }, [agendaData, searchQuery, filters.themes]);
+  }, [audienciasData, searchQuery, filters]);
 
-  const handleCardClick = (item: AgendaItem) => {
-    // Navigate to external link if available, otherwise show internal detail
-    if (item.link) {
-      window.open(item.link, '_blank');
-    }
+  const handleCardClick = (item: AudienciaRow) => {
+    navigate(`/audiencias/${item.id}`);
   };
 
   const activeFiltersCount =
@@ -115,7 +171,7 @@ const Audiencias = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {isLoading ? "-" : agendaData.length}
+                    {isLoading ? "-" : filteredAudiencias.length}
                   </p>
                   <p className="text-xs text-muted-foreground">Próximos</p>
                 </div>
@@ -128,7 +184,7 @@ const Audiencias = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {isLoading ? "-" : agendaData.filter(a => a.eventType === 'audiencia').length}
+                    {isLoading ? "-" : audienciasData.length}
                   </p>
                   <p className="text-xs text-muted-foreground">Audiências</p>
                 </div>
@@ -181,7 +237,6 @@ const Audiencias = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAudiencias.length > 0 ? (
                 filteredAudiencias.map((item, index) => {
-                  const typeConfig = getEventTypeConfig(item.eventType);
                   return (
                     <div
                       key={item.id}
@@ -195,31 +250,29 @@ const Audiencias = () => {
                         <div className="space-y-3">
                           <Badge
                             variant="outline"
-                            className={typeConfig.color}
+                            className="bg-green-100 text-green-800"
                           >
-                            {typeConfig.label}
+                            Audiência
                           </Badge>
                           
                           <h3 className="font-semibold text-foreground line-clamp-2">
-                            {item.title}
+                            {item.titulo}
                           </h3>
                           
                           <p className="text-sm text-muted-foreground line-clamp-2">
-                            {item.description}
+                            {item.descricao || `Audiência pública sobre ${item.tema}`}
                           </p>
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
-                              <span className="capitalize">{formatDate(item.eventDate)}</span>
+                              <span className="capitalize">{formatDate(item.data)}</span>
                             </div>
-                            {item.eventTime && (
-                              <span>{item.eventTime}</span>
-                            )}
+                            {item.hora && <span>{item.hora.slice(0, 5)}</span>}
                           </div>
                           
                           <p className="text-xs text-muted-foreground truncate">
-                            📍 {item.location}
+                            📍 {item.local}
                           </p>
                         </div>
                       </Card>
@@ -234,7 +287,7 @@ const Audiencias = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground mb-1">
-                        Nenhum evento encontrado
+                        Nenhuma audiência encontrada
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         Tente ajustar os filtros ou verifique novamente mais tarde

@@ -14,6 +14,7 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   "/servicos-proximos": () => import("@/pages/NearbyServicesPage"),
   "/transporte": () => import("@/pages/TransportReportPage"),
   "/relato-urbano": () => import("@/pages/UrbanReportPage"),
+  "/relatos": () => import("@/pages/reports/ReportsHub"),
   "/avaliacao": () => import("@/pages/EvaluationPage"),
   
   // Analytics - PT

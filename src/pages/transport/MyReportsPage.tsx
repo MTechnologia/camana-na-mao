@@ -9,12 +9,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatShortDate } from '@/lib/dateUtils';
 import { transportProblems } from '@/data/transportProblems';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ReferralDialog } from '@/components/referral/ReferralDialog';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export default function MyReportsPage() {
   const navigate = useNavigate();
   const { getMyReports } = useTransportReport();
+  const { canReferToCouncilMember } = useUserRole();
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [referralDialogOpen, setReferralDialogOpen] = useState(false);
+  const [referralReport, setReferralReport] = useState<{
+    id: string;
+    type: 'transport';
+    title: string;
+    description?: string;
+    location?: string;
+    date?: string;
+    report_type?: string;
+  } | null>(null);
 
   useEffect(() => {
     loadReports();
@@ -97,6 +110,35 @@ export default function MyReportsPage() {
                       {report.occurrence_date && formatShortDate(report.occurrence_date)}
                       {report.occurrence_time && ` às ${report.occurrence_time}`}
                     </div>
+
+                    {canReferToCouncilMember && (
+                      <div className="mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const title =
+                              report.line?.line_code ||
+                              report.line_code_custom ||
+                              problem?.label ||
+                              'Relato de transporte';
+
+                            setReferralReport({
+                              id: report.id,
+                              type: 'transport',
+                              title,
+                              description: report.description || undefined,
+                              location: report.location_address || report.location || undefined,
+                              date: report.created_at,
+                              report_type: report.report_type || undefined,
+                            });
+                            setReferralDialogOpen(true);
+                          }}
+                        >
+                          Encaminhar para vereador
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -104,6 +146,19 @@ export default function MyReportsPage() {
           )}
         </div>
       </div>
+
+      <ReferralDialog
+        open={referralDialogOpen}
+        onOpenChange={(open) => {
+          setReferralDialogOpen(open);
+          if (!open) setReferralReport(null);
+        }}
+        report={referralReport ? { ...referralReport } : null}
+        onComplete={() => {
+          setReferralDialogOpen(false);
+          setReferralReport(null);
+        }}
+      />
     </>
   );
 }
