@@ -59,10 +59,15 @@ const Audiencias = () => {
   }, [agendaData, searchQuery, filters.themes]);
 
   const handleCardClick = (item: AgendaItem) => {
-    // Navigate to external link if available, otherwise show internal detail
-    if (item.link) {
-      window.open(item.link, '_blank');
+    // For audiências, prefer internal detail page (supports in-app signup).
+    // If the id doesn't exist in our audiencias table, the detail page will show "not found",
+    // so we fall back to external link.
+    if (item.eventType === 'audiencia') {
+      navigate(`/audiencias/${item.id}`);
+      return;
     }
+
+    if (item.link) window.open(item.link, '_blank');
   };
 
   const activeFiltersCount =

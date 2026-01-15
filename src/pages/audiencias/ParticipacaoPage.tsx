@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Mail, Heart, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PageHeader from "@/components/ui/page-header";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-
-const mockAudiencias = [
-  { id: "1", title: "Mobilidade Urbana na Zona Leste", theme: "Mobilidade" },
-  { id: "2", title: "Educação Integral nas Escolas Municipais", theme: "Educação" },
-  { id: "3", title: "Investimentos em UBS e Hospitais", theme: "Saúde" },
-  { id: "4", title: "Preservação de Parques Urbanos", theme: "Meio Ambiente" },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const temas = [
   { id: "mobilidade", label: "Mobilidade Urbana", icon: "🚌" },
@@ -28,14 +23,61 @@ const temas = [
 const ParticipacaoPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [audienciaTitle, setAudienciaTitle] = useState<string | null>(null);
+  const [audienciaLoading, setAudienciaLoading] = useState(true);
 
-  const audiencia = mockAudiencias.find(a => a.id === id);
+  const audienciaId = useMemo(() => (id ? String(id) : ""), [id]);
 
-  if (!audiencia) {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!audienciaId) return;
+      setAudienciaLoading(true);
+      const { data, error } = await supabase
+        .from("audiencias")
+        .select("id, titulo")
+        .eq("id", audienciaId)
+        .maybeSingle();
+
+      if (!cancelled) {
+        if (error || !data) {
+          setAudienciaTitle(null);
+        } else {
+          setAudienciaTitle(data.titulo);
+        }
+        setAudienciaLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [audienciaId]);
+
+  useEffect(() => {
+    // Pre-fill with logged user email when available.
+    if (user?.email) setEmail(user.email);
+  }, [user?.email]);
+
+  if (audienciaLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PageHeader title="Quero participar" backTo="/audiencias" />
+        <div className="pt-[60px] p-6 text-center">
+          <p className="text-muted-foreground">Carregando audiência...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!audienciaTitle) {
     return (
       <div className="min-h-screen bg-background">
         <PageHeader title="Audiência não encontrada" backTo="/audiencias" />
@@ -56,16 +98,48 @@ const ParticipacaoPage = () => {
     setTimeout(() => {
       setIsLoading(false);
       setStep(2);
-      toast.success("E-mail registrado com sucesso!");
-    }, 1000);
+      toast.success("E-mail confirmado!");
+    }, 600);
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    if (!user) {
+      toast.error("Você precisa estar logado para se inscrever.");
+      navigate("/login");
+      return;
+    }
+    if (!audienciaId) {
+      toast.error("Audiência inválida.");
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const { error } = await supabase.from("audiencia_inscricoes").insert({
+        audiencia_id: audienciaId,
+        user_id: user.id,
+        status: "confirmada",
+      });
+
+      if (error) {
+        // Unique constraint (already subscribed)
+        const msg = (error as any)?.message?.toLowerCase?.() || "";
+        if (msg.includes("duplicate") || msg.includes("unique") || msg.includes("already")) {
+          toast.success("Você já está inscrito nesta audiência.");
+          setStep(3);
+          return;
+        }
+        throw error;
+      }
+
+      toast.success("Inscrição realizada!");
       setStep(3);
-    }, 1000);
+    } catch (err: any) {
+      console.error("Erro ao criar inscrição:", err);
+      toast.error("Não foi possível concluir sua inscrição. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSkipInterests = () => {
@@ -113,7 +187,7 @@ const ParticipacaoPage = () => {
         {/* Título da audiência */}
         <div>
           <p className="text-sm text-muted-foreground mb-1">Para:</p>
-          <h2 className="text-lg font-semibold text-foreground">{audiencia.title}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
         </div>
 
         {/* Progress */}
