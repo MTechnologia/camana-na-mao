@@ -199,29 +199,46 @@ function extractOrganizer(content: string): string {
 /**
  * Transform WordPress post to internal AgendaItem
  */
-function transformAgendaPost(post: WPAgendaPost): AgendaItem {
-  const title = stripHtml(post.title.rendered);
-  const content = post.content.rendered;
-  const cleanContent = stripHtml(content);
+function transformAgendaPost(post: WPAgendaPost): AgendaItem | null {
+  try {
+    // Validate required fields
+    if (!post || !post.id) {
+      console.warn('[fetch-agenda] Skipping invalid post: missing id');
+      return null;
+    }
 
-  // Try to get data from ACF fields first, fallback to extraction
-  const eventDate = post.acf?.data_evento || extractEventDate(cleanContent, post.date);
-  const eventTime = post.acf?.hora_evento || extractEventTime(cleanContent);
-  const location = post.acf?.local_evento || extractLocation(cleanContent);
-  const organizer = post.acf?.organizador || extractOrganizer(cleanContent);
+    const title = post.title?.rendered ? stripHtml(post.title.rendered) : '';
+    const content = post.content?.rendered || '';
+    const cleanContent = stripHtml(content);
 
-  return {
-    id: `wp-${post.id}`,
-    title,
-    description: cleanContent.substring(0, 500),
-    link: post.link,
-    eventDate,
-    eventTime,
-    location,
-    eventType: mapEventType(title, cleanContent),
-    organizer,
-    source: 'Portal da Câmara'
-  };
+    // Skip posts without title
+    if (!title) {
+      console.warn(`[fetch-agenda] Skipping post ${post.id}: no title`);
+      return null;
+    }
+
+    // Try to get data from ACF fields first, fallback to extraction
+    const eventDate = post.acf?.data_evento || extractEventDate(cleanContent, post.date || new Date().toISOString());
+    const eventTime = post.acf?.hora_evento || extractEventTime(cleanContent);
+    const location = post.acf?.local_evento || extractLocation(cleanContent);
+    const organizer = post.acf?.organizador || extractOrganizer(cleanContent);
+
+    return {
+      id: `wp-${post.id}`,
+      title,
+      description: cleanContent.substring(0, 500),
+      link: post.link || '',
+      eventDate,
+      eventTime,
+      location,
+      eventType: mapEventType(title, cleanContent),
+      organizer,
+      source: 'Portal da Câmara'
+    };
+  } catch (err) {
+    console.error(`[fetch-agenda] Error transforming post ${post?.id}:`, err);
+    return null;
+  }
 }
 
 /**
@@ -231,7 +248,7 @@ async function fetchFromAPI(): Promise<AgendaItem[]> {
   console.log('[fetch-agenda] Fetching from WordPress API...');
   
   const response = await fetch(
-    'https://www.saopaulo.sp.leg.br/wp-json/wp/v2/agenda_cerimonial?per_page=50&orderby=date&order=desc',
+    'https://www.saopaulo.sp.leg.br/wp-json/wp/v2/agenda_cerimonial?per_page=100&orderby=date&order=desc',
     {
       headers: {
         'Accept': 'application/json',
@@ -247,7 +264,13 @@ async function fetchFromAPI(): Promise<AgendaItem[]> {
   const posts: WPAgendaPost[] = await response.json();
   console.log(`[fetch-agenda] Received ${posts.length} agenda items from API`);
 
-  return posts.map(transformAgendaPost);
+  // Filter out null results from failed transformations
+  const validItems = posts
+    .map(transformAgendaPost)
+    .filter((item): item is AgendaItem => item !== null);
+
+  console.log(`[fetch-agenda] Successfully transformed ${validItems.length} items`);
+  return validItems;
 }
 
 /**
