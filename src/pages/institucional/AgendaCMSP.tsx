@@ -1,7 +1,18 @@
 import { useMemo, useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, FileDown, MapPin, Search, Users, X, CalendarPlus, Loader2 } from "lucide-react";
+import {
+  Calendar,
+  Calendar as CalendarIcon,
+  Clock,
+  FileDown,
+  MapPin,
+  Search,
+  Users,
+  X,
+  CalendarPlus,
+  Loader2,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import type { DateRangeValue } from "@/components/filters/types";
 import {
   Select,
@@ -18,6 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -39,6 +51,46 @@ const typeFilterOptions = [
   { value: "audiencia", label: "Audiências" },
   { value: "cerimonia", label: "Cerimônias" },
 ];
+
+function DateInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: Date | undefined;
+  onChange: (value: Date | undefined) => void;
+  placeholder: string;
+}) {
+  const label = value ? format(value, "dd/MM/yyyy") : placeholder;
+  const isEmpty = !value;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={[
+            "h-11 justify-start gap-2 rounded-xl px-4 font-normal",
+            isEmpty ? "text-muted-foreground" : "",
+          ].join(" ")}
+        >
+          <CalendarIcon className="h-4 w-4" />
+          <span className="tabular-nums">{label}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0">
+        <CalendarComponent
+          mode="single"
+          selected={value}
+          onSelect={onChange}
+          locale={ptBR}
+          numberOfMonths={1}
+          className="p-3"
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const AgendaCMSP = () => {
   const [draftSearchQuery, setDraftSearchQuery] = useState("");
@@ -181,17 +233,24 @@ const AgendaCMSP = () => {
         {/* Filters Section */}
         <div className="mt-6 space-y-4">
           {/* Official-like Filters Row */}
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-            <FilterDatePicker
-              value={draftDateRange}
-              onChange={setDraftDateRange}
-              placeholder="Selecione o período"
-              className="md:w-[320px]"
-            />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+              <DateInput
+                value={draftDateRange?.from}
+                onChange={(d) => setDraftDateRange((prev) => ({ from: d, to: prev?.to }))}
+                placeholder="Data inicial"
+              />
+              <span className="hidden sm:inline text-sm text-muted-foreground">até</span>
+              <DateInput
+                value={draftDateRange?.to}
+                onChange={(d) => setDraftDateRange((prev) => ({ from: prev?.from, to: d }))}
+                placeholder="Data final"
+              />
+            </div>
 
-            <div className="md:w-[220px]">
+            <div className="w-fit">
               <Select value={selectedTypeForSelect} onValueChange={setSelectedTypeFromSelect}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-11 rounded-full bg-primary px-5 text-primary-foreground border-primary/50">
                   <SelectValue placeholder="Explorar conteúdos" />
                 </SelectTrigger>
                 <SelectContent>
@@ -204,15 +263,15 @@ const AgendaCMSP = () => {
               </Select>
             </div>
 
-            <div className="flex gap-2 md:ml-auto">
-              <Button onClick={applyFilters} className="h-9">
+            <div className="flex flex-col gap-2 sm:flex-row lg:ml-auto">
+              <Button onClick={applyFilters} className="h-11 rounded-xl px-8">
                 Filtrar
               </Button>
               <Button
                 variant="outline"
                 onClick={handleDownloadPdf}
                 disabled={isLoading || filteredAgenda.length === 0}
-                className="h-9"
+                className="h-11 rounded-xl px-6"
               >
                 <FileDown className="h-4 w-4 mr-2" />
                 Baixar PDF da agenda completa
