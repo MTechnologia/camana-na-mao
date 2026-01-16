@@ -4,7 +4,7 @@
  * Cleanup passivo e leve - apenas remove SWs antigos se existirem
  */
 
-const CLEANUP_KEY = '__cmsp_pwa_cleanup__';
+const CLEANUP_KEY = '__cmsp_pwa_cleanup_v2__';
 
 /**
  * Desregistra todos os Service Workers
