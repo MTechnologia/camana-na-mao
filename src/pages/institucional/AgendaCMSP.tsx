@@ -146,6 +146,10 @@ const AgendaCMSP = () => {
     toast.success("Abrindo Google Calendar...");
   };
 
+  // Get today's date for filtering upcoming events
+  const today = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+
+  // Filter all events based on search, type, and date range
   const filteredAgenda = useMemo(() => {
     return agendaData.filter((item) => {
       // Search filter
@@ -175,7 +179,37 @@ const AgendaCMSP = () => {
     });
   }, [agendaData, searchQuery, selectedTypes, dateRange]);
 
+  // Filter only upcoming events (today and future)
+  const upcomingAgenda = useMemo(() => {
+    return filteredAgenda
+      .filter((item) => {
+        const itemDate = toDateOnly(item.eventDate);
+        return itemDate >= today;
+      })
+      .sort((a, b) => {
+        // Sort by date ascending (soonest first)
+        const dateCompare = a.eventDate.localeCompare(b.eventDate);
+        if (dateCompare !== 0) return dateCompare;
+        // Then by time
+        return (a.eventTime || "").localeCompare(b.eventTime || "");
+      });
+  }, [filteredAgenda, today]);
+
+  // Filter events for current month
+  const thisMonthAgenda = useMemo(() => {
+    const currentMonth = format(new Date(), "yyyy-MM");
+    return filteredAgenda
+      .filter((item) => {
+        const itemDate = toDateOnly(item.eventDate);
+        return itemDate.startsWith(currentMonth);
+      })
+      .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  }, [filteredAgenda]);
+
   const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0 || !!dateRange?.from || !!dateRange?.to;
+
+  // Use upcomingAgenda for the result count display
+  const displayCount = upcomingAgenda.length;
 
   const clearFilters = () => {
     setDraftSearchQuery("");
@@ -295,7 +329,7 @@ const AgendaCMSP = () => {
           {hasActiveFilters && (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="gap-1">
-                {filteredAgenda.length} resultado{filteredAgenda.length !== 1 ? 's' : ''}
+                {upcomingAgenda.length} resultado{upcomingAgenda.length !== 1 ? 's' : ''}
               </Badge>
               <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
                 <X className="h-3 w-3 mr-1" />
@@ -343,12 +377,12 @@ const AgendaCMSP = () => {
             )}
 
             {/* Empty State */}
-            {!isLoading && !error && filteredAgenda.length === 0 && (
+            {!isLoading && !error && upcomingAgenda.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
                   {hasActiveFilters
                     ? "Nenhum evento encontrado com os filtros selecionados"
-                    : "Nenhum evento programado no momento"}
+                    : "Nenhum evento próximo programado"}
                 </p>
                 {hasActiveFilters && (
                   <Button variant="ghost" onClick={clearFilters} className="mt-4">
@@ -359,8 +393,8 @@ const AgendaCMSP = () => {
             )}
 
             {/* Events List */}
-            {!isLoading && !error && filteredAgenda.length > 0 && (
-              filteredAgenda.map((item) => {
+            {!isLoading && !error && upcomingAgenda.length > 0 && (
+              upcomingAgenda.map((item) => {
                 const typeConfig = getEventTypeConfig(item.eventType);
                 return (
                   <Card 
@@ -429,10 +463,91 @@ const AgendaCMSP = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="mes" className="mt-4">
-            <p className="text-center text-muted-foreground py-8">
-              Visualização mensal em desenvolvimento
-            </p>
+          <TabsContent value="mes" className="space-y-4 mt-4">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="p-4">
+                    <Skeleton className="h-5 w-24 mb-2" />
+                    <Skeleton className="h-6 w-3/4 mb-3" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/3" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && thisMonthAgenda.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  Nenhum evento programado para este mês
+                </p>
+              </div>
+            )}
+
+            {/* Events List */}
+            {!isLoading && !error && thisMonthAgenda.length > 0 && (
+              thisMonthAgenda.map((item) => {
+                const typeConfig = getEventTypeConfig(item.eventType);
+                return (
+                  <Card 
+                    key={item.id} 
+                    onClick={() => setSelectedEvent(item)}
+                    className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden"
+                  >
+                    <div className="flex">
+                      {item.imageUrl && (
+                        <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 p-4 space-y-3">
+                        <Badge
+                          variant="outline"
+                          className={`mb-2 inline-block ${typeConfig.color}`}
+                        >
+                          {typeConfig.label}
+                        </Badge>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          {item.title}
+                        </h3>
+
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span className="capitalize">{formatDate(item.eventDate)}</span>
+                          </div>
+
+                          {item.eventTime && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>{item.eventTime}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{item.location}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
           </TabsContent>
         </Tabs>
 
