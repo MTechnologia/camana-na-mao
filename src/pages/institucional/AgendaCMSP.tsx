@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, MapPin, Users, Search, X, CalendarPlus, Loader2 } from "lucide-react";
+import { Calendar, Clock, FileDown, MapPin, Search, Users, X, CalendarPlus, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
+import type { DateRangeValue } from "@/components/filters/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -21,8 +30,10 @@ import { toast } from "sonner";
 import { useAgenda, AgendaItem, getEventTypeConfig } from "@/hooks/useAgenda";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { downloadAgendaPdf } from "@/lib/agendaPdf";
 
 const typeFilterOptions = [
+  { value: "all", label: "Explorar conteúdos" },
   { value: "sessao", label: "Sessões" },
   { value: "comissao", label: "Comissões" },
   { value: "audiencia", label: "Audiências" },
@@ -30,15 +41,25 @@ const typeFilterOptions = [
 ];
 
 const AgendaCMSP = () => {
+  const [draftSearchQuery, setDraftSearchQuery] = useState("");
+  const [draftSelectedTypes, setDraftSelectedTypes] = useState<string[]>([]);
+  const [draftDateRange, setDraftDateRange] = useState<DateRangeValue | undefined>(undefined);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<DateRangeValue | undefined>(undefined);
   const [selectedEvent, setSelectedEvent] = useState<AgendaItem | null>(null);
 
   const { data: agendaData = [], isLoading, error, refetch } = useAgenda();
 
+  const toDateOnly = (dateStr: string) => {
+    // Accept both "YYYY-MM-DD" and ISO timestamps; normalize for deterministic compare
+    return (dateStr || "").slice(0, 10);
+  };
+
   const formatDate = (dateStr: string) => {
     try {
-      const date = parseISO(dateStr);
+      const date = parseISO(toDateOnly(dateStr));
       return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
     } catch {
       return dateStr;
@@ -47,7 +68,7 @@ const AgendaCMSP = () => {
 
   const formatShortDate = (dateStr: string) => {
     try {
-      const date = parseISO(dateStr);
+      const date = parseISO(toDateOnly(dateStr));
       return format(date, "dd/MM/yyyy");
     } catch {
       return dateStr;
@@ -84,15 +105,62 @@ const AgendaCMSP = () => {
       // Type filter
       const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.eventType);
 
-      return matchesSearch && matchesType;
-    });
-  }, [agendaData, searchQuery, selectedTypes]);
+      // Date filter
+      let matchesDate = true;
+      if (dateRange?.from || dateRange?.to) {
+        const itemIso = toDateOnly(item.eventDate);
+        const fromIso = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+        const toIso = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
 
-  const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0;
+        // If item date isn't in a comparable format, exclude when date filter is active
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(itemIso)) return false;
+
+        if (fromIso && itemIso < fromIso) return false;
+        if (toIso && itemIso > toIso) return false;
+      }
+
+      return matchesSearch && matchesType && matchesDate;
+    });
+  }, [agendaData, searchQuery, selectedTypes, dateRange]);
+
+  const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0 || !!dateRange?.from || !!dateRange?.to;
 
   const clearFilters = () => {
+    setDraftSearchQuery("");
+    setDraftSelectedTypes([]);
+    setDraftDateRange(undefined);
+
     setSearchQuery("");
     setSelectedTypes([]);
+    setDateRange(undefined);
+  };
+
+  const applyFilters = () => {
+    setSearchQuery(draftSearchQuery);
+    setSelectedTypes(draftSelectedTypes);
+    setDateRange(draftDateRange);
+  };
+
+  const selectedTypeForSelect = draftSelectedTypes.length === 1 ? draftSelectedTypes[0] : "all";
+  const setSelectedTypeFromSelect = (value: string) => {
+    if (value === "all") {
+      setDraftSelectedTypes([]);
+    } else {
+      setDraftSelectedTypes([value]);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    downloadAgendaPdf({
+      title: "Agenda da Câmara (CMSP)",
+      items: filteredAgenda,
+      filters: {
+        dateRange,
+        type: selectedTypes.length === 1 ? selectedTypes[0] : selectedTypes.length === 0 ? "all" : "multi",
+        search: searchQuery || undefined,
+      },
+      filename: "agenda_cmsp.pdf",
+    });
   };
 
   return (
@@ -112,14 +180,54 @@ const AgendaCMSP = () => {
 
         {/* Filters Section */}
         <div className="mt-6 space-y-4">
+          {/* Official-like Filters Row */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+            <FilterDatePicker
+              value={draftDateRange}
+              onChange={setDraftDateRange}
+              placeholder="Selecione o período"
+              className="md:w-[320px]"
+            />
+
+            <div className="md:w-[220px]">
+              <Select value={selectedTypeForSelect} onValueChange={setSelectedTypeFromSelect}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Explorar conteúdos" />
+                </SelectTrigger>
+                <SelectContent>
+                  {typeFilterOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 md:ml-auto">
+              <Button onClick={applyFilters} className="h-9">
+                Filtrar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownloadPdf}
+                disabled={isLoading || filteredAgenda.length === 0}
+                className="h-9"
+              >
+                <FileDown className="h-4 w-4 mr-2" />
+                Baixar PDF da agenda completa
+              </Button>
+            </div>
+          </div>
+
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Buscar evento..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={draftSearchQuery}
+              onChange={(e) => setDraftSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -128,9 +236,9 @@ const AgendaCMSP = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">Tipo:</span>
             <QuickFilterPills
-              options={typeFilterOptions}
-              selected={selectedTypes}
-              onChange={(value) => setSelectedTypes(value as string[])}
+              options={typeFilterOptions.filter((o) => o.value !== "all")}
+              selected={draftSelectedTypes}
+              onChange={(value) => setDraftSelectedTypes(value as string[])}
               mode="multi"
               showAllOption
               allLabel="Todos"

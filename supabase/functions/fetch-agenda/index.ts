@@ -84,7 +84,21 @@ function extractEventDate(content: string, postDate: string): string {
   if (monthMatch) {
     const day = monthMatch[1].padStart(2, '0');
     const month = months[monthMatch[2]];
-    const year = new Date().getFullYear();
+
+    // Infer year based on post publication date to avoid wrong-year filtering (e.g. "01 de dezembro")
+    const postDateOnly = (postDate || '').split('T')[0]; // YYYY-MM-DD
+    const postYear = Number(postDateOnly.split('-')[0]) || new Date().getFullYear();
+    const postMonth = Number(postDateOnly.split('-')[1]) || (new Date().getMonth() + 1);
+    const extractedMonth = Number(month);
+
+    // Handle year boundary heuristics:
+    // - If post is early-year (Jan) and extracted month is late-year (Dec), assume previous year
+    // - If post is late-year (Dec) and extracted month is early-year (Jan), assume next year
+    let year = postYear;
+    const monthDiff = extractedMonth - postMonth;
+    if (monthDiff >= 6) year = postYear - 1;
+    if (monthDiff <= -6) year = postYear + 1;
+
     return `${year}-${month}-${day}`;
   }
 
