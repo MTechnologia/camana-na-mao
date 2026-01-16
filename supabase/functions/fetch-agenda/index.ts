@@ -29,6 +29,7 @@ interface WPAgendaPost {
         titulo?: string;
         local_txt?: string;
         descricao_completa?: string;
+        imagem?: string;
       }>;
       solicitante_campos?: Array<{
         sol_vereador?: number[];
@@ -51,6 +52,7 @@ interface AgendaItem {
   eventType: string;
   organizer: string;
   source: string;
+  imageUrl?: string;
 }
 
 /**
@@ -112,16 +114,17 @@ function parseTime(timeStr: string | undefined): string {
 }
 
 /**
- * Extract title and location from local_campos.titulo
+ * Extract title, location, description and image from local_campos
  * Format is usually: "Event Name\nLocal: Address" or just "Event Name"
  */
-function parseLocalCampos(localCampos: { titulo?: string; local_txt?: string; descricao_completa?: string } | undefined): { title: string; location: string; description: string } {
+function parseLocalCampos(localCampos: { titulo?: string; local_txt?: string; descricao_completa?: string; imagem?: string } | undefined): { title: string; location: string; description: string; imageUrl: string } {
   if (!localCampos) {
-    return { title: '', location: 'Câmara Municipal de São Paulo', description: '' };
+    return { title: '', location: 'Câmara Municipal de São Paulo', description: '', imageUrl: '' };
   }
 
   const rawTitle = localCampos.titulo || '';
   const description = localCampos.descricao_completa || '';
+  const imageUrl = localCampos.imagem || '';
   
   // Clean HTML and prefixes like [DIVULGAÇÃO]
   let cleanTitle = stripHtml(rawTitle);
@@ -144,7 +147,7 @@ function parseLocalCampos(localCampos: { titulo?: string; local_txt?: string; de
     location = 'Câmara Municipal de São Paulo';
   }
   
-  return { title, location, description: stripHtml(description) };
+  return { title, location, description: stripHtml(description), imageUrl };
 }
 
 /**
@@ -210,9 +213,9 @@ function transformAgendaPost(post: WPAgendaPost): AgendaItem[] {
       const eventTimeEnd = parseTime(horarioInfo?.horario_fim);
       const timeDisplay = eventTimeEnd ? `${eventTime} - ${eventTimeEnd}` : eventTime;
       
-      // Extract title, location and description from local_campos
+      // Extract title, location, description and image from local_campos
       const localInfo = evento.local_campos?.[0];
-      const { title, location, description } = parseLocalCampos(localInfo);
+      const { title, location, description, imageUrl } = parseLocalCampos(localInfo);
       
       // Skip events without a title
       if (!title) {
@@ -234,7 +237,8 @@ function transformAgendaPost(post: WPAgendaPost): AgendaItem[] {
         location,
         eventType: mapEventType(title, description),
         organizer,
-        source: 'Portal da Câmara'
+        source: 'Portal da Câmara',
+        imageUrl: imageUrl || undefined
       });
     }
 

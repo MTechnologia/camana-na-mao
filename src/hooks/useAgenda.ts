@@ -12,6 +12,7 @@ export interface AgendaItem {
   eventType: 'sessao' | 'comissao' | 'audiencia' | 'cerimonia' | 'reuniao' | 'geral';
   organizer: string;
   source: string;
+  imageUrl?: string;
 }
 
 interface AgendaResponse {

@@ -45,7 +45,7 @@ import { ptBR } from "date-fns/locale";
 import { downloadAgendaPdf } from "@/lib/agendaPdf";
 
 const typeFilterOptions = [
-  { value: "all", label: "Explorar conteúdos" },
+  { value: "all", label: "Todos os tipos" },
   { value: "sessao", label: "Sessões" },
   { value: "comissao", label: "Comissões" },
   { value: "audiencia", label: "Audiências" },
@@ -248,20 +248,6 @@ const AgendaCMSP = () => {
               />
             </div>
 
-            <div className="w-fit">
-              <Select value={selectedTypeForSelect} onValueChange={setSelectedTypeFromSelect}>
-                <SelectTrigger className="h-11 rounded-full bg-primary px-5 text-primary-foreground border-primary/50">
-                  <SelectValue placeholder="Explorar conteúdos" />
-                </SelectTrigger>
-                <SelectContent>
-                  {typeFilterOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <div className="flex flex-col gap-2 sm:flex-row lg:ml-auto">
               <Button onClick={applyFilters} className="h-11 rounded-xl px-8">
@@ -380,43 +366,61 @@ const AgendaCMSP = () => {
                   <Card 
                     key={item.id} 
                     onClick={() => setSelectedEvent(item)}
-                    className="p-4 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
+                    className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden"
                   >
-                    <div className="space-y-3">
-                      <Badge
-                        variant="outline"
-                        className={`mb-2 inline-block ${typeConfig.color}`}
-                      >
-                        {typeConfig.label}
-                      </Badge>
-                      <h3 className="font-semibold text-foreground mb-2">
-                        {item.title}
-                      </h3>
-
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span className="capitalize">{formatDate(item.eventDate)}</span>
+                    <div className="flex">
+                      {/* Image section - only show if imageUrl exists */}
+                      {item.imageUrl && (
+                        <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide the image container if it fails to load
+                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                            }}
+                          />
                         </div>
+                      )}
+                      
+                      {/* Content section */}
+                      <div className="flex-1 p-4 space-y-3">
+                        <Badge
+                          variant="outline"
+                          className={`mb-2 inline-block ${typeConfig.color}`}
+                        >
+                          {typeConfig.label}
+                        </Badge>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          {item.title}
+                        </h3>
 
-                        {item.eventTime && (
+                        <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{item.eventTime}</span>
+                            <Calendar className="h-4 w-4" />
+                            <span className="capitalize">{formatDate(item.eventDate)}</span>
                           </div>
-                        )}
 
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <MapPin className="h-4 w-4" />
-                          <span>{item.location}</span>
+                          {item.eventTime && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>{item.eventTime}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{item.location}</span>
+                          </div>
+
+                          {item.organizer && item.organizer !== 'Câmara Municipal de São Paulo' && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Users className="h-4 w-4" />
+                              <span>{item.organizer}</span>
+                            </div>
+                          )}
                         </div>
-
-                        {item.organizer && item.organizer !== 'Câmara Municipal de São Paulo' && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>{item.organizer}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </Card>
