@@ -28,7 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useAgenda, AgendaItem, getEventTypeConfig } from "@/hooks/useAgenda";
-import { format, isAfter, isBefore, isValid, parseISO, startOfDay, endOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { downloadAgendaPdf } from "@/lib/agendaPdf";
 
@@ -52,9 +52,14 @@ const AgendaCMSP = () => {
 
   const { data: agendaData = [], isLoading, error, refetch } = useAgenda();
 
+  const toDateOnly = (dateStr: string) => {
+    // Accept both "YYYY-MM-DD" and ISO timestamps; normalize for deterministic compare
+    return (dateStr || "").slice(0, 10);
+  };
+
   const formatDate = (dateStr: string) => {
     try {
-      const date = parseISO(dateStr);
+      const date = parseISO(toDateOnly(dateStr));
       return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
     } catch {
       return dateStr;
@@ -63,7 +68,7 @@ const AgendaCMSP = () => {
 
   const formatShortDate = (dateStr: string) => {
     try {
-      const date = parseISO(dateStr);
+      const date = parseISO(toDateOnly(dateStr));
       return format(date, "dd/MM/yyyy");
     } catch {
       return dateStr;
@@ -103,18 +108,15 @@ const AgendaCMSP = () => {
       // Date filter
       let matchesDate = true;
       if (dateRange?.from || dateRange?.to) {
-        const itemDate = parseISO(item.eventDate);
-        const itemDateOk = isValid(itemDate);
-        if (!itemDateOk) {
-          matchesDate = false;
-        } else {
-          if (dateRange.from) {
-            matchesDate = matchesDate && !isBefore(itemDate, startOfDay(dateRange.from));
-          }
-          if (dateRange.to) {
-            matchesDate = matchesDate && !isAfter(itemDate, endOfDay(dateRange.to));
-          }
-        }
+        const itemIso = toDateOnly(item.eventDate);
+        const fromIso = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;
+        const toIso = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined;
+
+        // If item date isn't in a comparable format, exclude when date filter is active
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(itemIso)) return false;
+
+        if (fromIso && itemIso < fromIso) return false;
+        if (toIso && itemIso > toIso) return false;
       }
 
       return matchesSearch && matchesType && matchesDate;
