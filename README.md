@@ -20,7 +20,32 @@ Simply visit the [Lovable Project](https://lovable.dev/projects/b66b554b-a744-42
 
 Changes made via Lovable will be committed automatically to this repo.
 
-**Use your preferred IDE**
+**Use Docker (Recomendado)**
+
+A forma mais fácil e consistente de rodar o projeto localmente é usando Docker:
+
+```sh
+# Step 1: Clone the repository
+git clone <YOUR_GIT_URL>
+
+# Step 2: Navigate to the project directory
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Configure environment variables
+cp .env.example .env
+# Edite .env e adicione suas credenciais do Supabase
+
+# Step 4: Start with Docker Compose
+docker-compose up
+
+# A aplicação estará disponível em http://localhost:8080
+```
+
+📚 **Documentação Docker**: Veja [docs/docker-infra/DOCKER_GUIA_RAPIDO.md](./docs/docker-infra/DOCKER_GUIA_RAPIDO.md) para mais detalhes.
+
+> **Nota sobre Backend**: O frontend roda em Docker, mas o backend (API REST) roda no Supabase Cloud. Veja [docs/INTEGRACAO_DOCKER_BACKEND.md](./docs/INTEGRACAO_DOCKER_BACKEND.md) para entender a integração completa.
+
+**Use your preferred IDE (Sem Docker)**
 
 If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
@@ -38,7 +63,11 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Configure environment variables
+cp .env.example .env
+# Edite .env e adicione suas credenciais do Supabase
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
@@ -60,13 +89,31 @@ npm run dev
 
 This project is built with:
 
+**Frontend:**
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
 
+**Backend:**
+- Supabase (PostgreSQL + Edge Functions)
+- Deno (Edge Functions runtime)
+- API REST versionada (`/api/v1/`)
+
+📚 **Documentação Backend**: Veja [docs/api-rest-mobile/](./docs/api-rest-mobile/) para mais informações sobre a API REST.
+
 ## How can I deploy this project?
+
+**Using Docker (Production)**
+
+```sh
+# Build and run production container
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+**Using Lovable**
 
 Simply open [Lovable](https://lovable.dev/projects/b66b554b-a744-42b3-8868-c153c2d41290) and click on Share -> Publish.
 
