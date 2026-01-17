@@ -268,10 +268,10 @@ const AgendaCMSP = () => {
                 variant="outline"
                 onClick={handleDownloadPdf}
                 disabled={isLoading || filteredAgenda.length === 0}
-                className="h-11 rounded-xl px-6"
+                className="h-11 rounded-xl px-4"
               >
                 <FileDown className="h-4 w-4 mr-2" />
-                Baixar PDF da agenda completa
+                PDF - Agenda completa
               </Button>
             </div>
           </div>
