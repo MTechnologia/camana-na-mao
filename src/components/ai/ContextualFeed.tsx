@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
-import { noticias } from "@/data/noticias";
+import { useNoticias } from "@/hooks/useNoticias";
+import { useUpcomingAgenda } from "@/hooks/useAgenda";
 import { isToday, isTomorrow, differenceInHours, differenceInDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -10,15 +10,6 @@ import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/dateUtils";
-
-interface Audiencia {
-  id: string;
-  titulo: string;
-  descricao: string | null;
-  data: string;
-  hora: string;
-  tema: string;
-}
 
 interface FeedItem {
   id: string;
@@ -29,13 +20,17 @@ interface FeedItem {
   time?: string;
   badge?: string;
   badgeColor?: string;
+  link?: string;
 }
 
 const ContextualFeed = () => {
   const navigate = useNavigate();
-  const [proximasAudiencias, setProximasAudiencias] = useState<Audiencia[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  
+  // Use hooks to get news and agenda from API
+  const { data: noticiasData = [], isLoading: noticiasLoading } = useNoticias();
+  const { data: agendaData = [], isLoading: agendaLoading } = useUpcomingAgenda(3);
   
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { 
@@ -86,25 +81,7 @@ const ContextualFeed = () => {
   }, [emblaApi, onSelect]);
 
   // Get multiple recent news (up to 3)
-  const recentNews = noticias.slice(0, 3);
-
-  useEffect(() => {
-    const fetchProximasAudiencias = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { data } = await supabase
-        .from('audiencias')
-        .select('id, titulo, descricao, data, hora, tema')
-        .gte('data', today)
-        .order('data', { ascending: true })
-        .limit(3);
-
-      if (data && data.length > 0) {
-        setProximasAudiencias(data);
-      }
-    };
-
-    fetchProximasAudiencias();
-  }, []);
+  const recentNews = noticiasData.slice(0, 3);
 
   // Check if news is recent (within 6 hours)
   const isRecentNews = (date: string) => {
@@ -149,33 +126,47 @@ const ContextualFeed = () => {
     }
   };
 
-  // Build feed items
+  // Build feed items from API data
   const feedItems: FeedItem[] = [
     ...recentNews.map((news) => ({
       id: news.id,
       type: "news" as const,
       title: news.title,
-      description: news.description + " " + news.fullContent.slice(0, 80) + "...",
-      date: news.date,
-      badge: isRecentNews(news.date) ? "Novo" : undefined,
+      description: news.description,
+      date: news.pubDate,
+      badge: isRecentNews(news.pubDate) ? "Novo" : undefined,
       badgeColor: "destructive"
     })),
-    ...proximasAudiencias.map((audiencia) => ({
-      id: audiencia.id,
+    ...agendaData.map((item) => ({
+      id: item.id,
       type: "audiencia" as const,
-      title: audiencia.titulo,
-      description: audiencia.descricao || `Audiência pública sobre ${audiencia.tema}. Participe e contribua com sua opinião sobre este tema relevante para a cidade.`,
-      date: audiencia.data,
-      time: audiencia.hora,
-      badge: isEventSoon(audiencia.data) ? "Em breve" : undefined,
-      badgeColor: "amber"
+      title: item.title,
+      description: item.description || `Evento sobre ${item.eventType}. Participe e contribua com sua opinião.`,
+      date: item.eventDate,
+      time: item.eventTime || "00:00",
+      badge: isEventSoon(item.eventDate) ? "Em breve" : undefined,
+      badgeColor: "amber",
+      link: item.link
     }))
   ];
 
-  if (feedItems.length === 0) return null;
+  // Show nothing while loading or if no items
+  if ((noticiasLoading && agendaLoading) || feedItems.length === 0) return null;
 
   const scrollTo = (index: number) => {
     emblaApi?.scrollTo(index);
+  };
+
+  const handleItemClick = (item: FeedItem) => {
+    if (item.type === "news") {
+      navigate(`/institucional/noticias/${item.id}`);
+    } else if (item.link) {
+      // Open external link for events
+      window.open(item.link, '_blank');
+    } else {
+      // Fallback to agenda page
+      navigate('/institucional/agenda');
+    }
   };
 
   return (
@@ -198,11 +189,7 @@ const ContextualFeed = () => {
           {feedItems.map((item) => (
             <button
               key={`${item.type}-${item.id}`}
-              onClick={() => navigate(
-                item.type === "news" 
-                  ? `/institucional/noticias/${item.id}` 
-                  : `/audiencias/${item.id}`
-              )}
+              onClick={() => handleItemClick(item)}
               className="group flex-shrink-0 w-[80%] min-w-[240px] max-w-[300px] text-left"
               aria-label={item.title}
             >

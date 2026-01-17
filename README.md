@@ -103,6 +103,22 @@ This project is built with:
 
 📚 **Documentação Backend**: Veja [docs/api-rest-mobile/](./docs/api-rest-mobile/) para mais informações sobre a API REST.
 
+## Deploy (Render)
+
+Este repo pode ser publicado no Render como **Static Site** (Vite build).
+
+- **Build command**: `npm ci && npm run build`
+- **Publish directory**: `dist`
+- **SPA routing**: rewrite de `/*` para `/index.html` (já configurado em `render.yaml`)
+
+### Variáveis de ambiente (Render)
+
+No Render, configure as variáveis (Environment):
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+
+Veja `env.example`.
+
 ## How can I deploy this project?
 
 **Using Docker (Production)**

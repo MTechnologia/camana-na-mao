@@ -33,6 +33,15 @@
 22. [Ciclo de Vida do Encaminhamento](#22-ciclo-de-vida-do-encaminhamento)
 23. [Notificações](#23-notificações)
 24. [Integrações Externas](#24-integrações-externas)
+    - 24.1 [Visão Geral](#241-visão-geral-das-integrações)
+    - 24.2 [N8N Workflow Engine](#242-n8n-workflow-engine)
+    - 24.3 [Google Places API](#243-google-places-api-new)
+    - 24.4 [ViaCEP](#244-viacep)
+    - 24.5 [SP Legis API - Vereadores](#245-sp-legis-api---vereadores)
+    - 24.6 [Portal CMSP - Notícias](#246-portal-cmsp---notícias-wordpress)
+    - 24.7 [Portal CMSP - Agenda](#247-portal-cmsp---agenda-e-audiências-wordpress)
+    - 24.8 [Lovable AI Gateway](#248-lovable-ai-gateway)
+    - 24.9 [Estratégia de Cache e Fallback](#249-estratégia-de-cache-e-fallback)
 25. [Segurança e Auditoria](#25-segurança-e-auditoria)
 26. [Testes E2E Obrigatórios](#26-testes-e2e-obrigatórios)
 27. [Apêndice A: Keywords por Categoria](#apêndice-a-keywords-por-categoria)
@@ -2630,30 +2639,151 @@ Equipe Câmara na Mão
 
 ## 24. Integrações Externas
 
-### 24.1 N8N Workflow Engine
+> Esta seção documenta todas as APIs externas consumidas pela plataforma Câmara na Mão, incluindo endpoints, fluxos de dados, estratégias de cache e fallback, além de hooks frontend associados.
+
+### 24.1 Visão Geral das Integrações
+
+```mermaid
+flowchart TB
+    subgraph "APIs Externas"
+        SPL[SP Legis API<br/>saopaulo.sp.leg.br]
+        WPN[WordPress API - Notícias<br/>Portal CMSP]
+        WPA[WordPress API - Agenda<br/>Portal CMSP]
+        GP[Google Places API<br/>places.googleapis.com]
+        VC[ViaCEP<br/>viacep.com.br]
+        LAI[Lovable AI Gateway<br/>ai.gateway.lovable.dev]
+    end
+    
+    subgraph "Edge Functions"
+        FV[fetch-vereadores]
+        FN[fetch-noticias]
+        FA[fetch-agenda]
+        GPA[google-places-autocomplete]
+        GPD[google-places-details]
+        AIO[ai-orchestrator]
+    end
+    
+    subgraph "Cache Layer"
+        MC[(Memory Cache<br/>TTL: 10min)]
+        CMC[(council_members_cache)]
+        NC[(news_cache)]
+        AC[(agenda_cache)]
+    end
+    
+    subgraph "Frontend Hooks"
+        UV[useVereadores]
+        UN[useNoticias]
+        UA[useAgenda]
+        AAC[AddressAutocomplete]
+    end
+    
+    SPL --> FV
+    WPN --> FN
+    WPA --> FA
+    GP --> GPA
+    GP --> GPD
+    LAI --> AIO
+    VC --> AIO
+    
+    FV --> MC
+    FV --> CMC
+    FN --> MC
+    FN --> NC
+    FA --> MC
+    FA --> AC
+    
+    UV --> FV
+    UN --> FN
+    UA --> FA
+    AAC --> GPA
+    AAC --> GPD
+```
+
+| API | Status | Edge Function | Tabela de Cache | Hook Frontend |
+|-----|--------|---------------|-----------------|---------------|
+| SP Legis Vereadores | ✅ Produção | `fetch-vereadores` | `council_members_cache` | `useVereadores` |
+| WordPress Notícias | ✅ Produção | `fetch-noticias` | `news_cache` | `useNoticias` |
+| WordPress Agenda | ✅ Produção | `fetch-agenda` | `agenda_cache` | `useAgenda` |
+| Google Places | ✅ Produção | `google-places-*` | Nenhuma | Componentes |
+| ViaCEP | ✅ Produção | inline no orquestrador | Nenhuma | - |
+| Lovable AI Gateway | ✅ Produção | `ai-orchestrator`, etc. | Nenhuma | `useUnifiedAIChat` |
+| N8N Workflow | ✅ Produção | `notify-n8n`, `n8n-callback` | Logs apenas | - |
+
+---
+
+### 24.2 N8N Workflow Engine
 
 **Propósito**: Processamento inteligente e triagem de manifestações.
 
-**Endpoints**:
-- `POST /functions/v1/notify-n8n` - Notifica novo relato
-- `POST /functions/v1/n8n-callback` - Recebe dados processados
+**Status**: ✅ Implementado
+
+**Endpoints Internos**:
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/functions/v1/notify-n8n` | POST | Notifica novo relato para N8N processar |
+| `/functions/v1/n8n-callback` | POST | Recebe dados processados do N8N |
 
 **Eventos Suportados**:
-- `urban_report_created`
-- `urban_report_updated`
-- `transport_report_created`
-- `transport_report_updated`
+- `urban_report_created` / `urban_report_updated`
+- `transport_report_created` / `transport_report_updated`
 - `service_rating_created`
-- `referral_created`
-- `referral_status_changed`
+- `referral_created` / `referral_status_changed`
 
-### 24.2 Google Places API (New)
+**Fluxo de Integração**:
+```mermaid
+sequenceDiagram
+    participant BD as Supabase (Trigger)
+    participant EF as notify-n8n
+    participant N8N as N8N Workflow
+    participant CB as n8n-callback
+    participant DB as Supabase (Update)
+    
+    BD->>EF: Novo relato criado (trigger)
+    EF->>N8N: POST webhook com payload
+    N8N->>N8N: Processa (categoriza, prioriza)
+    N8N->>CB: POST callback com resultado
+    CB->>DB: UPDATE relato com n8n_* fields
+```
 
-**Propósito**: Autocompletar e geocodificar endereços.
+---
 
-**Endpoints**:
-- `POST /functions/v1/google-places-autocomplete` - Sugestões de endereço
-- `GET /functions/v1/google-places-details` - Detalhes do local
+### 24.3 Google Places API (New)
+
+**Propósito**: Autocompletar e geocodificar endereços em São Paulo.
+
+**Status**: ✅ Implementado
+
+**API Externa**:
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `https://places.googleapis.com/v1/places:autocomplete` | POST | Sugestões de endereço |
+| `https://places.googleapis.com/v1/places/{placeId}` | GET | Detalhes e coordenadas |
+
+**Edge Functions**:
+| Edge Function | Endpoint Interno | Descrição |
+|---------------|------------------|-----------|
+| `google-places-autocomplete` | `/functions/v1/google-places-autocomplete` | Sugestões com bias para SP |
+| `google-places-details` | `/functions/v1/google-places-details` | Geocodificação |
+
+**Headers de Autenticação**:
+```
+X-Goog-Api-Key: ${GOOGLE_PLACES_API_KEY}
+Content-Type: application/json
+```
+
+**Location Bias (São Paulo)**:
+```json
+{
+  "locationBias": {
+    "circle": {
+      "center": { "latitude": -23.5505, "longitude": -46.6333 },
+      "radius": 40000
+    }
+  }
+}
+```
+
+**Session Token**: Implementado para otimização de custos (agrupa autocomplete + details em uma sessão).
 
 **Resposta Estruturada**:
 ```typescript
@@ -2671,11 +2801,22 @@ interface StructuredAddress {
 }
 ```
 
-### 24.3 ViaCEP
+**Componente Frontend**: `AddressAutocomplete` em `src/components/address/`
+
+---
+
+### 24.4 ViaCEP
 
 **Propósito**: Validação e lookup de CEPs brasileiros.
 
-**Endpoint**: `https://viacep.com.br/ws/{cep}/json/`
+**Status**: ✅ Implementado
+
+**API Externa**:
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `https://viacep.com.br/ws/{cep}/json/` | GET | Dados do endereço por CEP |
+
+**Implementação**: Inline no `ai-orchestrator` via tool `validate_cep`.
 
 **Validação Obrigatória**:
 ```typescript
@@ -2684,17 +2825,537 @@ if (response.localidade !== 'São Paulo') {
 }
 ```
 
-### 24.4 SP Legis API (Futuro)
+**Resposta**:
+```typescript
+interface ViaCEPResponse {
+  cep: string;        // "01310-100"
+  logradouro: string; // "Avenida Paulista"
+  bairro: string;     // "Bela Vista"
+  localidade: string; // "São Paulo" - DEVE ser SP
+  uf: string;         // "SP"
+  erro?: boolean;     // true se CEP não existe
+}
+```
 
-**Propósito**: Sincronização de dados oficiais da Câmara.
+---
 
-**Dados a Sincronizar**:
-- Lista de vereadores ativos
-- Composição de comissões
-- Agenda de audiências públicas
-- Projetos de lei
+### 24.5 SP Legis API - Vereadores
 
-**Frequência**: Diária às 03:00
+**Propósito**: Sincronização de dados oficiais dos vereadores da Câmara Municipal de São Paulo.
+
+**Status**: ✅ Implementado
+
+**API Externa**:
+| Campo | Valor |
+|-------|-------|
+| **URL** | `https://saopaulo.sp.leg.br/vereadores-json/` |
+| **Método** | GET |
+| **Autenticação** | Não requer |
+| **Formato** | JSON Array |
+
+**Edge Function**: `fetch-vereadores`
+
+**Fluxo de Dados**:
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant EF as fetch-vereadores
+    participant MC as Memory Cache
+    participant API as SP Legis API
+    participant DB as council_members_cache
+
+    FE->>EF: GET /fetch-vereadores
+    EF->>MC: Verificar cache (TTL 10min)
+    alt Cache válido
+        MC-->>EF: Dados em memória
+    else Cache expirado
+        EF->>API: GET /vereadores-json/
+        alt API disponível
+            API-->>EF: Lista de vereadores
+            EF->>MC: Atualizar cache
+            EF->>DB: Upsert council_members_cache
+        else API offline
+            EF->>DB: SELECT * FROM council_members_cache
+            DB-->>EF: Dados persistidos
+        end
+    end
+    EF-->>FE: { vereadores, source, cached }
+```
+
+**Estrutura de Dados da API**:
+```typescript
+// Resposta da API SP Legis
+interface VereadorAPI {
+  nome: string;
+  partido: string;
+  foto: string;
+  telefone?: string;
+  email?: string;
+  sala?: string;
+  andar?: string;
+  gv?: string;
+  lider_partido?: string;      // "1" se líder
+  lider_governo?: string;      // "1" se líder do governo
+  suplente?: string;           // "1" se suplente
+  licenciado?: string;         // "1" se licenciado
+}
+```
+
+**Estrutura Transformada**:
+```typescript
+interface Vereador {
+  id: string;           // Slug gerado do nome (ex: "rubinho-nunes")
+  name: string;         // Nome completo
+  party: string;        // Partido político
+  photo: string;        // URL da foto oficial
+  phone: string;        // Telefone do gabinete
+  email: string;        // E-mail oficial
+  initials: string;     // Iniciais para avatar fallback
+  sala?: string;        // Número da sala
+  andar?: string;       // Andar no prédio
+  gv?: string;          // Gabinete virtual
+  isLeader: boolean;    // Líder de partido
+  isGovernmentLeader: boolean; // Líder do governo
+  isSubstitute: boolean; // Suplente
+  isOnLeave: boolean;   // Licenciado
+}
+```
+
+**Tabela de Cache**: `public.council_members_cache`
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | text | Slug gerado |
+| `name` | text | Nome completo |
+| `party` | text | Partido |
+| `photo` | text | URL foto |
+| `phone` | text | Telefone |
+| `email` | text | E-mail |
+| `initials` | text | Iniciais |
+| `sala` | text | Sala |
+| `andar` | text | Andar |
+| `gv` | text | Gabinete virtual |
+| `is_leader` | boolean | Líder de partido |
+| `is_government_leader` | boolean | Líder do governo |
+| `is_substitute` | boolean | Suplente |
+| `is_on_leave` | boolean | Licenciado |
+| `cached_at` | timestamptz | Data do cache |
+| `updated_at` | timestamptz | Última atualização |
+
+**Hook Frontend**: `useVereadores()` em `src/hooks/useVereadores.ts`
+
+```typescript
+// Uso no frontend
+const { data: vereadores, isLoading, error } = useVereadores();
+const { vereador, isLoading } = useVereador("rubinho-nunes");
+```
+
+**TTL**:
+- Memória: 10 minutos
+- Banco: Persistente (atualizado a cada fetch da API)
+
+---
+
+### 24.6 Portal CMSP - Notícias (WordPress)
+
+**Propósito**: Exibição de notícias oficiais da Câmara Municipal.
+
+**Status**: ✅ Implementado
+
+**API Externa**:
+| Campo | Valor |
+|-------|-------|
+| **URL** | `https://www.saopaulo.sp.leg.br/wp-json/wp/v2/posts` |
+| **Método** | GET |
+| **Parâmetros** | `?per_page=30&_fields=id,date,title,content,link,excerpt` |
+| **Autenticação** | Não requer |
+
+**Edge Function**: `fetch-noticias`
+
+**Fluxo de Dados**:
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant EF as fetch-noticias
+    participant MC as Memory Cache
+    participant WP as WordPress API
+    participant DB as news_cache
+
+    FE->>EF: GET /fetch-noticias
+    EF->>MC: Verificar cache (TTL 10min)
+    alt Cache válido
+        MC-->>EF: Dados em memória
+    else Cache expirado
+        EF->>WP: GET /wp-json/wp/v2/posts
+        alt API disponível
+            WP-->>EF: Posts WordPress
+            EF->>EF: transformPost() para cada item
+            EF->>MC: Atualizar cache
+            EF->>DB: Upsert news_cache
+        else API offline
+            EF->>DB: SELECT * FROM news_cache
+            DB-->>EF: Notícias do cache
+        end
+    end
+    EF-->>FE: { noticias, source }
+```
+
+**Transformações Aplicadas**:
+
+| Campo WordPress | Campo Interno | Transformação |
+|-----------------|---------------|---------------|
+| `id` | `id` | `String(id)` |
+| `title.rendered` | `title` | `stripHtml()` |
+| `content.rendered` | `fullContent` | `stripHtml()` |
+| `excerpt.rendered` | `description` | `stripHtml()`, limit 200 chars |
+| `link` | `link` | Direto |
+| `date` | `pubDate` | ISO format |
+| `content.rendered` | `imageUrl` | `extractImageUrl()` - primeira `<img>` |
+| `content.rendered` | `readTime` | `calculateReadTime()` (200 palavras/min) |
+| `link + content` | `category` | `mapCategory()` |
+
+**Mapeamento de Categorias**:
+
+| Categoria | Keywords/Patterns |
+|-----------|-------------------|
+| `legislativo` | `/leg/`, lei, projeto, votação, PL |
+| `institucional` | institucional, câmara, administração |
+| `eventos` | evento, audiência, sessão, homenagem |
+| `cultura` | cultura, arte, exposição |
+| `saude` | saúde, hospital, ubs |
+| `educacao` | educação, escola, creche |
+| `outros` | fallback padrão |
+
+**Estrutura Transformada**:
+```typescript
+interface Noticia {
+  id: string;
+  title: string;
+  description: string;      // Resumo até 200 chars
+  fullContent: string;      // Conteúdo completo (sem HTML)
+  link: string;             // URL original
+  pubDate: string;          // Data ISO
+  category: NewsCategory;   // legislativo | institucional | eventos | ...
+  imageUrl: string | null;  // Primeira imagem extraída
+  readTime: string;         // "3 min de leitura"
+  source: string;           // "Portal CMSP"
+}
+```
+
+**Tabela de Cache**: `public.news_cache`
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | text | ID do post |
+| `title` | text | Título |
+| `description` | text | Resumo |
+| `full_content` | text | Conteúdo completo |
+| `link` | text | URL original |
+| `pub_date` | timestamptz | Data de publicação |
+| `category` | text | Categoria mapeada |
+| `image_url` | text | URL da imagem |
+| `read_time` | text | Tempo de leitura |
+| `cached_at` | timestamptz | Data do cache |
+
+**Hook Frontend**: `useNoticias()` em `src/hooks/useNoticias.ts`
+
+```typescript
+// Uso no frontend
+const { data: noticias, isLoading, error } = useNoticias();
+const { noticia, isLoading } = useNoticiaById("12345");
+```
+
+---
+
+### 24.7 Portal CMSP - Agenda e Audiências (WordPress)
+
+**Propósito**: Exibição de eventos e audiências públicas da Câmara.
+
+**Status**: ✅ Implementado
+
+**API Externa**:
+| Campo | Valor |
+|-------|-------|
+| **URL** | `https://www.saopaulo.sp.leg.br/wp-json/wp/v2/agenda_cerimonial` |
+| **Método** | GET |
+| **Parâmetros** | `?per_page=50&orderby=date&order=desc` |
+| **Autenticação** | Não requer |
+
+**Edge Function**: `fetch-agenda`
+
+**Fluxo de Dados**:
+```mermaid
+sequenceDiagram
+    participant FE as Frontend
+    participant EF as fetch-agenda
+    participant MC as Memory Cache
+    participant WP as WordPress API
+    participant DB as agenda_cache
+
+    FE->>EF: GET /fetch-agenda
+    EF->>MC: Verificar cache (TTL 10min)
+    alt Cache válido
+        MC-->>EF: Dados em memória
+    else Cache expirado
+        EF->>WP: GET /wp-json/wp/v2/agenda_cerimonial
+        alt API disponível
+            WP-->>EF: Posts de agenda
+            EF->>EF: transformAgendaPost()
+            EF->>MC: Atualizar cache
+            EF->>DB: Upsert agenda_cache
+        else API offline
+            EF->>DB: SELECT * FROM agenda_cache
+            DB-->>EF: Eventos do cache
+        end
+    end
+    EF-->>FE: { agenda, source }
+```
+
+**Tipos de Evento**:
+
+| Tipo | Descrição | Keywords |
+|------|-----------|----------|
+| `audiencia` | Audiências Públicas | audiência, ouvir |
+| `sessao` | Sessões Plenárias | sessão, plenário |
+| `comissao` | Reuniões de Comissões | comissão, reunião |
+| `evento` | Eventos Gerais (fallback) | homenagem, lançamento |
+
+**Extração de Dados do Conteúdo**:
+
+| Dado | Função | Padrão Regex |
+|------|--------|--------------|
+| `eventDate` | `extractEventDate()` | `DD/MM/YYYY` ou `YYYY-MM-DD` |
+| `eventTime` | `extractEventTime()` | `HH:MM` ou `Hh` |
+| `location` | `extractLocation()` | Após "Local:", "Onde:" |
+| `organizer` | `extractOrganizer()` | Após "Organização:", nomes de comissões |
+| `eventType` | `mapEventType()` | Keywords no título/conteúdo |
+
+**Estrutura Transformada**:
+```typescript
+interface AgendaItem {
+  id: string;
+  title: string;
+  description: string;
+  eventDate: string;        // YYYY-MM-DD
+  eventTime?: string;       // HH:MM
+  location?: string;        // Local do evento
+  eventType: 'audiencia' | 'sessao' | 'comissao' | 'evento';
+  organizer?: string;       // Comissão/organizador
+  link: string;             // URL original
+  registrationUrl?: string; // URL de inscrição (se disponível)
+}
+```
+
+**Tabela de Cache**: `public.agenda_cache`
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | text | ID do evento |
+| `title` | text | Título |
+| `description` | text | Descrição |
+| `event_date` | text | Data YYYY-MM-DD |
+| `event_time` | text | Hora HH:MM |
+| `location` | text | Local |
+| `event_type` | text | Tipo de evento |
+| `organizer` | text | Organizador |
+| `link` | text | URL original |
+| `cached_at` | timestamptz | Data do cache |
+
+**Hooks Frontend**: `useAgenda()` em `src/hooks/useAgenda.ts`
+
+```typescript
+// Uso no frontend
+const { data: agenda, isLoading } = useAgenda();           // Todos
+const { data: upcoming } = useUpcomingAgenda(5);           // Próximos 5
+const { data: past } = usePastAgenda();                    // Passados
+const { data: filtered } = useAgendaByType('audiencia');   // Por tipo
+const { agendaItem, isLoading } = useAgendaById("xyz");    // Específico
+```
+
+---
+
+### 24.8 Lovable AI Gateway
+
+**Propósito**: Acesso a modelos de IA para o AI Orchestrator e demais funcionalidades.
+
+**Status**: ✅ Implementado
+
+**API**:
+| Campo | Valor |
+|-------|-------|
+| **URL** | `https://ai.gateway.lovable.dev/v1/chat/completions` |
+| **Método** | POST |
+| **Autenticação** | `Authorization: Bearer ${LOVABLE_API_KEY}` |
+| **Streaming** | SSE (Server-Sent Events) |
+
+**Edge Functions que Utilizam**:
+
+| Edge Function | Modelo Preferido | Propósito |
+|---------------|------------------|-----------|
+| `ai-orchestrator` | `google/gemini-2.5-flash` | Chat conversacional principal |
+| `analyze-sentiment` | `google/gemini-2.5-flash` | Análise de sentimento de relatos |
+| `generate-embeddings` | `openai/gpt-5-mini` | Vetorização para busca semântica |
+| `recommend-services` | `google/gemini-2.5-flash` | Recomendações personalizadas |
+| `suggest-council-members` | `google/gemini-2.5-flash` | Sugestão de vereadores por tema |
+| `populate-knowledge-base` | `google/gemini-2.5-flash` | Enriquecimento da base de conhecimento |
+
+**Modelos Disponíveis**:
+
+| Modelo | Uso Recomendado |
+|--------|-----------------|
+| `google/gemini-2.5-flash` | Velocidade + custo (padrão) |
+| `google/gemini-2.5-pro` | Reasoning complexo |
+| `openai/gpt-5-mini` | Embeddings de alta qualidade |
+| `openai/gpt-5` | Tarefas críticas de alta precisão |
+
+**Exemplo de Request**:
+```typescript
+const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory,
+      { role: 'user', content: userMessage }
+    ],
+    tools: toolDefinitions,
+    stream: true
+  })
+});
+```
+
+---
+
+### 24.9 Estratégia de Cache e Fallback
+
+**Arquitetura de Resiliência (3 Camadas)**:
+
+Todas as integrações com APIs externas institucionais (SP Legis, WordPress) seguem um padrão de 3 camadas para garantir alta disponibilidade:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    1ª PRIORIDADE                        │
+│                  Memory Cache (10min)                   │
+│      Dados em memória da Edge Function (stateless)      │
+└──────────────────────────┬──────────────────────────────┘
+                           │ cache miss ou expirado
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                    2ª PRIORIDADE                        │
+│               Fetch da API Externa                      │
+│     SP Legis / WordPress Portal CMSP                    │
+└──────────────────────────┬──────────────────────────────┘
+                           │ falha (timeout, erro, offline)
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                    3ª PRIORIDADE                        │
+│            Database Cache (Supabase)                    │
+│   *_cache tables (persistente, stale-while-revalidate)  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Tabelas de Cache no Banco**:
+
+| Tabela | API Fonte | Atualização | Volume Esperado |
+|--------|-----------|-------------|-----------------|
+| `council_members_cache` | SP Legis Vereadores | A cada fetch bem-sucedido | ~55 registros |
+| `news_cache` | WordPress Posts | A cada fetch bem-sucedido | ~30 registros |
+| `agenda_cache` | WordPress Agenda | A cada fetch bem-sucedido | ~50 registros |
+
+**Padrão de Implementação**:
+
+```typescript
+// Padrão implementado em todas as Edge Functions de conteúdo externo
+async function handler(req: Request): Promise<Response> {
+  try {
+    // 1. Verificar cache em memória
+    if (memoryCache.data && memoryCache.timestamp > Date.now() - CACHE_TTL) {
+      return json({ 
+        data: memoryCache.data, 
+        source: 'memory', 
+        cached: true 
+      });
+    }
+    
+    // 2. Buscar da API externa
+    const freshData = await fetchFromExternalAPI();
+    
+    // Atualizar caches (background - não bloqueia resposta)
+    memoryCache = { data: freshData, timestamp: Date.now() };
+    updateDatabaseCache(supabase, freshData); // async, não await
+    
+    return json({ 
+      data: freshData, 
+      source: 'api', 
+      cached: false 
+    });
+    
+  } catch (apiError) {
+    console.error('[fetch-*] API error, trying fallbacks:', apiError.message);
+    
+    // 3. Fallback para cache stale em memória
+    if (memoryCache.data) {
+      return json({ 
+        data: memoryCache.data, 
+        source: 'memory', 
+        stale: true,
+        warning: 'API offline, dados podem estar desatualizados'
+      });
+    }
+    
+    // 4. Fallback para banco de dados
+    const cachedData = await fetchFromDatabaseCache(supabase);
+    if (cachedData.length > 0) {
+      return json({ 
+        data: cachedData, 
+        source: 'database', 
+        stale: true,
+        warning: 'API offline, dados podem estar desatualizados'
+      });
+    }
+    
+    // 5. Erro fatal - sem dados disponíveis
+    throw new Error('Nenhum dado disponível');
+  }
+}
+```
+
+**Resposta com Metadados**:
+
+```typescript
+interface CachedResponse<T> {
+  data: T;                      // Dados retornados
+  source: 'api' | 'memory' | 'database';  // Origem dos dados
+  cached: boolean;              // true se veio de cache
+  stale?: boolean;              // true se dados podem estar desatualizados
+  cachedAt?: string;            // timestamp do cache (se aplicável)
+  warning?: string;             // mensagem de alerta (se fallback)
+  error?: string;               // erro que causou fallback (debug)
+}
+```
+
+**TTL e Configurações**:
+
+| Recurso | TTL | Justificativa |
+|---------|-----|---------------|
+| Memory Cache | 10 minutos | Balance entre freshness e performance |
+| Database Cache | Persistente | Fallback para offline, sem expiração |
+| Stale-While-Revalidate | Sempre serve | Prioriza disponibilidade sobre freshness |
+| Hook `staleTime` | 10 minutos | Alinhado com memory cache |
+| Hook `gcTime` | 30 minutos | Mantém dados no React Query |
+
+**Monitoramento e Logs**:
+
+Cada Edge Function loga:
+- Origem dos dados (`[fetch-*] Serving from {source}`)
+- Erros de API (`[fetch-*] API error: {message}`)
+- Fallbacks acionados (`[fetch-*] Falling back to {source}`)
+- Atualizações de cache (`[fetch-*] Cache updated with {count} items`)
 
 ---
 
@@ -3261,6 +3922,93 @@ stateDiagram-v2
     Collecting --> Reset: Troca de jornada
     Reset --> Collecting: Nova jornada
 ```
+
+### E.6 Integrações de APIs Externas
+
+```mermaid
+flowchart TB
+    subgraph "Fontes de Dados Externas"
+        SPL["🏛️ SP Legis API<br/>saopaulo.sp.leg.br/vereadores-json/"]
+        WPN["📰 WordPress - Notícias<br/>saopaulo.sp.leg.br/wp-json/wp/v2/posts"]
+        WPA["📅 WordPress - Agenda<br/>saopaulo.sp.leg.br/wp-json/wp/v2/agenda_cerimonial"]
+        GP["📍 Google Places API<br/>places.googleapis.com/v1/places"]
+        VC["📮 ViaCEP<br/>viacep.com.br/ws/{cep}/json"]
+        LAI["🤖 Lovable AI Gateway<br/>ai.gateway.lovable.dev/v1"]
+        N8N["⚙️ N8N Workflow<br/>Self-hosted"]
+    end
+    
+    subgraph "Edge Functions (Supabase)"
+        FV[fetch-vereadores]
+        FN[fetch-noticias]
+        FA[fetch-agenda]
+        GPA[google-places-autocomplete]
+        GPD[google-places-details]
+        AIO[ai-orchestrator]
+        NN8[notify-n8n]
+        CB8[n8n-callback]
+    end
+    
+    subgraph "Camada de Cache"
+        MC[("💾 Memory Cache<br/>TTL: 10min")]
+        CMC[("🗃️ council_members_cache")]
+        NC[("🗃️ news_cache")]
+        AC[("🗃️ agenda_cache")]
+    end
+    
+    subgraph "Frontend (React)"
+        UV["useVereadores()"]
+        UN["useNoticias()"]
+        UA["useAgenda()"]
+        AAC["AddressAutocomplete"]
+        UAI["useUnifiedAIChat()"]
+    end
+    
+    %% Conexões de APIs para Edge Functions
+    SPL --> FV
+    WPN --> FN
+    WPA --> FA
+    GP --> GPA
+    GP --> GPD
+    VC --> AIO
+    LAI --> AIO
+    N8N <--> NN8
+    N8N <--> CB8
+    
+    %% Conexões de Edge Functions para Cache
+    FV --> MC
+    FV --> CMC
+    FN --> MC
+    FN --> NC
+    FA --> MC
+    FA --> AC
+    
+    %% Conexões de Frontend para Edge Functions
+    UV --> FV
+    UN --> FN
+    UA --> FA
+    AAC --> GPA
+    AAC --> GPD
+    UAI --> AIO
+    
+    %% Estilo
+    classDef api fill:#e1f5fe,stroke:#01579b
+    classDef edge fill:#fff3e0,stroke:#e65100
+    classDef cache fill:#f3e5f5,stroke:#7b1fa2
+    classDef frontend fill:#e8f5e9,stroke:#2e7d32
+    
+    class SPL,WPN,WPA,GP,VC,LAI,N8N api
+    class FV,FN,FA,GPA,GPD,AIO,NN8,CB8 edge
+    class MC,CMC,NC,AC cache
+    class UV,UN,UA,AAC,UAI frontend
+```
+
+**Legenda:**
+- 🏛️ APIs Institucionais (SP Legis, Portal CMSP)
+- 📍 APIs de Geolocalização (Google Places, ViaCEP)
+- 🤖 APIs de IA (Lovable AI Gateway)
+- ⚙️ Automação (N8N)
+- 💾 Cache em memória (volátil)
+- 🗃️ Cache em banco (persistente)
 
 ---
 
@@ -4328,6 +5076,7 @@ sequenceDiagram
 |--------|------|-------|------------|
 | 1.0.0 | Jan 2026 | Equipe CMSP | Versão inicial completa |
 | 1.1.0 | Jan 2026 | Equipe CMSP | Adicionada PARTE 9: CMS Administrativo (seções 27-41) |
+| 1.2.0 | Jan 2026 | Equipe CMSP | Seção 24 expandida: documentação completa de APIs externas (SP Legis, WordPress, Google Places, Lovable AI Gateway), estratégias de cache/fallback e diagramas de fluxo |
 
 ---
 

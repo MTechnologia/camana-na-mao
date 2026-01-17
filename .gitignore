@@ -12,7 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Supabase local dev artifacts
+supabase/.temp/
+supabase/.branches/
+
+# Env files (não commitar segredos)
+.env
+.env.*
+
 # Editor directories and files
+.cursor/
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +31,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Office temp files (Word/Excel)
+~$*.docx
+~$*.xlsx
+~WRL*.tmp

@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Check, Star, MapPin } from 'lucide-react';
-import { Vereador } from '@/data/vereadores';
+import { Vereador } from '@/hooks/useVereadores';
 
 interface CouncilMemberCardProps {
   vereador: Vereador;
