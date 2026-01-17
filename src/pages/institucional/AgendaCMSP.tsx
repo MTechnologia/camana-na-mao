@@ -1,7 +1,18 @@
 import { useMemo, useState } from "react";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
 import ContentArticle from "@/components/institucional/ContentArticle";
-import { Calendar, Clock, FileDown, MapPin, Search, Users, X, CalendarPlus, Loader2 } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  FileDown,
+  MapPin,
+  Search,
+  Users,
+  X,
+  CalendarPlus,
+  Loader2,
+} from "lucide-react";
+import { EnhancedDateInput } from "@/components/filters/EnhancedDateInput";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickFilterPills } from "@/components/filters/QuickFilterPills";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import type { DateRangeValue } from "@/components/filters/types";
 import {
   Select,
@@ -33,12 +43,14 @@ import { ptBR } from "date-fns/locale";
 import { downloadAgendaPdf } from "@/lib/agendaPdf";
 
 const typeFilterOptions = [
-  { value: "all", label: "Explorar conteúdos" },
+  { value: "all", label: "Todos os tipos" },
   { value: "sessao", label: "Sessões" },
   { value: "comissao", label: "Comissões" },
   { value: "audiencia", label: "Audiências" },
   { value: "cerimonia", label: "Cerimônias" },
 ];
+
+// DateInput is now replaced by EnhancedDateInput imported from filters
 
 const AgendaCMSP = () => {
   const [draftSearchQuery, setDraftSearchQuery] = useState("");
@@ -94,6 +106,10 @@ const AgendaCMSP = () => {
     toast.success("Abrindo Google Calendar...");
   };
 
+  // Get today's date for filtering upcoming events
+  const today = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+
+  // Filter all events based on search, type, and date range
   const filteredAgenda = useMemo(() => {
     return agendaData.filter((item) => {
       // Search filter
@@ -123,7 +139,50 @@ const AgendaCMSP = () => {
     });
   }, [agendaData, searchQuery, selectedTypes, dateRange]);
 
+  // Filter only upcoming events (today and future)
+  const upcomingAgenda = useMemo(() => {
+    return filteredAgenda
+      .filter((item) => {
+        const itemDate = toDateOnly(item.eventDate);
+        return itemDate >= today;
+      })
+      .sort((a, b) => {
+        // Sort by date ascending (soonest first)
+        const dateCompare = a.eventDate.localeCompare(b.eventDate);
+        if (dateCompare !== 0) return dateCompare;
+        // Then by time
+        return (a.eventTime || "").localeCompare(b.eventTime || "");
+      });
+  }, [filteredAgenda, today]);
+
+  // Filter events for current month
+  const thisMonthAgenda = useMemo(() => {
+    const currentMonth = format(new Date(), "yyyy-MM");
+    return filteredAgenda
+      .filter((item) => {
+        const itemDate = toDateOnly(item.eventDate);
+        return itemDate.startsWith(currentMonth);
+      })
+      .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+  }, [filteredAgenda]);
+
+  // Filter past events (before today)
+  const pastAgenda = useMemo(() => {
+    return filteredAgenda
+      .filter((item) => {
+        const itemDate = toDateOnly(item.eventDate);
+        return itemDate < today;
+      })
+      .sort((a, b) => {
+        // Sort by date descending (most recent past first)
+        return b.eventDate.localeCompare(a.eventDate);
+      });
+  }, [filteredAgenda, today]);
+
   const hasActiveFilters = searchQuery !== "" || selectedTypes.length > 0 || !!dateRange?.from || !!dateRange?.to;
+
+  // Use upcomingAgenda for the result count display
+  const displayCount = upcomingAgenda.length;
 
   const clearFilters = () => {
     setDraftSearchQuery("");
@@ -181,41 +240,38 @@ const AgendaCMSP = () => {
         {/* Filters Section */}
         <div className="mt-6 space-y-4">
           {/* Official-like Filters Row */}
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-            <FilterDatePicker
-              value={draftDateRange}
-              onChange={setDraftDateRange}
-              placeholder="Selecione o período"
-              className="md:w-[320px]"
-            />
-
-            <div className="md:w-[220px]">
-              <Select value={selectedTypeForSelect} onValueChange={setSelectedTypeFromSelect}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Explorar conteúdos" />
-                </SelectTrigger>
-                <SelectContent>
-                  {typeFilterOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+              <EnhancedDateInput
+                value={draftDateRange?.from}
+                onChange={(d) => setDraftDateRange((prev) => ({ from: d, to: prev?.to }))}
+                placeholder="Data inicial"
+                minYear={2015}
+                maxYear={2030}
+              />
+              <span className="hidden sm:inline text-sm text-muted-foreground">até</span>
+              <EnhancedDateInput
+                value={draftDateRange?.to}
+                onChange={(d) => setDraftDateRange((prev) => ({ from: prev?.from, to: d }))}
+                placeholder="Data final"
+                minYear={2015}
+                maxYear={2030}
+              />
             </div>
 
-            <div className="flex gap-2 md:ml-auto">
-              <Button onClick={applyFilters} className="h-9">
+
+            <div className="flex flex-col gap-2 sm:flex-row lg:ml-auto">
+              <Button onClick={applyFilters} className="h-11 rounded-xl px-8">
                 Filtrar
               </Button>
               <Button
                 variant="outline"
                 onClick={handleDownloadPdf}
                 disabled={isLoading || filteredAgenda.length === 0}
-                className="h-9"
+                className="h-11 rounded-xl px-4"
               >
                 <FileDown className="h-4 w-4 mr-2" />
-                Baixar PDF da agenda completa
+                PDF - Agenda Câmara
               </Button>
             </div>
           </div>
@@ -250,7 +306,7 @@ const AgendaCMSP = () => {
           {hasActiveFilters && (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="gap-1">
-                {filteredAgenda.length} resultado{filteredAgenda.length !== 1 ? 's' : ''}
+                {upcomingAgenda.length} resultado{upcomingAgenda.length !== 1 ? 's' : ''}
               </Badge>
               <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
                 <X className="h-3 w-3 mr-1" />
@@ -261,9 +317,10 @@ const AgendaCMSP = () => {
         </div>
 
         <Tabs defaultValue="proximos" className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="proximos">Próximos</TabsTrigger>
             <TabsTrigger value="mes">Este mês</TabsTrigger>
+            <TabsTrigger value="anteriores">Anteriores</TabsTrigger>
           </TabsList>
 
           <TabsContent value="proximos" className="space-y-4 mt-4">
@@ -298,12 +355,12 @@ const AgendaCMSP = () => {
             )}
 
             {/* Empty State */}
-            {!isLoading && !error && filteredAgenda.length === 0 && (
+            {!isLoading && !error && upcomingAgenda.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
                   {hasActiveFilters
                     ? "Nenhum evento encontrado com os filtros selecionados"
-                    : "Nenhum evento programado no momento"}
+                    : "Nenhum evento próximo programado"}
                 </p>
                 {hasActiveFilters && (
                   <Button variant="ghost" onClick={clearFilters} className="mt-4">
@@ -314,50 +371,68 @@ const AgendaCMSP = () => {
             )}
 
             {/* Events List */}
-            {!isLoading && !error && filteredAgenda.length > 0 && (
-              filteredAgenda.map((item) => {
+            {!isLoading && !error && upcomingAgenda.length > 0 && (
+              upcomingAgenda.map((item) => {
                 const typeConfig = getEventTypeConfig(item.eventType);
                 return (
                   <Card 
                     key={item.id} 
                     onClick={() => setSelectedEvent(item)}
-                    className="p-4 hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99]"
+                    className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden"
                   >
-                    <div className="space-y-3">
-                      <Badge
-                        variant="outline"
-                        className={`mb-2 inline-block ${typeConfig.color}`}
-                      >
-                        {typeConfig.label}
-                      </Badge>
-                      <h3 className="font-semibold text-foreground mb-2">
-                        {item.title}
-                      </h3>
-
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span className="capitalize">{formatDate(item.eventDate)}</span>
+                    <div className="flex">
+                      {/* Image section - only show if imageUrl exists */}
+                      {item.imageUrl && (
+                        <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Hide the image container if it fails to load
+                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                            }}
+                          />
                         </div>
+                      )}
+                      
+                      {/* Content section */}
+                      <div className="flex-1 p-4 space-y-3">
+                        <Badge
+                          variant="outline"
+                          className={`mb-2 inline-block ${typeConfig.color}`}
+                        >
+                          {typeConfig.label}
+                        </Badge>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          {item.title}
+                        </h3>
 
-                        {item.eventTime && (
+                        <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{item.eventTime}</span>
+                            <Calendar className="h-4 w-4" />
+                            <span className="capitalize">{formatDate(item.eventDate)}</span>
                           </div>
-                        )}
 
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <MapPin className="h-4 w-4" />
-                          <span>{item.location}</span>
+                          {item.eventTime && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>{item.eventTime}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{item.location}</span>
+                          </div>
+
+                          {item.organizer && item.organizer !== 'Câmara Municipal de São Paulo' && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Users className="h-4 w-4" />
+                              <span>{item.organizer}</span>
+                            </div>
+                          )}
                         </div>
-
-                        {item.organizer && item.organizer !== 'Câmara Municipal de São Paulo' && (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Users className="h-4 w-4" />
-                            <span>{item.organizer}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </Card>
@@ -366,10 +441,185 @@ const AgendaCMSP = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="mes" className="mt-4">
-            <p className="text-center text-muted-foreground py-8">
-              Visualização mensal em desenvolvimento
-            </p>
+          <TabsContent value="mes" className="space-y-4 mt-4">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="p-4">
+                    <Skeleton className="h-5 w-24 mb-2" />
+                    <Skeleton className="h-6 w-3/4 mb-3" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/3" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && thisMonthAgenda.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  Nenhum evento programado para este mês
+                </p>
+              </div>
+            )}
+
+            {/* Events List */}
+            {!isLoading && !error && thisMonthAgenda.length > 0 && (
+              thisMonthAgenda.map((item) => {
+                const typeConfig = getEventTypeConfig(item.eventType);
+                return (
+                  <Card 
+                    key={item.id} 
+                    onClick={() => setSelectedEvent(item)}
+                    className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden"
+                  >
+                    <div className="flex">
+                      {item.imageUrl && (
+                        <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 p-4 space-y-3">
+                        <Badge
+                          variant="outline"
+                          className={`mb-2 inline-block ${typeConfig.color}`}
+                        >
+                          {typeConfig.label}
+                        </Badge>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          {item.title}
+                        </h3>
+
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span className="capitalize">{formatDate(item.eventDate)}</span>
+                          </div>
+
+                          {item.eventTime && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>{item.eventTime}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{item.location}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+
+          <TabsContent value="anteriores" className="space-y-4 mt-4">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="p-4">
+                    <Skeleton className="h-5 w-24 mb-2" />
+                    <Skeleton className="h-6 w-3/4 mb-3" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-4 w-1/3" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && !error && pastAgenda.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  {hasActiveFilters
+                    ? "Nenhum evento anterior encontrado com os filtros selecionados"
+                    : "Nenhum evento anterior registrado"}
+                </p>
+                {hasActiveFilters && (
+                  <Button variant="ghost" onClick={clearFilters} className="mt-4">
+                    Limpar filtros
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Events List */}
+            {!isLoading && !error && pastAgenda.length > 0 && (
+              pastAgenda.map((item) => {
+                const typeConfig = getEventTypeConfig(item.eventType);
+                return (
+                  <Card 
+                    key={item.id} 
+                    onClick={() => setSelectedEvent(item)}
+                    className="hover:shadow-md transition-all cursor-pointer relative active:scale-[0.99] overflow-hidden opacity-80"
+                  >
+                    <div className="flex">
+                      {item.imageUrl && (
+                        <div className="w-32 h-32 sm:w-40 sm:h-40 flex-shrink-0">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.title}
+                            className="w-full h-full object-cover grayscale"
+                            onError={(e) => {
+                              (e.target as HTMLElement).parentElement!.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 p-4 space-y-3">
+                        <Badge
+                          variant="outline"
+                          className={`mb-2 inline-block ${typeConfig.color}`}
+                        >
+                          {typeConfig.label}
+                        </Badge>
+                        <h3 className="font-semibold text-foreground mb-2">
+                          {item.title}
+                        </h3>
+
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span className="capitalize">{formatDate(item.eventDate)}</span>
+                          </div>
+
+                          {item.eventTime && (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>{item.eventTime}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span>{item.location}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
           </TabsContent>
         </Tabs>
 

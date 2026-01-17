@@ -7,7 +7,7 @@ import { forceNuclearCleanup } from "@/lib/cleanupLegacyPWA";
 import { toast } from "sonner";
 
 // Build ID - atualizado a cada deploy
-const BUILD_ID = "2024-12-30-v1";
+const BUILD_ID = "2026-01-15-v1";
 
 export const DebugOverlay = () => {
   const { user, session, loading } = useAuth();
