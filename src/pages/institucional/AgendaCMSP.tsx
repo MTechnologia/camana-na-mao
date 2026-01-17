@@ -3,7 +3,6 @@ import InstitutionalLayout from "@/components/institucional/InstitutionalLayout"
 import ContentArticle from "@/components/institucional/ContentArticle";
 import {
   Calendar,
-  Calendar as CalendarIcon,
   Clock,
   FileDown,
   MapPin,
@@ -13,6 +12,7 @@ import {
   CalendarPlus,
   Loader2,
 } from "lucide-react";
+import { EnhancedDateInput } from "@/components/filters/EnhancedDateInput";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -28,8 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Sheet,
   SheetContent,
@@ -52,45 +50,7 @@ const typeFilterOptions = [
   { value: "cerimonia", label: "Cerimônias" },
 ];
 
-function DateInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: Date | undefined;
-  onChange: (value: Date | undefined) => void;
-  placeholder: string;
-}) {
-  const label = value ? format(value, "dd/MM/yyyy") : placeholder;
-  const isEmpty = !value;
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={[
-            "h-11 justify-start gap-2 rounded-xl px-4 font-normal",
-            isEmpty ? "text-muted-foreground" : "",
-          ].join(" ")}
-        >
-          <CalendarIcon className="h-4 w-4" />
-          <span className="tabular-nums">{label}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-0">
-        <CalendarComponent
-          mode="single"
-          selected={value}
-          onSelect={onChange}
-          locale={ptBR}
-          numberOfMonths={1}
-          className="p-3"
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
+// DateInput is now replaced by EnhancedDateInput imported from filters
 
 const AgendaCMSP = () => {
   const [draftSearchQuery, setDraftSearchQuery] = useState("");
@@ -282,16 +242,20 @@ const AgendaCMSP = () => {
           {/* Official-like Filters Row */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-              <DateInput
+              <EnhancedDateInput
                 value={draftDateRange?.from}
                 onChange={(d) => setDraftDateRange((prev) => ({ from: d, to: prev?.to }))}
                 placeholder="Data inicial"
+                minYear={2015}
+                maxYear={2030}
               />
               <span className="hidden sm:inline text-sm text-muted-foreground">até</span>
-              <DateInput
+              <EnhancedDateInput
                 value={draftDateRange?.to}
                 onChange={(d) => setDraftDateRange((prev) => ({ from: prev?.from, to: d }))}
                 placeholder="Data final"
+                minYear={2015}
+                maxYear={2030}
               />
             </div>
 
