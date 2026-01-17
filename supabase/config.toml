@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.fetch-vereadores]
 verify_jwt = false
+
+[functions.api-router]
+verify_jwt = false
