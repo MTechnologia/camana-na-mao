@@ -271,7 +271,7 @@ const AgendaCMSP = () => {
                 className="h-11 rounded-xl px-4"
               >
                 <FileDown className="h-4 w-4 mr-2" />
-                PDF - Agenda completa
+                PDF - Agenda Câmara
               </Button>
             </div>
           </div>
