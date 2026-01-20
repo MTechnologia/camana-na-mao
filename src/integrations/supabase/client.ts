@@ -2,8 +2,17 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// New standardized env names (preferred):
+// - CAMARA_URL
+// - CAMARA_PUBLISHABLE_KEY
+//
+// Backward compatibility (temporary):
+// - VITE_SUPABASE_URL
+// - VITE_SUPABASE_PUBLISHABLE_KEY
+const SUPABASE_URL =
+  import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.CAMARA_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

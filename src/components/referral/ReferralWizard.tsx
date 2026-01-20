@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CouncilMemberCard } from './CouncilMemberCard';
 import { useCouncilMemberSuggestions } from '@/hooks/useCouncilMemberSuggestions';
-import { Vereador } from '@/data/vereadores';
+import { Vereador } from '@/hooks/useVereadores';
 import { 
   ArrowLeft, 
   ArrowRight, 

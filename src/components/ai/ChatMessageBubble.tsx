@@ -127,6 +127,15 @@ const ChatMessageBubble = ({
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
+
+  // If the assistant is talking about audiências/inscrição, show a shortcut CTA to the in-app flow.
+  const shouldShowAudienciasCta = useMemo(() => {
+    if (isUser || !isLastAssistantMessage) return false;
+    const content = message.content.toLowerCase();
+    const hasAudienciasContext = content.includes('audiên') || content.includes('audienc');
+    const hasSignupIntent = content.includes('inscri') || content.includes('inscrev') || content.includes('participar');
+    return hasAudienciasContext && hasSignupIntent;
+  }, [isUser, isLastAssistantMessage, message.content]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -468,6 +477,21 @@ const ChatMessageBubble = ({
             >
               <span className="truncate flex-1 text-left">Não, continuar {JOURNEY_NAMES[journeySwitchMatch.currentJourney] || journeySwitchMatch.currentJourney}</span>
               <RotateCcw className="h-4 w-4 ml-2 flex-shrink-0" />
+            </Button>
+          </div>
+        )}
+
+        {/* Audiencias CTA */}
+        {shouldShowAudienciasCta && (
+          <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate('/audiencias')}
+              className="w-full justify-between min-h-[40px]"
+            >
+              <span className="truncate flex-1 text-left">Abrir Audiências</span>
+              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
             </Button>
           </div>
         )}

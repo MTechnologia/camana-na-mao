@@ -37,6 +37,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/notificacoes": "Notificações",
   "/busca": "Buscar",
   "/conversas": "Conversas",
+  "/relatos": "Relatos",
   // Analytics - PT
   "/paineis": "Painéis Analíticos",
   "/paineis/avancado": "Análise Avançada",

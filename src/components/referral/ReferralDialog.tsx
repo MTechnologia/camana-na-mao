@@ -5,6 +5,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ReferralWizard } from './ReferralWizard';
+import { useUserRole } from '@/hooks/useUserRole';
+import { toast } from 'sonner';
 
 interface ReportSummary {
   id: string;
@@ -33,10 +35,18 @@ export const ReferralDialog = ({
   onComplete 
 }: ReferralDialogProps) => {
   if (!report) return null;
+  const { loading, canReferToCouncilMember } = useUserRole();
 
   const handleComplete = () => {
     onOpenChange(false);
     onComplete?.();
+  };
+
+  const handleBlocked = () => {
+    toast.error('Acesso restrito', {
+      description: 'Encaminhar para vereador está disponível apenas para Cidadão Engajado, Gestor e Admin.',
+    });
+    onOpenChange(false);
   };
 
   return (
@@ -45,11 +55,32 @@ export const ReferralDialog = ({
         <DialogHeader className="sr-only">
           <DialogTitle>Encaminhar para Vereador</DialogTitle>
         </DialogHeader>
-        <ReferralWizard
-          report={report}
-          onComplete={handleComplete}
-          onCancel={() => onOpenChange(false)}
-        />
+        {loading ? (
+          <div className="p-6">
+            <p className="text-sm text-muted-foreground">Verificando permissões...</p>
+          </div>
+        ) : canReferToCouncilMember ? (
+          <ReferralWizard
+            report={report}
+            onComplete={handleComplete}
+            onCancel={() => onOpenChange(false)}
+          />
+        ) : (
+          <div className="p-6 space-y-3">
+            <h3 className="text-base font-semibold">Acesso restrito</h3>
+            <p className="text-sm text-muted-foreground">
+              Encaminhar para vereador está disponível apenas para <strong>Cidadão Engajado</strong>,{' '}
+              <strong>Gestor</strong> e <strong>Admin</strong>.
+            </p>
+            <button
+              className="text-sm text-primary underline"
+              onClick={handleBlocked}
+              type="button"
+            >
+              Entendi
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -1,0 +1,12 @@
+services:
+  - type: static_site
+    name: camara-na-mao-web
+    env: static
+    buildCommand: bun run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+

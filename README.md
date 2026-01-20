@@ -66,6 +66,23 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Deploy (Render)
+
+Este repo pode ser publicado no Render como **Static Site** (Vite build).
+
+- **Build command**: `npm ci && npm run build`
+- **Publish directory**: `dist`
+- **SPA routing**: rewrite de `/*` para `/index.html` (já configurado em `render.yaml`)
+
+### Variáveis de ambiente (Render)
+
+No Render, configure as variáveis (Environment):
+- `CAMARA_URL`
+- `CAMARA_PUBLISHABLE_KEY`
+- `CAMARA_PROJECT_ID` (opcional)
+
+Veja `env.example`.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/b66b554b-a744-42b3-8868-c153c2d41290) and click on Share -> Publish.

@@ -103,6 +103,11 @@ export const useUnifiedAIChat = (
       }
 
       try {
+        // IMPORTANT: when switching between conversations, do not carry over messages from the previous one.
+        // Otherwise, previous messages get treated as "optimistic" and leak into the next conversation.
+        setIsHistoryLoaded(false);
+        setMessages([]);
+
         const { data, error } = await supabase
           .from('ai_conversations')
           .select('messages')
@@ -114,8 +119,7 @@ export const useUnifiedAIChat = (
         const savedMessages = (data.messages as any[]) || [];
         
         if (savedMessages.length === 0) {
-          // Sem greeting - preserva apenas mensagens otimistas do usuário
-          setMessages(prev => prev.filter(msg => msg.role === "user"));
+          setMessages([]);
         } else {
           // CRITICAL FIX: Preserve RAW content (with markers) for backend correlation
           // Sanitization happens ONLY in ChatMessageBubble for display
@@ -125,17 +129,8 @@ export const useUnifiedAIChat = (
             timestamp: msg.timestamp || ''
           }));
           
-          // Preserva mensagens otimistas que ainda não foram salvas no banco
-          setMessages(prev => {
-            const optimisticUserMessages = prev.filter(
-              msg => msg.role === "user" && 
-              !savedMessages.some(saved => saved.content === msg.content)
-            );
-            if (optimisticUserMessages.length > 0) {
-              return [...messagesWithTimestamp, ...optimisticUserMessages];
-            }
-            return messagesWithTimestamp;
-          });
+          // Replace state with the loaded conversation messages (no cross-conversation merging).
+          setMessages(messagesWithTimestamp);
           
           // Check for report markers in history AND reconstruct tracker state
           for (const msg of savedMessages) {
@@ -802,9 +797,13 @@ export const useUnifiedAIChat = (
       
       console.log('[useUnifiedAIChat] Payload message count:', effectiveMessages.length, 'hasOptimistic:', hasOptimisticMessage);
 
+      const supabaseUrl =
+        import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) throw new Error("Missing CAMARA_URL (or VITE_SUPABASE_URL)");
+
       // Always call the unified orchestrator
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
+        `${supabaseUrl}/functions/v1/ai-orchestrator`,
         {
           method: "POST",
           headers: {
