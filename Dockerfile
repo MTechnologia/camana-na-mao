@@ -1,4 +1,6 @@
 # Multi-stage Dockerfile para Câmara na Mão
+# Suporta desenvolvimento (hot-reload) e produção (Cloud Run friendly)
+
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 
@@ -25,12 +27,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Build da aplicação
-# Usar --mode development para hot-reload em dev
+# Suporta variáveis CAMARA_* (novas) e VITE_SUPABASE_* (legado para compatibilidade)
 ARG NODE_ENV=production
+ARG CAMARA_URL
+ARG CAMARA_PUBLISHABLE_KEY
+ARG CAMARA_PROJECT_ID
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
 
 ENV NODE_ENV=${NODE_ENV}
+ENV CAMARA_URL=${CAMARA_URL}
+ENV CAMARA_PUBLISHABLE_KEY=${CAMARA_PUBLISHABLE_KEY}
+ENV CAMARA_PROJECT_ID=${CAMARA_PROJECT_ID}
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 
@@ -53,17 +61,15 @@ EXPOSE 8080
 # Comando para desenvolvimento com hot-reload
 CMD ["npm", "run", "dev"]
 
-# Stage 4: Production (servir build estático)
-FROM nginx:alpine AS production
+# Stage 4: Production (servir build estático com Nginx)
+# Usa nginx-unprivileged para Cloud Run (porta 8080)
+FROM nginxinc/nginx-unprivileged:1.25-alpine AS production
+
+# Copiar configuração customizada do nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copiar build do stage builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copiar configuração customizada do nginx (opcional)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expor porta 80
-EXPOSE 80
-
-# Comando padrão do nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Expor porta 8080 (padrão do Cloud Run)
+EXPOSE 8080

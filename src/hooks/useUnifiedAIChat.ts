@@ -797,9 +797,13 @@ export const useUnifiedAIChat = (
       
       console.log('[useUnifiedAIChat] Payload message count:', effectiveMessages.length, 'hasOptimistic:', hasOptimisticMessage);
 
+      const supabaseUrl =
+        import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) throw new Error("Missing CAMARA_URL (or VITE_SUPABASE_URL)");
+
       // Always call the unified orchestrator
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
+        `${supabaseUrl}/functions/v1/ai-orchestrator`,
         {
           method: "POST",
           headers: {

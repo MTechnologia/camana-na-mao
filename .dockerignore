@@ -27,6 +27,7 @@ Thumbs.db
 
 # Git
 .git
+.github
 .gitignore
 .gitattributes
 
@@ -59,6 +60,11 @@ logs
 # Supabase (manter apenas o necessário)
 supabase/.branches
 supabase/.temp
+
+# Mobile (se existir)
+mobile/node_modules
+mobile/.expo
+mobile/dist
 
 # Scripts (opcional - remover se precisar)
 scripts

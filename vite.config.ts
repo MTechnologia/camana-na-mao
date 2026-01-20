@@ -5,6 +5,9 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Allow exposing both VITE_* (default) and CAMARA_* env vars to the client bundle.
+  // This enables the migration from VITE_SUPABASE_* → CAMARA_* without breaking local/dev setups.
+  envPrefix: ["VITE_", "CAMARA_"],
   server: {
     host: "::",
     port: 5173,
