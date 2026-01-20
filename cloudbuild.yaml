@@ -12,6 +12,12 @@ steps:
       - "CAMARA_PROJECT_ID=${_CAMARA_PROJECT_ID}"
       - "."
 
+  # Push image BEFORE deploying, otherwise Cloud Run can't find it yet.
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "gcr.io/$PROJECT_ID/camara-na-mao:$COMMIT_SHA"
+
   # Deploy to Cloud Run (required to replace the placeholder revision)
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
     entrypoint: "gcloud"
