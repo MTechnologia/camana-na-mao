@@ -4,10 +4,12 @@ Este projeto possui **web (Vite)** e **mobile (Expo)**. Cada um usa variáveis d
 
 ### Web (Vite)
 
-As variáveis do Vite precisam começar com `VITE_`.
+Este projeto padroniza as variáveis públicas do frontend com o prefixo `CAMARA_`.
+O Vite foi configurado para expor variáveis que começam com `CAMARA_` (e também mantém suporte ao legado `VITE_` durante a migração).
 
-- **`VITE_SUPABASE_URL`**: URL do projeto Supabase (cloud ou local)
-- **`VITE_SUPABASE_PUBLISHABLE_KEY`**: chave pública/anon do Supabase
+- **`CAMARA_URL`**: URL do projeto Supabase (cloud ou local)
+- **`CAMARA_PUBLISHABLE_KEY`**: chave pública/anon do Supabase
+- **`CAMARA_PROJECT_ID`**: ID do projeto (opcional, quando necessário)
 
 **Onde configurar**
 - **Local**: arquivo `.env` (não commitar)

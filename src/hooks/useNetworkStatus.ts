@@ -29,15 +29,21 @@ export function useNetworkStatus(): NetworkStatus {
     
     // Only do network check if navigator says offline
     try {
+      const supabaseUrl =
+        import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey =
+        import.meta.env.CAMARA_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!supabaseUrl || !supabaseKey) return false;
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`,
+        `${supabaseUrl}/rest/v1/`,
         {
           method: "HEAD",
           headers: {
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            apikey: supabaseKey,
           },
           signal: controller.signal,
         }

@@ -128,8 +128,8 @@ def main() -> None:
     add_code_block(
         doc,
         [
-            "VITE_SUPABASE_URL=http://127.0.0.1:54321",
-            "VITE_SUPABASE_PUBLISHABLE_KEY=<SUA_SB_PUBLISHABLE_KEY>",
+            "CAMARA_URL=http://127.0.0.1:54321",
+            "CAMARA_PUBLISHABLE_KEY=<SUA_SB_PUBLISHABLE_KEY>",
         ],
     )
     doc.add_paragraph("Suba o frontend:")

@@ -77,8 +77,9 @@ Este repo pode ser publicado no Render como **Static Site** (Vite build).
 ### Variáveis de ambiente (Render)
 
 No Render, configure as variáveis (Environment):
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `CAMARA_URL`
+- `CAMARA_PUBLISHABLE_KEY`
+- `CAMARA_PROJECT_ID` (opcional)
 
 Veja `env.example`.
 

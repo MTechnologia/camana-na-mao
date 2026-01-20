@@ -10,7 +10,7 @@ type DebugRoleRead = {
 };
 
 function safeHost(url: string | undefined): string {
-  if (!url) return '(missing VITE_SUPABASE_URL)';
+  if (!url) return '(missing CAMARA_URL)';
   try {
     return new URL(url).host;
   } catch {
@@ -24,7 +24,10 @@ export default function DebugRBAC() {
   const [loading, setLoading] = useState(true);
   const [reads, setReads] = useState<DebugRoleRead[]>([]);
 
-  const supabaseHost = useMemo(() => safeHost(import.meta.env.VITE_SUPABASE_URL), []);
+  const supabaseHost = useMemo(() => {
+    const url = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+    return safeHost(url);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
