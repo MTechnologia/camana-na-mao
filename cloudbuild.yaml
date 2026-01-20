@@ -22,4 +22,7 @@ substitutions:
 
 options:
   substitutionOption: "ALLOW_LOOSE"
+  # Required when the trigger uses a custom build.service_account.
+  # This avoids needing a logs bucket configuration.
+  logging: "CLOUD_LOGGING_ONLY"
 
