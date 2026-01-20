@@ -12,6 +12,28 @@ steps:
       - "CAMARA_PROJECT_ID=${_CAMARA_PROJECT_ID}"
       - "."
 
+  # Push image BEFORE deploying, otherwise Cloud Run can't find it yet.
+  # Push image BEFORE deploying, otherwise Cloud Run can't find it yet.
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "gcr.io/$PROJECT_ID/camara-na-mao:$COMMIT_SHA"
+
+  # Deploy to Cloud Run (required to replace the placeholder revision)
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "deploy"
+      - "${_CLOUD_RUN_SERVICE}"
+      - "--image"
+      - "gcr.io/$PROJECT_ID/camara-na-mao:$COMMIT_SHA"
+      - "--region"
+      - "${_CLOUD_RUN_REGION}"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
+      - "--quiet"
 images:
   - "gcr.io/$PROJECT_ID/camara-na-mao:$COMMIT_SHA"
 
@@ -19,6 +41,8 @@ substitutions:
   _CAMARA_URL: ""
   _CAMARA_PUBLISHABLE_KEY: ""
   _CAMARA_PROJECT_ID: ""
+  _CLOUD_RUN_SERVICE: "camana-na-mao"
+  _CLOUD_RUN_REGION: "southamerica-east1"
 
 options:
   substitutionOption: "ALLOW_LOOSE"
