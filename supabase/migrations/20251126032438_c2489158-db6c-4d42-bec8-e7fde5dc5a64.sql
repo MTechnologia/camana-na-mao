@@ -1,5 +1,6 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID extension (if needed for compatibility)
+-- Note: Using gen_random_uuid() instead of uuid_generate_v4() for better compatibility
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 
 -- Create profiles table
 CREATE TABLE public.profiles (
@@ -29,7 +30,7 @@ CREATE POLICY "Users can insert their own profile"
 
 -- Create user_demographics table
 CREATE TABLE public.user_demographics (
-  id uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
   birth_date date,
   gender text,
@@ -57,7 +58,7 @@ CREATE POLICY "Users can insert their own demographics"
 
 -- Create user_addresses table
 CREATE TABLE public.user_addresses (
-  id uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   street text NOT NULL,
   number text NOT NULL,
@@ -95,7 +96,7 @@ CREATE POLICY "Users can delete their own addresses"
 
 -- Create user_interests table
 CREATE TABLE public.user_interests (
-  id uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   interest_category text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -120,7 +121,7 @@ CREATE POLICY "Users can delete their own interests"
 
 -- Create profile_completion_progress table
 CREATE TABLE public.profile_completion_progress (
-  id uuid NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   step_completed text NOT NULL,
   completed_at timestamptz NOT NULL DEFAULT now(),

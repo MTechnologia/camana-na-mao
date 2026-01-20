@@ -437,7 +437,7 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 ### Documentação Interna
 
-- [Integração Docker + Backend](../INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
+- [Integração Docker + Backend](../api-base/INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
 - [Documentação da API](../api-rest-mobile/) - Guias sobre o backend e API REST
 
 ### Documentação Externa

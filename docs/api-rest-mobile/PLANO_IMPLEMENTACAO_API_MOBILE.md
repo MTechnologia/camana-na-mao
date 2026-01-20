@@ -9,7 +9,7 @@
 
 Criar uma estrutura de API REST organizada, padronizada e confiável para consumo por aplicativos mobile, aproveitando a infraestrutura Supabase existente.
 
-> **🐳 Nota sobre Docker:** O frontend roda em Docker (veja [docs/docker-infra/](../docker-infra/)), mas o backend (Edge Functions) roda no Supabase Cloud e é deployado via Supabase CLI. Veja [docs/INTEGRACAO_DOCKER_BACKEND.md](../INTEGRACAO_DOCKER_BACKEND.md) para entender a integração completa.
+> **🐳 Nota sobre Docker:** O frontend roda em Docker (veja [docs/docker-infra/](../docker-infra/)), mas o backend (Edge Functions) roda no Supabase Cloud e é deployado via Supabase CLI. Veja [docs/api-base/INTEGRACAO_DOCKER_BACKEND.md](../api-base/INTEGRACAO_DOCKER_BACKEND.md) para entender a integração completa.
 
 ---
 

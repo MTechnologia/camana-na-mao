@@ -80,15 +80,15 @@ Abra seu navegador em: **http://localhost:8080**
    - Backend usa variáveis do Supabase Dashboard
 
 3. **Integração**
-   - Veja [INTEGRACAO_DOCKER_BACKEND.md](../INTEGRACAO_DOCKER_BACKEND.md) para entender como tudo funciona junto
+   - Veja [INTEGRACAO_DOCKER_BACKEND.md](../api-base/INTEGRACAO_DOCKER_BACKEND.md) para entender como tudo funciona junto
 
 ---
 
 ## 🔗 Links Relacionados
 
-- [Integração Docker + Backend](../INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
+- [Integração Docker + Backend](../api-base/INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
 - [Documentação da API](../api-rest-mobile/) - Guias sobre o backend e API REST
-- [Atualizações da Documentação](../ATUALIZACOES_DOCUMENTACAO.md) - Histórico de atualizações
+- [Análise da Documentação](../arquivo/2026-01-20_ANALISE_DOCUMENTACAO.md) - Análise completa da documentação
 
 ---
 

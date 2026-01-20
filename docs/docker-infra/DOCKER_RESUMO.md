@@ -159,7 +159,7 @@ docker-compose exec frontend sh
 - **Planejamento Completo**: [DOCKER_PLANEJAMENTO.md](./DOCKER_PLANEJAMENTO.md)
 - **Guia Rápido**: [DOCKER_GUIA_RAPIDO.md](./DOCKER_GUIA_RAPIDO.md)
 - **Este Resumo**: [DOCKER_RESUMO.md](./DOCKER_RESUMO.md)
-- **Integração Docker + Backend**: [INTEGRACAO_DOCKER_BACKEND.md](../INTEGRACAO_DOCKER_BACKEND.md)
+- **Integração Docker + Backend**: [INTEGRACAO_DOCKER_BACKEND.md](../api-base/INTEGRACAO_DOCKER_BACKEND.md)
 - **Documentação da API**: [api-rest-mobile/](../api-rest-mobile/)
 
 ---

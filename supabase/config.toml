@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.fetch-agenda]
 verify_jwt = false
+
+[functions.api-v1-vereadores]
+verify_jwt = false

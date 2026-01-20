@@ -230,7 +230,7 @@ Se você quiser rodar o Supabase localmente, será necessário configuração ad
 ## 📚 Mais Informações
 
 - [Planejamento Completo](./DOCKER_PLANEJAMENTO.md)
-- [Integração Docker + Backend](../INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
+- [Integração Docker + Backend](../api-base/INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
 - [Documentação da API](../api-rest-mobile/) - Guias sobre o backend
 - [Documentação Docker](https://docs.docker.com/)
 - [Documentação Docker Compose](https://docs.docker.com/compose/)

@@ -29,7 +29,7 @@ Se você está usando Docker para o frontend:
 - ✅ O frontend em Docker se conecta ao backend através de `VITE_SUPABASE_URL`
 - ✅ Não é necessário rodar o backend em Docker
 
-Veja [docs/docker-infra/](../docker-infra/) para mais informações sobre Docker e [docs/INTEGRACAO_DOCKER_BACKEND.md](../INTEGRACAO_DOCKER_BACKEND.md) para entender como Docker e Backend trabalham juntos.
+Veja [docs/docker-infra/](../docker-infra/) para mais informações sobre Docker e [docs/api-base/INTEGRACAO_DOCKER_BACKEND.md](../api-base/INTEGRACAO_DOCKER_BACKEND.md) para entender como Docker e Backend trabalham juntos.
 
 ---
 

@@ -111,8 +111,8 @@ curl https://vzkwkcypkfrpfhhsghwn.supabase.co/functions/v1/api/v1/vereadores
 ## 🔗 Links Relacionados
 
 - [Documentação Docker](../docker-infra/) - Como usar Docker no projeto
-- [Integração Docker + Backend](../INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
-- [Atualizações da Documentação](../ATUALIZACOES_DOCUMENTACAO.md) - Histórico de atualizações
+- [Integração Docker + Backend](../api-base/INTEGRACAO_DOCKER_BACKEND.md) - Como Docker e Backend trabalham juntos
+- [Análise da Documentação](../arquivo/2026-01-20_ANALISE_DOCUMENTACAO.md) - Análise completa da documentação
 
 ---
 
