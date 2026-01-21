@@ -1,13 +1,70 @@
+# Dependencies
 node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Build outputs
 dist
-.git
-.github
+build
+.vite
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
 .vscode
 .idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.github
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Tests
+tests
 coverage
+.nyc_output
+playwright-report
+test-results
+
+# Logs
+logs
 *.log
-.env
-.env.*
+
+# Misc
+.cache
+.temp
+.tmp
+
+# Supabase (manter apenas o necessário)
+supabase/.branches
+supabase/.temp
+
+# Mobile (se existir)
 mobile/node_modules
 mobile/.expo
 mobile/dist
+
+# Scripts (opcional - remover se precisar)
+scripts

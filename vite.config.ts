@@ -11,6 +11,16 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5173,
+    hmr: {
+      // Melhorar resiliência do WebSocket em ambientes Docker
+      clientPort: 8080, // Porta exposta no host (não a do container)
+      protocol: 'ws',
+    },
+    watch: {
+      // Evitar problemas com volumes montados no Docker
+      usePolling: false,
+      ignored: ['**/node_modules/**', '**/dist/**'],
+    },
   },
   plugins: [
     react(),
