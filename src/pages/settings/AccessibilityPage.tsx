@@ -42,39 +42,45 @@ const AccessibilityPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="flex gap-2" role="radiogroup" aria-label="Selecione o tamanho da fonte">
               <button
                 onClick={() => setFontSize("small")}
+                role="radio"
+                aria-checked={fontSize === "small"}
                 className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
                   fontSize === "small"
                     ? "border-primary bg-primary/10 text-primary font-semibold"
                     : "border-border text-foreground hover:border-primary/50"
                 }`}
               >
-                <span className="text-sm">A</span>
-                <p className="text-[10px] text-muted-foreground mt-1">Pequeno</p>
+                <span className="text-sm" aria-hidden="true">A</span>
+                <p className="text-xs text-muted-foreground mt-1">Pequeno</p>
               </button>
               <button
                 onClick={() => setFontSize("medium")}
+                role="radio"
+                aria-checked={fontSize === "medium"}
                 className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
                   fontSize === "medium"
                     ? "border-primary bg-primary/10 text-primary font-semibold"
                     : "border-border text-foreground hover:border-primary/50"
                 }`}
               >
-                <span className="text-base">A</span>
-                <p className="text-[10px] text-muted-foreground mt-1">Médio</p>
+                <span className="text-base" aria-hidden="true">A</span>
+                <p className="text-xs text-muted-foreground mt-1">Médio</p>
               </button>
               <button
                 onClick={() => setFontSize("large")}
+                role="radio"
+                aria-checked={fontSize === "large"}
                 className={`flex-1 py-3 px-4 rounded-xl border-2 transition-all ${
                   fontSize === "large"
                     ? "border-primary bg-primary/10 text-primary font-semibold"
                     : "border-border text-foreground hover:border-primary/50"
                 }`}
               >
-                <span className="text-lg">A</span>
-                <p className="text-[10px] text-muted-foreground mt-1">Grande</p>
+                <span className="text-lg" aria-hidden="true">A</span>
+                <p className="text-xs text-muted-foreground mt-1">Grande</p>
               </button>
             </div>
           </CardContent>
