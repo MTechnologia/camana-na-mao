@@ -5,6 +5,7 @@ import PageHeader from "@/components/ui/page-header";
 import { useMenu } from "@/contexts/MenuContext";
 import MenuDrawer from "@/components/MenuDrawer";
 import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
+import SkipLink from "@/components/accessibility/SkipLink";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -107,6 +108,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   return (
     <>
+      <SkipLink />
+      
       {!isHeaderlessRoute && (
         <PageHeader 
           title={getTitle()} 
@@ -123,9 +126,11 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           transition={{ duration: 0.15, ease: "easeOut" }}
           className={`min-h-screen bg-background ${!isHeaderlessRoute ? "pt-[60px]" : ""}`}
         >
-          <Suspense fallback={<PageSkeleton />}>
-            {children}
-          </Suspense>
+          <main id="main-content" tabIndex={-1} className="outline-none">
+            <Suspense fallback={<PageSkeleton />}>
+              {children}
+            </Suspense>
+          </main>
         </motion.div>
       </AnimatePresence>
       
