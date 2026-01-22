@@ -333,9 +333,7 @@ O menu lateral é o principal ponto de navegação do aplicativo.
 ├─────────────────────────────────┤
 │  MINHA CONTA                    │
 │  ├─ 👤 Meu Perfil              │
-│  ├─ 💬 Conversas               │
-│  ├─ 📋 Meus Relatos *          │
-│  └─ 📊 Painéis Analíticos *    │
+│  └─ 💬 Conversas               │
 ├─────────────────────────────────┤
 │  NAVEGAÇÃO INSTITUCIONAL        │
 │  ├─ 📅 Agenda da Câmara        │
@@ -345,15 +343,14 @@ O menu lateral é o principal ponto de navegação do aplicativo.
 │  ├─ 🎓 Escola do Parlamento    │
 │  └─ 📰 Notícias                │
 ├─────────────────────────────────┤
-│  ÁREA ADMINISTRATIVA **         │
+│  ÁREA ADMINISTRATIVA *          │
 │  └─ ⚙️ Painel Administrativo   │
 ├─────────────────────────────────┤
 │  Política de privacidade        │
 │  [ 🚪 Sair ]                    │
 └─────────────────────────────────┘
 
-* Visível apenas para cidadão_engajado+
-** Visível apenas para admin/gestor
+* Visível apenas para admin/gestor
 ```
 
 #### Saudação Contextual
@@ -373,10 +370,6 @@ const getGreeting = () => {
 const accountOptions = [
   { icon: User, label: "Meu Perfil", path: "/perfil" },
   { icon: MessageSquare, label: "Conversas", path: "/conversas" },
-  // Condicional: apenas cidadão_engajado+
-  ...(canAccessReportsHub ? [{ icon: ClipboardList, label: "Meus Relatos", path: "/relatos" }] : []),
-  // Condicional: apenas cidadão_engajado+
-  ...(canAccessAdvancedAnalytics ? [{ icon: BarChart3, label: "Painéis Analíticos", path: "/paineis" }] : []),
 ];
 ```
 
@@ -439,8 +432,6 @@ O sistema implementa Role-Based Access Control com 4 perfis hierárquicos.
 | Avaliar serviços | ✅ | ✅ | ✅ | ✅ |
 | Participar de audiências | ✅ | ✅ | ✅ | ✅ |
 | Encaminhar para vereador | ❌ | ✅ | ✅ | ✅ |
-| Criar dashboards | ❌ | ✅ | ✅ | ✅ |
-| Acessar Hub de Relatos | ❌ | ✅ | ✅ | ✅ |
 | Responder manifestações | ❌ | ❌ | ✅ | ✅ |
 | Visualizar analytics admin | ❌ | ❌ | ✅ | ✅ |
 | Gerenciar usuários | ❌ | ❌ | ❌ | ✅ |
