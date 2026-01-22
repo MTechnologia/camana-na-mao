@@ -7,8 +7,6 @@ import {
   BookOpen, 
   GraduationCap, 
   Newspaper,
-  BarChart3,
-  FileText,
   Shield,
   LogOut,
   Lock,
@@ -30,7 +28,7 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, canViewDashboards, canReferToCouncilMember } = useUserRole();
+  const { isAdmin, isGestor } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
   const { prefetch } = usePrefetch();
@@ -65,18 +63,6 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: MessageSquare,
       route: "/conversas"
     },
-    ...(canReferToCouncilMember ? [{
-      id: 2.5,
-      label: "Relatos",
-      icon: FileText,
-      route: "/relatos",
-    }] : []),
-    ...(canViewDashboards ? [{
-      id: 3,
-      label: "Painéis Analíticos",
-      icon: BarChart3,
-      route: "/paineis",
-    }] : []),
   ];
 
 
