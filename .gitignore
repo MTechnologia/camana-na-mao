@@ -38,3 +38,6 @@ supabase/.branches/
 ~$*.docx
 ~$*.xlsx
 ~WRL*.tmp
+
+# Expo config files (only mobile/ should have these)
+app.json
