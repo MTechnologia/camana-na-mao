@@ -7,7 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Package managers
 node_modules
+bun.lockb
 dist
 dist-ssr
 *.local
