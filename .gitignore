@@ -41,3 +41,4 @@ supabase/.branches/
 
 # Expo config files (only mobile/ should have these)
 app.json
+eas.json
