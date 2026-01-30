@@ -5827,15 +5827,25 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       
       // CRITICAL: Ensure tools and tool_choice are NOT in the request
       // Remove them explicitly if they somehow got added
+      // Also check nested objects
       delete requestBody.tools;
       delete requestBody.tool_choice;
       
+      // Double-check: create a clean object with only allowed fields
+      const cleanRequestBody = {
+        model: requestBody.model,
+        messages: requestBody.messages,
+        temperature: requestBody.temperature,
+        stream: requestBody.stream,
+      };
+      
       // Log the actual JSON string that will be sent
-      const requestBodyJson = JSON.stringify(requestBody);
+      const requestBodyJson = JSON.stringify(cleanRequestBody);
       console.log('[ai-orchestrator] Request body JSON length:', requestBodyJson.length);
       console.log('[ai-orchestrator] Request body JSON contains "tool_choice":', requestBodyJson.includes('tool_choice'));
       console.log('[ai-orchestrator] Request body JSON contains "tools":', requestBodyJson.includes('"tools"'));
-      console.log('[ai-orchestrator] Request body JSON (first 500 chars):', requestBodyJson.substring(0, 500));
+      console.log('[ai-orchestrator] Request body JSON (first 1000 chars):', requestBodyJson.substring(0, 1000));
+      console.log('[ai-orchestrator] Request body JSON (last 200 chars):', requestBodyJson.substring(Math.max(0, requestBodyJson.length - 200)));
       
       response = await fetch(apiUrl, {
         method: 'POST',
