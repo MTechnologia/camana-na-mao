@@ -189,7 +189,7 @@
 ---
 
 **Última atualização:** 2026-01-30  
-**Status:** ✅ Problema identificado e corrigido - Erro 401 (Unauthorized)
+**Status:** ✅ Problema identificado - Erro 401 (Invalid JWT) - Solução implementada
 
 ---
 
@@ -207,6 +207,30 @@
 - ✅ Logs detalhados no console
 
 ### Próximos Passos
-1. Fazer deploy da correção
+1. ✅ Fazer deploy da correção (já feito)
 2. Testar o chat novamente
-3. Se o erro persistir, verificar se o token está sendo renovado corretamente
+3. Se o erro persistir:
+   - **Fazer logout e login novamente** para obter um novo token válido
+   - Limpar cache do navegador (localStorage pode ter token inválido)
+   - Verificar se o refresh token também não expirou
+
+### Solução Implementada (v2)
+
+**Problema:** Token JWT sendo rejeitado como "Invalid JWT" mesmo após tentativas de refresh.
+
+**Solução:**
+1. ✅ **Sempre tentar refreshSession primeiro** antes de usar o token
+2. ✅ **Fallback para getSession** se refresh falhar
+3. ✅ **Limpar sessão automaticamente** se ambos falharem
+4. ✅ **Verificar expiração** do token (se expira em 30 segundos, tentar refresh)
+5. ✅ **Limpar sessão inválida** e pedir login se token não puder ser renovado
+
+**Comportamento esperado:**
+- Se o token estiver válido: funciona normalmente
+- Se o token estiver expirado mas o refresh token válido: renova automaticamente
+- Se ambos estiverem expirados: limpa sessão e pede login
+
+**Ação do usuário se erro persistir:**
+1. Fazer **logout** (limpa sessão inválida)
+2. Fazer **login novamente** (obtém novos tokens válidos)
+3. Tentar usar o chat novamente
