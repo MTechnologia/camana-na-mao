@@ -5240,6 +5240,7 @@ async function executeTool(
 serve(async (req) => {
   const requestStartTime = Date.now();
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
+  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-01-30-v2 (melhorias de linguagem e saudações)');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);
