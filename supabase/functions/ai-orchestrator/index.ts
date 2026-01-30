@@ -5781,20 +5781,30 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       const apiUrl = `${finalAiBaseUrl.replace(/\/$/, '')}/chat/completions`;
       console.log('[ai-orchestrator] Calling AI API:', apiUrl);
       
+      // Build request body - vLLM doesn't support tool calling without --enable-auto-tool-choice
+      // So we remove tools and tool_choice when using vLLM
+      const requestBody: any = {
+        model: aiChatModel,
+        messages: [
+          { role: 'system', content: dynamicSystemPrompt },
+          ...messages.slice(-10) // Last 10 messages for context
+        ],
+        temperature: 0.7,
+        stream: true, // Enable streaming
+      };
+      
+      // Only include tools if the provider supports it (not vLLM without tool calling flags)
+      // For now, we'll skip tools entirely since vLLM doesn't have tool calling enabled
+      // TODO: Add detection for provider capabilities or make it configurable
+      // if (tools && tools.length > 0) {
+      //   requestBody.tools = tools;
+      //   requestBody.tool_choice = 'auto';
+      // }
+      
       response = await fetch(apiUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          model: aiChatModel,
-          messages: [
-            { role: 'system', content: dynamicSystemPrompt },
-            ...messages.slice(-10) // Last 10 messages for context
-          ],
-          tools,
-          tool_choice: 'auto',
-          temperature: 0.7,
-          stream: true, // Enable streaming
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
       clearTimeout(apiTimeoutId);
