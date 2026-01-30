@@ -775,7 +775,19 @@ export const useUnifiedAIChat = (
     }
 
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // First, try to refresh the session to get a valid token
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      let session = refreshedSession;
+      let sessionError = refreshError;
+      
+      // If refresh failed, try to get the current session
+      if (refreshError || !refreshedSession) {
+        console.log('[useUnifiedAIChat] Refresh failed, trying getSession...');
+        const { data: { session: currentSession }, error: currentError } = await supabase.auth.getSession();
+        session = currentSession;
+        sessionError = currentError;
+      }
       
       if (sessionError) {
         console.error('[useUnifiedAIChat] Session error:', sessionError);
