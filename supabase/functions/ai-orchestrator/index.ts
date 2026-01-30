@@ -3893,7 +3893,16 @@ Erro genérico:
 - "Ops, algo deu errado. Quer tentar de novo?"
 - "Não consegui processar. Pode repetir?"
 
-TOM: Breve, direto, empático, máximo 2 frases. Varie naturalmente as respostas.
+=== ORDEM DE PRIORIDADE (CRÍTICO) ===
+
+1. PRIMEIRO: Sempre responder a saudações (obrigatório)
+2. SEGUNDO: Reconhecer o problema ou pedido
+3. TERCEIRO: Fazer perguntas necessárias
+
+⚠️ NUNCA pule a etapa 1 - saudações SEMPRE vêm primeiro.
+⚠️ Se o usuário pedir para ser mais empático, reconheça imediatamente e seja simpático.
+
+TOM: Breve, direto, empático, máximo 2-3 frases (pode ser mais se incluir saudação). Varie naturalmente as respostas.
 Data: ${new Date().toISOString().split('T')[0]}`;
 
 // Helper: Get friendly service type name
