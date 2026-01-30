@@ -5109,14 +5109,20 @@ async function executeTool(
 
 serve(async (req) => {
   const requestStartTime = Date.now();
+  console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
+  console.log('[ai-orchestrator] Method:', req.method);
+  console.log('[ai-orchestrator] URL:', req.url);
 
   if (req.method === 'OPTIONS') {
+    console.log('[ai-orchestrator] OPTIONS request, returning CORS headers');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('[ai-orchestrator] Parsing request body...');
     const { messages, conversationId, collectionType: frontendCollectionType } = await req.json();
+    console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
     
     // Log frontend collection type for debugging
     if (frontendCollectionType) {
@@ -5124,6 +5130,7 @@ serve(async (req) => {
     }
     
     // === AI Provider Configuration ===
+    console.log('[ai-orchestrator] Loading environment variables...');
     const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL');
     const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY');
     const aiBaseUrl = Deno.env.get('AI_BASE_URL');
@@ -5133,17 +5140,34 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
     
+    console.log('[ai-orchestrator] Environment check:', {
+      hasAiChatBaseUrl: !!aiChatBaseUrl,
+      hasAiBaseUrl: !!aiBaseUrl,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseAnonKey: !!supabaseAnonKey,
+      aiChatModel
+    });
+    
     // Determine which AI provider to use
     const finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
     const finalAiApiKey = aiChatApiKey || aiApiKey;
     
     if (!finalAiBaseUrl || !supabaseUrl || !supabaseAnonKey) {
+      console.error('[ai-orchestrator] Missing required environment variables');
+      console.error('[ai-orchestrator] Missing:', {
+        aiChatBaseUrl: !aiChatBaseUrl,
+        aiBaseUrl: !aiBaseUrl,
+        supabaseUrl: !supabaseUrl,
+        supabaseAnonKey: !supabaseAnonKey
+      });
       return sseOnce(
         `⚠️ Assistente IA indisponível neste ambiente.\n\n` +
         `Faltam configurações na Edge Function: **AI_CHAT_BASE_URL** (ou AI_BASE_URL) e **SUPABASE_URL**.\n\n` +
         `Configure os secrets do Supabase e tente novamente.`
       );
     }
+    
+    console.log('[ai-orchestrator] Using AI provider:', finalAiBaseUrl);
     
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
@@ -6114,7 +6138,11 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     });
     
   } catch (error) {
-    console.error('[ai-orchestrator] Fatal error:', error);
+    console.error('[ai-orchestrator] ========== FATAL ERROR ==========');
+    console.error('[ai-orchestrator] Error type:', error?.constructor?.name);
+    console.error('[ai-orchestrator] Error message:', error instanceof Error ? error.message : String(error));
+    console.error('[ai-orchestrator] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('[ai-orchestrator] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (error)');
     
     // Always return a valid SSE response so frontend doesn't hang
