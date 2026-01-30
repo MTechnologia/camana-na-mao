@@ -5825,10 +5825,22 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       console.log('[ai-orchestrator] Request body has tools?', 'tools' in requestBody);
       console.log('[ai-orchestrator] Request body has tool_choice?', 'tool_choice' in requestBody);
       
+      // CRITICAL: Ensure tools and tool_choice are NOT in the request
+      // Remove them explicitly if they somehow got added
+      delete requestBody.tools;
+      delete requestBody.tool_choice;
+      
+      // Log the actual JSON string that will be sent
+      const requestBodyJson = JSON.stringify(requestBody);
+      console.log('[ai-orchestrator] Request body JSON length:', requestBodyJson.length);
+      console.log('[ai-orchestrator] Request body JSON contains "tool_choice":', requestBodyJson.includes('tool_choice'));
+      console.log('[ai-orchestrator] Request body JSON contains "tools":', requestBodyJson.includes('"tools"'));
+      console.log('[ai-orchestrator] Request body JSON (first 500 chars):', requestBodyJson.substring(0, 500));
+      
       response = await fetch(apiUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify(requestBody),
+        body: requestBodyJson,
         signal: controller.signal,
       });
       clearTimeout(apiTimeoutId);
