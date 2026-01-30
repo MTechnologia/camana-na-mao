@@ -5120,29 +5120,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[ai-orchestrator] Parsing request body...');
-    let requestBodyData: any;
-    try {
-      requestBodyData = await req.json();
-      console.log('[ai-orchestrator] Request parsed successfully');
-    } catch (parseError) {
-      console.error('[ai-orchestrator] Failed to parse request body:', parseError);
-      console.error('[ai-orchestrator] Request body might be empty or invalid JSON');
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body. Expected JSON.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    const { messages, conversationId, collectionType: frontendCollectionType } = requestBodyData;
-    console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
-    
-    // Log frontend collection type for debugging
-    if (frontendCollectionType) {
-      console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
-    }
-    
-    // === AI Provider Configuration ===
+    // === AI Provider Configuration (load first to check env) ===
     console.log('[ai-orchestrator] Loading environment variables...');
     const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL');
     const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY');
@@ -5182,7 +5160,8 @@ serve(async (req) => {
     
     console.log('[ai-orchestrator] Using AI provider:', finalAiBaseUrl);
     
-    // Get user from auth header
+    // === AUTHENTICATION: Validate user FIRST before parsing body ===
+    console.log('[ai-orchestrator] Validating authentication...');
     const authHeader = req.headers.get('Authorization');
     console.log('[ai-orchestrator] Authorization header present:', !!authHeader);
     console.log('[ai-orchestrator] Authorization header length:', authHeader?.length || 0);
