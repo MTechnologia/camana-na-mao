@@ -34,9 +34,12 @@ serve(async (req) => {
       throw new Error('Invalid request: reports array is required');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL') || Deno.env.get('AI_BASE_URL');
+    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY') || Deno.env.get('AI_API_KEY');
+    const aiChatModel = Deno.env.get('AI_CHAT_MODEL') || 'meta-llama/Meta-Llama-3.1-8B-Instruct';
+    
+    if (!aiChatBaseUrl) {
+      throw new Error('AI_CHAT_BASE_URL ou AI_BASE_URL not configured');
     }
 
     const results: AnalysisResult[] = [];
@@ -44,14 +47,19 @@ serve(async (req) => {
     // Process reports in batches
     for (const report of reports) {
       try {
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (aiChatApiKey) {
+          headers['Authorization'] = `Bearer ${aiChatApiKey}`;
+        }
+        
+        const apiUrl = `${aiChatBaseUrl.replace(/\/$/, '')}/chat/completions`;
+        const response = await fetch(apiUrl, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: aiChatModel,
             messages: [
               {
                 role: 'system',

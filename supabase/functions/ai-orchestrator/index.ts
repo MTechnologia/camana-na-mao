@@ -358,19 +358,27 @@ async function generateIntelligentLabel(
   
   // Try AI-based label generation
   try {
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-    if (!lovableApiKey) {
+    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL') || Deno.env.get('AI_BASE_URL');
+    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY') || Deno.env.get('AI_API_KEY');
+    const aiChatModel = Deno.env.get('AI_CHAT_MODEL') || 'meta-llama/Meta-Llama-3.1-8B-Instruct';
+    
+    if (!aiChatBaseUrl) {
       return generateLabelFromDescription(description);
     }
     
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (aiChatApiKey) {
+      headers['Authorization'] = `Bearer ${aiChatApiKey}`;
+    }
+    
+    const apiUrl = `${aiChatBaseUrl.replace(/\/$/, '')}/chat/completions`;
+    const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${lovableApiKey}`
-      },
+      headers,
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
+        model: aiChatModel,
         messages: [{
           role: 'system',
           content: `Você é um classificador de problemas urbanos de São Paulo.
@@ -5115,12 +5123,26 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
     }
     
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    // === AI Provider Configuration ===
+    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL');
+    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY');
+    const aiBaseUrl = Deno.env.get('AI_BASE_URL');
+    const aiApiKey = Deno.env.get('AI_API_KEY');
+    const aiChatModel = Deno.env.get('AI_CHAT_MODEL') || 'meta-llama/Meta-Llama-3.1-8B-Instruct';
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
     
-    if (!lovableApiKey || !supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing required environment variables');
+    // Determine which AI provider to use
+    const finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
+    const finalAiApiKey = aiChatApiKey || aiApiKey;
+    
+    if (!finalAiBaseUrl || !supabaseUrl || !supabaseAnonKey) {
+      return sseOnce(
+        `⚠️ Assistente IA indisponível neste ambiente.\n\n` +
+        `Faltam configurações na Edge Function: **AI_CHAT_BASE_URL** (ou AI_BASE_URL) e **SUPABASE_URL**.\n\n` +
+        `Configure os secrets do Supabase e tente novamente.`
+      );
     }
     
     // Get user from auth header
@@ -5739,23 +5761,31 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       });
     }
 
-    // Call AI API (Lovable AI Gateway) with streaming enabled and timeout
+    // Call AI API with streaming enabled and timeout
     const controller = new AbortController();
     const apiTimeoutId = setTimeout(() => {
       console.warn('[ai-orchestrator] API timeout (45s), aborting request');
       controller.abort();
     }, 45000);
 
+    // Build headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (finalAiApiKey) {
+      headers['Authorization'] = `Bearer ${finalAiApiKey}`;
+    }
+
     let response: Response;
     try {
-      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const apiUrl = `${finalAiBaseUrl.replace(/\/$/, '')}/chat/completions`;
+      console.log('[ai-orchestrator] Calling AI API:', apiUrl);
+      
+      response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: aiChatModel,
           messages: [
             { role: 'system', content: dynamicSystemPrompt },
             ...messages.slice(-10) // Last 10 messages for context
@@ -5849,6 +5879,10 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       
       // Parse SSE events
       const lines = textBuffer.split('\n');
+      let parsedEvents = 0;
+      let contentEvents = 0;
+      let toolCallEvents = 0;
+      
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
         const jsonStr = line.slice(6).trim();
@@ -5856,13 +5890,16 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
         
         try {
           const parsed = JSON.parse(jsonStr);
+          parsedEvents++;
           const delta = parsed.choices?.[0]?.delta;
           
           if (delta?.content) {
             fullContent += delta.content;
+            contentEvents++;
           }
           
           if (delta?.tool_calls) {
+            toolCallEvents++;
             for (const tc of delta.tool_calls) {
               if (tc.function?.name) {
                 toolCallData = { name: tc.function.name, id: tc.id };
@@ -5874,10 +5911,18 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
           }
         } catch (e) {
           // Ignore parse errors for incomplete chunks
+          console.warn('[ai-orchestrator] Failed to parse SSE line:', line.substring(0, 100));
         }
       }
       
-      console.log('[ai-orchestrator] Parsed content:', fullContent.substring(0, 100));
+      console.log('[ai-orchestrator] Stream parsing stats:', {
+        totalEvents: parsedEvents,
+        contentEvents,
+        toolCallEvents,
+        contentLength: fullContent.length,
+        hasToolCall: !!toolCallData?.name
+      });
+      console.log('[ai-orchestrator] Parsed content:', fullContent.substring(0, 100) || '(empty)');
       console.log('[ai-orchestrator] Tool call detected:', toolCallData?.name || 'none');
       
       // If tool call was found, execute it
@@ -5954,6 +5999,23 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       
       // No tool call - inject collection progress with accumulated fields
       let responseContent = fullContent;
+      
+      // CRITICAL FIX: Handle empty content case
+      // This can happen when the LLM returns only tool calls or the stream is malformed
+      if (!responseContent || responseContent.trim() === '') {
+        console.warn('[ai-orchestrator] Empty content received from LLM, using fallback message');
+        // If we have a collection intent, ask for the next field
+        if (collectionIntent && nextFieldInfo.field) {
+          const fieldsJson = JSON.stringify(accumulatedFields);
+          const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]`;
+          const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
+          const pickerMarker = nextFieldInfo.picker || '';
+          responseContent = `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+        } else {
+          // Generic fallback message
+          responseContent = 'Desculpe, não consegui processar sua mensagem. Pode reformular?';
+        }
+      }
       
       // Add light journey marker if applicable
       if (lightJourneyMarker && !responseContent.includes('[LIGHT_JOURNEY:')) {
