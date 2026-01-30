@@ -775,18 +775,25 @@ export const useUnifiedAIChat = (
     }
 
     try {
-      // First, try to refresh the session to get a valid token
-      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      // Get current session first
+      const { data: { session: currentSession }, error: currentError } = await supabase.auth.getSession();
       
-      let session = refreshedSession;
-      let sessionError = refreshError;
+      let session = currentSession;
+      let sessionError = currentError;
       
-      // If refresh failed, try to get the current session
-      if (refreshError || !refreshedSession) {
-        console.log('[useUnifiedAIChat] Refresh failed, trying getSession...');
-        const { data: { session: currentSession }, error: currentError } = await supabase.auth.getSession();
-        session = currentSession;
-        sessionError = currentError;
+      // If session is missing or token might be expired, try to refresh
+      if (!session || !session.access_token || sessionError) {
+        console.log('[useUnifiedAIChat] Session missing or error, trying refreshSession...');
+        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (!refreshError && refreshedSession) {
+          session = refreshedSession;
+          sessionError = null;
+          console.log('[useUnifiedAIChat] Session refreshed successfully');
+        } else {
+          console.error('[useUnifiedAIChat] Refresh failed:', refreshError);
+          sessionError = refreshError || currentError;
+        }
       }
       
       if (sessionError) {
@@ -813,7 +820,49 @@ export const useUnifiedAIChat = (
         return;
       }
       
-      console.log('[useUnifiedAIChat] Token found, length:', token.length);
+      // Check if token is expired (basic check - JWT tokens have exp claim)
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          const exp = payload.exp;
+          const now = Math.floor(Date.now() / 1000);
+          if (exp && exp < now) {
+            console.warn('[useUnifiedAIChat] Token is expired, attempting refresh...');
+            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError && refreshedSession?.access_token) {
+              session = refreshedSession;
+              console.log('[useUnifiedAIChat] Token refreshed after expiration check');
+            } else {
+              console.error('[useUnifiedAIChat] Failed to refresh expired token');
+              toast({
+                title: "Sessão expirada",
+                description: "Faça login novamente para continuar.",
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (tokenCheckError) {
+        console.warn('[useUnifiedAIChat] Could not check token expiration:', tokenCheckError);
+        // Continue anyway - let the server validate
+      }
+      
+      const finalToken = session?.access_token;
+      if (!finalToken) {
+        console.error('[useUnifiedAIChat] No token after all checks');
+        toast({
+          title: "Sessão expirada",
+          description: "Faça login novamente para continuar.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('[useUnifiedAIChat] Token found, length:', finalToken.length);
 
       // CRITICAL: Deduplicate messages when there's an optimistic message
       // If hasOptimisticMessage is true, the message already exists in 'messages' state
