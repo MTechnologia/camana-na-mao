@@ -894,7 +894,7 @@ export const useUnifiedAIChat = (
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${finalToken}`,
           },
           body: JSON.stringify(payload),
         }
