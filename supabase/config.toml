@@ -1,7 +1,7 @@
 project_id = "vjzkzsczlbtmrzewffdx"
 
 [functions.ai-orchestrator]
-verify_jwt = true
+verify_jwt = false
 
 [functions.populate-knowledge-base]
 verify_jwt = true
