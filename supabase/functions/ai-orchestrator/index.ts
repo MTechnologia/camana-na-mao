@@ -5186,6 +5186,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     console.log('[ai-orchestrator] Authorization header present:', !!authHeader);
     console.log('[ai-orchestrator] Authorization header length:', authHeader?.length || 0);
+    console.log('[ai-orchestrator] Authorization header starts with Bearer:', authHeader?.startsWith('Bearer ') || false);
     
     if (!authHeader) {
       console.error('[ai-orchestrator] Missing authorization header');
@@ -5195,6 +5196,18 @@ serve(async (req) => {
       );
     }
     
+    if (!authHeader.startsWith('Bearer ')) {
+      console.error('[ai-orchestrator] Authorization header does not start with Bearer');
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization header format. Please log in again.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Extract token for logging (first 20 chars only for security)
+    const tokenPreview = authHeader.substring(7, 27);
+    console.log('[ai-orchestrator] Token preview:', tokenPreview + '...');
+    
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
@@ -5203,9 +5216,16 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) {
-      console.error('[ai-orchestrator] Auth error:', authError.message);
+      console.error('[ai-orchestrator] Auth error:', {
+        message: authError.message,
+        status: authError.status,
+        name: authError.name
+      });
       return new Response(
-        JSON.stringify({ error: 'Authentication failed. Please log in again.' }),
+        JSON.stringify({ 
+          code: 401,
+          message: authError.message || 'Authentication failed. Please log in again.' 
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -5213,7 +5233,10 @@ serve(async (req) => {
     if (!user) {
       console.error('[ai-orchestrator] No user found after authentication');
       return new Response(
-        JSON.stringify({ error: 'User not found. Please log in again.' }),
+        JSON.stringify({ 
+          code: 401,
+          message: 'User not found. Please log in again.' 
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
