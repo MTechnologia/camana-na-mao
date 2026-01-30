@@ -5136,7 +5136,9 @@ serve(async (req) => {
       hasAiBaseUrl: !!aiBaseUrl,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseAnonKey: !!supabaseAnonKey,
-      aiChatModel
+      aiChatModel,
+      supabaseUrl: supabaseUrl ? supabaseUrl.substring(0, 50) + '...' : 'missing',
+      supabaseAnonKeyLength: supabaseAnonKey?.length || 0
     });
     
     // Determine which AI provider to use
@@ -5186,12 +5188,36 @@ serve(async (req) => {
     // Extract token for logging (first 20 chars only for security)
     const tokenPreview = authHeader.substring(7, 27);
     console.log('[ai-orchestrator] Token preview:', tokenPreview + '...');
+    console.log('[ai-orchestrator] Full auth header length:', authHeader.length);
+    console.log('[ai-orchestrator] Token length (without Bearer):', authHeader.length - 7);
+    
+    // Try to decode token to check if it's valid JWT format
+    try {
+      const token = authHeader.substring(7); // Remove "Bearer "
+      const parts = token.split('.');
+      console.log('[ai-orchestrator] JWT parts count:', parts.length);
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        console.log('[ai-orchestrator] Token payload (safe):', {
+          exp: payload.exp,
+          iat: payload.iat,
+          iss: payload.iss,
+          sub: payload.sub,
+          aud: payload.aud,
+          now: Math.floor(Date.now() / 1000),
+          isExpired: payload.exp ? payload.exp < Math.floor(Date.now() / 1000) : 'unknown'
+        });
+      }
+    } catch (decodeError) {
+      console.warn('[ai-orchestrator] Could not decode token:', decodeError);
+    }
     
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
     
     console.log('[ai-orchestrator] Verifying user authentication...');
+    console.log('[ai-orchestrator] Using Supabase URL:', supabaseUrl);
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) {
