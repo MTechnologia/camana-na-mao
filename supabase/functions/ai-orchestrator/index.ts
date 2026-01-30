@@ -5121,7 +5121,20 @@ serve(async (req) => {
 
   try {
     console.log('[ai-orchestrator] Parsing request body...');
-    const { messages, conversationId, collectionType: frontendCollectionType } = await req.json();
+    let requestBodyData: any;
+    try {
+      requestBodyData = await req.json();
+      console.log('[ai-orchestrator] Request parsed successfully');
+    } catch (parseError) {
+      console.error('[ai-orchestrator] Failed to parse request body:', parseError);
+      console.error('[ai-orchestrator] Request body might be empty or invalid JSON');
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body. Expected JSON.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { messages, conversationId, collectionType: frontendCollectionType } = requestBodyData;
     console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
     
     // Log frontend collection type for debugging
@@ -6180,7 +6193,13 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     console.error('[ai-orchestrator] Error type:', error?.constructor?.name);
     console.error('[ai-orchestrator] Error message:', error instanceof Error ? error.message : String(error));
     console.error('[ai-orchestrator] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('[ai-orchestrator] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    
+    try {
+      console.error('[ai-orchestrator] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    } catch (stringifyError) {
+      console.error('[ai-orchestrator] Could not stringify error:', stringifyError);
+    }
+    
     console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (error)');
     
     // Always return a valid SSE response so frontend doesn't hang

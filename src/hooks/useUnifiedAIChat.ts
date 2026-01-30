@@ -815,6 +815,9 @@ export const useUnifiedAIChat = (
       );
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Erro desconhecido');
+        console.error('[useUnifiedAIChat] API error:', response.status, errorText);
+        
         if (response.status === 429) {
           toast({
             title: "Limite de uso atingido",
@@ -833,7 +836,22 @@ export const useUnifiedAIChat = (
           setIsLoading(false);
           return;
         }
-        throw new Error("Erro ao processar mensagem");
+        if (response.status === 400) {
+          toast({
+            title: "Erro na requisição",
+            description: errorText || "Verifique os dados enviados e tente novamente.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        toast({
+          title: "Erro ao enviar mensagem",
+          description: errorText || "Não foi possível enviar a mensagem. Tente novamente.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
 
       const reader = response.body?.getReader();
