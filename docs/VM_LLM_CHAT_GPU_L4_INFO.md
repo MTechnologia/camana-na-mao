@@ -87,15 +87,15 @@ docker run -d \
   --port 8000 \
   --tensor-parallel-size 1 \
   --max-model-len 24576 \
-  --gpu-memory-utilization 0.9 \
-  --enable-auto-tool-choice \
-  --tool-call-parser openai
+  --gpu-memory-utilization 0.9
 ```
 
 **Configuração atual:**
 - ✅ `--shm-size=16g` (aumentado de 8g)
 - ✅ `--max-model-len 24576` (24K tokens - ajustado para caber na memória)
 - ✅ **Sem** `--quantization awq` (não precisa, cabe sem quantização)
+- ✅ **Sem** `--enable-auto-tool-choice` (removido para evitar erros de streaming)
+- ✅ **Sem** `--tool-call-parser openai` (removido para evitar erros de streaming)
 - ✅ Driver NVIDIA 570 (compatível com vLLM)
 
 **⚠️ Nota importante:** O `max-model-len` foi reduzido para 24576 tokens devido à limitação de memória KV cache. Para usar 128K tokens, seria necessário mais memória GPU ou quantização.
