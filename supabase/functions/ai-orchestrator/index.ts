@@ -5817,13 +5817,13 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
         stream: true, // Enable streaming
       };
       
-      // Only include tools if the provider supports it (not vLLM without tool calling flags)
-      // For now, we'll skip tools entirely since vLLM doesn't have tool calling enabled
-      // TODO: Add detection for provider capabilities or make it configurable
-      // if (tools && tools.length > 0) {
-      //   requestBody.tools = tools;
-      //   requestBody.tool_choice = 'auto';
-      // }
+      // CRITICAL: Do NOT include tools or tool_choice - vLLM doesn't have tool calling enabled
+      // The system manages tool calling internally via deterministic logic
+      
+      // Log request body for debugging (remove sensitive data)
+      console.log('[ai-orchestrator] Request body keys:', Object.keys(requestBody));
+      console.log('[ai-orchestrator] Request body has tools?', 'tools' in requestBody);
+      console.log('[ai-orchestrator] Request body has tool_choice?', 'tool_choice' in requestBody);
       
       response = await fetch(apiUrl, {
         method: 'POST',
@@ -5848,6 +5848,22 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[ai-orchestrator] API error:', response.status, errorText);
+      
+      // Handle 400 Bad Request - check if it's tool_choice error
+      if (response.status === 400) {
+        console.error('[ai-orchestrator] Bad Request (400) from vLLM:', errorText);
+        
+        // Log the request body to debug
+        console.error('[ai-orchestrator] Request body that caused error:', JSON.stringify(requestBody, null, 2));
+        
+        // If it's a tool_choice error, this shouldn't happen with current code
+        // But handle it gracefully anyway
+        const errorMsg = 'Desculpe, houve um erro ao processar sua solicitação. Por favor, tente novamente.';
+        console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (400 error)');
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: errorMsg } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
       
       // Handle rate limiting and payment errors
       if (response.status === 429) {
