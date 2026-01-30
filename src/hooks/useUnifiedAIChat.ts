@@ -775,8 +775,33 @@ export const useUnifiedAIChat = (
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[useUnifiedAIChat] Session error:', sessionError);
+        toast({
+          title: "Erro de autenticação",
+          description: "Sua sessão expirou. Por favor, faça login novamente.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
       const token = session?.access_token;
+      
+      if (!token) {
+        console.error('[useUnifiedAIChat] No token found in session');
+        toast({
+          title: "Sessão expirada",
+          description: "Faça login novamente para continuar.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('[useUnifiedAIChat] Token found, length:', token.length);
 
       // CRITICAL: Deduplicate messages when there's an optimistic message
       // If hasOptimisticMessage is true, the message already exists in 'messages' state

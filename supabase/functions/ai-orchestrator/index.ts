@@ -5184,18 +5184,41 @@ serve(async (req) => {
     
     // Get user from auth header
     const authHeader = req.headers.get('Authorization');
+    console.log('[ai-orchestrator] Authorization header present:', !!authHeader);
+    console.log('[ai-orchestrator] Authorization header length:', authHeader?.length || 0);
+    
     if (!authHeader) {
-      throw new Error('Missing authorization header');
+      console.error('[ai-orchestrator] Missing authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header. Please log in again.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
     
+    console.log('[ai-orchestrator] Verifying user authentication...');
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    
+    if (authError) {
+      console.error('[ai-orchestrator] Auth error:', authError.message);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed. Please log in again.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+    
+    if (!user) {
+      console.error('[ai-orchestrator] No user found after authentication');
+      return new Response(
+        JSON.stringify({ error: 'User not found. Please log in again.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('[ai-orchestrator] User authenticated:', user.id);
     
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
