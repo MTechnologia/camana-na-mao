@@ -775,42 +775,40 @@ export const useUnifiedAIChat = (
     }
 
     try {
-      // Get current session first
-      const { data: { session: currentSession }, error: currentError } = await supabase.auth.getSession();
+      // ALWAYS try to refresh session first to ensure we have a valid token
+      console.log('[useUnifiedAIChat] Attempting to refresh session...');
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
       
-      let session = currentSession;
-      let sessionError = currentError;
+      let session = refreshedSession;
       
-      // If session is missing or token might be expired, try to refresh
-      if (!session || !session.access_token || sessionError) {
-        console.log('[useUnifiedAIChat] Session missing or error, trying refreshSession...');
-        const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      // If refresh failed, try to get current session as fallback
+      if (refreshError || !refreshedSession) {
+        console.warn('[useUnifiedAIChat] Refresh failed, trying getSession as fallback...', refreshError);
+        const { data: { session: currentSession }, error: currentError } = await supabase.auth.getSession();
         
-        if (!refreshError && refreshedSession) {
-          session = refreshedSession;
-          sessionError = null;
-          console.log('[useUnifiedAIChat] Session refreshed successfully');
-        } else {
-          console.error('[useUnifiedAIChat] Refresh failed:', refreshError);
-          sessionError = refreshError || currentError;
+        if (currentError || !currentSession) {
+          console.error('[useUnifiedAIChat] Both refresh and getSession failed:', currentError || refreshError);
+          // Clear invalid session
+          await supabase.auth.signOut();
+          toast({
+            title: "Sessão expirada",
+            description: "Sua sessão expirou. Por favor, faça login novamente.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
         }
-      }
-      
-      if (sessionError) {
-        console.error('[useUnifiedAIChat] Session error:', sessionError);
-        toast({
-          title: "Erro de autenticação",
-          description: "Sua sessão expirou. Por favor, faça login novamente.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
+        
+        session = currentSession;
+      } else {
+        console.log('[useUnifiedAIChat] Session refreshed successfully');
       }
       
       const token = session?.access_token;
       
       if (!token) {
-        console.error('[useUnifiedAIChat] No token found in session');
+        console.error('[useUnifiedAIChat] No token found in session after refresh');
+        await supabase.auth.signOut();
         toast({
           title: "Sessão expirada",
           description: "Faça login novamente para continuar.",
@@ -820,21 +818,22 @@ export const useUnifiedAIChat = (
         return;
       }
       
-      // Check if token is expired (basic check - JWT tokens have exp claim)
+      // Verify token is not expired (check exp claim)
       try {
         const tokenParts = token.split('.');
         if (tokenParts.length === 3) {
           const payload = JSON.parse(atob(tokenParts[1]));
           const exp = payload.exp;
           const now = Math.floor(Date.now() / 1000);
-          if (exp && exp < now) {
-            console.warn('[useUnifiedAIChat] Token is expired, attempting refresh...');
-            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-            if (!refreshError && refreshedSession?.access_token) {
-              session = refreshedSession;
-              console.log('[useUnifiedAIChat] Token refreshed after expiration check');
-            } else {
-              console.error('[useUnifiedAIChat] Failed to refresh expired token');
+          
+          // Check if token is expired or will expire in the next 30 seconds
+          if (exp && exp < (now + 30)) {
+            console.warn('[useUnifiedAIChat] Token is expired or expiring soon, attempting another refresh...');
+            const { data: { session: finalRefreshedSession }, error: finalRefreshError } = await supabase.auth.refreshSession();
+            
+            if (finalRefreshError || !finalRefreshedSession?.access_token) {
+              console.error('[useUnifiedAIChat] Failed to refresh expired token:', finalRefreshError);
+              await supabase.auth.signOut();
               toast({
                 title: "Sessão expirada",
                 description: "Faça login novamente para continuar.",
@@ -843,6 +842,9 @@ export const useUnifiedAIChat = (
               setIsLoading(false);
               return;
             }
+            
+            session = finalRefreshedSession;
+            console.log('[useUnifiedAIChat] Token refreshed after expiration check');
           }
         }
       } catch (tokenCheckError) {
@@ -853,6 +855,7 @@ export const useUnifiedAIChat = (
       const finalToken = session?.access_token;
       if (!finalToken) {
         console.error('[useUnifiedAIChat] No token after all checks');
+        await supabase.auth.signOut();
         toast({
           title: "Sessão expirada",
           description: "Faça login novamente para continuar.",
