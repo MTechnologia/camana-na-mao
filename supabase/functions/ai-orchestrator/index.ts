@@ -5248,6 +5248,29 @@ serve(async (req) => {
     
     console.log('[ai-orchestrator] User authenticated:', user.id);
     
+    // === Parse request body AFTER authentication ===
+    console.log('[ai-orchestrator] Parsing request body...');
+    let requestBodyData: any;
+    try {
+      requestBodyData = await req.json();
+      console.log('[ai-orchestrator] Request parsed successfully');
+    } catch (parseError) {
+      console.error('[ai-orchestrator] Failed to parse request body:', parseError);
+      console.error('[ai-orchestrator] Request body might be empty or invalid JSON');
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body. Expected JSON.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { messages, conversationId, collectionType: frontendCollectionType } = requestBodyData;
+    console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
+    
+    // Log frontend collection type for debugging
+    if (frontendCollectionType) {
+      console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
+    }
+    
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     
