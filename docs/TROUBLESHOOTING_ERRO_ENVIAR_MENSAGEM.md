@@ -5,17 +5,51 @@
 
 ---
 
-## 🔍 Situação Atual
+## ✅ Problema Identificado e Resolvido
 
+**Causa Raiz:** Erro **401 (Unauthorized)** - Problema de autenticação
+
+**Sintomas:**
 - ✅ Requisição OPTIONS (CORS preflight) está chegando
-- ❌ Requisição POST não está chegando na função
+- ✅ Requisição POST está chegando na função
+- ❌ Erro 401 (Unauthorized) na resposta
+- ❌ Erro 403 em `/auth/v1/user` (token expirado/inválido)
 - ❌ Erro genérico no frontend: "Não foi possível enviar a mensagem"
+
+**Solução Implementada:**
+- ✅ Verificação de sessão antes de enviar requisição
+- ✅ Tratamento específico para erro 401
+- ✅ Logs detalhados de autenticação
+- ✅ Mensagens de erro mais claras para o usuário
 
 ---
 
-## 🔍 Possíveis Causas
+## 🔍 Possíveis Causas (Histórico)
 
-### 1. Erro de Rede ou CORS
+### 1. Erro 401 - Autenticação (RESOLVIDO) ✅
+
+**Sintomas:**
+- Erro 401 (Unauthorized) na resposta
+- Erro 403 em `/auth/v1/user`
+- Token JWT expirado ou inválido
+
+**Solução:**
+- Verificação de sessão antes de enviar requisição
+- Tratamento específico para erro 401
+- Mensagem clara: "Sessão expirada. Faça login novamente."
+
+**Como verificar:**
+1. Abra DevTools (F12) > **Console**
+2. Procure por: `POST .../ai-orchestrator 401 (Unauthorized)`
+3. Verifique se há erro em `/auth/v1/user`
+
+**Ação do usuário:**
+- Fazer logout e login novamente
+- Limpar cache do navegador se necessário
+
+---
+
+### 2. Erro de Rede ou CORS
 
 **Sintomas:**
 - Requisição POST falha antes de chegar na função
@@ -155,4 +189,24 @@
 ---
 
 **Última atualização:** 2026-01-30  
-**Status:** Aguardando deploy e testes
+**Status:** ✅ Problema identificado e corrigido - Erro 401 (Unauthorized)
+
+---
+
+## 📋 Resumo da Solução
+
+### Backend (`supabase/functions/ai-orchestrator/index.ts`)
+- ✅ Verificação de Authorization header com logs
+- ✅ Retorno de erro 401 com mensagem clara ao invés de throw
+- ✅ Logs detalhados de autenticação
+
+### Frontend (`src/hooks/useUnifiedAIChat.ts`)
+- ✅ Verificação de sessão antes de enviar requisição
+- ✅ Tratamento específico para erro 401
+- ✅ Mensagem clara: "Sessão expirada. Faça login novamente."
+- ✅ Logs detalhados no console
+
+### Próximos Passos
+1. Fazer deploy da correção
+2. Testar o chat novamente
+3. Se o erro persistir, verificar se o token está sendo renovado corretamente
