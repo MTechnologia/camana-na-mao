@@ -1128,10 +1128,20 @@ export const useUnifiedAIChat = (
         }
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("[useUnifiedAIChat] Error sending message:", error);
+      console.error("[useUnifiedAIChat] Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Não foi possível enviar a mensagem.";
+      
       toast({
         title: "Erro",
-        description: "Não foi possível enviar a mensagem.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
