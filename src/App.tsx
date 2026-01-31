@@ -77,6 +77,11 @@ const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
 const RatingsHistoryPage = lazy(() => import("./pages/ratings/RatingsHistoryPage"));
 
 // ============================================
+// LEGAL PAGES - Lazy loaded
+// ============================================
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+
+// ============================================
 // TRANSPORT PAGES - Lazy loaded
 // ============================================
 const TransportReportPage = lazy(() => import("./pages/TransportReportPage"));
@@ -163,6 +168,31 @@ const RoutePrefetcher = () => {
 };
 
 const AppContent = () => {
+  const location = useLocation();
+  
+  // Handle Supabase auth redirects with hash tokens
+  useEffect(() => {
+    // Check if we have auth tokens in the hash (from email links)
+    if (location.hash) {
+      const hashParams = new URLSearchParams(location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+      
+      // If it's a recovery token and we're not already on the password update page
+      if (accessToken && type === 'recovery' && location.pathname !== '/nova-senha') {
+        // Redirect to password update page with the hash
+        window.location.replace(`/nova-senha${location.hash}`);
+        return;
+      }
+      
+      // If it's a signup confirmation and we're on home, let it process normally
+      if (accessToken && type === 'signup' && location.pathname === '/') {
+        // Supabase will handle this automatically
+        return;
+      }
+    }
+  }, [location]);
+
   return (
     <>
       <RoutePrefetcher />
@@ -273,6 +303,9 @@ const AppContent = () => {
           {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
+          
+          {/* Privacy and Legal */}
+          <Route path="/privacidade" element={<PrivacyPolicyPage />} />
 
           {/* Debug */}
           <Route path="/debug/rbac" element={<DebugRBAC />} />

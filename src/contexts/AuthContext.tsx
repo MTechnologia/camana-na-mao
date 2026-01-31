@@ -158,8 +158,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = useCallback(async (email: string) => {
     try {
+      // Get the correct origin (handle both dev and production)
+      const origin = window.location.origin;
+      const redirectUrl = `${origin}/nova-senha`;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/nova-senha`,
+        redirectTo: redirectUrl,
       });
 
       if (error) throw error;
