@@ -266,10 +266,9 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
         {/* Bottom Options - Fixed */}
         <div className="px-4 pb-4 pt-2 space-y-1 border-t border-border shrink-0">
           <button
-            onClick={() => {
-              navigate('/privacidade');
-              onClose();
-            }}
+            onClick={() => handleMenuClick('/privacidade')}
+            onMouseEnter={() => handlePrefetch('/privacidade')}
+            onFocus={() => handlePrefetch('/privacidade')}
             className="w-full py-2.5 flex items-center gap-3 hover:bg-muted transition-colors rounded-lg px-2"
           >
             <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0">
