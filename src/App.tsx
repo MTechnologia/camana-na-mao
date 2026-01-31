@@ -232,7 +232,7 @@ const AppContent = () => {
           <Route path="/avaliacoes/historico" element={<RatingsHistoryPage />} />
           
           {/* Transport routes */}
-          <Route path="/transporte" element={<TransportReportPage />} />
+          <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
           <Route path="/transporte/novo" element={<NewReportPage />} />
           <Route path="/transporte/padroes" element={<PatternsPage />} />
           <Route path="/transporte/historico" element={<MyReportsPage />} />
@@ -248,7 +248,7 @@ const AppContent = () => {
           <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
           
           {/* Urban report routes */}
-          <Route path="/relato-urbano" element={<UrbanReportPage />} />
+          <Route path="/relato-urbano" element={<Navigate to="/relatos" replace />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
           
