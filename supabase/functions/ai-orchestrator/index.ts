@@ -4551,6 +4551,15 @@ async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        console.log('[create_urban_report] Attempting to insert report:', {
+          userId,
+          category: args.category,
+          hasDescription: !!args.description,
+          hasStreet: !!args.street,
+          hasNeighborhood: !!args.neighborhood,
+          location_address
+        });
+        
         const { data, error } = await supabase
           .from('urban_reports')
           .insert({
@@ -4581,7 +4590,15 @@ async function executeTool(
           .select('id, protocol_code')
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('[create_urban_report] Database insert error:', error);
+          throw error;
+        }
+        
+        console.log('[create_urban_report] Report saved successfully:', {
+          id: data.id,
+          protocol_code: data.protocol_code
+        });
         
         // Notify n8n
         try {
@@ -4859,6 +4876,15 @@ async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        console.log('[create_transport_report] Attempting to insert report:', {
+          userId,
+          report_type: validReportType,
+          hasDescription: !!args.description,
+          hasLineCode: !!args.line_code,
+          hasOccurrenceDate: !!args.occurrence_date,
+          lineId
+        });
+        
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
@@ -4878,7 +4904,15 @@ async function executeTool(
           .select('id, protocol_code')
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('[create_transport_report] Database insert error:', error);
+          throw error;
+        }
+        
+        console.log('[create_transport_report] Report saved successfully:', {
+          id: data.id,
+          protocol_code: data.protocol_code
+        });
         
         // Notify n8n
         try {
