@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, MapPin, FileText } from 'lucide-react';
+import { Bus, MapPin, FileText, Star } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -22,7 +22,7 @@ export default function ReportsHub() {
               <div className="flex-1">
                 <h2 className="text-lg font-semibold">Acompanhe seus relatos</h2>
                 <p className="text-sm text-muted-foreground">
-                  Veja seus registros (transporte e urbano){' '}
+                  Veja seus registros (transporte, urbano e avaliações){' '}
                   {canReferToCouncilMember ? 'e encaminhe para vereador quando necessário.' : '.'}
                 </p>
               </div>
@@ -59,6 +59,23 @@ export default function ReportsHub() {
                   <div className="flex-1">
                     <h3 className="font-semibold">Urbano</h3>
                     <p className="text-sm text-muted-foreground">Histórico de contribuições urbanas</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
+              onClick={() => navigate('/avaliar')}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                    <Star className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">Avaliações</h3>
+                    <p className="text-sm text-muted-foreground">Minhas avaliações de serviços</p>
                   </div>
                 </div>
               </CardContent>
