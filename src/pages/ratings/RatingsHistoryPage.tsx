@@ -137,10 +137,15 @@ export default function RatingsHistoryPage() {
           ) : ratings.length === 0 ? (
             <div className="text-center py-12">
               <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-2">Nenhuma avaliação registrada ainda</p>
-              <Button onClick={() => navigate('/servicos-proximos')}>
-                Avaliar um serviço
-              </Button>
+              <p className="text-muted-foreground mb-4">Nenhuma avaliação registrada ainda</p>
+              <div className="flex flex-col gap-2 items-center">
+                <Button onClick={() => navigate('/servicos-proximos')}>
+                  Avaliar um serviço
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/ia')}>
+                  Ou avaliar via chat com IA
+                </Button>
+              </div>
             </div>
           ) : (
             ratings.map((rating) => (

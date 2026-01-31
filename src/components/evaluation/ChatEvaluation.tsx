@@ -25,14 +25,13 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Olá! Vou te ajudar a avaliar este serviço. Como foi sua experiência geral?",
-      options: ["Excelente", "Boa", "Regular", "Ruim", "Péssima"]
+      content: "Olá! Vou te ajudar a avaliar este serviço. Que nota você daria de 1 a 5 estrelas?"
     }
   ]);
   const [input, setInput] = useState("");
   const [currentRating, setCurrentRating] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // 1 = rating, 2 = comments, 3 = complete
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -43,9 +42,39 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
     scrollToBottom();
   }, [messages]);
 
+  // Auto-advance when rating is selected
+  useEffect(() => {
+    if (step === 1 && currentRating > 0) {
+      setIsLoading(true);
+      setTimeout(() => {
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: currentRating >= 4 
+            ? "Ótimo! O que você mais gostou neste serviço?" 
+            : currentRating >= 3
+            ? "Obrigado! O que você mais gostou ou o que poderia melhorar?"
+            : "Entendi. O que poderia melhorar neste serviço?"
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        setStep(2);
+        setIsLoading(false);
+      }, 500);
+    }
+  }, [currentRating, step]);
+
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
+
+    // Step 1: User must select rating first
+    if (step === 1) {
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: "Por favor, selecione uma nota de 1 a 5 estrelas acima antes de continuar."
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      return;
+    }
 
     const userMessage: Message = {
       role: "user",
@@ -56,50 +85,25 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
     setInput("");
     setIsLoading(true);
 
-    // Simular fluxo de avaliação
+    // Step 2: User provided comments, finalize
     setTimeout(() => {
-      let assistantMessage: Message;
-
-      if (step === 1) {
-        // Primeira pergunta sobre rating
-        assistantMessage = {
-          role: "assistant",
-          content: "Ótimo! Agora, que nota você daria de 1 a 5 estrelas?"
-        };
-        setStep(2);
-      } else if (step === 2 && currentRating > 0) {
-        // Segunda pergunta sobre aspectos específicos
-        assistantMessage = {
-          role: "assistant",
-          content: "Obrigado! O que você mais gostou ou o que poderia melhorar?",
-        };
-        setStep(3);
-      } else if (step === 3) {
-        // Finalizar
-        assistantMessage = {
-          role: "assistant",
-          content: "Muito obrigado pela sua avaliação! Suas informações nos ajudam a melhorar os serviços públicos."
-        };
-        setStep(4);
-        
-        // Completar avaliação
-        setTimeout(() => {
-          onComplete({
-            rating: currentRating,
-            comments: messageText,
-            sentiment: currentRating >= 4 ? "positive" : currentRating >= 3 ? "neutral" : "negative"
-          });
-        }, 1000);
-      } else {
-        assistantMessage = {
-          role: "assistant",
-          content: "Por favor, avalie com as estrelas acima antes de continuar."
-        };
-      }
-
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: "Muito obrigado pela sua avaliação! Suas informações nos ajudam a melhorar os serviços públicos."
+      };
       setMessages(prev => [...prev, assistantMessage]);
+      setStep(3);
       setIsLoading(false);
-    }, 1000);
+      
+      // Complete evaluation
+      setTimeout(() => {
+        onComplete({
+          rating: currentRating,
+          comments: messageText,
+          sentiment: currentRating >= 4 ? "positive" : currentRating >= 3 ? "neutral" : "negative"
+        });
+      }, 1000);
+    }, 500);
   };
 
   return (
@@ -155,19 +159,28 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Rating Stars (visible no step 2) */}
-        {step === 2 && (
-          <div className="flex justify-center py-2 border-t border-border">
+        {/* Rating Stars (visible in step 1) */}
+        {step === 1 && (
+          <div className="flex flex-col items-center gap-2 py-3 border-t border-border">
             <RatingStars
               rating={currentRating}
               onRatingChange={setCurrentRating}
               size="lg"
             />
+            {currentRating > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {currentRating === 5 && "Excelente!"}
+                {currentRating === 4 && "Muito bom!"}
+                {currentRating === 3 && "Regular"}
+                {currentRating === 2 && "Ruim"}
+                {currentRating === 1 && "Péssimo"}
+              </p>
+            )}
           </div>
         )}
 
-        {/* Input */}
-        {step < 4 && (
+        {/* Input (visible from step 2 onwards) */}
+        {step >= 2 && step < 3 && (
           <div className="flex gap-2 border-t border-border pt-2">
             <Textarea
               value={input}
@@ -184,7 +197,7 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
             />
             <Button
               onClick={() => handleSend()}
-              disabled={isLoading || (!input.trim() && step !== 2)}
+              disabled={isLoading || !input.trim()}
               size="icon"
               className="shrink-0 h-[60px]"
             >
