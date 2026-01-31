@@ -5042,25 +5042,38 @@ async function executeTool(
         
         // === PROCESSING: All validations passed ===
         
+        console.log('[create_service_rating] Attempting to create rating:', {
+          userId,
+          service_type: args.service_type,
+          service_name: args.service_name,
+          rating_stars: stars,
+          hasRatingText: !!args.rating_text
+        });
+        
         // Find service by name/type
         let serviceId = null;
         let visitId = null;
         
-        const { data: services } = await supabase
+        const { data: services, error: serviceError } = await supabase
           .from('public_services')
           .select('id')
           .eq('service_type', args.service_type)
           .ilike('name', `%${args.service_name}%`)
           .limit(1);
         
+        if (serviceError) {
+          console.error('[create_service_rating] Error finding service:', serviceError);
+        }
+        
         if (services?.length) {
           serviceId = services[0].id;
+          console.log('[create_service_rating] Service found:', serviceId);
           
           // Create a visit record
           const expires = new Date();
           expires.setDate(expires.getDate() + 7);
           
-          const { data: visitData } = await supabase
+          const { data: visitData, error: visitError } = await supabase
             .from('service_visits')
             .insert({
               user_id: userId,
@@ -5071,12 +5084,29 @@ async function executeTool(
             .select('id')
             .single();
           
-          visitId = visitData?.id;
+          if (visitError) {
+            console.error('[create_service_rating] Error creating visit:', visitError);
+          } else {
+            visitId = visitData?.id;
+            console.log('[create_service_rating] Visit created:', visitId);
+          }
+        } else {
+          console.warn('[create_service_rating] Service not found:', {
+            service_type: args.service_type,
+            service_name: args.service_name
+          });
         }
         
         if (!serviceId || !visitId) {
           return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo e o bairro?' };
         }
+        
+        console.log('[create_service_rating] Attempting to insert rating:', {
+          userId,
+          serviceId,
+          visitId,
+          rating_stars: stars
+        });
         
         const { data, error } = await supabase
           .from('service_ratings')
@@ -5091,7 +5121,14 @@ async function executeTool(
           .select('id')
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('[create_service_rating] Database insert error:', error);
+          throw error;
+        }
+        
+        console.log('[create_service_rating] Rating saved successfully:', {
+          id: data.id
+        });
         
         return { 
           success: true, 
