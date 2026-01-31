@@ -6047,7 +6047,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     const apiTimeoutId = setTimeout(() => {
       console.warn('[ai-orchestrator] API timeout (45s), aborting request');
       controller.abort();
-    }, 45000);
+    }, 60000); // Increased to 60s to prevent premature timeouts
 
     // Build headers
     const headers: Record<string, string> = {
@@ -6114,7 +6114,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     } catch (fetchError: any) {
       clearTimeout(apiTimeoutId);
       if (fetchError.name === 'AbortError') {
-        console.error('[ai-orchestrator] API call timeout after 45s');
+        console.error('[ai-orchestrator] API call timeout after 60s');
         const timeoutMsg = 'O serviço está demorando mais que o normal. Por favor, tente novamente.';
         console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (timeout)');
         return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: timeoutMsg } }] })}\n\ndata: [DONE]\n\n`, {
