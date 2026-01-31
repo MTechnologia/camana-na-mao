@@ -5819,10 +5819,29 @@ serve(async (req) => {
         
         // 2. CATEGORY + SUBCATEGORY - try auto-classification with intuitive label, fallback to 'outro'
         if (!fields.category) {
-          // Try to auto-classify from description
-          const autoClass = autoClassifyCategory(fields.description || '');
+          const description = (fields.description || '').toLowerCase();
           
-          if (autoClass.category && autoClass.confidence >= 0.8) {
+          // CRITICAL: Check for urgent/grave problems first (security, violence, drugs, noise)
+          if (/(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?)/i.test(description)) {
+            // Security/violence issues - classify as 'poluicao' (noise/disturbance) or 'outro' (security)
+            if (/(barulho|som|música|música|festa|balada|ruído|ruido)/i.test(description)) {
+              fields.category = 'poluicao';
+              fields.subcategory = 'Perturbação Sonora com Risco';
+              fields._auto_classified = true;
+              fields._urgent_content = true;
+              console.log('[getNextMissingField] Auto-classified as poluicao (urgent noise/disturbance)');
+            } else {
+              fields.category = 'outro';
+              fields.subcategory = 'Questão de Segurança';
+              fields._auto_classified = true;
+              fields._urgent_content = true;
+              console.log('[getNextMissingField] Auto-classified as outro (security issue)');
+            }
+          } else {
+            // Try to auto-classify from description
+            const autoClass = autoClassifyCategory(fields.description || '');
+            
+            if (autoClass.category && autoClass.confidence >= 0.8) {
             // High confidence - auto-set category AND subcategory label
             fields.category = autoClass.category;
             fields.subcategory = autoClass.suggestedLabel || generateLabelFromDescription(fields.description || '');
@@ -6173,6 +6192,12 @@ serve(async (req) => {
         .map(([k, v]) => `• ${k}: ${String(v).substring(0, 100)}`)
         .join('\n');
       
+      // Check if description contains urgent/grave problems for empathy context
+      const description = accumulatedFields.description || '';
+      const descLower = description.toLowerCase();
+      const hasUrgentContent = /(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente)/i.test(descLower);
+      const empathyNote = hasUrgentContent ? '\n\n⚠️ **ATENÇÃO - PROBLEMA GRAVE DETECTADO:**\nA descrição menciona situações de risco, violência, armas ou drogas. SEMPRE:\n1. Reconheça a gravidade e seja empático\n2. NÃO pergunte "qual tipo de problema" de forma genérica - já temos a descrição\n3. Se precisar de categoria, classifique automaticamente como "poluicao" (barulho) ou "outro" (segurança) baseado na descrição\n4. Mantenha tom empático e preocupado, mas eficiente\n' : '';
+      
       const collectionContext = `
 
 === CONTEXTO ATUAL DA COLETA ===
@@ -6181,17 +6206,18 @@ serve(async (req) => {
 **Campos JÁ COLETADOS (NÃO PERGUNTAR NOVAMENTE):**
 ${fieldsList}
 ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n**PERGUNTA SUGERIDA:** ${nextFieldInfo.prompt || ''}` : '\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta de criação para finalizar.'}
-
+${empathyNote}
 **REGRAS CRÍTICAS:**
 1. NUNCA pergunte por campos já listados acima (cep, street, neighborhood, category, line_code, etc.)
 2. Se o usuário já deu CEP, rua e bairro estão resolvidos via auto-lookup - NÃO peça novamente
 3. Se o usuário deu rua E bairro manualmente, localização está completa - NÃO peça CEP
 4. Pergunte APENAS o próximo campo listado acima
 5. Seja DIRETO: uma pergunta curta por mensagem
+6. Se a descrição já contém detalhes suficientes, NÃO pergunte "qual tipo de problema" - classifique automaticamente
 ===`;
       
       dynamicSystemPrompt = systemPrompt + '\n\n' + collectionContext;
-      console.log('[ai-orchestrator] Injected collection context. Next field:', nextFieldInfo.field);
+      console.log('[ai-orchestrator] Injected collection context. Next field:', nextFieldInfo.field, hasUrgentContent ? '(URGENT CONTENT DETECTED)' : '');
     }
     
     // ========== DETERMINISTIC SHORT-CIRCUIT ==========
