@@ -12,6 +12,7 @@ import StepIndicator from "@/components/register/StepIndicator";
 import AboutYouStep from "@/components/register/AboutYouStep";
 import LocationStep from "@/components/register/LocationStep";
 import InterestsStep from "@/components/register/InterestsStep";
+import { formatPhone, unformatPhone } from "@/lib/phoneMask";
 
 const TOTAL_STEPS = 5;
 
@@ -317,9 +318,12 @@ const Register = () => {
                 </label>
                 <Input
                   type="tel"
-                  placeholder="(11) 98765-4321"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  value={formatPhone(formData.phone)}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    handleChange("phone", unformatPhone(formatted));
+                  }}
                   className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />

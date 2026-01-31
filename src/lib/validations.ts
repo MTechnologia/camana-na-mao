@@ -1,10 +1,13 @@
 import { z } from "zod";
+import { isValidPhone } from "./phoneMask";
 
 // Auth validations - Step 1 (Personal Data)
 export const registerStep1Schema = z.object({
   fullName: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
   email: z.string().email("E-mail inválido"),
-  phone: z.string().min(10, "Telefone inválido"),
+  phone: z.string().refine((val) => isValidPhone(val), {
+    message: "Telefone inválido. Use o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX",
+  }),
 });
 
 // Auth validations - Step 2 (Password)
