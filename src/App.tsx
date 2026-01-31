@@ -74,6 +74,7 @@ const NoticiaDetailPage = lazy(() => import("./pages/institucional/NoticiaDetail
 const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
+const RatingsHistoryPage = lazy(() => import("./pages/ratings/RatingsHistoryPage"));
 
 // ============================================
 // TRANSPORT PAGES - Lazy loaded
@@ -228,6 +229,7 @@ const AppContent = () => {
           <Route path="/servico/:id" element={<ServiceDetailPage />} />
           <Route path="/avaliar" element={<EvaluationPage />} />
           <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
+          <Route path="/avaliacoes/historico" element={<RatingsHistoryPage />} />
           
           {/* Transport routes */}
           <Route path="/transporte" element={<TransportReportPage />} />

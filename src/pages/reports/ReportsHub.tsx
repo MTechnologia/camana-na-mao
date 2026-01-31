@@ -66,7 +66,7 @@ export default function ReportsHub() {
 
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/avaliar')}
+              onClick={() => navigate('/avaliacoes/historico')}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
