@@ -6037,38 +6037,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     // ========== DETERMINISTIC SHORT-CIRCUIT ==========
     // If we have a structured journey and know the next field, respond directly without LLM
     // This prevents the LLM from re-asking already collected fields
-    // CRITICAL FIX: Also short-circuit on journey switch for structured journeys
-    
-    const shouldShortCircuit = collectionIntent && 
-      nextFieldInfo.field && 
-      ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type);
-    
-    if (shouldShortCircuit && nextFieldInfo.prompt) {
-      // If this is a journey switch, add a friendly confirmation prefix
-      const prefix = journeySwitchMatch ? 'Ok! ' : '';
-      
-      console.log('[ai-orchestrator] SHORT-CIRCUIT: Responding deterministically for field:', nextFieldInfo.field, 
-        journeySwitchMatch ? '(journey switch)' : '');
-      
-      // Build the deterministic response
-      const fieldsJson = JSON.stringify(accumulatedFields);
-      const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
-      const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
-      const pickerMarker = nextFieldInfo.picker || '';
-      
-      const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
-      
-      const ssePayload = JSON.stringify({
-        choices: [{ delta: { content: deterministicResponse } }]
-      });
-      
-      console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (deterministic)');
-      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
-      });
-    }
-
-    // === DETERMINISTIC RESPONSE DETECTION (before API call to avoid timeout) ===
+    // === DETERMINISTIC RESPONSE DETECTION (BEFORE short-circuit to ensure empathy) ===
     const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     const msgLower = lastUserMessage.toLowerCase().trim();
     
@@ -6082,16 +6051,17 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
     const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
     
-    // Check for generic urban report messages (first message in conversation)
-    const isFirstMessage = messages.filter((m: any) => m.role === 'user').length === 1;
+    // Check for generic urban report messages (always check, not just first message)
     const genericReportPatterns = [
       /^quero relatar (um )?problema/i,
       /^tenho (um )?problema/i,
       /^preciso relatar/i,
       /^problema na (cidade|rua|bairro)/i,
       /^relatar (um )?problema/i,
+      /quero relatar um problema na cidade/i,
+      /relatar problema/i,
     ];
-    const isGenericReport = isFirstMessage && genericReportPatterns.some(pattern => pattern.test(msgLower));
+    const isGenericReport = genericReportPatterns.some(pattern => pattern.test(msgLower));
     
     // Check for urgent problems
     const urgentPatterns = [
@@ -6105,7 +6075,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     const isUrgent = urgentPatterns.some(pattern => pattern.test(msgLower));
     
     if (isGreeting || isEmpathyRequest || isGenericReport) {
-      console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isUrgent });
+      console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isUrgent, msgLower });
       
       // Determine appropriate response
       let response = '';
@@ -6153,6 +6123,38 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
         headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
       });
     }
+
+    // CRITICAL FIX: Also short-circuit on journey switch for structured journeys
+    
+    const shouldShortCircuit = collectionIntent && 
+      nextFieldInfo.field && 
+      ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type);
+    
+    if (shouldShortCircuit && nextFieldInfo.prompt) {
+      // If this is a journey switch, add a friendly confirmation prefix
+      const prefix = journeySwitchMatch ? 'Ok! ' : '';
+      
+      console.log('[ai-orchestrator] SHORT-CIRCUIT: Responding deterministically for field:', nextFieldInfo.field, 
+        journeySwitchMatch ? '(journey switch)' : '');
+      
+      // Build the deterministic response
+      const fieldsJson = JSON.stringify(accumulatedFields);
+      const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
+      const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
+      const pickerMarker = nextFieldInfo.picker || '';
+      
+      const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+      
+      const ssePayload = JSON.stringify({
+        choices: [{ delta: { content: deterministicResponse } }]
+      });
+      
+      console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (deterministic)');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
 
     // Call AI API with streaming enabled and timeout
     const controller = new AbortController();
