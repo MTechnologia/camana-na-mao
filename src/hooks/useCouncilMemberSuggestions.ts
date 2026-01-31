@@ -40,6 +40,12 @@ export const useCouncilMemberSuggestions = () => {
         throw new Error('Nenhum vereador disponível');
       }
 
+      // Ensure we have a valid session before calling
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
       const { data, error } = await supabase.functions.invoke('suggest-council-members', {
         body: {
           reportData,
@@ -51,6 +57,9 @@ export const useCouncilMemberSuggestions = () => {
             initials: v.initials,
             photo: v.photo
           }))
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
