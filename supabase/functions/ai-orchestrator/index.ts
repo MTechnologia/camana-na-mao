@@ -6068,7 +6068,7 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       });
     }
 
-    // === DETERMINISTIC GREETING DETECTION (before API call to avoid timeout) ===
+    // === DETERMINISTIC RESPONSE DETECTION (before API call to avoid timeout) ===
     const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     const msgLower = lastUserMessage.toLowerCase().trim();
     
@@ -6082,37 +6082,72 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
     const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
     
-    if (isGreeting || isEmpathyRequest) {
-      console.log('[ai-orchestrator] Greeting detected, responding deterministically');
+    // Check for generic urban report messages (first message in conversation)
+    const isFirstMessage = messages.filter((m: any) => m.role === 'user').length === 1;
+    const genericReportPatterns = [
+      /^quero relatar (um )?problema/i,
+      /^tenho (um )?problema/i,
+      /^preciso relatar/i,
+      /^problema na (cidade|rua|bairro)/i,
+      /^relatar (um )?problema/i,
+    ];
+    const isGenericReport = isFirstMessage && genericReportPatterns.some(pattern => pattern.test(msgLower));
+    
+    // Check for urgent problems
+    const urgentPatterns = [
+      /(incêndio|fogo|queimando|chamas)/i,
+      /(fios expostos|cabos soltos|eletricidade)/i,
+      /(explosão|transformador)/i,
+      /(alagamento|enchente|água subindo)/i,
+      /(acidente|atropelamento)/i,
+      /(risco iminente|perigo|armado|arma)/i,
+    ];
+    const isUrgent = urgentPatterns.some(pattern => pattern.test(msgLower));
+    
+    if (isGreeting || isEmpathyRequest || isGenericReport) {
+      console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isUrgent });
       
-      // Determine appropriate greeting response
-      let greetingResponse = '';
-      if (msgLower.includes('bom dia')) {
-        greetingResponse = 'Bom dia! Como posso ajudar hoje?';
+      // Determine appropriate response
+      let response = '';
+      
+      if (isEmpathyRequest) {
+        response = 'Claro! Desculpe. Boa tarde! Como posso ajudar?';
+      } else if (msgLower.includes('bom dia')) {
+        response = 'Bom dia! Como posso ajudar hoje?';
       } else if (msgLower.includes('boa tarde')) {
-        greetingResponse = 'Boa tarde! Como posso ajudar?';
+        response = 'Boa tarde! Como posso ajudar?';
       } else if (msgLower.includes('boa noite')) {
-        greetingResponse = 'Boa noite! Como posso ajudar?';
+        response = 'Boa noite! Como posso ajudar?';
       } else if (msgLower.includes('olá') || msgLower.includes('oi')) {
-        greetingResponse = 'Olá! Como posso ajudar?';
-      } else if (isEmpathyRequest) {
-        greetingResponse = 'Claro! Desculpe. Boa tarde! Como posso ajudar?';
+        response = 'Olá! Como posso ajudar?';
+      } else if (isGenericReport) {
+        // Generic report - always be empathetic
+        response = 'Olá! Claro, vou te ajudar. Qual o problema e onde fica?';
       } else {
-        greetingResponse = 'Olá! Como posso ajudar?';
+        response = 'Olá! Como posso ajudar?';
       }
       
-      // If greeting + problem, combine response
-      if (msgLower.includes('problema') || msgLower.includes('relatar')) {
-        if (msgLower.includes('fios') || msgLower.includes('expostos')) {
-          greetingResponse = greetingResponse.replace('Como posso ajudar?', 'Entendi, fios expostos é muito perigoso! Qual o CEP do local?');
+      // If urgent problem detected, add urgency recognition
+      if (isUrgent) {
+        if (msgLower.includes('incêndio') || msgLower.includes('fogo') || msgLower.includes('queimando')) {
+          response = 'Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP do local?';
+        } else if (msgLower.includes('fios') || msgLower.includes('expostos')) {
+          response = 'Isso é perigoso! Vamos resolver rápido. Qual o CEP do local?';
+        } else if (msgLower.includes('risco') || msgLower.includes('perigo') || msgLower.includes('armado')) {
+          response = 'Entendi a gravidade da situação. Isso é muito preocupante! Vamos registrar como alto risco imediato. Qual o CEP do local?';
         } else {
-          greetingResponse = greetingResponse.replace('Como posso ajudar?', 'Claro, vou te ajudar. Qual o problema e onde fica?');
+          response = 'Isso é perigoso! Vamos resolver rápido. Qual o CEP do local?';
+        }
+      } else if (msgLower.includes('problema') || msgLower.includes('relatar')) {
+        // Problem mentioned but not urgent
+        if (response.includes('Como posso ajudar')) {
+          response = response.replace('Como posso ajudar?', 'Claro, vou te ajudar. Qual o problema e onde fica?');
         }
       }
       
-      console.log('[ai-orchestrator] Deterministic greeting response:', greetingResponse);
+      console.log('[ai-orchestrator] Deterministic response:', response);
       const ssePayload = JSON.stringify({
-        choices: [{ delta: { content: greetingResponse } }]
+        choices: [{ delta: { content: response } }]
       });
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
         headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
