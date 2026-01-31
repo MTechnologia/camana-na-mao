@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { ReferralWizard } from './ReferralWizard';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -54,6 +55,9 @@ export const ReferralDialog = ({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="sr-only">
           <DialogTitle>Encaminhar para Vereador</DialogTitle>
+          <DialogDescription>
+            Selecione um vereador para encaminhar seu relato
+          </DialogDescription>
         </DialogHeader>
         {loading ? (
           <div className="p-6">
