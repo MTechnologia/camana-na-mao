@@ -13,7 +13,7 @@ export default function PatternsPage() {
 
   return (
     <>
-      <PageHeader title="Padrões Detectados" backTo="/transporte" />
+      <PageHeader title="Padrões Detectados" backTo="/relatos" />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
           {loading ? (

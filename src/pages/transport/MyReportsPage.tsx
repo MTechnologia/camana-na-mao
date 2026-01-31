@@ -46,7 +46,7 @@ export default function MyReportsPage() {
 
   return (
     <>
-      <PageHeader title="Minhas Contribuições" backTo="/transporte" />
+      <PageHeader title="Minhas Contribuições" backTo="/relatos" />
       <div className="min-h-screen bg-background pt-[60px] pb-24">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
           
