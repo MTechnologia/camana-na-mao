@@ -146,7 +146,7 @@ const RoutePrefetcher = () => {
       if (location.pathname === "/") {
         prefetchMultiple(["/busca", "/conversas"]);
       } else if (location.pathname.startsWith("/transporte")) {
-        prefetchMultiple(["/transporte/novo", "/transporte/meus-relatos"]);
+        prefetchMultiple(["/transporte/novo", "/transporte/historico"]);
       } else if (location.pathname.startsWith("/institucional")) {
         prefetchMultiple([
           "/institucional/agenda",
@@ -235,7 +235,7 @@ const AppContent = () => {
           <Route path="/transporte" element={<TransportReportPage />} />
           <Route path="/transporte/novo" element={<NewReportPage />} />
           <Route path="/transporte/padroes" element={<PatternsPage />} />
-          <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
+          <Route path="/transporte/historico" element={<MyReportsPage />} />
           
           {/* Analytics routes - PT */}
           <Route path="/paineis" element={<AnalyticsDashboard />} />

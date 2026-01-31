@@ -41,7 +41,7 @@ export default function TransportReportPage() {
       icon: FileText,
       color: 'text-blue-500',
       bgColor: 'bg-blue-50',
-      path: '/transporte/meus-relatos',
+      path: '/transporte/historico',
     },
   ];
 

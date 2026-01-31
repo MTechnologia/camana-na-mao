@@ -32,7 +32,7 @@ export default function ReportsHub() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Card
               className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
-              onClick={() => navigate('/transporte/meus-relatos')}
+              onClick={() => navigate('/transporte/historico')}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
