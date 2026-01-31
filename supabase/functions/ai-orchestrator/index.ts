@@ -6042,10 +6042,56 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       });
     }
 
+    // === DETERMINISTIC GREETING DETECTION (before API call to avoid timeout) ===
+    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const msgLower = lastUserMessage.toLowerCase().trim();
+    
+    // Check for greetings - respond immediately without API call
+    const greetingPatterns = [
+      /^(olá|oi|bom dia|boa tarde|boa noite)/i,
+      /(olá|oi|bom dia|boa tarde|boa noite).*problema/i,
+      /(você poderia ser mais empática|seja mais simpático|me diga boa tarde|me diga bom dia)/i,
+    ];
+    
+    const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
+    const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
+    
+    if (isGreeting || isEmpathyRequest) {
+      console.log('[ai-orchestrator] Greeting detected, responding deterministically');
+      
+      // Determine appropriate greeting response
+      let greetingResponse = '';
+      if (msgLower.includes('bom dia')) {
+        greetingResponse = 'Bom dia! Como posso ajudar hoje?';
+      } else if (msgLower.includes('boa tarde')) {
+        greetingResponse = 'Boa tarde! Como posso ajudar?';
+      } else if (msgLower.includes('boa noite')) {
+        greetingResponse = 'Boa noite! Como posso ajudar?';
+      } else if (msgLower.includes('olá') || msgLower.includes('oi')) {
+        greetingResponse = 'Olá! Como posso ajudar?';
+      } else if (isEmpathyRequest) {
+        greetingResponse = 'Claro! Desculpe. Boa tarde! Como posso ajudar?';
+      } else {
+        greetingResponse = 'Olá! Como posso ajudar?';
+      }
+      
+      // If greeting + problem, combine response
+      if (msgLower.includes('problema') || msgLower.includes('relatar')) {
+        if (msgLower.includes('fios') || msgLower.includes('expostos')) {
+          greetingResponse = greetingResponse.replace('Como posso ajudar?', 'Entendi, fios expostos é muito perigoso! Qual o CEP do local?');
+        } else {
+          greetingResponse = greetingResponse.replace('Como posso ajudar?', 'Claro, vou te ajudar. Qual o problema e onde fica?');
+        }
+      }
+      
+      console.log('[ai-orchestrator] Deterministic greeting response:', greetingResponse);
+      return sseOnce(greetingResponse);
+    }
+
     // Call AI API with streaming enabled and timeout
     const controller = new AbortController();
     const apiTimeoutId = setTimeout(() => {
-      console.warn('[ai-orchestrator] API timeout (45s), aborting request');
+      console.warn('[ai-orchestrator] API timeout (60s), aborting request');
       controller.abort();
     }, 60000); // Increased to 60s to prevent premature timeouts
 
