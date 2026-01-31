@@ -5323,11 +5323,15 @@ serve(async (req) => {
         supabaseUrl: !supabaseUrl,
         supabaseAnonKey: !supabaseAnonKey
       });
-      return sseOnce(
-        `⚠️ Assistente IA indisponível neste ambiente.\n\n` +
+      const errorMsg = `⚠️ Assistente IA indisponível neste ambiente.\n\n` +
         `Faltam configurações na Edge Function: **AI_CHAT_BASE_URL** (ou AI_BASE_URL) e **SUPABASE_URL**.\n\n` +
-        `Configure os secrets do Supabase e tente novamente.`
-      );
+        `Configure os secrets do Supabase e tente novamente.`;
+      const ssePayload = JSON.stringify({
+        choices: [{ delta: { content: errorMsg } }]
+      });
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
     }
     
     console.log('[ai-orchestrator] Using AI provider:', finalAiBaseUrl);
@@ -6085,7 +6089,12 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       }
       
       console.log('[ai-orchestrator] Deterministic greeting response:', greetingResponse);
-      return sseOnce(greetingResponse);
+      const ssePayload = JSON.stringify({
+        choices: [{ delta: { content: greetingResponse } }]
+      });
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
     }
 
     // Call AI API with streaming enabled and timeout
