@@ -6039,6 +6039,95 @@ serve(async (req) => {
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating'].includes(collectionIntent.type)) {
       nextFieldInfo = getNextMissingField(collectionIntent.type, accumulatedFields);
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
+      
+      // === CRITICAL FIX: Auto-call create function when all fields are ready ===
+      // Since vLLM doesn't have tool calling, we need to call it deterministically
+      if (!nextFieldInfo.field && accumulatedFields) {
+        console.log('[ai-orchestrator] All fields collected, auto-calling create function for:', collectionIntent.type);
+        
+        let toolResult;
+        try {
+          if (collectionIntent.type === 'urban_report') {
+            // Build args from accumulated fields
+            const toolArgs = {
+              category: accumulatedFields.category,
+              subcategory: accumulatedFields.subcategory,
+              description: accumulatedFields.description,
+              cep: accumulatedFields.cep,
+              street: accumulatedFields.street,
+              street_number: accumulatedFields.street_number,
+              reference_point: accumulatedFields.reference_point,
+              neighborhood: accumulatedFields.neighborhood,
+              risk_level: accumulatedFields.risk_level,
+              risk_types: accumulatedFields.risk_types,
+              affected_scope: accumulatedFields.affected_scope,
+              affected_estimate: accumulatedFields.affected_estimate,
+              active_consequences: accumulatedFields.active_consequences,
+              urgency_reason: accumulatedFields.urgency_reason,
+              council_member_name: accumulatedFields.council_member_name,
+              council_member_party: accumulatedFields.council_member_party
+            };
+            toolResult = await executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
+          } else if (collectionIntent.type === 'transport_report') {
+            const toolArgs = {
+              description: accumulatedFields.description,
+              report_type: accumulatedFields.report_type,
+              line_code: accumulatedFields.line_code,
+              occurrence_date: accumulatedFields.occurrence_date,
+              occurrence_time: accumulatedFields.occurrence_time,
+              location: accumulatedFields.location,
+              severity: accumulatedFields.severity,
+              impact_description: accumulatedFields.impact_description,
+              subcategory_label: accumulatedFields.subcategory_label
+            };
+            toolResult = await executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+          } else if (collectionIntent.type === 'service_rating') {
+            const toolArgs = {
+              service_type: accumulatedFields.service_type,
+              service_name: accumulatedFields.service_name,
+              service_neighborhood: accumulatedFields.service_neighborhood,
+              service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
+              rating_stars: accumulatedFields.rating_stars,
+              rating_text: accumulatedFields.rating_text,
+              sentiment: accumulatedFields.sentiment
+            };
+            toolResult = await executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
+          }
+          
+          if (toolResult && toolResult.success) {
+            // Inject collection progress and return tool result
+            let responseContent = toolResult.message;
+            
+            // Add light journey marker if applicable
+            if (lightJourneyMarker && !responseContent.includes('[LIGHT_JOURNEY:')) {
+              responseContent = lightJourneyMarker + responseContent;
+            }
+            
+            // Add collection progress marker (empty fields since journey is complete)
+            if (!responseContent.includes('[COLLECTION_PROGRESS:')) {
+              responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:{}]${responseContent}`;
+            }
+            
+            const ssePayload = JSON.stringify({
+              choices: [{ delta: { content: responseContent } }]
+            });
+            
+            console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (auto-create)');
+            return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+              headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+            });
+          } else if (toolResult && !toolResult.success) {
+            // Tool validation failed - continue to LLM to ask for missing field
+            console.log('[ai-orchestrator] Auto-create validation failed, continuing to LLM:', toolResult.message);
+            // Update nextFieldInfo to ask for the missing field
+            // The tool result message should contain [FIELD_REQUEST:...] markers
+            nextFieldInfo = { field: null, picker: null, prompt: toolResult.message };
+          }
+        } catch (error) {
+          console.error('[ai-orchestrator] Auto-create error:', error);
+          // Continue to LLM on error
+        }
+      }
     }
     
     if (collectionIntent && Object.keys(accumulatedFields).length > 0) {
