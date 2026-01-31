@@ -6223,16 +6223,24 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
     ];
     const isGenericReport = genericReportPatterns.some(pattern => pattern.test(msgLower));
     
-    // Check for urgent problems
+    // Check for urgent problems - EXPANDED to include violence, drugs, security
     const urgentPatterns = [
       /(incêndio|fogo|queimando|chamas)/i,
       /(fios expostos|cabos soltos|eletricidade)/i,
       /(explosão|transformador)/i,
       /(alagamento|enchente|água subindo)/i,
       /(acidente|atropelamento)/i,
-      /(risco iminente|perigo|armado|arma)/i,
+      /(risco iminente|perigo|armado|arma|armas)/i,
+      /(drogas?|tráfico|trafico|drogados?|usuários? de droga)/i,
+      /(violência|violencia|agressão|agressao|briga|confronto)/i,
+      /(baderna|vandalismo|destruição|destruicao)/i,
+      /(funkeiros?|grupo.*armado|pessoas.*armadas?)/i,
     ];
     const isUrgent = urgentPatterns.some(pattern => pattern.test(msgLower));
+    
+    // Also check accumulated description for urgent patterns (if user already described the problem)
+    const accumulatedDesc = accumulatedFields?.description || '';
+    const hasUrgentInDescription = accumulatedDesc && urgentPatterns.some(pattern => pattern.test(accumulatedDesc.toLowerCase()));
     
     if (isGreeting || isEmpathyRequest || isGenericReport) {
       console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isUrgent, msgLower });
@@ -6258,12 +6266,12 @@ ${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n*
       }
       
       // If urgent problem detected, add urgency recognition
-      if (isUrgent) {
-        if (msgLower.includes('incêndio') || msgLower.includes('fogo') || msgLower.includes('queimando')) {
+      if (isUrgent || hasUrgentInDescription) {
+        if (msgLower.includes('incêndio') || msgLower.includes('fogo') || msgLower.includes('queimando') || accumulatedDesc.toLowerCase().includes('incêndio') || accumulatedDesc.toLowerCase().includes('fogo')) {
           response = 'Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP do local?';
-        } else if (msgLower.includes('fios') || msgLower.includes('expostos')) {
+        } else if (msgLower.includes('fios') || msgLower.includes('expostos') || accumulatedDesc.toLowerCase().includes('fios') || accumulatedDesc.toLowerCase().includes('expostos')) {
           response = 'Isso é perigoso! Vamos resolver rápido. Qual o CEP do local?';
-        } else if (msgLower.includes('risco') || msgLower.includes('perigo') || msgLower.includes('armado')) {
+        } else if (msgLower.includes('risco') || msgLower.includes('perigo') || msgLower.includes('armado') || msgLower.includes('arma') || accumulatedDesc.toLowerCase().includes('armado') || accumulatedDesc.toLowerCase().includes('arma') || accumulatedDesc.toLowerCase().includes('drogas') || accumulatedDesc.toLowerCase().includes('violência') || accumulatedDesc.toLowerCase().includes('baderna')) {
           response = 'Entendi a gravidade da situação. Isso é muito preocupante! Vamos registrar como alto risco imediato. Qual o CEP do local?';
         } else {
           response = 'Isso é perigoso! Vamos resolver rápido. Qual o CEP do local?';
