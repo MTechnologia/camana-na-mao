@@ -209,8 +209,12 @@ serve(async (req) => {
   try {
     // Verify JWT authentication
     const authHeader = req.headers.get('Authorization');
+    console.log('[suggest-council-members] Auth header present:', !!authHeader);
+    console.log('[suggest-council-members] Auth header starts with Bearer:', authHeader?.startsWith('Bearer '));
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.error('[suggest-council-members] Missing or invalid authorization header');
+      console.error('[suggest-council-members] All headers:', Object.fromEntries(req.headers.entries()));
       return new Response(
         JSON.stringify({ error: 'Não autorizado', details: 'Token de autenticação ausente ou inválido' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -237,6 +241,7 @@ serve(async (req) => {
     
     if (userError || !user) {
       console.error('[suggest-council-members] Authentication failed:', userError);
+      console.error('[suggest-council-members] User error details:', JSON.stringify(userError));
       return new Response(
         JSON.stringify({ error: 'Não autorizado', details: 'Token inválido ou expirado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
