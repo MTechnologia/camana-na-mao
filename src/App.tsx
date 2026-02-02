@@ -42,6 +42,7 @@ const AddressPage = lazy(() => import("./pages/profile/AddressPage"));
 const PreferencesPage = lazy(() => import("./pages/profile/PreferencesPage"));
 const InterestsPage = lazy(() => import("./pages/profile/InterestsPage"));
 const ConsentsPage = lazy(() => import("./pages/profile/ConsentsPage"));
+const DataExportPage = lazy(() => import("./pages/profile/DataExportPage"));
 
 // ============================================
 // CITIZEN PAGES - Lazy loaded

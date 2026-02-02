@@ -200,6 +200,15 @@ const Profile = () => {
       iconBg: 'bg-blue-100',
       path: '/perfil/consentimentos',
     },
+    {
+      id: 'export',
+      title: 'Exportar Dados',
+      description: 'Portabilidade de dados (LGPD)',
+      icon: Download,
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-100',
+      path: '/perfil/exportar-dados',
+    },
   ];
 
   const renderCard = (card: typeof dataCards[0], showStatus: boolean = false) => {
