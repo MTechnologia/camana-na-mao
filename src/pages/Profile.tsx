@@ -210,6 +210,15 @@ const Profile = () => {
       iconBg: 'bg-purple-100',
       path: '/perfil/exportar-dados',
     },
+    {
+      id: 'rights',
+      title: 'Meus Direitos LGPD',
+      description: 'Acesso, correção, exclusão e mais',
+      icon: Shield,
+      iconColor: 'text-indigo-600',
+      iconBg: 'bg-indigo-100',
+      path: '/perfil/direitos',
+    },
   ];
 
   const renderCard = (card: typeof dataCards[0], showStatus: boolean = false) => {

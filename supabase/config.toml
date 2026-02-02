@@ -33,6 +33,9 @@ verify_jwt = false
 [functions.delete-user]
 verify_jwt = true
 
+[functions.delete-own-account]
+verify_jwt = false
+
 [functions.google-places-autocomplete]
 verify_jwt = false
 
