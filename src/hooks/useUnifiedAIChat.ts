@@ -1184,6 +1184,57 @@ export const useUnifiedAIChat = (
         processSSELine(textBuffer);
       }
 
+      // Check if timeout occurred and trigger auto-retry (only once per message)
+      const timeoutDetected = assistantMessage.includes('[TIMEOUT]') || 
+                               assistantMessage.includes('demorando mais que o normal');
+      
+      if (timeoutDetected) {
+        console.log('[useUnifiedAIChat] Timeout detected, checking for auto-retry');
+        
+        // Get the last user message
+        const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+        
+        // Only retry if:
+        // 1. We have a user message
+        // 2. It doesn't already have a retry marker (prevent infinite loop)
+        // 3. We haven't retried this message yet
+        if (lastUserMessage && 
+            !lastUserMessage.content.includes('[RETRY]') &&
+            !sessionStorage.getItem(`retry_${lastUserMessage.id}`)) {
+          
+          console.log('[useUnifiedAIChat] Triggering auto-retry for timeout');
+          
+          // Mark this message as retried
+          sessionStorage.setItem(`retry_${lastUserMessage.id}`, 'true');
+          
+          // Remove timeout message from UI
+          setMessages(prev => prev.filter(m => 
+            !m.content.includes('demorando mais que o normal') && 
+            !m.content.includes('[TIMEOUT]')
+          ));
+          
+          setIsLoading(false);
+          
+          // Wait 3 seconds before retry
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Show retry message
+          toast({
+            title: "Tentando novamente...",
+            description: "O serviço estava lento. Tentando novamente automaticamente.",
+            duration: 2000,
+          });
+          
+          // Retry the message
+          const messageToRetry = lastUserMessage.content;
+          await sendMessage(messageToRetry);
+          return;
+        } else {
+          // Already retried or no user message, just clean up the timeout marker
+          assistantMessage = assistantMessage.replace(/\[TIMEOUT\]/g, '');
+        }
+      }
+
       // Save assistant response - PRESERVE RAW CONTENT WITH MARKERS
       // This is critical for backend correlation on subsequent requests
       if (conversationIdRef.current && user && assistantMessage) {
