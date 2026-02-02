@@ -6423,7 +6423,7 @@ ${empathyNote}
       clearTimeout(apiTimeoutId);
       if (fetchError.name === 'AbortError') {
         console.error('[ai-orchestrator] API call timeout after 60s');
-        const timeoutMsg = 'O serviço está demorando mais que o normal. Por favor, tente novamente.';
+        const timeoutMsg = '[TIMEOUT]O serviço está demorando mais que o normal. Isso pode acontecer quando há muitos usuários simultâneos ou quando o servidor está reiniciando. Tentando novamente automaticamente...';
         console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (timeout)');
         return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: timeoutMsg } }] })}\n\ndata: [DONE]\n\n`, {
           headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }

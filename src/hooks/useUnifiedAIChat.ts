@@ -966,6 +966,13 @@ export const useUnifiedAIChat = (
           if (content) {
             assistantMessage += content;
             
+            // Check for timeout marker and trigger auto-retry
+            if (content.includes('[TIMEOUT]') || assistantMessage.includes('[TIMEOUT]')) {
+              console.log('[useUnifiedAIChat] Timeout detected, will trigger auto-retry');
+              // Remove timeout marker from message
+              assistantMessage = assistantMessage.replace(/\[TIMEOUT\]/g, '');
+            }
+            
             // Check for collection progress markers (robust parsing)
             const progressRegex = /\[COLLECTION_PROGRESS:(\w+):(\{[^\]]*\})\]/g;
             let progressMatch;
