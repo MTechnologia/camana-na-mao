@@ -20,7 +20,8 @@ import {
   CheckCircle2,
   LogOut,
   Camera,
-  Loader2
+  Loader2,
+  Shield
 } from "lucide-react";
 
 const Profile = () => {
@@ -189,6 +190,15 @@ const Profile = () => {
       iconColor: 'text-slate-600',
       iconBg: 'bg-slate-100',
       path: '/perfil/preferencias',
+    },
+    {
+      id: 'consents',
+      title: 'Consentimentos',
+      description: 'Gestão de consentimentos LGPD',
+      icon: Shield,
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-100',
+      path: '/perfil/consentimentos',
     },
   ];
 
