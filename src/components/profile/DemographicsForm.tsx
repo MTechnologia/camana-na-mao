@@ -145,6 +145,10 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
                     date > new Date() || date < new Date("1900-01-01")
                   }
                   initialFocus
+                  captionLayout="dropdown"
+                  fromYear={1900}
+                  toYear={new Date().getFullYear()}
+                  locale={ptBR}
                   className={cn("p-3 pointer-events-auto")}
                 />
               </PopoverContent>
