@@ -219,6 +219,7 @@ const AppContent = () => {
           <Route path="/perfil/endereco" element={<AddressPage />} />
           <Route path="/perfil/preferencias" element={<PreferencesPage />} />
           <Route path="/perfil/consentimentos" element={<ConsentsPage />} />
+          <Route path="/perfil/exportar-dados" element={<DataExportPage />} />
           <Route path="/configuracoes/acessibilidade" element={<AccessibilityPage />} />
           
           {/* Profile routes - Redirects for backward compatibility */}

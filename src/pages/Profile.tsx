@@ -21,7 +21,8 @@ import {
   LogOut,
   Camera,
   Loader2,
-  Shield
+  Shield,
+  Download
 } from "lucide-react";
 
 const Profile = () => {
