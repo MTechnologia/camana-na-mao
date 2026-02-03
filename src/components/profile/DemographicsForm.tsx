@@ -6,6 +6,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Users, Palette, Briefcase } from "lucide-react";
 import { format, setMonth, setYear } from "date-fns";
+
+// Helper function to format date as YYYY-MM-DD without timezone conversion
+const formatDateLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,7 +101,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
         const { error } = await supabase
           .from('user_demographics')
           .update({
-            birth_date: birthDate?.toISOString().split('T')[0] || null,
+            birth_date: birthDate ? formatDateLocal(birthDate) : null,
             gender: validated.gender,
             race: validated.race,
             social_class: validated.socialClass,
@@ -106,7 +114,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
           .from('user_demographics')
           .insert({
             user_id: userId,
-            birth_date: birthDate?.toISOString().split('T')[0] || null,
+            birth_date: birthDate ? formatDateLocal(birthDate) : null,
             gender: validated.gender,
             race: validated.race,
             social_class: validated.socialClass,
