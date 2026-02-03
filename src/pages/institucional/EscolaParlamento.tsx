@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { GraduationCap, Clock, Users, BookOpen, CheckCircle2, ExternalLink, Loader2, Search, Filter, X } from "lucide-react";
+import { GraduationCap, Clock, Users, BookOpen, CheckCircle2, ExternalLink, Loader2, Search, Filter, X, Calendar, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +27,8 @@ interface Course {
 interface CombinedCourse extends Course {
   wpItem?: EscolaParlamentoItem;
   isFromWordPress?: boolean;
+  courseStatus?: "ead" | "upcoming" | "open_registration" | "in_progress" | "completed";
+  courseYear?: number;
 }
 
 const levelLabels = {
@@ -45,18 +48,15 @@ const EscolaParlamento = () => {
   const [allCourses, setAllCourses] = useState<CombinedCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["ead", "upcoming", "open_registration", "in_progress"]));
   
   // Filtros
   const [searchQuery, setSearchQuery] = useState("");
   const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
-  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
-  const [enrollmentFilter, setEnrollmentFilter] = useState<EnrollmentFilter>("all");
-  const [sortOption, setSortOption] = useState<SortOption>("recent");
   
-  // Buscar TODOS os itens da API WordPress (não apenas categoria 'curso')
+  // Buscar TODOS os itens da API WordPress
   const { data: wpAllItems, isLoading: loadingWP, error: wpError } = useEscolaParlamento();
   
-  // Debug: verificar se o hook está funcionando
   useEffect(() => {
     if (wpAllItems) {
       console.log('[EscolaParlamento] wpAllItems loaded:', wpAllItems.length);
@@ -91,32 +91,23 @@ const EscolaParlamento = () => {
     return "iniciante";
   };
 
-  // Helper: Verificar se é um curso (baseado em slug, título e conteúdo)
+  // Helper: Verificar se é um curso
   const isCourse = (item: EscolaParlamentoItem): boolean => {
     const lowerSlug = item.slug.toLowerCase();
     const lowerTitle = item.title.toLowerCase();
     const lowerContent = item.content.toLowerCase();
     
-    // Padrões que indicam curso
     const coursePatterns = [
       'curso', 'cursos', 'capacitação', 'capacitacao', 'formação', 'formacao',
       'treinamento', 'aprendizado', 'ensino', 'educação', 'educacao',
       'módulo', 'modulo', 'aula', 'aulas'
     ];
     
-    // Verificar slug
-    if (coursePatterns.some(pattern => lowerSlug.includes(pattern))) {
+    if (coursePatterns.some(pattern => lowerSlug.includes(pattern) || lowerTitle.includes(pattern))) {
       return true;
     }
     
-    // Verificar título
-    if (coursePatterns.some(pattern => lowerTitle.includes(pattern))) {
-      return true;
-    }
-    
-    // Verificar conteúdo (apenas se mencionar "curso" ou "capacitação" de forma clara)
     if (lowerContent.includes('curso') || lowerContent.includes('capacitação') || lowerContent.includes('capacitacao')) {
-      // Verificar se não é apenas uma menção genérica
       if (lowerContent.includes('curso de') || lowerContent.includes('curso sobre') || 
           lowerContent.includes('curso para') || lowerContent.includes('curso em')) {
         return true;
@@ -124,6 +115,76 @@ const EscolaParlamento = () => {
     }
     
     return false;
+  };
+
+  // Helper: Determinar status do curso
+  const determineCourseStatus = (item: EscolaParlamentoItem): { status: CombinedCourse["courseStatus"], year?: number } => {
+    const lowerContent = (item.content + " " + item.title).toLowerCase();
+    const lowerTitle = item.title.toLowerCase();
+    const date = new Date(item.date);
+    const now = new Date();
+    const year = date.getFullYear();
+    
+    // EAD - Ensino a Distância
+    if (lowerContent.includes('ead') || 
+        lowerContent.includes('ensino a distância') || 
+        lowerContent.includes('ensino a distancia') ||
+        lowerContent.includes('online') ||
+        lowerContent.includes('remoto') ||
+        lowerTitle.includes('ead')) {
+      return { status: "ead", year };
+    }
+    
+    // Inscrições abertas
+    if (lowerContent.includes('inscrições abertas') || 
+        lowerContent.includes('inscrições abertas') ||
+        lowerContent.includes('inscrições até') ||
+        lowerContent.includes('inscreva-se') ||
+        lowerContent.includes('inscrições encerradas') === false) {
+      // Verificar se ainda não passou muito tempo desde a publicação
+      const daysSincePublish = (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSincePublish < 90) { // Considerar "inscrições abertas" se foi publicado nos últimos 90 dias
+        return { status: "open_registration", year };
+      }
+    }
+    
+    // Próximos cursos - data futura ou muito recente
+    const daysSincePublish = (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
+    if (date > now || daysSincePublish < 30) {
+      if (lowerContent.includes('em breve') || lowerContent.includes('próximo') || lowerContent.includes('proximo')) {
+        return { status: "upcoming", year };
+      }
+    }
+    
+    // Em andamento - publicado recentemente mas não muito antigo
+    if (daysSincePublish >= 30 && daysSincePublish < 180) {
+      if (lowerContent.includes('em andamento') || 
+          lowerContent.includes('acontecendo') ||
+          lowerContent.includes('ocorrendo')) {
+        return { status: "in_progress", year };
+      }
+    }
+    
+    // Realizados - cursos antigos ou que mencionam "realizado"
+    if (daysSincePublish >= 180 || 
+        lowerContent.includes('realizado') || 
+        lowerContent.includes('concluído') ||
+        lowerContent.includes('concluido') ||
+        year < now.getFullYear()) {
+      return { status: "completed", year };
+    }
+    
+    // Default: considerar como realizado se for do ano passado ou anterior
+    if (year < now.getFullYear()) {
+      return { status: "completed", year };
+    }
+    
+    // Se não conseguir determinar, usar data como critério
+    if (date < now) {
+      return { status: "completed", year };
+    }
+    
+    return { status: "upcoming", year };
   };
 
   // Se usuário estiver logado, buscar inscrições
@@ -155,26 +216,26 @@ const EscolaParlamento = () => {
       setLoading(true);
       
       // Mapear cursos da API WordPress
-      // Filtrar apenas itens que são realmente cursos
       const wpCourses: CombinedCourse[] = (wpAllItems || [])
         .filter(item => {
-          // Apenas publicados
           if (item.status !== 'publish') return false;
-          // Verificar se é um curso usando função helper
           return isCourse(item);
         })
         .map(item => {
+          const { status, year } = determineCourseStatus(item);
           return {
             id: `wp-${item.wp_id}`,
             title: item.title,
             description: item.excerpt || "Curso da Escola do Parlamento",
             duration: extractDuration(item.content),
             level: determineLevel(item.content, item.title),
-            participants_count: 0, // Será atualizado se houver inscrições no banco
+            participants_count: 0,
             available: true,
             is_enrolled: enrollments.includes(`wp-${item.wp_id}`),
             wpItem: item,
             isFromWordPress: true,
+            courseStatus: status,
+            courseYear: year,
           };
         });
 
@@ -205,7 +266,6 @@ const EscolaParlamento = () => {
         });
 
       if (error) {
-        // Verificar se já está inscrito
         const errorMsg = (error as any)?.message?.toLowerCase() || '';
         if (errorMsg.includes('duplicate') || errorMsg.includes('unique') || errorMsg.includes('already')) {
           toast.success("Você já está inscrito neste curso!");
@@ -216,7 +276,6 @@ const EscolaParlamento = () => {
         toast.success("Inscrição realizada com sucesso!");
       }
 
-      // Atualizar lista de inscrições e recarregar
       if (user) {
         const { data: enrollmentsData } = await supabase
           .from('parlamento_course_enrollments')
@@ -229,7 +288,6 @@ const EscolaParlamento = () => {
         }
       }
       
-      // Atualizar estado do curso
       setAllCourses(prev => prev.map(c => 
         c.id === courseId 
           ? { ...c, is_enrolled: true, participants_count: (c.participants_count || 0) + 1 }
@@ -243,11 +301,10 @@ const EscolaParlamento = () => {
     }
   };
 
-  // Filtrar e ordenar cursos
-  const filteredAndSortedCourses = useMemo(() => {
+  // Filtrar cursos por busca e nível
+  const filteredCourses = useMemo(() => {
     let filtered = [...allCourses];
 
-    // Filtro de busca
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(course =>
@@ -256,59 +313,193 @@ const EscolaParlamento = () => {
       );
     }
 
-    // Filtro por nível
     if (levelFilter !== "all") {
       filtered = filtered.filter(course => course.level === levelFilter);
     }
 
-    // Filtro por disponibilidade
-    if (availabilityFilter === "available") {
-      filtered = filtered.filter(course => course.available);
-    } else if (availabilityFilter === "coming_soon") {
-      filtered = filtered.filter(course => !course.available);
-    }
-
-    // Filtro por inscrição
-    if (enrollmentFilter === "enrolled") {
-      filtered = filtered.filter(course => course.is_enrolled);
-    } else if (enrollmentFilter === "not_enrolled") {
-      filtered = filtered.filter(course => !course.is_enrolled);
-    }
-
-    // Ordenação
-    switch (sortOption) {
-      case "participants":
-        filtered.sort((a, b) => (b.participants_count || 0) - (a.participants_count || 0));
-        break;
-      case "alphabetical":
-        filtered.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
-        break;
-      case "recent":
-      default:
-        // Manter ordem original (mais recentes primeiro)
-        break;
-    }
-
     return filtered;
-  }, [allCourses, searchQuery, levelFilter, availabilityFilter, enrollmentFilter, sortOption]);
+  }, [allCourses, searchQuery, levelFilter]);
 
-  // Contar filtros ativos
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (searchQuery) count++;
-    if (levelFilter !== "all") count++;
-    if (availabilityFilter !== "all") count++;
-    if (enrollmentFilter !== "all") count++;
-    return count;
-  }, [searchQuery, levelFilter, availabilityFilter, enrollmentFilter]);
+  // Agrupar cursos por categoria
+  const coursesByCategory = useMemo(() => {
+    const ead = filteredCourses.filter(c => c.courseStatus === "ead");
+    const upcoming = filteredCourses.filter(c => c.courseStatus === "upcoming");
+    const openRegistration = filteredCourses.filter(c => c.courseStatus === "open_registration");
+    const inProgress = filteredCourses.filter(c => c.courseStatus === "in_progress");
+    const completed = filteredCourses.filter(c => c.courseStatus === "completed");
+    
+    // Agrupar realizados por ano
+    const completedByYear = completed.reduce((acc, course) => {
+      const year = course.courseYear || new Date().getFullYear();
+      if (!acc[year]) acc[year] = [];
+      acc[year].push(course);
+      return acc;
+    }, {} as Record<number, CombinedCourse[]>);
+    
+    // Ordenar anos em ordem decrescente
+    const sortedYears = Object.keys(completedByYear)
+      .map(Number)
+      .sort((a, b) => b - a);
+    
+    return {
+      ead,
+      upcoming,
+      openRegistration,
+      inProgress,
+      completed,
+      completedByYear,
+      sortedYears,
+    };
+  }, [filteredCourses]);
 
-  const clearFilters = () => {
-    setSearchQuery("");
-    setLevelFilter("all");
-    setAvailabilityFilter("all");
-    setEnrollmentFilter("all");
-    setSortOption("recent");
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
+      return newSet;
+    });
   };
+
+  const renderCourseCard = (course: CombinedCourse) => {
+    const levelInfo = levelLabels[course.level];
+    const canEnroll = !course.isFromWordPress && course.available;
+    
+    return (
+      <Card
+        key={course.id}
+        className={`p-5 ${!course.available ? "opacity-60" : "hover:shadow-md"} transition-shadow`}
+      >
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-semibold text-foreground flex-1">
+              {course.title}
+            </h3>
+            <div className="flex items-center gap-2">
+              {course.isFromWordPress && (
+                <Badge variant="outline" className="text-xs">
+                  WordPress
+                </Badge>
+              )}
+              <Badge
+                variant="outline"
+                className={`shrink-0 ${levelInfo.color}`}
+              >
+                {levelInfo.label}
+              </Badge>
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            {course.description}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4" />
+              <span>{course.duration}</span>
+            </div>
+            {course.participants_count > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Users className="h-4 w-4" />
+                <span>{course.participants_count} participantes</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <BookOpen className="h-4 w-4" />
+              <span>100% online</span>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {canEnroll ? (
+              <Button
+                disabled={enrolling === course.id}
+                onClick={() => handleEnroll(course.id)}
+                className="flex-1"
+                variant="default"
+              >
+                {enrolling === course.id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Inscrevendo...
+                  </>
+                ) : course.is_enrolled ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Inscrito
+                  </>
+                ) : (
+                  "Inscrever-se gratuitamente"
+                )}
+              </Button>
+            ) : course.isFromWordPress && course.wpItem ? (
+              <Button
+                onClick={() => window.open(course.wpItem!.link, '_blank')}
+                className="flex-1"
+                variant="default"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Ver no site oficial
+              </Button>
+            ) : (
+              <Button
+                disabled
+                className="flex-1"
+                variant="outline"
+              >
+                Em breve
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  const renderSection = (
+    title: string,
+    courses: CombinedCourse[],
+    sectionKey: string,
+    icon?: React.ReactNode
+  ) => {
+    if (courses.length === 0) return null;
+    
+    const isExpanded = expandedSections.has(sectionKey);
+    
+    return (
+      <div className="space-y-4">
+        <Collapsible open={isExpanded} onOpenChange={() => toggleSection(sectionKey)}>
+          <CollapsibleTrigger className="w-full">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+              <div className="flex items-center gap-3">
+                {icon}
+                <h2 className="text-xl font-semibold text-foreground">
+                  {title}
+                </h2>
+                <Badge variant="secondary" className="ml-2">
+                  {courses.length}
+                </Badge>
+              </div>
+              <ChevronRight 
+                className={`h-5 w-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+              />
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-4 pt-4">
+              {courses.map(course => renderCourseCard(course))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    );
+  };
+
+  const totalLoading = loading || loadingWP;
 
   return (
     <InstitutionalLayout
@@ -347,7 +538,6 @@ const EscolaParlamento = () => {
         {/* Filtros */}
         <Card className="p-4">
           <div className="space-y-4">
-            {/* Busca */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -359,10 +549,9 @@ const EscolaParlamento = () => {
               />
             </div>
 
-            {/* Filtros em linha */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="flex gap-3">
               <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as LevelFilter)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Nível" />
                 </SelectTrigger>
                 <SelectContent>
@@ -373,224 +562,155 @@ const EscolaParlamento = () => {
                 </SelectContent>
               </Select>
 
-              <Select value={availabilityFilter} onValueChange={(value) => setAvailabilityFilter(value as AvailabilityFilter)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Disponibilidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="available">Disponíveis</SelectItem>
-                  <SelectItem value="coming_soon">Em breve</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {user && (
-                <Select value={enrollmentFilter} onValueChange={(value) => setEnrollmentFilter(value as EnrollmentFilter)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Inscrição" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="enrolled">Meus cursos</SelectItem>
-                    <SelectItem value="not_enrolled">Não inscrito</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-
-              <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Ordenar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Mais recentes</SelectItem>
-                  <SelectItem value="participants">Mais participantes</SelectItem>
-                  <SelectItem value="alphabetical">A-Z</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Contador e limpar filtros */}
-            {activeFiltersCount > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {filteredAndSortedCourses.length} curso(s) encontrado(s)
-                  {activeFiltersCount > 0 && ` • ${activeFiltersCount} filtro(s) ativo(s)`}
-                </span>
+              {(searchQuery || levelFilter !== "all") && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={clearFilters}
-                  className="h-8"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setLevelFilter("all");
+                  }}
+                  className="h-10"
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {totalLoading ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+            <p>Carregando cursos...</p>
+          </div>
+        ) : wpError ? (
+          <div className="text-center py-8">
+            <p className="text-destructive mb-2">Erro ao carregar cursos da Escola do Parlamento</p>
+            <p className="text-sm text-muted-foreground">Tente novamente mais tarde.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* EAD */}
+            {renderSection(
+              "EAD - Ensino a Distância",
+              coursesByCategory.ead,
+              "ead",
+              <BookOpen className="h-5 w-5 text-primary" />
+            )}
+
+            {/* Próximos Cursos */}
+            {renderSection(
+              "Próximos Cursos",
+              coursesByCategory.upcoming,
+              "upcoming",
+              <Calendar className="h-5 w-5 text-blue-500" />
+            )}
+
+            {/* Inscrições Abertas */}
+            {renderSection(
+              "Inscrições Abertas",
+              coursesByCategory.openRegistration,
+              "open_registration",
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            )}
+
+            {/* Em Andamento */}
+            {renderSection(
+              "Em Andamento",
+              coursesByCategory.inProgress,
+              "in_progress",
+              <Clock className="h-5 w-5 text-orange-500" />
+            )}
+
+            {/* Cursos Realizados */}
+            {coursesByCategory.sortedYears.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Cursos Realizados
+                </h2>
+                {coursesByCategory.sortedYears.map(year => {
+                  const yearCourses = coursesByCategory.completedByYear[year] || [];
+                  if (yearCourses.length === 0) return null;
+                  
+                  const sectionKey = `completed-${year}`;
+                  const isExpanded = expandedSections.has(sectionKey);
+                  
+                  return (
+                    <Collapsible
+                      key={year}
+                      open={isExpanded}
+                      onOpenChange={() => toggleSection(sectionKey)}
+                    >
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Calendar className="h-5 w-5 text-muted-foreground" />
+                            <h3 className="text-lg font-semibold text-foreground">
+                              Cursos Realizados em {year}
+                            </h3>
+                            <Badge variant="secondary" className="ml-2">
+                              {yearCourses.length}
+                            </Badge>
+                          </div>
+                          <ChevronRight 
+                            className={`h-5 w-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="space-y-4 pt-4">
+                          {yearCourses.map(course => renderCourseCard(course))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+              </div>
+            )}
+
+            {filteredCourses.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="mb-2">Nenhum curso encontrado com os filtros aplicados.</p>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setSearchQuery("");
+                  setLevelFilter("all");
+                }}>
                   Limpar filtros
                 </Button>
               </div>
             )}
           </div>
+        )}
+
+        <Card className="p-5 bg-muted/50">
+          <h3 className="font-semibold text-foreground mb-3">
+            Como funcionam os cursos?
+          </h3>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li>✅ 100% gratuitos e online</li>
+            <li>✅ Certificado de conclusão</li>
+            <li>✅ Material didático incluso</li>
+            <li>✅ Fóruns de discussão</li>
+            <li>✅ Suporte de tutores especializados</li>
+            <li>✅ Flexibilidade de horários</li>
+          </ul>
         </Card>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-foreground">
-              Cursos Disponíveis
-            </h2>
-            {!activeFiltersCount && (
-              <span className="text-sm text-muted-foreground">
-                {allCourses.length} curso(s) disponível(is)
-              </span>
-            )}
-          </div>
-
-            {(loading || loadingWP) ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                <p>Carregando cursos...</p>
-              </div>
-            ) : wpError ? (
-              <div className="text-center py-8">
-                <p className="text-destructive mb-2">Erro ao carregar cursos da Escola do Parlamento</p>
-                <p className="text-sm text-muted-foreground">Carregando apenas cursos disponíveis para inscrição...</p>
-              </div>
-            ) : filteredAndSortedCourses.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {activeFiltersCount > 0 ? (
-                  <>
-                    <p className="mb-2">Nenhum curso encontrado com os filtros aplicados.</p>
-                    <Button variant="outline" size="sm" onClick={clearFilters}>
-                      Limpar filtros
-                    </Button>
-                  </>
-                ) : (
-                  "Nenhum curso disponível no momento."
-                )}
-              </div>
-            ) : (
-              filteredAndSortedCourses.map((course) => {
-                const levelInfo = levelLabels[course.level];
-                const canEnroll = !course.isFromWordPress && course.available;
-                
-                return (
-                  <Card
-                    key={course.id}
-                    className={`p-5 ${!course.available ? "opacity-60" : "hover:shadow-md"} transition-shadow`}
-                  >
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-foreground flex-1">
-                          {course.title}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {course.isFromWordPress && (
-                            <Badge variant="outline" className="text-xs">
-                              WordPress
-                            </Badge>
-                          )}
-                          <Badge
-                            variant="outline"
-                            className={`shrink-0 ${levelInfo.color}`}
-                          >
-                            {levelInfo.label}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground">
-                        {course.description}
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-4 w-4" />
-                          <span>{course.duration}</span>
-                        </div>
-                        {course.participants_count > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <Users className="h-4 w-4" />
-                            <span>{course.participants_count} participantes</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <BookOpen className="h-4 w-4" />
-                          <span>100% online</span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        {canEnroll ? (
-                          <Button
-                            disabled={enrolling === course.id}
-                            onClick={() => handleEnroll(course.id)}
-                            className="flex-1"
-                            variant="default"
-                          >
-                            {enrolling === course.id ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Inscrevendo...
-                              </>
-                            ) : course.is_enrolled ? (
-                              <>
-                                <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Inscrito
-                              </>
-                            ) : (
-                              "Inscrever-se gratuitamente"
-                            )}
-                          </Button>
-                        ) : course.isFromWordPress && course.wpItem ? (
-                          <Button
-                            onClick={() => window.open(course.wpItem!.link, '_blank')}
-                            className="flex-1"
-                            variant="default"
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Ver no site oficial
-                          </Button>
-                        ) : (
-                          <Button
-                            disabled
-                            className="flex-1"
-                            variant="outline"
-                          >
-                            Em breve
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-
-          <Card className="p-5 bg-muted/50">
-            <h3 className="font-semibold text-foreground mb-3">
-              Como funcionam os cursos?
-            </h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>✅ 100% gratuitos e online</li>
-              <li>✅ Certificado de conclusão</li>
-              <li>✅ Material didático incluso</li>
-              <li>✅ Fóruns de discussão</li>
-              <li>✅ Suporte de tutores especializados</li>
-              <li>✅ Flexibilidade de horários</li>
-            </ul>
-          </Card>
-
-          <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-            <p>
-              <strong>Informações:</strong> Para mais informações sobre os
-              cursos, entre em contato pelo e-mail
-              escola@camara.sp.gov.br
-            </p>
-            <p>
-              <strong>Certificação:</strong> Reconhecido pela Câmara Municipal
-              de São Paulo
-            </p>
-          </div>
+        <div className="mt-8 p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+          <p>
+            <strong>Informações:</strong> Para mais informações sobre os
+            cursos, entre em contato pelo e-mail
+            escola@camara.sp.gov.br
+          </p>
+          <p>
+            <strong>Certificação:</strong> Reconhecido pela Câmara Municipal
+            de São Paulo
+          </p>
         </div>
-      </InstitutionalLayout>
+      </div>
+    </InstitutionalLayout>
   );
 };
 
