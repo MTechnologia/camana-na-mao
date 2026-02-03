@@ -359,36 +359,6 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* User ID Info Card - Temporary helper */}
-        {user && (
-          <Card className="border-dashed border-primary/30">
-            <CardContent className="p-3">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase">Meu User ID</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-xs bg-muted px-2 py-1.5 rounded font-mono break-all">
-                    {user.id}
-                  </code>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 flex-shrink-0"
-                    onClick={() => {
-                      navigator.clipboard.writeText(user.id);
-                      toast.success("User ID copiado!");
-                    }}
-                  >
-                    Copiar
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Use este ID para acessar seu perfil público: <code className="text-primary">/perfil/{user.id}</code>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Logout Button - fixed at bottom */}
         <Button
           onClick={signOut}
