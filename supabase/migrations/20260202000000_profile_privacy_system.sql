@@ -3,8 +3,9 @@
 -- Descrição: Implementa sistema de privacidade para perfis públicos
 
 -- 1. Remover política antiga e criar nova que permite leitura de perfis públicos
--- Primeiro, remover a política antiga se existir
+-- Primeiro, remover as políticas antigas se existirem
 DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view their own profile or public profiles" ON public.profiles;
 
 -- Criar nova política que permite ver próprio perfil E perfis públicos
 CREATE POLICY "Users can view their own profile or public profiles"
@@ -50,7 +51,13 @@ DECLARE
 BEGIN
   -- Obter ID do usuário atual (pode ser NULL se não autenticado)
   current_user_id := auth.uid();
-  is_own_profile := (current_user_id = target_user_id);
+  -- Garantir que is_own_profile seja BOOLEAN (não NULL)
+  -- Se current_user_id for NULL, is_own_profile deve ser FALSE
+  IF current_user_id IS NULL THEN
+    is_own_profile := false;
+  ELSE
+    is_own_profile := (current_user_id = target_user_id);
+  END IF;
 
   -- Buscar preferências de privacidade
   SELECT 
@@ -73,6 +80,7 @@ BEGIN
   END IF;
 
   -- Verificar se pode ver o perfil
+  -- IMPORTANTE: Se for privado e não for o próprio perfil, NÃO pode ver
   can_view_profile := is_own_profile 
     OR profile_vis = 'public'
     OR (profile_vis = 'friends' AND current_user_id IS NOT NULL); -- TODO: Implementar lógica de amigos
@@ -84,6 +92,9 @@ BEGIN
       'message', 'Este perfil não está disponível publicamente'
     );
   END IF;
+
+  -- DEBUG: Log para verificar valores (remover em produção)
+  -- RAISE NOTICE 'can_view_profile: %, is_own_profile: %, profile_vis: %', can_view_profile, is_own_profile, profile_vis;
 
   -- Verificar se pode ver email e telefone
   can_view_email := is_own_profile OR show_email_val;
