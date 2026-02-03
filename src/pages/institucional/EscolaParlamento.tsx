@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { GraduationCap, Clock, Users, BookOpen, CheckCircle2 } from "lucide-react";
+import { GraduationCap, Clock, Users, BookOpen, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useEscolaParlamentoCursos, type EscolaParlamentoItem } from "@/hooks/useEscolaParlamento";
 
 interface Course {
   id: string;
@@ -20,6 +21,11 @@ interface Course {
   is_enrolled?: boolean;
 }
 
+interface CombinedCourse extends Course {
+  wpItem?: EscolaParlamentoItem;
+  isFromWordPress?: boolean;
+}
+
 const levelLabels = {
   iniciante: { label: "Iniciante", color: "bg-green-500/10 text-green-600" },
   intermediario: { label: "Intermediário", color: "bg-blue-500/10 text-blue-600" },
@@ -29,19 +35,43 @@ const levelLabels = {
 const EscolaParlamento = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<CombinedCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
+  
+  // Buscar cursos da API WordPress
+  const { data: wpCursos, isLoading: loadingWP, error: wpError } = useEscolaParlamentoCursos();
 
   useEffect(() => {
     loadCourses();
-  }, [user]);
+  }, [user, wpCursos]);
+
+  // Helper: Extrair duração do conteúdo HTML
+  const extractDuration = (content: string): string => {
+    const durationMatch = content.match(/(\d+)\s*(semanas?|dias?|meses?|horas?)/i);
+    if (durationMatch) {
+      return `${durationMatch[1]} ${durationMatch[2]}`;
+    }
+    return "A definir";
+  };
+
+  // Helper: Determinar nível do conteúdo
+  const determineLevel = (content: string, title: string): "iniciante" | "intermediario" | "avancado" => {
+    const lowerContent = (content + " " + title).toLowerCase();
+    if (lowerContent.includes("avançado") || lowerContent.includes("avancado") || lowerContent.includes("expert")) {
+      return "avancado";
+    }
+    if (lowerContent.includes("intermediário") || lowerContent.includes("intermediario") || lowerContent.includes("médio")) {
+      return "intermediario";
+    }
+    return "iniciante";
+  };
 
   const loadCourses = async () => {
     try {
       setLoading(true);
       
-      // Buscar cursos disponíveis
+      // Buscar cursos do banco de dados (com inscrição)
       const { data: coursesData, error: coursesError } = await supabase
         .from('parlamento_courses')
         .select('*')
@@ -63,8 +93,8 @@ const EscolaParlamento = () => {
         }
       }
 
-      // Mapear cursos e adicionar flag de inscrição
-      const coursesWithEnrollment = (coursesData || []).map(course => ({
+      // Mapear cursos do banco
+      const dbCourses: CombinedCourse[] = (coursesData || []).map(course => ({
         id: course.id,
         title: course.title,
         description: course.description,
@@ -73,9 +103,39 @@ const EscolaParlamento = () => {
         participants_count: course.participants_count || 0,
         available: course.available,
         is_enrolled: enrollments.includes(course.id),
+        isFromWordPress: false,
       }));
 
-      setCourses(coursesWithEnrollment);
+      // Mapear cursos da API WordPress
+      const wpCourses: CombinedCourse[] = (wpCursos || [])
+        .filter(item => item.status === 'publish') // Apenas publicados
+        .map(item => {
+          // Verificar se já existe no banco pelo título
+          const existingCourse = dbCourses.find(c => 
+            c.title.toLowerCase() === item.title.toLowerCase()
+          );
+
+          return {
+            id: existingCourse?.id || `wp-${item.wp_id}`,
+            title: item.title,
+            description: item.excerpt || "Curso da Escola do Parlamento",
+            duration: extractDuration(item.content),
+            level: determineLevel(item.content, item.title),
+            participants_count: existingCourse?.participants_count || 0,
+            available: true,
+            is_enrolled: existingCourse?.is_enrolled || false,
+            wpItem: item,
+            isFromWordPress: !existingCourse, // Só marca como WP se não existir no banco
+          };
+        });
+
+      // Combinar: cursos do banco primeiro, depois cursos WP que não estão no banco
+      const allCourses = [
+        ...dbCourses,
+        ...wpCourses.filter(wp => !dbCourses.find(db => db.id === wp.id))
+      ];
+
+      setCourses(allCourses);
     } catch (error: any) {
       console.error("Error loading courses:", error);
       toast.error("Erro ao carregar cursos");
@@ -161,9 +221,15 @@ const EscolaParlamento = () => {
               Cursos Disponíveis
             </h2>
 
-            {loading ? (
+            {(loading || loadingWP) ? (
               <div className="text-center py-8 text-muted-foreground">
-                Carregando cursos...
+                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                <p>Carregando cursos...</p>
+              </div>
+            ) : wpError ? (
+              <div className="text-center py-8">
+                <p className="text-destructive mb-2">Erro ao carregar cursos da Escola do Parlamento</p>
+                <p className="text-sm text-muted-foreground">Carregando apenas cursos disponíveis para inscrição...</p>
               </div>
             ) : courses.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -172,6 +238,8 @@ const EscolaParlamento = () => {
             ) : (
               courses.map((course) => {
                 const levelInfo = levelLabels[course.level];
+                const canEnroll = !course.isFromWordPress && course.available;
+                
                 return (
                   <Card
                     key={course.id}
@@ -182,12 +250,19 @@ const EscolaParlamento = () => {
                         <h3 className="font-semibold text-foreground flex-1">
                           {course.title}
                         </h3>
-                        <Badge
-                          variant="outline"
-                          className={`shrink-0 ${levelInfo.color}`}
-                        >
-                          {levelInfo.label}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {course.isFromWordPress && (
+                            <Badge variant="outline" className="text-xs">
+                              WordPress
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="outline"
+                            className={`shrink-0 ${levelInfo.color}`}
+                          >
+                            {levelInfo.label}
+                          </Badge>
+                        </div>
                       </div>
 
                       <p className="text-sm text-muted-foreground">
@@ -199,35 +274,59 @@ const EscolaParlamento = () => {
                           <Clock className="h-4 w-4" />
                           <span>{course.duration}</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-4 w-4" />
-                          <span>{course.participants_count} participantes</span>
-                        </div>
+                        {course.participants_count > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Users className="h-4 w-4" />
+                            <span>{course.participants_count} participantes</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <BookOpen className="h-4 w-4" />
                           <span>100% online</span>
                         </div>
                       </div>
 
-                      <Button
-                        disabled={!course.available || enrolling === course.id}
-                        onClick={() => course.available && handleEnroll(course.id)}
-                        className="w-full"
-                        variant={course.available ? "default" : "outline"}
-                      >
-                        {enrolling === course.id ? (
-                          "Inscrevendo..."
-                        ) : course.is_enrolled ? (
-                          <>
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Inscrito
-                          </>
-                        ) : course.available ? (
-                          "Inscrever-se gratuitamente"
+                      <div className="flex gap-2">
+                        {canEnroll ? (
+                          <Button
+                            disabled={enrolling === course.id}
+                            onClick={() => handleEnroll(course.id)}
+                            className="flex-1"
+                            variant="default"
+                          >
+                            {enrolling === course.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Inscrevendo...
+                              </>
+                            ) : course.is_enrolled ? (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Inscrito
+                              </>
+                            ) : (
+                              "Inscrever-se gratuitamente"
+                            )}
+                          </Button>
+                        ) : course.isFromWordPress && course.wpItem ? (
+                          <Button
+                            onClick={() => window.open(course.wpItem!.link, '_blank')}
+                            className="flex-1"
+                            variant="default"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Ver no site oficial
+                          </Button>
                         ) : (
-                          "Em breve"
+                          <Button
+                            disabled
+                            className="flex-1"
+                            variant="outline"
+                          >
+                            Em breve
+                          </Button>
                         )}
-                      </Button>
+                      </div>
                     </div>
                   </Card>
                 );
