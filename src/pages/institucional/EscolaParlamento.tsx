@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { GraduationCap, Clock, Users, BookOpen, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { GraduationCap, Clock, Users, BookOpen, CheckCircle2, ExternalLink, Loader2, Search, Filter, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -32,15 +34,26 @@ const levelLabels = {
   avancado: { label: "Avançado", color: "bg-purple-500/10 text-purple-600" },
 };
 
+type LevelFilter = "all" | "iniciante" | "intermediario" | "avancado";
+type AvailabilityFilter = "all" | "available" | "coming_soon";
+type EnrollmentFilter = "all" | "enrolled" | "not_enrolled";
+type SortOption = "recent" | "participants" | "alphabetical";
+
 const EscolaParlamento = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [courses, setCourses] = useState<CombinedCourse[]>([]);
+  const [allCourses, setAllCourses] = useState<CombinedCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
   
+  // Filtros
+  const [searchQuery, setSearchQuery] = useState("");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
+  const [enrollmentFilter, setEnrollmentFilter] = useState<EnrollmentFilter>("all");
+  const [sortOption, setSortOption] = useState<SortOption>("recent");
+  
   // Buscar TODOS os itens da API WordPress (não apenas categoria 'curso')
-  // Importação explícita para evitar problemas de cache
   const { data: wpAllItems, isLoading: loadingWP, error: wpError } = useEscolaParlamento();
   
   // Debug: verificar se o hook está funcionando
@@ -113,45 +126,34 @@ const EscolaParlamento = () => {
     return false;
   };
 
+  // Se usuário estiver logado, buscar inscrições
+  const [enrollments, setEnrollments] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const loadEnrollments = async () => {
+      if (!user) {
+        setEnrollments([]);
+        return;
+      }
+      
+      const { data: enrollmentsData, error: enrollmentsError } = await supabase
+        .from('parlamento_course_enrollments')
+        .select('course_id')
+        .eq('user_id', user.id)
+        .eq('status', 'inscrito');
+
+      if (!enrollmentsError && enrollmentsData) {
+        setEnrollments(enrollmentsData.map(e => e.course_id));
+      }
+    };
+    
+    loadEnrollments();
+  }, [user]);
+
   const loadCourses = async () => {
     try {
       setLoading(true);
       
-      // Buscar cursos do banco de dados (com inscrição)
-      const { data: coursesData, error: coursesError } = await supabase
-        .from('parlamento_courses')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (coursesError) throw coursesError;
-
-      // Se usuário estiver logado, verificar inscrições
-      let enrollments: string[] = [];
-      if (user) {
-        const { data: enrollmentsData, error: enrollmentsError } = await supabase
-          .from('parlamento_course_enrollments')
-          .select('course_id')
-          .eq('user_id', user.id)
-          .eq('status', 'inscrito');
-
-        if (!enrollmentsError && enrollmentsData) {
-          enrollments = enrollmentsData.map(e => e.course_id);
-        }
-      }
-
-      // Mapear cursos do banco
-      const dbCourses: CombinedCourse[] = (coursesData || []).map(course => ({
-        id: course.id,
-        title: course.title,
-        description: course.description,
-        duration: course.duration,
-        level: course.level as "iniciante" | "intermediario" | "avancado",
-        participants_count: course.participants_count || 0,
-        available: course.available,
-        is_enrolled: enrollments.includes(course.id),
-        isFromWordPress: false,
-      }));
-
       // Mapear cursos da API WordPress
       // Filtrar apenas itens que são realmente cursos
       const wpCourses: CombinedCourse[] = (wpAllItems || [])
@@ -162,32 +164,21 @@ const EscolaParlamento = () => {
           return isCourse(item);
         })
         .map(item => {
-          // Verificar se já existe no banco pelo título
-          const existingCourse = dbCourses.find(c => 
-            c.title.toLowerCase() === item.title.toLowerCase()
-          );
-
           return {
-            id: existingCourse?.id || `wp-${item.wp_id}`,
+            id: `wp-${item.wp_id}`,
             title: item.title,
             description: item.excerpt || "Curso da Escola do Parlamento",
             duration: extractDuration(item.content),
             level: determineLevel(item.content, item.title),
-            participants_count: existingCourse?.participants_count || 0,
+            participants_count: 0, // Será atualizado se houver inscrições no banco
             available: true,
-            is_enrolled: existingCourse?.is_enrolled || false,
+            is_enrolled: enrollments.includes(`wp-${item.wp_id}`),
             wpItem: item,
-            isFromWordPress: !existingCourse, // Só marca como WP se não existir no banco
+            isFromWordPress: true,
           };
         });
 
-      // Combinar: cursos do banco primeiro, depois cursos WP que não estão no banco
-      const allCourses = [
-        ...dbCourses,
-        ...wpCourses.filter(wp => !dbCourses.find(db => db.id === wp.id))
-      ];
-
-      setCourses(allCourses);
+      setAllCourses(wpCourses);
     } catch (error: any) {
       console.error("Error loading courses:", error);
       toast.error("Erro ao carregar cursos");
@@ -225,8 +216,25 @@ const EscolaParlamento = () => {
         toast.success("Inscrição realizada com sucesso!");
       }
 
-      // Recarregar cursos para atualizar contador e status
-      await loadCourses();
+      // Atualizar lista de inscrições e recarregar
+      if (user) {
+        const { data: enrollmentsData } = await supabase
+          .from('parlamento_course_enrollments')
+          .select('course_id')
+          .eq('user_id', user.id)
+          .eq('status', 'inscrito');
+        
+        if (enrollmentsData) {
+          setEnrollments(enrollmentsData.map(e => e.course_id));
+        }
+      }
+      
+      // Atualizar estado do curso
+      setAllCourses(prev => prev.map(c => 
+        c.id === courseId 
+          ? { ...c, is_enrolled: true, participants_count: (c.participants_count || 0) + 1 }
+          : c
+      ));
     } catch (error: any) {
       console.error("Error enrolling in course:", error);
       toast.error("Erro ao realizar inscrição. Tente novamente.");
@@ -234,44 +242,205 @@ const EscolaParlamento = () => {
       setEnrolling(null);
     }
   };
+
+  // Filtrar e ordenar cursos
+  const filteredAndSortedCourses = useMemo(() => {
+    let filtered = [...allCourses];
+
+    // Filtro de busca
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(course =>
+        course.title.toLowerCase().includes(query) ||
+        course.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Filtro por nível
+    if (levelFilter !== "all") {
+      filtered = filtered.filter(course => course.level === levelFilter);
+    }
+
+    // Filtro por disponibilidade
+    if (availabilityFilter === "available") {
+      filtered = filtered.filter(course => course.available);
+    } else if (availabilityFilter === "coming_soon") {
+      filtered = filtered.filter(course => !course.available);
+    }
+
+    // Filtro por inscrição
+    if (enrollmentFilter === "enrolled") {
+      filtered = filtered.filter(course => course.is_enrolled);
+    } else if (enrollmentFilter === "not_enrolled") {
+      filtered = filtered.filter(course => !course.is_enrolled);
+    }
+
+    // Ordenação
+    switch (sortOption) {
+      case "participants":
+        filtered.sort((a, b) => (b.participants_count || 0) - (a.participants_count || 0));
+        break;
+      case "alphabetical":
+        filtered.sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+        break;
+      case "recent":
+      default:
+        // Manter ordem original (mais recentes primeiro)
+        break;
+    }
+
+    return filtered;
+  }, [allCourses, searchQuery, levelFilter, availabilityFilter, enrollmentFilter, sortOption]);
+
+  // Contar filtros ativos
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery) count++;
+    if (levelFilter !== "all") count++;
+    if (availabilityFilter !== "all") count++;
+    if (enrollmentFilter !== "all") count++;
+    return count;
+  }, [searchQuery, levelFilter, availabilityFilter, enrollmentFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setLevelFilter("all");
+    setAvailabilityFilter("all");
+    setEnrollmentFilter("all");
+    setSortOption("recent");
+  };
+
   return (
     <InstitutionalLayout
       title="Escola do Parlamento"
       category="Educação"
     >
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Escola do Parlamento
-            </h1>
-            <p className="text-muted-foreground">
-              Cursos gratuitos para fortalecer a participação cidadã e a
-              democracia participativa
-            </p>
-          </div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Escola do Parlamento
+          </h1>
+          <p className="text-muted-foreground">
+            Cursos gratuitos para fortalecer a participação cidadã e a
+            democracia participativa
+          </p>
+        </div>
 
-          <Card className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-primary/10 rounded-full">
-                <GraduationCap className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground mb-2">
-                  Educação para a Cidadania
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  A Escola do Parlamento oferece capacitação gratuita para que
-                  você compreenda melhor o funcionamento do poder legislativo e
-                  possa participar ativamente da política municipal.
-                </p>
-              </div>
+        <Card className="p-6 bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-primary/10 rounded-full">
+              <GraduationCap className="h-6 w-6 text-primary" />
             </div>
-          </Card>
+            <div>
+              <h3 className="font-semibold text-foreground mb-2">
+                Educação para a Cidadania
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                A Escola do Parlamento oferece capacitação gratuita para que
+                você compreenda melhor o funcionamento do poder legislativo e
+                possa participar ativamente da política municipal.
+              </p>
+            </div>
+          </div>
+        </Card>
 
+        {/* Filtros */}
+        <Card className="p-4">
           <div className="space-y-4">
+            {/* Busca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Buscar cursos por título ou descrição..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filtros em linha */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as LevelFilter)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Nível" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os níveis</SelectItem>
+                  <SelectItem value="iniciante">Iniciante</SelectItem>
+                  <SelectItem value="intermediario">Intermediário</SelectItem>
+                  <SelectItem value="avancado">Avançado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={availabilityFilter} onValueChange={(value) => setAvailabilityFilter(value as AvailabilityFilter)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Disponibilidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="available">Disponíveis</SelectItem>
+                  <SelectItem value="coming_soon">Em breve</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {user && (
+                <Select value={enrollmentFilter} onValueChange={(value) => setEnrollmentFilter(value as EnrollmentFilter)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Inscrição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="enrolled">Meus cursos</SelectItem>
+                    <SelectItem value="not_enrolled">Não inscrito</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ordenar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Mais recentes</SelectItem>
+                  <SelectItem value="participants">Mais participantes</SelectItem>
+                  <SelectItem value="alphabetical">A-Z</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Contador e limpar filtros */}
+            {activeFiltersCount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {filteredAndSortedCourses.length} curso(s) encontrado(s)
+                  {activeFiltersCount > 0 && ` • ${activeFiltersCount} filtro(s) ativo(s)`}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-8"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpar filtros
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-foreground">
               Cursos Disponíveis
             </h2>
+            {!activeFiltersCount && (
+              <span className="text-sm text-muted-foreground">
+                {allCourses.length} curso(s) disponível(is)
+              </span>
+            )}
+          </div>
 
             {(loading || loadingWP) ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -283,12 +452,21 @@ const EscolaParlamento = () => {
                 <p className="text-destructive mb-2">Erro ao carregar cursos da Escola do Parlamento</p>
                 <p className="text-sm text-muted-foreground">Carregando apenas cursos disponíveis para inscrição...</p>
               </div>
-            ) : courses.length === 0 ? (
+            ) : filteredAndSortedCourses.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Nenhum curso disponível no momento.
+                {activeFiltersCount > 0 ? (
+                  <>
+                    <p className="mb-2">Nenhum curso encontrado com os filtros aplicados.</p>
+                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                      Limpar filtros
+                    </Button>
+                  </>
+                ) : (
+                  "Nenhum curso disponível no momento."
+                )}
               </div>
             ) : (
-              courses.map((course) => {
+              filteredAndSortedCourses.map((course) => {
                 const levelInfo = levelLabels[course.level];
                 const canEnroll = !course.isFromWordPress && course.available;
                 
