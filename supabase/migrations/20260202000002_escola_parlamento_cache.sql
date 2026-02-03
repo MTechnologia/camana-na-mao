@@ -30,9 +30,10 @@ CREATE INDEX IF NOT EXISTS idx_escola_parlamento_category ON public.escola_parla
 CREATE INDEX IF NOT EXISTS idx_escola_parlamento_modified ON public.escola_parlamento_cache(modified DESC);
 CREATE INDEX IF NOT EXISTS idx_escola_parlamento_menu_order ON public.escola_parlamento_cache(menu_order);
 
--- 3. RLS (público pode ler)
+-- 3. RLS (público pode ler) - idempotent
 ALTER TABLE public.escola_parlamento_cache ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view escola parlamento cache" ON public.escola_parlamento_cache;
 CREATE POLICY "Anyone can view escola parlamento cache"
   ON public.escola_parlamento_cache FOR SELECT
   USING (true);
