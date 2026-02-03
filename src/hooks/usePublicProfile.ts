@@ -41,19 +41,43 @@ export const usePublicProfile = (userId: string | null): UsePublicProfileResult 
           target_user_id: userId
         });
 
+        console.log('[usePublicProfile] RPC Response:', { data, rpcError });
+
         if (rpcError) {
+          console.error('[usePublicProfile] RPC Error:', rpcError);
           throw rpcError;
         }
 
-        // Verificar se retornou erro
-        if (data && typeof data === 'object' && 'error' in data) {
-          setError((data as any).message || 'Erro ao carregar perfil');
-          setProfile(null);
-          return;
+        // Verificar se retornou erro (função retorna JSONB com 'error' e 'message')
+        if (data && typeof data === 'object') {
+          // Verificar se é um objeto de erro
+          if ('error' in data && 'message' in data) {
+            const errorData = data as { error: string; message: string };
+            console.log('[usePublicProfile] Profile is private:', errorData);
+            setError(errorData.message || 'Este perfil não está disponível publicamente');
+            setProfile(null);
+            return;
+          }
+
+          // Verificar se tem os campos esperados de um perfil válido
+          if (!('id' in data) || !('full_name' in data)) {
+            console.error('[usePublicProfile] Invalid profile data:', data);
+            setError('Dados do perfil inválidos');
+            setProfile(null);
+            return;
+          }
         }
 
         // Converter para tipo PublicProfile
         const profileData = data as any;
+        console.log('[usePublicProfile] Profile loaded:', {
+          id: profileData.id,
+          is_own_profile: profileData.is_own_profile,
+          profile_visibility: profileData.profile_visibility,
+          has_email: !!profileData.email,
+          has_phone: !!profileData.phone,
+        });
+
         setProfile({
           id: profileData.id,
           full_name: profileData.full_name || 'Usuário',
@@ -65,7 +89,7 @@ export const usePublicProfile = (userId: string | null): UsePublicProfileResult 
           profile_visibility: profileData.profile_visibility || 'public',
         });
       } catch (err: any) {
-        console.error("Error loading public profile:", err);
+        console.error("[usePublicProfile] Error loading public profile:", err);
         setError(err.message || "Erro ao carregar perfil");
         setProfile(null);
       } finally {

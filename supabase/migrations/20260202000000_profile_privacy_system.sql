@@ -44,6 +44,9 @@ DECLARE
   can_view_profile BOOLEAN;
   can_view_email BOOLEAN;
   can_view_phone BOOLEAN;
+  profile_vis TEXT;
+  show_email_val BOOLEAN;
+  show_phone_val BOOLEAN;
 BEGIN
   -- Obter ID do usuário atual (pode ser NULL se não autenticado)
   current_user_id := auth.uid();
@@ -60,15 +63,19 @@ BEGIN
 
   -- Se não houver preferências, usar padrão (público, não mostrar email/telefone)
   IF privacy_settings IS NULL THEN
-    privacy_settings.profile_visibility := 'public';
-    privacy_settings.show_email := false;
-    privacy_settings.show_phone := false;
+    profile_vis := 'public';
+    show_email_val := false;
+    show_phone_val := false;
+  ELSE
+    profile_vis := privacy_settings.profile_visibility;
+    show_email_val := privacy_settings.show_email;
+    show_phone_val := privacy_settings.show_phone;
   END IF;
 
   -- Verificar se pode ver o perfil
   can_view_profile := is_own_profile 
-    OR privacy_settings.profile_visibility = 'public'
-    OR (privacy_settings.profile_visibility = 'friends' AND current_user_id IS NOT NULL); -- TODO: Implementar lógica de amigos
+    OR profile_vis = 'public'
+    OR (profile_vis = 'friends' AND current_user_id IS NOT NULL); -- TODO: Implementar lógica de amigos
 
   -- Se não pode ver o perfil, retornar erro
   IF NOT can_view_profile THEN
@@ -79,8 +86,8 @@ BEGIN
   END IF;
 
   -- Verificar se pode ver email e telefone
-  can_view_email := is_own_profile OR privacy_settings.show_email;
-  can_view_phone := is_own_profile OR privacy_settings.show_phone;
+  can_view_email := is_own_profile OR show_email_val;
+  can_view_phone := is_own_profile OR show_phone_val;
 
   -- Buscar dados do perfil
   SELECT jsonb_build_object(
@@ -98,7 +105,7 @@ BEGIN
     END,
     'created_at', p.created_at,
     'is_own_profile', is_own_profile,
-    'profile_visibility', privacy_settings.profile_visibility
+    'profile_visibility', profile_vis
   )
   INTO profile_data
   FROM public.profiles p
