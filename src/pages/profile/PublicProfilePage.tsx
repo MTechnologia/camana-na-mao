@@ -116,6 +116,16 @@ const PublicProfilePage = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Aviso se for próprio perfil */}
+            {profile.is_own_profile && (
+              <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
+                  Você está vendo seu próprio perfil. Você sempre verá todos os seus dados, independente das configurações de privacidade. Para testar como outros usuários veem seu perfil, faça logout ou use uma aba anônima.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Email */}
             {profile.email ? (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
