@@ -39,12 +39,12 @@ const EscolaParlamento = () => {
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
   
-  // Buscar cursos da API WordPress
-  const { data: wpCursos, isLoading: loadingWP, error: wpError } = useEscolaParlamentoCursos();
+  // Buscar TODOS os itens da API WordPress (não apenas categoria 'curso')
+  const { data: wpAllItems, isLoading: loadingWP, error: wpError } = useEscolaParlamento();
 
   useEffect(() => {
     loadCourses();
-  }, [user, wpCursos]);
+  }, [user, wpAllItems]);
 
   // Helper: Extrair duração do conteúdo HTML
   const extractDuration = (content: string): string => {
@@ -65,6 +65,41 @@ const EscolaParlamento = () => {
       return "intermediario";
     }
     return "iniciante";
+  };
+
+  // Helper: Verificar se é um curso (baseado em slug, título e conteúdo)
+  const isCourse = (item: EscolaParlamentoItem): boolean => {
+    const lowerSlug = item.slug.toLowerCase();
+    const lowerTitle = item.title.toLowerCase();
+    const lowerContent = item.content.toLowerCase();
+    
+    // Padrões que indicam curso
+    const coursePatterns = [
+      'curso', 'cursos', 'capacitação', 'capacitacao', 'formação', 'formacao',
+      'treinamento', 'aprendizado', 'ensino', 'educação', 'educacao',
+      'módulo', 'modulo', 'aula', 'aulas'
+    ];
+    
+    // Verificar slug
+    if (coursePatterns.some(pattern => lowerSlug.includes(pattern))) {
+      return true;
+    }
+    
+    // Verificar título
+    if (coursePatterns.some(pattern => lowerTitle.includes(pattern))) {
+      return true;
+    }
+    
+    // Verificar conteúdo (apenas se mencionar "curso" ou "capacitação" de forma clara)
+    if (lowerContent.includes('curso') || lowerContent.includes('capacitação') || lowerContent.includes('capacitacao')) {
+      // Verificar se não é apenas uma menção genérica
+      if (lowerContent.includes('curso de') || lowerContent.includes('curso sobre') || 
+          lowerContent.includes('curso para') || lowerContent.includes('curso em')) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   const loadCourses = async () => {
@@ -107,8 +142,14 @@ const EscolaParlamento = () => {
       }));
 
       // Mapear cursos da API WordPress
-      const wpCourses: CombinedCourse[] = (wpCursos || [])
-        .filter(item => item.status === 'publish') // Apenas publicados
+      // Filtrar apenas itens que são realmente cursos
+      const wpCourses: CombinedCourse[] = (wpAllItems || [])
+        .filter(item => {
+          // Apenas publicados
+          if (item.status !== 'publish') return false;
+          // Verificar se é um curso usando função helper
+          return isCourse(item);
+        })
         .map(item => {
           // Verificar se já existe no banco pelo título
           const existingCourse = dbCourses.find(c => 
