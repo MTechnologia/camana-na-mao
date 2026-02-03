@@ -1,16 +1,20 @@
--- Create enum for consent types
-CREATE TYPE public.consent_type AS ENUM (
-  'terms_of_use',
-  'privacy_policy',
-  'data_collection',
-  'location_tracking',
-  'demographic_data',
-  'newsletter',
-  'council_sharing'
-);
+-- Create enum for consent types (idempotent)
+DO $$ BEGIN
+  CREATE TYPE public.consent_type AS ENUM (
+    'terms_of_use',
+    'privacy_policy',
+    'data_collection',
+    'location_tracking',
+    'demographic_data',
+    'newsletter',
+    'council_sharing'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
--- Create user_consents table
-CREATE TABLE public.user_consents (
+-- Create user_consents table (idempotent)
+CREATE TABLE IF NOT EXISTS public.user_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   consent_type consent_type NOT NULL,
@@ -25,15 +29,20 @@ CREATE TABLE public.user_consents (
   UNIQUE (user_id, consent_type)
 );
 
--- Create index for faster lookups
-CREATE INDEX idx_user_consents_user_id ON public.user_consents(user_id);
-CREATE INDEX idx_user_consents_type ON public.user_consents(consent_type);
-CREATE INDEX idx_user_consents_granted ON public.user_consents(granted);
+-- Create index for faster lookups (idempotent)
+CREATE INDEX IF NOT EXISTS idx_user_consents_user_id ON public.user_consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_consents_type ON public.user_consents(consent_type);
+CREATE INDEX IF NOT EXISTS idx_user_consents_granted ON public.user_consents(granted);
 
 -- Enable RLS
 ALTER TABLE public.user_consents ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- RLS Policies (idempotent - drop if exists first)
+DROP POLICY IF EXISTS "Users can view their own consents" ON public.user_consents;
+DROP POLICY IF EXISTS "Users can insert their own consents" ON public.user_consents;
+DROP POLICY IF EXISTS "Users can update their own consents" ON public.user_consents;
+DROP POLICY IF EXISTS "Admins can view all consents" ON public.user_consents;
+
 -- Users can view their own consents
 CREATE POLICY "Users can view their own consents"
 ON public.user_consents FOR SELECT
@@ -68,7 +77,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to update updated_at
+-- Trigger to update updated_at (idempotent)
+DROP TRIGGER IF EXISTS update_user_consents_updated_at ON public.user_consents;
 CREATE TRIGGER update_user_consents_updated_at
   BEFORE UPDATE ON public.user_consents
   FOR EACH ROW
