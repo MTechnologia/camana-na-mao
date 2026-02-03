@@ -40,7 +40,18 @@ const EscolaParlamento = () => {
   const [enrolling, setEnrolling] = useState<string | null>(null);
   
   // Buscar TODOS os itens da API WordPress (não apenas categoria 'curso')
+  // Importação explícita para evitar problemas de cache
   const { data: wpAllItems, isLoading: loadingWP, error: wpError } = useEscolaParlamento();
+  
+  // Debug: verificar se o hook está funcionando
+  useEffect(() => {
+    if (wpAllItems) {
+      console.log('[EscolaParlamento] wpAllItems loaded:', wpAllItems.length);
+    }
+    if (wpError) {
+      console.error('[EscolaParlamento] wpError:', wpError);
+    }
+  }, [wpAllItems, wpError]);
 
   useEffect(() => {
     loadCourses();
