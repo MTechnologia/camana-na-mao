@@ -16,10 +16,12 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL') || Deno.env.get('AI_BASE_URL');
+    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY') || Deno.env.get('AI_API_KEY');
+    const aiChatModel = Deno.env.get('AI_CHAT_MODEL') || 'meta-llama/Meta-Llama-3.1-8B-Instruct';
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY não configurada");
+    if (!aiChatBaseUrl) {
+      throw new Error("AI_CHAT_BASE_URL ou AI_BASE_URL não configurada");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -118,14 +120,19 @@ Ordene por relevância (mais relevantes primeiro). Máximo 10 recomendações.`;
       total_ratings: s.total_ratings
     }));
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (aiChatApiKey) {
+      headers['Authorization'] = `Bearer ${aiChatApiKey}`;
+    }
+    
+    const apiUrl = `${aiChatBaseUrl.replace(/\/$/, '')}/chat/completions`;
+    const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: aiChatModel,
         messages: [
           { role: 'system', content: 'Você é um assistente de recomendações. Retorne sempre JSON válido.' },
           { role: 'user', content: `${aiPrompt}\n\nServiços disponíveis:\n${JSON.stringify(servicesData)}` }

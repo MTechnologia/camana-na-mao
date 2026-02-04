@@ -1,27 +1,65 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Users, Palette, Briefcase } from "lucide-react";
-import { format } from "date-fns";
+import { format, setMonth, setYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { demographicsSchema } from "@/lib/validations";
 
+// Helper function to format date as YYYY-MM-DD without timezone conversion
+const formatDateLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to parse date from YYYY-MM-DD string without timezone issues
+const parseDateLocal = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  // Create date in local timezone (not UTC)
+  return new Date(year, month - 1, day);
+};
+
+const months = [
+  { value: 0, label: "Janeiro" },
+  { value: 1, label: "Fevereiro" },
+  { value: 2, label: "Março" },
+  { value: 3, label: "Abril" },
+  { value: 4, label: "Maio" },
+  { value: 5, label: "Junho" },
+  { value: 6, label: "Julho" },
+  { value: 7, label: "Agosto" },
+  { value: 8, label: "Setembro" },
+  { value: 9, label: "Outubro" },
+  { value: 10, label: "Novembro" },
+  { value: 11, label: "Dezembro" },
+];
+
 interface DemographicsFormProps {
   userId: string;
 }
 
 const DemographicsForm = ({ userId }: DemographicsFormProps) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [birthDate, setBirthDate] = useState<Date>();
+  const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [gender, setGender] = useState("");
   const [race, setRace] = useState("");
   const [socialClass, setSocialClass] = useState("");
+
+  // Generate year options (1900 to current year)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => 1900 + i).reverse();
 
   useEffect(() => {
     loadDemographics();
@@ -38,7 +76,12 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
       if (error) throw error;
 
       if (data) {
-        if (data.birth_date) setBirthDate(new Date(data.birth_date));
+        if (data.birth_date) {
+          // Parse date without timezone conversion
+          const date = parseDateLocal(data.birth_date);
+          setBirthDate(date);
+          setDisplayMonth(date);
+        }
         if (data.gender) setGender(data.gender);
         if (data.race) setRace(data.race);
         if (data.social_class) setSocialClass(data.social_class);
@@ -69,7 +112,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
         const { error } = await supabase
           .from('user_demographics')
           .update({
-            birth_date: birthDate?.toISOString().split('T')[0] || null,
+            birth_date: birthDate ? formatDateLocal(birthDate) : null,
             gender: validated.gender,
             race: validated.race,
             social_class: validated.socialClass,
@@ -82,7 +125,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
           .from('user_demographics')
           .insert({
             user_id: userId,
-            birth_date: birthDate?.toISOString().split('T')[0] || null,
+            birth_date: birthDate ? formatDateLocal(birthDate) : null,
             gender: validated.gender,
             race: validated.race,
             social_class: validated.socialClass,
@@ -92,6 +135,11 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
       }
 
       toast.success("Dados demográficos salvos com sucesso!");
+      
+      // Redirect to profile page after successful save
+      setTimeout(() => {
+        navigate("/perfil");
+      }, 500);
     } catch (error: any) {
       if (error.errors) {
         error.errors.forEach((err: any) => {
@@ -123,7 +171,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
               <CalendarIcon className="h-3.5 w-3.5" />
               Data de Nascimento
             </label>
-            <Popover>
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -137,16 +185,71 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={birthDate}
-                  onSelect={setBirthDate}
-                  disabled={(date) =>
-                    date > new Date() || date < new Date("1900-01-01")
-                  }
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
+                <div className="p-3 space-y-3">
+                  {/* Year/Month selectors */}
+                  <div className="flex gap-2">
+                    <Select
+                      value={displayMonth.getMonth().toString()}
+                      onValueChange={(monthValue) => {
+                        const newDate = setMonth(displayMonth, parseInt(monthValue));
+                        setDisplayMonth(newDate);
+                      }}
+                    >
+                      <SelectTrigger className="flex-1 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60 z-[60] bg-popover">
+                        {months.map((month) => (
+                          <SelectItem key={month.value} value={month.value.toString()}>
+                            {month.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={displayMonth.getFullYear().toString()}
+                      onValueChange={(yearValue) => {
+                        const newDate = setYear(displayMonth, parseInt(yearValue));
+                        setDisplayMonth(newDate);
+                      }}
+                    >
+                      <SelectTrigger className="w-24 h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60 z-[60] bg-popover">
+                        {years.map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Calendar */}
+                  <Calendar
+                    mode="single"
+                    selected={birthDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        // Create date in local timezone to avoid timezone issues
+                        const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        setBirthDate(localDate);
+                        setDisplayMonth(localDate);
+                        // Close calendar after selection
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    month={displayMonth}
+                    onMonthChange={setDisplayMonth}
+                    disabled={(date) =>
+                      date > new Date() || date < new Date("1900-01-01")
+                    }
+                    initialFocus
+                    locale={ptBR}
+                    className={cn("pointer-events-auto")}
+                  />
+                </div>
               </PopoverContent>
             </Popover>
           </div>

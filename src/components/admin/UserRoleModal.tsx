@@ -28,6 +28,7 @@ const availableRoles: Array<{ value: UserRole; label: string; description: strin
   { value: 'gestor', label: 'Gestor', description: 'Análises avançadas e gestão', color: 'bg-purple-500' },
   { value: 'vereador', label: 'Vereador', description: 'Acesso aos dados do gabinete', color: 'bg-blue-500' },
   { value: 'assessor', label: 'Assessor', description: 'Suporte ao gabinete', color: 'bg-green-500' },
+  { value: 'cidadao_engajado', label: 'Cidadão Engajado', description: 'Pode criar dashboards e encaminhar para vereadores', color: 'bg-yellow-500' },
   { value: 'cidadao', label: 'Cidadão', description: 'Acesso público padrão', color: 'bg-gray-500' },
 ];
 

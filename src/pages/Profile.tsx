@@ -20,7 +20,9 @@ import {
   CheckCircle2,
   LogOut,
   Camera,
-  Loader2
+  Loader2,
+  Shield,
+  Download
 } from "lucide-react";
 
 const Profile = () => {
@@ -189,6 +191,33 @@ const Profile = () => {
       iconColor: 'text-slate-600',
       iconBg: 'bg-slate-100',
       path: '/perfil/preferencias',
+    },
+    {
+      id: 'consents',
+      title: 'Consentimentos',
+      description: 'Gestão de consentimentos LGPD',
+      icon: Shield,
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-100',
+      path: '/perfil/consentimentos',
+    },
+    {
+      id: 'export',
+      title: 'Exportar Dados',
+      description: 'Portabilidade de dados (LGPD)',
+      icon: Download,
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-100',
+      path: '/perfil/exportar-dados',
+    },
+    {
+      id: 'rights',
+      title: 'Meus Direitos LGPD',
+      description: 'Acesso, correção, exclusão e mais',
+      icon: Shield,
+      iconColor: 'text-indigo-600',
+      iconBg: 'bg-indigo-100',
+      path: '/perfil/direitos',
     },
   ];
 

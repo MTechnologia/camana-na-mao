@@ -22,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +32,10 @@
       "eas": {
         "projectId": "7fb6c435-44ad-4cda-b5c1-35c90072d7b3"
       }
+    },
+    "updates": {
+      "enabled": false,
+      "fallbackToCacheTimeout": 0
     }
   }
 }

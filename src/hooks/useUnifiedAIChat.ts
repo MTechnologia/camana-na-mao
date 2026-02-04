@@ -103,6 +103,11 @@ export const useUnifiedAIChat = (
       }
 
       try {
+        // IMPORTANT: when switching between conversations, do not carry over messages from the previous one.
+        // Otherwise, previous messages get treated as "optimistic" and leak into the next conversation.
+        setIsHistoryLoaded(false);
+        setMessages([]);
+
         const { data, error } = await supabase
           .from('ai_conversations')
           .select('messages')
@@ -114,8 +119,7 @@ export const useUnifiedAIChat = (
         const savedMessages = (data.messages as any[]) || [];
         
         if (savedMessages.length === 0) {
-          // Sem greeting - preserva apenas mensagens otimistas do usuário
-          setMessages(prev => prev.filter(msg => msg.role === "user"));
+          setMessages([]);
         } else {
           // CRITICAL FIX: Preserve RAW content (with markers) for backend correlation
           // Sanitization happens ONLY in ChatMessageBubble for display
@@ -125,17 +129,8 @@ export const useUnifiedAIChat = (
             timestamp: msg.timestamp || ''
           }));
           
-          // Preserva mensagens otimistas que ainda não foram salvas no banco
-          setMessages(prev => {
-            const optimisticUserMessages = prev.filter(
-              msg => msg.role === "user" && 
-              !savedMessages.some(saved => saved.content === msg.content)
-            );
-            if (optimisticUserMessages.length > 0) {
-              return [...messagesWithTimestamp, ...optimisticUserMessages];
-            }
-            return messagesWithTimestamp;
-          });
+          // Replace state with the loaded conversation messages (no cross-conversation merging).
+          setMessages(messagesWithTimestamp);
           
           // Check for report markers in history AND reconstruct tracker state
           for (const msg of savedMessages) {
@@ -780,8 +775,97 @@ export const useUnifiedAIChat = (
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // ALWAYS try to refresh session first to ensure we have a valid token
+      console.log('[useUnifiedAIChat] Attempting to refresh session...');
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      let session = refreshedSession;
+      
+      // If refresh failed, try to get current session as fallback
+      if (refreshError || !refreshedSession) {
+        console.warn('[useUnifiedAIChat] Refresh failed, trying getSession as fallback...', refreshError);
+        const { data: { session: currentSession }, error: currentError } = await supabase.auth.getSession();
+        
+        if (currentError || !currentSession) {
+          console.error('[useUnifiedAIChat] Both refresh and getSession failed:', currentError || refreshError);
+          // Clear invalid session
+          await supabase.auth.signOut();
+          toast({
+            title: "Sessão expirada",
+            description: "Sua sessão expirou. Por favor, faça login novamente.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        session = currentSession;
+      } else {
+        console.log('[useUnifiedAIChat] Session refreshed successfully');
+      }
+      
       const token = session?.access_token;
+      
+      if (!token) {
+        console.error('[useUnifiedAIChat] No token found in session after refresh');
+        await supabase.auth.signOut();
+        toast({
+          title: "Sessão expirada",
+          description: "Faça login novamente para continuar.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Verify token is not expired (check exp claim)
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          const exp = payload.exp;
+          const now = Math.floor(Date.now() / 1000);
+          
+          // Check if token is expired or will expire in the next 30 seconds
+          if (exp && exp < (now + 30)) {
+            console.warn('[useUnifiedAIChat] Token is expired or expiring soon, attempting another refresh...');
+            const { data: { session: finalRefreshedSession }, error: finalRefreshError } = await supabase.auth.refreshSession();
+            
+            if (finalRefreshError || !finalRefreshedSession?.access_token) {
+              console.error('[useUnifiedAIChat] Failed to refresh expired token:', finalRefreshError);
+              await supabase.auth.signOut();
+              toast({
+                title: "Sessão expirada",
+                description: "Faça login novamente para continuar.",
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return;
+            }
+            
+            session = finalRefreshedSession;
+            console.log('[useUnifiedAIChat] Token refreshed after expiration check');
+          }
+        }
+      } catch (tokenCheckError) {
+        console.warn('[useUnifiedAIChat] Could not check token expiration:', tokenCheckError);
+        // Continue anyway - let the server validate
+      }
+      
+      const finalToken = session?.access_token;
+      if (!finalToken) {
+        console.error('[useUnifiedAIChat] No token after all checks');
+        await supabase.auth.signOut();
+        toast({
+          title: "Sessão expirada",
+          description: "Faça login novamente para continuar.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('[useUnifiedAIChat] Token found, length:', finalToken.length);
 
       // CRITICAL: Deduplicate messages when there's an optimistic message
       // If hasOptimisticMessage is true, the message already exists in 'messages' state
@@ -802,20 +886,27 @@ export const useUnifiedAIChat = (
       
       console.log('[useUnifiedAIChat] Payload message count:', effectiveMessages.length, 'hasOptimistic:', hasOptimisticMessage);
 
+      const supabaseUrl =
+        import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) throw new Error("Missing CAMARA_URL (or VITE_SUPABASE_URL)");
+
       // Always call the unified orchestrator
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
+        `${supabaseUrl}/functions/v1/ai-orchestrator`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${finalToken}`,
           },
           body: JSON.stringify(payload),
         }
       );
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Erro desconhecido');
+        console.error('[useUnifiedAIChat] API error:', response.status, errorText);
+        
         if (response.status === 429) {
           toast({
             title: "Limite de uso atingido",
@@ -834,7 +925,22 @@ export const useUnifiedAIChat = (
           setIsLoading(false);
           return;
         }
-        throw new Error("Erro ao processar mensagem");
+        if (response.status === 400) {
+          toast({
+            title: "Erro na requisição",
+            description: errorText || "Verifique os dados enviados e tente novamente.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        toast({
+          title: "Erro ao enviar mensagem",
+          description: errorText || "Não foi possível enviar a mensagem. Tente novamente.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
       }
 
       const reader = response.body?.getReader();
@@ -859,6 +965,13 @@ export const useUnifiedAIChat = (
 
           if (content) {
             assistantMessage += content;
+            
+            // Check for timeout marker and trigger auto-retry
+            if (content.includes('[TIMEOUT]') || assistantMessage.includes('[TIMEOUT]')) {
+              console.log('[useUnifiedAIChat] Timeout detected, will trigger auto-retry');
+              // Remove timeout marker from message
+              assistantMessage = assistantMessage.replace(/\[TIMEOUT\]/g, '');
+            }
             
             // Check for collection progress markers (robust parsing)
             const progressRegex = /\[COLLECTION_PROGRESS:(\w+):(\{[^\]]*\})\]/g;
@@ -1071,6 +1184,57 @@ export const useUnifiedAIChat = (
         processSSELine(textBuffer);
       }
 
+      // Check if timeout occurred and trigger auto-retry (only once per message)
+      const timeoutDetected = assistantMessage.includes('[TIMEOUT]') || 
+                               assistantMessage.includes('demorando mais que o normal');
+      
+      if (timeoutDetected) {
+        console.log('[useUnifiedAIChat] Timeout detected, checking for auto-retry');
+        
+        // Get the last user message
+        const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+        
+        // Only retry if:
+        // 1. We have a user message
+        // 2. It doesn't already have a retry marker (prevent infinite loop)
+        // 3. We haven't retried this message yet
+        if (lastUserMessage && 
+            !lastUserMessage.content.includes('[RETRY]') &&
+            !sessionStorage.getItem(`retry_${lastUserMessage.id}`)) {
+          
+          console.log('[useUnifiedAIChat] Triggering auto-retry for timeout');
+          
+          // Mark this message as retried
+          sessionStorage.setItem(`retry_${lastUserMessage.id}`, 'true');
+          
+          // Remove timeout message from UI
+          setMessages(prev => prev.filter(m => 
+            !m.content.includes('demorando mais que o normal') && 
+            !m.content.includes('[TIMEOUT]')
+          ));
+          
+          setIsLoading(false);
+          
+          // Wait 3 seconds before retry
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Show retry message
+          toast({
+            title: "Tentando novamente...",
+            description: "O serviço estava lento. Tentando novamente automaticamente.",
+            duration: 2000,
+          });
+          
+          // Retry the message
+          const messageToRetry = lastUserMessage.content;
+          await sendMessage(messageToRetry);
+          return;
+        } else {
+          // Already retried or no user message, just clean up the timeout marker
+          assistantMessage = assistantMessage.replace(/\[TIMEOUT\]/g, '');
+        }
+      }
+
       // Save assistant response - PRESERVE RAW CONTENT WITH MARKERS
       // This is critical for backend correlation on subsequent requests
       if (conversationIdRef.current && user && assistantMessage) {
@@ -1111,10 +1275,20 @@ export const useUnifiedAIChat = (
         }
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("[useUnifiedAIChat] Error sending message:", error);
+      console.error("[useUnifiedAIChat] Error details:", {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Não foi possível enviar a mensagem.";
+      
       toast({
         title: "Erro",
-        description: "Não foi possível enviar a mensagem.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -1125,6 +1299,7 @@ export const useUnifiedAIChat = (
   const clearMessages = useCallback((preserveCollectionType = false) => {
     setMessages([]);
     setCreatedReport(null);
+    setLightJourneyType(null);
     if (!preserveCollectionType) {
       setCollectionType(null);
       setCollectedFields({});
@@ -1274,6 +1449,11 @@ export const useUnifiedAIChat = (
     sendMessage(`Nota: ${stars} estrelas`);
   }, [sendMessage]);
 
+  // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
+  const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
+    sendMessage(messageToSend);
+  }, [sendMessage]);
+
   // Handle service type selection from inline picker
   const handleServiceTypeSelected = useCallback((type: string, displayName: string) => {
     setCollectedFields(prev => ({ ...prev, service_type: type }));
@@ -1321,6 +1501,7 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleRatingSelected,
+    handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,
     handleServiceAddressConfirmed,

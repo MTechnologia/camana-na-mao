@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerStep1Schema, registerStep2Schema } from "@/lib/validations";
@@ -11,6 +12,7 @@ import StepIndicator from "@/components/register/StepIndicator";
 import AboutYouStep from "@/components/register/AboutYouStep";
 import LocationStep from "@/components/register/LocationStep";
 import InterestsStep from "@/components/register/InterestsStep";
+import { formatPhone, unformatPhone } from "@/lib/phoneMask";
 
 const TOTAL_STEPS = 5;
 
@@ -22,6 +24,9 @@ interface FormData {
   // Step 2: Password
   password: string;
   confirmPassword: string;
+  // Terms acceptance
+  acceptedTerms: boolean;
+  acceptedPrivacy: boolean;
   // Step 3: About You
   birthDate: string;
   gender: string;
@@ -52,6 +57,8 @@ const Register = () => {
     phone: "",
     password: "",
     confirmPassword: "",
+    acceptedTerms: false,
+    acceptedPrivacy: false,
     birthDate: "",
     gender: "",
     race: "",
@@ -100,6 +107,12 @@ const Register = () => {
         password: formData.password,
         confirmPassword: formData.confirmPassword,
       });
+      
+      // Validate terms acceptance
+      if (!formData.acceptedTerms || !formData.acceptedPrivacy) {
+        toast.error("Você precisa aceitar os termos de uso e a política de privacidade para continuar");
+        return;
+      }
 
       setLoading(true);
       const { data, error } = await signUp(
@@ -111,6 +124,25 @@ const Register = () => {
 
       if (!error && data?.user) {
         setUserId(data.user.id);
+        
+        // Record consents in database
+        try {
+          await supabase.rpc('grant_consent', {
+            _user_id: data.user.id,
+            _consent_type: 'terms_of_use',
+            _version: '1.0'
+          });
+          
+          await supabase.rpc('grant_consent', {
+            _user_id: data.user.id,
+            _consent_type: 'privacy_policy',
+            _version: '1.0'
+          });
+        } catch (consentErr) {
+          console.error('Error recording consents:', consentErr);
+          // Don't block registration if consent recording fails
+        }
+        
         setCurrentStep(3);
       }
     } catch (error: any) {
@@ -286,9 +318,12 @@ const Register = () => {
                 </label>
                 <Input
                   type="tel"
-                  placeholder="(11) 98765-4321"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  value={formatPhone(formData.phone)}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    handleChange("phone", unformatPhone(formatted));
+                  }}
                   className="h-12 bg-muted/50 border-border rounded-xl"
                   required
                 />
@@ -364,10 +399,59 @@ const Register = () => {
                   </button>
                 </div>
               </div>
+              
+              {/* Terms and Privacy Acceptance */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="terms"
+                    checked={formData.acceptedTerms}
+                    onCheckedChange={(checked) => handleChange("acceptedTerms", checked as boolean)}
+                    className="mt-1"
+                  />
+                  <label
+                    htmlFor="terms"
+                    className="text-sm text-foreground leading-relaxed cursor-pointer"
+                  >
+                    Aceito os{" "}
+                    <Link
+                      to="/privacidade"
+                      target="_blank"
+                      className="text-primary underline hover:text-primary/80"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      termos de uso
+                    </Link>
+                  </label>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="privacy"
+                    checked={formData.acceptedPrivacy}
+                    onCheckedChange={(checked) => handleChange("acceptedPrivacy", checked as boolean)}
+                    className="mt-1"
+                  />
+                  <label
+                    htmlFor="privacy"
+                    className="text-sm text-foreground leading-relaxed cursor-pointer"
+                  >
+                    Aceito a{" "}
+                    <Link
+                      to="/privacidade"
+                      target="_blank"
+                      className="text-primary underline hover:text-primary/80"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      política de privacidade
+                    </Link>
+                  </label>
+                </div>
+              </div>
+
               <Button
                 type="submit"
-                disabled={loading}
-                className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-base font-medium mt-4"
+                disabled={loading || !formData.acceptedTerms || !formData.acceptedPrivacy}
+                className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl text-base font-medium mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Criando conta..." : "Continuar"}
               </Button>

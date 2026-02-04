@@ -77,7 +77,7 @@ export default function NewReportPage() {
   if (success) {
     return (
       <>
-        <PageHeader title="Novo Relato" backTo="/transporte" />
+        <PageHeader title="Novo Relato" backTo="/relatos" />
         <div className="min-h-screen bg-gray-50 pt-[60px] p-4 pb-6 flex items-center justify-center">
           <div className="max-w-md w-full">
             <ReportSuccessCard
@@ -97,7 +97,7 @@ export default function NewReportPage() {
       <PageHeader 
         title={`Passo ${step} de ${totalSteps}`}
         onBack={step > 1 ? handleBack : undefined}
-        backTo={step === 1 ? '/transporte' : undefined}
+        backTo={step === 1 ? '/relatos' : undefined}
       />
       <div className="min-h-screen bg-gray-50 pt-[60px] pb-6">
         <div className="sticky top-[60px] z-10 bg-gray-50 border-b px-4 py-2">

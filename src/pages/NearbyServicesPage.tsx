@@ -45,7 +45,7 @@ export default function NearbyServicesPage() {
                 Modo Demonstração
               </p>
               <p className="text-xs text-muted-foreground">
-                Usando localização simulada (Centro de São Paulo) com dados mockados para demonstração
+                Usando localização simulada (Centro de São Paulo) com os serviços cadastrados no sistema
               </p>
             </div>
           </div>

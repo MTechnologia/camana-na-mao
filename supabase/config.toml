@@ -1,7 +1,7 @@
-project_id = "vzkwkcypkfrpfhhsghwn"
+project_id = "vjzkzsczlbtmrzewffdx"
 
 [functions.ai-orchestrator]
-verify_jwt = true
+verify_jwt = false
 
 [functions.populate-knowledge-base]
 verify_jwt = true
@@ -19,7 +19,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.suggest-council-members]
-verify_jwt = true
+verify_jwt = false
 
 [functions.n8n-webhook]
 verify_jwt = false
@@ -33,6 +33,9 @@ verify_jwt = false
 [functions.delete-user]
 verify_jwt = true
 
+[functions.delete-own-account]
+verify_jwt = false
+
 [functions.google-places-autocomplete]
 verify_jwt = false
 
@@ -40,4 +43,22 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.fetch-vereadores]
+verify_jwt = false
+
+[functions.api-router]
+verify_jwt = false
+
+[functions.fetch-noticias]
+verify_jwt = false
+
+[functions.fetch-agenda]
+verify_jwt = false
+
+[functions.fetch-escola-parlamento]
+verify_jwt = false
+
+[functions.api-v1-vereadores]
+verify_jwt = false
+
+[functions.export-user-data]
 verify_jwt = false

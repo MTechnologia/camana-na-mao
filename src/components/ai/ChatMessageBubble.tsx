@@ -13,6 +13,7 @@ import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
+import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
@@ -73,6 +74,7 @@ interface ChatMessageBubbleProps {
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
+  onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
   onServiceAddressConfirmed?: (confirmed: boolean) => void;
@@ -89,6 +91,7 @@ const ChatMessageBubble = ({
   onDateSelected,
   onTimeSelected,
   onRatingSelected,
+  onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
   onServiceAddressConfirmed,
@@ -102,6 +105,7 @@ const ChatMessageBubble = ({
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
+  const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
@@ -124,9 +128,19 @@ const ChatMessageBubble = ({
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
+  const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
+
+  // If the assistant is talking about audiências/inscrição, show a shortcut CTA to the in-app flow.
+  const shouldShowAudienciasCta = useMemo(() => {
+    if (isUser || !isLastAssistantMessage) return false;
+    const content = message.content.toLowerCase();
+    const hasAudienciasContext = content.includes('audiên') || content.includes('audienc');
+    const hasSignupIntent = content.includes('inscri') || content.includes('inscrev') || content.includes('participar');
+    return hasAudienciasContext && hasSignupIntent;
+  }, [isUser, isLastAssistantMessage, message.content]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -224,8 +238,25 @@ const ChatMessageBubble = ({
     );
   }, [isUser, message.content, serviceSelected, hasServicePicker, isLastAssistantMessage]);
   
-  // Clean content by removing markers using centralized utility
-  const cleanContent = sanitizeMessageContent(message.content);
+  // Detect "como informar localização" so we show the 3 buttons even if backend didn't send the marker
+  const isAskingForLocationMethod = useMemo(() => {
+    if (isUser || locationMethodSelected || hasLocationMethodPicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      (content.includes('como você quer informar sua localização') ||
+       content.includes('como quer informar sua localização') ||
+       content.includes('informar sua localização para buscar')) &&
+      isLastAssistantMessage
+    );
+  }, [isUser, message.content, locationMethodSelected, hasLocationMethodPicker, isLastAssistantMessage]);
+
+  // Clean content: remove ALL markers so they never show as text (LOCATION_METHOD_PICKER etc.)
+  const cleanContent = useMemo(() => {
+    let text = sanitizeMessageContent(message.content);
+    text = text.replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '');
+    text = text.replace(/\[LOCATION_METHOD_PICKER\]/g, '');
+    return text.trim();
+  }, [message.content]);
   
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
@@ -270,6 +301,13 @@ const ChatMessageBubble = ({
     }
   };
   
+  const handleLocationMethodSelected = (method: string, messageToSend: string) => {
+    setLocationMethodSelected(true);
+    if (onLocationMethodSelected) {
+      onLocationMethodSelected(method, messageToSend);
+    }
+  };
+
   const handleServiceTypeSelected = (type: string, displayName: string) => {
     setServiceTypeSelected(true);
     if (onServiceTypeSelected) {
@@ -410,6 +448,11 @@ const ChatMessageBubble = ({
           </div>
         )}
         
+        {/* Inline Location Method Picker (GPS / endereço cadastrado / digitar) */}
+        {(hasLocationMethodPicker || isAskingForLocationMethod) && !locationMethodSelected && isLastAssistantMessage && (
+          <InlineLocationMethodPicker onSelect={handleLocationMethodSelected} />
+        )}
+        
         {/* Inline Line Picker */}
         {(hasLinePicker || isAskingForLine) && !lineSelected && isLastAssistantMessage && (
           <InlineLinePicker onSelect={handleLineSelected} />
@@ -468,6 +511,21 @@ const ChatMessageBubble = ({
             >
               <span className="truncate flex-1 text-left">Não, continuar {JOURNEY_NAMES[journeySwitchMatch.currentJourney] || journeySwitchMatch.currentJourney}</span>
               <RotateCcw className="h-4 w-4 ml-2 flex-shrink-0" />
+            </Button>
+          </div>
+        )}
+
+        {/* Audiencias CTA */}
+        {shouldShowAudienciasCta && (
+          <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate('/audiencias')}
+              className="w-full justify-between min-h-[40px]"
+            >
+              <span className="truncate flex-1 text-left">Abrir Audiências</span>
+              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
             </Button>
           </div>
         )}

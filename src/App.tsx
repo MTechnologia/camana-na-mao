@@ -12,6 +12,7 @@ import { MenuProvider } from "@/contexts/MenuContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import AppLayout from "@/components/layout/AppLayout";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
+import { ProtectedAdminOnlyRoute } from "@/components/admin/ProtectedAdminOnlyRoute";
 import { usePrefetch } from "@/components/navigation/PrefetchLink";
 
 // ============================================
@@ -40,6 +41,10 @@ const DemographicsPage = lazy(() => import("./pages/profile/DemographicsPage"));
 const AddressPage = lazy(() => import("./pages/profile/AddressPage"));
 const PreferencesPage = lazy(() => import("./pages/profile/PreferencesPage"));
 const InterestsPage = lazy(() => import("./pages/profile/InterestsPage"));
+const ConsentsPage = lazy(() => import("./pages/profile/ConsentsPage"));
+const DataExportPage = lazy(() => import("./pages/profile/DataExportPage"));
+const UserRightsPage = lazy(() => import("./pages/profile/UserRightsPage"));
+const PublicProfilePage = lazy(() => import("./pages/profile/PublicProfilePage"));
 
 // ============================================
 // CITIZEN PAGES - Lazy loaded
@@ -73,6 +78,12 @@ const NoticiaDetailPage = lazy(() => import("./pages/institucional/NoticiaDetail
 const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
+const RatingsHistoryPage = lazy(() => import("./pages/ratings/RatingsHistoryPage"));
+
+// ============================================
+// LEGAL PAGES - Lazy loaded
+// ============================================
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 
 // ============================================
 // TRANSPORT PAGES - Lazy loaded
@@ -116,6 +127,8 @@ const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement
 // ============================================
 const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
+const DebugRBAC = lazy(() => import("./pages/debug/DebugRBAC"));
+const ReportsHub = lazy(() => import("./pages/reports/ReportsHub"));
 
 
 // Prefetch common routes on app load
@@ -142,7 +155,7 @@ const RoutePrefetcher = () => {
       if (location.pathname === "/") {
         prefetchMultiple(["/busca", "/conversas"]);
       } else if (location.pathname.startsWith("/transporte")) {
-        prefetchMultiple(["/transporte/novo", "/transporte/meus-relatos"]);
+        prefetchMultiple(["/transporte/novo", "/transporte/historico"]);
       } else if (location.pathname.startsWith("/institucional")) {
         prefetchMultiple([
           "/institucional/agenda",
@@ -159,6 +172,31 @@ const RoutePrefetcher = () => {
 };
 
 const AppContent = () => {
+  const location = useLocation();
+  
+  // Handle Supabase auth redirects with hash tokens
+  useEffect(() => {
+    // Check if we have auth tokens in the hash (from email links)
+    if (location.hash) {
+      const hashParams = new URLSearchParams(location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+      
+      // If it's a recovery token and we're not already on the password update page
+      if (accessToken && type === 'recovery' && location.pathname !== '/nova-senha') {
+        // Redirect to password update page with the hash
+        window.location.replace(`/nova-senha${location.hash}`);
+        return;
+      }
+      
+      // If it's a signup confirmation and we're on home, let it process normally
+      if (accessToken && type === 'signup' && location.pathname === '/') {
+        // Supabase will handle this automatically
+        return;
+      }
+    }
+  }, [location]);
+
   return (
     <>
       <RoutePrefetcher />
@@ -177,11 +215,15 @@ const AppContent = () => {
           
           {/* Profile routes - PT */}
           <Route path="/perfil" element={<Profile />} />
+          <Route path="/perfil/:userId" element={<PublicProfilePage />} />
           <Route path="/perfil/dados-pessoais" element={<PersonalInfoPage />} />
           <Route path="/perfil/interesses" element={<InterestsPage />} />
           <Route path="/perfil/dados-demograficos" element={<DemographicsPage />} />
           <Route path="/perfil/endereco" element={<AddressPage />} />
           <Route path="/perfil/preferencias" element={<PreferencesPage />} />
+          <Route path="/perfil/consentimentos" element={<ConsentsPage />} />
+          <Route path="/perfil/exportar-dados" element={<DataExportPage />} />
+          <Route path="/perfil/direitos" element={<UserRightsPage />} />
           <Route path="/configuracoes/acessibilidade" element={<AccessibilityPage />} />
           
           {/* Profile routes - Redirects for backward compatibility */}
@@ -200,6 +242,9 @@ const AppContent = () => {
           {/* Search - PT */}
           <Route path="/busca" element={<SearchPage />} />
           <Route path="/search" element={<Navigate to="/busca" replace />} />
+
+          {/* Reports hub (citizen) */}
+          <Route path="/relatos" element={<ReportsHub />} />
           
           {/* Citizen routes */}
           <Route path="/conversas" element={<ConversationsPage />} />
@@ -222,12 +267,13 @@ const AppContent = () => {
           <Route path="/servico/:id" element={<ServiceDetailPage />} />
           <Route path="/avaliar" element={<EvaluationPage />} />
           <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
+          <Route path="/avaliacoes/historico" element={<RatingsHistoryPage />} />
           
           {/* Transport routes */}
-          <Route path="/transporte" element={<TransportReportPage />} />
+          <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
           <Route path="/transporte/novo" element={<NewReportPage />} />
           <Route path="/transporte/padroes" element={<PatternsPage />} />
-          <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
+          <Route path="/transporte/historico" element={<MyReportsPage />} />
           
           {/* Analytics routes - PT */}
           <Route path="/paineis" element={<AnalyticsDashboard />} />
@@ -240,7 +286,7 @@ const AppContent = () => {
           <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
           
           {/* Urban report routes */}
-          <Route path="/relato-urbano" element={<UrbanReportPage />} />
+          <Route path="/relato-urbano" element={<Navigate to="/relatos" replace />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
           
@@ -248,14 +294,14 @@ const AppContent = () => {
           <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
           <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
           <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
-          <Route path="/admin/users" element={<ProtectedAdminRoute><UserManagement /></ProtectedAdminRoute>} />
+          <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
           <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
-          <Route path="/admin/audit-logs" element={<ProtectedAdminRoute><AuditLogs /></ProtectedAdminRoute>} />
+          <Route path="/admin/audit-logs" element={<ProtectedAdminOnlyRoute><AuditLogs /></ProtectedAdminOnlyRoute>} />
           <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
           <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/n8n" element={<ProtectedAdminRoute><N8NIntegration /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminRoute><N8NMonitoring /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/accessibility" element={<ProtectedAdminRoute><AccessibilitySettings /></ProtectedAdminRoute>} />
+          <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
+          <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
+          <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />
           {/* Redirects for removed routes */}
           <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
@@ -265,6 +311,12 @@ const AppContent = () => {
           {/* Documentation */}
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
+          
+          {/* Privacy and Legal */}
+          <Route path="/privacidade" element={<PrivacyPolicyPage />} />
+
+          {/* Debug */}
+          <Route path="/debug/rbac" element={<DebugRBAC />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

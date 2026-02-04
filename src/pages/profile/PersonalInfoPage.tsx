@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { User, Mail, Phone } from "lucide-react";
+import { formatPhone, unformatPhone } from "@/lib/phoneMask";
 
 const PersonalInfoPage = () => {
   const navigate = useNavigate();
@@ -130,8 +131,11 @@ const PersonalInfoPage = () => {
               </label>
               <Input
                 type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                value={formatPhone(formData.phone)}
+                onChange={(e) => {
+                  const formatted = formatPhone(e.target.value);
+                  setFormData(prev => ({ ...prev, phone: unformatPhone(formatted) }));
+                }}
                 className="h-11"
                 placeholder="(11) 99999-9999"
               />

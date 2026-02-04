@@ -58,6 +58,7 @@ const AgentChatArea = () => {
     handleDateSelected,
     handleTimeSelected,
     handleRatingSelected,
+    handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
@@ -272,6 +273,7 @@ const AgentChatArea = () => {
                         onDateSelected={handleDateSelected}
                         onTimeSelected={handleTimeSelected}
                         onRatingSelected={handleRatingSelected}
+                        onLocationMethodSelected={handleLocationMethodSelected}
                         onServiceTypeSelected={handleServiceTypeSelected}
                         onServiceSelected={handleServiceSelected}
                         isLastAssistantMessage={isLastAssistantMessage}

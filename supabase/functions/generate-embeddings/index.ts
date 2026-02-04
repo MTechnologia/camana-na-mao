@@ -25,9 +25,11 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY não configurada');
+    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL') || Deno.env.get('AI_BASE_URL');
+    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY') || Deno.env.get('AI_API_KEY');
+    
+    if (!aiChatBaseUrl) {
+      throw new Error('AI_CHAT_BASE_URL ou AI_BASE_URL não configurada');
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -65,13 +67,18 @@ serve(async (req) => {
 
         console.log(`Gerando embedding para: ${item.title || item.content_type}`);
 
-        // Generate embedding using Lovable AI (OpenAI-compatible endpoint)
-        const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+        // Generate embedding using AI provider (OpenAI-compatible endpoint)
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (aiChatApiKey) {
+          headers['Authorization'] = `Bearer ${aiChatApiKey}`;
+        }
+        
+        const embeddingsUrl = `${aiChatBaseUrl.replace(/\/$/, '')}/embeddings`;
+        const embeddingResponse = await fetch(embeddingsUrl, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             model: 'text-embedding-3-small',
             input: truncatedContent,

@@ -37,6 +37,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/notificacoes": "Notificações",
   "/busca": "Buscar",
   "/conversas": "Conversas",
+  "/relatos": "Relatos",
   // Analytics - PT
   "/paineis": "Painéis Analíticos",
   "/paineis/avancado": "Análise Avançada",
@@ -48,7 +49,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/transporte": "Transporte",
   "/transporte/novo": "Novo Relato",
   "/transporte/padroes": "Padrões de Relatos",
-  "/transporte/meus-relatos": "Meus Relatos",
+  "/transporte/historico": "Histórico de Transporte",
   "/relato-urbano": "Relato Urbano",
   "/relato-urbano/manual": "Novo Relato",
   "/relato-urbano/historico": "Histórico",

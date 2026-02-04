@@ -5,9 +5,22 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Allow exposing both VITE_* (default) and CAMARA_* env vars to the client bundle.
+  // This enables the migration from VITE_SUPABASE_* → CAMARA_* without breaking local/dev setups.
+  envPrefix: ["VITE_", "CAMARA_"],
   server: {
     host: "::",
     port: 5173,
+    hmr: {
+      // Melhorar resiliência do WebSocket em ambientes Docker
+      clientPort: 8080, // Porta exposta no host (não a do container)
+      protocol: 'ws',
+    },
+    watch: {
+      // Evitar problemas com volumes montados no Docker
+      usePolling: false,
+      ignored: ['**/node_modules/**', '**/dist/**'],
+    },
   },
   plugins: [
     react(),

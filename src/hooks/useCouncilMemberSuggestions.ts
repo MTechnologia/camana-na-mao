@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { vereadores as localVereadores, Vereador } from '@/data/vereadores';
+import { Vereador } from '@/hooks/useVereadores';
 import { useToast } from '@/hooks/use-toast';
 
 interface ReportData {
@@ -27,9 +27,24 @@ export const useCouncilMemberSuggestions = () => {
   const getSuggestions = useCallback(async (reportData: ReportData) => {
     setLoading(true);
     try {
-      // First, fetch fresh vereadores list
-      const { data: vereadorData } = await supabase.functions.invoke('fetch-vereadores');
-      const vereadores = vereadorData?.vereadores || localVereadores;
+      // Fetch vereadores from Edge Function (backed by API + cache)
+      const { data: vereadorData, error: vereadorError } = await supabase.functions.invoke('fetch-vereadores');
+      
+      if (vereadorError) {
+        throw vereadorError;
+      }
+      
+      const vereadores: Vereador[] = vereadorData?.vereadores || [];
+      
+      if (vereadores.length === 0) {
+        throw new Error('Nenhum vereador disponível');
+      }
+
+      // Ensure we have a valid session before calling
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
 
       const { data, error } = await supabase.functions.invoke('suggest-council-members', {
         body: {
@@ -42,6 +57,9 @@ export const useCouncilMemberSuggestions = () => {
             initials: v.initials,
             photo: v.photo
           }))
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
       });
 
@@ -61,17 +79,11 @@ export const useCouncilMemberSuggestions = () => {
       toast({
         variant: 'destructive',
         title: 'Erro ao buscar sugestões',
-        description: 'Não foi possível carregar os vereadores sugeridos.'
+        description: 'Não foi possível carregar os vereadores. Tente novamente.'
       });
       
-      // Fallback to local suggestions
-      const fallbackSuggestions = localVereadores.slice(0, 3).map(v => ({
-        vereador: v,
-        matchScore: 50,
-        matchReasons: ['Vereador disponível para atendimento']
-      }));
-      setSuggestions(fallbackSuggestions);
-      return fallbackSuggestions;
+      setSuggestions([]);
+      return [];
     } finally {
       setLoading(false);
     }

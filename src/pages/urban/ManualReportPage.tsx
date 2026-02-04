@@ -458,7 +458,7 @@ export default function ManualReportPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate("/relato-urbano")}
+                  onClick={() => navigate("/relatos")}
                   className="flex-1"
                   disabled={loading}
                 >
