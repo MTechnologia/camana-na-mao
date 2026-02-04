@@ -6230,7 +6230,7 @@ ${empathyNote}
     // === DETERMINISTIC SERVICE SEARCH (BEFORE greetings to ensure database lookup) ===
     // Detect questions about services and force database lookup
     const serviceSearchPatterns = [
-      /onde\s*(fica|tem|posso\s*encontrar|está|fica)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+      /onde\s*(fica|tem|posso\s*encontrar|está)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
       /(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)\s*(perto|próximo|próxima|mais\s*perto|na\s*região|no\s*bairro)/i,
       /(quero|preciso|gostaria)\s*(de\s*)?(encontrar|buscar|achar|procurar)\s*(um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
       /(tem|existe|há)\s*(algum|alguma|um|uma)\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
