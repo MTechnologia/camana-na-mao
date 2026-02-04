@@ -1,5 +1,5 @@
-import { useMemo, useRef } from "react";
-import { servicosProximos, type SearchResult } from "@/data/searchData";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NearbyService {
   id: string;
@@ -27,21 +27,6 @@ interface UseNearbyServicesProps {
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
 const CENTRO_SP = { lat: -23.5505, lng: -46.6333 };
 
-// Convert mocked SearchResult to NearbyService format
-const convertMockedToService = (item: SearchResult): NearbyService => ({
-  id: item.id,
-  name: item.title,
-  service_type: (item.metadata?.serviceType ?? "other") as string,
-  address: item.description,
-  district: item.metadata?.district ?? "",
-  // Usar ?? para fallback seguro (|| trata 0 como falsy)
-  latitude: item.metadata?.latitude ?? CENTRO_SP.lat,
-  longitude: item.metadata?.longitude ?? CENTRO_SP.lng,
-  phone: item.metadata?.phone ?? null,
-  average_rating: item.metadata?.rating ?? 0,
-  total_ratings: item.metadata?.totalRatings ?? 0,
-});
-
 // Haversine formula to calculate distance between two points
 const calculateDistance = (
   lat1: number,
@@ -68,6 +53,32 @@ const isValidCoordinate = (value: unknown): value is number => {
   return typeof value === 'number' && !isNaN(value) && isFinite(value);
 };
 
+const parseNumber = (value: unknown): number | null => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const metersToDegrees = (meters: number) => meters / 111_320;
+
+const getBoundingBox = (lat: number, lng: number, radius: number) => {
+  const latDelta = metersToDegrees(radius);
+  const lngDeltaRaw = metersToDegrees(radius) / Math.cos((lat * Math.PI) / 180);
+  const lngDelta = Number.isFinite(lngDeltaRaw) ? lngDeltaRaw : latDelta;
+
+  return {
+    minLat: lat - latDelta,
+    maxLat: lat + latDelta,
+    minLng: lng - lngDelta,
+    maxLng: lng + lngDelta,
+  };
+};
+
 export const useNearbyServices = ({
   latitude,
   longitude,
@@ -77,55 +88,104 @@ export const useNearbyServices = ({
   // useRef para manter última localização válida e evitar recálculos desnecessários
   const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
 
+  const [services, setServices] = useState<NearbyService[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   // Atualizar ref apenas se receber localização válida
   if (isValidCoordinate(latitude) && isValidCoordinate(longitude)) {
     lastValidLocation.current = { lat: latitude, lng: longitude };
   }
 
-  // Sempre usar localização válida (atual ou última conhecida)
-  const userLat = lastValidLocation.current.lat;
-  const userLng = lastValidLocation.current.lng;
+  const fetchServices = useCallback(async () => {
+    const userLat = lastValidLocation.current.lat;
+    const userLng = lastValidLocation.current.lng;
 
-  // Memoizar o cálculo dos serviços
-  const services = useMemo(() => {
-    if (!servicosProximos || servicosProximos.length === 0) {
-      return [];
+    if (!isValidCoordinate(userLat) || !isValidCoordinate(userLng)) {
+      setServices([]);
+      setError("Localização inválida para buscar serviços.");
+      return;
     }
 
-    // Converter todos os dados mockados
-    let mockedData = servicosProximos.map(convertMockedToService);
+    setLoading(true);
+    setError(null);
 
-    // Filtrar por tipo de serviço
-    if (serviceType && serviceType !== "all") {
-      mockedData = mockedData.filter(service => service.service_type === serviceType);
-    }
+    try {
+      const safeRadius = Math.max(radiusMeters, 100);
+      const { minLat, maxLat, minLng, maxLng } = getBoundingBox(
+        userLat,
+        userLng,
+        safeRadius
+      );
 
-    // Calcular distância e adicionar aos serviços
-    const withDistance = mockedData.map(service => {
-      const serviceLat = service.latitude;
-      const serviceLng = service.longitude;
+      let query = supabase
+        .from("public_services")
+        .select(
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings"
+        )
+        .gte("latitude", minLat)
+        .lte("latitude", maxLat)
+        .gte("longitude", minLng)
+        .lte("longitude", maxLng)
+        .limit(200);
 
-      // Verificação robusta: usar typeof e isNaN
-      const isValidLat = isValidCoordinate(serviceLat);
-      const isValidLng = isValidCoordinate(serviceLng);
-
-      if (!isValidLat || !isValidLng) {
-        return { ...service, distance: 999999 };
+      if (serviceType && serviceType !== "all") {
+        query = query.eq("service_type", serviceType as any);
       }
 
-      const distance = calculateDistance(userLat, userLng, serviceLat, serviceLng);
-      return { ...service, distance };
-    });
+      const { data, error: fetchError } = await query;
 
-    // Para dados MOCK: NÃO filtrar por raio, apenas ordenar por distância
-    // Todos os serviços sempre visíveis
-    return withDistance.sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-  }, [userLat, userLng, serviceType]);
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      const formatted = (data || [])
+        .map((service) => {
+          const lat = parseNumber(service.latitude);
+          const lng = parseNumber(service.longitude);
+
+          if (!isValidCoordinate(lat) || !isValidCoordinate(lng)) {
+            return null;
+          }
+
+          return {
+            id: service.id,
+            name: service.name,
+            service_type: service.service_type,
+            address: service.address,
+            district: service.district,
+            latitude: lat,
+            longitude: lng,
+            phone: service.phone ?? null,
+            average_rating: service.average_rating ?? 0,
+            total_ratings: service.total_ratings ?? 0,
+            distance: calculateDistance(userLat, userLng, lat, lng),
+          } as NearbyService;
+        })
+        .filter((service): service is NearbyService => service !== null);
+
+      const withinRadius = formatted
+        .filter((service) => (service.distance ?? 0) <= safeRadius)
+        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+
+      setServices(withinRadius);
+    } catch (fetchError) {
+      console.error("Error fetching nearby services:", fetchError);
+      setServices([]);
+      setError("Erro ao buscar serviços próximos.");
+    } finally {
+      setLoading(false);
+    }
+  }, [radiusMeters, serviceType]);
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices, latitude, longitude]);
 
   return {
     services,
-    loading: false,
-    error: null,
-    refetch: () => {},
+    loading,
+    error,
+    refetch: fetchServices,
   };
 };
