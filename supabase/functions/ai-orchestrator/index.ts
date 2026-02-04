@@ -5541,95 +5541,36 @@ serve(async (req) => {
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     
-    // === CRITICAL: Check for explicit JOURNEY_SWITCHED marker in last user message ===
-    // When user clicks "Sim, iniciar X" button, the message contains [JOURNEY_SWITCHED:type]
-    // This MUST take precedence over any other detection logic
+    // Check for explicit journey switch marker (declare early for use later)
     const journeySwitchMatch = lastUserMsg.match(/\[JOURNEY_SWITCHED:(\w+)\]/);
     
-    // PRIORITY: Use frontend collection type if it's a structured journey type
-    const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
+    // === SIMPLIFIED JOURNEY SWITCHING LOGIC ===
+    const STRUCTURED_TYPES = ['urban_report', 'transport_report', 'service_rating'];
     const LIGHT_JOURNEY_TYPES = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
     let collectionIntent: CollectionIntent | null = null;
-    
     if (journeySwitchMatch) {
-      // User explicitly switched journey via button click - HIGHEST PRIORITY
       const switchedToType = journeySwitchMatch[1];
-      console.log('[ai-orchestrator] JOURNEY_SWITCHED detected in message, forcing type:', switchedToType);
-      
-      if (STRUCTURED_TYPES_SET.has(switchedToType)) {
-        collectionIntent = {
-          type: switchedToType as 'urban_report' | 'transport_report' | 'service_rating',
-          fields: {}, // Reset fields for new journey
-        };
-      } else {
-        // Light journey switch - still respect it
-        collectionIntent = {
-          type: switchedToType as any,
-          fields: {},
-        };
-      }
+      collectionIntent = { type: switchedToType as any, fields: {} };
     }
     
-    // === CHECK FOR JOURNEY_DECLINED marker - user wants to continue current ===
+    // Check for journey declined marker
     const journeyDeclinedMatch = lastUserMsg.match(/\[JOURNEY_DECLINED:(\w+)\]/);
-    if (journeyDeclinedMatch) {
-      const declinedType = journeyDeclinedMatch[1];
-      console.log('[ai-orchestrator] User declined switch to:', declinedType, '- continuing current journey');
-      
-      // Force use of frontend type (the one user chose to continue)
-      if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
-        collectionIntent = {
-          type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
-          fields: accumulateFieldsFromHistory(messages, frontendCollectionType),
-        };
-      }
-    } else if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
-      // Frontend has a journey type - but check if user wants to switch
-      console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
-      
-      // === CHECK FOR RECENTLY DECLINED JOURNEY SWITCHES ===
-      const getDeclinedJourneys = (msgs: any[]): Set<string> => {
-        const declined = new Set<string>();
-        for (const msg of msgs) {
-          if (msg.role === 'user') {
-            const declineMatch = msg.content?.match?.(/\[JOURNEY_DECLINED:(\w+)\]/);
-            if (declineMatch) {
-              declined.add(declineMatch[1]);
-            }
-          }
-        }
-        return declined;
+    if (journeyDeclinedMatch && frontendCollectionType && STRUCTURED_TYPES.includes(frontendCollectionType)) {
+      collectionIntent = {
+        type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
+        fields: accumulateFieldsFromHistory(messages, frontendCollectionType),
       };
-      
-      const declinedJourneys = getDeclinedJourneys(messages);
-      if (declinedJourneys.size > 0) {
-        console.log('[ai-orchestrator] Declined journeys in history:', Array.from(declinedJourneys));
-      }
-      
-      // ALWAYS detect intent first to check for journey switch
+    }
+    
+    // Use frontend collection type if structured
+    if (!collectionIntent && frontendCollectionType && STRUCTURED_TYPES.includes(frontendCollectionType)) {
       const detectedIntent = detectCollectionIntent(lastUserMsg, messages);
+      const isConflict = detectedIntent && STRUCTURED_TYPES.includes(detectedIntent.type) && detectedIntent.type !== frontendCollectionType;
       
-      // Check for JOURNEY CONFLICT (user wants to switch to different structured journey)
-      const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
-      const isDetectedStructured = detectedIntent && structuredTypes.includes(detectedIntent.type as typeof structuredTypes[number]);
-      const wasRecentlyDeclined = detectedIntent && declinedJourneys.has(detectedIntent.type);
-      
-      const isJourneyConflict = detectedIntent && 
-        isDetectedStructured &&
-        detectedIntent.type !== frontendCollectionType &&
-        !wasRecentlyDeclined; // Don't ask again if user already said no
-      
-      if (wasRecentlyDeclined) {
-        console.log(`[ai-orchestrator] Journey ${detectedIntent?.type} was recently declined, skipping confirmation`);
-      }
-      
-      if (isJourneyConflict) {
-        // ALWAYS ask for confirmation - never auto-switch
-        console.log(`[ai-orchestrator] Journey conflict detected: ${frontendCollectionType} → ${detectedIntent.type}`);
-        
+      if (isConflict) {
         const journeyNames: Record<string, string> = {
           urban_report: 'Relato Urbano',
-          transport_report: 'Diagnóstico de Transporte', 
+          transport_report: 'Diagnóstico de Transporte',
           service_rating: 'Avaliação de Serviço',
           services: 'Busca de Serviços',
           audiencias: 'Audiências Públicas',
@@ -5639,111 +5580,53 @@ serve(async (req) => {
           noticias: 'Notícias Legislativas',
           chamber_feedback: 'Feedback sobre Vereador'
         };
-        
         const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
         const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
-        
-        // Check accumulated fields to show progress (informational only)
-        const existingFields = accumulateFieldsFromHistory(messages, frontendCollectionType);
-        const rawFieldKeys = Object.keys(existingFields).filter(k => !k.startsWith('_'));
-        let meaningfulFieldCount = rawFieldKeys.length;
-        
-        // Treat generic "intent phrases" as NOT real progress
-        if (existingFields.description && isGenericIntentText(String(existingFields.description))) {
-          meaningfulFieldCount = Math.max(0, meaningfulFieldCount - 1);
-        }
-        
-        const progressNote = meaningfulFieldCount > 0 
-          ? ` (você já informou ${meaningfulFieldCount} dado${meaningfulFieldCount > 1 ? 's' : ''})` 
-          : '';
-        
-        // FIX: Use correct 2-parameter format that frontend expects
-        const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]` +
-          `Parece que você quer iniciar um **${newName}**.\n\n` +
-          `Você estava em **${currentName}**${progressNote}. Deseja:\n\n`;
-        
-        console.log('[ai-orchestrator] Returning journey switch confirmation with buttons');
-        
-        return new Response(
-          `data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`,
-          { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } }
-        );
+        const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]Parece que você quer iniciar um **${newName}**. Você estava em **${currentName}**. Deseja trocar?`;
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
       }
       
-      // No conflict - use frontend type with detected fields
-      if (!collectionIntent) {
-        console.log('[ai-orchestrator] Using frontend collectionType:', frontendCollectionType);
-        collectionIntent = {
-          type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
-          fields: detectedIntent?.fields || {},
-        };
-      }
-    } else if (frontendCollectionType && LIGHT_JOURNEY_TYPES.includes(frontendCollectionType)) {
-      // === LIGHT JOURNEY from frontend - maintain context ===
-      console.log('[ai-orchestrator] Frontend light journey received:', frontendCollectionType);
-      
-      // Check if user EXPLICITLY wants to switch to a STRUCTURED journey
-      // Only switch if user uses explicit intent phrases like "quero relatar", "quero avaliar"
-      const explicitSwitchKeywords = [
-        // Relato urbano
-        'quero relatar', 'preciso relatar', 'relatar um problema',
-        'problema urbano', 'relatar problema',
-        // Transporte
-        'problema no transporte', 'problema de transporte',
-        'relatar transporte', 'problema no ônibus', 'problema no metrô',
-        // Avaliação - expanded variations
-        'quero avaliar', 'preciso avaliar', 'avaliar um serviço',
-        'quero fazer uma avaliação', 'quero fazer avaliação', 'fazer uma avaliação',
-        'quero dar nota', 'dar minha avaliação', 'avaliar o serviço',
-        'avaliar atendimento', 'avaliar uma ubs', 'avaliar uma escola',
-        'avaliar este serviço', 'avaliar essa', 'quero avaliar essa'
-      ];
+      collectionIntent = {
+        type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
+        fields: detectedIntent?.fields || {},
+      };
+    }
+    
+    // Handle light journey types
+    if (!collectionIntent && frontendCollectionType && LIGHT_JOURNEY_TYPES.includes(frontendCollectionType)) {
       const userMsgLower = lastUserMsg.toLowerCase();
-      const hasExplicitSwitch = explicitSwitchKeywords.some(kw => userMsgLower.includes(kw));
+      const hasExplicitSwitch = userMsgLower.includes('quero relatar') || userMsgLower.includes('quero avaliar') || userMsgLower.includes('problema no transporte');
       
       if (hasExplicitSwitch) {
-        // User explicitly wants to switch - detect which journey
         const detectedIntent = detectCollectionIntent(lastUserMsg, messages);
-        if (detectedIntent && STRUCTURED_TYPES_SET.has(detectedIntent.type)) {
-          console.log('[ai-orchestrator] Explicit switch from light journey to structured:', detectedIntent.type);
-          
-          // === RETURN CONFIRMATION PROMPT ===
-          // Ask user to confirm before switching from light to structured journey
+        if (detectedIntent && STRUCTURED_TYPES.includes(detectedIntent.type)) {
           const journeyNames: Record<string, string> = {
-            'services': 'Busca de Serviços',
-            'service_rating': 'Avaliação de Serviço',
-            'urban_report': 'Relato Urbano',
-            'transport_report': 'Diagnóstico de Transporte',
-            'audiencias': 'Audiências Públicas',
-            'history': 'Meu Histórico',
-            'general': 'Dúvidas Gerais',
-            'vereadores': 'Vereadores',
-            'noticias': 'Notícias'
+            services: 'Busca de Serviços',
+            service_rating: 'Avaliação de Serviço',
+            urban_report: 'Relato Urbano',
+            transport_report: 'Diagnóstico de Transporte',
+            audiencias: 'Audiências Públicas',
+            history: 'Meu Histórico',
+            general: 'Dúvidas Gerais',
+            vereadores: 'Vereadores',
+            noticias: 'Notícias'
           };
-          
           const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
           const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
-          
-          const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]` +
-            `Entendi! Você quer iniciar uma **${newName}**.\n\n` +
-            `Você estava em **${currentName}**. Deseja trocar?`;
-          
-          console.log('[ai-orchestrator] Returning journey switch confirmation prompt');
-          
-          return new Response(
-            `data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`,
-            { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } }
-          );
-        } else {
-          // Can't determine target - stay in light journey
-          collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
+          const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]Entendi! Você quer iniciar uma **${newName}**. Você estava em **${currentName}**. Deseja trocar?`;
+          return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: confirmationResponse } }] })}\n\ndata: [DONE]\n\n`, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+          });
         }
-      } else {
-        // Stay in light journey - pass through to AI without deterministic flow
-        collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
       }
-    } else {
-      // Fallback: detect intent from message content
+      
+      collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
+    }
+    
+    // Fallback: detect intent from message
+    if (!collectionIntent) {
       collectionIntent = detectCollectionIntent(lastUserMsg, messages);
     }
     
