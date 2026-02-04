@@ -4070,6 +4070,67 @@ async function findNearbyServices(supabase: any, serviceType: string, district?:
   return `Estou atualizando minha base de serviços. Por enquanto, você pode buscar ${typeName} em sp156.prefeitura.sp.gov.br`;
 }
 
+// Helper: Detect if message is asking about services
+function detectServiceSearch(message: string): { isServiceSearch: boolean; serviceType: string; district?: string } {
+  const msgLower = message.toLowerCase().trim();
+  
+  const serviceSearchPatterns = [
+    /onde\s*(fica|tem|posso\s*encontrar|está)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+    /(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)\s*(perto|próximo|próxima|mais\s*perto|na\s*região|no\s*bairro)/i,
+    /(quero|preciso|gostaria)\s*(de\s*)?(encontrar|buscar|achar|procurar)\s*(um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+    /(tem|existe|há)\s*(algum|alguma|um|uma)\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+    /(cadê|onde\s*está)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+  ];
+  
+  const isServiceSearch = serviceSearchPatterns.some(pattern => pattern.test(msgLower));
+  
+  if (!isServiceSearch) {
+    return { isServiceSearch: false, serviceType: 'other' };
+  }
+  
+  // Extract service type from message
+  let serviceType = 'other';
+  const serviceTypeMap: Record<string, string> = {
+    'ubs': 'ubs',
+    'posto': 'ubs',
+    'hospital': 'hospital',
+    'escola': 'school',
+    'ceu': 'ceu',
+    'biblioteca': 'library',
+    'parque': 'other',
+    'centro esportivo': 'sports_center',
+    'centro esportiva': 'sports_center',
+  };
+  
+  for (const [key, value] of Object.entries(serviceTypeMap)) {
+    if (msgLower.includes(key)) {
+      serviceType = value;
+      break;
+    }
+  }
+  
+  // Extract district if mentioned
+  const districtPatterns = [
+    /(?:em|no|na|do|da)\s+([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)/g,
+    /([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)\s+(?:tem|fica)/g,
+  ];
+  
+  let district: string | undefined;
+  for (const pattern of districtPatterns) {
+    const matches = msgLower.match(pattern);
+    if (matches && matches.length > 0) {
+      const commonWords = ['onde', 'fica', 'tem', 'está', 'posso', 'encontrar', 'buscar', 'achar', 'procurar', 'quero', 'preciso', 'gostaria', 'de', 'um', 'uma', 'o', 'a', 'em', 'no', 'na', 'do', 'da', 'das', 'dos'];
+      const potentialDistrict = matches[0].replace(/(?:em|no|na|do|da|das|dos)\s+/i, '').trim();
+      if (potentialDistrict && !commonWords.includes(potentialDistrict.toLowerCase())) {
+        district = potentialDistrict;
+        break;
+      }
+    }
+  }
+  
+  return { isServiceSearch: true, serviceType, district };
+}
+
 // Helper: Search audiencias (with fallback to upcoming or related)
 async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
   let query = supabase
@@ -6229,65 +6290,16 @@ ${empathyNote}
     
     // === DETERMINISTIC SERVICE SEARCH (BEFORE greetings to ensure database lookup) ===
     // Detect questions about services and force database lookup
-    const serviceSearchPatterns = [
-      /onde\s*(fica|tem|posso\s*encontrar|está)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
-      /(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)\s*(perto|próximo|próxima|mais\s*perto|na\s*região|no\s*bairro)/i,
-      /(quero|preciso|gostaria)\s*(de\s*)?(encontrar|buscar|achar|procurar)\s*(um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
-      /(tem|existe|há)\s*(algum|alguma|um|uma)\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
-      /(cadê|onde\s*está)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
-    ];
+    const serviceSearchResult = detectServiceSearch(lastUserMessage);
     
-    const isServiceSearch = serviceSearchPatterns.some(pattern => pattern.test(msgLower));
-    
-    if (isServiceSearch) {
+    if (serviceSearchResult.isServiceSearch) {
       console.log('[ai-orchestrator] Service search detected, forcing database lookup');
-      
-      // Extract service type from message
-      let serviceType = 'other';
-      const serviceTypeMap: Record<string, string> = {
-        'ubs': 'ubs',
-        'posto': 'ubs',
-        'hospital': 'hospital',
-        'escola': 'school',
-        'ceu': 'ceu',
-        'biblioteca': 'library',
-        'parque': 'other', // Parks might be in a different category
-        'centro esportivo': 'sports_center',
-        'centro esportiva': 'sports_center',
-      };
-      
-      for (const [key, value] of Object.entries(serviceTypeMap)) {
-        if (msgLower.includes(key)) {
-          serviceType = value;
-          break;
-        }
-      }
-      
-      // Extract district if mentioned
-      const districtPatterns = [
-        /(?:em|no|na|do|da)\s+([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)/g,
-        /([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)\s+(?:tem|fica)/g,
-      ];
-      
-      let district: string | undefined;
-      for (const pattern of districtPatterns) {
-        const matches = msgLower.match(pattern);
-        if (matches && matches.length > 0) {
-          // Extract the district name (skip common words)
-          const commonWords = ['onde', 'fica', 'tem', 'está', 'posso', 'encontrar', 'buscar', 'achar', 'procurar', 'quero', 'preciso', 'gostaria', 'de', 'um', 'uma', 'o', 'a', 'em', 'no', 'na', 'do', 'da', 'das', 'dos'];
-          const potentialDistrict = matches[0].replace(/(?:em|no|na|do|da|das|dos)\s+/i, '').trim();
-          if (potentialDistrict && !commonWords.includes(potentialDistrict.toLowerCase())) {
-            district = potentialDistrict;
-            break;
-          }
-        }
-      }
       
       // Force call to find_nearby_services
       try {
         const toolResult = await executeTool('find_nearby_services', {
-          service_type: serviceType,
-          district: district,
+          service_type: serviceSearchResult.serviceType,
+          district: serviceSearchResult.district,
           limit: 5
         }, user.id, supabase);
         
