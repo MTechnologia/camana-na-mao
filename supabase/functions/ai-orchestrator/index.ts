@@ -6266,7 +6266,7 @@ ${empathyNote}
       // Extract district if mentioned
       const districtPatterns = [
         /(?:em|no|na|do|da)\s+([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)/g,
-        /([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)\s+(?:tem|tem|fica)/g,
+        /([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)\s+(?:tem|fica)/g,
       ];
       
       let district: string | undefined;
