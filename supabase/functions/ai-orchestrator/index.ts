@@ -6227,6 +6227,85 @@ ${empathyNote}
     const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     const msgLower = lastUserMessage.toLowerCase().trim();
     
+    // === DETERMINISTIC SERVICE SEARCH (BEFORE greetings to ensure database lookup) ===
+    // Detect questions about services and force database lookup
+    const serviceSearchPatterns = [
+      /onde\s*(fica|tem|posso\s*encontrar|está|fica)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+      /(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)\s*(perto|próximo|próxima|mais\s*perto|na\s*região|no\s*bairro)/i,
+      /(quero|preciso|gostaria)\s*(de\s*)?(encontrar|buscar|achar|procurar)\s*(um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+      /(tem|existe|há)\s*(algum|alguma|um|uma)\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+      /(cadê|onde\s*está)\s*(a|o|um|uma)?\s*(ubs|hospital|escola|ceu|biblioteca|parque|posto|centro\s*esportivo)/i,
+    ];
+    
+    const isServiceSearch = serviceSearchPatterns.some(pattern => pattern.test(msgLower));
+    
+    if (isServiceSearch) {
+      console.log('[ai-orchestrator] Service search detected, forcing database lookup');
+      
+      // Extract service type from message
+      let serviceType = 'other';
+      const serviceTypeMap: Record<string, string> = {
+        'ubs': 'ubs',
+        'posto': 'ubs',
+        'hospital': 'hospital',
+        'escola': 'school',
+        'ceu': 'ceu',
+        'biblioteca': 'library',
+        'parque': 'other', // Parks might be in a different category
+        'centro esportivo': 'sports_center',
+        'centro esportiva': 'sports_center',
+      };
+      
+      for (const [key, value] of Object.entries(serviceTypeMap)) {
+        if (msgLower.includes(key)) {
+          serviceType = value;
+          break;
+        }
+      }
+      
+      // Extract district if mentioned
+      const districtPatterns = [
+        /(?:em|no|na|do|da)\s+([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)/g,
+        /([A-ZÁÊÔÇ][a-záêôç]+(?:\s+[A-ZÁÊÔÇ][a-záêôç]+)*)\s+(?:tem|tem|fica)/g,
+      ];
+      
+      let district: string | undefined;
+      for (const pattern of districtPatterns) {
+        const matches = msgLower.match(pattern);
+        if (matches && matches.length > 0) {
+          // Extract the district name (skip common words)
+          const commonWords = ['onde', 'fica', 'tem', 'está', 'posso', 'encontrar', 'buscar', 'achar', 'procurar', 'quero', 'preciso', 'gostaria', 'de', 'um', 'uma', 'o', 'a', 'em', 'no', 'na', 'do', 'da', 'das', 'dos'];
+          const potentialDistrict = matches[0].replace(/(?:em|no|na|do|da|das|dos)\s+/i, '').trim();
+          if (potentialDistrict && !commonWords.includes(potentialDistrict.toLowerCase())) {
+            district = potentialDistrict;
+            break;
+          }
+        }
+      }
+      
+      // Force call to find_nearby_services
+      try {
+        const toolResult = await executeTool('find_nearby_services', {
+          service_type: serviceType,
+          district: district,
+          limit: 5
+        }, user.id, supabase);
+        
+        if (toolResult && toolResult.success) {
+          console.log('[ai-orchestrator] Service search completed, returning results');
+          const ssePayload = JSON.stringify({
+            choices: [{ delta: { content: toolResult.message } }]
+          });
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' }
+          });
+        }
+      } catch (error) {
+        console.error('[ai-orchestrator] Service search error:', error);
+        // Continue to LLM if search fails
+      }
+    }
+    
     // Check for greetings - respond immediately without API call
     const greetingPatterns = [
       /^(olá|oi|bom dia|boa tarde|boa noite)/i,
