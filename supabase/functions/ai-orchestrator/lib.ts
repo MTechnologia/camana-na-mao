@@ -4073,7 +4073,7 @@ export function formatServicesWithContext(
   }
   const typeName = getServiceTypeName(serviceType);
   const header = isExpanded 
-    ? `Não encontrei ${typeName} em ${originalDistrict}, mas aqui estão as opções mais próximas:`
+    ? `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
     : `Encontrei ${withAddress.length} ${typeName}:`;
   
   const list = withAddress.map((s: any, i: number) => {
@@ -4118,6 +4118,12 @@ export async function searchKnowledgeBase(supabase: any, query: string): Promise
                    doc.content_type === 'audiencia' ? 'Audiência' : 'Info';
     return `[${i+1}] ${doc.title || source}: ${doc.content.slice(0, 300)}...`;
   }).join('\n\n');
+}
+
+/** Gera link do Google Maps para traçar rota da origem (lat,lon) até o endereço de destino. */
+export function buildGoogleMapsDirectionsUrl(originLat: number, originLon: number, destinationAddress: string): string {
+  const dest = encodeURIComponent(destinationAddress.trim());
+  return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLon}&destination=${dest}&travelmode=transit`;
 }
 
 // Distância em metros (Haversine) para ordenar serviços por proximidade

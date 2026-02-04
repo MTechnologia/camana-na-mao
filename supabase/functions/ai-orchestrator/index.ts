@@ -929,7 +929,45 @@ ${empathyNote}
     // === DETERMINISTIC RESPONSE DETECTION (BEFORE short-circuit to ensure empathy) ===
     const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
     const msgLower = lastUserMessage.toLowerCase().trim();
-    
+    const lastAssistantMessage = messages.filter((m: any) => m.role === 'assistant').pop()?.content || '';
+    const lastAssistantLower = lastAssistantMessage.toLowerCase();
+
+    // === PEDIDO DE ROTA: usuário pediu "calcule a rota" após ver a lista de serviços ===
+    const justShowedServicesList = lastAssistantLower.includes('quer que eu calcule a rota') || lastAssistantLower.includes('opções mais próximas');
+    const wantsRoute = /(calcule?\s+a\s+rota|calcular\s+rota|rota\s+para|quero\s+a\s+rota)/i.test(lastUserMessage) || lastUserMessage.includes(' | ');
+    let destinationAddress = '';
+    if (lastUserMessage.includes(' | ')) {
+      destinationAddress = lastUserMessage.split(' | ').pop()?.trim() || lastUserMessage.trim();
+    } else if (/rota\s+para\s+(.+)/i.test(lastUserMessage)) {
+      destinationAddress = lastUserMessage.replace(/rota\s+para\s+/i, '').trim();
+    } else if (wantsRoute && lastUserMessage.trim().length > 5) {
+      destinationAddress = lastUserMessage.replace(/^(calcule?\s+a\s+rota\s+para?\s*|calcular\s+rota\s+para?\s*)/i, '').trim();
+    }
+    if (justShowedServicesList && wantsRoute && destinationAddress) {
+      let originLat: number | null = null;
+      let originLon: number | null = null;
+      if (accumulatedFields.user_lat != null && accumulatedFields.user_lon != null) {
+        originLat = Number(accumulatedFields.user_lat);
+        originLon = Number(accumulatedFields.user_lon);
+      }
+      if (originLat == null || originLon == null) {
+        const { data: addr } = await supabase.from('user_addresses').select('latitude, longitude').eq('user_id', user.id).eq('is_primary', true).maybeSingle();
+        if (addr?.latitude != null && addr?.longitude != null) {
+          originLat = Number(addr.latitude);
+          originLon = Number(addr.longitude);
+        }
+      }
+      if (originLat != null && originLon != null) {
+        const routeUrl = lib.buildGoogleMapsDirectionsUrl(originLat, originLon, destinationAddress);
+        const routeMessage = `Aqui está a rota até **${destinationAddress}**:\n\n🗺️ [Abrir no Google Maps](${routeUrl})\n\nO link abre o trajeto da sua localização até o endereço. Posso ajudar em mais alguma coisa?`;
+        const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeMessage } }] });
+        console.log('[ai-orchestrator] Route link generated for destination:', destinationAddress.substring(0, 50));
+        return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
+    }
+
     // === DETERMINISTIC SERVICE ADDRESS LOOKUP ===
     // "Qual o endereço do CEU Butantã?" → busca no banco e retorna o endereço correto (não deixa a LLM inventar)
     const addressLookupMatch = msgLower.match(/(?:qual\s+(?:é\s+)?o\s+)?(?:endere[cç]o\s+(?:do\s+|de\s+)?|onde\s+fica\s+)(.+?)(?:\?|\.|$)/i);
