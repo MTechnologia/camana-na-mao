@@ -1448,6 +1448,11 @@ export const useUnifiedAIChat = (
     sendMessage(`Nota: ${stars} estrelas`);
   }, [sendMessage]);
 
+  // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
+  const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
+    sendMessage(messageToSend);
+  }, [sendMessage]);
+
   // Handle service type selection from inline picker
   const handleServiceTypeSelected = useCallback((type: string, displayName: string) => {
     setCollectedFields(prev => ({ ...prev, service_type: type }));
@@ -1495,6 +1500,7 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleRatingSelected,
+    handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,
     handleServiceAddressConfirmed,
