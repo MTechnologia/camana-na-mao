@@ -1299,6 +1299,7 @@ export const useUnifiedAIChat = (
   const clearMessages = useCallback((preserveCollectionType = false) => {
     setMessages([]);
     setCreatedReport(null);
+    setLightJourneyType(null);
     if (!preserveCollectionType) {
       setCollectionType(null);
       setCollectedFields({});
