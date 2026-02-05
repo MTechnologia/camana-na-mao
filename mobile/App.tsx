@@ -3,13 +3,13 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DEFAULT_PING_URL } from './src/config';
 import { FrontendWebView } from './src/screens/FrontendWebView';
@@ -20,6 +20,7 @@ type PingResult =
   | { ok: false; error: string };
 
 export default function App() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'frontend' | 'api'>('frontend');
   const [pingUrl, setPingUrl] = useState(DEFAULT_PING_URL);
   const [loading, setLoading] = useState(false);
@@ -52,8 +53,8 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="dark" />
+    <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <StatusBar hidden />
       <View style={styles.tabs}>
         <Pressable
           onPress={() => setTab('frontend')}
@@ -127,7 +128,7 @@ export default function App() {
           </Text>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

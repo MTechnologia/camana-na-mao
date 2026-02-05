@@ -1810,20 +1810,32 @@ export function accumulateFieldsFromHistory(
   // === LIGHT JOURNEY: services (busca de serviços próximos) ===
   // Ordem: 1) location_method (GPS / cadastrado / manual), 2) se manual → CEP/endereço, 3) service_type
   if (collectionType === 'services') {
+    const getContent = (msg: { role: string; content: string | unknown }): string => {
+      const raw = msg.content;
+      if (typeof raw === 'string') return raw;
+      if (Array.isArray(raw)) {
+        const part = raw.find((p: any) => p?.type === 'text' && p?.text);
+        return part ? String(part.text) : '';
+      }
+      return '';
+    };
     const acc: Record<string, any> = {};
     for (const msg of messages) {
-      if (msg.role === 'assistant' && msg.content.includes('[COLLECTION_PROGRESS:services:')) {
-        const match = msg.content.match(/\[COLLECTION_PROGRESS:services:(\{[^}]+\})\]/);
-        if (match) {
-          try {
-            Object.assign(acc, JSON.parse(match[1]));
-          } catch (e) {}
+      if (msg.role === 'assistant') {
+        const c = getContent(msg);
+        if (c.includes('[COLLECTION_PROGRESS:services:')) {
+          const match = c.match(/\[COLLECTION_PROGRESS:services:(\{[^}]+\})\]/);
+          if (match) {
+            try {
+              Object.assign(acc, JSON.parse(match[1]));
+            } catch (e) {}
+          }
         }
       }
     }
     for (const msg of messages) {
       if (msg.role !== 'user') continue;
-      const c = msg.content.trim();
+      const c = getContent(msg).trim();
       const cLower = c.toLowerCase();
       // Método de localização
       if (!acc.location_method) {
@@ -1835,12 +1847,13 @@ export function accumulateFieldsFromHistory(
           acc.location_method = 'manual';
         }
       }
-      // Localização GPS: lat,lon (enviado pelo frontend após permissão) — define também location_method
-      const gpsMatch = c.match(/Localização\s+GPS:\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/i);
+      // Localização GPS: lat,lon (enviado pelo frontend) — aceita "Localização GPS: -23.58,-46.69" ou com espaços
+      const gpsMatch = c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps') ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/) : null);
       if (gpsMatch && !acc.user_lat) {
-        const lat = parseFloat(gpsMatch[1]);
-        const lon = parseFloat(gpsMatch[2]);
-        if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+        const lat = parseFloat(gpsMatch[1].trim());
+        const lon = parseFloat(gpsMatch[2].trim());
+        if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
           acc.user_lat = lat;
           acc.user_lon = lon;
           if (!acc.location_method) acc.location_method = 'gps';
@@ -1870,7 +1883,7 @@ export function accumulateFieldsFromHistory(
     if (!acc.service_type) {
       for (const msg of messages) {
         if (msg.role === 'user') {
-          const t = inferServiceTypeFromText(msg.content);
+          const t = inferServiceTypeFromText(getContent(msg));
           if (t) {
             acc.service_type = t;
             break;
@@ -2725,9 +2738,11 @@ export function detectCollectionIntent(
   const explicitUrbanPhrases = [
     'quero fazer uma reclamação', 'quero fazer reclamação', 'quero fazer reclamacao',
     'quero denunciar', 'problema na minha rua', 'problema na cidade', 'problema urbano',
+    'problemas na cidade', 'problemas na rua', 'quero falar sobre problemas na cidade',
     'tem um buraco', 'poste apagado', 'lixo acumulado', 'quero abrir um chamado',
     'quero registrar um problema urbano', 'relatar problema urbano', 'fazer um relato urbano',
-    'problema na rua', 'problema no bairro', 'problema de infraestrutura'
+    'problema na rua', 'problema no bairro', 'problema de infraestrutura',
+    'quero falar de problema', 'quero falar sobre cidade', 'quero falar sobre problema'
     // REMOVED: 'quero relatar um problema' - too generic, matches transport!
   ];
   
@@ -2739,9 +2754,9 @@ export function detectCollectionIntent(
     'quero fazer um relato de transporte', 'relatar problema de transporte',
     'problema no transporte', 'problema no transporte público', 'problema no transporte publico',
     'relatar um problema no transporte', 'problema de transporte',
-    // Journey switch phrases
-    'quero falar de transporte', 'quero falar do transporte', 'falar de transporte',
-    'falar sobre transporte', 'mudar para transporte', 'trocar para transporte'
+    // Campo geral: falar sobre transporte
+    'quero falar de transporte', 'quero falar do transporte', 'quero falar sobre transporte',
+    'falar de transporte', 'falar sobre transporte', 'mudar para transporte', 'trocar para transporte'
   ];
   
   const explicitRatingPhrases = [
@@ -2761,7 +2776,9 @@ export function detectCollectionIntent(
     'onde fica a ubs', 'onde fica o hospital', 'buscar serviço', 'buscar servico',
     'quero encontrar', 'preciso encontrar', 'procurar uma escola',
     'qual ubs mais perto', 'como chegar na ubs', 'serviços perto de mim',
-    'servicos perto de mim', 'onde tem hospital', 'onde tem escola'
+    'servicos perto de mim', 'onde tem hospital', 'onde tem escola',
+    'quero falar sobre serviços', 'quero falar sobre servicos', 'quero falar de serviços',
+    'serviços próximos', 'servicos próximos', 'serviços proximos', 'quero serviços próximos'
   ];
   
   const explicitAudienciasPhrases = [
@@ -2805,7 +2822,7 @@ export function detectCollectionIntent(
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
   
   // === GENERIC "quero falar de X" PATTERN DETECTION ===
-  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history' | 'vereadores' | 'noticias';
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
   const queroFalarMatch = msgLower.match(/(?:quero|vou|vamos)\s+falar\s+(?:de|do|da|sobre)\s+(\w+)/);
   let genericTopicIntent: { type: ExplicitIntentType; boost: number } | null = null;
   if (queroFalarMatch) {
@@ -2819,22 +2836,38 @@ export function detectCollectionIntent(
       'trem': 'transport_report',
       'avaliação': 'service_rating',
       'avaliaçao': 'service_rating',
+      'avaliações': 'service_rating',
+      'avaliacoes': 'service_rating',
       'serviço': 'service_rating',
       'servico': 'service_rating',
       'cidade': 'urban_report',
       'problema': 'urban_report',
+      'problemas': 'urban_report',
       'rua': 'urban_report',
       'bairro': 'urban_report',
+      'urbano': 'urban_report',
+      'urbanos': 'urban_report',
+      'relato': 'urban_report',
+      'relatos': 'urban_report',
+      'infraestrutura': 'urban_report',
       'serviços': 'services',
       'servicos': 'services',
       'audiência': 'audiencias',
       'audiencia': 'audiencias',
+      'audiências': 'audiencias',
+      'audiencias': 'audiencias',
       'vereador': 'vereadores',
       'vereadores': 'vereadores',
       'notícia': 'noticias',
       'noticia': 'noticias',
+      'notícias': 'noticias',
+      'noticias': 'noticias',
       'histórico': 'history',
-      'historico': 'history'
+      'historico': 'history',
+      'dúvida': 'general',
+      'duvida': 'general',
+      'dúvidas': 'general',
+      'duvidas': 'general'
     };
     const mappedJourney = topicToJourney[topic];
     if (mappedJourney) {
@@ -3601,6 +3634,10 @@ EXEMPLOS OBRIGATÓRIOS:
 - "Boa tarde, transformadores estourando" → "Boa tarde! Isso é muito perigoso! Qual o CEP?"
 
 NUNCA, NUNCA ignore saudações ou pedidos de simpatia.
+
+=== CAMPO "DIGITE SUA MENSAGEM" (GERAL) ===
+
+O cidadão pode digitar qualquer coisa no campo de mensagem. Frases como "Quero falar sobre problemas na cidade", "Quero falar sobre transporte", "Quero avaliar um serviço", "Serviços próximos", "Tirar dúvida" ou qualquer tópico devem ser reconhecidas e encaminhadas ao fluxo correto (relato urbano, transporte, avaliação, serviços próximos, dúvidas gerais, etc.). Aceite e encaminhe com naturalidade.
 
 === PERSONALIDADE E TOM ===
 
