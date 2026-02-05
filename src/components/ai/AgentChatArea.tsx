@@ -277,6 +277,8 @@ const AgentChatArea = () => {
                         onServiceTypeSelected={handleServiceTypeSelected}
                         onServiceSelected={handleServiceSelected}
                         isLastAssistantMessage={isLastAssistantMessage}
+                        onChipSelect={handleStartConversation}
+                        onOpenDiscovery={handleOpenDiscovery}
                       />
                     </motion.div>
                   );

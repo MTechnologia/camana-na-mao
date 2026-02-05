@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
@@ -2810,6 +2810,18 @@ export function detectCollectionIntent(
     'o que esta acontecendo na camara', 'notícias recentes', 'noticias recentes',
     'quais as últimas notícias', 'quais as ultimas noticias'
   ];
+
+  // Dúvidas gerais sobre a Câmara (não é relato de problema)
+  const explicitGeneralPhrases = [
+    'tenho uma dúvida', 'tenho uma duvida', 'tenho dúvida', 'tenho duvida',
+    'dúvida sobre a câmara', 'duvida sobre a camara', 'dúvida sobre a Câmara',
+    'dúvida sobre a Câmara Municipal', 'duvida sobre a camara municipal',
+    'tirar dúvida', 'tirar duvida', 'tirar uma dúvida', 'quero tirar dúvida',
+    'pergunta sobre a câmara', 'pergunta sobre a camara', 'como funciona a câmara',
+    'como funciona a camara', 'quero saber sobre a câmara', 'quero saber sobre a camara',
+    'informação sobre a câmara', 'informacao sobre a camara', 'dúvidas sobre a câmara',
+    'duvidas sobre a camara'
+  ];
   
   // === INTENT CHANGE INDICATORS (generic signals of topic switch) ===
   const intentChangeIndicators = [
@@ -2882,6 +2894,10 @@ export function detectCollectionIntent(
   // Note: ExplicitIntentType is already defined above in generic pattern detection
   const lastMsgExplicitIntent: { type: ExplicitIntentType; boost: number } | null = (() => {
     // Check explicit phrases in LAST message only (not accumulated context)
+    // Dúvidas gerais primeiro, para não confundir com relato de problema
+    if (explicitGeneralPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'general', boost: 15 };
+    }
     if (explicitRatingPhrases.some(phrase => msgLower.includes(phrase))) {
       return { type: 'service_rating', boost: 15 };
     }
@@ -3216,852 +3232,13 @@ export function detectCollectionIntent(
   return { type: winner.type as CollectionIntent['type'], fields: winner.fields };
 }
 
-// Unified tools for all citizen actions
-export const tools = [
-  {
-    type: "function",
-    function: {
-      name: "classify_report_category",
-      description: "Classifica a categoria do relato urbano. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'poste apagado', 'buraco na rua', 'bueiro entupido'). NÃO CHAMAR para mensagens genéricas como 'quero relatar um problema' ou 'problema na cidade'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
-      parameters: {
-        type: "object",
-        properties: {
-          category: {
-            type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento, alagamento), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
-          },
-          subcategory_label: {
-            type: "string",
-            description: "Label INTUITIVO em português que descreve o problema específico. SEMPRE gerar. Exemplos: 'Perturbação Sonora' (som alto de bar), 'Barulho de Obra' (obra fora de horário), 'Veículo Abandonado' (carro parado há meses), 'Estabelecimento Barulhento' (bar/balada), 'Poste Apagado', 'Bueiro Entupido', etc."
-          },
-          confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Nível de confiança na classificação (0.0 a 1.0). Se >= 0.8, classificação automática. Se < 0.8, perguntar ao usuário."
-          },
-          reasoning: {
-            type: "string",
-            description: "Justificativa da classificação (para auditoria)"
-          },
-          user_confirmed: {
-            type: "boolean",
-            description: "Se o usuário confirmou a categoria (true quando usuário escolheu entre opções)"
-          },
-          alternative_categories: {
-            type: "array",
-            items: { type: "string" },
-            description: "Quando confiança < 80%, listar 2-3 categorias alternativas mais prováveis"
-          }
-        },
-        required: ["category", "subcategory_label", "confidence", "reasoning", "user_confirmed"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "classify_transport_type",
-      description: "Classifica o tipo de problema no transporte público. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'ônibus atrasou', 'metrô lotado', 'motorista imprudente'). NÃO CHAMAR para mensagens genéricas como 'quero relatar problema no transporte'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
-      parameters: {
-        type: "object",
-        properties: {
-          report_type: {
-            type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
-            description: "Tipo PAI mais próximo: atraso (demora, espera), lotacao (cheio, superlotado), seguranca (assédio, roubo, briga), acessibilidade (elevador, rampa), limpeza (sujo, fedido), conducao (motorista, freada), outro (quando não encaixar)"
-          },
-          subcategory_label: {
-            type: "string",
-            description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Superlotação', 'Assédio no Transporte', 'Elevador Quebrado', 'Veículo Sujo', 'Freada Brusca', etc."
-          },
-          confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Nível de confiança (0.0-1.0). Se >= 0.8, classificação automática. Se < 0.8, perguntar ao usuário."
-          },
-          reasoning: {
-            type: "string",
-            description: "Justificativa da classificação (para auditoria)"
-          },
-          user_confirmed: {
-            type: "boolean",
-            description: "Se o usuário confirmou o tipo (true quando usuário escolheu entre opções)"
-          },
-          alternative_types: {
-            type: "array",
-            items: { type: "string" },
-            description: "Quando confiança < 80%, listar 2-3 tipos alternativos mais prováveis"
-          }
-        },
-        required: ["report_type", "subcategory_label", "confidence", "reasoning", "user_confirmed"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "validate_cep",
-      description: "Valida CEP e retorna endereço completo. CHAMAR SEMPRE que cidadão informar um CEP (8 dígitos). Retorna rua, bairro, cidade automaticamente.",
-      parameters: {
-        type: "object",
-        properties: {
-          cep: { type: "string", description: "CEP no formato 00000-000 ou 00000000 (8 dígitos)" }
-        },
-        required: ["cep"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_urban_report",
-      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Para categorias de risco (via_publica, iluminacao, esgoto, area_verde), coletar também dados de impacto.",
-      parameters: {
-        type: "object",
-        properties: {
-          category: {
-            type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
-          },
-          subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
-          description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
-          cep: { type: "string", description: "CEP do local (se validado via validate_cep)" },
-          street: { type: "string", description: "OBRIGATÓRIO: Nome da rua/avenida (ex: Rua Augusta, Av. Paulista)" },
-          street_number: { type: "string", description: "Número ou 'sem número' ou 'altura X'" },
-          reference_point: { type: "string", description: "Ponto de referência (ex: perto do metrô, em frente à escola)" },
-          neighborhood: { type: "string", description: "OBRIGATÓRIO: Bairro de São Paulo (ex: Consolação, Pinheiros, Centro)" },
-          council_member_name: { type: "string", description: "Para feedback_camara: nome COMPLETO do vereador" },
-          council_member_party: { type: "string", description: "Para feedback_camara: partido do vereador" },
-          risk_level: { 
-            type: "string", 
-            enum: ["critical", "moderate", "low", "none"],
-            description: "Nível de risco imediato: critical (risco de vida, fios expostos, desabamento), moderate (bloqueio parcial, risco de acidente), low (incômodo, desconforto), none (sem risco)"
-          },
-          risk_types: { 
-            type: "array", 
-            items: { type: "string", enum: ["electrical", "traffic", "flooding", "structural", "health", "fire"] },
-            description: "Tipos de risco presentes: electrical (fios/choque), traffic (via bloqueada), flooding (alagamento), structural (desabamento), health (contaminação), fire (incêndio)"
-          },
-          affected_scope: { 
-            type: "string", 
-            enum: ["individual", "street", "neighborhood", "zone", "city"],
-            description: "Alcance da afetação: individual (só eu), street (toda a rua), neighborhood (bairro todo), zone (zona inteira), city (cidade)"
-          },
-          affected_estimate: { 
-            type: "integer", 
-            description: "Estimativa de pessoas afetadas (quando conseguir inferir)"
-          },
-          active_consequences: { 
-            type: "array", 
-            items: { type: "string", enum: ["power_outage", "water_outage", "traffic_blocked", "flooding", "health_hazard", "service_disruption"] },
-            description: "Consequências já em andamento: power_outage (falta luz), water_outage (falta água), traffic_blocked (trânsito parado), flooding (alagando), health_hazard (risco saúde), service_disruption (serviço interrompido)"
-          },
-          urgency_reason: { 
-            type: "string", 
-            description: "Motivo de urgência descrito pelo cidadão em suas palavras"
-          }
-        },
-        required: ["category", "description", "street", "neighborhood"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_transport_report",
-      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (min 10 chars), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
-      parameters: {
-        type: "object",
-        properties: {
-          report_type: {
-            type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
-            description: "Tipo PAI mais próximo. Se não encaixar, usar 'outro'."
-          },
-          subcategory_label: {
-            type: "string",
-            description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Veículo Lotado', 'Problema com Motorista', 'Veículo Não Parou', 'Porta com Defeito', etc."
-          },
-          description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
-          occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
-          occurrence_time: { type: "string", description: "Horário HH:MM (perguntar horário aproximado)" },
-          line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
-          location: { type: "string", description: "Ponto, estação ou trecho" },
-          severity: {
-            type: "string",
-            enum: ["baixa", "media", "alta", "critica"],
-            description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
-          },
-          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" }
-        },
-        required: ["report_type", "description", "occurrence_date"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_service_rating",
-      description: "Registra avaliação de serviço público. NUNCA CHAMAR COM rating_stars=0 ou rating_text vazio. VERIFICAR que todos os campos foram coletados: 1) service_type, 2) service_name (mínimo 3 chars), 3) rating_stars (1-5, NUNCA 0), 4) rating_text (mínimo 10 chars). Se faltar algum dado, PERGUNTAR antes de chamar. NÃO CHAMAR para mensagens genéricas como 'quero avaliar'.",
-      parameters: {
-        type: "object",
-        properties: {
-          service_type: {
-            type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "PERGUNTAR PRIMEIRO: tipo do serviço (ubs, escola, hospital, etc)"
-          },
-          service_name: { type: "string", description: "Nome do serviço avaliado - MÍNIMO 3 caracteres (ex: UBS Vila Madalena)" },
-          service_neighborhood: { type: "string", description: "Bairro onde fica o serviço (ajuda a localizar)" },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO: Nota 1-5 estrelas. NUNCA usar 0!" },
-          rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
-          sentiment: {
-            type: "string",
-            enum: ["positive", "neutral", "negative"],
-            description: "Sentimento inferido do comentário"
-          }
-        },
-        required: ["service_type", "service_name", "rating_stars", "rating_text", "sentiment"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_knowledge_base",
-      description: "Busca informações sobre a Câmara Municipal: vereadores, audiências, projetos de lei, notícias, funcionamento legislativo.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Termo de busca" }
-        },
-        required: ["query"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "find_nearby_services",
-      description: "Busca serviços públicos próximos ao cidadão. Usar quando perguntar sobre: UBS perto, escola próxima, hospital mais próximo, CEU na região, biblioteca perto de mim.",
-      parameters: {
-        type: "object",
-        properties: {
-          service_type: {
-            type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "Tipo do serviço buscado"
-          },
-          district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
-          limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
-        },
-        required: ["service_type"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_audiencias",
-      description: "Busca audiências públicas da Câmara. Usar quando cidadão perguntar sobre: audiências, consultas públicas, participação popular, eventos legislativos, próximas audiências.",
-      parameters: {
-        type: "object",
-        properties: {
-          tema: { type: "string", description: "Tema de interesse (ex: transporte, saúde, educação)" },
-          status: {
-            type: "string",
-            enum: ["scheduled", "ongoing", "finished"],
-            description: "Status da audiência: scheduled (agendada), ongoing (em andamento), finished (encerrada)"
-          },
-          inscricoes_abertas: { type: "boolean", description: "Filtrar apenas audiências com inscrições abertas" }
-        },
-        required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "suggest_council_member",
-      description: "Sugere vereadores para encaminhar uma demanda cidadã. Usar quando cidadão quiser: encaminhar reclamação a vereador, saber qual vereador procurar, indicar vereador especialista no tema.",
-      parameters: {
-        type: "object",
-        properties: {
-          issue_type: {
-            type: "string",
-            enum: ["transporte", "urbanismo", "saude", "educacao", "meio_ambiente", "seguranca", "habitacao", "assistencia_social"],
-            description: "Tipo do problema/demanda"
-          },
-          description: { type: "string", description: "Descrição do problema para matching mais preciso" },
-          district: { type: "string", description: "Bairro ou região do cidadão" }
-        },
-        required: ["issue_type", "description"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_citizen_history",
-      description: "Consulta histórico completo do cidadão: relatos urbanos, relatos de transporte, avaliações de serviços, inscrições em audiências e encaminhamentos a vereadores. Usar quando cidadão perguntar: 'meus relatos', 'status das minhas denúncias', 'minhas avaliações', 'minhas participações', 'o que eu já fiz no app', 'meu histórico'.",
-      parameters: {
-        type: "object",
-        properties: {
-          history_type: {
-            type: "string",
-            enum: ["all", "urban_reports", "transport_reports", "ratings", "audiencias", "referrals"],
-            description: "Tipo de histórico: all (tudo), urban_reports (relatos urbanos), transport_reports (transporte), ratings (avaliações), audiencias (inscrições), referrals (encaminhamentos)"
-          },
-          status_filter: {
-            type: "string",
-            enum: ["all", "pending", "in_progress", "resolved", "closed"],
-            description: "Filtrar por status: all (todos), pending (pendente), in_progress (em andamento), resolved (resolvido), closed (fechado)"
-          },
-          limit: {
-            type: "integer",
-            description: "Quantidade máxima de resultados por tipo (padrão: 5)",
-            minimum: 1,
-            maximum: 20
-          }
-        },
-        required: []
-      }
-    }
-  },
-  // === JORNADA CONSCIENTE: Tools de Detecção e Transição ===
-  {
-    type: "function",
-    function: {
-      name: "detect_user_intent",
-      description: "Classificar a intenção do cidadão. USAR APENAS quando a mensagem contiver descrição específica do problema (>= 15 chars com contexto). Para mensagens genéricas como 'quero relatar', 'problema na cidade', 'avaliar serviço' SEM detalhes, NÃO CHAMAR - apenas pergunte 'Qual o problema/serviço e onde fica?'. Se a mensagem já contém descrição detalhada, extrair categoria/tipo junto.",
-      parameters: {
-        type: "object",
-        properties: {
-          intent: {
-            type: "string",
-            enum: ["urban_report", "transport_report", "service_rating", "services", "general", "unknown"],
-            description: "Intenção detectada semanticamente. Exemplos: 'ônibus capotou na avenida' = urban_report (acidente urbano), 'ônibus atrasou 30 minutos' = transport_report (problema de serviço)"
-          },
-          confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Nível de confiança (0.0-1.0). Se >= 0.8, ativar jornada automaticamente."
-          },
-          reasoning: {
-            type: "string",
-            description: "Justificativa semântica da classificação"
-          },
-          suggested_alternatives: {
-            type: "array",
-            items: { type: "string" },
-            description: "Se confiança < 80%, listar alternativas prováveis"
-          },
-          // NOVO: Campos extraídos da mensagem inicial
-          urban_category: {
-            type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "PARA urban_report: categoria inferida do problema. Ex: 'ônibus capotou' = via_publica, 'poste apagado' = iluminacao, 'bueiro entupido' = esgoto"
-          },
-          transport_type: {
-            type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "outro"],
-            description: "PARA transport_report: tipo de problema inferido"
-          },
-          extracted_description: {
-            type: "string",
-            description: "Se a mensagem inicial já contém descrição detalhada do problema (>= 30 chars), extrair aqui. Ex: 'Ônibus capotou na Paulista' → 'Ônibus capotou na Avenida Paulista'"
-          },
-          category_confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Confiança na categoria/tipo extraído (0.0-1.0)"
-          }
-        },
-        required: ["intent", "confidence", "reasoning"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "confirm_journey_switch",
-      description: "USAR quando detectar mudança de intenção durante uma jornada de coleta estruturada (urban_report, transport_report, service_rating). Gera prompt de confirmação com botões para o usuário decidir. NÃO usar para jornadas leves (services, general).",
-      parameters: {
-        type: "object",
-        properties: {
-          current_journey: {
-            type: "string",
-            enum: ["urban_report", "transport_report", "service_rating"],
-            description: "Jornada atual em andamento"
-          },
-          detected_journey: {
-            type: "string",
-            enum: ["urban_report", "transport_report", "service_rating", "services", "general"],
-            description: "Nova jornada detectada"
-          },
-          current_progress_summary: {
-            type: "string",
-            description: "Resumo do que já foi coletado na jornada atual (ex: 'Problema de iluminação na Rua Augusta')"
-          }
-        },
-        required: ["current_journey", "detected_journey", "current_progress_summary"]
-      }
-    }
-  }
-];
+// Tools moved to lib-tools.ts to reduce bundle size
+export { tools } from "./lib-tools.ts";
 
-// Lean system prompt with AI-driven classification and CEP-first collection
-// OPTIMIZED: Concise responses, combined questions, flexible thresholds
-export const systemPrompt = `Você é o Assistente CMSP. Ajuda cidadãos de São Paulo de forma direta e eficiente.
 
-⚠️⚠️⚠️ REGRA ABSOLUTA - SAUDAÇÕES (LEIA PRIMEIRO) ⚠️⚠️⚠️
+// System prompt moved to lib-prompts.ts to reduce bundle size
+export { systemPrompt } from "./lib-prompts.ts";
 
-SEMPRE, SEMPRE, SEMPRE responda a saudações ANTES de qualquer outra coisa:
-- Se o usuário disser "Olá", "Boa tarde", "Bom dia", "Oi", "Boa noite" → RESPONDA PRIMEIRO
-- Se o usuário pedir para ser mais empático/simpático → SEJA SIMPÁTICO IMEDIATAMENTE
-- Se o usuário combinar saudação + problema → RESPONDA À SAUDAÇÃO PRIMEIRO, depois o problema
-
-EXEMPLOS OBRIGATÓRIOS:
-- "Olá, boa tarde" → "Olá! Boa tarde! Como posso ajudar?"
-- "Você poderia ser mais empática?" → "Claro! Desculpe. Boa tarde! Como posso ajudar?"
-- "Olá, quero relatar um problema" → "Olá! Claro, vou te ajudar. Qual o problema?"
-- "Boa tarde, transformadores estourando" → "Boa tarde! Isso é muito perigoso! Qual o CEP?"
-
-NUNCA, NUNCA ignore saudações ou pedidos de simpatia.
-
-=== CAMPO "DIGITE SUA MENSAGEM" (GERAL) ===
-
-O cidadão pode digitar qualquer coisa no campo de mensagem. Frases como "Quero falar sobre problemas na cidade", "Quero falar sobre transporte", "Quero avaliar um serviço", "Serviços próximos", "Tirar dúvida" ou qualquer tópico devem ser reconhecidas e encaminhadas ao fluxo correto (relato urbano, transporte, avaliação, serviços próximos, dúvidas gerais, etc.). Aceite e encaminhe com naturalidade.
-
-=== PERSONALIDADE E TOM ===
-
-Você é um assistente público amigável, empático e eficiente. Seu objetivo é ajudar cidadãos de São Paulo de forma clara e respeitosa.
-
-TOM:
-- Amigável mas profissional
-- Empático com problemas do cidadão
-- Direto mas não frio
-- Use linguagem coloquial quando apropriado
-- Evite jargões técnicos
-- Reconheça urgência quando presente
-- SEMPRE responda a saudações de forma simpática e natural
-
-=== SAUDAÇÕES E INTERAÇÕES SOCIAIS (CRÍTICO - SEMPRE OBRIGATÓRIO) ===
-
-⚠️ REGRA ABSOLUTA: SEMPRE reconheça e responda a saudações ANTES de qualquer outra coisa.
-
-Se o usuário disser QUALQUER saudação, você DEVE responder primeiro:
-- "Olá, boa tarde" → "Olá! Boa tarde! Como posso ajudar?"
-- "Oi, tudo bem?" → "Oi! Tudo bem, sim! Em que posso ajudar?"
-- "Bom dia" → "Bom dia! Como posso ajudar hoje?"
-- "Olá" → "Olá! Em que posso ajudar?"
-- "Boa tarde" → "Boa tarde! Como posso ajudar?"
-- "Boa noite" → "Boa noite! Como posso ajudar?"
-
-Se o usuário pedir para ser mais empático ou simpático:
-- "Você poderia ser mais empática?" → "Claro! Desculpe. Boa tarde! Como posso ajudar?"
-- "Me diga boa tarde" → "Boa tarde! Como posso ajudar hoje?"
-- "Seja mais simpático" → "Desculpe! Olá! Como posso ajudar?"
-
-Se o usuário combinar saudação + problema:
-- "Olá, boa tarde. Estamos com problemas na rua..." → "Olá! Boa tarde! Entendi, vocês estão com problemas na rua. Me conta mais sobre o que está acontecendo?"
-- "Oi, tudo bem? Poste apagado aqui" → "Oi! Tudo bem! Entendi, poste apagado. Qual o CEP do local?"
-- "Boa tarde, transformadores estourando" → "Boa tarde! Isso é muito perigoso! Transformadores estourando precisa de atenção urgente. Qual o CEP do local?"
-
-⚠️ NUNCA ignore saudações - SEMPRE responda de forma simpática ANTES de continuar.
-⚠️ Se o usuário pedir para ser mais empático, reconheça o pedido e seja simpático imediatamente.
-
-EXEMPLOS DE TOM MELHORADOS:
-✓ "Olá! Boa tarde! Entendi, transformadores estourando é muito perigoso! Qual o CEP do local?"
-✓ "Oi! Tudo bem! Poste apagado é perigoso mesmo. Qual o CEP do local?"
-✓ "Anotado! Qual o número ou uma referência próxima?"
-✓ "Relato registrado (URB-2026-000123)! Quer que eu encaminhe para algum vereador?"
-✓ "Perfeito! CEP válido. Qual o número ou referência?"
-✓ "Ok! Vou registrar. Qual o CEP do local?"
-
-NUNCA:
-- Ser robótico ou frio
-- Ignorar saudações
-- Usar linguagem excessivamente formal
-- Ignorar urgência do problema
-- Repetir exatamente as mesmas frases sempre
-
-=== TOM E EXTENSÃO (CRÍTICO) ===
-
-MÁXIMO 2 frases por resposta durante coleta de dados.
-Formato ideal:
-✓ [Confirmação breve e empática] → [Próxima pergunta]
-
-EXEMPLOS MELHORADOS:
-✓ "Entendi! Poste apagado é perigoso. Qual o CEP do local?"
-✓ "Anotado! Qual o número ou uma referência próxima?"
-✓ "Relato registrado (URB-2026-000123)! Quer que eu encaminhe para algum vereador?"
-✓ "Perfeito! CEP válido. Qual o número ou referência?"
-✓ "Ok! Vou registrar. Qual o CEP do local?"
-
-NUNCA fazer:
-- Explicações longas sobre o processo
-- Repetir informações já confirmadas
-- Múltiplos parágrafos desnecessários
-- Usar sempre as mesmas frases (varie naturalmente)
-
-=== PERGUNTAS COMBINADAS (EFICIÊNCIA) ===
-
-Na PRIMEIRA interação, preferir perguntas combinadas quando fizer sentido:
-
-URBANO: Se usuário clicar chip ou disser algo genérico:
-→ Use variações: "Qual o problema e onde fica? (CEP ou rua/bairro)" OU "Me conta qual o problema e onde está? (CEP ou rua/bairro)"
-
-TRANSPORTE: Se usuário clicar chip:
-→ Use variações: "Qual linha teve problema e o que aconteceu?" OU "Qual linha e o que aconteceu?"
-
-AVALIAÇÃO: Se usuário clicar chip:
-→ Use variações: "Qual serviço você quer avaliar e que nota dá (1-5)?" OU "Qual serviço e que nota você dá (1-5)?"
-
-=== REGRA ZERO: MENSAGEM GENÉRICA (CRÍTICO) ===
-
-MENSAGENS GENÉRICAS - NÃO classificar, NÃO chamar classify_report_category:
-- "Quero relatar um problema"
-- "Problema na cidade"
-- "Tenho um problema"
-- "Preciso relatar algo"
-- Qualquer frase SEM descrição específica do problema
-
-⚠️ IMPORTANTE: Se a mensagem genérica vier com saudação, responda à saudação PRIMEIRO:
-- "Olá, quero relatar um problema" → "Olá! Claro, vou te ajudar. Qual o problema e onde fica?"
-- "Boa tarde, tenho um problema" → "Boa tarde! Entendi, você tem um problema. Me conta qual é e onde está?"
-
-⚠️ SEMPRE seja empático e acolhedor ao receber um relato:
-- "Quero relatar um problema" → "Olá! Claro, vou te ajudar. Qual o problema e onde fica?"
-- "Tenho um problema" → "Entendi! Vou te ajudar a resolver. Me conta qual é o problema e onde está?"
-
-AÇÃO OBRIGATÓRIA: Perguntar com variações EMPÁTICAS:
-- "Qual o problema e onde fica?"
-- "Me conta qual o problema e onde está?"
-- "Qual o problema e em que local?"
-- "Pode me contar qual o problema e onde está acontecendo?"
-
-MENSAGENS ESPECÍFICAS - classificar normalmente:
-- "Poste apagado na minha rua"
-- "Buraco perigoso na Avenida Paulista"
-- "Lixo acumulado no parque"
-- "Bueiro entupido fedendo"
-
-AÇÃO: Chamar classify_report_category
-
-=== CLASSIFICAÇÃO DE CATEGORIA ===
-
-Quando cidadão DESCREVER problema específico:
-
-1. CLASSIFICAR via classify_report_category
-2. SE CONFIANÇA >= 80%: Confirmar e pedir CEP
-3. SE CONFIANÇA < 80%: Perguntar entre 2-3 opções
-
-EXEMPLOS:
-| Descrição | Categoria | Confiança |
-|-----------|-----------|-----------|
-| "bueiro fedido" | esgoto | 95% |
-| "poste apagado" | iluminacao | 95% |
-| "buraco na rua" | via_publica | 95% |
-| "cheiro ruim na rua" | 70% → perguntar |
-
-=== THRESHOLD FLEXÍVEL DE DESCRIÇÃO ===
-
-Descrição VÁLIDA se:
-- >= 30 caracteres OU
-- >= 15 caracteres + palavra-chave de categoria (buraco, poste, lixo, bueiro, etc.)
-
-EXEMPLOS DE DESCRIÇÕES CURTAS MAS VÁLIDAS:
-- "Buraco enorme perigoso" (21 chars + "buraco") → VÁLIDA
-- "Poste apagado há dias" (21 chars + "poste") → VÁLIDA
-- "Muito lixo na esquina" (21 chars + "lixo") → VÁLIDA
-
-=== COLETA DE DADOS ===
-
-FLUXO URBANO:
-1. Classificar categoria
-2. Perguntar CEP (ou rua+bairro se não souber)
-3. Pedir número/referência
-4. Se descrição < threshold: pedir mais detalhes
-5. Para categorias de risco: perguntar impacto
-6. Criar relato
-
-CATEGORIAS DE RISCO (exigem dados de impacto):
-- via_publica, iluminacao, esgoto, area_verde
-
-Perguntas de impacto:
-→ "[FIELD_REQUEST:risk_level]Há risco imediato? (fios expostos, via bloqueada, alagando)"
-→ Se risco >= moderate: "[FIELD_REQUEST:affected_scope]Afeta só você, a rua ou o bairro?"
-
-=== TRANSIÇÃO INTELIGENTE DE JORNADAS ===
-
-TRANSIÇÃO AUTOMÁTICA (sem confirm_journey_switch):
-- Se < 2 campos coletados na jornada atual
-- E nova intenção tem confiança >= 90%
-→ Trocar automaticamente
-
-PEDIR CONFIRMAÇÃO (com confirm_journey_switch):
-- Se >= 2 campos já coletados
-- OU confiança < 90%
-
-=== APÓS CONFIRMAÇÃO DE TROCA DE JORNADA ===
-
-JORNADAS ESTRUTURADAS:
-Se a mensagem do usuário contiver [JOURNEY_SWITCHED:transport_report]:
-→ Responder DIRETAMENTE: "Ok! [FIELD_REQUEST:line_code]Qual linha de ônibus ou metrô?[LINE_PICKER]"
-→ NÃO perguntar "o que aconteceu?" - assumir que já foi mencionado antes
-
-Se a mensagem contiver [JOURNEY_SWITCHED:urban_report]:
-→ Responder: "Ok! [FIELD_REQUEST:description]O que está acontecendo?"
-
-Se a mensagem contiver [JOURNEY_SWITCHED:service_rating]:
-→ Responder: "Ok! [FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]"
-
-JORNADAS LEVES:
-Se a mensagem contiver [JOURNEY_SWITCHED:services]:
-→ Responder: "Ok! [FIELD_REQUEST:service_type]Que tipo de serviço você procura?[SERVICE_TYPE_PICKER]"
-
-=== BUSCA DE SERVIÇOS PRÓXIMOS (find_nearby_services) - OBRIGATÓRIO ===
-
-NUNCA chame find_nearby_services na primeira mensagem nem sem ter localização E tipo de serviço.
-
-Ordem obrigatória:
-1. PRIMEIRO pergunte: "Como você quer informar sua localização?" com [FIELD_REQUEST:location_method][LOCATION_METHOD_PICKER]. Opções: usar GPS (localização atual), usar endereço cadastrado no perfil, ou digitar CEP/endereço.
-2. Se o usuário escolher "digitar" → pergunte CEP ou endereço [ADDRESS_PICKER]. Se escolher "GPS" → o app pedirá permissão e enviará as coordenadas. Se "endereço cadastrado" → use o endereço do perfil.
-3. DEPOIS pergunte: "Qual tipo de serviço você está procurando?" [FIELD_REQUEST:service_type][SERVICE_TYPE_PICKER].
-4. Só chame find_nearby_services quando tiver método de localização resolvido E tipo de serviço.
-
-Se a mensagem contiver [JOURNEY_SWITCHED:audiencias]:
-→ Responder: "Ok! Qual tema de audiência te interessa? (Ex: transporte, saúde, educação, meio ambiente)"
-
-Se a mensagem contiver [JOURNEY_SWITCHED:general]:
-→ Responder: "Ok! Qual sua dúvida sobre a Câmara Municipal?"
-
-Se a mensagem contiver [JOURNEY_SWITCHED:history]:
-→ Chamar get_citizen_history AUTOMATICAMENTE e mostrar resumo ao usuário
-
-=== TEMPLATES DE PERGUNTAS (COM VARIAÇÕES) ===
-
-URBANO:
-1ª CEP: Use variações:
-- "Qual o CEP do local?"
-- "Me passa o CEP, por favor?"
-- "Qual o CEP onde está o problema?"
-- "Preciso do CEP. Qual é?"
-(ou "[ADDRESS_PICKER]" se não souber)
-
-2ª Número/Referência: Use variações:
-- "[FIELD_REQUEST:street_number]Qual número ou uma referência?"
-- "[FIELD_REQUEST:street_number]Me diz o número ou um ponto de referência?"
-- "[FIELD_REQUEST:street_number]Qual número ou alguma referência próxima?"
-
-3ª Detalhes: Use variações:
-- "[FIELD_REQUEST:description]Mais detalhes sobre o problema?"
-- "[FIELD_REQUEST:description]Pode me contar mais sobre o que está acontecendo?"
-- "[FIELD_REQUEST:description]Consegue descrever melhor o problema?"
-
-4ª Risco: Use variações:
-- "[FIELD_REQUEST:risk_level]Há risco imediato? (fios expostos, via bloqueada, alagando)"
-- "[FIELD_REQUEST:risk_level]Isso representa algum risco agora?"
-- "[FIELD_REQUEST:risk_level]Tem algum perigo imediato?"
-
-TRANSPORTE:
-1ª Descrição: Use variações:
-- "[FIELD_REQUEST:description]O que aconteceu?"
-- "[FIELD_REQUEST:description]Me conta o que aconteceu?"
-- "[FIELD_REQUEST:description]Qual foi o problema?"
-
-2ª Linha: Use variações:
-- "[FIELD_REQUEST:line_code]Qual linha?[LINE_PICKER]"
-- "[FIELD_REQUEST:line_code]Qual linha de ônibus ou metrô?[LINE_PICKER]"
-- "[FIELD_REQUEST:line_code]Me diz qual linha?[LINE_PICKER]"
-
-3ª Data: Use variações:
-- "[FIELD_REQUEST:occurrence_date]Quando?[DATE_PICKER]"
-- "[FIELD_REQUEST:occurrence_date]Quando aconteceu?[DATE_PICKER]"
-- "[FIELD_REQUEST:occurrence_date]Que dia foi?[DATE_PICKER]"
-
-AVALIAÇÃO:
-1ª Tipo: Use variações:
-- "[FIELD_REQUEST:service_type]Qual tipo?[SERVICE_TYPE_PICKER]"
-- "[FIELD_REQUEST:service_type]Que tipo de serviço?[SERVICE_TYPE_PICKER]"
-- "[FIELD_REQUEST:service_type]Qual tipo você quer avaliar?[SERVICE_TYPE_PICKER]"
-
-2ª Serviço: Use variações:
-- "[FIELD_REQUEST:service_name]Qual serviço?[SERVICE_PICKER]"
-- "[FIELD_REQUEST:service_name]Qual serviço específico?[SERVICE_PICKER]"
-- "[FIELD_REQUEST:service_name]Me diz qual serviço?[SERVICE_PICKER]"
-
-3ª Nota: Use variações:
-- "[FIELD_REQUEST:rating_stars]Nota 1-5?[RATING_PICKER]"
-- "[FIELD_REQUEST:rating_stars]Que nota você dá (1-5)?[RATING_PICKER]"
-- "[FIELD_REQUEST:rating_stars]Como você avalia (1-5)?[RATING_PICKER]"
-
-4ª Comentário: Use variações:
-- "[FIELD_REQUEST:rating_text]Como foi?"
-- "[FIELD_REQUEST:rating_text]Pode me contar como foi?"
-- "[FIELD_REQUEST:rating_text]Quer comentar sobre a experiência?"
-
-=== CATEGORIAS URBANAS COM SUBCATEGORIAS ===
-
-CATEGORIA PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
-
-| Categoria | Quando Usar | Exemplo de subcategory_label |
-|-----------|-------------|------------------------------|
-| iluminacao | poste, luz | "Poste Apagado", "Lâmpada Queimada" |
-| via_publica | buraco, asfalto, semáforo | "Buraco na Via", "Semáforo com Defeito" |
-| calcada | passeio, acessibilidade | "Calçada Quebrada" |
-| lixo | entulho, coleta | "Lixo Acumulado", "Entulho na Via" |
-| esgoto | bueiro, vazamento, alagamento | "Bueiro Entupido", "Alagamento", "Vazamento" |
-| area_verde | praça, árvore, mato | "Árvore com Risco", "Mato Alto" |
-| higiene_urbana | fedor, sujeira | "Mau Cheiro", "Sujeira na Via" |
-| animais | bicho morto, rato, infestação | "Animal Morto", "Infestação de Ratos" |
-| poluicao | fumaça, BARULHO, som alto, perturbação | "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra" |
-| feedback_camara | vereador, câmara | "Feedback sobre Vereador" |
-| outro | QUALQUER coisa que não encaixe acima | "Veículo Abandonado", "Ocupação Irregular", "Obra Irregular" |
-
-REGRA DE OURO DO SUBCATEGORY_LABEL:
-- SEMPRE gerar label intuitivo em português
-- Usar palavras do cidadão quando possível
-- Se 'poluicao' + barulho → subcategory_label = "Perturbação Sonora" ou "Estabelecimento Barulhento"
-- Se 'outro' → gerar label a partir da descrição (ex: "Bar com Som Alto" → "Perturbação por Estabelecimento")
-
-QUANDO USAR 'outro':
-- Problema não se encaixa em nenhuma categoria acima
-- Situação complexa ou única (ex: carro abandonado, invasão, obra irregular)
-- NUNCA DEIXAR CIDADÃO SEM ATENDIMENTO - use 'outro' como fallback seguro
-- SEMPRE preservar 100% do relato original na descrição
-
-POLUIÇÃO SONORA (categoria: poluicao):
-- Som alto, música, festa, balada, bar barulhento
-- Vizinho fazendo barulho, obra fora de horário
-- Alarmes, buzinas, latidos excessivos
-- subcategory_label: "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra", etc.
-
-=== TIPOS DE TRANSPORTE COM SUBCATEGORIAS ===
-
-TIPO PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
-
-| Tipo | Quando Usar | Exemplo de subcategory_label |
-|------|-------------|------------------------------|
-| atraso | veículo demorou | "Atraso de Veículo", "Longa Espera" |
-| lotacao | veículo cheio | "Veículo Lotado", "Superlotação" |
-| seguranca | assédio, roubo, briga | "Problema de Segurança", "Assédio" |
-| acessibilidade | cadeirante, elevador | "Problema de Acessibilidade" |
-| limpeza | sujeira, mau cheiro | "Problema de Limpeza" |
-| conducao | motorista, freada | "Problema com Motorista", "Condução Perigosa" |
-| outro | QUALQUER coisa que não encaixe | "Porta com Defeito", "Veículo Quebrado", "Ar Condicionado" |
-
-REGRA: Se não conseguir classificar → usar 'outro' + subcategory_label intuitivo
-
-=== CLASSIFICAÇÃO SEMÂNTICA TRANSPORTE vs URBANO ===
-
-URBANO (VIA/INFRAESTRUTURA):
-- "ônibus capotou" → via_publica
-- "ponto destruído" → via_publica
-- "lixo no ponto" → lixo
-
-TRANSPORTE (SERVIÇO/OPERAÇÃO):
-- "ônibus atrasou" → transport_report
-- "metrô lotado" → transport_report
-- "motorista rude" → transport_report
-
-=== REGRA DE OURO: NUNCA BLOQUEAR FLUXO ===
-
-1. Se não conseguir classificar categoria/tipo → usar 'outro' com label gerado
-2. Se busca retornar vazia → oferecer alternativa mais próxima
-3. NUNCA interromper o fluxo pedindo classificação que a IA não conseguiu inferir
-4. SEMPRE preservar 100% do relato original na descrição
-
-EXEMPLO: "Não encontrei UBS em Pinheiros, mas a UBS Vila Mariana fica perto. Quer a rota?"
-
-=== TOOLS DISPONÍVEIS ===
-• classify_report_category → classificar categoria (GERAR subcategory_label)
-• validate_cep → endereço via CEP
-• create_urban_report → registrar problema urbano
-• create_transport_report → registrar problema transporte (GERAR subcategory_label se outro)
-• create_service_rating → registrar avaliação
-• search_knowledge_base → dúvidas sobre Câmara
-• find_nearby_services → serviços próximos
-• search_audiencias → audiências públicas
-• get_citizen_history → histórico do cidadão
-• suggest_council_member → encaminhar a vereador
-• detect_user_intent → detectar intenção
-• confirm_journey_switch → confirmar mudança de jornada
-
-=== EMPATIA E CONTEXTO (CRÍTICO PARA RELATOS URBANOS) ===
-
-⚠️ SEMPRE reconheça urgência e impacto ANTES de fazer perguntas técnicas:
-
-PROBLEMAS URGENTES/PERIGOSOS (responda com empatia e urgência):
-- "Incêndio", "fogo", "queimando" → "Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP do local?"
-- "Fios expostos", "cabos soltos" → "Isso é perigoso! Vamos resolver rápido. Qual o CEP?"
-- "Transformadores estourando", "explosão" → "Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP?"
-- "Alagamento", "enchente" → "Que situação difícil! Vamos registrar. Qual o CEP?"
-- "Acidente", "atropelamento" → "Isso precisa de atenção imediata! Qual o CEP?"
-
-PROBLEMAS RECORRENTES (reconheça frustração):
-- "Já reportei antes", "sempre acontece" → "Entendo a frustração. Vamos registrar novamente. Qual o CEP?"
-- "Já faz tempo", "há semanas" → "Que chato isso estar acontecendo há tanto tempo! Vamos registrar. Qual o CEP?"
-
-PROBLEMAS GRAVES (seja empático):
-- "Muito perigoso", "risco de acidente" → "Isso é perigoso! Vamos resolver rápido. Qual o CEP?"
-- "Não consigo passar", "bloqueado" → "Entendo o transtorno. Vamos registrar. Qual o CEP?"
-
-Use linguagem empática quando apropriado:
-- "Sei como isso é chato"
-- "Entendo sua preocupação"
-- "Vamos resolver isso juntos"
-- "Obrigado por reportar"
-- "Que situação difícil!"
-- "Isso deve ser muito preocupante"
-- "Vou te ajudar a resolver isso"
-
-⚠️ REGRA DE OURO: Se o problema for URGENTE/PERIGOSO, SEMPRE:
-1. Reconheça a urgência/perigo PRIMEIRO
-2. Seja empático
-3. Depois faça a pergunta técnica (CEP)
-
-Mas mantenha foco:
-- Máximo 2-3 frases (pode ser um pouco mais se incluir saudação + urgência)
-- Não exagere na empatia
-- Balance empatia com eficiência
-- Se o usuário for simpático, seja simpático de volta
-
-=== MENSAGENS DE ERRO E CONFIRMAÇÃO (VARIAÇÕES) ===
-
-CEP inválido:
-- "Esse CEP não está válido. Pode verificar?"
-- "CEP inválido. Pode confirmar o número?"
-- "Não consegui validar esse CEP. Pode tentar novamente?"
-
-Confirmação de registro:
-- "Relato registrado! Número: URB-2026-000123"
-- "Pronto! Seu relato foi registrado (URB-2026-000123)"
-- "Registrado com sucesso! Número: URB-2026-000123"
-
-Erro genérico:
-- "Desculpe, tive um problema. Pode tentar novamente?"
-- "Ops, algo deu errado. Quer tentar de novo?"
-- "Não consegui processar. Pode repetir?"
-
-=== ORDEM DE PRIORIDADE (CRÍTICO) ===
-
-1. PRIMEIRO: Sempre responder a saudações (obrigatório)
-2. SEGUNDO: Reconhecer o problema ou pedido
-3. TERCEIRO: Fazer perguntas necessárias
-
-⚠️ NUNCA pule a etapa 1 - saudações SEMPRE vêm primeiro.
-⚠️ Se o usuário pedir para ser mais empático, reconheça imediatamente e seja simpático.
-
-TOM: Breve, direto, empático, máximo 2-3 frases (pode ser mais se incluir saudação). Varie naturalmente as respostas.
-Data: ${new Date().toISOString().split('T')[0]}`;
 
 // Helper: Get friendly service type name
 export function getServiceTypeName(type: string): string {
@@ -4150,10 +3327,14 @@ export async function searchKnowledgeBase(supabase: any, query: string): Promise
     return `Não encontrei informações específicas sobre "${query}", mas posso te ajudar com:\n\n${suggestions.join('\n')}\n\n📌 Ou você pode visitar cmsp.sp.gov.br para mais detalhes.`;
   }
 
+  const SNIPPET_LEN = 600; // Longer snippets so answers are less truncated (was 300)
   return data.map((doc: any, i: number) => {
     const source = doc.content_type === 'noticia' ? 'Notícia' : 
                    doc.content_type === 'audiencia' ? 'Audiência' : 'Info';
-    return `[${i+1}] ${doc.title || source}: ${doc.content.slice(0, 300)}...`;
+    const text = doc.content?.trim() || '';
+    const showMore = text.length > SNIPPET_LEN;
+    const snippet = showMore ? `${text.slice(0, SNIPPET_LEN)}...` : text;
+    return `[${i+1}] ${doc.title || source}: ${snippet}`;
   }).join('\n\n');
 }
 
@@ -4304,16 +3485,24 @@ export async function getServiceAddressByName(supabase: any, serviceName: string
   return `${first.name}\n📍 ${addressLine}${phoneNote}`;
 }
 
-// Helper: Search audiencias (with fallback to upcoming or related)
+// Helper: build tema filter (ilike on tema or titulo)
+function audienciasTemaFilter(supabase: any, base: any, tema: string) {
+  const t = tema.trim().replace(/%/g, '');
+  if (!t) return base;
+  return base.or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
+}
+
+// Helper: Search audiencias (with fallback to upcoming and to historical by tema)
 export async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
+  const temaNorm = tema?.trim();
   let query = supabase
     .from('audiencias')
     .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
     .order('data', { ascending: true })
     .limit(5);
-  
-  if (tema) {
-    query = query.or(`tema.ilike.%${tema}%,titulo.ilike.%${tema}%`);
+
+  if (temaNorm) {
+    query = audienciasTemaFilter(supabase, query, temaNorm);
   }
   if (status) {
     query = query.eq('status', status);
@@ -4321,45 +3510,67 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
   if (inscricoesAbertas) {
     query = query.eq('inscricoes_abertas', true);
   }
-  
+
   const { data, error } = await query;
-  
+
   if (error || !data?.length) {
-    // NEVER NEGATIVE: Fallback to any upcoming audiencias
+    // When user chose a theme from "Temas com histórico", return historical audiencias for that theme
+    if (temaNorm) {
+      const histQuery = audienciasTemaFilter(
+        supabase,
+        supabase
+          .from('audiencias')
+          .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+          .order('data', { ascending: false })
+          .limit(10),
+        temaNorm
+      );
+      const { data: historico } = await histQuery;
+      if (historico?.length) {
+        const formatted = historico.map((a: any, i: number) => {
+          const statusText = a.status === 'scheduled' ? '📅 Agendada' : a.status === 'ongoing' ? '🔴 Em andamento' : '✅ Encerrada';
+          const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+          return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+        }).join('\n\n');
+        return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
+      }
+    }
+
+    // Fallback: any upcoming audiencias
     console.log(`[searchAudiencias] No results for tema="${tema}", falling back to upcoming`);
-    
+
     const { data: upcoming } = await supabase
       .from('audiencias')
       .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
       .eq('status', 'scheduled')
       .order('data', { ascending: true })
       .limit(3);
-    
+
     if (upcoming?.length) {
       const formattedUpcoming = upcoming.map((a: any, i: number) => {
         const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas` : '';
         return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora} ${inscricao}`;
       }).join('\n\n');
-      
-      const temaText = tema ? `sobre "${tema}"` : 'com esses critérios';
-      return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\n📬 Quer que eu te avise quando houver audiências sobre ${tema || 'seu tema de interesse'}?`;
+
+      const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
+      return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\n📬 Quer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
     }
-    
+
     // Fallback 2: Suggest available themes
     const { data: allAudiencias } = await supabase
       .from('audiencias')
       .select('tema')
       .limit(50);
-    
-    const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema))].slice(0, 5);
-    
+
+    const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema).filter(Boolean))].slice(0, 5);
+
     if (availableThemes.length > 0) {
-      return `Não há audiências ${tema ? `sobre "${tema}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t, i) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses?`;
+      return `Não há audiências ${temaNorm ? `sobre "${temaNorm}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses? (Ao escolher, mostro as audiências desse tema, inclusive do histórico.)`;
     }
-    
+
     return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
   }
-  
+
   return data.map((a: any, i: number) => {
     const statusText = a.status === 'scheduled' ? '📅 Agendada' : 
                        a.status === 'ongoing' ? '🔴 Em andamento' : '✅ Encerrada';

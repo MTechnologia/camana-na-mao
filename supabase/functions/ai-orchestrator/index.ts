@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 import * as lib from "./lib.ts";
 
@@ -813,6 +813,18 @@ serve(async (req) => {
       }
     }
     
+    // === DÚVIDAS SOBRE A CÂMARA (general): saudação adequada, não relato de problema ===
+    if (collectionIntent?.type === 'general') {
+      const isDuvidaOpener = /d[uú]vida|pergunta|como funciona|quero saber|informa[cç][aã]o/i.test(lastUserMessage);
+      if (isDuvidaOpener && messages.filter((m: any) => m.role === 'user').length <= 1) {
+        const greeting = `[LIGHT_JOURNEY:general]Claro! Pode perguntar sobre a Câmara Municipal: funcionamento, audiências, vereadores, processos ou qualquer outra dúvida. Qual sua pergunta?`;
+        const ssePayload = JSON.stringify({ choices: [{ delta: { content: greeting } }] });
+        return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
+    }
+    
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
       nextFieldInfo = getNextMissingField(collectionIntent.type, accumulatedFields);
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
@@ -1066,7 +1078,18 @@ ${empathyNote}
     
     const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
     const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
-    
+
+    // Off-topic / "sem sentido": greeting + small talk (tudo bem, céu azul, etc.) without service intent
+    const smallTalkPatterns = [
+      /tudo bem\??/i, /tudo bom\??/i, /como vai\??/i, /como (está|esta) (você|vc|voce)\??/i,
+      /céu (está|esta) azul/i, /(o )?que acha\??/i, /(que )?tal\??/i, /e (aí|ai)\??/i,
+      /(o )?tempo (está|esta|hoje)/i, /(está|esta) (frio|calor|bonito)/i, /(bom|ótimo) dia (pra|para) (todos|você)/i,
+    ];
+    const hasSmallTalk = smallTalkPatterns.some(p => p.test(msgLower));
+    const serviceKeywords = /relatar|problema|transporte|avaliar|serviço|servicos|dúvida|duvida|câmara|camara|audiência|audiencia|vereador|histórico|historico|denúncia|denuncia|reclamar|reportar|inscrever/i;
+    const hasServiceIntent = serviceKeywords.test(msgLower);
+    const isOffTopic = isGreeting && hasSmallTalk && !hasServiceIntent;
+
     // Check for generic urban report messages (always check, not just first message)
     const genericReportPatterns = [
       /^quero relatar (um )?problema/i,
@@ -1098,8 +1121,23 @@ ${empathyNote}
     const accumulatedDesc = accumulatedFields?.description || '';
     const hasUrgentInDescription = accumulatedDesc && urgentPatterns.some(pattern => pattern.test(accumulatedDesc.toLowerCase()));
     
-    if (isGreeting || isEmpathyRequest || isGenericReport) {
-      console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isUrgent, msgLower });
+    if (isGreeting || isEmpathyRequest || isGenericReport || isOffTopic) {
+      console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isOffTopic, isUrgent, msgLower });
+
+      // Mensagem sem relação com os serviços: saudação + desculpa + lista de serviços
+      if (isOffTopic) {
+        let greeting = 'Olá!';
+        if (msgLower.includes('boa noite')) greeting = 'Boa noite!';
+        else if (msgLower.includes('bom dia')) greeting = 'Bom dia!';
+        else if (msgLower.includes('boa tarde')) greeting = 'Boa tarde!';
+        else if (msgLower.includes('olá') || msgLower.includes('oi')) greeting = 'Olá!';
+        const servicesList = '• Problema na cidade\n• Transporte\n• Avaliar serviço\n• Serviços próximos\n• Tirar dúvida sobre a Câmara';
+        const offTopicResponse = `${greeting} Desculpe, o intuito deste canal é poder te ajudar com estes serviços:\n\n${servicesList}\n\n[SHOW_SERVICES_CHIPS]`;
+        const ssePayload = JSON.stringify({ choices: [{ delta: { content: offTopicResponse } }] });
+        return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
       
       // Determine appropriate response
       let response = '';

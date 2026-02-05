@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2 } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -17,6 +17,7 @@ import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
+import PromptChips, { CollectionTypePreset } from "./PromptChips";
 
 interface ChatMessage {
   id: string;
@@ -95,7 +96,9 @@ const ChatMessageBubble = ({
   onServiceTypeSelected,
   onServiceSelected,
   onServiceAddressConfirmed,
-  isLastAssistantMessage = false 
+  isLastAssistantMessage = false,
+  onChipSelect,
+  onOpenDiscovery,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -109,7 +112,8 @@ const ChatMessageBubble = ({
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
-  
+  const [contentExpanded, setContentExpanded] = useState(false);
+
   // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
   const journeySwitchMatch = useMemo(() => {
     if (isUser || decisionMade) return null;
@@ -255,9 +259,19 @@ const ChatMessageBubble = ({
     let text = sanitizeMessageContent(message.content);
     text = text.replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '');
     text = text.replace(/\[LOCATION_METHOD_PICKER\]/g, '');
+    // Garantir que o marcador de chips nunca apareça como texto (defesa em profundidade)
+    text = text.split('[SHOW_SERVICES_CHIPS]').join('').trim();
     return text.trim();
   }, [message.content]);
-  
+
+  const isLongContent = cleanContent.length > 450;
+  const showVerMais = !isUser && isLongContent;
+  // Mostrar chips quando o backend enviou o marcador OU quando a mensagem é a resposta "off-topic" (fallback)
+  const hasShowServicesChips = !isUser && (
+    message.content.includes('[SHOW_SERVICES_CHIPS]') ||
+    message.content.includes('o intuito deste canal é poder te ajudar com estes serviços')
+  );
+
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
     if (onAddressSelected) {
@@ -375,52 +389,77 @@ const ChatMessageBubble = ({
           {isUser ? (
             <p className="text-sm whitespace-pre-wrap">{sanitizeMessageContent(message.content)}</p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
-                  ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
-                  ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
-                  li: ({ children }) => <li className="mb-1">{children}</li>,
-                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                  em: ({ children }) => <em className="italic">{children}</em>,
-                  a: ({ href, children }) => {
-                    // Check if internal link
-                    const isInternal = href?.startsWith('/') && !href?.startsWith('//');
-                    if (isInternal) {
+            <div className="w-full">
+              <div
+                className={cn(
+                  "prose prose-sm dark:prose-invert max-w-none",
+                  showVerMais && !contentExpanded && "line-clamp-6"
+                )}
+              >
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                    ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    a: ({ href, children }) => {
+                      const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                      if (isInternal) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(href || '/');
+                            }}
+                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                          >
+                            {children}
+                          </button>
+                        );
+                      }
                       return (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(href || '/');
-                          }}
-                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                        <a 
+                          href={href} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
                         >
                           {children}
-                        </button>
+                        </a>
                       );
-                    }
-                    return (
-                      <a 
-                        href={href} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
-                      >
+                    },
+                    code: ({ children }) => (
+                      <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
                         {children}
-                      </a>
-                    );
-                  },
-                  code: ({ children }) => (
-                    <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
-                      {children}
-                    </code>
-                  ),
-                }}
-              >
-                {cleanContent}
-              </ReactMarkdown>
+                      </code>
+                    ),
+                  }}
+                >
+                  {cleanContent}
+                </ReactMarkdown>
+              </div>
+              {showVerMais && (
+                <button
+                  type="button"
+                  onClick={() => setContentExpanded((v) => !v)}
+                  className="mt-2 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  {contentExpanded ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      Ver menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      Ver mais
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -527,6 +566,13 @@ const ChatMessageBubble = ({
               <span className="truncate flex-1 text-left">Abrir Audiências</span>
               <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
             </Button>
+          </div>
+        )}
+
+        {/* Serviços (ex.: após mensagem off-topic) */}
+        {hasShowServicesChips && onChipSelect && (
+          <div className="mt-3 w-full">
+            <PromptChips onSelect={onChipSelect} onOpenDiscovery={onOpenDiscovery} />
           </div>
         )}
         

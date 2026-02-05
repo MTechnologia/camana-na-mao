@@ -104,6 +104,20 @@ Procure por:
 1. Verifique se a função existe em `supabase/functions/ai-orchestrator/`
 2. Crie a função primeiro se necessário
 
+### Erro: "Bundle generation timed out" (400)
+
+**Causa:** A função `ai-orchestrator` é muito grande; o servidor do Supabase estoura o tempo ao gerar o bundle.
+
+**Solução recomendada – usar Docker (bundle local):**
+1. Inicie o **Docker Desktop** (ou outro runtime compatível: Podman, Rancher Desktop, OrbStack).
+2. No terminal, na raiz do projeto:
+   ```bash
+   supabase functions deploy ai-orchestrator --use-docker
+   ```
+3. O bundle será gerado na sua máquina e só o resultado é enviado; o timeout do servidor deixa de ocorrer.
+
+**Se não puder usar Docker:** O código já foi dividido em `lib.ts`, `lib-prompts.ts` e `lib-tools.ts` para reduzir tamanho. Se o erro continuar, a única alternativa é subir o Docker e usar `--use-docker`.
+
 ---
 
 ## 📝 Checklist de Deploy
