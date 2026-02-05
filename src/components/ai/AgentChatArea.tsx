@@ -139,25 +139,27 @@ const AgentChatArea = () => {
 
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
-    
-    // Define o tipo de coleta ANTES de limpar para preservar
+
     if (collectionTypePreset) {
       setPresetCollectionType(collectionTypePreset as CollectionType);
     } else {
       setPresetCollectionType(null);
     }
-    
-    // Limpa mensagens mas preserva collectionType quando há preset
+
+    // Se já estamos em uma conversa (ex.: clicou no chip da resposta off-topic), só envia a mensagem na conversa atual
+    if (activeConversationId && initialMessage) {
+      sendMessage(initialMessage.trim());
+      return;
+    }
+
+    // Tela inicial: limpa, adiciona mensagem otimista e cria nova conversa
     clearMessages(!!collectionTypePreset);
-    
-    // UI otimista: adiciona mensagem do usuário imediatamente
     if (initialMessage) {
       addOptimisticMessage(initialMessage);
       pendingMessageRef.current = initialMessage;
     }
-    
+
     const newConvId = await createConversation('general');
-    
     if (newConvId) {
       setActiveConversationId(newConvId);
     }
