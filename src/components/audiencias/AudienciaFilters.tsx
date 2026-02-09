@@ -3,6 +3,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -59,7 +66,7 @@ const AudienciaFilters = ({
     (filters.period !== "all" ? 1 : 0) +
     (filters.year !== "all" ? 1 : 0);
 
-  const anos = ["2026", "2025", "2024", "2023", "2022", "2021"];
+  const anos = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => String(2026 - i));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -165,21 +172,22 @@ const AudienciaFilters = ({
           {/* Ano */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">📆 Ano</Label>
-            <RadioGroup
+            <Select
               value={filters.year}
               onValueChange={(value) => onFiltersChange({ ...filters, year: value })}
             >
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="all" id="year-all" />
-                <Label htmlFor="year-all" className="cursor-pointer">Todos</Label>
-              </div>
-              {anos.map((ano) => (
-                <div key={ano} className="flex items-center space-x-2 p-2">
-                  <RadioGroupItem value={ano} id={`year-${ano}`} />
-                  <Label htmlFor={`year-${ano}`} className="cursor-pointer">{ano}</Label>
-                </div>
-              ))}
-            </RadioGroup>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os anos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {anos.map((ano) => (
+                  <SelectItem key={ano} value={ano}>
+                    {ano}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

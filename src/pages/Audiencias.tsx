@@ -166,6 +166,18 @@ const Audiencias = () => {
   const startItem = totalFiltered === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalFiltered);
 
+  const paginationItems = useMemo((): (number | "ellipsis")[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = new Set<number>([1, totalPages, currentPage, currentPage - 1, currentPage - 2, currentPage + 1, currentPage + 2]);
+    const sorted = Array.from(pages).filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    const result: (number | "ellipsis")[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) result.push("ellipsis");
+      result.push(sorted[i]!);
+    }
+    return result;
+  }, [currentPage, totalPages]);
+
   const handleCardClick = (item: AudienciaRow) => {
     navigate(`/audiencias/${item.id}`);
   };
@@ -317,9 +329,23 @@ const Audiencias = () => {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm px-2 min-w-[80px] text-center">
-                    Página {currentPage} de {totalPages}
-                  </span>
+                  {paginationItems.map((item, i) =>
+                    item === "ellipsis" ? (
+                      <span key={`ellipsis-${i}`} className="px-2 text-sm text-muted-foreground">
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={currentPage === item ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 min-w-9 px-2"
+                        onClick={() => setCurrentPage(item)}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
                   <Button
                     variant="outline"
                     size="icon"
