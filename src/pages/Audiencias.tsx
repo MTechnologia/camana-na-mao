@@ -1,12 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, Users, Loader2 } from "lucide-react";
+import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AudienciaFilters from "@/components/audiencias/AudienciaFilters";
 import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -36,17 +43,32 @@ const Audiencias = () => {
     period: "all",
     year: "all",
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
+  const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
   const { data: audienciasData = [], isLoading, error, refetch } = useQuery({
     queryKey: ["audiencias"],
     queryFn: async (): Promise<AudienciaRow[]> => {
-      const { data, error } = await supabase
-        .from("audiencias")
-        .select("id, titulo, descricao, data, hora, local, tema, status, vagas_disponiveis, inscricoes_abertas")
-        .order("data", { ascending: false });
+      const pageSize = 1000;
+      const all: AudienciaRow[] = [];
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("audiencias")
+          .select("id, titulo, descricao, data, hora, local, tema, status, vagas_disponiveis, inscricoes_abertas")
+          .order("data", { ascending: false })
+          .range(offset, offset + pageSize - 1);
 
-      if (error) throw error;
-      return (data || []) as AudienciaRow[];
+        if (error) throw error;
+        const page = (data || []) as AudienciaRow[];
+        all.push(...page);
+        hasMore = page.length === pageSize;
+        offset += pageSize;
+      }
+      return all;
     },
     staleTime: 5 * 60 * 1000,
     retry: 2,
@@ -129,6 +151,20 @@ const Audiencias = () => {
       return matchesSearch && matchesTheme && matchesStatus && matchesPeriod && matchesYear;
     });
   }, [audienciasData, searchQuery, filters]);
+
+  const totalFiltered = filteredAudiencias.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / itemsPerPage));
+  const paginatedAudiencias = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAudiencias.slice(start, start + itemsPerPage);
+  }, [filteredAudiencias, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters, itemsPerPage]);
+
+  const startItem = totalFiltered === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalFiltered);
 
   const handleCardClick = (item: AudienciaRow) => {
     navigate(`/audiencias/${item.id}`);
@@ -246,16 +282,68 @@ const Audiencias = () => {
             </Card>
           )}
 
+          {/* Pagination bar: per-page selector + info + controls */}
+          {!isLoading && !error && filteredAudiencias.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Mostrar por página</span>
+                <Select
+                  value={String(itemsPerPage)}
+                  onValueChange={(v) => setItemsPerPage(Number(v) as 25 | 50 | 100)}
+                >
+                  <SelectTrigger className="w-[90px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">
+                  {startItem}-{endItem} de {totalFiltered}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm px-2 min-w-[80px] text-center">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Audiências List */}
           {!isLoading && !error && (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAudiencias.length > 0 ? (
-                filteredAudiencias.map((item, index) => {
+                paginatedAudiencias.map((item, index) => {
                   return (
                     <div
                       key={item.id}
                       className="animate-fade-in"
-                      style={{ animationDelay: `${100 + index * 50}ms` }}
+                      style={{ animationDelay: `${100 + index * 30}ms` }}
                     >
                       <Card 
                         className="p-4 hover:shadow-md transition-all cursor-pointer h-full"
