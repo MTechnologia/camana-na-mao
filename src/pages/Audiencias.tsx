@@ -34,6 +34,7 @@ const Audiencias = () => {
     themes: [] as string[],
     status: "all",
     period: "all",
+    year: "all",
   });
 
   const { data: audienciasData = [], isLoading, error, refetch } = useQuery({
@@ -91,8 +92,15 @@ const Audiencias = () => {
       const matchesSearch =
         !q || title.includes(q) || desc.includes(q) || tema.includes(q) || status.includes(q);
 
-      // Theme filter
-      const matchesTheme = filters.themes.length === 0 || filters.themes.includes(a.tema);
+      // Theme filter: match when selected theme appears in tema, título or descrição (case insensitive)
+      const matchesTheme =
+        filters.themes.length === 0 ||
+        filters.themes.some(
+          (selected) =>
+            tema.includes(selected.toLowerCase()) ||
+            title.includes(selected.toLowerCase()) ||
+            desc.includes(selected.toLowerCase())
+        );
 
       // Status filter (heuristic + date fallback)
       const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
@@ -113,7 +121,12 @@ const Audiencias = () => {
         (filters.period === "month" && dateObj >= monthStart && dateObj <= monthEnd) ||
         (filters.period === "next-month" && dateObj >= nextMonthStart && dateObj <= nextMonthEnd);
 
-      return matchesSearch && matchesTheme && matchesStatus && matchesPeriod;
+      // Year filter
+      const itemYear = a.data ? String(a.data).slice(0, 4) : "";
+      const matchesYear =
+        filters.year === "all" || itemYear === filters.year;
+
+      return matchesSearch && matchesTheme && matchesStatus && matchesPeriod && matchesYear;
     });
   }, [audienciasData, searchQuery, filters]);
 
@@ -124,7 +137,8 @@ const Audiencias = () => {
   const activeFiltersCount =
     filters.themes.length +
     (filters.status !== "all" ? 1 : 0) +
-    (filters.period !== "all" ? 1 : 0);
+    (filters.period !== "all" ? 1 : 0) +
+    (filters.year !== "all" ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background pb-24">

@@ -18,9 +18,8 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 
-# Env files (não commitar segredos)
-.env
-.env.*
+# Env files (só variantes; .env na raiz não ignorado)
+
 
 # Editor directories and files
 .cursor/

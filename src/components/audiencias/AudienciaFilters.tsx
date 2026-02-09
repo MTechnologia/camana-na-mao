@@ -17,6 +17,7 @@ interface AudienciaFiltersProps {
     themes: string[];
     status: string;
     period: string;
+    year: string;
   };
   onFiltersChange: (filters: any) => void;
 }
@@ -48,13 +49,17 @@ const AudienciaFilters = ({
       themes: [],
       status: "all",
       period: "all",
+      year: "all",
     });
   };
 
-  const activeFiltersCount = 
-    filters.themes.length + 
-    (filters.status !== "all" ? 1 : 0) + 
-    (filters.period !== "all" ? 1 : 0);
+  const activeFiltersCount =
+    filters.themes.length +
+    (filters.status !== "all" ? 1 : 0) +
+    (filters.period !== "all" ? 1 : 0) +
+    (filters.year !== "all" ? 1 : 0);
+
+  const anos = ["2026", "2025", "2024"];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -154,6 +159,26 @@ const AudienciaFilters = ({
                 <RadioGroupItem value="next-month" id="period-next-month" />
                 <Label htmlFor="period-next-month" className="cursor-pointer">Próximo mês</Label>
               </div>
+            </RadioGroup>
+          </div>
+
+          {/* Ano */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">📆 Ano</Label>
+            <RadioGroup
+              value={filters.year}
+              onValueChange={(value) => onFiltersChange({ ...filters, year: value })}
+            >
+              <div className="flex items-center space-x-2 p-2">
+                <RadioGroupItem value="all" id="year-all" />
+                <Label htmlFor="year-all" className="cursor-pointer">Todos</Label>
+              </div>
+              {anos.map((ano) => (
+                <div key={ano} className="flex items-center space-x-2 p-2">
+                  <RadioGroupItem value={ano} id={`year-${ano}`} />
+                  <Label htmlFor={`year-${ano}`} className="cursor-pointer">{ano}</Label>
+                </div>
+              ))}
             </RadioGroup>
           </div>
         </div>
