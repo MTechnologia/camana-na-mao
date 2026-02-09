@@ -40,7 +40,7 @@ const ParticipacaoPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get("tipo") as "videoconferencia" | "escrito" | null;
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
@@ -52,6 +52,8 @@ const ParticipacaoPage = () => {
   const [consent, setConsent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [audienciaTitle, setAudienciaTitle] = useState<string | null>(null);
+  const [audienciaSlug, setAudienciaSlug] = useState<string | null>(null);
+  const [audienciaApCode, setAudienciaApCode] = useState<string | null>(null);
   const [audienciaLoading, setAudienciaLoading] = useState(true);
 
   const audienciaId = useMemo(() => (id ? String(id) : ""), [id]);
@@ -63,12 +65,19 @@ const ParticipacaoPage = () => {
       setAudienciaLoading(true);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo")
+        .select("id, titulo, slug, ap_code")
         .eq("id", audienciaId)
         .maybeSingle();
       if (!cancelled) {
-        if (error || !data) setAudienciaTitle(null);
-        else setAudienciaTitle(data.titulo);
+        if (error || !data) {
+          setAudienciaTitle(null);
+          setAudienciaSlug(null);
+          setAudienciaApCode(null);
+        } else {
+          setAudienciaTitle(data.titulo);
+          setAudienciaSlug(data.slug ?? null);
+          setAudienciaApCode(data.ap_code ?? null);
+        }
         setAudienciaLoading(false);
       }
     }
@@ -144,6 +153,30 @@ const ParticipacaoPage = () => {
     if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
     setIsLoading(true);
     try {
+      const useNinja = audienciaSlug && audienciaApCode && session?.access_token;
+      if (useNinja) {
+        const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+        const res = await fetch(`${supabaseUrl}/functions/v1/api-router/audiencias/inscricao`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            nome: nome.trim(),
+            email: email.trim(),
+            telefone: telefone.trim(),
+            apCode: audienciaApCode,
+            slug: audienciaSlug,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+          const errors = Array.isArray(data.errors) ? data.errors : [data.errors ?? "Erro ao enviar inscrição."];
+          errors.forEach((msg: string) => toast.error(msg));
+          return;
+        }
+      }
       const { error } = await supabase.from("audiencia_participacoes").insert({
         audiencia_id: audienciaId,
         tipo: "videoconferencia",
@@ -156,9 +189,9 @@ const ParticipacaoPage = () => {
         consent: true,
       });
       if (error) throw error;
-      toast.success("Inscrição realizada! Você receberá o link e instruções por e-mail.");
+      toast.success(useNinja ? "Inscrição realizada na Câmara! Você receberá o link e instruções por e-mail." : "Inscrição registrada! Você receberá o link e instruções por e-mail.");
       setStep(3);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       toast.error("Não foi possível enviar. Tente novamente.");
     } finally {

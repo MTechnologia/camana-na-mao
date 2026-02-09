@@ -147,6 +147,7 @@ export type Database = {
       }
       audiencias: {
         Row: {
+          ap_code: string | null
           created_at: string
           data: string
           descricao: string | null
@@ -156,6 +157,7 @@ export type Database = {
           inscricoes_abertas: boolean | null
           link_transmissao: string | null
           local: string
+          slug: string | null
           status: string
           tema: string
           titulo: string
@@ -163,6 +165,7 @@ export type Database = {
           vagas_disponiveis: number | null
         }
         Insert: {
+          ap_code?: string | null
           created_at?: string
           data: string
           descricao?: string | null
@@ -172,6 +175,7 @@ export type Database = {
           inscricoes_abertas?: boolean | null
           link_transmissao?: string | null
           local: string
+          slug?: string | null
           status?: string
           tema: string
           titulo: string
@@ -179,6 +183,7 @@ export type Database = {
           vagas_disponiveis?: number | null
         }
         Update: {
+          ap_code?: string | null
           created_at?: string
           data?: string
           descricao?: string | null
@@ -188,6 +193,7 @@ export type Database = {
           inscricoes_abertas?: boolean | null
           link_transmissao?: string | null
           local?: string
+          slug?: string | null
           status?: string
           tema?: string
           titulo?: string
