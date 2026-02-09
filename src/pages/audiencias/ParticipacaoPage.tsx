@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Mail, User, FileText, CheckCircle2 } from "lucide-react";
+import { User, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import PageHeader from "@/components/ui/page-header";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +27,13 @@ const BAIRROS_SP = [
   "República", "Sacomã", "Santa Cecília", "São Mateus", "Sé", "Tatuapé",
   "Vila Formosa", "Vila Leopoldina", "Vila Matilde", "Vila Prudente",
 ].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
+function formatPhoneBr(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits ? `(${digits}` : "";
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 
 const ParticipacaoPage = () => {
   const { id } = useParams();
@@ -133,7 +139,8 @@ const ParticipacaoPage = () => {
   const submitVideoconferencia = async () => {
     if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
     if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
-    if (!telefone.trim()) { toast.error("Preencha o telefone/WhatsApp."); return; }
+    const phoneDigits = telefone.replace(/\D/g, "");
+    if (phoneDigits.length < 10) { toast.error("Preencha o telefone/WhatsApp com DDD e número."); return; }
     if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
     setIsLoading(true);
     try {
@@ -162,7 +169,8 @@ const ParticipacaoPage = () => {
   const submitEscrito = async () => {
     if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
     if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
-    if (!telefone.trim()) { toast.error("Preencha o telefone/WhatsApp."); return; }
+    const phoneDigits = telefone.replace(/\D/g, "");
+    if (phoneDigits.length < 10) { toast.error("Preencha o telefone/WhatsApp com DDD e número."); return; }
     if (!bairro) { toast.error("Selecione o bairro (subprefeitura)."); return; }
     if (!sugestao.trim()) { toast.error("Deixe sua sugestão para a audiência."); return; }
     if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
@@ -217,81 +225,45 @@ const ParticipacaoPage = () => {
     );
   }
 
-  // ——— Formulário VIDEOCONFERÊNCIA (Etapa 1: e-mail | Etapa 2: dados completos) ———
+  // ——— Formulário VIDEOCONFERÊNCIA (formulário único, conforme CMSP) ———
   if (tipo === "videoconferencia") {
-    const progressValue = step === 1 ? 50 : 100;
     return (
       <div className="min-h-screen bg-background pb-20">
         <PageHeader title="Quero participar" backTo={backToDetail} />
         <div className="pt-[60px] p-6 space-y-6">
           <p className="text-sm text-muted-foreground">Para:</p>
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
-          <div className="space-y-2">
-            <Progress value={progressValue} className="h-2" />
-            <p className="text-xs text-muted-foreground text-center">Etapa {step} de 2</p>
-          </div>
 
-          {step === 1 && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="flex items-center gap-2 text-primary">
-                <Mail className="h-5 w-5" />
-                <h3 className="font-semibold text-foreground">E-mail para receber convite</h3>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Seu e-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <p className="text-sm font-medium text-foreground">O que você vai receber:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Link de acesso à audiência</li>
-                  <li>• Instruções de participação</li>
-                  <li>• Materiais de apoio</li>
-                  <li>• Lembrete 1 dia antes</li>
-                </ul>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>Envio: entre 8h e 20h</p>
-                <p>Dados protegidos conforme LGPD</p>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button variant="outline" onClick={() => navigate(`/audiencias/${id}`)} className="flex-1">Voltar</Button>
-                <Button
-                  onClick={() => {
-                    if (!email || !email.includes("@")) { toast.error("Insira um e-mail válido."); return; }
-                    setStep(2);
-                  }}
-                  disabled={isLoading}
-                  className="flex-1"
-                >
-                  Continuar
-                </Button>
-              </div>
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="bg-primary text-primary-foreground p-4 flex items-center gap-3">
+              <User className="h-5 w-5 shrink-0" />
+              <h3 className="font-bold uppercase tracking-wide text-sm">
+                Inscreva-se para manifestar-se durante a videoconferência
+              </h3>
             </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="p-4 space-y-4">
               <p className="text-xs text-muted-foreground">Campos marcados com * são requeridos</p>
-              <div className="grid gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome Completo *</Label>
-                  <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" />
+                  <Label htmlFor="nome-v">Nome Completo *</Label>
+                  <Input id="nome-v" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email2">E-mail *</Label>
-                  <Input id="email2" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone/WhatsApp *</Label>
-                  <Input id="telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(11) 99999-9999" />
+                <div className="space-y-2 sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email-v">E-mail *</Label>
+                    <Input id="email-v" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone-v">Telefone/WhatsApp *</Label>
+                    <Input
+                      id="telefone-v"
+                      type="tel"
+                      value={telefone}
+                      onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
+                      placeholder="(11) 99999-9999"
+                      maxLength={16}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="entidade">Entidade</Label>
@@ -301,19 +273,24 @@ const ParticipacaoPage = () => {
                   <Label htmlFor="funcao">Função</Label>
                   <Input id="funcao" value={funcao} onChange={(e) => setFuncao(e.target.value)} placeholder="Opcional" />
                 </div>
-                <div className="flex items-start gap-3">
-                  <Checkbox id="consent-v" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
+              </div>
+              <div className="flex items-start gap-3">
+                <Checkbox id="consent-v" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
+                <div className="space-y-1">
                   <Label htmlFor="consent-v" className="text-sm cursor-pointer">Concordo em compartilhar meus dados pessoais *</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para registro de sua mensagem é necessário que o titular consinta que a Câmara Municipal de São Paulo colha seu nome, e-mail e telefone.
+                  </p>
                 </div>
               </div>
-              <div className="flex gap-3 pt-4">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">Voltar</Button>
-                <Button onClick={submitVideoconferencia} disabled={isLoading} className="flex-1">
-                  {isLoading ? "Enviando..." : "Enviar inscrição"}
+              <div className="flex gap-3 pt-2">
+                <Button variant="outline" onClick={() => navigate(backToDetail)} className="flex-1">Voltar</Button>
+                <Button onClick={submitVideoconferencia} disabled={isLoading} className="flex-1 bg-primary">
+                  {isLoading ? "Enviando..." : "INSCREVA-SE!"}
                 </Button>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -346,7 +323,14 @@ const ParticipacaoPage = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="telefone-e">Telefone/WhatsApp *</Label>
-              <Input id="telefone-e" value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(11) 99999-9999" />
+              <Input
+                id="telefone-e"
+                type="tel"
+                value={telefone}
+                onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
+                placeholder="(11) 99999-9999"
+                maxLength={16}
+              />
             </div>
             <div className="space-y-2">
               <Label>Bairro (Subprefeitura) *</Label>
