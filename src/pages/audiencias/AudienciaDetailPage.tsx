@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Calendar, MapPin, Users, Clock, Building2, User, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -198,18 +198,34 @@ const AudienciaDetailPage = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-4">
-          <Button variant="outline" onClick={() => navigate("/audiencias")} className="flex-1">
+        <div className="flex flex-col gap-3 pt-4">
+          <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
             Voltar
           </Button>
-          <Button 
-            onClick={() => navigate(`/audiencias/${id}/participar`)} 
-            className="flex-1"
-            disabled={!audiencia.inscricoes_abertas}
-          >
-            <User className="h-4 w-4 mr-2" />
-            {audiencia.inscricoes_abertas ? "Quero participar" : "Inscrições fechadas"}
-          </Button>
+          {audiencia.inscricoes_abertas ? (
+            <>
+              <Button
+                onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Inscrição para manifestar-se durante a videoconferência
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
+                className="w-full border-primary text-primary hover:bg-primary/10"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Enviar manifestação por escrito para a audiência
+              </Button>
+            </>
+          ) : (
+            <Button disabled className="w-full">
+              <User className="h-4 w-4 mr-2" />
+              Inscrições fechadas
+            </Button>
+          )}
         </div>
       </div>
     </div>
