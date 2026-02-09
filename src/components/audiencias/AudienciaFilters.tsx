@@ -59,7 +59,7 @@ const AudienciaFilters = ({
     (filters.period !== "all" ? 1 : 0) +
     (filters.year !== "all" ? 1 : 0);
 
-  const anos = ["2026", "2025", "2024"];
+  const anos = ["2026", "2025", "2024", "2023", "2022", "2021"];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
