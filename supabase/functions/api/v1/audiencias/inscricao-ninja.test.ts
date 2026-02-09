@@ -10,6 +10,12 @@ import {
   type NinjaInscricaoInput,
 } from "./inscricao-ninja.ts";
 
+Deno.test("extractNinjaSecurity: extrai ajaxNonce (padrão CMSP)", () => {
+  const html = `var nfFrontEnd = {"adminAjax":"https://www.saopaulo.sp.leg.br/audienciaspublicas/wp-admin/admin-ajax.php","ajaxNonce":"5056748f6d","requireBaseUrl":"..."};`;
+  const got = extractNinjaSecurity(html);
+  assertEquals(got, "5056748f6d");
+});
+
 Deno.test("extractNinjaSecurity: extrai nonce de HTML com padrão security:\"...\"", () => {
   const html = `<script>var nfFrontEnd = { "security": "abc123def456" };</script>`;
   const got = extractNinjaSecurity(html);

@@ -189,7 +189,11 @@ const ParticipacaoPage = () => {
         consent: true,
       });
       if (error) throw error;
-      toast.success(useNinja ? "Inscrição realizada na Câmara! Você receberá o link e instruções por e-mail." : "Inscrição registrada! Você receberá o link e instruções por e-mail.");
+      toast.success(
+        useNinja
+          ? "Inscrição realizada na Câmara! Você receberá o link e instruções por e-mail."
+          : "Inscrição registrada no app. O e-mail de confirmação da Câmara é enviado quando a audiência está vinculada ao formulário oficial."
+      );
       setStep(3);
     } catch (e: unknown) {
       console.error(e);

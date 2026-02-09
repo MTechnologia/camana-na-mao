@@ -40,29 +40,32 @@ export interface NinjaSubmitError {
 export type NinjaSubmitResult = NinjaSubmitSuccess | NinjaSubmitError;
 
 /**
- * Extrai o token "security" (nonce) do HTML da página da audiência.
- * Ninja Forms expõe o nonce em scripts ou em dados embutidos (nfFrontEnd, form settings, etc.).
+ * Extrai o token de nonce do HTML da página da audiência (Ninja Forms).
+ * CMSP usa nfFrontEnd.ajaxNonce; outras instalações podem usar "security" ou wpnonce.
  */
 export function extractNinjaSecurity(html: string): string | null {
   if (!html || typeof html !== "string") return null;
 
   const patterns: RegExp[] = [
+    // CMSP: var nfFrontEnd = {..., "ajaxNonce":"5056748f6d",...}
+    /["']ajaxNonce["']\s*:\s*["']([^"']+)["']/i,
     // "security":"abc123" ou 'security':'abc123'
     /["']security["']\s*:\s*["']([^"']+)["']/i,
     // name="security" value="..."
     /name=["']security["'][^>]*value=["']([^"']+)["']/i,
     /value=["']([^"']+)["'][^>]*name=["']security["']/i,
-    // nf_ajax ou nfFrontEnd data
+    // nf_ajax ou nfFrontEnd com security
     /nf(?:FrontEnd|_ajax)[^"']*["']security["']\s*:\s*["']([^"']+)["']/i,
     // wpnonce / _wpnonce
-    /(?:wpnonce|_wpnonce)["']?\s*[=:]\s*["']([a-f0-9a-zA-Z]{10,})["']/i,
-    // Qualquer valor que pareça nonce (alfanumérico 10+ chars) próximo de "security"
-    /security["']?\s*[=:]\s*["']([a-f0-9a-zA-Z]{10,})["']/i,
+    /(?:wpnonce|_wpnonce)["']?\s*[=:]\s*["']([a-f0-9a-zA-Z]{8,})["']/i,
+    // security = "..." (valor alfanumérico)
+    /security["']?\s*[=:]\s*["']([a-f0-9a-zA-Z]{8,})["']/i,
   ];
 
   for (const re of patterns) {
     const m = html.match(re);
-    if (m && m[1] && m[1].length >= 10) return m[1].trim();
+    const value = m?.[1]?.trim();
+    if (value && value.length >= 8) return value;
   }
   return null;
 }
