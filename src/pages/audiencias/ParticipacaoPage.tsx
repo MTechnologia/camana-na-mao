@@ -154,6 +154,7 @@ const ParticipacaoPage = () => {
     setIsLoading(true);
     try {
       const useNinja = audienciaSlug && audienciaApCode && session?.access_token;
+      let enviadoCâmara = false;
       if (useNinja) {
         const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
         const res = await fetch(`${supabaseUrl}/functions/v1/api-router/audiencias/inscricao`, {
@@ -171,14 +172,11 @@ const ParticipacaoPage = () => {
           }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) {
-          const errors = Array.isArray(data?.errors)
-            ? data.errors
-            : data?.errors
-              ? [String(data.errors)]
-              : [res.status === 400 ? "Dados rejeitados (verifique nome, e-mail, telefone). Se já se inscreveu nesta audiência, a Câmara pode retornar erro de duplicidade." : `Erro na inscrição (${res.status}). Tente novamente.`];
-          errors.forEach((msg: string) => toast.error(msg));
-          return;
+        enviadoCâmara = res.ok && data?.ok === true;
+        if (!enviadoCâmara) {
+          const errors = Array.isArray(data?.errors) ? data.errors : data?.errors ? [String(data.errors)] : [];
+          if (errors.length) errors.forEach((msg: string) => toast.error(msg));
+          else toast.info("Inscrição será registrada no app. Use o botão na próxima tela para completar no site da Câmara e receber o e-mail.");
         }
       }
       const { error } = await supabase.from("audiencia_participacoes").insert({
@@ -194,9 +192,9 @@ const ParticipacaoPage = () => {
       });
       if (error) throw error;
       toast.success(
-        useNinja
+        enviadoCâmara
           ? "Inscrição realizada na Câmara! Você receberá o link e instruções por e-mail."
-          : "Inscrição registrada no app. O e-mail de confirmação da Câmara é enviado quando a audiência está vinculada ao formulário oficial."
+          : "Inscrição registrada no app! Use o botão abaixo para abrir o formulário da Câmara e receber o e-mail."
       );
       setStep(3);
     } catch (e: unknown) {
