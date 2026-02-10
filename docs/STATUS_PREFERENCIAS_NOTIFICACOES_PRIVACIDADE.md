@@ -35,11 +35,12 @@ A página de preferências (`/perfil/preferencias`) está **funcionalmente imple
 ## ❌ O que NÃO está funcionando
 
 ### 1. **Envio de Notificações por E-mail**
-- ❌ Não há lógica para enviar e-mails baseado em `email_enabled`
-- ❌ Não há integração com serviço de e-mail (SendGrid, Resend, etc.)
-- ❌ A função `send-notification` não verifica `email_enabled`
+- ✅ Implementado na Edge Function `send-web-push` (invocada pelo webhook em `notifications` INSERT)
+- ✅ Respeita `email_enabled` em `notification_settings`; usa o e-mail do usuário (auth)
+- ✅ Integração com **Resend** (RESEND_API_KEY, RESEND_FROM nos secrets do Supabase)
+- 📋 **Requisito:** Conta Resend, domínio verificado e secrets configurados (ver `supabase/functions/send-web-push/README.md`).
 
-**Status:** As preferências são salvas, mas e-mails não são enviados.
+**Status:** E-mails enviados quando `email_enabled` e Resend configurado.
 
 ### 2. **Envio de Notificações Push**
 - ✅ Implementado (Web Push no navegador)
@@ -52,11 +53,12 @@ A página de preferências (`/perfil/preferencias`) está **funcionalmente imple
 **Status:** Push no navegador funcional após configurar VAPID e webhook.
 
 ### 3. **Envio de Notificações por SMS**
-- ❌ Não há lógica para enviar SMS baseado em `sms_enabled`
-- ❌ Não há integração com serviço de SMS (Twilio, AWS SNS, etc.)
-- ❌ A função `send-notification` não verifica `sms_enabled`
+- ✅ Implementado na Edge Function `send-web-push` (mesmo webhook)
+- ✅ Respeita `sms_enabled`; usa `profiles.phone` (normalizado para E.164, ex. Brasil +55)
+- ✅ Integração com **Twilio** (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER nos secrets)
+- 📋 **Requisito:** Conta Twilio, número de envio e secrets configurados (ver `supabase/functions/send-web-push/README.md`).
 
-**Status:** As preferências são salvas, mas SMS não são enviados.
+**Status:** SMS enviados quando `sms_enabled` e Twilio configurado.
 
 ### 4. **Envio de Newsletter**
 - ❌ Não há lógica para enviar newsletter baseado em `newsletter_enabled`

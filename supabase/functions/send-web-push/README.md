@@ -1,6 +1,6 @@
-# Send Web Push
+# Send Web Push (+ E-mail e SMS)
 
-Envia **Web Push** ao navegador quando uma notificação é inserida na tabela `notifications`. Respeita `notification_settings.push_enabled` e usa as assinaturas em `push_subscriptions`.
+Envia notificações por **Push** (navegador), **E-mail** (Resend) e **SMS** (Twilio) quando uma linha é inserida em `notifications`. Respeita `notification_settings.push_enabled`, `email_enabled` e `sms_enabled`; e-mail usa o e-mail do usuário (auth); SMS usa o telefone em `profiles.phone` (E.164, ex. Brasil +55).
 
 ## Pré-requisitos
 
@@ -53,7 +53,24 @@ O script com Deno imprime o JSON JWK e depois a linha `your application server k
   $json = (Get-Content vapid.json -Raw) -replace '\s',''; supabase secrets set "VAPID_KEYS=$json"
   ```
 
-Opcional: `PUSH_ADMIN_EMAIL` (ex.: `mailto:suporte@exemplo.org`) no Dashboard ou `supabase secrets set PUSH_ADMIN_EMAIL="mailto:suporte@exemplo.org"`.
+Opcional: `PUSH_ADMIN_EMAIL` (ex.: `mailto:suporte@exemplo.org`).
+
+**E-mail (Resend)** – para enviar notificações por e-mail quando `email_enabled` estiver ativo:
+
+- Crie uma conta em [Resend](https://resend.com), verifique um domínio (ou use o domínio de teste) e gere uma API Key.
+- No Supabase (Edge Functions → Secrets), adicione:
+  - **RESEND_API_KEY**: sua API Key do Resend.
+  - **RESEND_FROM**: remetente no formato `"Nome <notificacoes@seudominio.com>"` (domínio verificado no Resend).
+- Opcional: **APP_URL** – URL base do app (ex.: `https://seusite.com`) para o link “Abrir no app” no e-mail. Se não definir, usa um valor padrão.
+
+**SMS (Twilio)** – para enviar notificações por SMS quando `sms_enabled` estiver ativo:
+
+- Crie uma conta em [Twilio](https://www.twilio.com), compre um número (ou use trial com números verificados).
+- No Supabase (Edge Functions → Secrets), adicione:
+  - **TWILIO_ACCOUNT_SID**: Account SID do Twilio.
+  - **TWILIO_AUTH_TOKEN**: Auth Token do Twilio.
+  - **TWILIO_FROM_NUMBER**: número Twilio no formato E.164 (ex.: `+5511999999999`).
+- O telefone do usuário vem de `profiles.phone`; a função normaliza para E.164 (Brasil: +55 + DDD + número).
 
 ### Configurar frontend (.env)
 
@@ -78,7 +95,7 @@ Para cada **INSERT** em `notifications`, o Supabase deve chamar esta função:
 7. **HTTP Headers**: adicione **Authorization** com o valor **Bearer** + sua **service_role key** (ou use “Add auth header with service key” se disponível).
 8. Salve.
 
-Assim, qualquer insert em `notifications` (trigger de audiência, `send-notification`, `audiencia-reminder-d1`, etc.) dispara o envio de Web Push para os navegadores inscritos.
+Assim, qualquer insert em `notifications` dispara o envio por **Push** (se habilitado e com assinatura), **E-mail** (se habilitado e usuário tem e-mail) e **SMS** (se habilitado e perfil tem telefone).
 
 ## Deploy
 
@@ -116,16 +133,14 @@ supabase functions deploy send-web-push
 
 ## Fluxo
 
-1. Usuário ativa “Push” em **Preferências** no app e permite notificações no navegador.
-2. O frontend registra o **Service Worker** (`/sw-push.js`), obtém a assinatura (PushManager) e grava em `push_subscriptions`.
-3. Quando algo insere uma linha em `notifications`, o webhook chama `send-web-push` com o payload do INSERT.
-4. A função verifica `push_enabled`, lê as assinaturas do usuário e envia o push (título, mensagem, URL) via Web Push API.
-5. O navegador exibe a notificação; ao clicar, abre a URL (ex.: `/audiencias/123`).
+1. **Push:** usuário ativa “Push” em Preferências e permite no navegador; a assinatura é gravada em `push_subscriptions`. **E-mail:** usa o e-mail do login (auth). **SMS:** usa o telefone em Perfil (campo em `profiles.phone`).
+2. Quando algo insere em `notifications`, o webhook chama `send-web-push`.
+3. A função consulta `notification_settings` (push_enabled, email_enabled, sms_enabled) e envia por cada canal habilitado para o qual exista contato (assinatura, e-mail ou telefone).
+4. Push: navegador exibe a notificação; E-mail: Resend envia; SMS: Twilio envia.
 
 ## Respostas
 
-- `{ "success": true, "sent": 1 }` – push enviado.
-- `{ "success": true, "sent": 0, "reason": "no_subscriptions" }` – usuário não tem assinatura (não ativou push neste dispositivo).
-- `{ "success": true, "sent": 0, "reason": "vapid_not_configured" }` – secret `VAPID_KEYS` não configurado.
+- `{ "success": true, "push": 1, "email": 1, "sms": 0 }` – push e e-mail enviados; SMS não (desabilitado ou sem telefone).
+- `{ "success": true, "push": 0, "email": 0, "sms": 0 }` – nenhum canal enviado (preferências ou falta de configuração/secrets).
 
-Assinaturas que retornam 410/404 são removidas da tabela automaticamente.
+Assinaturas push que retornam 410/404 são removidas automaticamente.
