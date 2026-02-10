@@ -9,26 +9,34 @@ Se você se inscreveu e **não recebeu o e-mail**, é porque essa audiência ain
 
 ## Ativar o envio para o formulário oficial (e o e-mail)
 
-É preciso preencher, para cada audiência que tem formulário no site da CMSP:
+É preciso preencher, para cada audiência que tem formulário no site da CMSP, os campos **`slug`** e **`ap_code`** na tabela `audiencias`.
 
-1. **`slug`** – parte da URL da audiência no site:
-   - Exemplo: URL `https://www.saopaulo.sp.leg.br/audienciaspublicas/audiencia/financas-26-02-2026/`
-   - `slug` = `financas-26-02-2026`
+### Opção 1: Sincronização automática (recomendado)
 
-2. **`ap_code`** – código usado no formulário Ninja (ex.: `FIN02-26-02-2026`). Costuma aparecer na página ou no formulário da audiência no site da CMSP.
+A listagem oficial está em [Audiências Públicas – CMSP](https://www.saopaulo.sp.leg.br/audienciaspublicas/audiencias/). Um script lê essa página, extrai os slugs dos links (`/audiencia/{slug}/`) e atualiza as audiências no nosso banco que batem por **data**.
 
-### Como preencher no banco
+```bash
+node scripts/sync-audiencias-cmsp-slugs.mjs [páginas]
+```
 
-No Supabase (SQL Editor ou via script), por exemplo:
+- **páginas** = quantas páginas da listagem buscar (default: 5). Aumente (ex.: 20) para cobrir mais audiências antigas.
+- Requer no `.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+
+Assim, sempre que rodar o seed (ou tiver audiências novas com a mesma data da CMSP), pode rodar esse script para preencher `slug` e `ap_code` em massa.
+
+### Opção 2: Preencher manualmente no banco
+
+1. **`slug`** – parte da URL da audiência no site (ex.: `fin02-26-02-2026` em `.../audiencia/fin02-26-02-2026/`).
+2. **`ap_code`** – código no formulário Ninja (ex.: `FIN02-26-02-2026`; costuma ser o slug com a primeira parte em maiúsculas).
+
+No Supabase (SQL Editor):
 
 ```sql
 UPDATE public.audiencias
-SET slug = 'financas-26-02-2026',
+SET slug = 'fin02-26-02-2026',
     ap_code = 'FIN02-26-02-2026'
 WHERE id = 'uuid-da-audiencia';
 ```
-
-Ou atualizar em lote se você tiver uma planilha/JSON com `id`, `slug` e `ap_code` de cada audiência.
 
 ### Deploy do backend
 
