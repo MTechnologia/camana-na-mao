@@ -36,6 +36,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS after_audiencia_participacao_inscricao ON public.audiencia_participacoes;
 CREATE TRIGGER after_audiencia_participacao_inscricao
   AFTER INSERT ON public.audiencia_participacoes
   FOR EACH ROW

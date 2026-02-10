@@ -86,6 +86,34 @@ Assim, qualquer insert em `notifications` (trigger de audiência, `send-notifica
 supabase functions deploy send-web-push
 ```
 
+## Como testar o push
+
+1. **Checar pré-requisitos**
+   - Migration `push_subscriptions` aplicada (`supabase db push` ou já no projeto).
+   - Função `send-web-push` em deploy e secret **VAPID_KEYS** configurado.
+   - Webhook em **notifications** (Insert) apontando para `send-web-push`, com header de autorização (service_role).
+   - Frontend com **VITE_VAPID_PUBLIC_KEY** no `.env`.
+
+2. **Ativar push no app**
+   - Abra o app (ex.: `npm run dev`) e faça login.
+   - Vá em **Perfil** → **Preferências**.
+   - Ative o switch **Push** (“Notificações no navegador”).
+   - Quando o navegador pedir, clique em **Permitir**.
+   - Salve as preferências. A assinatura será gravada em `push_subscriptions`.
+
+3. **Disparar uma notificação**
+   - **Opção A – Lembrete audiência:** chame a função `audiencia-reminder-d1` com `?for_date=YYYY-MM-DD` (data de uma audiência que tenha sua inscrição). Ex.: no cron ou no navegador:  
+     `https://SEU_PROJECT.supabase.co/functions/v1/audiencia-reminder-d1?for_date=2026-02-26`  
+     (com header `Authorization: Bearer SEU_ANON_KEY`). Isso insere em `notifications` e o webhook chama `send-web-push`.
+   - **Opção B – Inserção manual (Dashboard):** Supabase → **Table Editor** → tabela **notifications** → **Insert row**. Preencha `user_id` (seu usuário), `title`, `message`, `type` (ex.: `general`), e salve. O webhook dispara e o push é enviado.
+   - **Opção C – send-notification:** se tiver como chamar a Edge Function `send-notification` com seu `userId`, ela insere em `notifications` e o webhook envia o push.
+
+4. **Ver o push**
+   - Deixe o app em segundo plano (minimize o navegador ou abra outra aba) ou feche a aba do app.
+   - O navegador deve exibir a notificação (título e corpo). Ao clicar, deve abrir a URL da notificação (ex.: a página da audiência).
+
+**Dica:** Use o **Table Editor** (opção B) para um teste rápido: insira uma linha em `notifications` e confira se o push aparece no sistema e no navegador.
+
 ## Fluxo
 
 1. Usuário ativa “Push” em **Preferências** no app e permite notificações no navegador.

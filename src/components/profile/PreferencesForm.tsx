@@ -204,13 +204,26 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               id="push-notif"
               checked={notificationSettings.push_enabled}
               disabled={!pushSupported}
-              onCheckedChange={async (checked) => {
-                setNotificationSettings((prev) => ({ ...prev, push_enabled: checked }));
-                if (checked && pushSupported) {
-                  const ok = await subscribe(userId);
-                  if (ok) toast.success("Notificações push ativadas");
-                  else toast.info("Permita notificações no navegador ou tente novamente.");
+              onCheckedChange={(checked) => {
+                if (!checked || !pushSupported) {
+                  setNotificationSettings((prev) => ({ ...prev, push_enabled: checked }));
+                  return;
                 }
+                // Pedir permissão no mesmo momento do clique para o navegador exibir o diálogo
+                Notification.requestPermission().then(async (permission) => {
+                  setNotificationSettings((prev) => ({ ...prev, push_enabled: checked }));
+                  if (permission === "granted") {
+                    const ok = await subscribe(userId);
+                    if (ok) toast.success("Notificações push ativadas");
+                    else toast.info("Permita notificações no navegador ou tente novamente.");
+                  } else {
+                    toast.info(
+                      permission === "denied"
+                        ? "Notificações bloqueadas. Para ativar: ícone de cadeado na barra de endereço → Configurações do site → Notificações → Permitir."
+                        : "Permita notificações no navegador ou tente novamente."
+                    );
+                  }
+                });
               }}
             />
           </div>
