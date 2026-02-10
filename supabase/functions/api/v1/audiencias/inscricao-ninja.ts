@@ -24,6 +24,8 @@ export interface NinjaInscricaoInput {
   security: string;
   /** URL da página da audiência (Referer). */
   referer?: string;
+  /** form_id do Ninja Forms (extraído da página se não informado). */
+  formId?: number;
 }
 
 export interface NinjaSubmitSuccess {
@@ -71,9 +73,24 @@ export function extractNinjaSecurity(html: string): string | null {
 }
 
 /**
+ * Extrai o form_id do formulário de inscrição (Ninja Forms) no HTML da página.
+ * Procura form.id='X' no bloco que contém "Inscrições" ou "Event Registration".
+ */
+export function extractNinjaFormId(html: string): number | null {
+  if (!html || typeof html !== "string") return null;
+  const m = html.match(/form\.id\s*=\s*['"](\d+)['"]/);
+  if (m && m[1]) {
+    const n = parseInt(m[1], 10);
+    if (n >= 1 && n <= 9999) return n;
+  }
+  return null;
+}
+
+/**
  * Monta o formData no formato esperado pelo Ninja Forms (JSON string).
  */
 function buildFormDataPayload(input: NinjaInscricaoInput): string {
+  const formId = input.formId ?? NINJA_FORM_ID;
   const fields: Record<string, unknown> = {
     [String(FIELD_NAMES.nome)]: input.nome.trim(),
     [String(FIELD_NAMES.email)]: input.email.trim(),
@@ -82,7 +99,7 @@ function buildFormDataPayload(input: NinjaInscricaoInput): string {
     [String(FIELD_NAMES.lgpd)]: 1,
   };
   const formData = {
-    form_id: NINJA_FORM_ID,
+    form_id: formId,
     fields,
   };
   return JSON.stringify(formData);
@@ -99,6 +116,8 @@ function mapNinjaErrors(errors: unknown): string[] {
         const lower = msg.toLowerCase();
         if (lower.includes("duplicad") || lower.includes("already") || lower.includes("já inscrit"))
           return "Você já está inscrito nesta audiência.";
+        if (lower.includes("formulário não existe") || lower.includes("form does not exist") || lower.includes("form not found"))
+          return "O formulário da Câmara está temporariamente indisponível. Tente inscrever-se diretamente no site da Câmara (link na audiência) ou mais tarde.";
         if (lower.includes("email")) return "E-mail inválido ou já utilizado.";
         if (lower.includes("telefone") || lower.includes("phone")) return "Telefone inválido.";
         if (lower.includes("nome")) return "Nome inválido.";
@@ -220,6 +239,7 @@ export async function fetchPageAndSubmit(
 
   const html = await pageRes.text();
   const security = extractNinjaSecurity(html);
+  const formId = extractNinjaFormId(html) ?? NINJA_FORM_ID;
 
   if (!security) {
     return {
@@ -228,5 +248,5 @@ export async function fetchPageAndSubmit(
     };
   }
 
-  return submitNinjaForm({ ...input, security, referer: pageUrl });
+  return submitNinjaForm({ ...input, security, referer: pageUrl, formId });
 }
