@@ -68,6 +68,7 @@ export async function postAudienciaInscricao(req: Request): Promise<Response> {
 
   const validation = validateInscricaoBody(body);
   if (!validation.ok) {
+    console.warn("[audiencias/inscricao] Validação rejeitada:", validation.errors);
     return jsonResponse({ ok: false, errors: validation.errors }, 400);
   }
 
@@ -88,6 +89,7 @@ export async function postAudienciaInscricao(req: Request): Promise<Response> {
       );
     }
 
+    console.warn("[audiencias/inscricao] CMSP/Ninja retornou erro:", JSON.stringify(result.errors));
     return jsonResponse({ ok: false, errors: result.errors }, 400);
   } catch (err) {
     console.error("[audiencias/inscricao]", err);

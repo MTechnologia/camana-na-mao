@@ -171,8 +171,12 @@ const ParticipacaoPage = () => {
           }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!data.ok) {
-          const errors = Array.isArray(data.errors) ? data.errors : [data.errors ?? "Erro ao enviar inscrição."];
+        if (!res.ok || !data.ok) {
+          const errors = Array.isArray(data?.errors)
+            ? data.errors
+            : data?.errors
+              ? [String(data.errors)]
+              : [res.status === 400 ? "Dados rejeitados (verifique nome, e-mail, telefone). Se já se inscreveu nesta audiência, a Câmara pode retornar erro de duplicidade." : `Erro na inscrição (${res.status}). Tente novamente.`];
           errors.forEach((msg: string) => toast.error(msg));
           return;
         }
@@ -264,12 +268,19 @@ const ParticipacaoPage = () => {
 
   // ——— Formulário VIDEOCONFERÊNCIA (formulário único, conforme CMSP) ———
   if (tipo === "videoconferencia") {
+    const enviaraCâmara = Boolean(audienciaSlug && audienciaApCode);
     return (
       <div className="min-h-screen bg-background pb-20">
         <PageHeader title="Quero participar" backTo={backToDetail} />
         <div className="pt-[60px] p-6 space-y-6">
           <p className="text-sm text-muted-foreground">Para:</p>
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
+
+          {!enviaraCâmara && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-3 text-sm text-amber-800 dark:text-amber-200">
+              Sua inscrição será registrada no app. O e-mail de confirmação com link e instruções é enviado pela Câmara quando a audiência está vinculada ao formulário oficial; esta ainda não está. Para ativar, use o script de sincronização ou preencha slug/ap_code no banco.
+            </div>
+          )}
 
           <div className="border border-border rounded-lg overflow-hidden">
             <div className="bg-primary text-primary-foreground p-4 flex items-center gap-3">

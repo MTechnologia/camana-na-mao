@@ -29,7 +29,18 @@ Assim, sempre que rodar o seed (ou tiver audiências novas com a mesma data da C
 1. **`slug`** – parte da URL da audiência no site (ex.: `fin02-26-02-2026` em `.../audiencia/fin02-26-02-2026/`).
 2. **`ap_code`** – código no formulário Ninja (ex.: `FIN02-26-02-2026`; costuma ser o slug com a primeira parte em maiúsculas).
 
-No Supabase (SQL Editor):
+No Supabase (SQL Editor), para **uma audiência específica** (ex.: Comissão de Finanças, fev/2026):
+
+```sql
+-- Exemplo: audiência "Comissão de Finanças e Orçamento" / Metas Fiscais (26 ou 25 fev 2026)
+UPDATE public.audiencias
+SET slug = 'fin02-26-02-2026',
+    ap_code = 'FIN02-26-02-2026'
+WHERE (titulo ILIKE '%Finanças%' OR tema ILIKE '%Finanças%')
+  AND data >= '2026-02-01' AND data <= '2026-02-28';
+```
+
+Ou por UUID (pegue o id na URL ao abrir os detalhes da audiência):
 
 ```sql
 UPDATE public.audiencias
