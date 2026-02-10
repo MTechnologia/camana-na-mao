@@ -239,7 +239,10 @@ const ParticipacaoPage = () => {
     }
   };
 
+  const CMSP_AUDIENCIA_URL = "https://www.saopaulo.sp.leg.br/audienciaspublicas/audiencia";
+
   if (step === 3) {
+    const linkCâmara = audienciaSlug ? `${CMSP_AUDIENCIA_URL}/${encodeURIComponent(audienciaSlug)}/` : null;
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
         <div className="max-w-md w-full text-center space-y-6">
@@ -255,9 +258,18 @@ const ParticipacaoPage = () => {
             <p className="text-muted-foreground">
               {tipo === "escrito"
                 ? "Sua manifestação por escrito foi registrada."
-                : "Você receberá um e-mail com o link e as instruções para participar da audiência."}
+                : "Sua inscrição foi registrada no app. Para receber o e-mail com link e instruções da Câmara, complete a inscrição no site oficial abaixo."}
             </p>
           </div>
+          {tipo === "videoconferencia" && linkCâmara && (
+            <Button
+              variant="outline"
+              className="w-full border-primary text-primary"
+              onClick={() => window.open(linkCâmara, "_blank", "noopener,noreferrer")}
+            >
+              Abrir formulário da Câmara (receber e-mail)
+            </Button>
+          )}
           <Button onClick={() => navigate("/audiencias")} className="w-full">
             Ver outras audiências
           </Button>
