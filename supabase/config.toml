@@ -15,6 +15,9 @@ verify_jwt = true
 [functions.send-notification]
 verify_jwt = true
 
+[functions.send-web-push]
+verify_jwt = false
+
 [functions.analyze-sentiment]
 verify_jwt = true
 

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, MessageCircle } from "lucide-react";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface PreferencesFormProps {
   userId: string;
@@ -32,6 +33,7 @@ interface PrivacySettings {
 
 const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const [loading, setLoading] = useState(false);
+  const { subscribe, supported: pushSupported } = usePushNotifications();
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     push_enabled: true,
     email_enabled: true,
@@ -192,16 +194,24 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                   Push
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Notificações no navegador
+                  {pushSupported
+                    ? "Notificações no navegador (permita quando solicitado)"
+                    : "Push não suportado neste navegador"}
                 </p>
               </div>
             </div>
             <Switch
               id="push-notif"
               checked={notificationSettings.push_enabled}
-              onCheckedChange={(checked) =>
-                setNotificationSettings(prev => ({ ...prev, push_enabled: checked }))
-              }
+              disabled={!pushSupported}
+              onCheckedChange={async (checked) => {
+                setNotificationSettings((prev) => ({ ...prev, push_enabled: checked }));
+                if (checked && pushSupported) {
+                  const ok = await subscribe(userId);
+                  if (ok) toast.success("Notificações push ativadas");
+                  else toast.info("Permita notificações no navegador ou tente novamente.");
+                }
+              }}
             />
           </div>
 

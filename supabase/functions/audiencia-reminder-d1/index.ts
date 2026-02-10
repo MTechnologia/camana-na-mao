@@ -3,7 +3,8 @@
  * cuja audiência é amanhã (data = CURRENT_DATE + 1).
  *
  * Deve ser invocado por cron (ex.: diariamente às 08:00 BRT).
- * Opcional: header x-cron-secret para proteger a URL.
+ * Para TESTE: use ?for_date=YYYY-MM-DD (ex.: ?for_date=2026-02-26) para simular
+ * "amanhã" = essa data e disparar o lembrete para audiências nesse dia.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -20,13 +21,20 @@ serve(async (req) => {
   }
 
   try {
+    const url = new URL(req.url);
+    const forDateParam = url.searchParams.get("for_date");
+    let targetDateStr: string;
+    if (forDateParam && /^\d{4}-\d{2}-\d{2}$/.test(forDateParam)) {
+      targetDateStr = forDateParam;
+    } else {
+      const amanha = new Date();
+      amanha.setDate(amanha.getDate() + 1);
+      targetDateStr = amanha.toISOString().slice(0, 10);
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    const amanhaStr = amanha.toISOString().slice(0, 10);
 
     const { data: participacoes, error: errPart } = await supabase
       .from("audiencia_participacoes")
@@ -54,12 +62,18 @@ serve(async (req) => {
 
     const paraAmanha = (participacoes || []).filter((p: { audiencias: { data: string } }) => {
       const d = p.audiencias?.data;
-      return d && d.slice(0, 10) === amanhaStr;
+      return d && d.slice(0, 10) === targetDateStr;
     });
 
     if (paraAmanha.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, sent: 0, message: "Nenhuma audiência amanhã com inscritos." }),
+        JSON.stringify({
+          success: true,
+          sent: 0,
+          message: forDateParam
+            ? `Nenhuma audiência em ${targetDateStr} com inscritos.`
+            : "Nenhuma audiência amanhã com inscritos.",
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

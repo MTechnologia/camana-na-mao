@@ -18,6 +18,10 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 
+# VAPID keys (Web Push) – não commitar
+vapid.json
+vapid_public.txt
+
 # Env files (só variantes; .env na raiz não ignorado)
 
 

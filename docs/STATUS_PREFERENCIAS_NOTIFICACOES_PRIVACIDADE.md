@@ -42,12 +42,14 @@ A página de preferências (`/perfil/preferencias`) está **funcionalmente imple
 **Status:** As preferências são salvas, mas e-mails não são enviados.
 
 ### 2. **Envio de Notificações Push**
-- ⚠️ Parcialmente implementado
+- ✅ Implementado (Web Push no navegador)
 - ✅ A função `send-notification` verifica `push_enabled`
-- ❌ Não há integração com Web Push API do navegador
-- ❌ Não há registro de service workers para push notifications
+- ✅ Service worker `public/sw-push.js` + hook `usePushNotifications` (registro e assinatura)
+- ✅ Tabela `push_subscriptions`; Edge Function `send-web-push` (invocada por webhook em `notifications` INSERT)
+- ✅ Preferência "Push" em Perfil → Preferências ativa permissão e grava assinatura
+- 📋 **Requisito:** Configurar VAPID_KEYS no Supabase, VITE_VAPID_PUBLIC_KEY no frontend e criar o Database Webhook (ver `supabase/functions/send-web-push/README.md`).
 
-**Status:** As preferências são respeitadas, mas push notifications não são enviadas ao navegador.
+**Status:** Push no navegador funcional após configurar VAPID e webhook.
 
 ### 3. **Envio de Notificações por SMS**
 - ❌ Não há lógica para enviar SMS baseado em `sms_enabled`
