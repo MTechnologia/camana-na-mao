@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useMemo, use
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useExpoPushToken } from "@/hooks/useExpoPushToken";
 
 interface Notification {
   id: string;
@@ -33,6 +34,8 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  useExpoPushToken(user?.id);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;

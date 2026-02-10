@@ -52,22 +52,27 @@ export default function App() {
     }
   }
 
+  // Em produção: só o WebView (sem abas Frontend/API)
+  const showDevTabs = __DEV__;
+
   return (
     <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar hidden />
-      <View style={styles.tabs}>
-        <Pressable
-          onPress={() => setTab('frontend')}
-          style={[styles.tabBtn, tab === 'frontend' && styles.tabBtnActive]}
-        >
-          <Text style={[styles.tabText, tab === 'frontend' && styles.tabTextActive]}>Frontend</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab('api')} style={[styles.tabBtn, tab === 'api' && styles.tabBtnActive]}>
-          <Text style={[styles.tabText, tab === 'api' && styles.tabTextActive]}>API</Text>
-        </Pressable>
-      </View>
+      {showDevTabs && (
+        <View style={styles.tabs}>
+          <Pressable
+            onPress={() => setTab('frontend')}
+            style={[styles.tabBtn, tab === 'frontend' && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabText, tab === 'frontend' && styles.tabTextActive]}>Frontend</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('api')} style={[styles.tabBtn, tab === 'api' && styles.tabBtnActive]}>
+            <Text style={[styles.tabText, tab === 'api' && styles.tabTextActive]}>API</Text>
+          </Pressable>
+        </View>
+      )}
 
-      {tab === 'frontend' ? (
+      {!showDevTabs || tab === 'frontend' ? (
         <FrontendWebView />
       ) : (
         <ScrollView contentContainerStyle={styles.container}>

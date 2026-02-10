@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { WebView } from 'react-native-webview';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, NativeSyntheticEvent, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 
 function normalizeAndValidate(url: string): string | null {
   const trimmed = url.trim();
@@ -13,14 +16,55 @@ function normalizeAndValidate(url: string): string | null {
 // Fallback: URL pública do Render (e ainda dá pra editar no próprio app).
 const DEFAULT_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://camara-na-mao.onrender.com/';
 
+const EXPO_PUSH_MESSAGE_TYPE = 'getExpoPushToken';
+
 export function FrontendWebView() {
   const [reloadKey, setReloadKey] = useState(0);
   const [draftUrl, setDraftUrl] = useState(() => DEFAULT_WEB_URL.trim());
   const [activeUrl, setActiveUrl] = useState(() => normalizeAndValidate(DEFAULT_WEB_URL) ?? '');
   const [error, setError] = useState<string | null>(null);
+  const expoPushTokenRef = useRef<string | null>(null);
+  const webViewRef = useRef<WebView>(null);
 
   const normalizedDraft = useMemo(() => draftUrl.trim(), [draftUrl]);
   const normalizedActive = useMemo(() => activeUrl.trim(), [activeUrl]);
+
+  useEffect(() => {
+    if (!Device.isDevice) return;
+    (async () => {
+      const { status: existing } = await Notifications.getPermissionsAsync();
+      let final = existing;
+      if (existing !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        final = status;
+      }
+      if (final !== 'granted') return;
+      try {
+        const projectId = process.env.EXPO_PUBLIC_PROJECT_ID ?? Constants.expoConfig?.extra?.eas?.projectId;
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: projectId ?? undefined,
+        });
+        expoPushTokenRef.current = tokenData.data;
+      } catch (e) {
+        console.warn('[FrontendWebView] Expo push token error:', e);
+      }
+    })();
+  }, []);
+
+  const handleWebViewMessage = useCallback(
+    (event: NativeSyntheticEvent<WebViewMessageEvent>) => {
+      try {
+        const data = JSON.parse(event.nativeEvent.data);
+        if (data?.type === EXPO_PUSH_MESSAGE_TYPE && webViewRef.current && expoPushTokenRef.current) {
+          const token = expoPushTokenRef.current.replace(/"/g, '\\"');
+          webViewRef.current.injectJavaScript(
+            `window.dispatchEvent(new CustomEvent('expoPushToken', { detail: "${token}" })); true;`
+          );
+        }
+      } catch (_) {}
+    },
+    []
+  );
 
   if (!normalizedActive) {
     return (
@@ -62,50 +106,56 @@ export function FrontendWebView() {
     );
   }
 
+  // Em produção: não mostrar barra de URL (campo, Abrir, Reload)
+  const showUrlBar = __DEV__;
+
   return (
     <View style={styles.flex}>
-      <View style={styles.topBar}>
-        <TextInput
-          value={draftUrl}
-          onChangeText={(t) => {
-            setDraftUrl(t);
-            setError(null);
-          }}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholder="http://192.168.15.28:8080/"
-          placeholder="http://192.168.15.28:5173/"
-          style={styles.urlInput}
-        />
-        <Pressable
-          onPress={() => {
-            const valid = normalizeAndValidate(normalizedDraft);
-            if (!valid) {
-              setError('URL inválida. Use http:// ou https://');
-              return;
-            }
-            setActiveUrl(valid);
-            setReloadKey((k) => k + 1);
-          }}
-          style={styles.reloadBtn}
-        >
-          <Text style={styles.reloadText}>Abrir</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setReloadKey((k) => k + 1)}
-          style={[styles.reloadBtn, styles.secondaryBtn]}
-        >
-          <Text style={styles.reloadText}>Reload</Text>
-        </Pressable>
-      </View>
-
-      {error && (
-        <View style={styles.errorBar}>
-          <Text style={styles.error}>{error}</Text>
-        </View>
+      {showUrlBar && (
+        <>
+          <View style={styles.topBar}>
+            <TextInput
+              value={draftUrl}
+              onChangeText={(t) => {
+                setDraftUrl(t);
+                setError(null);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="http://192.168.15.28:5173/"
+              style={styles.urlInput}
+            />
+            <Pressable
+              onPress={() => {
+                const valid = normalizeAndValidate(normalizedDraft);
+                if (!valid) {
+                  setError('URL inválida. Use http:// ou https://');
+                  return;
+                }
+                setActiveUrl(valid);
+                setReloadKey((k) => k + 1);
+              }}
+              style={styles.reloadBtn}
+            >
+              <Text style={styles.reloadText}>Abrir</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setReloadKey((k) => k + 1)}
+              style={[styles.reloadBtn, styles.secondaryBtn]}
+            >
+              <Text style={styles.reloadText}>Reload</Text>
+            </Pressable>
+          </View>
+          {error && (
+            <View style={styles.errorBar}>
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          )}
+        </>
       )}
 
       <WebView
+        ref={webViewRef}
         key={reloadKey}
         source={{ uri: normalizedActive }}
         startInLoadingState
@@ -116,6 +166,10 @@ export function FrontendWebView() {
           </View>
         )}
         allowsBackForwardNavigationGestures
+        onMessage={handleWebViewMessage}
+        injectedJavaScriptBeforeDOMContentLoaded={
+          "window.__CAMARA_IN_APP__ = true;"
+        }
       />
     </View>
   );

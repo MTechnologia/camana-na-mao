@@ -23,7 +23,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "label": "Câmara na Mão"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,6 +34,7 @@
         "projectId": "7fb6c435-44ad-4cda-b5c1-35c90072d7b3"
       }
     },
+    "plugins": ["expo-notifications"],
     "updates": {
       "enabled": false,
       "fallbackToCacheTimeout": 0

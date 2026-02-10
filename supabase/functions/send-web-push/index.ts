@@ -81,21 +81,24 @@ serve(async (req) => {
 
     let userEmail: string | null = null;
     let userPhone: string | null = null;
+    let expoPushToken: string | null = null;
 
-    if (emailEnabled || smsEnabled) {
+    if (pushEnabled || emailEnabled || smsEnabled) {
       const [{ data: profile }, { data: authUser }] = await Promise.all([
-        supabase.from("profiles").select("phone").eq("id", userId).maybeSingle(),
+        supabase.from("profiles").select("phone, expo_push_token").eq("id", userId).maybeSingle(),
         supabase.auth.admin.getUserById(userId),
       ]);
       userEmail = authUser?.user?.email ?? null;
       userPhone = toE164(profile?.phone ?? null);
+      expoPushToken = profile?.expo_push_token ?? null;
     }
 
     let pushSent = 0;
     let emailSent = 0;
     let smsSent = 0;
+    let expoSent = 0;
 
-    // --- Push ---
+    // --- Push (navegador Web) ---
     if (pushEnabled) {
       const vapidKeysJson = Deno.env.get("VAPID_KEYS");
       const { data: subscriptions, error: subError } = await supabase
@@ -211,6 +214,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         push: pushSent,
+        expo: expoSent,
         email: emailSent,
         sms: smsSent,
       }),

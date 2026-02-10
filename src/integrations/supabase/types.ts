@@ -986,6 +986,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          expo_push_token: string | null
           full_name: string
           id: string
           onboarding_completed_at: string | null
@@ -995,6 +996,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          expo_push_token?: string | null
           full_name: string
           id: string
           onboarding_completed_at?: string | null
@@ -1004,6 +1006,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          expo_push_token?: string | null
           full_name?: string
           id?: string
           onboarding_completed_at?: string | null
