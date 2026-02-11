@@ -35,6 +35,7 @@ export function FrontendWebView() {
   const [activeUrl, setActiveUrl] = useState(() => normalizeAndValidate(DEFAULT_WEB_URL) ?? '');
   const [error, setError] = useState<string | null>(null);
   const expoPushTokenRef = useRef<string | null>(null);
+  const pendingTokenRequestRef = useRef(false);
   const webViewRef = useRef<WebView>(null);
 
   const normalizedDraft = useMemo(() => draftUrl.trim(), [draftUrl]);
@@ -49,6 +50,15 @@ export function FrontendWebView() {
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#2563EB',
     }).catch((e) => console.warn('[FrontendWebView] Channel setup:', e));
+  }, []);
+
+  const sendTokenToWeb = useCallback(() => {
+    const token = expoPushTokenRef.current;
+    if (!webViewRef.current || !token || !token.startsWith('ExponentPushToken')) return;
+    const escaped = token.replace(/"/g, '\\"');
+    webViewRef.current.injectJavaScript(
+      `window.dispatchEvent(new CustomEvent('expoPushToken', { detail: "${escaped}" })); true;`
+    );
   }, []);
 
   useEffect(() => {
@@ -67,11 +77,15 @@ export function FrontendWebView() {
           projectId: projectId ?? undefined,
         });
         expoPushTokenRef.current = tokenData.data;
+        if (pendingTokenRequestRef.current) {
+          pendingTokenRequestRef.current = false;
+          setTimeout(sendTokenToWeb, 100);
+        }
       } catch (e) {
         console.warn('[FrontendWebView] Expo push token error:', e);
       }
     })();
-  }, []);
+  }, [sendTokenToWeb]);
 
   // Universal Links (iOS) / App Links (Android): quando o usuário abre um link do e-mail no celular, abrir no app
   useEffect(() => {
@@ -94,15 +108,15 @@ export function FrontendWebView() {
     (event: NativeSyntheticEvent<WebViewMessageEvent>) => {
       try {
         const data = JSON.parse(event.nativeEvent.data);
-        if (data?.type === EXPO_PUSH_MESSAGE_TYPE && webViewRef.current && expoPushTokenRef.current) {
-          const token = expoPushTokenRef.current.replace(/"/g, '\\"');
-          webViewRef.current.injectJavaScript(
-            `window.dispatchEvent(new CustomEvent('expoPushToken', { detail: "${token}" })); true;`
-          );
+        if (data?.type !== EXPO_PUSH_MESSAGE_TYPE) return;
+        if (webViewRef.current && expoPushTokenRef.current) {
+          sendTokenToWeb();
+        } else {
+          pendingTokenRequestRef.current = true;
         }
       } catch (_) {}
     },
-    []
+    [sendTokenToWeb]
   );
 
   if (!normalizedActive) {

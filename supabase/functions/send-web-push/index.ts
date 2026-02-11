@@ -148,6 +148,9 @@ serve(async (req) => {
       }
 
       // --- Push (app mobile Expo) — aparece na bandeja do celular ---
+      if (pushEnabled && !expoPushToken) {
+        console.log("[notification-delivery] Expo push skipped: no expo_push_token for user", userId, "(abrir o app uma vez com login para registrar o token)");
+      }
       if (expoPushToken && expoPushToken.startsWith("ExponentPushToken")) {
         try {
           const expoRes = await fetch("https://exp.host/--/api/v2/push/send", {

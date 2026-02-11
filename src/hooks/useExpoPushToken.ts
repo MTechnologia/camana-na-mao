@@ -21,12 +21,20 @@ export function useExpoPushToken(userId: string | undefined) {
 
   useEffect(() => {
     if (!userId || typeof window === "undefined") return;
-    if (!window.__CAMARA_IN_APP__ || !window.ReactNativeWebView) return;
+    if (!window.__CAMARA_IN_APP__) return;
+    const rnw = (window as any).ReactNativeWebView;
+    if (!rnw?.postMessage) return;
     if (doneRef.current) return;
+
+    const requestToken = () => {
+      try {
+        (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: MESSAGE_TYPE }));
+      } catch (_) {}
+    };
 
     const handler = (e: CustomEvent<string>) => {
       const token = e.detail;
-      if (!token || !token.startsWith("ExponentPushToken")) return;
+      if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken")) return;
       window.removeEventListener(EVENT_NAME, handler as EventListener);
       doneRef.current = true;
       supabase
@@ -39,10 +47,18 @@ export function useExpoPushToken(userId: string | undefined) {
     };
 
     window.addEventListener(EVENT_NAME, handler as EventListener);
-    window.ReactNativeWebView?.postMessage(JSON.stringify({ type: MESSAGE_TYPE }));
+    requestToken();
+    const t1 = setTimeout(() => {
+      if (!doneRef.current) requestToken();
+    }, 2000);
+    const t2 = setTimeout(() => {
+      if (!doneRef.current) requestToken();
+    }, 5000);
 
     return () => {
       window.removeEventListener(EVENT_NAME, handler as EventListener);
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
   }, [userId]);
 }
