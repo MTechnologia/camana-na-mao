@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText, Bell, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";

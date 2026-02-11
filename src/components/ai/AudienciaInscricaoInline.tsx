@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Bell } from "lucide-react";
 
 function formatPhoneBr(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -41,6 +41,7 @@ export function AudienciaInscricaoInline() {
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [consent, setConsent] = useState(false);
+  const [receivePush, setReceivePush] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -232,6 +233,18 @@ export function AudienciaInscricaoInline() {
         />
         <Label htmlFor="consent-inline" className="text-xs cursor-pointer text-muted-foreground leading-tight">
           Concordo em compartilhar meus dados com a Câmara Municipal de São Paulo (LGPD).
+        </Label>
+      </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="receive-push-inline"
+          checked={receivePush}
+          onCheckedChange={(v) => setReceivePush(!!v)}
+          className="mt-0.5"
+        />
+        <Label htmlFor="receive-push-inline" className="text-xs cursor-pointer text-muted-foreground leading-tight flex items-center gap-1.5">
+          <Bell className="h-3.5 w-3.5 shrink-0" />
+          Quero receber lembretes e notificações no celular (opcional).
         </Label>
       </div>
       <Button

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -71,6 +71,23 @@ export function FrontendWebView() {
         console.warn('[FrontendWebView] Expo push token error:', e);
       }
     })();
+  }, []);
+
+  // Universal Links (iOS) / App Links (Android): quando o usuário abre um link do e-mail no celular, abrir no app
+  useEffect(() => {
+    const handleOpenUrl = (url: string | null) => {
+      if (!url || !normalizeAndValidate(url)) return;
+      const parsed = url.startsWith('http') ? url : `https://${url}`;
+      if (parsed.includes(APP_LINK_HOST)) {
+        setDraftUrl(parsed);
+        setActiveUrl(parsed);
+        setReloadKey((k) => k + 1);
+      }
+    };
+
+    Linking.getInitialURL().then(handleOpenUrl);
+    const sub = Linking.addEventListener('url', (event) => handleOpenUrl(event.url));
+    return () => sub.remove();
   }, []);
 
   const handleWebViewMessage = useCallback(
