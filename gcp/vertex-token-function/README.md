@@ -68,15 +68,23 @@ Função que devolve um **access token** OAuth 2.0 para chamadas ao Vertex AI (G
      --set-env-vars "TOKEN_SECRET=SEU_TOKEN_SECRET_AQUI,GOOGLE_APPLICATION_CREDENTIALS_JSON={\"type\":\"service_account\",\"project_id\":\"...\"}"
    ```
 
-   **Usando arquivo para o JSON (evita problemas de escape):**
+   **Usando arquivo YAML (evita problemas de escape):**
 
-   Crie um arquivo `.env.function` (não commitar) com uma única linha:
+   O `--env-vars-file` do gcloud espera **YAML**, não .env. Crie `env.yaml` (não commitar):
 
+   ```yaml
+   TOKEN_SECRET: "seu_token_aqui"
+   GOOGLE_APPLICATION_CREDENTIALS_JSON: '{"type":"service_account","project_id":"..."}'
    ```
-   GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account","project_id":"..."}
+
+   O valor do JSON deve estar entre **aspas simples** para o YAML não interpretar `:` como chave. No PowerShell (com o JSON já em uma linha em `$jsonOneLine`):
+
+   ```powershell
+   "TOKEN_SECRET: ""SEU_TOKEN_AQUI""" | Set-Content env.yaml -Encoding UTF8
+   "GOOGLE_APPLICATION_CREDENTIALS_JSON: '" + $jsonOneLine + "'" | Add-Content env.yaml -Encoding UTF8
    ```
 
-   E no deploy use `--env-vars-file=.env.function` (e defina `TOKEN_SECRET` no mesmo arquivo ou em outro). Ou use **Secret Manager** (veja seção abaixo).
+   Deploy: `--env-vars-file=env.yaml`. Ou use **Secret Manager** (veja seção abaixo).
 
 6. **URL da função**
 

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, MessageCircle } from "lucide-react";
+import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone } from "lucide-react";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
@@ -105,7 +105,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           user_id: userId,
           push_enabled: notificationSettings.push_enabled,
           email_enabled: notificationSettings.email_enabled,
-          sms_enabled: notificationSettings.sms_enabled,
+          sms_enabled: false,
           newsletter_enabled: notificationSettings.newsletter_enabled,
           categories_enabled: notificationSettings.categories_enabled,
           quiet_hours_start: notificationSettings.quiet_hours_start,
@@ -125,7 +125,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           show_phone: privacySettings.show_phone,
           push_notifications: notificationSettings.push_enabled,
           email_notifications: notificationSettings.email_enabled,
-          sms_notifications: notificationSettings.sms_enabled,
+          sms_notifications: false,
           newsletter: notificationSettings.newsletter_enabled,
         }, {
           onConflict: 'user_id'
@@ -225,27 +225,6 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                   }
                 });
               }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-3">
-              <MessageCircle className="h-4 w-4 text-muted-foreground" />
-              <div className="space-y-0.5">
-                <Label htmlFor="sms-notif" className="text-sm font-medium">
-                  SMS
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Mensagens de texto
-                </p>
-              </div>
-            </div>
-            <Switch
-              id="sms-notif"
-              checked={notificationSettings.sms_enabled}
-              onCheckedChange={(checked) =>
-                setNotificationSettings(prev => ({ ...prev, sms_enabled: checked }))
-              }
             />
           </div>
 

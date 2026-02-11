@@ -146,6 +146,44 @@ serve(async (req) => {
           console.warn("[notification-delivery] Push error:", e);
         }
       }
+
+      // --- Push (app mobile Expo) — aparece na bandeja do celular ---
+      if (expoPushToken && expoPushToken.startsWith("ExponentPushToken")) {
+        try {
+          const expoRes = await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: {
+              "Accept": "application/json",
+              "Accept-Encoding": "gzip, deflate",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              to: expoPushToken,
+              title: record.title,
+              body: record.message,
+              sound: "default",
+              channelId: "default",
+              data: {
+                url: record.action_url || "/",
+                id: record.id,
+                type: record.type,
+              },
+            }),
+          });
+          if (expoRes.ok) {
+            const expoJson = (await expoRes.json()) as { data?: Array<{ status: string }> };
+            if (expoJson.data?.[0]?.status === "ok") {
+              expoSent = 1;
+            } else {
+              console.warn("[notification-delivery] Expo push ticket error:", await expoRes.text());
+            }
+          } else {
+            console.warn("[notification-delivery] Expo push HTTP error:", expoRes.status, await expoRes.text());
+          }
+        } catch (e) {
+          console.warn("[notification-delivery] Expo push error:", e);
+        }
+      }
     }
 
     // --- E-mail (Resend) ---

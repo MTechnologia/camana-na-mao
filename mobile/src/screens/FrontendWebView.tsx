@@ -1,9 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, NativeSyntheticEvent, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+
+// Faz a notificação aparecer na bandeja do celular (foreground e usar canal no Android)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 function normalizeAndValidate(url: string): string | null {
   const trimmed = url.trim();
@@ -28,6 +39,17 @@ export function FrontendWebView() {
 
   const normalizedDraft = useMemo(() => draftUrl.trim(), [draftUrl]);
   const normalizedActive = useMemo(() => activeUrl.trim(), [activeUrl]);
+
+  // Canal Android com alta importância para a notificação aparecer na bandeja do celular
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'Notificações',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#2563EB',
+    }).catch((e) => console.warn('[FrontendWebView] Channel setup:', e));
+  }, []);
 
   useEffect(() => {
     if (!Device.isDevice) return;

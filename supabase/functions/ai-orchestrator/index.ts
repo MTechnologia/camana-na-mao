@@ -45,6 +45,8 @@ serve(async (req) => {
     // Vertex AI: obter token de um endpoint (ex.: GCP Cloud Function) quando configurado
     const vertexTokenUrl = Deno.env.get('VERTEX_TOKEN_URL');
     const vertexTokenSecret = Deno.env.get('VERTEX_TOKEN_SECRET');
+    const vertexRagDatastore = Deno.env.get('VERTEX_RAG_DATASTORE'); // Vertex AI Search datastore path (optional)
+    const vertexRagCorpus = Deno.env.get('VERTEX_RAG_CORPUS');       // RAG Engine corpus path (optional)
     if (vertexTokenUrl && vertexTokenSecret) {
       try {
         const tokenRes = await fetch(vertexTokenUrl, {
@@ -1235,6 +1237,54 @@ ${empathyNote}
       });
     }
 
+
+    // === Opção B: RAG no Vertex para perguntas "gerais" ===
+    // Se intenção é "general" e há data store ou corpus configurado, chama generateContent com retrieval
+    // e injeta o contexto grounded no system prompt antes de chamar chat/completions.
+    if (
+      collectionIntent?.type === 'general' &&
+      (vertexRagDatastore || vertexRagCorpus) &&
+      finalAiApiKey &&
+      lastUserMessage.trim().length > 3
+    ) {
+      try {
+        const baseUrl = finalAiBaseUrl.replace(/\/$/, '');
+        const match = baseUrl.match(/\/projects\/([^/]+)\/locations\/([^/]+)/);
+        const project = match?.[1];
+        const location = match?.[2];
+        if (project && location) {
+          const generateContentUrl = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${aiChatModel}:generateContent`;
+          const retrievalTool = vertexRagDatastore
+            ? { retrieval: { vertexAiSearch: { datastore: vertexRagDatastore } } }
+            : { retrieval: { vertexRagStore: { ragResources: [{ ragCorpus: vertexRagCorpus }] } } };
+          const ragBody = {
+            contents: [{ role: 'user', parts: [{ text: lastUserMessage }] }],
+            tools: [retrievalTool],
+          };
+          const ragRes = await fetch(generateContentUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${finalAiApiKey}` },
+            body: JSON.stringify(ragBody),
+          });
+          if (ragRes.ok) {
+            const ragJson = (await ragRes.json()) as {
+              candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+            };
+            const textPart = ragJson.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (textPart && textPart.trim()) {
+              dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[Contexto da base de conhecimento da Câmara (Vertex RAG)]:\n' + textPart.trim();
+              console.log('[ai-orchestrator] Injected Vertex RAG context for general intent, length:', textPart.trim().length);
+            }
+          } else {
+            console.warn('[ai-orchestrator] Vertex RAG generateContent failed:', ragRes.status, await ragRes.text());
+          }
+        } else {
+          console.warn('[ai-orchestrator] Could not parse project/location from AI base URL for Vertex RAG');
+        }
+      } catch (e) {
+        console.warn('[ai-orchestrator] Vertex RAG fetch error:', (e as Error).message);
+      }
+    }
 
     // Call AI API with streaming enabled and timeout
     const controller = new AbortController();

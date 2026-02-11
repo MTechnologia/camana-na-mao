@@ -1,5 +1,7 @@
 node_modules/
 .env
 .env.*
+.env.yaml
+env.yaml
 *.json
 !package.json
