@@ -55,13 +55,13 @@ O script com Deno imprime o JSON JWK e depois a linha `your application server k
 
 Opcional: `PUSH_ADMIN_EMAIL` (ex.: `mailto:suporte@exemplo.org`).
 
-**E-mail (Resend)** – para enviar notificações por e-mail quando `email_enabled` estiver ativo:
+**E-mail (SendGrid ou Resend)** – para enviar notificações por e-mail quando `email_enabled` estiver ativo:
 
-- Crie uma conta em [Resend](https://resend.com), verifique um domínio (ou use o domínio de teste) e gere uma API Key.
-- No Supabase (Edge Functions → Secrets), adicione:
-  - **RESEND_API_KEY**: sua API Key do Resend.
-  - **RESEND_FROM**: remetente no formato `"Nome <notificacoes@seudominio.com>"` (domínio verificado no Resend).
-- Opcional: **APP_URL** – URL base do app (ex.: `https://seusite.com`) para o link “Abrir no app” no e-mail. Se não definir, usa um valor padrão.
+- **SendGrid (recomendado):** veja [docs/SENDGRID_CONFIGURACAO.md](../../docs/SENDGRID_CONFIGURACAO.md). No Supabase (Edge Functions → Secrets), adicione:
+  - **SENDGRID_API_KEY**: API Key do SendGrid (apenas Mail Send).
+  - **SENDGRID_FROM**: remetente, ex. `noreply@app-mtechnologia.com` ou `Câmara na Mão <noreply@app-mtechnologia.com>`.
+- **Resend (alternativa):** crie uma conta em [Resend](https://resend.com), verifique um domínio e gere uma API Key. Adicione **RESEND_API_KEY** e **RESEND_FROM** (formato `"Nome <email@dominio.com>"`). A função usa Resend só se SendGrid não estiver configurado.
+- Opcional: **APP_URL** – URL base do app para o link “Abrir no app” no e-mail.
 
 **SMS (Twilio)** – para enviar notificações por SMS quando `sms_enabled` estiver ativo:
 

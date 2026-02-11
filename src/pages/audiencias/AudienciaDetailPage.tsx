@@ -8,6 +8,8 @@ import PageHeader from "@/components/ui/page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Audiencia {
   id: string;
@@ -36,8 +38,11 @@ const themeColors: Record<string, string> = {
 const AudienciaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [audiencia, setAudiencia] = useState<Audiencia | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lembreteInscrito, setLembreteInscrito] = useState(false);
+  const [lembreteLoading, setLembreteLoading] = useState(false);
 
   useEffect(() => {
     const fetchAudiencia = async () => {
@@ -57,6 +62,20 @@ const AudienciaDetailPage = () => {
 
     fetchAudiencia();
   }, [id]);
+
+  useEffect(() => {
+    if (!user?.id || !id) return;
+    const check = async () => {
+      const { data } = await supabase
+        .from('audiencia_inscricoes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('audiencia_id', id)
+        .maybeSingle();
+      setLembreteInscrito(!!data);
+    };
+    check();
+  }, [user?.id, id]);
 
   if (loading) {
     return (
@@ -92,6 +111,30 @@ const AudienciaDetailPage = () => {
 
   const formatTime = (timeStr: string) => {
     return timeStr.slice(0, 5);
+  };
+
+  const handleReceberLembretes = async () => {
+    if (!user?.id || !id) {
+      toast.error("Faça login para receber lembretes.");
+      navigate("/login", { state: { from: `/audiencias/${id}` } });
+      return;
+    }
+    setLembreteLoading(true);
+    const { error } = await supabase
+      .from("audiencia_inscricoes")
+      .insert({ user_id: user.id, audiencia_id: id, status: "confirmada" });
+    setLembreteLoading(false);
+    if (error) {
+      if (error.code === "23505") {
+        setLembreteInscrito(true);
+        toast.info("Você já está inscrito para lembretes desta audiência.");
+      } else {
+        toast.error("Não foi possível inscrever. Tente novamente.");
+      }
+      return;
+    }
+    setLembreteInscrito(true);
+    toast.success("Inscrito! Você receberá lembretes desta audiência no celular e e-mail.");
   };
 
   return (
@@ -199,6 +242,29 @@ const AudienciaDetailPage = () => {
 
         {/* Actions */}
         <div className="flex flex-col gap-3 pt-4">
+          {/* Receber lembretes (sempre visível para usuário logado; convite ao login se não estiver) */}
+          {lembreteInscrito ? (
+            <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-foreground">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+              <span>Você receberá lembretes desta audiência no celular e e-mail.</span>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2 border-primary text-primary hover:bg-primary/10"
+              onClick={handleReceberLembretes}
+              disabled={lembreteLoading}
+            >
+              {lembreteLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Bell className="h-4 w-4" />
+              )}
+              {user ? "Receber lembretes desta audiência" : "Receber lembretes (faça login)"}
+            </Button>
+          )}
+
           <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
             Voltar
           </Button>

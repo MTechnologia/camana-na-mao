@@ -1311,11 +1311,16 @@ ${empathyNote}
     let response: Response;
     try {
       const apiUrl = `${finalAiBaseUrl.replace(/\/$/, '')}/chat/completions`;
-      console.log('[ai-orchestrator] Calling AI API:', apiUrl);
+      // Vertex OpenAI-compatible API exige model no formato "google/gemini-2.5-flash"
+      const isVertex = !!(vertexTokenUrl || finalAiBaseUrl.includes('aiplatform'));
+      const effectiveModel = isVertex && !aiChatModel.startsWith('google/')
+        ? `google/${aiChatModel}`
+        : aiChatModel;
+      console.log('[ai-orchestrator] Calling AI API:', apiUrl, 'model:', effectiveModel);
       
       // Build request body with tools for vLLM (requires --enable-auto-tool-choice and --tool-call-parser llama3_json)
       const requestBody: Record<string, unknown> = {
-        model: aiChatModel,
+        model: effectiveModel,
         messages: [
           { role: 'system', content: dynamicSystemPrompt },
           ...messages.slice(-10) // Last 10 messages for context
@@ -1370,9 +1375,10 @@ ${empathyNote}
         });
       }
       
-      // Handle 400 Bad Request - check if it's tool_choice/tools error
+      // Handle 400 Bad Request - check if it's tool_choice/tools error or Vertex model/format
       if (response.status === 400) {
-        console.error('[ai-orchestrator] Bad Request (400) from vLLM:', errorText);
+        const oneLine = (errorText || '').replace(/\s+/g, ' ').trim();
+        console.error('[ai-orchestrator] Bad Request (400) body:', oneLine);
         if (/tool|function.call|tool_choice/i.test(errorText)) {
           console.error('[ai-orchestrator] Dica: se o vLLM não tiver tool calling ativo, suba o container com --enable-auto-tool-choice e --tool-call-parser llama3_json (ver docs/VM_LLM_CHAT_GPU_L4_INFO.md).');
         }

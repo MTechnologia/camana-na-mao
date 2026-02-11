@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone } from "lucide-react";
+import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, CalendarDays, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
@@ -275,6 +276,30 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               ))}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Card: Lembretes de audiências */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            Lembretes de audiências
+          </CardTitle>
+          <CardDescription>
+            Receba lembretes no celular ou e-mail das audiências em que você se inscrever
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Ative as notificações acima (Push e/ou E-mail) e, na página de Audiências públicas, use &quot;Receber lembretes&quot; nas audiências de seu interesse. Você receberá confirmação e lembretes antes do evento.
+          </p>
+          <Button variant="outline" className="w-full gap-2" asChild>
+            <Link to="/audiencias">
+              Ver audiências e me inscrever para lembretes
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 

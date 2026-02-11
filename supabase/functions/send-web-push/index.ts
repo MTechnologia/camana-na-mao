@@ -3,7 +3,7 @@
  * quando uma linha é inserida em `notifications`.
  * Invocado por Database Webhook: tabela `notifications`, evento Insert.
  *
- * Secrets: VAPID_KEYS (push); RESEND_API_KEY + RESEND_FROM (e-mail); TWILIO_* (SMS).
+ * Secrets: VAPID_KEYS (push); e-mail: SENDGRID_API_KEY + SENDGRID_FROM ou RESEND_API_KEY + RESEND_FROM; TWILIO_* (SMS).
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -186,33 +186,65 @@ serve(async (req) => {
       }
     }
 
-    // --- E-mail (Resend) ---
+    // --- E-mail (SendGrid ou Resend) ---
     if (emailEnabled && userEmail) {
-      const resendKey = Deno.env.get("RESEND_API_KEY");
-      const resendFrom = Deno.env.get("RESEND_FROM");
-      if (resendKey && resendFrom) {
+      const appUrl = Deno.env.get("APP_URL") || "";
+      const actionUrl = record.action_url
+        ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
+        : appUrl || "#";
+      const htmlBody = `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">Abrir no app</a></p>`;
+
+      // SendGrid (prioridade se configurado)
+      const sendgridKey = Deno.env.get("SENDGRID_API_KEY");
+      const sendgridFrom = Deno.env.get("SENDGRID_FROM");
+      if (sendgridKey && sendgridFrom && emailSent === 0) {
         try {
-          const appUrl = Deno.env.get("APP_URL") || "";
-          const actionUrl = record.action_url
-            ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
-            : appUrl || "#";
-          const res = await fetch("https://api.resend.com/emails", {
+          const fromMatch = sendgridFrom.match(/^(.+?)\s*<([^>]+)>$/);
+          const fromEmail = fromMatch ? fromMatch[2].trim() : sendgridFrom;
+          const fromName = fromMatch ? fromMatch[1].trim() : "Câmara na Mão";
+          const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${resendKey}`,
+              Authorization: `Bearer ${sendgridKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: resendFrom,
-              to: [userEmail],
-              subject: record.title,
-              html: `<p>${record.message.replace(/</g, "&lt;")}</p><p><a href="${actionUrl}">Abrir no app</a></p>`,
+              personalizations: [{ to: [{ email: userEmail }], subject: record.title }],
+              from: { email: fromEmail, name: fromName },
+              content: [{ type: "text/html", value: htmlBody }],
             }),
           });
           if (res.ok) emailSent = 1;
-          else console.warn("[notification-delivery] Resend error:", await res.text());
+          else console.warn("[notification-delivery] SendGrid error:", res.status, await res.text());
         } catch (e) {
-          console.warn("[notification-delivery] Email error:", e);
+          console.warn("[notification-delivery] SendGrid error:", e);
+        }
+      }
+
+      // Resend (fallback se SendGrid não configurado ou falhou)
+      if (emailSent === 0) {
+        const resendKey = Deno.env.get("RESEND_API_KEY");
+        const resendFrom = Deno.env.get("RESEND_FROM");
+        if (resendKey && resendFrom) {
+          try {
+            const res = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${resendKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: resendFrom,
+                to: [userEmail],
+                subject: record.title,
+                html: htmlBody,
+              }),
+            });
+            if (res.ok) emailSent = 1;
+            else console.warn("[notification-delivery] Resend error:", await res.text());
+          } catch (e) {
+            console.warn("[notification-delivery] Email error:", e);
+          }
         }
       }
     }
