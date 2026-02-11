@@ -130,6 +130,12 @@ export const NOTIFICATION_TYPES = {
     icon: '📅',
     audience: 'citizen'
   },
+  audiencia_lembrete_1h: { 
+    label: 'Lembrete Audiência (1h antes)', 
+    color: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    icon: '⏰',
+    audience: 'citizen'
+  },
   
   // Sistema
   info: { 

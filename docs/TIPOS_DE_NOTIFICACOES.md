@@ -57,6 +57,7 @@ Tipos com `audience: 'all'` — encaminhamentos e audiências.
 | `audiencia` | Audiência Pública | 🎤 |
 | `audiencia_inscricao` | Inscrição em Audiência | ✅ |
 | `audiencia_lembrete_d1` | Lembrete Audiência (D-1) | 📅 |
+| `audiencia_lembrete_1h` | Lembrete Audiência (1h antes) | ⏰ |
 
 ---
 

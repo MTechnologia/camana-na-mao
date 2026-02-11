@@ -18,6 +18,7 @@ import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import PromptChips, { CollectionTypePreset } from "./PromptChips";
+import { AudienciaInscricaoInline } from "./AudienciaInscricaoInline";
 
 interface ChatMessage {
   id: string;
@@ -113,6 +114,7 @@ const ChatMessageBubble = ({
   const [serviceSelected, setServiceSelected] = useState(false);
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(false);
+  const [showAudienciaInscricaoInline, setShowAudienciaInscricaoInline] = useState(false);
 
   // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
   const journeySwitchMatch = useMemo(() => {
@@ -554,18 +556,29 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Audiencias CTA */}
+        {/* Audiencias CTA + formulário de inscrição inline */}
         {shouldShowAudienciasCta && (
-          <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => navigate('/audiencias')}
-              className="w-full justify-between min-h-[40px]"
-            >
-              <span className="truncate flex-1 text-left">Abrir Audiências</span>
-              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
-            </Button>
+          <div className="mt-3 flex flex-col gap-2 w-full max-w-[320px]">
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => navigate('/audiencias')}
+                className="w-full justify-between min-h-[40px]"
+              >
+                <span className="truncate flex-1 text-left">Abrir Audiências</span>
+                <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
+                className="w-full justify-center min-h-[40px]"
+              >
+                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
+              </Button>
+            </div>
+            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
           </div>
         )}
 
