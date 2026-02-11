@@ -81,7 +81,8 @@ export default function ManualReportPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const isSupported = typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  const isInApp = typeof window !== 'undefined' && !!(window as any).__CAMARA_IN_APP__;
+  const isSupported = typeof window !== 'undefined' && !isInApp && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
   const [formData, setFormData] = useState(() => {
     // Carregar draft do sessionStorage na inicialização
     try {
@@ -358,6 +359,7 @@ export default function ManualReportPage() {
                     className="absolute right-2 bottom-2"
                     onClick={handleVoiceInput}
                     disabled={!isSupported}
+                    title="Ditar por voz"
                   >
                     {isRecording ? (
                       <MicOff className="w-5 h-5 text-destructive" />

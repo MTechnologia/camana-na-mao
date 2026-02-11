@@ -52,7 +52,7 @@ const ChatInput = ({
   }, [disabled, autoFocus]);
 
   useEffect(() => {
-    // Initialize Web Speech API
+    // Initialize Web Speech API (no app, o WebView pede permissão de microfone via react-native-webview)
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
@@ -88,7 +88,7 @@ const ChatInput = ({
         recognitionRef.current.stop();
       }
     };
-  }, [toast]);
+  }, [toast, isInApp]);
 
   // Load draft once per draftKey
   useEffect(() => {
