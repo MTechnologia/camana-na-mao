@@ -55,7 +55,14 @@ serve(async (req) => {
         });
         if (tokenRes.ok) {
           const data = (await tokenRes.json()) as { token?: string };
-          if (data?.token) finalAiApiKey = data.token;
+          if (data?.token) {
+            finalAiApiKey = data.token;
+            console.log('[ai-orchestrator] Vertex token obtained from', vertexTokenUrl);
+          } else {
+            console.warn('[ai-orchestrator] Vertex token URL returned OK but no token in body');
+          }
+        } else {
+          console.warn('[ai-orchestrator] Vertex token URL returned', tokenRes.status, await tokenRes.text());
         }
       } catch (e) {
         console.warn('[ai-orchestrator] VERTEX_TOKEN_URL fetch failed:', (e as Error).message);
@@ -1352,6 +1359,16 @@ ${empathyNote}
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[ai-orchestrator] API error:', response.status, errorText);
+
+      // Handle 401 Unauthorized (Vertex/Gemini: token inválido ou expirado)
+      if (response.status === 401) {
+        console.error('[ai-orchestrator] 401 Unauthorized da API de IA. Se estiver usando Vertex: confira VERTEX_TOKEN_URL, VERTEX_TOKEN_SECRET e se a Cloud Function vertex-token retorna token válido; confira também a conta de serviço do GCP (Vertex AI User).');
+        const errorMsg = 'Desculpe, o serviço de IA não autorizou a requisição. Tente novamente em alguns instantes; se o problema continuar, o administrador precisa verificar a configuração do Vertex (token e permissões).';
+        console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (401)');
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: errorMsg } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      }
       
       // Handle 400 Bad Request - check if it's tool_choice/tools error
       if (response.status === 400) {

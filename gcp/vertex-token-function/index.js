@@ -10,11 +10,12 @@
  * Ou: use Secret Manager e defina as mesmas chaves nos secrets da função.
  */
 
-const { GoogleAuth } = require('google-auth-library');
+const { JWT } = require('google-auth-library');
 
 let cachedToken = null;
 let cachedTokenExpiry = 0;
 const CACHE_BUFFER_SECONDS = 300; // Renovar 5 min antes de expirar
+const VERTEX_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
 function getCredentials() {
   const raw = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
@@ -50,10 +51,16 @@ async function getAccessToken() {
     return cachedToken;
   }
   const credentials = getCredentials();
-  const auth = new GoogleAuth({ credentials });
-  const client = await auth.getClient();
-  const tokenResponse = await client.getAccessToken();
-  const token = tokenResponse.token;
+  if (!credentials.client_email || !credentials.private_key) {
+    throw new Error('Chave da conta de serviço deve ter client_email e private_key');
+  }
+  const jwt = new JWT({
+    email: credentials.client_email,
+    key: credentials.private_key,
+    scopes: [VERTEX_SCOPE],
+  });
+  const tokens = await jwt.authorize();
+  const token = tokens.access_token;
   if (!token) {
     throw new Error('Falha ao obter access token');
   }
