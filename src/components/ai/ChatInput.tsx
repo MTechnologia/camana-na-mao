@@ -88,7 +88,7 @@ const ChatInput = ({
         recognitionRef.current.stop();
       }
     };
-  }, [toast, isInApp]);
+  }, [toast]);
 
   // Load draft once per draftKey
   useEffect(() => {
