@@ -39,9 +39,27 @@ serve(async (req) => {
     });
     
     // Determine which AI provider to use
-    const finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
-    const finalAiApiKey = aiChatApiKey || aiApiKey;
-    
+    let finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
+    let finalAiApiKey = aiChatApiKey || aiApiKey;
+
+    // Vertex AI: obter token de um endpoint (ex.: GCP Cloud Function) quando configurado
+    const vertexTokenUrl = Deno.env.get('VERTEX_TOKEN_URL');
+    const vertexTokenSecret = Deno.env.get('VERTEX_TOKEN_SECRET');
+    if (vertexTokenUrl && vertexTokenSecret) {
+      try {
+        const tokenRes = await fetch(vertexTokenUrl, {
+          method: 'GET',
+          headers: { 'X-Token-Secret': vertexTokenSecret },
+        });
+        if (tokenRes.ok) {
+          const data = (await tokenRes.json()) as { token?: string };
+          if (data?.token) finalAiApiKey = data.token;
+        }
+      } catch (e) {
+        console.warn('[ai-orchestrator] VERTEX_TOKEN_URL fetch failed:', (e as Error).message);
+      }
+    }
+
     if (!finalAiBaseUrl || !supabaseUrl || !supabaseAnonKey) {
       console.error('[ai-orchestrator] Missing required environment variables');
       console.error('[ai-orchestrator] Missing:', {
