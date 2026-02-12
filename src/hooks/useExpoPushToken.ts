@@ -22,6 +22,15 @@ export function useExpoPushToken(userId: string | undefined) {
   const doneRef = useRef(false);
 
   useEffect(() => {
+    // Log de diagnóstico sempre que temos userId (para ver no WebView por que o hook não segue)
+    if (userId && typeof window !== "undefined") {
+      console.log("[useExpoPushToken] check:", {
+        userId: userId.slice(0, 8) + "...",
+        __CAMARA_IN_APP__: !!(window as any).__CAMARA_IN_APP__,
+        done: doneRef.current,
+      });
+    }
+
     if (!userId || typeof window === "undefined") return;
     if (!window.__CAMARA_IN_APP__) return;
     if (doneRef.current) return;
