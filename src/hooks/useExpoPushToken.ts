@@ -26,6 +26,8 @@ export function useExpoPushToken(userId: string | undefined) {
     if (!window.__CAMARA_IN_APP__) return;
     if (doneRef.current) return;
 
+    console.log("[useExpoPushToken] ativo no app (WebView), userId:", userId);
+
     const saveToken = async (token: string) => {
       if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken")) return false;
       doneRef.current = true;

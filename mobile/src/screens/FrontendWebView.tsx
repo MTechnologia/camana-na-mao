@@ -25,7 +25,7 @@ function normalizeAndValidate(url: string): string | null {
 
 // Para builds distribuídos (APK), use EXPO_PUBLIC_WEB_URL apontando para uma URL pública.
 // Fallback: URL pública do Render (e ainda dá pra editar no próprio app).
-const DEFAULT_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://camara-na-mao.onrender.com/';
+const DEFAULT_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://camana-na-mao-767943602990.southamerica-east1.run.app/';
 
 const EXPO_PUSH_MESSAGE_TYPE = 'getExpoPushToken';
 

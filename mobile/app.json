@@ -24,6 +24,7 @@
     },
     "android": {
       "package": "br.com.mtechnologia.camaranamao",
+      "googleServicesFile": "./google-services.json",
       "permissions": ["android.permission.RECORD_AUDIO"],
       "intentFilters": [
         {
