@@ -75,6 +75,7 @@ serve(async (req) => {
       );
     }
 
+    console.log("[save-expo-push-token] token saved for user", user.id);
     return new Response(
       JSON.stringify({ ok: true }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
