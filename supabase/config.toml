@@ -57,6 +57,9 @@ verify_jwt = false
 [functions.fetch-agenda]
 verify_jwt = false
 
+[functions.fetch-audiencias]
+verify_jwt = false
+
 [functions.fetch-escola-parlamento]
 verify_jwt = false
 

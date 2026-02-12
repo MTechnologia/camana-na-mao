@@ -35,9 +35,13 @@ POST "https://SEU_PROJECT.supabase.co/functions/v1/fetch-audiencias?replace=1"
 
 ## Deploy
 
+A função está configurada com `verify_jwt = false` em `supabase/config.toml` para aceitar chamadas sem validar JWT (sync é público, sem dados do usuário).
+
 ```bash
 supabase functions deploy fetch-audiencias
 ```
+
+Se precisar forçar sem JWT (quando o config não for lido): `supabase functions deploy fetch-audiencias --no-verify-jwt`
 
 ## Como testar
 
