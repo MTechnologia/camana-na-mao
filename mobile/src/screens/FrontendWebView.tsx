@@ -55,9 +55,10 @@ export function FrontendWebView() {
   const sendTokenToWeb = useCallback(() => {
     const token = expoPushTokenRef.current;
     if (!webViewRef.current || !token || !token.startsWith('ExponentPushToken')) return;
-    const escaped = token.replace(/"/g, '\\"');
+    const escaped = token.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    // Set global so web can read on mount if event was missed; then dispatch event
     webViewRef.current.injectJavaScript(
-      `window.dispatchEvent(new CustomEvent('expoPushToken', { detail: "${escaped}" })); true;`
+      `(function(){ window.__EXPO_PUSH_TOKEN__ = "${escaped}"; window.dispatchEvent(new CustomEvent('expoPushToken', { detail: window.__EXPO_PUSH_TOKEN__ })); })(); true;`
     );
   }, []);
 
@@ -220,6 +221,11 @@ export function FrontendWebView() {
         )}
         allowsBackForwardNavigationGestures
         onMessage={handleWebViewMessage}
+        onLoadEnd={() => {
+          if (expoPushTokenRef.current && webViewRef.current) {
+            setTimeout(sendTokenToWeb, 100);
+          }
+        }}
         injectedJavaScriptBeforeDOMContentLoaded={
           "window.__CAMARA_IN_APP__ = true;"
         }
