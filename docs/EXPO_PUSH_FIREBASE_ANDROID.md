@@ -28,14 +28,41 @@ npx expo run:android
 
 Assim o plugin do Google Services e o `google-services.json` entram no build e o Firebase inicializa no app.
 
-## 4. Envio de notificações (servidor)
+## 4. Envio de notificações (servidor) — obrigatório para push chegar no celular
 
-Para o **Expo Push API** conseguir enviar para dispositivos Android, é preciso configurar a **chave FCM V1** no EAS (para builds na nuvem) ou no seu backend. Passos resumidos:
+Se aparecer no log da send-web-push:
 
-- No Firebase: **Configurações do projeto** → **Contas de serviço** → **Gerar nova chave privada** (JSON).
-- No [expo.dev](https://expo.dev): projeto → **Credentials** → Android → **FCM V1 service account key** → enviar esse JSON.
+`"Unable to retrieve the FCM server key for the recipient's app"` ou `InvalidCredentials`,
 
-Guia completo: [Obtain Google Service Account Keys using FCM V1](https://docs.expo.dev/push-notifications/fcm-credentials/).
+o **Expo** não tem a chave FCM do seu projeto. É preciso configurar a **FCM V1 (service account)** no EAS.
+
+### 4.1. Gerar a chave no Firebase
+
+1. Acesse [Firebase Console](https://console.firebase.google.com) → seu projeto.
+2. **Configurações do projeto** (ícone de engrenagem) → aba **Contas de serviço**.
+3. Clique em **Gerar nova chave privada** e baixe o JSON. Guarde em local seguro e **não** commite no git.
+
+### 4.2. Enviar a chave para o EAS
+
+**Opção A – EAS CLI (recomendado)**
+
+No diretório do app (ex.: `mobile/`):
+
+```bash
+eas credentials
+```
+
+- Escolha **Android** → **production** (ou o profile que você usa).
+- **Google Service Account** → **Manage your Google Service Account Key for Push Notifications (FCM V1)**.
+- **Upload a new service account key** e informe o caminho do JSON baixado.
+
+**Opção B – Dashboard Expo**
+
+1. Acesse [expo.dev](https://expo.dev) → seu projeto.
+2. **Credentials** → **Android** → **FCM V1 service account key**.
+3. Envie o arquivo JSON da conta de serviço.
+
+Guia oficial: [Obtain Google Service Account Keys using FCM V1](https://docs.expo.dev/push-notifications/fcm-credentials/).
 
 ---
 

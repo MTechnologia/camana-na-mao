@@ -3492,12 +3492,50 @@ function audienciasTemaFilter(supabase: any, base: any, tema: string) {
   return base.or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
 }
 
+// Status no banco: 'agendada' | 'encerrada' (seed); aceitar também 'scheduled' | 'ongoing' | 'finished' por compatibilidade
+const AUDIENCIA_STATUS_AGENDADA = ['agendada', 'scheduled'];
+
+function isAgendada(s: string) {
+  return s && AUDIENCIA_STATUS_AGENDADA.includes(String(s).toLowerCase());
+}
+
+function formatAudienciaStatus(s: string) {
+  if (isAgendada(s)) return '📅 Agendada';
+  if (s === 'ongoing' || s === 'em andamento') return '🔴 Em andamento';
+  return '✅ Encerrada';
+}
+
 // Helper: Search audiencias (with fallback to upcoming and to historical by tema)
 export async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
   const temaNorm = tema?.trim();
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1) Sem tema: priorizar PRÓXIMAS (data >= hoje, status agendada)
+  if (!temaNorm) {
+    const { data: proximas } = await supabase
+      .from('audiencias')
+      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+      .gte('data', today)
+      .in('status', AUDIENCIA_STATUS_AGENDADA)
+      .order('data', { ascending: true })
+      .limit(5);
+
+    if (proximas?.length) {
+      const formatted = proximas.map((a: any, i: number) => {
+        const statusText = formatAudienciaStatus(a.status);
+        const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+      }).join('\n\n');
+      return `Próximas audiências públicas agendadas:\n\n${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
+    }
+  }
+
+  // 2) Com tema: buscar por tema (agendadas primeiro, depois histórico)
   let query = supabase
     .from('audiencias')
     .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+    .gte('data', today)
+    .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
     .limit(5);
 
@@ -3513,70 +3551,67 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
 
   const { data, error } = await query;
 
-  if (error || !data?.length) {
-    // When user chose a theme from "Temas com histórico", return historical audiencias for that theme
-    if (temaNorm) {
-      const histQuery = audienciasTemaFilter(
-        supabase,
-        supabase
-          .from('audiencias')
-          .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-          .order('data', { ascending: false })
-          .limit(10),
-        temaNorm
-      );
-      const { data: historico } = await histQuery;
-      if (historico?.length) {
-        const formatted = historico.map((a: any, i: number) => {
-          const statusText = a.status === 'scheduled' ? '📅 Agendada' : a.status === 'ongoing' ? '🔴 Em andamento' : '✅ Encerrada';
-          const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-          return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
-        }).join('\n\n');
-        return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
-      }
-    }
-
-    // Fallback: any upcoming audiencias
-    console.log(`[searchAudiencias] No results for tema="${tema}", falling back to upcoming`);
-
-    const { data: upcoming } = await supabase
-      .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-      .eq('status', 'scheduled')
-      .order('data', { ascending: true })
-      .limit(3);
-
-    if (upcoming?.length) {
-      const formattedUpcoming = upcoming.map((a: any, i: number) => {
-        const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas` : '';
-        return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora} ${inscricao}`;
-      }).join('\n\n');
-
-      const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
-      return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\n📬 Quer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
-    }
-
-    // Fallback 2: Suggest available themes
-    const { data: allAudiencias } = await supabase
-      .from('audiencias')
-      .select('tema')
-      .limit(50);
-
-    const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema).filter(Boolean))].slice(0, 5);
-
-    if (availableThemes.length > 0) {
-      return `Não há audiências ${temaNorm ? `sobre "${temaNorm}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses? (Ao escolher, mostro as audiências desse tema, inclusive do histórico.)`;
-    }
-
-    return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
+  if (!error && data?.length) {
+    return data.map((a: any, i: number) => {
+      const statusText = formatAudienciaStatus(a.status);
+      const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
+      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}`;
+    }).join('\n\n');
   }
 
-  return data.map((a: any, i: number) => {
-    const statusText = a.status === 'scheduled' ? '📅 Agendada' : 
-                       a.status === 'ongoing' ? '🔴 Em andamento' : '✅ Encerrada';
-    const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
-    return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora}\n   📍 ${a.local}\n   ${statusText} ${inscricao}`;
-  }).join('\n\n');
+  // 3) Com tema mas sem próximas: buscar histórico desse tema
+  if (temaNorm) {
+    const histQuery = audienciasTemaFilter(
+      supabase,
+      supabase
+        .from('audiencias')
+        .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+        .order('data', { ascending: false })
+        .limit(10),
+      temaNorm
+    );
+    const { data: historico } = await histQuery;
+    if (historico?.length) {
+      const formatted = historico.map((a: any, i: number) => {
+        const statusText = formatAudienciaStatus(a.status);
+        const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+      }).join('\n\n');
+      return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
+    }
+  }
+
+  // 4) Fallback: listar próximas agendadas (qualquer tema) — status agendada no banco
+  const { data: upcoming } = await supabase
+    .from('audiencias')
+    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+    .gte('data', today)
+    .in('status', AUDIENCIA_STATUS_AGENDADA)
+    .order('data', { ascending: true })
+    .limit(5);
+
+  if (upcoming?.length) {
+    const formattedUpcoming = upcoming.map((a: any, i: number) => {
+      const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+      return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''} ${inscricao}`;
+    }).join('\n\n');
+    const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
+    return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\nQuer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
+  }
+
+  // 5) Sugerir temas com histórico
+  const { data: allAudiencias } = await supabase
+    .from('audiencias')
+    .select('tema')
+    .limit(100);
+
+  const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema).filter(Boolean))].slice(0, 8);
+
+  if (availableThemes.length > 0) {
+    return `Não há audiências ${temaNorm ? `sobre "${temaNorm}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses? (Ao escolher, mostro as audiências desse tema, inclusive do histórico.)`;
+  }
+
+  return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
 }
 
 // Helper: Suggest council member

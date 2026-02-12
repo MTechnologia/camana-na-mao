@@ -226,7 +226,7 @@ export function FrontendWebView() {
             setTimeout(sendTokenToWeb, 100);
           }
         }}
-        injectedJavaScriptBeforeDOMContentLoaded={
+        injectedJavaScriptBeforeContentLoaded={
           "window.__CAMARA_IN_APP__ = true;"
         }
       />

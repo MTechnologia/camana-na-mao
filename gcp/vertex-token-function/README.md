@@ -4,12 +4,28 @@ Função que devolve um **access token** OAuth 2.0 para chamadas ao Vertex AI (G
 
 ---
 
+## 0. Modos de autenticação (escolha um)
+
+### Opção A – Recomendada: identidade do Cloud Run (ADC)
+
+**Não** defina `GOOGLE_APPLICATION_CREDENTIALS_JSON`. A função usa a **conta de serviço do próprio Cloud Run** (Application Default Credentials).
+
+- **Vantagem:** não é preciso armazenar chave JSON em variável de ambiente; menos risco e alinhado às recomendações do GCP.
+- **Requisito:** a conta de serviço com a qual o Cloud Run está rodando deve ter a role **Vertex AI User** (`roles/aiplatform.user`) no projeto.
+- No console: **Cloud Run** → serviço **vertex-token** → **Editar e implantar nova revisão** → aba **Segurança** → **Conta de serviço**. Use a conta padrão do projeto ou uma conta própria; em **IAM** do projeto, conceda **Vertex AI User** a essa conta.
+
+### Opção B – Chave JSON em variável de ambiente
+
+Defina `GOOGLE_APPLICATION_CREDENTIALS_JSON` com o JSON completo da chave de uma conta de serviço que tenha **Vertex AI User**. A função usará essa conta para obter o token.
+
+---
+
 ## 1. Variáveis de ambiente (secrets)
 
 | Nome | Obrigatório | Descrição |
 |------|-------------|-----------|
 | `TOKEN_SECRET` | Sim | Valor que o **cliente** (Supabase) deve enviar no header `X-Token-Secret` (ou `Authorization: Bearer TOKEN_SECRET`). Escolha uma string longa e aleatória. |
-| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | Sim | JSON **inteiro** da chave da conta de serviço (o arquivo que você baixou ao criar a chave no GCP). Deve ser uma única string (o conteúdo do .json). |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | Não (recomendado não usar) | Se definido: JSON **inteiro** da chave da conta de serviço. Se **não** definido: usa a conta de serviço do Cloud Run (ADC); ela precisa ter Vertex AI User. |
 
 ---
 

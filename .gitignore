@@ -22,6 +22,10 @@ supabase/.branches/
 vapid.json
 vapid_public.txt
 
+# FCM / Firebase service account key (upload no EAS; não commitar)
+*-firebase-adminsdk-*.json
+*service-account*.json
+
 # Env files (só variantes; .env na raiz não ignorado)
 
 

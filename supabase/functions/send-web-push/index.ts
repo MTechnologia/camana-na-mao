@@ -173,15 +173,20 @@ serve(async (req) => {
               },
             }),
           });
+          const expoBody = await expoRes.text();
           if (expoRes.ok) {
-            const expoJson = (await expoRes.json()) as { data?: Array<{ status: string }> };
-            if (expoJson.data?.[0]?.status === "ok") {
-              expoSent = 1;
-            } else {
-              console.warn("[notification-delivery] Expo push ticket error:", await expoRes.text());
+            try {
+              const expoJson = JSON.parse(expoBody) as { data?: Array<{ status: string }> };
+              if (expoJson.data?.[0]?.status === "ok") {
+                expoSent = 1;
+              } else {
+                console.warn("[notification-delivery] Expo push ticket error:", expoBody);
+              }
+            } catch {
+              console.warn("[notification-delivery] Expo push response (not JSON):", expoBody);
             }
           } else {
-            console.warn("[notification-delivery] Expo push HTTP error:", expoRes.status, await expoRes.text());
+            console.warn("[notification-delivery] Expo push HTTP error:", expoRes.status, expoBody);
           }
         } catch (e) {
           console.warn("[notification-delivery] Expo push error:", e);
