@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, add
 import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type AudienciaRow = {
   id: string;
@@ -39,12 +40,14 @@ const Audiencias = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     themes: [] as string[],
+    regions: [] as string[],
     status: "all",
     period: "all",
     year: "all",
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [syncing, setSyncing] = useState(false);
 
   const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
@@ -92,6 +95,11 @@ const Audiencias = () => {
     }
   };
 
+  const availableRegions = useMemo(() => {
+    const locals = audienciasData.map((a) => (a.local || "").trim()).filter(Boolean);
+    return [...new Set(locals)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [audienciasData]);
+
   const filteredAudiencias = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
@@ -108,6 +116,7 @@ const Audiencias = () => {
       const desc = (a.descricao || "").toLowerCase();
       const tema = (a.tema || "").toLowerCase();
       const status = (a.status || "").toLowerCase();
+      const local = (a.local || "").trim();
       const q = searchQuery.toLowerCase().trim();
 
       // Search filter
@@ -123,6 +132,10 @@ const Audiencias = () => {
             title.includes(selected.toLowerCase()) ||
             desc.includes(selected.toLowerCase())
         );
+
+      // Region filter: match by local (região)
+      const matchesRegion =
+        filters.regions.length === 0 || (local && filters.regions.includes(local));
 
       // Status filter (heuristic + date fallback)
       const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
@@ -148,7 +161,7 @@ const Audiencias = () => {
       const matchesYear =
         filters.year === "all" || itemYear === filters.year;
 
-      return matchesSearch && matchesTheme && matchesStatus && matchesPeriod && matchesYear;
+      return matchesSearch && matchesTheme && matchesRegion && matchesStatus && matchesPeriod && matchesYear;
     });
   }, [audienciasData, searchQuery, filters]);
 
@@ -182,8 +195,34 @@ const Audiencias = () => {
     navigate(`/audiencias/${item.id}`);
   };
 
+  const handleSyncFromApi = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke<{
+        ok: boolean;
+        message?: string;
+        error?: string;
+        totalFromApi?: number;
+        inserted?: number;
+        updated?: number;
+      }>("fetch-audiencias");
+      if (error) throw error;
+      if (data?.ok) {
+        toast.success(data.message ?? "Sincronização concluída.");
+        refetch();
+      } else {
+        toast.error(data?.error ?? "Erro ao sincronizar.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao sincronizar.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const activeFiltersCount =
     filters.themes.length +
+    filters.regions.length +
     (filters.status !== "all" ? 1 : 0) +
     (filters.period !== "all" ? 1 : 0) +
     (filters.year !== "all" ? 1 : 0);
@@ -221,6 +260,15 @@ const Audiencias = () => {
                   {activeFiltersCount}
                 </Badge>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSyncFromApi}
+              disabled={syncing}
+              title="Sincronizar audiências com a API da Câmara"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
             </Button>
           </div>
 
@@ -438,6 +486,7 @@ const Audiencias = () => {
         onOpenChange={setShowFilters}
         filters={filters}
         onFiltersChange={setFilters}
+        availableRegions={availableRegions}
       />
     </div>
   );

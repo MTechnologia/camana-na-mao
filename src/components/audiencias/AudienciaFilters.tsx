@@ -22,11 +22,13 @@ interface AudienciaFiltersProps {
   onOpenChange: (open: boolean) => void;
   filters: {
     themes: string[];
+    regions: string[];
     status: string;
     period: string;
     year: string;
   };
   onFiltersChange: (filters: any) => void;
+  availableRegions: string[];
 }
 
 const temas = [
@@ -43,6 +45,7 @@ const AudienciaFilters = ({
   onOpenChange,
   filters,
   onFiltersChange,
+  availableRegions = [],
 }: AudienciaFiltersProps) => {
   const toggleTheme = (themeId: string) => {
     const newThemes = filters.themes.includes(themeId)
@@ -51,9 +54,17 @@ const AudienciaFilters = ({
     onFiltersChange({ ...filters, themes: newThemes });
   };
 
+  const toggleRegion = (region: string) => {
+    const newRegions = filters.regions.includes(region)
+      ? filters.regions.filter(r => r !== region)
+      : [...filters.regions, region];
+    onFiltersChange({ ...filters, regions: newRegions });
+  };
+
   const handleClearFilters = () => {
     onFiltersChange({
       themes: [],
+      regions: [],
       status: "all",
       period: "all",
       year: "all",
@@ -62,6 +73,7 @@ const AudienciaFilters = ({
 
   const activeFiltersCount =
     filters.themes.length +
+    filters.regions.length +
     (filters.status !== "all" ? 1 : 0) +
     (filters.period !== "all" ? 1 : 0) +
     (filters.year !== "all" ? 1 : 0);
@@ -116,6 +128,34 @@ const AudienciaFilters = ({
               ))}
             </div>
           </div>
+
+          {/* Região */}
+          {availableRegions.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">📍 Região</Label>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {availableRegions.map((region) => (
+                  <div
+                    key={region}
+                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => toggleRegion(region)}
+                  >
+                    <Checkbox
+                      id={`filter-region-${region}`}
+                      checked={filters.regions.includes(region)}
+                      onCheckedChange={() => toggleRegion(region)}
+                    />
+                    <label
+                      htmlFor={`filter-region-${region}`}
+                      className="flex-1 text-sm font-medium leading-none cursor-pointer"
+                    >
+                      {region}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Status */}
           <div className="space-y-3">

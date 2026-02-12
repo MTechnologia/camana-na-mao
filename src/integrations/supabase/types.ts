@@ -158,6 +158,7 @@ export type Database = {
           link_transmissao: string | null
           local: string
           slug: string | null
+          splegis_chave: string | null
           status: string
           tema: string
           titulo: string
@@ -176,6 +177,7 @@ export type Database = {
           link_transmissao?: string | null
           local: string
           slug?: string | null
+          splegis_chave?: string | null
           status?: string
           tema: string
           titulo: string
@@ -194,6 +196,7 @@ export type Database = {
           link_transmissao?: string | null
           local?: string
           slug?: string | null
+          splegis_chave?: string | null
           status?: string
           tema?: string
           titulo?: string
