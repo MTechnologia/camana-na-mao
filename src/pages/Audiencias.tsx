@@ -198,6 +198,19 @@ const Audiencias = () => {
   const handleSyncFromApi = async () => {
     setSyncing(true);
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const anonKey =
+        import.meta.env.CAMARA_PUBLISHABLE_KEY ??
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = session?.access_token ?? anonKey ?? "";
+      if (!token) {
+        toast.error(
+          "Chave da API não configurada. Faça login ou verifique as variáveis de ambiente."
+        );
+        return;
+      }
       const { data, error } = await supabase.functions.invoke<{
         ok: boolean;
         message?: string;
@@ -205,7 +218,9 @@ const Audiencias = () => {
         totalFromApi?: number;
         inserted?: number;
         updated?: number;
-      }>("fetch-audiencias");
+      }>("fetch-audiencias", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (error) throw error;
       if (data?.ok) {
         toast.success(data.message ?? "Sincronização concluída.");
@@ -214,7 +229,16 @@ const Audiencias = () => {
         toast.error(data?.error ?? "Erro ao sincronizar.");
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao sincronizar.");
+      const msg =
+        e && typeof e === "object" && "message" in e
+          ? String((e as { message: string }).message)
+          : "Erro ao sincronizar.";
+      const is401 = msg.includes("401") || (e as { status?: number })?.status === 401;
+      toast.error(
+        is401
+          ? "Não autorizado (401). Faça login ou verifique no Supabase se a função fetch-audiencias permite chamadas com a chave anon."
+          : msg
+      );
     } finally {
       setSyncing(false);
     }

@@ -70,6 +70,8 @@ Se der erro (ex.: API SPLEGIS fora ou formato diferente), virá `"ok": false` e 
 
 Na listagem de **Audiências Públicas** há um botão **Sincronizar com a API**. Clique para disparar a função; ao terminar, um toast mostra o resultado e a lista é atualizada.
 
+**Se aparecer 401 (Unauthorized):** no Dashboard do Supabase vá em **Edge Functions** → **fetch-audiencias** e confira se a função aceita chamadas com a chave **anon**. Em **Settings → API** verifique se "Allow anonymous key" está habilitado. O app envia a chave anon (ou o JWT do usuário logado) no header `Authorization`.
+
 ### 3. Conferir no sistema
 
 - Abra **Audiências Públicas** no menu e veja se as audiências aparecem.
