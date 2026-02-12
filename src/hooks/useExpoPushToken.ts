@@ -1,6 +1,7 @@
 /**
  * No app mobile (WebView): pede o token Expo ao native e salva em profiles.expo_push_token.
  * Só roda quando window.__CAMARA_IN_APP__ é true (injetado pelo app Expo).
+ * Usa Edge Function save-expo-push-token (service role) para garantir persistência.
  */
 
 import { useEffect, useRef } from "react";
@@ -25,26 +26,45 @@ export function useExpoPushToken(userId: string | undefined) {
     if (!window.__CAMARA_IN_APP__) return;
     if (doneRef.current) return;
 
-    const saveToken = (token: string) => {
+    const saveToken = async (token: string) => {
       if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken")) return false;
       doneRef.current = true;
       if ((window as any).__EXPO_PUSH_TOKEN__ === token) delete (window as any).__EXPO_PUSH_TOKEN__;
-      supabase
-        .from("profiles")
-        .update({ expo_push_token: token })
-        .eq("id", userId)
-        .then(({ error }) => {
-          if (error) console.warn("[useExpoPushToken] update error:", error);
-        });
+
+      const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!supabaseUrl || !session?.access_token) {
+        console.warn("[useExpoPushToken] sem sessão ou URL, tentando update direto");
+        const { error } = await supabase.from("profiles").update({ expo_push_token: token }).eq("id", userId);
+        if (error) console.warn("[useExpoPushToken] update error:", error);
+        return true;
+      }
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/save-expo-push-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ token }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.warn("[useExpoPushToken] Edge Function error:", res.status, err);
+        const { error } = await supabase.from("profiles").update({ expo_push_token: token }).eq("id", userId);
+        if (error) console.warn("[useExpoPushToken] update fallback error:", error);
+      }
       return true;
     };
 
     // Token may already be injected by native (onLoadEnd or when token became ready)
     const existing = (window as any).__EXPO_PUSH_TOKEN__;
-    if (existing && saveToken(existing)) return;
+    if (existing && typeof existing === "string" && existing.startsWith("ExponentPushToken")) {
+      saveToken(existing).then(() => {});
+      return;
+    }
 
     const handler = (e: CustomEvent<string>) => {
-      if (saveToken(e.detail)) window.removeEventListener(EVENT_NAME, handler as EventListener);
+      saveToken(e.detail).then((done) => {
+        if (done) window.removeEventListener(EVENT_NAME, handler as EventListener);
+      });
     };
 
     window.addEventListener(EVENT_NAME, handler as EventListener);
