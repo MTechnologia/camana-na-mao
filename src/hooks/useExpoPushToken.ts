@@ -26,7 +26,8 @@ export function useExpoPushToken(userId: string | undefined) {
     if (!window.__CAMARA_IN_APP__) return;
     if (doneRef.current) return;
 
-    console.log("[useExpoPushToken] ativo no app (WebView), userId:", userId);
+    const supabaseUrlBuild = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+    console.log("[useExpoPushToken] ativo no app (WebView), userId:", userId, "| Supabase URL do build:", supabaseUrlBuild ?? "(VAZIO - confira trigger Cloud Build)");
 
     const saveToken = async (token: string) => {
       if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken")) return false;
