@@ -3038,10 +3038,26 @@ export function detectCollectionIntent(
   }
   
   // Knowledge base / general scoring
-  const knowledgeDomain = ['como funciona', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e',
-                           'me explica', 'dúvida sobre', 'duvida sobre', 'informação sobre', 'informacao sobre'];
+  const knowledgeDomain = ['como funciona', 'como posso', 'como participar', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e',
+                           'me explica', 'dúvida sobre', 'duvida sobre', 'informação sobre', 'informacao sobre',
+                           'onde fica', 'onde fica a', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
+                           'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia'];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
+  // Perguntas informativas sobre a Câmara devem acionar RAG (general), não chamber_feedback ou services
+  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel)|me explica|o que são)/i.test(userMessage.trim());
+  const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(userMessage.trim());
+  const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(userMessage.trim());
+  const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador/i);
+  const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
+  if (mentionsChamber && (isInformationalQuestion || isLocationQuestionAboutChamber)) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] Informational/location question about Câmara → boosting general for RAG');
+  }
+  if ((isParticipationQuestion && mentionsSessionsOrAudience) || (mentionsChamber && isParticipationQuestion)) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] Participation question (sessões/audiência) → boosting general for RAG');
+  }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });
   }

@@ -25,8 +25,23 @@ Respostas “ancoradas” em um data store (site ou documentos).
 
 - **Projeto GCP:** mesmo do Vertex (ex.: `arcane-atom-480020-f6`).
 - **APIs:** Vertex AI já em uso; é preciso ativar o **Vertex AI Search** (AI Applications).
-- **IAM:** permissão `discoveryengine.servingConfigs.search` (ex.: papel **Discovery Engine Viewer** ou **Discovery Engine Editor**).
+- **IAM:** permissão `discoveryengine.servingConfigs.search` (ex.: papel **Discovery Engine Viewer** ou **Discovery Engine Editor**). Ver [1.1.1 Corrigir 403 (Permission denied)](#111-corrigir-403-permission-denied) abaixo.
 - **Região:** Vertex AI Search usa `global` ou multi-region (`eu` / `us`). O modelo pode estar em `southamerica-east1`; o data store fica em `global` (ou multi-region).
+
+#### 1.1.1 Corrigir 403 (Permission denied)
+
+Se aparecer **403** com `Permission 'discoveryengine.servingConfigs.search' denied` no log do ai-orchestrator, a **identidade que obtém o token do Vertex** (ex.: a conta de serviço da Cloud Function em `VERTEX_TOKEN_URL`) não tem permissão para buscar no data store.
+
+**Passos no GCP:**
+
+1. Abra [IAM e administração → IAM](https://console.cloud.google.com/iam-admin/iam) no projeto (ex.: `arcane-atom-480020-f6`).
+2. Identifique a **conta de serviço** usada para gerar o token (a que a Cloud Function `vertex-token` usa, ou a que chama a API do Vertex).
+3. Clique em **Conceder acesso** (ou edite essa conta) e adicione uma das funções:
+   - **Discovery Engine Viewer** (`roles/discoveryengine.viewer`) — só leitura no Vertex AI Search (recomendado para RAG), ou  
+   - **Discovery Engine Editor** (`roles/discoveryengine.editor`) — se precisar criar/editar recursos.
+4. Salve. A alteração pode levar alguns minutos para propagar.
+
+Depois disso, as chamadas ao RAG (generateContent com grounding no data store) devem deixar de retornar 403.
 
 ### 1.2 Ativar e criar o data store
 

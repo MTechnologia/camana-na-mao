@@ -71,16 +71,24 @@ Para usar **RAG no Vertex** em perguntas de dúvidas gerais sobre a Câmara, con
 
 ### `VERTEX_RAG_DATASTORE` (Vertex AI Search)
 
-**Valor:** path completo do data store no Vertex AI Search (AI Applications).
+**Valor:** path completo do data store **ou** apenas o **Data store ID**.
 
-Exemplo:
+**Opção 1 – Só o ID (recomendado):** use o ID que aparece no GCP (ex.: `camara-na-mao-rag_1770999938229`). O ai-orchestrator monta o path com o projeto da URL e `locations/global/collections/default_collection/dataStores/<ID>`.
 
 ```
-projects/arcane-atom-480020-f6/locations/global/collections/default_collection/dataStores/SEU_DATASTORE_ID
+camara-na-mao-rag_1770999938229
 ```
 
-- Obtenha o Data store ID em: **GCP Console** → **AI Applications** → **Data stores** → abra o data store → aba **Data**.
-- Quando definido, o ai-orchestrator chama a API **generateContent** com grounding nesse data store sempre que a intenção for **general** e injeta o resultado no contexto da resposta.
+**Opção 2 – Path completo:** use se o data store estiver em outra região (ex.: `us`, `eu`) ou quiser fixar projeto/local:
+
+```
+projects/SEU_PROJECT_ID/locations/global/collections/default_collection/dataStores/SEU_DATASTORE_ID
+```
+
+- **Data store em `global`:** `locations/global`.
+- **Data store em multi-region:** `locations/us` ou `locations/eu` (conforme criado no AI Applications).
+- Obtenha o Data store ID em: **GCP Console** → **AI Applications** → **Data stores** → abra o data store → aba **Data** (ou na URL do data store).
+- Se aparecer *Invalid Vertex AI datastore resource name* (400), confira: projeto correto, `locations/global` (ou `us`/`eu`) igual ao do data store, e ID sem espaços/aspas.
 
 ### `VERTEX_RAG_CORPUS` (RAG Engine)
 

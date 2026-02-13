@@ -234,36 +234,44 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Usar Edge Function com service role para salvar tudo (evita 401/RLS quando não há sessão após signUp)
-      const { data: fnData, error: fnError } = await supabase.functions.invoke("complete-registration", {
-        body: {
-          userId,
-          fullName: formData.fullName.trim(),
-          phone: formData.phone.trim() || null,
-          birthDate: formData.birthDate || null,
-          gender: formData.gender || null,
-          race: formData.race || null,
-          incomeRange: formData.incomeRange || "",
-          cep: formData.cep,
-          street: formData.street || "",
-          number: formData.number.trim(),
-          complement: formData.complement?.trim() || null,
-          neighborhood: formData.neighborhood,
-          city: formData.city || "São Paulo",
-          state: formData.state || "SP",
-          interests: formData.interests,
+      // Chamar Edge Function com chave anon (evita 401 quando usuário ainda não confirmou e-mail)
+      const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.CAMARA_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const payload = {
+        userId,
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim() || null,
+        birthDate: formData.birthDate || null,
+        gender: formData.gender || null,
+        race: formData.race || null,
+        incomeRange: formData.incomeRange || "",
+        cep: formData.cep,
+        street: formData.street || "",
+        number: formData.number.trim(),
+        complement: formData.complement?.trim() || null,
+        neighborhood: formData.neighborhood,
+        city: formData.city || "São Paulo",
+        state: formData.state || "SP",
+        interests: formData.interests,
+      };
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/complete-registration`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${anonKey}`,
         },
+        body: JSON.stringify(payload),
       });
 
-      if (fnError) {
-        console.error("complete-registration error:", fnError);
-        toast.error(fnError.message || "Não foi possível concluir o cadastro. Tente novamente.");
+      const data = (await res.json().catch(() => ({}))) as { error?: string; details?: string };
+      if (!res.ok) {
+        console.error("complete-registration error:", res.status, data);
+        toast.error(data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.");
         return;
       }
-
-      const res = fnData as { error?: string; details?: string } | undefined;
-      if (res?.error) {
-        toast.error(res.details || res.error);
+      if (data?.error) {
+        toast.error(data.details || data.error);
         return;
       }
 

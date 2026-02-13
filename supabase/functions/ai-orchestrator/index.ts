@@ -68,7 +68,7 @@ serve(async (req) => {
         console.warn('[ai-orchestrator] VERTEX_TOKEN_URL fetch failed:', (e as Error).message);
       }
     }
-
+    
     if (!finalAiBaseUrl || !supabaseUrl || !supabaseAnonKey) {
       console.error('[ai-orchestrator] Missing required environment variables');
       console.error('[ai-orchestrator] Missing:', {
@@ -239,8 +239,8 @@ serve(async (req) => {
       
       // Force use of frontend type (the one user chose to continue)
       if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
-        collectionIntent = {
-          type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
+      collectionIntent = {
+        type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
           fields: lib.accumulateFieldsFromHistory(messages, frontendCollectionType),
         };
       }
@@ -334,11 +334,11 @@ serve(async (req) => {
       // No conflict - use frontend type with detected fields
       if (!collectionIntent) {
         console.log('[ai-orchestrator] Using frontend collectionType:', frontendCollectionType);
-        collectionIntent = {
-          type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
-          fields: detectedIntent?.fields || {},
-        };
-      }
+      collectionIntent = {
+        type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
+        fields: detectedIntent?.fields || {},
+      };
+    }
     } else if (frontendCollectionType && LIGHT_JOURNEY_TYPES.includes(frontendCollectionType)) {
       // === LIGHT JOURNEY from frontend - maintain context ===
       console.log('[ai-orchestrator] Frontend light journey received:', frontendCollectionType);
@@ -537,8 +537,8 @@ serve(async (req) => {
               fields._asked_category = true;
               return { field: 'category', picker: null, prompt: 'Qual **tipo de problema** é esse? (iluminação, buraco, esgoto, lixo, barulho, ou descreva o problema)' };
             }
+            }
           }
-        }
         }
         
         // 2b. Ensure subcategory is set when category was just confirmed
@@ -1116,7 +1116,7 @@ ${empathyNote}
     const serviceKeywords = /relatar|problema|transporte|avaliar|serviço|servicos|dúvida|duvida|câmara|camara|audiência|audiencia|vereador|histórico|historico|denúncia|denuncia|reclamar|reportar|inscrever/i;
     const hasServiceIntent = serviceKeywords.test(msgLower);
     const isOffTopic = isGreeting && hasSmallTalk && !hasServiceIntent;
-
+    
     // Check for generic urban report messages (always check, not just first message)
     const genericReportPatterns = [
       /^quero relatar (um )?problema/i,
@@ -1261,8 +1261,14 @@ ${empathyNote}
         const location = match?.[2];
         if (project && location) {
           const generateContentUrl = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${aiChatModel}:generateContent`;
+          // Datastore: aceitar path completo ou só o ID (ex.: camara-na-mao-rag_1770999938229)
+          let datastorePath = (vertexRagDatastore || '').trim();
+          if (vertexRagDatastore && !datastorePath.startsWith('projects/')) {
+            datastorePath = `projects/${project}/locations/global/collections/default_collection/dataStores/${datastorePath}`;
+            console.log('[ai-orchestrator] VERTEX_RAG_DATASTORE build full path:', datastorePath);
+          }
           const retrievalTool = vertexRagDatastore
-            ? { retrieval: { vertexAiSearch: { datastore: vertexRagDatastore } } }
+            ? { retrieval: { vertexAiSearch: { datastore: datastorePath } } }
             : { retrieval: { vertexRagStore: { ragResources: [{ ragCorpus: vertexRagCorpus }] } } };
           const ragBody = {
             contents: [{ role: 'user', parts: [{ text: lastUserMessage }] }],
@@ -1279,7 +1285,8 @@ ${empathyNote}
             };
             const textPart = ragJson.candidates?.[0]?.content?.parts?.[0]?.text;
             if (textPart && textPart.trim()) {
-              dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[Contexto da base de conhecimento da Câmara (Vertex RAG)]:\n' + textPart.trim();
+              dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[Contexto da base de conhecimento da Câmara (Vertex RAG)]:\n' + textPart.trim()
+                + '\n\nInstrução: Para esta dúvida, use APENAS o texto do bloco [Contexto da base de conhecimento da Câmara (Vertex RAG)] acima para responder. Não invoque search_knowledge_base nem outras buscas.';
               console.log('[ai-orchestrator] Injected Vertex RAG context for general intent, length:', textPart.trim().length);
             }
           } else {
@@ -1291,6 +1298,17 @@ ${empathyNote}
       } catch (e) {
         console.warn('[ai-orchestrator] Vertex RAG fetch error:', (e as Error).message);
       }
+    }
+
+    // Se injetamos contexto do Vertex RAG, não expor search_knowledge_base para evitar que o modelo prefira a tool e "alucine"
+    const vertexRagInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Vertex RAG)]');
+    const effectiveTools = vertexRagInjected
+      ? (lib.tools as Array<{ type?: string; function?: { name?: string } }>).filter(
+          t => t?.function?.name !== 'search_knowledge_base'
+        )
+      : lib.tools;
+    if (vertexRagInjected) {
+      console.log('[ai-orchestrator] Vertex RAG context injected → search_knowledge_base excluded from tools (prefer RAG)');
     }
 
     // Call AI API with streaming enabled and timeout
@@ -1327,7 +1345,7 @@ ${empathyNote}
         ],
         temperature: 0.75,
         stream: true,
-        tools: lib.tools,
+        tools: effectiveTools,
         tool_choice: 'auto',
       };
       
@@ -1364,7 +1382,7 @@ ${empathyNote}
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[ai-orchestrator] API error:', response.status, errorText);
-
+      
       // Handle 401 Unauthorized (Vertex/Gemini: token inválido ou expirado)
       if (response.status === 401) {
         console.error('[ai-orchestrator] 401 Unauthorized da API de IA. Se estiver usando Vertex: confira VERTEX_TOKEN_URL, VERTEX_TOKEN_SECRET e se a Cloud Function vertex-token retorna token válido; confira também a conta de serviço do GCP (Vertex AI User).');

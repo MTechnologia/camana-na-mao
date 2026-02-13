@@ -75,4 +75,19 @@ test.describe('Chat com IA', () => {
     
     await expect(page.locator('text=Conversa deletada')).toBeVisible();
   });
+
+  test('deve responder a pergunta geral (fluxo RAG)', async ({ page }) => {
+    await page.goto('/');
+
+    const perguntaRag = 'O que é a Câmara Municipal?';
+    await page.fill('textarea', perguntaRag);
+    await page.click('button[type="submit"]');
+
+    await expect(page.locator(`text=${perguntaRag}`)).toBeVisible();
+
+    // Aguarda resposta do assistente (RAG pode injetar contexto do data store; resposta costuma conter termos do domínio)
+    await expect(
+      page.getByText(/órgão|legislativ|vereador|municipal|audiência|atribuição|sessão/i)
+    ).toBeVisible({ timeout: 25000 });
+  });
 });
