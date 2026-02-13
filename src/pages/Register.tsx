@@ -7,7 +7,7 @@ import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerStep1Schema, registerStep2Schema } from "@/lib/validations";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseUrl, supabaseAnonKey } from "@/integrations/supabase/client";
 import StepIndicator from "@/components/register/StepIndicator";
 import AboutYouStep from "@/components/register/AboutYouStep";
 import LocationStep from "@/components/register/LocationStep";
@@ -234,9 +234,11 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Chamar Edge Function com chave anon (evita 401 quando usuário ainda não confirmou e-mail)
-      const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.CAMARA_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (!supabaseAnonKey || !supabaseUrl) {
+        toast.error("Configuração do app incompleta. Tente novamente ou contate o suporte.");
+        setLoading(false);
+        return;
+      }
       const payload = {
         userId,
         fullName: formData.fullName.trim(),
@@ -259,7 +261,7 @@ const Register = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${anonKey}`,
+          Authorization: `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify(payload),
       });

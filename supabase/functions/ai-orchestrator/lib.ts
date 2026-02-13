@@ -935,8 +935,15 @@ export const INTENT_KEYWORDS = [
   'ônibus atrasado', 'metrô lotado', 'trem atrasou', 'não passou',
   'motorista rude', 'falta de ônibus',
   
-  // === Perguntas sobre a Câmara ===
-  'como funciona', 'o que é', 'quem é', 'me explica', 'dúvida sobre'
+  // === Perguntas informativas / conhecimento (ativam scoring; general pode ganhar e acionar RAG) ===
+  'como funciona', 'o que é', 'o que e', 'quem é', 'quem e', 'me explica', 'dúvida sobre', 'duvida sobre',
+  'quais são', 'quais sao', 'qual é', 'qual e', 'quais as', 'quais os', 'qual a', 'qual o',
+  'atribuições', 'atribuicoes', 'atribuição', 'atribuicao', 'função dos', 'funcao dos', 'papel dos',
+  'vereadores', 'vereador', 'vereadora', 'câmara', 'camara', 'municipal', 'legislativo', 'legislatura',
+  'informação sobre', 'informacao sobre', 'saber sobre', 'entender sobre', 'conhecer sobre',
+  'sessões', 'sessão', 'sessoes', 'sessao', 'audiência', 'audiencia', 'como posso participar', 'como participar',
+  'onde fica a', 'endereço da câmara', 'endereco da camara',
+  'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do vereador', 'ganha um vereador'
 ];
 
 // Extract transport-specific fields - EXPANDED VOCABULARY
@@ -2990,12 +2997,16 @@ export function detectCollectionIntent(
   }
   
   // Chamber feedback scoring - use user-only context
+  // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
   const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  const factualQuestionTerms = ['salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'quanto é', 'quanto e', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do', 'papel do', 'o que faz', 'como funciona', 'o que é a', 'o que e a'];
+  const isFactualQuestionAboutChamber = factualQuestionTerms.some(t => fullUserContext.includes(t))
+    && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
   feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
-  if (chamberScore > 0) {
+  if (chamberScore > 0 && !isFactualQuestionAboutChamber) {
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
@@ -3039,16 +3050,18 @@ export function detectCollectionIntent(
   
   // Knowledge base / general scoring
   const knowledgeDomain = ['como funciona', 'como posso', 'como participar', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e',
-                           'me explica', 'dúvida sobre', 'duvida sobre', 'informação sobre', 'informacao sobre',
+                           'quais são', 'quais sao', 'quais as', 'quais os', 'me explica', 'dúvida sobre', 'duvida sobre',
+                           'informação sobre', 'informacao sobre', 'atribuições', 'atribuicoes', 'atribuição', 'atribuicao',
+                           'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do',
                            'onde fica', 'onde fica a', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
                            'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia'];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
-  // Perguntas informativas sobre a Câmara devem acionar RAG (general), não chamber_feedback ou services
-  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel)|me explica|o que são)/i.test(userMessage.trim());
+  // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
+  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario)|me explica|o que são|quais são|quais sao|quais as |quais os )/i.test(userMessage.trim());
   const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(userMessage.trim());
   const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(userMessage.trim());
-  const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador/i);
+  const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
   if (mentionsChamber && (isInformationalQuestion || isLocationQuestionAboutChamber)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
@@ -3057,6 +3070,14 @@ export function detectCollectionIntent(
   if ((isParticipationQuestion && mentionsSessionsOrAudience) || (mentionsChamber && isParticipationQuestion)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Participation question (sessões/audiência) → boosting general for RAG');
+  }
+  if ((fullUserContext.includes('atribuições') || fullUserContext.includes('atribuicoes')) && mentionsChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] Question about atribuições/vereadores → boosting general for RAG');
+  }
+  if (isFactualQuestionAboutChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 7);
+    console.log('[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG');
   }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });
