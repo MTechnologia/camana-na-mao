@@ -20,6 +20,7 @@ import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { tituloParaExibicao, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
 
 type AudienciaRow = {
   id: string;
@@ -455,12 +456,12 @@ const Audiencias = () => {
                             Audiência
                           </Badge>
                           
-                          <h3 className="font-semibold text-foreground line-clamp-4">
-                            {item.titulo}
+                          <h3 className="font-semibold text-foreground line-clamp-4 min-h-[2.5rem]">
+                            {tituloParaExibicao(item.titulo, item.descricao, item.tema)}
                           </h3>
                           
-                          <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
-                            {item.descricao || `Audiência pública sobre ${item.tema}`}
+                          <p className="text-sm text-muted-foreground line-clamp-3 mt-3">
+                            {limparDescricaoRepetida(item.descricao) || `Audiência pública sobre ${item.tema}`}
                           </p>
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
