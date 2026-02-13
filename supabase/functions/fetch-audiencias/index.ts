@@ -82,18 +82,34 @@ function normalizeDate(s: string): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Normaliza hora para HH:MM ou HH:MM:SS */
+/** Normaliza hora para HH:MM ou HH:MM:SS. Retorna "" quando não conseguir extrair horário (evita default 09:00). */
 function normalizeTime(s: string): string {
-  if (!s || typeof s !== "string") return "09:00";
+  if (!s || typeof s !== "string") return "";
   const trimmed = s.trim();
-  const match = trimmed.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  // HH:MM ou HH:MM:SS
+  let match = trimmed.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (match) {
     const h = match[1].padStart(2, "0");
     const m = match[2];
     const sec = match[3] || "00";
     return `${h}:${m}:${sec}`;
   }
-  return "09:00:00";
+  // HHhMM ou HHh
+  match = trimmed.match(/(\d{1,2})h(\d{2})?/i);
+  if (match) {
+    const h = match[1].padStart(2, "0");
+    const m = (match[2] ?? "00").padStart(2, "0");
+    return `${h}:${m}:00`;
+  }
+  // Data/hora ISO (extrair só o tempo)
+  const isoMatch = trimmed.match(/T(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (isoMatch) {
+    const h = isoMatch[1].padStart(2, "0");
+    const m = isoMatch[2];
+    const sec = isoMatch[3] || "00";
+    return `${h}:${m}:${sec}`;
+  }
+  return "";
 }
 
 /** Gera chave estável para upsert quando a API não envia Chave (evita duplicatas). */
@@ -169,15 +185,16 @@ async function fetchAudienciasFromSplegis(
 function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const titulo = getStr(item, "Titulo", "titulo") || "Audiência pública";
   const data = normalizeDate(getStr(item, "Data", "data"));
-  const hora = normalizeTime(getStr(item, "Hora", "hora"));
+  const horaRaw = getStr(item, "Hora", "hora", "Horario", "horario");
+  const hora = normalizeTime(horaRaw);
   const local = getStr(item, "Local", "local") || "A definir";
   const tema = getStr(item, "Tema", "tema") || "Geral";
   const status = getStr(item, "Status", "status") || "agendada";
   const chaveApi = getStr(item, "Chave", "chave");
   const dataNorm = data || new Date().toISOString().slice(0, 10);
-  const horaNorm = hora.length <= 5 ? `${hora}:00` : hora;
+  const horaNorm = hora ? (hora.length <= 5 ? `${hora}:00` : hora) : null;
   const splegisChave =
-    chaveApi || syntheticKey(titulo, dataNorm, horaNorm, local);
+    chaveApi || syntheticKey(titulo, dataNorm, horaNorm ?? "00:00:00", local);
   const vagas = getNum(item, "VagasDisponiveis", "vagasDisponiveis");
   const inscricoesAbertas = getBool(item, "InscricoesAbertas", "inscricoesAbertas");
 

@@ -27,7 +27,7 @@ type AudienciaRow = {
   titulo: string;
   descricao: string | null;
   data: string;
-  hora: string;
+  hora: string | null;
   local: string;
   tema: string;
   status: string;
@@ -410,7 +410,11 @@ const Audiencias = () => {
                               <Calendar className="h-3.5 w-3.5" />
                               <span className="capitalize">{formatDate(item.data)}</span>
                             </div>
-                            {item.hora && <span>{item.hora.slice(0, 5)}</span>}
+                            {item.hora ? (
+                              <span>{item.hora.slice(0, 5)}</span>
+                            ) : (
+                              <span className="text-muted-foreground/80">Horário a definir</span>
+                            )}
                           </div>
                           
                           <p className="text-xs text-muted-foreground truncate">

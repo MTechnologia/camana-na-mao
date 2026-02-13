@@ -17,7 +17,7 @@ interface Audiencia {
   titulo: string;
   descricao: string | null;
   data: string;
-  hora: string;
+  hora: string | null;
   local: string;
   tema: string;
   status: string;
@@ -181,7 +181,7 @@ const AudienciaDetailPage = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Horário</p>
-              <p className="text-sm text-muted-foreground">{formatTime(audiencia.hora)}</p>
+              <p className="text-sm text-muted-foreground">{audiencia.hora ? formatTime(audiencia.hora) : "Horário a definir"}</p>
             </div>
           </div>
 

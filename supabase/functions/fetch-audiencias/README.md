@@ -72,14 +72,48 @@ Resposta esperada (exemplo):
 
 Se der erro (ex.: API SPLEGIS fora ou formato diferente), virá `"ok": false` e `"error": "..."`.
 
-### 2. Pelo app (página Audiências Públicas)
+**Se aparecer 401 (Unauthorized):** no Dashboard do Supabase confira se a função aceita chamadas com a chave **anon** (Settings → API; em Edge Functions, fetch-audiencias está com `verify_jwt = false`).
 
-Na listagem de **Audiências Públicas** há um botão **Sincronizar com a API**. Clique para disparar a função; ao terminar, um toast mostra o resultado e a lista é atualizada.
+### 2. Pelo app / cron
 
-**Se aparecer 401 (Unauthorized):** no Dashboard do Supabase vá em **Edge Functions** → **fetch-audiencias** e confira se a função aceita chamadas com a chave **anon**. Em **Settings → API** verifique se "Allow anonymous key" está habilitado. O app envia a chave anon (ou o JWT do usuário logado) no header `Authorization`.
+A sincronização pode ser disparada por um cron (recomendado) ou manualmente via curl/Postman. Veja a seção **Configurar o cron** abaixo.
 
 ### 3. Conferir no sistema
 
 - Abra **Audiências Públicas** no menu e veja se as audiências aparecem.
 - No **Dashboard do Supabase**: **Table Editor → audiencias** para ver os registros e a coluna `splegis_chave` preenchida nos que vieram da API.
 - Em **Edge Functions → fetch-audiencias → Logs** você vê as chamadas e possíveis erros.
+
+---
+
+## Configurar o cron (atualização automática)
+
+Para que as audiências sejam atualizadas automaticamente (como notícias/agenda), configure um job que chame a função em um intervalo fixo.
+
+**URL da função:** `https://SEU_PROJECT_REF.supabase.co/functions/v1/fetch-audiencias`  
+Ex.: `https://vjzkzsczlbtmrzewffdx.supabase.co/functions/v1/fetch-audiencias`
+
+### Opção A – cron-job.org (ou similar)
+
+1. Crie um novo cron job.
+2. **URL:** `https://SEU_PROJECT_REF.supabase.co/functions/v1/fetch-audiencias`
+3. **Método:** POST.
+4. **Headers:** adicione `Authorization: Bearer SEU_ANON_KEY`. A chave anon está em **Supabase Dashboard → Settings → API → Project API keys → anon (public)**.
+5. **Fuso:** `America/Sao_Paulo` para horário de Brasília.
+6. **Agendamento sugerido:** 1x por dia, por exemplo **06:00** (manhã), para não sobrecarregar a API SPLEGIS.
+   - **Custom crontab:** `0 6 * * *` (todo dia às 06:00).
+   - Ou use a opção “Every day at” e defina 6 : 00.
+
+### Opção B – Google Cloud Scheduler (GCP)
+
+1. No **Cloud Console**, vá em **Cloud Scheduler** e crie um job.
+2. **URL:** a mesma acima.
+3. **Método:** POST.
+4. **Headers:** `Authorization: Bearer SEU_ANON_KEY`.
+5. **Frequência:** ex. `0 6 * * *` (todo dia às 06:00, fuso do job em America/Sao_Paulo).
+
+### Período sincronizado
+
+Por padrão a função usa `dataInicial=2008-01-01` e `dataFinal` = fim do próximo ano. Para alterar, use query params na URL do cron, por exemplo:
+
+- `https://.../fetch-audiencias?dataInicial=2020-01-01&dataFinal=2027-12-31`
