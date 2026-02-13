@@ -9,6 +9,7 @@ import { toast } from "sonner";
 interface LocationData {
   cep: string;
   street: string;
+  number: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -99,7 +100,7 @@ const LocationStep = ({ data, onChange, onContinue, onSkip }: LocationStepProps)
         </div>
       </div>
 
-      {/* Endereço preenchido automaticamente */}
+      {/* Endereço preenchido automaticamente: rua já preenchida, usuário só informa o número */}
       {addressFound && (
         <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
           <div>
@@ -112,6 +113,19 @@ const LocationStep = ({ data, onChange, onContinue, onSkip }: LocationStepProps)
               onChange={(e) => onChange("street", e.target.value)}
               className="h-12 bg-muted/50 border-border rounded-xl"
               readOnly
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-foreground mb-2 block">
+              Número
+            </Label>
+            <Input
+              type="text"
+              placeholder="Ex.: 123, 45 A"
+              value={data.number}
+              onChange={(e) => onChange("number", e.target.value)}
+              className="h-12 bg-muted/50 border-border rounded-xl"
             />
           </div>
 

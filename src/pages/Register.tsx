@@ -35,6 +35,7 @@ interface FormData {
   // Step 4: Location
   cep: string;
   street: string;
+  number: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -65,6 +66,7 @@ const Register = () => {
     incomeRange: "",
     cep: "",
     street: "",
+    number: "",
     neighborhood: "",
     city: "",
     state: "",
@@ -124,7 +126,15 @@ const Register = () => {
 
       if (!error && data?.user) {
         setUserId(data.user.id);
-        
+        // Garantir que nome e celular fiquem no perfil (trigger já preenche; atualizamos por segurança)
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: formData.fullName,
+            phone: formData.phone,
+          })
+          .eq("id", data.user.id);
+
         // Record consents in database
         try {
           await supabase.rpc('grant_consent', {
@@ -204,12 +214,12 @@ const Register = () => {
         });
       }
 
-      // Save address if provided
+      // Save address if provided (CEP já preencheu rua/bairro/cidade; número veio do passo de localização)
       if (formData.cep && formData.neighborhood) {
         await supabase.from('user_addresses').insert({
           user_id: userId,
           street: formData.street || "",
-          number: "", // User can add later
+          number: formData.number?.trim() || "",
           neighborhood: formData.neighborhood,
           city: formData.city || "São Paulo",
           state: formData.state || "SP",
@@ -224,6 +234,16 @@ const Register = () => {
         interest_category: category,
       }));
       await supabase.from('user_interests').insert(interests);
+
+      // Notificação de boas-vindas (dispara push/e-mail/SMS conforme preferências do usuário)
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        title: 'Bem-vindo(a) à Câmara Municipal!',
+        message:
+          'Agora você pode acompanhar audiências públicas, fazer relatos de transporte e urbanos, ver serviços perto de você e muito mais. Acesse o menu para explorar.',
+        type: 'system',
+        priority: 'normal',
+      });
 
       toast.success("Cadastro concluído com sucesso!");
       navigate("/");
@@ -478,6 +498,7 @@ const Register = () => {
             data={{
               cep: formData.cep,
               street: formData.street,
+              number: formData.number,
               neighborhood: formData.neighborhood,
               city: formData.city,
               state: formData.state,
