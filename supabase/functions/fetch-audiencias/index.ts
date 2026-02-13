@@ -62,13 +62,20 @@ function getBool(item: SplegisAudienciaItem, ...keys: string[]): boolean | null 
   return null;
 }
 
-/** Normaliza data para YYYY-MM-DD */
+/** Normaliza data para YYYY-MM-DD. Aceita DD/MM/YYYY, DD-MM-YYYY ou YYYY-MM-DD. */
 function normalizeDate(s: string): string {
   if (!s || typeof s !== "string") return "";
   const trimmed = s.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (ddmmyyyy) {
+    const day = ddmmyyyy[1].padStart(2, "0");
+    const month = ddmmyyyy[2].padStart(2, "0");
+    const year = ddmmyyyy[3];
+    return `${year}-${month}-${day}`;
+  }
   const d = new Date(trimmed);
-  if (Number.isNaN(d.getTime())) return trimmed;
+  if (Number.isNaN(d.getTime())) return "";
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -89,28 +96,40 @@ function normalizeTime(s: string): string {
   return "09:00:00";
 }
 
+/** Gera chave estável para upsert quando a API não envia Chave (evita duplicatas). */
+function syntheticKey(titulo: string, data: string, hora: string, local: string): string {
+  const slug = (s: string, max: number) =>
+    s
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max)
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-") || "x";
+  return `syn:${data}:${hora}:${slug(titulo, 80)}:${slug(local, 40)}`;
+}
+
 /**
- * Chama AudienciasPublicasV2JSON ou AudienciasPublicasJSON no ws2.asmx.
- * Parâmetros comuns: DataInicial, DataFinal (formato YYYY-MM-DD ou DD/MM/YYYY).
+ * Chama AudienciasPublicasV2JSON no ws2.asmx.
+ * DataInicial e DataFinal em YYYY-MM-DD (a API rejeita DD/MM/YYYY nos parâmetros).
  */
 async function fetchAudienciasFromSplegis(
   dataInicial: string,
   dataFinal: string
 ): Promise<SplegisAudienciaItem[]> {
-  const url = `${SPLEGIS_BASE}/AudienciasPublicasV2JSON`;
-  const body = JSON.stringify({
+  const params = new URLSearchParams({
     DataInicial: dataInicial,
     DataFinal: dataFinal,
   });
+  const url = `${SPLEGIS_BASE}/AudienciasPublicasV2JSON?${params.toString()}`;
 
   const res = await fetch(url, {
-    method: "POST",
+    method: "GET",
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
       Accept: "application/json",
       "User-Agent": "CamaraNaMao/1.0",
     },
-    body,
   });
 
   if (!res.ok) {
@@ -154,16 +173,20 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const local = getStr(item, "Local", "local") || "A definir";
   const tema = getStr(item, "Tema", "tema") || "Geral";
   const status = getStr(item, "Status", "status") || "agendada";
-  const chave = getStr(item, "Chave", "chave");
+  const chaveApi = getStr(item, "Chave", "chave");
+  const dataNorm = data || new Date().toISOString().slice(0, 10);
+  const horaNorm = hora.length <= 5 ? `${hora}:00` : hora;
+  const splegisChave =
+    chaveApi || syntheticKey(titulo, dataNorm, horaNorm, local);
   const vagas = getNum(item, "VagasDisponiveis", "vagasDisponiveis");
   const inscricoesAbertas = getBool(item, "InscricoesAbertas", "inscricoesAbertas");
 
   return {
-    splegis_chave: chave || null,
+    splegis_chave: splegisChave,
     titulo,
     descricao: getStr(item, "Descricao", "descricao") || null,
-    data: data || new Date().toISOString().slice(0, 10),
-    hora: hora.length <= 5 ? `${hora}:00` : hora,
+    data: dataNorm,
+    hora: horaNorm,
     local,
     tema,
     status,
@@ -187,8 +210,12 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const replace = url.searchParams.get("replace") === "1" || url.searchParams.get("replace") === "true";
-    const dataInicial = url.searchParams.get("dataInicial") || "2020-01-01";
-    const dataFinal = url.searchParams.get("dataFinal") || "2030-12-31";
+    // Período padrão: desde 2008 até fim do próximo ano (cobertura completa)
+    const now = new Date();
+    const defaultStart = "2008-01-01";
+    const defaultEnd = `${now.getFullYear() + 1}-12-31`;
+    const dataInicial = url.searchParams.get("dataInicial") || defaultStart;
+    const dataFinal = url.searchParams.get("dataFinal") || defaultEnd;
 
     console.log("[fetch-audiencias] Fetching from SPLEGIS...", { dataInicial, dataFinal, replace });
 
@@ -201,52 +228,52 @@ serve(async (req) => {
         .delete()
         .not("splegis_chave", "is", null);
       if (delError) {
-        console.warn("[fetch-audiencias] Delete existing SPLEGIS rows failed (column may not exist yet):", delError.message);
+        console.warn("[fetch-audiencias] Delete existing SPLEGIS rows failed:", delError.message);
       }
     }
 
-    const rows = items.map(mapToDbRow).filter((r) => (r.titulo as string) && (r.data as string));
-    let inserted = 0;
-    let updated = 0;
+    const rowsRaw = items.map(mapToDbRow).filter((r) => (r.titulo as string) && (r.data as string));
+    const byKey = new Map<string, Record<string, unknown>>();
+    for (const r of rowsRaw) {
+      const k = String(r.splegis_chave ?? "");
+      byKey.set(k, r);
+    }
+    const rows = [...byKey.values()];
 
-    for (const row of rows) {
-      const splegisChave = row.splegis_chave as string | null;
-      if (splegisChave) {
-        const { data: existing } = await supabase
-          .from("audiencias")
-          .select("id")
-          .eq("splegis_chave", splegisChave)
-          .maybeSingle();
+    const chavesUnicas = [...new Set(rows.map((r) => r.splegis_chave).filter(Boolean))] as string[];
+    let jaExistiam = 0;
+    if (chavesUnicas.length > 0) {
+      const { data: existing } = await supabase
+        .from("audiencias")
+        .select("splegis_chave")
+        .in("splegis_chave", chavesUnicas);
+      jaExistiam = existing?.length ?? 0;
+    }
+    const BATCH = 80;
+    let processed = 0;
 
-        const payload = { ...row };
-        delete (payload as any).splegis_chave;
-        if (existing?.id) {
-          const { error: upErr } = await supabase
-            .from("audiencias")
-            .update(payload)
-            .eq("id", existing.id);
-          if (!upErr) updated++;
-        } else {
-          const { error: insErr } = await supabase
-            .from("audiencias")
-            .insert({ ...payload, splegis_chave: splegisChave });
-          if (!insErr) inserted++;
-        }
-      } else {
-        const payload = { ...row };
-        delete (payload as any).splegis_chave;
-        const { error: insErr } = await supabase.from("audiencias").insert(payload);
-        if (!insErr) inserted++;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const chunk = rows.slice(i, i + BATCH);
+      const { error: upsertErr } = await supabase
+        .from("audiencias")
+        .upsert(chunk, { onConflict: "splegis_chave" });
+      if (upsertErr) {
+        console.error("[fetch-audiencias] Upsert batch error:", upsertErr);
+        throw new Error(`Falha ao gravar lote: ${upsertErr.message}`);
       }
+      processed += chunk.length;
     }
 
+    const atualizadas = jaExistiam;
+    const inseridas = processed - jaExistiam;
     const result = {
       ok: true,
       source: "splegis",
       totalFromApi: items.length,
-      inserted,
-      updated,
-      message: `Sincronizadas: ${inserted} inseridas, ${updated} atualizadas.`,
+      processed,
+      inserted: inseridas,
+      updated: atualizadas,
+      message: `Sincronizadas: ${inseridas} novas, ${atualizadas} atualizadas (${processed} no total, período ${dataInicial} a ${dataFinal}).`,
     };
 
     return new Response(JSON.stringify(result), {

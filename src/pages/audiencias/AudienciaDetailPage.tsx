@@ -145,7 +145,7 @@ const AudienciaDetailPage = () => {
         {/* Header com título e badge */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold text-foreground">{audiencia.titulo}</h1>
+            <h1 className="text-2xl font-bold text-foreground leading-tight">{audiencia.titulo}</h1>
             <Badge
               variant="outline"
               className={`border shrink-0 ${themeColors[audiencia.tema] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
@@ -153,7 +153,7 @@ const AudienciaDetailPage = () => {
               {audiencia.tema}
             </Badge>
           </div>
-          <p className="text-base text-muted-foreground">
+          <p className="text-base text-muted-foreground mt-3">
             {audiencia.descricao || `Audiência pública sobre ${audiencia.tema}. Participe e contribua com sua opinião sobre este tema relevante para a cidade.`}
           </p>
         </div>

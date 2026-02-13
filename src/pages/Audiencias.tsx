@@ -455,11 +455,11 @@ const Audiencias = () => {
                             Audiência
                           </Badge>
                           
-                          <h3 className="font-semibold text-foreground line-clamp-2">
+                          <h3 className="font-semibold text-foreground line-clamp-4">
                             {item.titulo}
                           </h3>
                           
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
                             {item.descricao || `Audiência pública sobre ${item.tema}`}
                           </p>
                           

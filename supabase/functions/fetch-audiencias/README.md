@@ -3,7 +3,7 @@
 Sincroniza audiências públicas com o banco a partir do **Web Service SPLEGIS** da Câmara Municipal de São Paulo.
 
 - **API:** https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx  
-- **Método usado:** `AudienciasPublicasV2JSON` (parâmetros: `DataInicial`, `DataFinal`).
+- **Método usado:** `AudienciasPublicasV2JSON` via **GET** (parâmetros na query: `DataInicial`, `DataFinal`). A API não aceita POST para esse método.
 
 ## Uso
 
@@ -22,11 +22,13 @@ POST "https://SEU_PROJECT.supabase.co/functions/v1/fetch-audiencias?replace=1"
 
 ## Query params
 
-| Parâmetro     | Padrão       | Descrição |
-|---------------|--------------|-----------|
-| `dataInicial` | 2020-01-01   | Data inicial (YYYY-MM-DD) |
-| `dataFinal`   | 2030-12-31   | Data final (YYYY-MM-DD) |
-| `replace`     | false        | Se `1` ou `true`, remove todas as linhas com `splegis_chave` preenchido antes de inserir as da API (evita duplicar ao re-sincronizar). |
+| Parâmetro     | Padrão                | Descrição |
+|---------------|------------------------|-----------|
+| `dataInicial` | **2008-01-01**        | Data inicial (YYYY-MM-DD). Cobertura desde 2008. |
+| `dataFinal`   | 31/12 do próximo ano  | Data final (YYYY-MM-DD). |
+| `replace`     | false                  | Se `1` ou `true`, remove todas as linhas com `splegis_chave` preenchido antes de inserir as da API. |
+
+A função usa **upsert em lotes**; período padrão cobre de 2008 até o próximo ano. Se der timeout (504) com muitos registros, chame com intervalo menor (ex.: `?dataInicial=2020-01-01&dataFinal=2022-12-31`) e depois repita para outros anos.
 
 ## Banco
 
