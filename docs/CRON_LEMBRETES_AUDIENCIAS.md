@@ -52,3 +52,14 @@ supabase functions deploy audiencia-reminder-d1
 Detalhes em:
 - `supabase/functions/audiencia-reminder-1h/README.md`
 - `supabase/functions/audiencia-reminder-d1/README.md`
+
+---
+
+## Se o job falhar (Failed) no Cloud Scheduler
+
+1. **Confirme o header:** No job, em "Configure the execution" → HTTP headers deve ter `Authorization: Bearer SEU_ANON_KEY` (anon key do Supabase → Settings → API).
+2. **Logs no Supabase:** Dashboard → **Edge Functions** → **audiencia-reminder-1h** (ou **audiencia-reminder-d1**) → **Logs**. Veja o erro exato (401, 500, etc.).
+3. **Deploy:** Garanta que as funções estão publicadas:  
+   `supabase functions deploy audiencia-reminder-1h` e  
+   `supabase functions deploy audiencia-reminder-d1`.
+4. **Tabela e dados:** As funções leem `audiencia_participacoes` (tipo = `videoconferencia`, com `user_id` preenchido). Se não houver nenhuma participação nesse formato, a função responde 200 com `sent: 0`; falha só se der erro de banco ou de permissão.

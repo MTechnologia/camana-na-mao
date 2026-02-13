@@ -60,6 +60,12 @@ verify_jwt = false
 [functions.fetch-audiencias]
 verify_jwt = false
 
+[functions.audiencia-reminder-1h]
+verify_jwt = false
+
+[functions.audiencia-reminder-d1]
+verify_jwt = false
+
 [functions.fetch-escola-parlamento]
 verify_jwt = false
 
