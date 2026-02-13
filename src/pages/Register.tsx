@@ -45,7 +45,7 @@ interface FormData {
 
 const Register = () => {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -202,15 +202,21 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Garantir nome e celular no perfil (sessão já ativa; evita "Sem nome" na tela de perfil)
+      // Garantir nome e celular no perfil (upsert: cria se não existir, atualiza se existir)
       const { error: profileErr } = await supabase
         .from("profiles")
-        .update({
-          full_name: formData.fullName,
-          phone: formData.phone,
-        })
-        .eq("id", userId);
-      if (profileErr) console.error("Erro ao atualizar perfil:", profileErr);
+        .upsert(
+          {
+            id: userId,
+            full_name: formData.fullName.trim() || "Usuário",
+            phone: formData.phone.trim() || null,
+          },
+          { onConflict: "id" }
+        );
+      if (profileErr) {
+        console.error("Erro ao salvar perfil:", profileErr);
+        toast.error("Não foi possível salvar nome e celular. Tente editar em Perfil após confirmar o e-mail.");
+      }
 
       // Save demographics if provided
       if (formData.birthDate || formData.gender || formData.race || formData.incomeRange) {
@@ -274,8 +280,9 @@ const Register = () => {
       // Marcar onboarding como concluído (evita tutorial "personalize" na Home após login)
       await supabase.from("profiles").update({ onboarding_completed_at: new Date().toISOString() }).eq("id", userId);
 
-      toast.success("Cadastro concluído com sucesso!");
-      navigate("/");
+      toast.success("Cadastro concluído! Confirme seu e-mail para acessar o app.");
+      await signOut();
+      navigate("/confirmar-email", { state: { email: formData.email }, replace: true });
     } catch (error: any) {
       toast.error(error.message || "Erro ao salvar dados");
     } finally {
