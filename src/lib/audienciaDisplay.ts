@@ -2,15 +2,25 @@
  * Helpers para exibição de audiências: título inteligente e descrição sem repetição.
  */
 
+function normalizarTitulo(t: string): string {
+  return (t || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 export function isTituloGenerico(titulo: string): boolean {
   const t = (titulo || "").trim();
-  return t === "Audiência pública" || t.length < 30;
+  if (t.length < 30) return true;
+  return normalizarTitulo(t) === "audiência pública";
 }
 
 export function limparDescricaoRepetida(desc: string | null): string {
   if (!desc || !desc.trim()) return "";
   let d = desc.trim();
-  const prefixos = [/^Audiência pública sobre\s+/i, /^Audiência pública para\s+/i];
+  // Remove prefixos repetitivos (case-insensitive, espaços flexíveis)
+  const prefixos = [
+    /^Audiência\s+pública\s+sobre\s+/i,
+    /^Audiência\s+pública\s+para\s+/i,
+    /^Audiência\s+pública\s+/i,
+  ];
   for (const re of prefixos) {
     d = d.replace(re, "").trim();
   }
