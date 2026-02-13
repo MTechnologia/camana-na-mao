@@ -2,14 +2,13 @@
  * Helpers para exibição de audiências: título inteligente e descrição sem repetição.
  */
 
-function normalizarTitulo(t: string): string {
-  return (t || "").replace(/\s+/g, " ").trim().toLowerCase();
-}
+/** Título é genérico se for só "Audiência pública" (com variações) ou muito curto. */
+const TITULO_GENERICO_REGEX = /^Audiência\s+pública$/i;
 
 export function isTituloGenerico(titulo: string): boolean {
   const t = (titulo || "").trim();
   if (t.length < 30) return true;
-  return normalizarTitulo(t) === "audiência pública";
+  return TITULO_GENERICO_REGEX.test(t);
 }
 
 export function limparDescricaoRepetida(desc: string | null): string {

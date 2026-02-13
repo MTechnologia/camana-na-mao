@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,6 @@ const Audiencias = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-  const [syncing, setSyncing] = useState(false);
 
   const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
@@ -196,55 +195,6 @@ const Audiencias = () => {
     navigate(`/audiencias/${item.id}`);
   };
 
-  const handleSyncFromApi = async () => {
-    setSyncing(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const anonKey =
-        import.meta.env.CAMARA_PUBLISHABLE_KEY ??
-        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const token = session?.access_token ?? anonKey ?? "";
-      if (!token) {
-        toast.error(
-          "Chave da API não configurada. Faça login ou verifique as variáveis de ambiente."
-        );
-        return;
-      }
-      const { data, error } = await supabase.functions.invoke<{
-        ok: boolean;
-        message?: string;
-        error?: string;
-        totalFromApi?: number;
-        inserted?: number;
-        updated?: number;
-      }>("fetch-audiencias", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (error) throw error;
-      if (data?.ok) {
-        toast.success(data.message ?? "Sincronização concluída.");
-        refetch();
-      } else {
-        toast.error(data?.error ?? "Erro ao sincronizar.");
-      }
-    } catch (e) {
-      const msg =
-        e && typeof e === "object" && "message" in e
-          ? String((e as { message: string }).message)
-          : "Erro ao sincronizar.";
-      const is401 = msg.includes("401") || (e as { status?: number })?.status === 401;
-      toast.error(
-        is401
-          ? "Não autorizado (401). Faça login ou verifique no Supabase se a função fetch-audiencias permite chamadas com a chave anon."
-          : msg
-      );
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const activeFiltersCount =
     filters.themes.length +
     filters.regions.length +
@@ -285,15 +235,6 @@ const Audiencias = () => {
                   {activeFiltersCount}
                 </Badge>
               )}
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleSyncFromApi}
-              disabled={syncing}
-              title="Sincronizar audiências com a API da Câmara"
-            >
-              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
             </Button>
           </div>
 
