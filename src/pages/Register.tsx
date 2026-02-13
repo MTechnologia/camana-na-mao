@@ -256,13 +256,18 @@ const Register = () => {
 
       // Dados demográficos obrigatórios (validados no passo Sobre você)
       const socialClass = mapIncomeToSocialClass(formData.incomeRange);
-      const { error: demoErr } = await supabase.from('user_demographics').upsert({
-        user_id: userId,
-        birth_date: formData.birthDate || null,
-        gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
-        race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
-        social_class: socialClass,
-      });
+      const { error: demoErr } = await supabase
+        .from('user_demographics')
+        .upsert(
+          {
+            user_id: userId,
+            birth_date: formData.birthDate || null,
+            gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
+            race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
+            social_class: socialClass,
+          },
+          { onConflict: "user_id" }
+        );
       if (demoErr) {
         console.error("Erro ao salvar dados demográficos:", demoErr);
         toast.error("Não foi possível salvar dados demográficos. Tente novamente.");
