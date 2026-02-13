@@ -22,27 +22,25 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     const checkOnboardingStatus = async () => {
       setIsLoading(true);
       
-      // If user is logged in, check database
+      // If user is logged in, check database (e também se já tem interesses = personalização no cadastro)
       if (user) {
         try {
-          const { data: profile, error } = await supabase
-            .from("profiles")
-            .select("onboarding_completed_at")
-            .eq("id", user.id)
-            .single();
+          const [{ data: profile, error: profileError }, { data: interests }] = await Promise.all([
+            supabase.from("profiles").select("onboarding_completed_at").eq("id", user.id).single(),
+            supabase.from("user_interests").select("id").eq("user_id", user.id),
+          ]);
 
-          if (error) {
-            console.error("Error fetching onboarding status:", error);
-            // Fallback to localStorage
+          if (profileError) {
+            console.error("Error fetching onboarding status:", profileError);
             const hasCompletedOnboarding = localStorage.getItem("hasCompletedOnboarding");
             setIsFirstAccess(!hasCompletedOnboarding);
             setShowTutorial(!hasCompletedOnboarding);
           } else {
-            const hasCompleted = !!profile?.onboarding_completed_at;
+            const hasCompletedInProfile = !!profile?.onboarding_completed_at;
+            const hasInterestsFromRegistration = (interests?.length ?? 0) >= 3;
+            const hasCompleted = hasCompletedInProfile || hasInterestsFromRegistration;
             setIsFirstAccess(!hasCompleted);
             setShowTutorial(!hasCompleted);
-            
-            // Sync localStorage with DB status
             if (hasCompleted) {
               localStorage.setItem("hasCompletedOnboarding", "true");
             }

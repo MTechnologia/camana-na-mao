@@ -11,13 +11,19 @@ const translateError = (message: string): string => {
     "User already registered": "Este e-mail já está cadastrado",
     "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
     "Invalid email": "E-mail inválido",
-    "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos",
+    "Email rate limit exceeded": "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo",
     "Signup requires a valid password": "Senha inválida",
     "Unable to validate email address": "Não foi possível validar o e-mail",
     "signup_disabled": "Cadastro desabilitado pelo administrador",
     "email_exists": "Este e-mail já está cadastrado",
   };
-  return translations[message] || message;
+  const normalized = message.trim();
+  if (translations[normalized]) return translations[normalized];
+  // Supabase pode enviar "email rate limit exceeded" com outra capitalização
+  if (normalized.toLowerCase().includes("email rate limit") || normalized.toLowerCase().includes("rate limit exceeded")) {
+    return "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo";
+  }
+  return message;
 };
 
 interface AuthContextType {
@@ -38,34 +44,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const checkOnboardingStatus = useCallback(async (userId: string | undefined) => {
-    if (!userId) return;
-
-    const { data, error } = await supabase
-      .from('user_interests')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1);
-
-    if (!error && (!data || data.length === 0)) {
-      navigate('/onboarding');
-    } else {
-      navigate('/');
-    }
-  }, [navigate]);
-
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // Only check onboarding status for sign in events from login page
-      // Not for fresh signups which now have their own flow
+      // Após login, ir sempre para home (personalização já está no cadastro; não redirecionar para /onboarding)
       if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
-        setTimeout(() => {
-          checkOnboardingStatus(session?.user?.id);
-        }, 0);
+        navigate('/');
       }
     });
 
@@ -77,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, [checkOnboardingStatus]);
+  }, [navigate]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone: string) => {
     try {

@@ -148,9 +148,7 @@ serve(async (req) => {
       }
 
       // --- Push (app mobile Expo) — aparece na bandeja do celular ---
-      if (pushEnabled && !expoPushToken) {
-        console.log("[notification-delivery] Expo push skipped: no expo_push_token for user", userId, "(abrir o app uma vez com login para registrar o token)");
-      }
+      // (Sem log quando não há token: é esperado para quem ainda não abriu o app; evita ruído em info.)
       if (expoPushToken && expoPushToken.startsWith("ExponentPushToken")) {
         try {
           const expoRes = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -176,8 +174,13 @@ serve(async (req) => {
           const expoBody = await expoRes.text();
           if (expoRes.ok) {
             try {
-              const expoJson = JSON.parse(expoBody) as { data?: Array<{ status: string }> };
-              if (expoJson.data?.[0]?.status === "ok") {
+              const expoJson = JSON.parse(expoBody) as {
+                data?: Array<{ status: string }> | { status: string };
+              };
+              const data = expoJson.data;
+              const status =
+                Array.isArray(data) ? data[0]?.status : (data as { status?: string } | undefined)?.status;
+              if (status === "ok") {
                 expoSent = 1;
               } else {
                 console.warn("[notification-delivery] Expo push ticket error:", expoBody);

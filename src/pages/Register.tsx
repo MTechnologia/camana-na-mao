@@ -202,6 +202,16 @@ const Register = () => {
 
     setLoading(true);
     try {
+      // Garantir nome e celular no perfil (sessão já ativa; evita "Sem nome" na tela de perfil)
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.fullName,
+          phone: formData.phone,
+        })
+        .eq("id", userId);
+      if (profileErr) console.error("Erro ao atualizar perfil:", profileErr);
+
       // Save demographics if provided
       if (formData.birthDate || formData.gender || formData.race || formData.incomeRange) {
         const socialClass = mapIncomeToSocialClass(formData.incomeRange);
@@ -235,8 +245,20 @@ const Register = () => {
       }));
       await supabase.from('user_interests').insert(interests);
 
-      // Notificação de boas-vindas (dispara push/e-mail/SMS conforme preferências do usuário)
-      await supabase.from('notifications').insert({
+      // Garantir preferências de notificação para o usuário (send-web-push só envia e-mail se email_enabled === true)
+      await supabase.from('notification_settings').upsert(
+        {
+          user_id: userId,
+          push_enabled: true,
+          email_enabled: true,
+          sms_enabled: false,
+          newsletter_enabled: false,
+        },
+        { onConflict: 'user_id' }
+      );
+
+      // Notificação de boas-vindas (webhook dispara push/e-mail conforme notification_settings)
+      const { error: notifErr } = await supabase.from('notifications').insert({
         user_id: userId,
         title: 'Bem-vindo(a) à Câmara Municipal!',
         message:
@@ -244,6 +266,13 @@ const Register = () => {
         type: 'system',
         priority: 'normal',
       });
+      if (notifErr) {
+        console.error("Erro ao criar notificação de boas-vindas:", notifErr);
+        toast.error("Não foi possível enviar o e-mail de boas-vindas. Você pode reativar notificações em Perfil → Preferências.");
+      }
+
+      // Marcar onboarding como concluído (evita tutorial "personalize" na Home após login)
+      await supabase.from("profiles").update({ onboarding_completed_at: new Date().toISOString() }).eq("id", userId);
 
       toast.success("Cadastro concluído com sucesso!");
       navigate("/");
