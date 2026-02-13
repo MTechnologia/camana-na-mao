@@ -209,17 +209,6 @@ const Register = () => {
     handleChange("interests", updated);
   };
 
-  // Map income range to social class for database
-  const mapIncomeToSocialClass = (incomeRange: string): string | null => {
-    const mapping: Record<string, string> = {
-      "ate_2sm": "E",
-      "2_a_4sm": "D",
-      "4_a_10sm": "C",
-      "acima_10sm": "AB",
-    };
-    return mapping[incomeRange] || null;
-  };
-
   const handleFinalSubmit = async () => {
     if (formData.interests.length < 3) {
       toast.error("Selecione pelo menos 3 interesses");
@@ -236,105 +225,47 @@ const Register = () => {
       return;
     }
 
+    // Endereço obrigatório no cadastro (CEP e número; complemento é opcional)
+    const hasAddress = formData.cep && formData.neighborhood && formData.number?.trim();
+    if (!hasAddress) {
+      toast.error("Preencha o CEP e o número do endereço.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Garantir nome e celular no perfil (upsert: cria se não existir, atualiza se existir)
-      const { error: profileErr } = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            id: userId,
-            full_name: formData.fullName.trim() || "Usuário",
-            phone: formData.phone.trim() || null,
-          },
-          { onConflict: "id" }
-        );
-      if (profileErr) {
-        console.error("Erro ao salvar perfil:", profileErr);
-        toast.error("Não foi possível salvar nome e celular. Tente editar em Perfil após confirmar o e-mail.");
-      }
-
-      // Dados demográficos obrigatórios (validados no passo Sobre você)
-      const socialClass = mapIncomeToSocialClass(formData.incomeRange);
-      const { error: demoErr } = await supabase
-        .from('user_demographics')
-        .upsert(
-          {
-            user_id: userId,
-            birth_date: formData.birthDate || null,
-            gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
-            race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
-            social_class: socialClass,
-          },
-          { onConflict: "user_id" }
-        );
-      if (demoErr) {
-        console.error("Erro ao salvar dados demográficos:", demoErr);
-        toast.error("Não foi possível salvar dados demográficos. Tente novamente.");
-        setLoading(false);
-        return;
-      }
-
-      // Endereço obrigatório no cadastro (CEP e número; complemento é opcional)
-      const hasAddress = formData.cep && formData.neighborhood && formData.number?.trim();
-      if (!hasAddress) {
-        toast.error("Preencha o CEP e o número do endereço.");
-        setLoading(false);
-        return;
-      }
-      const { error: addrErr } = await supabase.from('user_addresses').insert({
-          user_id: userId,
+      // Usar Edge Function com service role para salvar tudo (evita 401/RLS quando não há sessão após signUp)
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("complete-registration", {
+        body: {
+          userId,
+          fullName: formData.fullName.trim(),
+          phone: formData.phone.trim() || null,
+          birthDate: formData.birthDate || null,
+          gender: formData.gender || null,
+          race: formData.race || null,
+          incomeRange: formData.incomeRange || "",
+          cep: formData.cep,
           street: formData.street || "",
           number: formData.number.trim(),
           complement: formData.complement?.trim() || null,
           neighborhood: formData.neighborhood,
           city: formData.city || "São Paulo",
           state: formData.state || "SP",
-          zip_code: formData.cep.replace(/\D/g, ""),
-          is_primary: true,
-        });
-      if (addrErr) {
-        console.error("Erro ao salvar endereço:", addrErr);
-        toast.error("Não foi possível salvar o endereço. Tente novamente.");
-        setLoading(false);
+          interests: formData.interests,
+        },
+      });
+
+      if (fnError) {
+        console.error("complete-registration error:", fnError);
+        toast.error(fnError.message || "Não foi possível concluir o cadastro. Tente novamente.");
         return;
       }
 
-      // Save interests
-      const interests = formData.interests.map(category => ({
-        user_id: userId,
-        interest_category: category,
-      }));
-      await supabase.from('user_interests').insert(interests);
-
-      // Garantir preferências de notificação para o usuário (send-web-push só envia e-mail se email_enabled === true)
-      await supabase.from('notification_settings').upsert(
-        {
-          user_id: userId,
-          push_enabled: true,
-          email_enabled: true,
-          sms_enabled: false,
-          newsletter_enabled: false,
-        },
-        { onConflict: 'user_id' }
-      );
-
-      // Notificação de boas-vindas (webhook dispara push/e-mail conforme notification_settings)
-      const { error: notifErr } = await supabase.from('notifications').insert({
-        user_id: userId,
-        title: 'Bem-vindo(a) à Câmara Municipal!',
-        message:
-          'Agora você pode acompanhar audiências públicas, fazer relatos de transporte e urbanos, ver serviços perto de você e muito mais. Acesse o menu para explorar.',
-        type: 'system',
-        priority: 'normal',
-      });
-      if (notifErr) {
-        console.error("Erro ao criar notificação de boas-vindas:", notifErr);
-        toast.error("Não foi possível enviar o e-mail de boas-vindas. Você pode reativar notificações em Perfil → Preferências.");
+      const res = fnData as { error?: string; details?: string } | undefined;
+      if (res?.error) {
+        toast.error(res.details || res.error);
+        return;
       }
-
-      // Marcar onboarding como concluído (evita tutorial "personalize" na Home após login)
-      await supabase.from("profiles").update({ onboarding_completed_at: new Date().toISOString() }).eq("id", userId);
 
       toast.success("Cadastro concluído! Confirme seu e-mail para acessar o app.");
       await signOut();
