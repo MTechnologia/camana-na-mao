@@ -36,6 +36,7 @@ interface FormData {
   cep: string;
   street: string;
   number: string;
+  complement: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -67,6 +68,7 @@ const Register = () => {
     cep: "",
     street: "",
     number: "",
+    complement: "",
     neighborhood: "",
     city: "",
     state: "",
@@ -126,14 +128,17 @@ const Register = () => {
 
       if (!error && data?.user) {
         setUserId(data.user.id);
-        // Garantir que nome e celular fiquem no perfil (trigger já preenche; atualizamos por segurança)
+        // Garantir que nome e celular fiquem no perfil (upsert: cria se trigger ainda não rodou, atualiza se já existir)
         await supabase
           .from("profiles")
-          .update({
-            full_name: formData.fullName,
-            phone: formData.phone,
-          })
-          .eq("id", data.user.id);
+          .upsert(
+            {
+              id: data.user.id,
+              full_name: formData.fullName.trim() || "Usuário",
+              phone: formData.phone.trim() || null,
+            },
+            { onConflict: "id" }
+          );
 
         // Record consents in database
         try {
@@ -164,11 +169,37 @@ const Register = () => {
     }
   };
 
-  const handleAboutYouContinue = () => setCurrentStep(4);
-  const handleAboutYouSkip = () => setCurrentStep(4);
+  const handleAboutYouContinue = () => {
+    if (!formData.birthDate?.trim()) {
+      toast.error("Informe sua data de nascimento.");
+      return;
+    }
+    if (!formData.gender?.trim()) {
+      toast.error("Selecione o gênero.");
+      return;
+    }
+    if (!formData.race?.trim()) {
+      toast.error("Selecione raça/cor.");
+      return;
+    }
+    if (!formData.incomeRange?.trim()) {
+      toast.error("Selecione a faixa de renda familiar.");
+      return;
+    }
+    setCurrentStep(4);
+  };
 
-  const handleLocationContinue = () => setCurrentStep(5);
-  const handleLocationSkip = () => setCurrentStep(5);
+  const handleLocationContinue = () => {
+    if (!formData.cep || !formData.neighborhood) {
+      toast.error("Informe o CEP e aguarde o endereço ser preenchido.");
+      return;
+    }
+    if (!formData.number?.trim()) {
+      toast.error("Informe o número do endereço.");
+      return;
+    }
+    setCurrentStep(5);
+  };
 
   const toggleInterest = (interestId: string) => {
     const current = formData.interests;
@@ -195,6 +226,11 @@ const Register = () => {
       return;
     }
 
+    if (!formData.birthDate?.trim() || !formData.gender?.trim() || !formData.race?.trim() || !formData.incomeRange?.trim()) {
+      toast.error("Preencha todos os campos da etapa Sobre você.");
+      return;
+    }
+
     if (!userId) {
       toast.error("Erro no cadastro. Tente novamente.");
       return;
@@ -218,30 +254,45 @@ const Register = () => {
         toast.error("Não foi possível salvar nome e celular. Tente editar em Perfil após confirmar o e-mail.");
       }
 
-      // Save demographics if provided
-      if (formData.birthDate || formData.gender || formData.race || formData.incomeRange) {
-        const socialClass = mapIncomeToSocialClass(formData.incomeRange);
-        await supabase.from('user_demographics').upsert({
-          user_id: userId,
-          birth_date: formData.birthDate || null,
-          gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
-          race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
-          social_class: socialClass,
-        });
+      // Dados demográficos obrigatórios (validados no passo Sobre você)
+      const socialClass = mapIncomeToSocialClass(formData.incomeRange);
+      const { error: demoErr } = await supabase.from('user_demographics').upsert({
+        user_id: userId,
+        birth_date: formData.birthDate || null,
+        gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
+        race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
+        social_class: socialClass,
+      });
+      if (demoErr) {
+        console.error("Erro ao salvar dados demográficos:", demoErr);
+        toast.error("Não foi possível salvar dados demográficos. Tente novamente.");
+        setLoading(false);
+        return;
       }
 
-      // Save address if provided (CEP já preencheu rua/bairro/cidade; número veio do passo de localização)
-      if (formData.cep && formData.neighborhood) {
-        await supabase.from('user_addresses').insert({
+      // Endereço obrigatório no cadastro (CEP e número; complemento é opcional)
+      const hasAddress = formData.cep && formData.neighborhood && formData.number?.trim();
+      if (!hasAddress) {
+        toast.error("Preencha o CEP e o número do endereço.");
+        setLoading(false);
+        return;
+      }
+      const { error: addrErr } = await supabase.from('user_addresses').insert({
           user_id: userId,
           street: formData.street || "",
-          number: formData.number?.trim() || "",
+          number: formData.number.trim(),
+          complement: formData.complement?.trim() || null,
           neighborhood: formData.neighborhood,
           city: formData.city || "São Paulo",
           state: formData.state || "SP",
           zip_code: formData.cep.replace(/\D/g, ""),
           is_primary: true,
         });
+      if (addrErr) {
+        console.error("Erro ao salvar endereço:", addrErr);
+        toast.error("Não foi possível salvar o endereço. Tente novamente.");
+        setLoading(false);
+        return;
       }
 
       // Save interests
@@ -525,7 +576,6 @@ const Register = () => {
             }}
             onChange={(field, value) => handleChange(field, value)}
             onContinue={handleAboutYouContinue}
-            onSkip={handleAboutYouSkip}
           />
         )}
 
@@ -535,13 +585,13 @@ const Register = () => {
               cep: formData.cep,
               street: formData.street,
               number: formData.number,
+              complement: formData.complement,
               neighborhood: formData.neighborhood,
               city: formData.city,
               state: formData.state,
             }}
             onChange={(field, value) => handleChange(field, value)}
             onContinue={handleLocationContinue}
-            onSkip={handleLocationSkip}
           />
         )}
 

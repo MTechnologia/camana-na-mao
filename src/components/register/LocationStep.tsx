@@ -10,6 +10,7 @@ interface LocationData {
   cep: string;
   street: string;
   number: string;
+  complement: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -19,10 +20,9 @@ interface LocationStepProps {
   data: LocationData;
   onChange: (field: keyof LocationData, value: string) => void;
   onContinue: () => void;
-  onSkip: () => void;
 }
 
-const LocationStep = ({ data, onChange, onContinue, onSkip }: LocationStepProps) => {
+const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
   const [loading, setLoading] = useState(false);
   const [addressFound, setAddressFound] = useState(false);
 
@@ -118,13 +118,26 @@ const LocationStep = ({ data, onChange, onContinue, onSkip }: LocationStepProps)
 
           <div>
             <Label className="text-sm font-medium text-foreground mb-2 block">
-              Número
+              Número <span className="text-destructive">*</span>
             </Label>
             <Input
               type="text"
               placeholder="Ex.: 123, 45 A"
               value={data.number}
               onChange={(e) => onChange("number", e.target.value)}
+              className="h-12 bg-muted/50 border-border rounded-xl"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-foreground mb-2 block">
+              Complemento <span className="text-muted-foreground text-xs">(opcional)</span>
+            </Label>
+            <Input
+              type="text"
+              placeholder="Ex.: Apto 101, Bloco B, Casa 2"
+              value={data.complement}
+              onChange={(e) => onChange("complement", e.target.value)}
               className="h-12 bg-muted/50 border-border rounded-xl"
             />
           </div>
@@ -158,20 +171,13 @@ const LocationStep = ({ data, onChange, onContinue, onSkip }: LocationStepProps)
         </div>
       )}
 
-      {/* Botões */}
-      <div className="space-y-3 pt-2">
+      {/* Botão - endereço é obrigatório (sem pular) */}
+      <div className="pt-2">
         <Button
           onClick={onContinue}
           className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl"
         >
           Continuar
-        </Button>
-        <Button
-          onClick={onSkip}
-          variant="ghost"
-          className="w-full h-10 text-muted-foreground hover:text-foreground"
-        >
-          Pular esta etapa
         </Button>
       </div>
     </div>
