@@ -26,7 +26,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       if (user) {
         try {
           const [{ data: profile, error: profileError }, { data: interests }] = await Promise.all([
-            supabase.from("profiles").select("onboarding_completed_at").eq("id", user.id).single(),
+            supabase.from("profiles").select("onboarding_completed_at").eq("id", user.id).maybeSingle(),
             supabase.from("user_interests").select("id").eq("user_id", user.id),
           ]);
 

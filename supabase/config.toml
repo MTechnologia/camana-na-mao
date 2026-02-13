@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.delete-own-account]
 verify_jwt = false
 
+[functions.complete-registration]
+verify_jwt = false
+
 [functions.google-places-autocomplete]
 verify_jwt = false
 

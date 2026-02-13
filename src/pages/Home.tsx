@@ -16,17 +16,15 @@ const Home = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
 
-  // Auth guard mais robusto - só redireciona quando temos certeza que não há sessão
+  // Auth guard: sem sessão → welcome
   useEffect(() => {
-    // Esperar authLoading terminar
     if (authLoading) return;
 
-    // Marcar que já verificamos
     setAuthChecked(true);
 
-    // Só redirecionar se NÃO tem user E NÃO tem session
     if (!user && !session) {
       navigate("/welcome", { replace: true });
+      return;
     }
   }, [user, session, authLoading, navigate]);
 

@@ -84,7 +84,9 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
         }
         if (data.gender) setGender(data.gender);
         if (data.race) setRace(data.race);
+        // social_class no cadastro vem como E/D/C/AB (complete-registration); exibir corretamente
         if (data.social_class) setSocialClass(data.social_class);
+        else setSocialClass("prefiro_nao_informar");
       }
     } catch (error: any) {
       console.error("Error loading demographics:", error);
@@ -305,6 +307,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
               <SelectContent>
                 <SelectItem value="A">Classe A (Acima de R$ 20.000)</SelectItem>
                 <SelectItem value="B">Classe B (R$ 10.000 - R$ 20.000)</SelectItem>
+                <SelectItem value="AB">Classe A/B (Acima de R$ 10.000)</SelectItem>
                 <SelectItem value="C">Classe C (R$ 4.000 - R$ 10.000)</SelectItem>
                 <SelectItem value="D">Classe D (R$ 2.000 - R$ 4.000)</SelectItem>
                 <SelectItem value="E">Classe E (Até R$ 2.000)</SelectItem>

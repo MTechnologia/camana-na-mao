@@ -257,7 +257,8 @@ const Register = () => {
         interests: formData.interests,
       };
 
-      // Usar token da sessão do usuário (válido após signUp); evita 401 quando anon key não está disponível em produção
+      // Token: preferir sessão (atualizada), depois anon key (produção pode não ter env no build)
+      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? supabaseAnonKey;
       if (!token) {
@@ -285,9 +286,9 @@ const Register = () => {
         return;
       }
 
-      toast.success("Cadastro concluído! Confirme seu e-mail para acessar o app.");
+      toast.success("Cadastro concluído! Faça login para acessar o app.");
       await signOut();
-      navigate("/confirmar-email", { state: { email: formData.email }, replace: true });
+      navigate("/login", { replace: true });
     } catch (error: any) {
       toast.error(error.message || "Erro ao salvar dados");
     } finally {
