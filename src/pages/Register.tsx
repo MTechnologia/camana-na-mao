@@ -257,11 +257,19 @@ const Register = () => {
         interests: formData.interests,
       };
 
+      // Usar token da sessão do usuário (válido após signUp); evita 401 quando anon key não está disponível em produção
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? supabaseAnonKey;
+      if (!token) {
+        toast.error("Sessão expirada. Faça login novamente e complete o cadastro em Perfil.");
+        return;
+      }
+
       const res = await fetch(`${supabaseUrl}/functions/v1/complete-registration`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseAnonKey}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
