@@ -34,7 +34,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.delete-user]
-verify_jwt = true
+verify_jwt = false
 
 [functions.delete-own-account]
 verify_jwt = false

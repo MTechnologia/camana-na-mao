@@ -13,10 +13,24 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    // Create admin client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+      return new Response(
+        JSON.stringify({ error: 'Configuração do servidor incompleta' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!supabaseAnonKey) {
+      console.error('Missing SUPABASE_ANON_KEY - add it in Edge Function secrets');
+      return new Response(
+        JSON.stringify({ error: 'Configuração do servidor incompleta (anon key)' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -24,7 +38,6 @@ serve(async (req) => {
       }
     });
 
-    // Verify the requesting user is an admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -33,8 +46,7 @@ serve(async (req) => {
       );
     }
 
-    // Create client with user's token to verify their role
-    const supabaseClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
@@ -107,9 +119,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: 'Erro interno do servidor' }),
+      JSON.stringify({ error: 'Erro interno do servidor', details: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
