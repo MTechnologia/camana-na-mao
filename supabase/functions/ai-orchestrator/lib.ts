@@ -943,7 +943,18 @@ export const INTENT_KEYWORDS = [
   'informação sobre', 'informacao sobre', 'saber sobre', 'entender sobre', 'conhecer sobre',
   'sessões', 'sessão', 'sessoes', 'sessao', 'audiência', 'audiencia', 'como posso participar', 'como participar',
   'onde fica a', 'endereço da câmara', 'endereco da camara',
-  'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do vereador', 'ganha um vereador'
+  'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do vereador', 'ganha um vereador',
+  'competências', 'competencias', 'responsabilidades', 'quantos vereadores', 'mandato', 'presidente da câmara',
+  'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica',
+  'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
+  'orçamento', 'orcamento', 'emendas', 'para que serve', 'por que existe', 'quando foi', 'história da câmara',
+  'como nasce uma lei', 'o que é uma audiência', 'diferença entre', 'diferenca entre', 'requisitos para ser vereador',
+  // === GeoSampa / Prefeitura SP: equipamentos, transportes, população, sistema viário ===
+  'equipamentos públicos', 'equipamentos publicos', 'equipamento público', 'equipamento publico', 'ubs', 'hospital', 'escola', 'ceu ', 'cras', 'posto de saúde', 'unidade de saúde',
+  'população', 'populacao', 'habitantes', 'densidade', 'demografia', 'demográfico', 'censo', 'quantos habitantes',
+  'sistema viário', 'sistema viario', 'sistema viária', 'via', 'vias', 'infraestrutura viária', 'trânsito', 'transito', 'ciclovia', 'ciclovias', 'malha viária',
+  'transporte público', 'transporte publico', 'rede de transporte', 'linhas de ônibus', 'linhas de onibus', 'metrô', 'metro', 'cptm', 'bilhete único', 'bilhete unico',
+  'geosampa', 'geo sampa', 'dados da cidade', 'dados de são paulo', 'mapa da cidade', 'melhor ubs', 'qual ubs', 'unidades de saúde'
 ];
 
 // Extract transport-specific fields - EXPANDED VOCABULARY
@@ -3000,9 +3011,19 @@ export function detectCollectionIntent(
   // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
   const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
-  const factualQuestionTerms = ['salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'quanto é', 'quanto e', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do', 'papel do', 'o que faz', 'como funciona', 'o que é a', 'o que e a'];
+  const factualQuestionTerms = [
+    'salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'qual a ',
+    'quanto é', 'quanto e', 'quantos ', 'quantas ', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do',
+    'papel do', 'importância', 'importancia', 'o que faz', 'como funciona', 'o que é a', 'o que e a',
+    'competências', 'competencias', 'responsabilidades', 'mandato', 'duração', 'duracao', 'presidente da câmara',
+    'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica',
+    'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
+    'orçamento', 'orcamento', 'emendas', 'verba', 'para que serve', 'por que existe', 'quando foi', 'história', 'historio',
+    'como nasce', 'diferença entre', 'diferenca entre', 'requisitos para', 'cargo público', 'cargo publico',
+    'o que é uma', 'o que e uma', 'para que serve a', 'como participar da', 'como participar das'
+  ];
   const isFactualQuestionAboutChamber = factualQuestionTerms.some(t => fullUserContext.includes(t))
-    && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo/i);
+    && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
   feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
@@ -3049,20 +3070,34 @@ export function detectCollectionIntent(
   }
   
   // Knowledge base / general scoring
-  const knowledgeDomain = ['como funciona', 'como posso', 'como participar', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e',
-                           'quais são', 'quais sao', 'quais as', 'quais os', 'me explica', 'dúvida sobre', 'duvida sobre',
-                           'informação sobre', 'informacao sobre', 'atribuições', 'atribuicoes', 'atribuição', 'atribuicao',
-                           'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do',
-                           'onde fica', 'onde fica a', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
-                           'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia'];
+  const knowledgeDomain = [
+    'como funciona', 'como posso', 'como participar', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e', 'qual a ', 'qual o ',
+    'quais são', 'quais sao', 'quais as', 'quais os', 'quantos ', 'quantas ', 'me explica', 'dúvida sobre', 'duvida sobre',
+    'informação sobre', 'informacao sobre', 'atribuições', 'atribuicoes', 'atribuição', 'atribuicao', 'competências', 'competencias',
+    'responsabilidades', 'importância', 'importancia', 'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do',
+    'onde fica', 'onde fica a', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
+    'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia', 'mandato', 'presidente da câmara',
+    'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica', 'regimento interno',
+    'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum', 'orçamento', 'orcamento', 'emendas', 'para que serve', 'como nasce uma lei',
+    'diferença entre', 'diferenca entre', 'requisitos para', 'história da câmara', 'historio da camara', 'o que é uma audiência', 'o que e uma audiencia',
+    'equipamentos públicos', 'equipamentos publicos', 'população', 'populacao', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa',
+    'ubs', 'unidade de saúde', 'transporte público', 'transporte publico', 'rede de transporte', 'malha viária', 'infraestrutura viária', 'dados da cidade'
+  ];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
   // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
-  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario)|me explica|o que são|quais são|quais sao|quais as |quais os )/i.test(userMessage.trim());
+  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(userMessage.trim());
   const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(userMessage.trim());
   const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(userMessage.trim());
   const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
+  // GeoSampa / cidade: equipamentos, transportes, população, sistema viário (perguntas informativas → general/RAG)
+  const cityDataTerms = ['equipamentos', 'equipamento público', 'população', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa', 'ubs', 'transporte público', 'rede de transporte', 'malha viária', 'dados da cidade', 'são paulo', 'sao paulo'];
+  const isCityDataQuestion = cityDataTerms.some(t => fullUserContext.includes(t)) && (isInformationalQuestion || /^(qual a |qual o |quantos |quais |como funciona|o que é )/i.test(userMessage.trim()));
+  if (isCityDataQuestion) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] City data question (equipamentos/transportes/população/viário) → boosting general for RAG');
+  }
   if (mentionsChamber && (isInformationalQuestion || isLocationQuestionAboutChamber)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Informational/location question about Câmara → boosting general for RAG');

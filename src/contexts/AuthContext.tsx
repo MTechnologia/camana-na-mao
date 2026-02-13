@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -81,13 +81,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       });
 
+      // Supabase às vezes retorna sucesso mesmo com e-mail já existente (identities vazio)
+      const emailAlreadyExists = !error && data?.user && (data.user.identities?.length ?? 0) === 0;
+      if (emailAlreadyExists) {
+        const msg = "Este e-mail já está cadastrado.";
+        toast.error(msg);
+        toast.info("Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.");
+        return { data: null, error: new Error(msg) };
+      }
+
       if (error) throw error;
-      
+
       toast.success("Conta criada com sucesso!");
       return { data: { user: data.user }, error: null };
     } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+      // Log do erro real para depuração (ex.: 422 com mensagem exata do Supabase)
+      if (import.meta.env.DEV || import.meta.env.MODE === "development") {
+        console.warn("[Auth] signUp error:", { message: error?.message, status: error?.status });
+      }
+      const translatedMessage = translateError(error?.message ?? "");
+      const isEmailExists =
+        (error?.message?.trim() === "User already registered" || error?.message?.trim() === "email_exists");
       toast.error(translatedMessage || "Erro ao criar conta");
+      if (isEmailExists) {
+        toast.info("Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.");
+      }
       return { data: null, error };
     }
   }, []);
