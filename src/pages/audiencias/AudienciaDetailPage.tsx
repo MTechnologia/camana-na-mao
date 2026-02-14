@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloParaExibicao, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
 
 interface Audiencia {
   id: string;
@@ -21,6 +21,7 @@ interface Audiencia {
   local: string;
   tema: string;
   status: string;
+  comissao: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
   link_transmissao: string | null;
@@ -138,15 +139,17 @@ const AudienciaDetailPage = () => {
     toast.success("Inscrito! Você receberá lembretes desta audiência no celular e e-mail.");
   };
 
+  const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
+
   return (
     <div className="min-h-screen bg-background pb-20">
-      <PageHeader title="Detalhes da Audiência" backTo="/audiencias" />
+      <PageHeader title={tituloExibicao} backTo="/audiencias" />
       
       <div className="pt-[60px] p-6 space-y-6">
         {/* Header com título e badge */}
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloParaExibicao(audiencia.titulo, audiencia.descricao, audiencia.tema)}</h1>
+            <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
             <Badge
               variant="outline"
               className={`border shrink-0 ${themeColors[audiencia.tema] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
