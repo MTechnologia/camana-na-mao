@@ -1288,6 +1288,9 @@ ${empathyNote}
               dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[Contexto da base de conhecimento da Câmara (Vertex RAG)]:\n' + textPart.trim()
                 + '\n\nInstrução: Para esta dúvida, use APENAS o texto do bloco [Contexto da base de conhecimento da Câmara (Vertex RAG)] acima para responder. Não invoque search_knowledge_base nem outras buscas.';
               console.log('[ai-orchestrator] Injected Vertex RAG context for general intent, length:', textPart.trim().length);
+            } else {
+              const excerpt = (lastUserMessage || '').trim().slice(0, 120);
+              console.log('[ai-orchestrator] NÃO FOI POSSÍVEL ENCONTRAR ESTA INFORMAÇÃO NO RAG. Mensagem do usuário (trecho):', excerpt || '(vazia)');
             }
           } else {
             console.warn('[ai-orchestrator] Vertex RAG generateContent failed:', ragRes.status, await ragRes.text());

@@ -2745,7 +2745,9 @@ export function detectCollectionIntent(
   const hasIntent = INTENT_KEYWORDS.some(kw => fullUserContext.includes(kw));
   
   if (!hasIntent) {
+    const excerpt = (userMessage || '').trim().slice(0, 120);
     console.log('[detectCollectionIntent] No intent keywords found, skipping tracker activation');
+    console.log('[ai-orchestrator] NÃO FOI POSSÍVEL ASSOCIAR A NENHUM INTENT; RAG NÃO FOI CONSULTADO. Mensagem do usuário (trecho):', excerpt || '(vazia)');
     return null;
   }
   
