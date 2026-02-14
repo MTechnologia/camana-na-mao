@@ -20,7 +20,7 @@ import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { tituloParaExibicao, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
 
 type AudienciaRow = {
   id: string;
@@ -31,6 +31,7 @@ type AudienciaRow = {
   local: string;
   tema: string;
   status: string;
+  comissao: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
 };
@@ -61,7 +62,7 @@ const Audiencias = () => {
       while (hasMore) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, vagas_disponiveis, inscricoes_abertas")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, vagas_disponiveis, inscricoes_abertas")
           .order("data", { ascending: false })
           .range(offset, offset + pageSize - 1);
 
@@ -398,7 +399,7 @@ const Audiencias = () => {
                           </Badge>
                           
                           <h3 className="font-semibold text-foreground line-clamp-4 min-h-[2.5rem]">
-                            {tituloParaExibicao(item.titulo, item.descricao, item.tema)}
+                            {tituloCardAudiencia(item.comissao, item.titulo, item.descricao, item.tema)}
                           </h3>
                           
                           <p className="text-sm text-muted-foreground line-clamp-3 mt-3">

@@ -148,6 +148,7 @@ export type Database = {
       audiencias: {
         Row: {
           ap_code: string | null
+          comissao: string | null
           created_at: string
           data: string
           descricao: string | null
@@ -167,6 +168,7 @@ export type Database = {
         }
         Insert: {
           ap_code?: string | null
+          comissao?: string | null
           created_at?: string
           data: string
           descricao?: string | null
@@ -186,6 +188,7 @@ export type Database = {
         }
         Update: {
           ap_code?: string | null
+          comissao?: string | null
           created_at?: string
           data?: string
           descricao?: string | null

@@ -2724,6 +2724,18 @@ export function detectExistingJourney(
   return null;
 }
 
+/**
+ * Detecta se a mensagem é pergunta informativa sobre audiência (ex.: "o que é audiência pública?").
+ * Usado para forçar intent general e acionar RAG mesmo quando o usuário está na aba Audiências.
+ */
+export function isInformationalQuestionAboutAudience(userMessage: string): boolean {
+  const normalized = userMessage
+    .trim()
+    .replace(/^0\s*que\s/gi, 'o que ')
+    .replace(/\b0\s*que\s/gi, 'o que ');
+  return /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalized);
+}
+
 export function detectCollectionIntent(
   userMessage: string, 
   conversationHistory: Array<{ role: string; content: string }>
@@ -3089,15 +3101,19 @@ export function detectCollectionIntent(
   ];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
-  // Normaliza typo comum "0 que é" -> "o que é" para detecção de pergunta informativa
-  const normalizedUserMessage = userMessage.trim().replace(/^0\s+que\s/gi, 'o que ');
+  // Normaliza typo comum "0 que" -> "o que" (início ou após fronteira) para detecção de pergunta informativa
+  const normalizedUserMessage = userMessage
+    .trim()
+    .replace(/^0\s*que\s/gi, 'o que ')
+    .replace(/\b0\s*que\s/gi, 'o que ');
   // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
   const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(normalizedUserMessage);
   const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(normalizedUserMessage);
   const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(normalizedUserMessage);
   const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
-  const isInformationalAboutAudience = (mentionsSessionsOrAudience && /(o que (é|e) uma audiência|o que (é|e) audiência|como funciona (a )?audiência|o que são audiências)/i.test(normalizedUserMessage));
+  // Variações: "o que é audiência (pública)?", "o que é uma audiência (pública)?", "o que é a audiência (pública)?", com/sem acento
+  const isInformationalAboutAudience = (mentionsSessionsOrAudience && /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalizedUserMessage));
   // GeoSampa / cidade: equipamentos, transportes, população, sistema viário (perguntas informativas → general/RAG)
   const cityDataTerms = ['equipamentos', 'equipamento público', 'população', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa', 'ubs', 'transporte público', 'rede de transporte', 'malha viária', 'dados da cidade', 'são paulo', 'sao paulo'];
   const isCityDataQuestion = cityDataTerms.some(t => fullUserContext.includes(t)) && (isInformationalQuestion || /^(qual a |qual o |quantos |quais |como funciona|o que é )/i.test(userMessage.trim()));

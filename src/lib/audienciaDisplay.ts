@@ -18,7 +18,10 @@ const PREFIXOS_DESCRICAO = [
   /^Audiência\s+pública\s+/i,
 ];
 
-/** Remove prefixos repetitivos (ex.: "Audiência pública sobre Audiência pública sobre...") em loop. */
+/** Prefixo comum da descrição (SPLEGIS); removido para a descrição começar pelo tema. */
+const PREFIXO_OBJETIVO_TEMA = /^Esta\s+audiência\s+tem\s+o\s+objetivo\s+de\s+debater\s+o\s+seguinte\s+tema\s*:\s*/i;
+
+/** Remove prefixos repetitivos e "Esta audiência tem o objetivo de debater o seguinte tema: ". */
 export function limparDescricaoRepetida(desc: string | null): string {
   if (!desc || !desc.trim()) return "";
   let d = desc.trim();
@@ -29,12 +32,13 @@ export function limparDescricaoRepetida(desc: string | null): string {
       d = d.replace(re, "").trim();
     }
   }
+  d = d.replace(PREFIXO_OBJETIVO_TEMA, "").trim();
   return d;
 }
 
-/** Extrai o texto após "tema:" (ou "tema :") na primeira frase, para usar como título curto. */
+/** Extrai o texto após "tema:" na descrição, para usar como título curto. */
 function extrairTemaDaDescricao(desc: string): string | null {
-  const m = desc.match(/(?:debater\s+o\s+seguinte\s+tema\s*:\s*|tema\s*:\s*)(.+?)(?:\.|$)/i);
+  const m = desc.match(/(?:debater\s+o\s+seguinte\s+tema\s*:\s*|tema\s*:\s*)(.+?)(?:\.|$)/is);
   const tema = m?.[1]?.trim();
   if (tema && tema.length >= 5 && tema.length <= 120) return tema;
   return null;
@@ -63,4 +67,18 @@ export function tituloParaExibicao(
     return `Audiência sobre ${(tema || "").trim()}`;
   }
   return tituloTrim || "Audiência pública";
+}
+
+/**
+ * Título para o card: prefere "Audiência: {comissao}" quando a comissão existe (padrão do site oficial).
+ */
+export function tituloCardAudiencia(
+  comissao: string | null,
+  titulo: string,
+  descricao: string | null,
+  tema: string
+): string {
+  const c = (comissao || "").trim();
+  if (c) return `Audiência: ${c}`;
+  return tituloParaExibicao(titulo, descricao, tema);
 }

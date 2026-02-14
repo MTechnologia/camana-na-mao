@@ -408,6 +408,12 @@ serve(async (req) => {
       collectionIntent = lib.detectCollectionIntent(lastUserMsg, messages);
     }
     
+    // Pergunta informativa sobre audiência ("o que é audiência pública?", etc.) → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutAudience(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: informational question about audiência → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    
     // Accumulate fields from conversation history for better tracking
     // BUT if journey was just switched, start fresh
     let accumulatedFields: Record<string, any> = {};

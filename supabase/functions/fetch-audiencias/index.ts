@@ -20,12 +20,30 @@ interface SplegisAudienciaItem {
   data?: string;
   Hora?: string;
   hora?: string;
+  Horario?: string;
+  horario?: string;
+  HorarioInicio?: string;
+  horarioInicio?: string;
+  DataHora?: string;
+  dataHora?: string;
   Local?: string;
   local?: string;
   Tema?: string;
   tema?: string;
   Status?: string;
   status?: string;
+  Comissao?: string;
+  comissao?: string;
+  Comite?: string;
+  comite?: string;
+  Orgao?: string;
+  orgao?: string;
+  ComissaoResponsavel?: string;
+  comissaoResponsavel?: string;
+  NomeComissao?: string;
+  nomeComissao?: string;
+  OrgaoResponsavel?: string;
+  orgaoResponsavel?: string;
   VagasDisponiveis?: number;
   vagasDisponiveis?: number;
   InscricoesAbertas?: boolean;
@@ -86,6 +104,14 @@ function normalizeDate(s: string): string {
 function normalizeTime(s: string): string {
   if (!s || typeof s !== "string") return "";
   const trimmed = s.trim();
+  // Data/hora ISO (extrair só o tempo) — tem prioridade para não confundir com HH:MM
+  const isoMatch = trimmed.match(/T(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/i);
+  if (isoMatch) {
+    const h = isoMatch[1].padStart(2, "0");
+    const m = isoMatch[2];
+    const sec = isoMatch[3] || "00";
+    return `${h}:${m}:${sec}`;
+  }
   // HH:MM ou HH:MM:SS
   let match = trimmed.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (match) {
@@ -100,14 +126,6 @@ function normalizeTime(s: string): string {
     const h = match[1].padStart(2, "0");
     const m = (match[2] ?? "00").padStart(2, "0");
     return `${h}:${m}:00`;
-  }
-  // Data/hora ISO (extrair só o tempo)
-  const isoMatch = trimmed.match(/T(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if (isoMatch) {
-    const h = isoMatch[1].padStart(2, "0");
-    const m = isoMatch[2];
-    const sec = isoMatch[3] || "00";
-    return `${h}:${m}:${sec}`;
   }
   return "";
 }
@@ -184,13 +202,33 @@ async function fetchAudienciasFromSplegis(
 
 function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const titulo = getStr(item, "Titulo", "titulo") || "Audiência pública";
-  const data = normalizeDate(getStr(item, "Data", "data"));
-  const horaRaw = getStr(item, "Hora", "hora", "Horario", "horario");
+  const dataStr = getStr(item, "Data", "data");
+  const data = normalizeDate(dataStr);
+  // Horário: tentar Hora, Horario, HorarioInicio e DataHora (ISO); site oficial pode usar fonte com horário correto
+  const horaRaw =
+    getStr(item, "Hora", "hora", "Horario", "horario", "HorarioInicio", "horarioInicio") ||
+    getStr(item, "DataHora", "dataHora");
   const hora = normalizeTime(horaRaw);
   const local = getStr(item, "Local", "local") || "A definir";
   const tema = getStr(item, "Tema", "tema") || "Geral";
   const status = getStr(item, "Status", "status") || "agendada";
   const chaveApi = getStr(item, "Chave", "chave");
+  const comissao =
+    getStr(
+      item,
+      "Comissao",
+      "comissao",
+      "Comite",
+      "comite",
+      "Orgao",
+      "orgao",
+      "ComissaoResponsavel",
+      "comissaoResponsavel",
+      "NomeComissao",
+      "nomeComissao",
+      "OrgaoResponsavel",
+      "orgaoResponsavel",
+    ) || null;
   const dataNorm = data || new Date().toISOString().slice(0, 10);
   const horaNorm = hora ? (hora.length <= 5 ? `${hora}:00` : hora) : null;
   const splegisChave =
@@ -207,6 +245,7 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     local,
     tema,
     status,
+    comissao,
     vagas_disponiveis: vagas,
     inscricoes_abertas: inscricoesAbertas ?? true,
   };
@@ -238,6 +277,19 @@ serve(async (req) => {
 
     const items = await fetchAudienciasFromSplegis(dataInicial, dataFinal);
     console.log("[fetch-audiencias] SPLEGIS returned", items.length, "items");
+
+    // Log estrutura do primeiro item para debug (comissão e outros campos)
+    if (items.length > 0) {
+      const first = items[0] as Record<string, unknown>;
+      const keys = Object.keys(first);
+      console.log("[fetch-audiencias] First item keys:", keys.join(", "));
+      const comissaoLike = keys.filter((k) => /comissao|comite|orgao|comiss/i.test(k));
+      if (comissaoLike.length > 0) {
+        comissaoLike.forEach((k) => console.log("[fetch-audiencias] Sample", k, "=", first[k]));
+      } else {
+        console.log("[fetch-audiencias] No comissao/comite/orgao-like key in first item; sample titulo/descricao:", first["Titulo"] ?? first["titulo"], (first["Descricao"] ?? first["descricao"])?.toString().slice(0, 80));
+      }
+    }
 
     if (replace) {
       const { error: delError } = await supabase
