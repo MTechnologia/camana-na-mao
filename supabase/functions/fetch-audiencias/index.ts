@@ -48,6 +48,17 @@ interface SplegisAudienciaItem {
   vagasDisponiveis?: number;
   InscricoesAbertas?: boolean;
   inscricoesAbertas?: boolean;
+  /** Campos que a API V2 pode usar para descrição longa (não envia Descricao) */
+  Colabore?: string;
+  colabore?: string;
+  Contato?: string;
+  contato?: string;
+  Objetivo?: string;
+  objetivo?: string;
+  Texto?: string;
+  texto?: string;
+  Observacao?: string;
+  observacao?: string;
   [key: string]: unknown;
 }
 
@@ -239,13 +250,29 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   return {
     splegis_chave: splegisChave,
     titulo,
-    descricao: getStr(item, "Descricao", "descricao") || null,
+    // Descrição longa: preferir texto do Tema (API V2); não usar Contato (é "Mais informações: email")
+    descricao:
+      getStr(
+        item,
+        "Descricao",
+        "descricao",
+        "Objetivo",
+        "objetivo",
+        "Tema",
+        "tema",
+        "Colabore",
+        "colabore",
+        "Texto",
+        "texto",
+      ) || null,
     data: dataNorm,
     hora: horaNorm,
     local,
     tema,
     status,
     comissao,
+    observacao: getStr(item, "Observacao", "observacao") || null,
+    mais_informacoes: getStr(item, "Contato", "contato") || null,
     vagas_disponiveis: vagas,
     inscricoes_abertas: inscricoesAbertas ?? true,
   };
@@ -288,6 +315,15 @@ serve(async (req) => {
         comissaoLike.forEach((k) => console.log("[fetch-audiencias] Sample", k, "=", first[k]));
       } else {
         console.log("[fetch-audiencias] No comissao/comite/orgao-like key in first item; sample titulo/descricao:", first["Titulo"] ?? first["titulo"], (first["Descricao"] ?? first["descricao"])?.toString().slice(0, 80));
+      }
+      // Descrição: API V2 não envia "Descricao"; amostra Colabore/Contato/Objetivo para conferir qual tem o texto
+      const colabore = (first["Colabore"] ?? first["colabore"])?.toString?.();
+      const contato = (first["Contato"] ?? first["contato"])?.toString?.();
+      const objetivo = (first["Objetivo"] ?? first["objetivo"])?.toString?.();
+      if (colabore || contato || objetivo) {
+        console.log("[fetch-audiencias] Sample Colabore (first 120):", colabore?.slice(0, 120) ?? "(vazio)");
+        console.log("[fetch-audiencias] Sample Contato (first 120):", contato?.slice(0, 120) ?? "(vazio)");
+        console.log("[fetch-audiencias] Sample Objetivo (first 120):", objetivo?.slice(0, 120) ?? "(vazio)");
       }
     }
 

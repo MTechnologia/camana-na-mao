@@ -154,6 +154,8 @@ export type Database = {
           descricao: string | null
           documentos: Json | null
           hora: string
+          mais_informacoes: string | null
+          observacao: string | null
           id: string
           inscricoes_abertas: boolean | null
           link_transmissao: string | null
@@ -175,6 +177,8 @@ export type Database = {
           documentos?: Json | null
           hora: string
           id?: string
+          mais_informacoes?: string | null
+          observacao?: string | null
           inscricoes_abertas?: boolean | null
           link_transmissao?: string | null
           local: string
@@ -195,6 +199,8 @@ export type Database = {
           documentos?: Json | null
           hora?: string
           id?: string
+          mais_informacoes?: string | null
+          observacao?: string | null
           inscricoes_abertas?: boolean | null
           link_transmissao?: string | null
           local?: string

@@ -11,6 +11,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { tituloCardAudiencia, descricaoParaDetalhe } from "@/lib/audienciaDisplay";
 
+/** Extrai o primeiro email de texto "Mais informações: email" para usar em mailto:. */
+function extrairEmailDeMaisInformacoes(texto: string): string | null {
+  const match = texto.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+  return match ? match[0] : null;
+}
+
 interface Audiencia {
   id: string;
   titulo: string;
@@ -21,6 +27,8 @@ interface Audiencia {
   tema: string;
   status: string;
   comissao: string | null;
+  observacao: string | null;
+  mais_informacoes: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
   link_transmissao: string | null;
@@ -129,6 +137,8 @@ const AudienciaDetailPage = () => {
   };
 
   const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const isAudienciaFutura = audiencia.data >= hoje;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -138,10 +148,36 @@ const AudienciaDetailPage = () => {
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
         <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
 
-        {/* Descrição abaixo do título, sem fundo cinza */}
-        {(audiencia.descricao?.trim() || "") && (
-          <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
-            {descricaoParaDetalhe(audiencia.descricao)}
+        {/* Descrição abaixo do título — sempre exibir o bloco */}
+        <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
+          {audiencia.descricao?.trim()
+            ? descricaoParaDetalhe(audiencia.descricao)
+            : `Audiência pública sobre ${(audiencia.tema || "geral").trim()}. Participe e contribua com sua opinião.`}
+        </div>
+
+        {/* Observação e Mais informações (abaixo dos convidados, no padrão do site oficial) */}
+        {(audiencia.observacao?.trim() || (audiencia.mais_informacoes?.trim() && isAudienciaFutura)) && (
+          <div className="space-y-2 text-sm text-muted-foreground">
+            {audiencia.observacao?.trim() && (
+              <p>
+                <strong className="text-foreground">Observação:</strong> {audiencia.observacao.trim()}
+              </p>
+            )}
+            {audiencia.mais_informacoes?.trim() && isAudienciaFutura && (
+              <p>
+                <strong className="text-foreground">Mais informações:</strong>{" "}
+                {extrairEmailDeMaisInformacoes(audiencia.mais_informacoes) ? (
+                  <a
+                    href={`mailto:${extrairEmailDeMaisInformacoes(audiencia.mais_informacoes)}`}
+                    className="text-primary underline underline-offset-2"
+                  >
+                    {extrairEmailDeMaisInformacoes(audiencia.mais_informacoes)}
+                  </a>
+                ) : (
+                  audiencia.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()
+                )}
+              </p>
+            )}
           </div>
         )}
 
