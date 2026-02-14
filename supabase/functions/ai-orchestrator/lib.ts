@@ -949,6 +949,7 @@ export const INTENT_KEYWORDS = [
   'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
   'orçamento', 'orcamento', 'emendas', 'para que serve', 'por que existe', 'quando foi', 'história da câmara',
   'como nasce uma lei', 'o que é uma audiência', 'diferença entre', 'diferenca entre', 'requisitos para ser vereador',
+  'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
   // === GeoSampa / Prefeitura SP: equipamentos, transportes, população, sistema viário ===
   'equipamentos públicos', 'equipamentos publicos', 'equipamento público', 'equipamento publico', 'ubs', 'hospital', 'escola', 'ceu ', 'cras', 'posto de saúde', 'unidade de saúde',
   'população', 'populacao', 'habitantes', 'densidade', 'demografia', 'demográfico', 'censo', 'quantos habitantes',
@@ -3079,6 +3080,7 @@ export function detectCollectionIntent(
     'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia', 'mandato', 'presidente da câmara',
     'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica', 'regimento interno',
     'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum', 'orçamento', 'orcamento', 'emendas', 'para que serve', 'como nasce uma lei',
+    'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
     'diferença entre', 'diferenca entre', 'requisitos para', 'história da câmara', 'historio da camara', 'o que é uma audiência', 'o que e uma audiencia',
     'equipamentos públicos', 'equipamentos publicos', 'população', 'populacao', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa',
     'ubs', 'unidade de saúde', 'transporte público', 'transporte publico', 'rede de transporte', 'malha viária', 'infraestrutura viária', 'dados da cidade'
