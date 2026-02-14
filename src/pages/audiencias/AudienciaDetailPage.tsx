@@ -10,7 +10,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloCardAudiencia, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, descricaoParaDetalhe } from "@/lib/audienciaDisplay";
 
 interface Audiencia {
   id: string;
@@ -146,21 +146,23 @@ const AudienciaDetailPage = () => {
       <PageHeader title={tituloExibicao} backTo="/audiencias" />
       
       <div className="pt-[60px] p-6 space-y-6">
-        {/* Header com título e badge */}
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
-            <Badge
-              variant="outline"
-              className={`border shrink-0 ${themeColors[audiencia.tema] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
-            >
-              {audiencia.tema}
-            </Badge>
-          </div>
-          <p className="text-base text-muted-foreground mt-3">
-            {limparDescricaoRepetida(audiencia.descricao) || `Audiência pública sobre ${audiencia.tema}. Participe e contribua com sua opinião sobre este tema relevante para a cidade.`}
-          </p>
+        {/* Título e badge (sem bloco cinza redundante) */}
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
+          <Badge
+            variant="outline"
+            className={`border shrink-0 ${themeColors[audiencia.tema] || "bg-gray-500/10 text-gray-600 border-gray-500/20"}`}
+          >
+            {audiencia.tema}
+          </Badge>
         </div>
+
+        {/* Descrição única, no padrão do site oficial (quebras de linha) */}
+        {(audiencia.descricao?.trim() || "") && (
+          <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
+            {descricaoParaDetalhe(audiencia.descricao)}
+          </div>
+        )}
 
         <Separator />
 

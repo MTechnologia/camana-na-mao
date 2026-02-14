@@ -82,3 +82,27 @@ export function tituloCardAudiencia(
   if (c) return `Audiência: ${c}`;
   return tituloParaExibicao(titulo, descricao, tema);
 }
+
+/**
+ * Descrição formatada para a página de detalhes: padrão do site oficial.
+ * - Remove prefixos redundantes ("Audiência pública sobre", etc.).
+ * - Quebra após "tema: " para o tema ficar na linha seguinte.
+ * - Garante quebra antes de "Convidados:", "Local:", "Observação:", "Mais informações:".
+ * Retorna string com \n para exibir com whitespace-pre-line.
+ */
+export function descricaoParaDetalhe(desc: string | null): string {
+  if (!desc || !desc.trim()) return "";
+  let d = desc.trim();
+  for (const re of PREFIXOS_DESCRICAO) {
+    d = d.replace(re, "").trim();
+  }
+  // Padrão site oficial: "Esta audiência tem o objetivo de debater o seguinte tema: X."
+  // → quebra de linha após "tema: " para X ficar sozinho na linha seguinte
+  d = d.replace(/\b(tema\s*:\s*)(.+?)(\.)(\s|$)/gis, (_, prefixo, tema, ponto, esp) => `${prefixo}\n${tema}${ponto}${esp || ""}`);
+  // Quebras antes de seções (Convidados, Local, Observação, Mais informações)
+  d = d.replace(/\s+(Convidados\s*:)/gi, "\n\n$1");
+  d = d.replace(/\s+(Local\s*:)/gi, "\n\n$1");
+  d = d.replace(/\s+(Observa[cç][aã]o\s*:)/gi, "\n\n$1");
+  d = d.replace(/\s+(Mais\s+informa[cç][oõ]es\s*:)/gi, "\n\n$1");
+  return d.trim();
+}
