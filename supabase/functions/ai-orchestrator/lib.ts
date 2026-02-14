@@ -3089,12 +3089,15 @@ export function detectCollectionIntent(
   ];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
+  // Normaliza typo comum "0 que é" -> "o que é" para detecção de pergunta informativa
+  const normalizedUserMessage = userMessage.trim().replace(/^0\s+que\s/gi, 'o que ');
   // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
-  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(userMessage.trim());
-  const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(userMessage.trim());
-  const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(userMessage.trim());
+  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(normalizedUserMessage);
+  const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(normalizedUserMessage);
+  const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(normalizedUserMessage);
   const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
+  const isInformationalAboutAudience = (mentionsSessionsOrAudience && /(o que (é|e) uma audiência|o que (é|e) audiência|como funciona (a )?audiência|o que são audiências)/i.test(normalizedUserMessage));
   // GeoSampa / cidade: equipamentos, transportes, população, sistema viário (perguntas informativas → general/RAG)
   const cityDataTerms = ['equipamentos', 'equipamento público', 'população', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa', 'ubs', 'transporte público', 'rede de transporte', 'malha viária', 'dados da cidade', 'são paulo', 'sao paulo'];
   const isCityDataQuestion = cityDataTerms.some(t => fullUserContext.includes(t)) && (isInformationalQuestion || /^(qual a |qual o |quantos |quais |como funciona|o que é )/i.test(userMessage.trim()));
@@ -3109,6 +3112,10 @@ export function detectCollectionIntent(
   if ((isParticipationQuestion && mentionsSessionsOrAudience) || (mentionsChamber && isParticipationQuestion)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Participation question (sessões/audiência) → boosting general for RAG');
+  }
+  if (isInformationalAboutAudience) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Informational question about audiência (o que é / como funciona) → boosting general for RAG');
   }
   if ((fullUserContext.includes('atribuições') || fullUserContext.includes('atribuicoes')) && mentionsChamber) {
     knowledgeScore = Math.max(knowledgeScore, 6);
