@@ -139,6 +139,10 @@ const AudienciaDetailPage = () => {
   const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
   const hoje = new Date().toISOString().slice(0, 10);
   const isAudienciaFutura = audiencia.data >= hoje;
+  const isAudienciaFinalizada =
+    !isAudienciaFutura ||
+    audiencia.inscricoes_abertas === false ||
+    /realizada|encerrada|encerrado/i.test(audiencia.status ?? "");
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -291,7 +295,12 @@ const AudienciaDetailPage = () => {
           <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
             Voltar
           </Button>
-          {audiencia.inscricoes_abertas ? (
+          {isAudienciaFinalizada ? (
+            <Button disabled className="w-full bg-muted text-muted-foreground cursor-default">
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Inscrições encerradas
+            </Button>
+          ) : (
             <>
               <Button
                 onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
@@ -309,11 +318,6 @@ const AudienciaDetailPage = () => {
                 Enviar manifestação por escrito para a audiência
               </Button>
             </>
-          ) : (
-            <Button disabled className="w-full">
-              <User className="h-4 w-4 mr-2" />
-              Inscrições fechadas
-            </Button>
           )}
         </div>
       </div>
