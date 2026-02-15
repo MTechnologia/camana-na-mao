@@ -124,9 +124,7 @@ const AudienciaDetailPage = () => {
     const parts = trimmed.split(":").map((s) => parseInt(s, 10));
     const h = Number.isNaN(parts[0]) ? 0 : Math.min(23, Math.max(0, parts[0]));
     const m = Number.isNaN(parts[1]) ? 0 : Math.min(59, Math.max(0, parts[1]));
-    const h12 = h % 12 || 12;
-    const ampm = h < 12 ? "AM" : "PM";
-    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+    return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
   };
 
   const handleReceberLembretes = async () => {

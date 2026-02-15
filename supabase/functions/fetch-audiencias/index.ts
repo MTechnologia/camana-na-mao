@@ -443,11 +443,31 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const vagas = getNum(item, "VagasDisponiveis", "vagasDisponiveis");
   const inscricoesAbertas = getBool(item, "InscricoesAbertas", "inscricoesAbertas");
 
-  // Ementa/descrição: prioridade para Projetos[0].Ementa (listagem V2 traz PL com ementa)
-  const projetos = (item["Projetos"] ?? item["projetos"]) as Array<{ Ementa?: string; ementa?: string }> | undefined;
-  const ementaProjeto = Array.isArray(projetos) && projetos.length > 0
-    ? (projetos[0].Ementa ?? projetos[0].ementa ?? "").trim()
-    : "";
+  // Projetos[0]: ementa, referência (PL x/y) e autores para projeto_referencia / projeto_autores
+  const projetos = (item["Projetos"] ?? item["projetos"]) as Array<{
+    Ementa?: string;
+    ementa?: string;
+    Sigla?: string;
+    Numero?: number;
+    Ano?: number;
+    Autores?: Array<{ Nome?: string; nome?: string }>;
+  }> | undefined;
+  const primeiroProjeto = Array.isArray(projetos) && projetos.length > 0 ? projetos[0] : null;
+  const ementaProjeto =
+    primeiroProjeto ? (primeiroProjeto.Ementa ?? primeiroProjeto.ementa ?? "").trim() : "";
+  const sigla = primeiroProjeto ? String(primeiroProjeto.Sigla ?? "").trim() : "";
+  const numeroProj = primeiroProjeto && (primeiroProjeto.Numero ?? 0) !== 0 ? Number(primeiroProjeto.Numero) : null;
+  const anoProj = primeiroProjeto && (primeiroProjeto.Ano ?? 0) !== 0 ? Number(primeiroProjeto.Ano) : null;
+  const projetoRef =
+    sigla && numeroProj != null && anoProj != null ? `${sigla} ${numeroProj}/${anoProj}` : null;
+  const autoresArr = primeiroProjeto?.Autores ?? (primeiroProjeto as Record<string, unknown>)?.autores;
+  const projetoAutores =
+    Array.isArray(autoresArr) && autoresArr.length > 0
+      ? autoresArr
+          .map((a: { Nome?: string; nome?: string }) => (a.Nome ?? a.nome ?? "").trim())
+          .filter(Boolean)
+          .join(" - ")
+      : null;
   const temaStr = getStr(item, "Tema", "tema");
   const temaEhRotuloCurto = !temaStr || temaStr.length < 25 || /^geral$/i.test(temaStr.trim());
   const comissoesDesc = getDescricaoFromComissoes(item);
@@ -484,6 +504,8 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     vagas_disponiveis: vagas,
     inscricoes_abertas: inscricoesAbertas ?? true,
     link_transmissao: getStr(item, "LinkTeleconferencia", "linkTeleconferencia") || null,
+    projeto_referencia: projetoRef || null,
+    projeto_autores: projetoAutores || null,
   };
 }
 
