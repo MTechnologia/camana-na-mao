@@ -187,11 +187,11 @@ function normalizeDate(s: string): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Normaliza hora para HH:MM ou HH:MM:SS. Retorna "" quando não conseguir extrair horário (evita default 09:00). */
+/** Normaliza hora para HH:MM:SS (24h). Aceita 12h AM/PM (ex.: "1:00 PM", "10:30 PM"). */
 function normalizeTime(s: string): string {
   if (!s || typeof s !== "string") return "";
   const trimmed = s.trim();
-  // Data/hora ISO (extrair só o tempo) — tem prioridade para não confundir com HH:MM
+  // Data/hora ISO (extrair só o tempo)
   const isoMatch = trimmed.match(/T(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/i);
   if (isoMatch) {
     const h = isoMatch[1].padStart(2, "0");
@@ -199,13 +199,16 @@ function normalizeTime(s: string): string {
     const sec = isoMatch[3] || "00";
     return `${h}:${m}:${sec}`;
   }
-  // HH:MM ou HH:MM:SS
-  let match = trimmed.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  // HH:MM ou HH:MM:SS com opcional AM/PM (ex.: "1:00 PM", "10:30 PM", "10:30 AM")
+  let match = trimmed.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
   if (match) {
-    const h = match[1].padStart(2, "0");
+    let h = parseInt(match[1], 10);
     const m = match[2];
-    const sec = match[3] || "00";
-    return `${h}:${m}:${sec}`;
+    const sec = (match[3] || "00").padStart(2, "0");
+    const ampm = (match[4] || "").toUpperCase();
+    if (ampm === "PM" && h < 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${m}:${sec}`;
   }
   // HHhMM ou HHh
   match = trimmed.match(/(\d{1,2})h(\d{2})?/i);

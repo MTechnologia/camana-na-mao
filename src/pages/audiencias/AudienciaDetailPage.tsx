@@ -32,6 +32,8 @@ interface Audiencia {
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
   link_transmissao: string | null;
+  projeto_referencia: string | null;
+  projeto_autores: string | null;
 }
 
 const AudienciaDetailPage = () => {
@@ -101,15 +103,30 @@ const AudienciaDetailPage = () => {
 
   const formatDate = (dateStr: string) => {
     try {
+      const iso = typeof dateStr === "string" ? dateStr.slice(0, 10) : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-").map(Number);
+        const date = new Date(y, m - 1, d);
+        return format(date, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+      }
       const date = new Date(dateStr);
+      if (Number.isNaN(date.getTime())) return dateStr;
       return format(date, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
     } catch {
       return dateStr;
     }
   };
 
-  const formatTime = (timeStr: string) => {
-    return timeStr.slice(0, 5);
+  const formatTime = (timeStr: string | null | undefined) => {
+    if (timeStr == null || typeof timeStr !== "string") return "";
+    const trimmed = timeStr.trim();
+    if (!trimmed) return "";
+    const parts = trimmed.split(":").map((s) => parseInt(s, 10));
+    const h = Number.isNaN(parts[0]) ? 0 : Math.min(23, Math.max(0, parts[0]));
+    const m = Number.isNaN(parts[1]) ? 0 : Math.min(59, Math.max(0, parts[1]));
+    const h12 = h % 12 || 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
   };
 
   const handleReceberLembretes = async () => {
@@ -151,6 +168,18 @@ const AudienciaDetailPage = () => {
       <div className="pt-[60px] p-6 space-y-6">
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
         <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
+
+        {/* Projeto de lei / referência e autores (quando existir) */}
+        {(audiencia.projeto_referencia?.trim() || audiencia.projeto_autores?.trim()) && (
+          <div className="text-sm space-y-0.5">
+            {audiencia.projeto_referencia?.trim() && (
+              <p className="font-medium text-foreground">{audiencia.projeto_referencia.trim()}</p>
+            )}
+            {audiencia.projeto_autores?.trim() && (
+              <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
+            )}
+          </div>
+        )}
 
         {/* Descrição abaixo do título — sempre exibir o bloco */}
         <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">

@@ -80,6 +80,11 @@ const Audiencias = () => {
 
   const formatDate = (dateStr: string) => {
     try {
+      const iso = typeof dateStr === "string" ? dateStr.slice(0, 10) : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-").map(Number);
+        return format(new Date(y, m - 1, d), "dd/MM/yyyy");
+      }
       const date = parseISO(dateStr);
       return format(date, "dd/MM/yyyy");
     } catch {
@@ -89,11 +94,28 @@ const Audiencias = () => {
 
   const formatLongDate = (dateStr: string) => {
     try {
+      const iso = typeof dateStr === "string" ? dateStr.slice(0, 10) : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-").map(Number);
+        return format(new Date(y, m - 1, d), "EEEE, d 'de' MMMM", { locale: ptBR });
+      }
       const date = parseISO(dateStr);
       return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
     } catch {
       return dateStr;
     }
+  };
+
+  const formatTime = (timeStr: string | null | undefined) => {
+    if (timeStr == null || typeof timeStr !== "string") return "";
+    const trimmed = timeStr.trim();
+    if (!trimmed) return "";
+    const parts = trimmed.split(":").map((s) => parseInt(s, 10));
+    const h = Number.isNaN(parts[0]) ? 0 : Math.min(23, Math.max(0, parts[0]));
+    const m = Number.isNaN(parts[1]) ? 0 : Math.min(59, Math.max(0, parts[1]));
+    const h12 = h % 12 || 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
   };
 
   const availableRegions = useMemo(() => {
@@ -412,7 +434,7 @@ const Audiencias = () => {
                               <span className="capitalize">{formatDate(item.data)}</span>
                             </div>
                             {item.hora ? (
-                              <span>{item.hora.slice(0, 5)}</span>
+                              <span>{formatTime(item.hora)}</span>
                             ) : (
                               <span className="text-muted-foreground/80">Horário a definir</span>
                             )}
