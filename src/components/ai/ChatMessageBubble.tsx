@@ -9,6 +9,9 @@ import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
+import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineLinePicker from "./InlineLinePicker";
@@ -19,6 +22,24 @@ import InlineServicePicker from "./InlineServicePicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import PromptChips, { CollectionTypePreset } from "./PromptChips";
 import { AudienciaInscricaoInline } from "./AudienciaInscricaoInline";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+const AUDIENCIA_CHAT_TEMAS = [
+  { id: "", label: "Qualquer tema" },
+  { id: "Mobilidade", label: "Mobilidade" },
+  { id: "Educação", label: "Educação" },
+  { id: "Saúde", label: "Saúde" },
+  { id: "Meio Ambiente", label: "Meio Ambiente" },
+  { id: "Cultura", label: "Cultura" },
+  { id: "Segurança", label: "Segurança" },
+];
 
 interface ChatMessage {
   id: string;
@@ -115,6 +136,10 @@ const ChatMessageBubble = ({
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(false);
   const [showAudienciaInscricaoInline, setShowAudienciaInscricaoInline] = useState(false);
+  const [audienciaChatTema, setAudienciaChatTema] = useState("");
+  const [audienciaChatRegiao, setAudienciaChatRegiao] = useState("");
+  const [audienciaChatDateFrom, setAudienciaChatDateFrom] = useState("");
+  const [audienciaChatDateTo, setAudienciaChatDateTo] = useState("");
 
   // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
   const journeySwitchMatch = useMemo(() => {
@@ -139,14 +164,64 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // If the assistant is talking about audiências/inscrição, show a shortcut CTA to the in-app flow.
+  // Listagem de audiências com filtros (tema, data, região): mostrar sempre que o assistente falar de audiências.
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
     const hasAudienciasContext = content.includes('audiên') || content.includes('audienc');
-    const hasSignupIntent = content.includes('inscri') || content.includes('inscrev') || content.includes('participar');
-    return hasAudienciasContext && hasSignupIntent;
+    return hasAudienciasContext;
   }, [isUser, isLastAssistantMessage, message.content]);
+
+  // Dados para listagem filtrada no chat (tema, data, região) — query dedicada, ordem ascendente para próximas primeiro.
+  const { data: audienciasData = [] } = useQuery({
+    queryKey: ["audiencias-chat"],
+    queryFn: async () => {
+      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null }[] = [];
+      let offset = 0;
+      const pageSize = 500;
+      while (true) {
+        const { data, error } = await supabase
+          .from("audiencias")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao")
+          .order("data", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const page = (data || []) as typeof all;
+        all.push(...page);
+        if (page.length < pageSize) break;
+        offset += pageSize;
+      }
+      return all;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: shouldShowAudienciasCta,
+  });
+
+  const audienciasFiltradasNoChat = useMemo(() => {
+    if (!audienciasData.length) return [];
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const filtered = audienciasData.filter((a) => {
+      const tema = (a.tema || "").toLowerCase();
+      const title = (a.titulo || "").toLowerCase();
+      const desc = (a.descricao || "").toLowerCase();
+      const matchesTheme =
+        !audienciaChatTema ||
+        tema.includes(audienciaChatTema.toLowerCase()) ||
+        title.includes(audienciaChatTema.toLowerCase()) ||
+        desc.includes(audienciaChatTema.toLowerCase());
+      const zona = localParaZona(a.local);
+      const matchesRegion = !audienciaChatRegiao || zona === audienciaChatRegiao;
+      const itemDate = (a.data || "").slice(0, 10);
+      const matchesDate =
+        (!audienciaChatDateFrom && !audienciaChatDateTo) ||
+        (audienciaChatDateFrom && audienciaChatDateTo && itemDate >= audienciaChatDateFrom && itemDate <= audienciaChatDateTo) ||
+        (audienciaChatDateFrom && !audienciaChatDateTo && itemDate >= audienciaChatDateFrom) ||
+        (!audienciaChatDateFrom && audienciaChatDateTo && itemDate <= audienciaChatDateTo);
+      const isUpcoming = a.data >= todayStr;
+      return matchesTheme && matchesRegion && matchesDate && isUpcoming;
+    });
+    return [...filtered].sort((a, b) => (a.data || "").localeCompare(b.data || "")).slice(0, 5);
+  }, [audienciasData, audienciaChatTema, audienciaChatRegiao, audienciaChatDateFrom, audienciaChatDateTo]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -556,14 +631,104 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Audiencias CTA + formulário de inscrição inline */}
+        {/* Listagem de audiências públicas com filtros por tema, data e região (conforme página Audiências) */}
         {shouldShowAudienciasCta && (
-          <div className="mt-3 flex flex-col gap-2 w-full max-w-[320px]">
+          <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+              <p className="text-sm font-semibold text-foreground">Listagem de audiências públicas</p>
+              <p className="text-xs text-muted-foreground">Filtros por tema, data e região</p>
+              <div className="grid grid-cols-1 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tema</Label>
+                  <Select value={audienciaChatTema} onValueChange={setAudienciaChatTema}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Qualquer tema" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUDIENCIA_CHAT_TEMAS.map((t) => (
+                        <SelectItem key={t.id || "any"} value={t.id}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Região</Label>
+                  <Select value={audienciaChatRegiao} onValueChange={setAudienciaChatRegiao}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Qualquer região" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Qualquer região</SelectItem>
+                      {ZONAS_SAO_PAULO.map((z) => (
+                        <SelectItem key={z} value={z}>
+                          {z}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">De</Label>
+                    <input
+                      type="date"
+                      value={audienciaChatDateFrom}
+                      onChange={(e) => setAudienciaChatDateFrom(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Até</Label>
+                    <input
+                      type="date"
+                      value={audienciaChatDateTo}
+                      onChange={(e) => setAudienciaChatDateTo(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Listagem filtrada (tema, data, região) — até 5 próximas */}
+            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-2">
+              <p className="text-xs font-medium text-foreground px-1">
+                Próximas audiências {audienciasFiltradasNoChat.length > 0 && `(${audienciasFiltradasNoChat.length})`}
+              </p>
+              {audienciasFiltradasNoChat.length > 0 ? (
+                <ul className="space-y-1 list-none">
+                  {audienciasFiltradasNoChat.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/audiencias/${a.id}`)}
+                        className="w-full text-left text-xs text-primary underline underline-offset-1 hover:no-underline truncate block"
+                      >
+                        {a.comissao || a.titulo} — {format(new Date(a.data.slice(0, 10)), "dd/MM/yyyy", { locale: ptBR })}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground px-1">
+                  Nenhuma audiência nos filtros. Ajuste tema, data ou região ou abra a página completa.
+                </p>
+              )}
+            </div>
             <div className="flex flex-col gap-2">
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => navigate('/audiencias')}
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (audienciaChatTema) params.set("themes", audienciaChatTema);
+                  if (audienciaChatRegiao) params.set("regions", audienciaChatRegiao);
+                  if (audienciaChatDateFrom) params.set("dateFrom", audienciaChatDateFrom);
+                  if (audienciaChatDateTo) params.set("dateTo", audienciaChatDateTo);
+                  const qs = params.toString();
+                  navigate(qs ? `/audiencias?${qs}` : "/audiencias");
+                }}
                 className="w-full justify-between min-h-[40px]"
               >
                 <span className="truncate flex-1 text-left">Abrir Audiências</span>
