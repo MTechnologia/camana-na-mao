@@ -14,6 +14,21 @@ import { tituloCardAudiencia, descricaoParaDetalhe } from "@/lib/audienciaDispla
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
 const CMSP_YOUTUBE_URL = "https://www.youtube.com/user/camarasaopaulo";
+const SPLEGIS_CONSULTA_DETALHADO =
+  "https://splegisconsulta.saopaulo.sp.leg.br/Pesquisa/DetailsDetalhado";
+
+/**
+ * Gera URL do Relatório Detalhado no SPLegis Consulta para uma referência tipo "PL 1461/2025".
+ * COD_MTRA_LEGL=1 para PL. Retorna null se não for possível extrair número e ano.
+ */
+function urlDetalhadoProjeto(referencia: string | null | undefined): string | null {
+  if (!referencia?.trim()) return null;
+  const m = referencia.trim().match(/\b(\d+)\/(\d{4})\s*$/);
+  if (!m) return null;
+  const numero = m[1];
+  const ano = m[2];
+  return `${SPLEGIS_CONSULTA_DETALHADO}?COD_MTRA_LEGL=1&ANO_PCSS_CMSP=${ano}&COD_PCSS_CMSP=${numero}`;
+}
 
 /** Extrai o primeiro email de texto "Mais informações: email" para usar em mailto:. */
 function extrairEmailDeMaisInformacoes(texto: string): string | null {
@@ -203,9 +218,24 @@ const AudienciaDetailPage = () => {
           <div className="text-sm space-y-3">
             {hasProjetos ? (
               <ul className="space-y-2 list-none">
-                {projetosList.map((p, i) => (
+                {projetosList.map((p, i) => {
+                  const detalheUrl = urlDetalhadoProjeto(p.referencia);
+                  return (
                   <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-3 last:border-0 last:pb-0 space-y-1">
-                    <p className="font-medium text-foreground">{p.referencia}</p>
+                    <p className="font-medium text-foreground">
+                      {detalheUrl ? (
+                        <a
+                          href={detalheUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2"
+                        >
+                          {p.referencia}
+                        </a>
+                      ) : (
+                        p.referencia
+                      )}
+                    </p>
                     {p.autores?.trim() && (
                       <p className="text-muted-foreground text-xs">{p.autores.trim()}</p>
                     )}
@@ -215,13 +245,31 @@ const AudienciaDetailPage = () => {
                       </p>
                     )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             ) : (
               <>
-                {audiencia.projeto_referencia?.trim() && (
-                  <p className="font-medium text-foreground">{audiencia.projeto_referencia.trim()}</p>
-                )}
+                {audiencia.projeto_referencia?.trim() && (() => {
+                  const ref = audiencia.projeto_referencia!.trim();
+                  const detalheUrl = urlDetalhadoProjeto(ref);
+                  return (
+                    <p className="font-medium text-foreground">
+                      {detalheUrl ? (
+                        <a
+                          href={detalheUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2"
+                        >
+                          {ref}
+                        </a>
+                      ) : (
+                        ref
+                      )}
+                    </p>
+                  );
+                })()}
                 {audiencia.projeto_autores?.trim() && (
                   <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
                 )}
@@ -353,7 +401,7 @@ const AudienciaDetailPage = () => {
           </ul>
         </div>
 
-        {/* Acompanhar ao vivo (inscrições ainda abertas): Auditórios Online + YouTube, como no site oficial */}
+        {/* Acompanhar ao vivo (audiência futura): Auditórios Online + YouTube, como no site oficial */}
         {isAudienciaFutura && (
           <div className="text-sm text-muted-foreground">
             <p>
@@ -367,6 +415,24 @@ const AudienciaDetailPage = () => {
                 Seção Auditórios Online
               </a>{" "}
               do portal da Câmara Municipal de São Paulo ou o{" "}
+              <a
+                href={CMSP_YOUTUBE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2"
+              >
+                canal de YouTube da Câmara
+              </a>
+              .
+            </p>
+          </div>
+        )}
+
+        {/* Audiências encerradas: aviso de que os eventos estão no YouTube, como no site oficial */}
+        {!isAudienciaFutura && (
+          <div className="text-sm text-muted-foreground">
+            <p>
+              Todos os eventos realizados pela Câmara Municipal de São Paulo estão disponíveis no{" "}
               <a
                 href={CMSP_YOUTUBE_URL}
                 target="_blank"
