@@ -200,10 +200,15 @@ const AudienciaDetailPage = () => {
             {hasProjetos ? (
               <ul className="space-y-2 list-none">
                 {projetosList.map((p, i) => (
-                  <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-2 last:border-0 last:pb-0">
+                  <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-3 last:border-0 last:pb-0 space-y-1">
                     <p className="font-medium text-foreground">{p.referencia}</p>
                     {p.autores?.trim() && (
-                      <p className="text-muted-foreground">{p.autores.trim()}</p>
+                      <p className="text-muted-foreground text-xs">{p.autores.trim()}</p>
+                    )}
+                    {p.ementa?.trim() && (
+                      <p className="text-muted-foreground text-xs whitespace-pre-line leading-relaxed">
+                        {p.ementa.trim().replace(/\r\n/g, "\n")}
+                      </p>
                     )}
                   </li>
                 ))}
