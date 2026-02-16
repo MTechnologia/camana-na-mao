@@ -227,12 +227,22 @@ const AudienciaDetailPage = () => {
           ) : null;
         })()}
 
-        {/* Descrição abaixo do título — sempre exibir o bloco */}
-        <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
-          {audiencia.descricao?.trim()
-            ? descricaoParaDetalhe(audiencia.descricao)
-            : `Audiência pública sobre ${(audiencia.tema || "geral").trim()}. Participe e contribua com sua opinião.`}
-        </div>
+        {/* Descrição abaixo do título: priorizar tema (ex.: "7ª Audiência Pública Temática:" + lista) como no site oficial; senão descricao */}
+        {(() => {
+          const temaNormalizado = (audiencia.tema || "").trim().replace(/\r\n/g, "\n");
+          const temaRico = temaNormalizado && temaNormalizado.toLowerCase() !== "geral";
+          const texto =
+            temaRico
+              ? temaNormalizado
+              : audiencia.descricao?.trim()
+                ? descricaoParaDetalhe(audiencia.descricao)
+                : `Audiência pública sobre ${(audiencia.tema || "geral").trim()}. Participe e contribua com sua opinião.`;
+          return (
+            <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
+              {texto}
+            </div>
+          );
+        })()}
 
         {/* Observação e Mais informações (abaixo dos convidados, no padrão do site oficial) */}
         {(audiencia.observacao?.trim() || (audiencia.mais_informacoes?.trim() && isAudienciaFutura)) && (
