@@ -40,7 +40,7 @@ const ParticipacaoPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tipo = searchParams.get("tipo") as "videoconferencia" | "escrito" | null;
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
@@ -54,7 +54,13 @@ const ParticipacaoPage = () => {
   const [audienciaTitle, setAudienciaTitle] = useState<string | null>(null);
   const [audienciaSlug, setAudienciaSlug] = useState<string | null>(null);
   const [audienciaApCode, setAudienciaApCode] = useState<string | null>(null);
+  const [audienciaLinkTransmissao, setAudienciaLinkTransmissao] = useState<string | null>(null);
+  const [audienciaData, setAudienciaData] = useState<string | null>(null);
+  const [audienciaHora, setAudienciaHora] = useState<string | null>(null);
+  const [audienciaComissao, setAudienciaComissao] = useState<string | null>(null);
+  const [audienciaMaisInformacoes, setAudienciaMaisInformacoes] = useState<string | null>(null);
   const [audienciaLoading, setAudienciaLoading] = useState(true);
+  const [confirmProtocolo, setConfirmProtocolo] = useState<number | null>(null);
 
   const audienciaId = useMemo(() => (id ? String(id) : ""), [id]);
 
@@ -65,7 +71,7 @@ const ParticipacaoPage = () => {
       setAudienciaLoading(true);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, slug, ap_code")
+        .select("id, titulo, slug, ap_code, link_transmissao, data, hora, comissao, mais_informacoes")
         .eq("id", audienciaId)
         .maybeSingle();
       if (!cancelled) {
@@ -73,10 +79,20 @@ const ParticipacaoPage = () => {
           setAudienciaTitle(null);
           setAudienciaSlug(null);
           setAudienciaApCode(null);
+          setAudienciaLinkTransmissao(null);
+          setAudienciaData(null);
+          setAudienciaHora(null);
+          setAudienciaComissao(null);
+          setAudienciaMaisInformacoes(null);
         } else {
           setAudienciaTitle(data.titulo);
           setAudienciaSlug(data.slug ?? null);
           setAudienciaApCode(data.ap_code ?? null);
+          setAudienciaLinkTransmissao((data as { link_transmissao?: string | null }).link_transmissao ?? null);
+          setAudienciaData((data as { data?: string }).data ?? null);
+          setAudienciaHora((data as { hora?: string | null }).hora ?? null);
+          setAudienciaComissao((data as { comissao?: string | null }).comissao ?? null);
+          setAudienciaMaisInformacoes((data as { mais_informacoes?: string | null }).mais_informacoes ?? null);
         }
         setAudienciaLoading(false);
       }
@@ -122,6 +138,9 @@ const ParticipacaoPage = () => {
         <div className="pt-[60px] p-6 space-y-6">
           <p className="text-sm text-muted-foreground">Para:</p>
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
+          <p className="text-sm text-muted-foreground rounded-lg border border-primary/20 bg-primary/5 p-3">
+            Inscreva-se aqui no app. Não é necessário cadastro no site oficial da Câmara.
+          </p>
           <p className="text-sm text-muted-foreground">Escolha como deseja participar:</p>
           <div className="flex flex-col gap-3">
             <Button
@@ -153,49 +172,23 @@ const ParticipacaoPage = () => {
     if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
     setIsLoading(true);
     try {
-      const useNinja = audienciaSlug && audienciaApCode && session?.access_token;
-      let enviadoCâmara = false;
-      if (useNinja) {
-        const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
-        const res = await fetch(`${supabaseUrl}/functions/v1/api-router/audiencias/inscricao`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            nome: nome.trim(),
-            email: email.trim(),
-            telefone: telefone.trim(),
-            apCode: audienciaApCode,
-            slug: audienciaSlug,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        enviadoCâmara = res.ok && data?.ok === true;
-        if (!enviadoCâmara) {
-          const errors = Array.isArray(data?.errors) ? data.errors : data?.errors ? [String(data.errors)] : [];
-          if (errors.length) errors.forEach((msg: string) => toast.error(msg));
-          else toast.info("Inscrição será registrada no app. Use o botão na próxima tela para completar no site da Câmara e receber o e-mail.");
-        }
-      }
-      const { error } = await supabase.from("audiencia_participacoes").insert({
-        audiencia_id: audienciaId,
-        tipo: "videoconferencia",
-        user_id: user?.id ?? null,
-        nome: nome.trim(),
-        email: email.trim(),
-        telefone: telefone.trim(),
-        entidade: entidade.trim() || null,
-        funcao: funcao.trim() || null,
-        consent: true,
+      const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
+        p_audiencia_id: audienciaId,
+        p_tipo: "videoconferencia",
+        p_user_id: user?.id ?? null,
+        p_nome: nome.trim(),
+        p_email: email.trim(),
+        p_telefone: telefone.trim(),
+        p_entidade: entidade.trim() || null,
+        p_funcao: funcao.trim() || null,
+        p_bairro: null,
+        p_sugestao: null,
+        p_consent: true,
       });
       if (error) throw error;
-      toast.success(
-        enviadoCâmara
-          ? "Inscrição realizada na Câmara! Você receberá o link e instruções por e-mail."
-          : "Inscrição registrada no app! Use o botão abaixo para abrir o formulário da Câmara e receber o e-mail."
-      );
+      const protocolo = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      setConfirmProtocolo(protocolo);
+      toast.success("Inscrição realizada com sucesso!");
       setStep(3);
     } catch (e: unknown) {
       console.error(e);
@@ -215,21 +208,25 @@ const ParticipacaoPage = () => {
     if (!consent) { toast.error("É necessário concordar em compartilhar seus dados pessoais."); return; }
     setIsLoading(true);
     try {
-      const { error } = await supabase.from("audiencia_participacoes").insert({
-        audiencia_id: audienciaId,
-        tipo: "escrito",
-        user_id: user?.id ?? null,
-        nome: nome.trim(),
-        email: email.trim(),
-        telefone: telefone.trim(),
-        bairro,
-        sugestao: sugestao.trim(),
-        consent: true,
+      const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
+        p_audiencia_id: audienciaId,
+        p_tipo: "escrito",
+        p_user_id: user?.id ?? null,
+        p_nome: nome.trim(),
+        p_email: email.trim(),
+        p_telefone: telefone.trim(),
+        p_entidade: null,
+        p_funcao: null,
+        p_bairro: bairro,
+        p_sugestao: sugestao.trim(),
+        p_consent: true,
       });
       if (error) throw error;
+      const protocolo = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      setConfirmProtocolo(protocolo);
       toast.success("Proposta enviada com sucesso!");
       setStep(3);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       toast.error("Não foi possível enviar. Tente novamente.");
     } finally {
@@ -237,37 +234,71 @@ const ParticipacaoPage = () => {
     }
   };
 
-  const CMSP_AUDIENCIA_URL = "https://www.saopaulo.sp.leg.br/audienciaspublicas/audiencia";
+  // Formata data e hora para exibição (ex.: 2026-02-26 10:30:00)
+  const confirmDataHora =
+    audienciaData && audienciaHora
+      ? `${audienciaData} ${audienciaHora.slice(0, 8)}`
+      : audienciaData
+        ? audienciaData
+        : null;
+  const confirmContactEmail = audienciaMaisInformacoes?.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/)?.[0] ?? null;
 
   if (step === 3) {
-    const linkCâmara = audienciaSlug ? `${CMSP_AUDIENCIA_URL}/${encodeURIComponent(audienciaSlug)}/` : null;
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="flex justify-center">
-            <div className="p-4 bg-green-500/10 rounded-full">
-              <CheckCircle2 className="h-16 w-16 text-green-600" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">
-              {tipo === "escrito" ? "Proposta enviada!" : "Inscrição realizada!"}
-            </h2>
-            <p className="text-muted-foreground">
-              {tipo === "escrito"
-                ? "Sua manifestação por escrito foi registrada."
-                : "Sua inscrição foi registrada no app. Para receber o e-mail com link e instruções da Câmara, complete a inscrição no site oficial abaixo."}
+      <div className="min-h-screen bg-background pb-20">
+        <PageHeader title={tipo === "escrito" ? "Manifestação enviada" : "Inscrição realizada"} backTo={backToDetail} />
+        <div className="pt-[60px] p-6 max-w-lg mx-auto space-y-6">
+          <div className="rounded-lg bg-green-600 text-white text-center py-4 px-4">
+            <p className="font-bold text-lg uppercase tracking-wide">
+              {tipo === "escrito" ? "Proposta enviada com sucesso!" : "Inscrição realizada com sucesso!"}
             </p>
           </div>
-          {tipo === "videoconferencia" && linkCâmara && (
-            <Button
-              variant="outline"
-              className="w-full border-primary text-primary"
-              onClick={() => window.open(linkCâmara, "_blank", "noopener,noreferrer")}
-            >
-              Abrir formulário da Câmara (receber e-mail)
-            </Button>
-          )}
+          <div className="space-y-3 text-foreground">
+            <p className="font-semibold">Registramos sua {tipo === "escrito" ? "manifestação por escrito." : "inscrição."}</p>
+            {tipo === "videoconferencia" && audienciaComissao && (
+              <p className="text-sm text-muted-foreground">
+                Obrigado por se inscrever para participar de Audiência Pública a ser realizada pela {audienciaComissao}.
+              </p>
+            )}
+            {confirmProtocolo != null && (
+              <p className="text-sm">
+                O seu número de protocolo é <strong>{confirmProtocolo}</strong>.
+              </p>
+            )}
+            {tipo === "videoconferencia" && (
+              <p className="text-sm text-muted-foreground">
+                Lembramos que em virtude da natureza do evento, da quantidade de inscritos e da limitação de tempo de transmissão, a inscrição não garante necessariamente o direito à fala na audiência pública.
+              </p>
+            )}
+            {tipo === "videoconferencia" && audienciaLinkTransmissao?.trim() && (
+              <div className="space-y-2">
+                <p className="text-sm">
+                  Alguns minutos antes do horário agendado, acesse o link abaixo para participar da audiência pública por videoconferência e fazer sua fala.
+                </p>
+                <Button
+                  className="w-full bg-primary text-primary-foreground"
+                  onClick={() => window.open(audienciaLinkTransmissao!, "_blank", "noopener,noreferrer")}
+                >
+                  Acessar videoconferência
+                </Button>
+              </div>
+            )}
+            {confirmContactEmail && (
+              <p className="text-sm text-muted-foreground">
+                Para maiores informações, entre em contato com a Secretaria da Comissão responsável:{" "}
+                <a href={`mailto:${confirmContactEmail}`} className="text-primary underline">{confirmContactEmail}</a>
+              </p>
+            )}
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1 text-sm">
+            <p className="font-medium text-foreground">Audiência Pública:</p>
+            <p className="text-foreground">
+              {audienciaApCode ?? "—"} {confirmDataHora ? `| ${confirmDataHora}` : ""}
+            </p>
+            <p className="text-muted-foreground">
+              {nome} ({email} | {telefone.replace(/\D/g, "")})
+            </p>
+          </div>
           <Button onClick={() => navigate("/audiencias")} className="w-full">
             Ver outras audiências
           </Button>
@@ -278,7 +309,6 @@ const ParticipacaoPage = () => {
 
   // ——— Formulário VIDEOCONFERÊNCIA (formulário único, conforme CMSP) ———
   if (tipo === "videoconferencia") {
-    const enviaraCâmara = Boolean(audienciaSlug && audienciaApCode);
     return (
       <div className="min-h-screen bg-background pb-20">
         <PageHeader title="Quero participar" backTo={backToDetail} />
@@ -286,9 +316,12 @@ const ParticipacaoPage = () => {
           <p className="text-sm text-muted-foreground">Para:</p>
           <h2 className="text-lg font-semibold text-foreground">{audienciaTitle}</h2>
 
-          {!enviaraCâmara && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-3 text-sm text-amber-800 dark:text-amber-200">
-              Sua inscrição será registrada no app. O e-mail de confirmação com link e instruções é enviado pela Câmara quando a audiência está vinculada ao formulário oficial; esta ainda não está. Para ativar, use o script de sincronização ou preencha slug/ap_code no banco.
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
+            Sua inscrição vale apenas aqui no app. Não é necessário se cadastrar no site oficial da Câmara para participar.
+          </div>
+          {!audienciaLinkTransmissao?.trim() && (
+            <div className="rounded-lg border border-muted bg-muted/30 p-3 text-sm text-muted-foreground">
+              O link da videoconferência será exibido na tela de confirmação quando estiver disponível.
             </div>
           )}
 
@@ -366,6 +399,9 @@ const ParticipacaoPage = () => {
           </h2>
         </div>
         <div className="border border-t-0 rounded-b-lg border-border p-4 space-y-4">
+          <p className="text-sm text-foreground rounded-lg border border-primary/20 bg-primary/5 p-3">
+            Sua manifestação vale aqui no app. Não é necessário se cadastrar no site oficial da Câmara.
+          </p>
           <p className="text-xs text-muted-foreground">Campos marcados com * são requeridos</p>
           <p className="text-sm text-muted-foreground">
             Participe com suas propostas. Para ampliar o debate, a Câmara Municipal está realizando uma Audiência Pública, em formato virtual, para receber sugestões da população. É possível participar com o envio de propostas através do preenchimento deste formulário.
@@ -417,7 +453,7 @@ const ParticipacaoPage = () => {
               <div className="space-y-1">
                 <Label htmlFor="consent-e" className="text-sm cursor-pointer">Concordo em compartilhar meus dados pessoais *</Label>
                 <p className="text-xs text-muted-foreground">
-                  Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para registro de sua mensagem é necessário que o titular consinta que a Câmara Municipal de São Paulo colha seu nome, e-mail e telefone.
+                  Nos termos da Lei Geral de Proteção de Dados (lei 13.709, de 2018), para registro da sua inscrição neste aplicativo é necessário que você concorde em compartilhar nome, e-mail e telefone.
                 </p>
               </div>
             </div>

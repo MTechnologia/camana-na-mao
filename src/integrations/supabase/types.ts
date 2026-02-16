@@ -2184,6 +2184,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      insert_audiencia_participacao: {
+        Args: {
+          p_audiencia_id: string
+          p_tipo: string
+          p_user_id: string | null
+          p_nome: string
+          p_email: string
+          p_telefone: string
+          p_entidade?: string | null
+          p_funcao?: string | null
+          p_bairro?: string | null
+          p_sugestao?: string | null
+          p_consent?: boolean
+        }
+        Returns: { protocolo: number; id: string }[]
+      }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
       get_reports_with_demographics: {
         Args: {
