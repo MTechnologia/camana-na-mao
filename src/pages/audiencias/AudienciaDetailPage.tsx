@@ -11,6 +11,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { tituloCardAudiencia, descricaoParaDetalhe } from "@/lib/audienciaDisplay";
 
+/** URLs oficiais do portal da Câmara (não vêm na API). */
+const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
+const CMSP_YOUTUBE_URL = "https://www.youtube.com/user/camarasaopaulo";
+
 /** Extrai o primeiro email de texto "Mais informações: email" para usar em mailto:. */
 function extrairEmailDeMaisInformacoes(texto: string): string | null {
   const match = texto.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
@@ -348,6 +352,33 @@ const AudienciaDetailPage = () => {
             <li>• Lembrete do evento</li>
           </ul>
         </div>
+
+        {/* Acompanhar ao vivo (inscrições ainda abertas): Auditórios Online + YouTube, como no site oficial */}
+        {isAudienciaFutura && (
+          <div className="text-sm text-muted-foreground">
+            <p>
+              Para acompanhar ao vivo a Audiência Pública, basta acessar a{" "}
+              <a
+                href={CMSP_AUDITORIOS_ONLINE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2"
+              >
+                Seção Auditórios Online
+              </a>{" "}
+              do portal da Câmara Municipal de São Paulo ou o{" "}
+              <a
+                href={CMSP_YOUTUBE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2"
+              >
+                canal de YouTube da Câmara
+              </a>
+              .
+            </p>
+          </div>
+        )}
 
         {/* Observações legais */}
         <div className="text-xs text-muted-foreground space-y-1">
