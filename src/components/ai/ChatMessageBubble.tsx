@@ -105,6 +105,8 @@ interface ChatMessageBubbleProps {
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
   onServiceAddressConfirmed?: (confirmed: boolean) => void;
   isLastAssistantMessage?: boolean;
+  /** Envia os filtros atuais para a IA trazer a listagem filtrada (nova mensagem no chat). */
+  onRequestAudienciasWithFilters?: (filters: { tema: string; regiao: string; dateFrom: string; dateTo: string }) => void;
 }
 
 const ChatMessageBubble = ({ 
@@ -124,6 +126,7 @@ const ChatMessageBubble = ({
   isLastAssistantMessage = false,
   onChipSelect,
   onOpenDiscovery,
+  onRequestAudienciasWithFilters,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -139,6 +142,7 @@ const ChatMessageBubble = ({
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(false);
   const [showAudienciaInscricaoInline, setShowAudienciaInscricaoInline] = useState(false);
+  const [showAudienciasFilters, setShowAudienciasFilters] = useState(false);
   const [audienciaChatTema, setAudienciaChatTema] = useState("");
   const [audienciaChatRegiao, setAudienciaChatRegiao] = useState("");
   const [audienciaChatDateFrom, setAudienciaChatDateFrom] = useState("");
@@ -634,9 +638,21 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Listagem de audiências públicas com filtros por tema, data e região (conforme página Audiências) */}
+        {/* Listagem de audiências públicas: botão abre o bloco de filtros */}
         {shouldShowAudienciasCta && (
           <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
+            {!showAudienciasFilters ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-center min-h-[40px]"
+                onClick={() => setShowAudienciasFilters(true)}
+              >
+                Buscar outras audiências públicas
+              </Button>
+            ) : (
+              <>
             <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
               <p className="text-sm font-semibold text-foreground">Listagem de audiências públicas</p>
               <p className="text-xs text-muted-foreground">Filtros por tema, data e região</p>
@@ -698,6 +714,24 @@ const ChatMessageBubble = ({
                     />
                   </div>
                 </div>
+                {onRequestAudienciasWithFilters && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full h-8 text-xs"
+                    onClick={() =>
+                      onRequestAudienciasWithFilters({
+                        tema: audienciaChatTema,
+                        regiao: audienciaChatRegiao,
+                        dateFrom: audienciaChatDateFrom,
+                        dateTo: audienciaChatDateTo,
+                      })
+                    }
+                  >
+                    Trazer audiências filtradas (perguntar à IA)
+                  </Button>
+                )}
               </div>
             </div>
             {/* Listagem filtrada (tema, data, região) — até 5 próximas */}
@@ -752,7 +786,9 @@ const ChatMessageBubble = ({
                 {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
               </Button>
             </div>
-            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+                {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+              </>
+            )}
           </div>
         )}
 

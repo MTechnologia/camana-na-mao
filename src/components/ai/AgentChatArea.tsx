@@ -178,6 +178,25 @@ const AgentChatArea = () => {
     sendMessage(addressMessage);
   }, [sendMessage]);
 
+  // Pedir à IA que traga audiências com os filtros selecionados no bloco do chat
+  const handleRequestAudienciasWithFilters = useCallback(
+    (filters: { tema: string; regiao: string; dateFrom: string; dateTo: string }) => {
+      const parts: string[] = ["Mostre as audiências públicas agendadas"];
+      const opts: string[] = [];
+      if (filters.tema) opts.push(`tema: ${filters.tema}`);
+      if (filters.regiao) opts.push(`região: ${filters.regiao}`);
+      if (filters.dateFrom || filters.dateTo) {
+        if (filters.dateFrom && filters.dateTo) opts.push(`de ${filters.dateFrom} a ${filters.dateTo}`);
+        else if (filters.dateFrom) opts.push(`a partir de ${filters.dateFrom}`);
+        else if (filters.dateTo) opts.push(`até ${filters.dateTo}`);
+      }
+      if (opts.length) parts.push("com os filtros: " + opts.join(", "));
+      parts.push(".");
+      sendMessage(parts.join(" "));
+    },
+    [sendMessage]
+  );
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       <AnimatePresence mode="wait">
@@ -281,6 +300,7 @@ const AgentChatArea = () => {
                         isLastAssistantMessage={isLastAssistantMessage}
                         onChipSelect={handleStartConversation}
                         onOpenDiscovery={handleOpenDiscovery}
+                        onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                       />
                     </motion.div>
                   );
