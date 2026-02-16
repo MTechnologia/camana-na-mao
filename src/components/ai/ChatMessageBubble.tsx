@@ -31,8 +31,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
+/** Valor usado no Select para "qualquer"; Radix Select não aceita value="". */
+const AUDIENCIA_CHAT_ANY = "__any__";
+
 const AUDIENCIA_CHAT_TEMAS = [
-  { id: "", label: "Qualquer tema" },
+  { id: AUDIENCIA_CHAT_ANY, label: "Qualquer tema" },
   { id: "Mobilidade", label: "Mobilidade" },
   { id: "Educação", label: "Educação" },
   { id: "Saúde", label: "Saúde" },
@@ -640,13 +643,16 @@ const ChatMessageBubble = ({
               <div className="grid grid-cols-1 gap-2">
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Tema</Label>
-                  <Select value={audienciaChatTema} onValueChange={setAudienciaChatTema}>
+                  <Select
+                    value={audienciaChatTema || AUDIENCIA_CHAT_ANY}
+                    onValueChange={(v) => setAudienciaChatTema(v === AUDIENCIA_CHAT_ANY ? "" : v)}
+                  >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Qualquer tema" />
                     </SelectTrigger>
                     <SelectContent>
                       {AUDIENCIA_CHAT_TEMAS.map((t) => (
-                        <SelectItem key={t.id || "any"} value={t.id}>
+                        <SelectItem key={t.id} value={t.id}>
                           {t.label}
                         </SelectItem>
                       ))}
@@ -655,12 +661,15 @@ const ChatMessageBubble = ({
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Região</Label>
-                  <Select value={audienciaChatRegiao} onValueChange={setAudienciaChatRegiao}>
+                  <Select
+                    value={audienciaChatRegiao || AUDIENCIA_CHAT_ANY}
+                    onValueChange={(v) => setAudienciaChatRegiao(v === AUDIENCIA_CHAT_ANY ? "" : v)}
+                  >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Qualquer região" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Qualquer região</SelectItem>
+                      <SelectItem value={AUDIENCIA_CHAT_ANY}>Qualquer região</SelectItem>
                       {ZONAS_SAO_PAULO.map((z) => (
                         <SelectItem key={z} value={z}>
                           {z}
