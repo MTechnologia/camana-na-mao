@@ -227,16 +227,26 @@ const AudienciaDetailPage = () => {
           ) : null;
         })()}
 
-        {/* Descrição abaixo do título: priorizar tema (ex.: "7ª Audiência Pública Temática:" + lista) como no site oficial; senão descricao */}
+        {/* Descrição abaixo do título: tema quando rico; senão descricao, mas não duplicar ementa já exibida nos PLs */}
         {(() => {
+          const projetosList = projetosAsArray(audiencia.projetos);
           const temaNormalizado = (audiencia.tema || "").trim().replace(/\r\n/g, "\n");
           const temaRico = temaNormalizado && temaNormalizado.toLowerCase() !== "geral";
-          const texto =
-            temaRico
-              ? temaNormalizado
-              : audiencia.descricao?.trim()
+          const descTrim = audiencia.descricao?.trim();
+          const descricaoRepetida =
+            projetosList.length > 0 &&
+            descTrim &&
+            projetosList.some(
+              (p) => p.ementa?.trim() && descTrim === p.ementa.trim().replace(/\r\n/g, "\n")
+            );
+          const texto = temaRico
+            ? temaNormalizado
+            : descricaoRepetida
+              ? ""
+              : descTrim
                 ? descricaoParaDetalhe(audiencia.descricao)
                 : `Audiência pública sobre ${(audiencia.tema || "geral").trim()}. Participe e contribua com sua opinião.`;
+          if (!texto) return null;
           return (
             <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
               {texto}
