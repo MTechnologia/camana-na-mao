@@ -17,6 +17,27 @@ function extrairEmailDeMaisInformacoes(texto: string): string | null {
   return match ? match[0] : null;
 }
 
+interface ProjetoVinculado {
+  referencia: string;
+  autores: string | null;
+  ementa?: string | null;
+}
+
+/** Normaliza projetos: no banco pode vir como array ou como string JSON (ex.: export). */
+function projetosAsArray(projetos: ProjetoVinculado[] | string | null | undefined): ProjetoVinculado[] {
+  if (projetos == null) return [];
+  if (Array.isArray(projetos)) return projetos;
+  if (typeof projetos === "string") {
+    try {
+      const parsed = JSON.parse(projetos) as unknown;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 interface Audiencia {
   id: string;
   titulo: string;
@@ -34,6 +55,8 @@ interface Audiencia {
   link_transmissao: string | null;
   projeto_referencia: string | null;
   projeto_autores: string | null;
+  /** Lista de PLs; pode vir como array (JSONB) ou string JSON do banco. */
+  projetos: ProjetoVinculado[] | string | null;
 }
 
 const AudienciaDetailPage = () => {
@@ -167,17 +190,37 @@ const AudienciaDetailPage = () => {
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
         <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
 
-        {/* Projeto de lei / referência e autores (quando existir) */}
-        {(audiencia.projeto_referencia?.trim() || audiencia.projeto_autores?.trim()) && (
-          <div className="text-sm space-y-0.5">
-            {audiencia.projeto_referencia?.trim() && (
-              <p className="font-medium text-foreground">{audiencia.projeto_referencia.trim()}</p>
-            )}
-            {audiencia.projeto_autores?.trim() && (
-              <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
+        {/* Projetos de lei vinculados (todos os PLs com autores, como no site oficial) */}
+        {(() => {
+          const projetosList = projetosAsArray(audiencia.projetos);
+          const hasProjetos = projetosList.length > 0;
+          const hasFallback = audiencia.projeto_referencia?.trim() || audiencia.projeto_autores?.trim();
+          return (hasProjetos || hasFallback) ? (
+          <div className="text-sm space-y-3">
+            {hasProjetos ? (
+              <ul className="space-y-2 list-none">
+                {projetosList.map((p, i) => (
+                  <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-2 last:border-0 last:pb-0">
+                    <p className="font-medium text-foreground">{p.referencia}</p>
+                    {p.autores?.trim() && (
+                      <p className="text-muted-foreground">{p.autores.trim()}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <>
+                {audiencia.projeto_referencia?.trim() && (
+                  <p className="font-medium text-foreground">{audiencia.projeto_referencia.trim()}</p>
+                )}
+                {audiencia.projeto_autores?.trim() && (
+                  <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
+                )}
+              </>
             )}
           </div>
-        )}
+          ) : null;
+        })()}
 
         {/* Descrição abaixo do título — sempre exibir o bloco */}
         <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
