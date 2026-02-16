@@ -24,7 +24,8 @@ interface AudienciaFiltersProps {
     themes: string[];
     regions: string[];
     status: string;
-    period: string;
+    dateFrom: string;
+    dateTo: string;
     year: string;
   };
   onFiltersChange: (filters: any) => void;
@@ -66,7 +67,8 @@ const AudienciaFilters = ({
       themes: [],
       regions: [],
       status: "all",
-      period: "all",
+      dateFrom: "",
+      dateTo: "",
       year: "all",
     });
   };
@@ -75,7 +77,7 @@ const AudienciaFilters = ({
     filters.themes.length +
     filters.regions.length +
     (filters.status !== "all" ? 1 : 0) +
-    (filters.period !== "all" ? 1 : 0) +
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
     (filters.year !== "all" ? 1 : 0);
 
   const anos = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => String(2026 - i));
@@ -183,30 +185,31 @@ const AudienciaFilters = ({
             </RadioGroup>
           </div>
 
-          {/* Período */}
+          {/* Período: data inicial e data final */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">📅 Período</Label>
-            <RadioGroup
-              value={filters.period}
-              onValueChange={(value) => onFiltersChange({ ...filters, period: value })}
-            >
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="all" id="period-all" />
-                <Label htmlFor="period-all" className="cursor-pointer">Qualquer data</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-from" className="text-sm text-muted-foreground">Data inicial</Label>
+                <input
+                  id="filter-date-from"
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
               </div>
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="week" id="period-week" />
-                <Label htmlFor="period-week" className="cursor-pointer">Esta semana</Label>
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-to" className="text-sm text-muted-foreground">Data final</Label>
+                <input
+                  id="filter-date-to"
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
               </div>
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="month" id="period-month" />
-                <Label htmlFor="period-month" className="cursor-pointer">Este mês</Label>
-              </div>
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="next-month" id="period-next-month" />
-                <Label htmlFor="period-next-month" className="cursor-pointer">Próximo mês</Label>
-              </div>
-            </RadioGroup>
+            </div>
           </div>
 
           {/* Ano */}

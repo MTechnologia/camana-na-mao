@@ -15,12 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AudienciaFilters from "@/components/audiencias/AudienciaFilters";
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { tituloCardAudiencia, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
+import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 
 type AudienciaRow = {
   id: string;
@@ -44,7 +45,8 @@ const Audiencias = () => {
     themes: [] as string[],
     regions: [] as string[],
     status: "all",
-    period: "all",
+    dateFrom: "",
+    dateTo: "",
     year: "all",
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,21 +118,11 @@ const Audiencias = () => {
     return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
   };
 
-  const availableRegions = useMemo(() => {
-    const locals = audienciasData.map((a) => (a.local || "").trim()).filter(Boolean);
-    return [...new Set(locals)].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  }, [audienciasData]);
+  const availableRegions = useMemo(() => [...ZONAS_SAO_PAULO], []);
 
   const filteredAudiencias = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
-
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-    const nextMonthStart = startOfMonth(addMonths(now, 1));
-    const nextMonthEnd = endOfMonth(addMonths(now, 1));
 
     return audienciasData.filter((a) => {
       const title = (a.titulo || "").toLowerCase();
@@ -154,9 +146,10 @@ const Audiencias = () => {
             desc.includes(selected.toLowerCase())
         );
 
-      // Region filter: match by local (região)
+      // Region filter: match by zona de São Paulo (derivada do local do auditório)
+      const zona = localParaZona(local);
       const matchesRegion =
-        filters.regions.length === 0 || (local && filters.regions.includes(local));
+        filters.regions.length === 0 || filters.regions.includes(zona);
 
       // Status filter (heuristic + date fallback)
       const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
@@ -169,20 +162,20 @@ const Audiencias = () => {
         (filters.status === "ongoing" && isOngoing) ||
         (filters.status === "upcoming" && isUpcoming);
 
-      // Period filter
-      const dateObj = new Date(a.data);
-      const matchesPeriod =
-        filters.period === "all" ||
-        (filters.period === "week" && dateObj >= weekStart && dateObj <= weekEnd) ||
-        (filters.period === "month" && dateObj >= monthStart && dateObj <= monthEnd) ||
-        (filters.period === "next-month" && dateObj >= nextMonthStart && dateObj <= nextMonthEnd);
+      // Date range filter (data inicial / data final)
+      const itemDate = (a.data || "").slice(0, 10);
+      const matchesDateRange =
+        (!filters.dateFrom && !filters.dateTo) ||
+        (filters.dateFrom && filters.dateTo && itemDate >= filters.dateFrom && itemDate <= filters.dateTo) ||
+        (filters.dateFrom && !filters.dateTo && itemDate >= filters.dateFrom) ||
+        (!filters.dateFrom && filters.dateTo && itemDate <= filters.dateTo);
 
       // Year filter
       const itemYear = a.data ? String(a.data).slice(0, 4) : "";
       const matchesYear =
         filters.year === "all" || itemYear === filters.year;
 
-      return matchesSearch && matchesTheme && matchesRegion && matchesStatus && matchesPeriod && matchesYear;
+      return matchesSearch && matchesTheme && matchesRegion && matchesStatus && matchesDateRange && matchesYear;
     });
   }, [audienciasData, searchQuery, filters]);
 
@@ -220,7 +213,7 @@ const Audiencias = () => {
     filters.themes.length +
     filters.regions.length +
     (filters.status !== "all" ? 1 : 0) +
-    (filters.period !== "all" ? 1 : 0) +
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
     (filters.year !== "all" ? 1 : 0);
 
   return (
