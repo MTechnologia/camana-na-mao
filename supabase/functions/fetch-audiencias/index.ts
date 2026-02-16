@@ -443,8 +443,8 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const vagas = getNum(item, "VagasDisponiveis", "vagasDisponiveis");
   const inscricoesAbertas = getBool(item, "InscricoesAbertas", "inscricoesAbertas");
 
-  // Projetos[0]: ementa, referência (PL x/y) e autores para projeto_referencia / projeto_autores
-  const projetos = (item["Projetos"] ?? item["projetos"]) as Array<{
+  // Projetos[]: todos os PLs com referência e autores (como no site oficial); primeiro para projeto_referencia/projeto_autores
+  const projetosApi = (item["Projetos"] ?? item["projetos"]) as Array<{
     Ementa?: string;
     ementa?: string;
     Sigla?: string;
@@ -452,22 +452,28 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     Ano?: number;
     Autores?: Array<{ Nome?: string; nome?: string }>;
   }> | undefined;
-  const primeiroProjeto = Array.isArray(projetos) && projetos.length > 0 ? projetos[0] : null;
-  const ementaProjeto =
-    primeiroProjeto ? (primeiroProjeto.Ementa ?? primeiroProjeto.ementa ?? "").trim() : "";
-  const sigla = primeiroProjeto ? String(primeiroProjeto.Sigla ?? "").trim() : "";
-  const numeroProj = primeiroProjeto && (primeiroProjeto.Numero ?? 0) !== 0 ? Number(primeiroProjeto.Numero) : null;
-  const anoProj = primeiroProjeto && (primeiroProjeto.Ano ?? 0) !== 0 ? Number(primeiroProjeto.Ano) : null;
-  const projetoRef =
-    sigla && numeroProj != null && anoProj != null ? `${sigla} ${numeroProj}/${anoProj}` : null;
-  const autoresArr = primeiroProjeto?.Autores ?? (primeiroProjeto as Record<string, unknown>)?.autores;
-  const projetoAutores =
-    Array.isArray(autoresArr) && autoresArr.length > 0
-      ? autoresArr
-          .map((a: { Nome?: string; nome?: string }) => (a.Nome ?? a.nome ?? "").trim())
-          .filter(Boolean)
-          .join(" - ")
-      : null;
+  const projetosList = Array.isArray(projetosApi) ? projetosApi : [];
+  const projetosDb: Array<{ referencia: string; autores: string | null; ementa?: string | null }> = [];
+  for (const p of projetosList) {
+    const siglaP = String(p.Sigla ?? "").trim();
+    const numeroP = p.Numero != null && Number(p.Numero) !== 0 ? Number(p.Numero) : null;
+    const anoP = p.Ano != null && Number(p.Ano) !== 0 ? Number(p.Ano) : null;
+    const ref = siglaP && numeroP != null && anoP != null ? `${siglaP} ${numeroP}/${anoP}` : null;
+    const autoresP = p.Autores ?? (p as Record<string, unknown>)?.autores;
+    const autoresStr =
+      Array.isArray(autoresP) && autoresP.length > 0
+        ? autoresP
+            .map((a: { Nome?: string; nome?: string }) => (a.Nome ?? a.nome ?? "").trim())
+            .filter(Boolean)
+            .join(" - ")
+        : null;
+    const ementaP = (p.Ementa ?? p.ementa ?? "").trim() || null;
+    if (ref) projetosDb.push({ referencia: ref, autores: autoresStr || null, ementa: ementaP || undefined });
+  }
+  const primeiroProjeto = projetosDb.length > 0 ? projetosDb[0] : null;
+  const projetoRef = primeiroProjeto?.referencia ?? null;
+  const projetoAutores = primeiroProjeto?.autores ?? null;
+  const ementaProjeto = primeiroProjeto?.ementa?.trim() ?? "";
   const temaStr = getStr(item, "Tema", "tema");
   const temaEhRotuloCurto = !temaStr || temaStr.length < 25 || /^geral$/i.test(temaStr.trim());
   const comissoesDesc = getDescricaoFromComissoes(item);
@@ -506,6 +512,7 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     link_transmissao: getStr(item, "LinkTeleconferencia", "linkTeleconferencia") || null,
     projeto_referencia: projetoRef || null,
     projeto_autores: projetoAutores || null,
+    projetos: projetosDb.length > 0 ? projetosDb : [],
   };
 }
 
@@ -698,10 +705,39 @@ serve(async (req) => {
     }
 
     const rowsRaw = items.map(mapToDbRow).filter((r) => (r.titulo as string) && (r.data as string));
-    const byKey = new Map<string, Record<string, unknown>>();
+    type ProjetoEntry = { referencia: string; autores: string | null; ementa?: string | null };
+    // Agrupar por audiência (data, hora, local, comissão) para juntar todos os PLs da mesma audiência (ex.: 28 PLs no site oficial)
+    const matchKeyFromRow = (r: Record<string, unknown>) =>
+      [r.data, r.hora ?? "", r.local ?? "", r.comissao ?? ""].join("|");
+    const byMatchKey = new Map<string, Record<string, unknown>[]>();
     for (const r of rowsRaw) {
-      const k = String(r.splegis_chave ?? "");
-      byKey.set(k, r);
+      const k = matchKeyFromRow(r);
+      const list = byMatchKey.get(k) ?? [];
+      list.push({ ...r });
+      byMatchKey.set(k, list);
+    }
+    const byKey = new Map<string, Record<string, unknown>>();
+    for (const [, group] of byMatchKey) {
+      const first = group[0]!;
+      const allProjetos: ProjetoEntry[] = [];
+      const refs = new Set<string>();
+      for (const row of group) {
+        const proj = (row.projetos as ProjetoEntry[]) ?? [];
+        for (const p of proj) {
+          if (!refs.has(p.referencia)) {
+            refs.add(p.referencia);
+            allProjetos.push(p);
+          }
+        }
+      }
+      const projetoRef = allProjetos.length > 0 ? allProjetos[0]!.referencia : (first.projeto_referencia as string) ?? null;
+      const projetoAutores = allProjetos.length > 0 ? allProjetos[0]!.autores : (first.projeto_autores as string) ?? null;
+      byKey.set(String(first.splegis_chave), {
+        ...first,
+        projetos: allProjetos.length > 0 ? allProjetos : (first.projetos ?? []),
+        projeto_referencia: projetoRef,
+        projeto_autores: projetoAutores,
+      });
     }
     const rows = [...byKey.values()];
 
