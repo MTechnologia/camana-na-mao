@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -184,13 +184,13 @@ const ChatMessageBubble = ({
   const { data: audienciasData = [] } = useQuery({
     queryKey: ["audiencias-chat"],
     queryFn: async () => {
-      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null; convidados: string | null }[] = [];
+      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null; convidados: string | null; projeto_referencia: string | null; link_transmissao: string | null; mais_informacoes: string | null }[] = [];
       let offset = 0;
       const pageSize = 500;
       while (true) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados, projeto_referencia, link_transmissao, mais_informacoes")
           .order("data", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -818,6 +818,12 @@ const ChatMessageBubble = ({
                             const norm = normalizarConvidadosParaExibicao(a.convidados).replace(/\s*;\s*/g, "; ").replace(/\r\n/g, " ").trim();
                             return norm.length > 120 ? norm.slice(0, 120) + "…" : norm;
                           })()}
+                        </p>
+                      )}
+                      {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
+                        <p className="text-[11px] text-muted-foreground mt-1 pl-0 flex items-center gap-1">
+                          <FileText className="h-3 w-3 shrink-0" />
+                          Documentos e materiais de referência na página da audiência
                         </p>
                       )}
                     </li>
