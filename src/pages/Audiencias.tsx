@@ -20,7 +20,7 @@ import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { tituloCardAudiencia, limparDescricaoRepetida } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, explicacaoSimplificadaParaCard } from "@/lib/audienciaDisplay";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 
 type AudienciaRow = {
@@ -438,10 +438,15 @@ const Audiencias = () => {
                           <h3 className="font-semibold text-foreground line-clamp-4 min-h-[2.5rem]">
                             {tituloCardAudiencia(item.comissao, item.titulo, item.descricao, item.tema)}
                           </h3>
-                          
-                          <p className="text-sm text-muted-foreground line-clamp-3 mt-3">
-                            {limparDescricaoRepetida(item.descricao) || `Audiência pública sobre ${item.tema}`}
-                          </p>
+
+                          <div className="mt-3 space-y-1">
+                            <p className="text-xs font-semibold text-foreground">
+                              Explicação simplificada do que será discutido
+                            </p>
+                            <p className="text-sm text-muted-foreground line-clamp-3">
+                              {explicacaoSimplificadaParaCard(item.descricao, item.tema)}
+                            </p>
+                          </div>
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
                             <div className="flex items-center gap-1">

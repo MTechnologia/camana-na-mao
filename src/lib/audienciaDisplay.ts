@@ -83,6 +83,19 @@ export function tituloParaExibicao(
 }
 
 /**
+ * Texto para a seção "Explicação simplificada do que será discutido" no card (descrição limpa e truncada).
+ */
+export function explicacaoSimplificadaParaCard(descricao: string | null, tema: string, maxLen = 220): string {
+  const cleaned = limparDescricaoRepetida(descricao);
+  if (cleaned) {
+    const oneLine = cleaned.replace(/\s+/g, " ").trim();
+    if (oneLine.length <= maxLen) return oneLine;
+    return oneLine.slice(0, maxLen) + "…";
+  }
+  return (tema || "").trim() ? `Audiência pública sobre ${(tema || "").trim()}.` : "Audiência pública. Participe e contribua.";
+}
+
+/**
  * Título para o card: prefere "Audiência: {comissao}" quando a comissão existe (padrão do site oficial).
  */
 export function tituloCardAudiencia(

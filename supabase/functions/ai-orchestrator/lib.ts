@@ -3692,7 +3692,7 @@ export async function searchAudiencias(
         const convLine = formatConvidadosLine(a.convidados);
         const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
-        const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}${ctxBlock}`;
       }).join('\n\n');
       const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
@@ -3722,7 +3722,7 @@ export async function searchAudiencias(
         const convLine = formatConvidadosLine(a.convidados);
         const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
-        const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}${ctxBlock}`;
       }).join('\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
@@ -3759,7 +3759,7 @@ export async function searchAudiencias(
       const convLine = formatConvidadosLine(a.convidados);
       const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
-      const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+      const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
       return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${convBlock}${ctxBlock}`;
     }).join('\n\n');
   }
@@ -3781,7 +3781,7 @@ export async function searchAudiencias(
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
-        const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}`;
       }).join('\n\n');
       return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
@@ -3803,7 +3803,7 @@ export async function searchAudiencias(
     const formattedUpcoming = upcoming.map((a: any, i: number) => {
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
-      const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+      const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
       return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''} ${inscricao}${ctxBlock}`;
     }).join('\n\n');
     const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';

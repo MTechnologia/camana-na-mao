@@ -310,8 +310,13 @@ const AudienciaDetailPage = () => {
                 : `Audiência pública sobre ${(audiencia.tema || "geral").trim()}. Participe e contribua com sua opinião.`;
           if (!texto) return null;
           return (
-            <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
-              {texto}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">
+                Explicação simplificada do que será discutido
+              </p>
+              <div className="text-base text-muted-foreground whitespace-pre-line leading-relaxed">
+                {texto}
+              </div>
             </div>
           );
         })()}
