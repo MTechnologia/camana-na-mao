@@ -21,12 +21,16 @@ const PREFIXOS_DESCRICAO = [
 /** Prefixo comum da descrição (SPLEGIS); removido para a descrição começar pelo tema. */
 const PREFIXO_OBJETIVO_TEMA = /^Esta\s+audiência\s+tem\s+o\s+objetivo\s+de\s+debater\s+o\s+seguinte\s+tema\s*:\s*/i;
 
-/** Remove o trecho "Convidados: ..." da descrição (até "Local:", "Observação:", "Mais informações:" ou fim). Evita duplicação com a coluna convidados. */
+/** Remove todo trecho "Convidados: ..." da descrição (até "Local:", "Observação:", "Mais informações:" ou fim). Evita duplicação com a coluna convidados. */
 export function removerSecaoConvidadosDaDescricao(desc: string): string {
-  return desc.replace(
-    /\s*Convidados\s*:[\s\S]+?(?=\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/gi,
-    ""
-  ).trim();
+  const re = /\s*Convidados\s*:[\s\S]+?(?=\s*Convidados\s*:|\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/gi;
+  let d = desc;
+  let prev = "";
+  while (prev !== d) {
+    prev = d;
+    d = d.replace(re, " ").trim();
+  }
+  return d.replace(/\s+/g, " ").trim();
 }
 
 /** Remove prefixos repetitivos, "Esta audiência tem o objetivo... tema: " e a seção Convidados (exibida separadamente pela coluna convidados). */
@@ -116,13 +120,16 @@ export function descricaoParaDetalhe(desc: string | null): string {
   return d.trim();
 }
 
-/** Normaliza o texto da coluna convidados para exibição: remove hífens duplicados ("- - " → "- "). */
+/** Normaliza o texto da coluna convidados para exibição: em dash (—) e hífens duplicados → um só "- ". */
 export function normalizarConvidadosParaExibicao(texto: string | null | undefined): string {
   if (!texto || !texto.trim()) return "";
   return texto
     .trim()
+    .replace(/\u2014/g, "-")   // em dash —
+    .replace(/\u2013/g, "-")   // en dash –
     .replace(/\s*-\s*-\s*/g, " - ")
     .replace(/\n\s*-\s*-\s*/g, "\n- ")
     .replace(/^-\s*-\s*/, "- ")
+    .replace(/\n\s*-\s+/g, "\n- ")
     .trim();
 }
