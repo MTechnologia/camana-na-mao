@@ -83,6 +83,10 @@ interface Audiencia {
 const CMSP_SECRETARIA_COMISSAO =
   "Viaduto Jacareí, 100, Bela Vista, 2º andar, salas 213-A ou 210";
 
+/** URL do Google Maps para o endereço da Câmara (clicável no botão presencial). */
+const CMSP_MAPS_URL =
+  "https://www.google.com/maps/search/?api=1&query=Viaduto+Jacareí+100+Bela+Vista+São+Paulo+SP";
+
 const AudienciaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -561,8 +565,8 @@ const AudienciaDetailPage = () => {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => presencialRef.current?.scrollIntoView({ behavior: "smooth" })}
-                className="w-full border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
+                className="w-full border-primary text-primary hover:bg-primary/10"
+                onClick={() => window.open(CMSP_MAPS_URL, "_blank", "noopener,noreferrer")}
               >
                 <MapPin className="h-4 w-4 mr-2" />
                 Participar presencialmente
