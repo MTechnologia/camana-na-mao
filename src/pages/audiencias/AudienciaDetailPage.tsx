@@ -219,74 +219,122 @@ const AudienciaDetailPage = () => {
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
         <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
 
-        {/* Projetos de lei vinculados (todos os PLs com autores, como no site oficial) */}
+        {/* Documentos e materiais de referência: projetos de lei, transmissão, contato */}
         {(() => {
           const projetosList = projetosAsArray(audiencia.projetos);
           const hasProjetos = projetosList.length > 0;
           const hasFallback = audiencia.projeto_referencia?.trim() || audiencia.projeto_autores?.trim();
-          return (hasProjetos || hasFallback) ? (
-          <div className="text-sm space-y-3">
-            {hasProjetos ? (
-              <ul className="space-y-2 list-none">
-                {projetosList.map((p, i) => {
-                  const detalheUrl = urlDetalhadoProjeto(p.referencia);
+          const hasTransmissao = audiencia.link_transmissao?.trim();
+          const hasContato = audiencia.mais_informacoes?.trim() && isAudienciaFutura;
+          const temDocumentos = hasProjetos || hasFallback || hasTransmissao || hasContato;
+          if (!temDocumentos) return null;
+          return (
+            <div className="space-y-4">
+              <h4 className="font-semibold text-foreground flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                Documentos e materiais de referência
+              </h4>
+              <div className="text-sm space-y-4">
+                {(hasProjetos || hasFallback) && (
+                  <div className="space-y-2">
+                    <p className="font-medium text-foreground">Projetos de lei vinculados</p>
+                    {hasProjetos ? (
+                      <ul className="space-y-2 list-none">
+                        {projetosList.map((p, i) => {
+                          const detalheUrl = urlDetalhadoProjeto(p.referencia);
+                          return (
+                            <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-3 last:border-0 last:pb-0 space-y-1">
+                              <p className="font-medium text-foreground">
+                                {detalheUrl ? (
+                                  <a
+                                    href={detalheUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary underline underline-offset-2"
+                                  >
+                                    {p.referencia}
+                                  </a>
+                                ) : (
+                                  p.referencia
+                                )}
+                              </p>
+                              {p.autores?.trim() && (
+                                <p className="text-muted-foreground text-xs">{p.autores.trim()}</p>
+                              )}
+                              {p.ementa?.trim() && (
+                                <p className="text-muted-foreground text-xs whitespace-pre-line leading-relaxed">
+                                  {p.ementa.trim().replace(/\r\n/g, "\n")}
+                                </p>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <>
+                        {audiencia.projeto_referencia?.trim() && (() => {
+                          const ref = audiencia.projeto_referencia!.trim();
+                          const detalheUrl = urlDetalhadoProjeto(ref);
+                          return (
+                            <p className="font-medium text-foreground">
+                              {detalheUrl ? (
+                                <a
+                                  href={detalheUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary underline underline-offset-2"
+                                >
+                                  {ref}
+                                </a>
+                              ) : (
+                                ref
+                              )}
+                            </p>
+                          );
+                        })()}
+                        {audiencia.projeto_autores?.trim() && (
+                          <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+                {hasTransmissao && (
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Transmissão ao vivo</p>
+                    <a
+                      href={audiencia.link_transmissao!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 text-sm"
+                    >
+                      Acessar link da videoconferência
+                    </a>
+                  </div>
+                )}
+                {hasContato && (() => {
+                  const email = extrairEmailDeMaisInformacoes(audiencia.mais_informacoes!);
                   return (
-                  <li key={`${p.referencia}-${i}`} className="border-b border-border/60 pb-3 last:border-0 last:pb-0 space-y-1">
-                    <p className="font-medium text-foreground">
-                      {detalheUrl ? (
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">Contato para mais informações</p>
+                      {email ? (
                         <a
-                          href={detalheUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline underline-offset-2"
+                          href={`mailto:${email}`}
+                          className="text-primary underline underline-offset-2 text-sm"
                         >
-                          {p.referencia}
+                          {email}
                         </a>
                       ) : (
-                        p.referencia
+                        <span className="text-muted-foreground text-sm">
+                          {audiencia.mais_informacoes!.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
+                        </span>
                       )}
-                    </p>
-                    {p.autores?.trim() && (
-                      <p className="text-muted-foreground text-xs">{p.autores.trim()}</p>
-                    )}
-                    {p.ementa?.trim() && (
-                      <p className="text-muted-foreground text-xs whitespace-pre-line leading-relaxed">
-                        {p.ementa.trim().replace(/\r\n/g, "\n")}
-                      </p>
-                    )}
-                  </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <>
-                {audiencia.projeto_referencia?.trim() && (() => {
-                  const ref = audiencia.projeto_referencia!.trim();
-                  const detalheUrl = urlDetalhadoProjeto(ref);
-                  return (
-                    <p className="font-medium text-foreground">
-                      {detalheUrl ? (
-                        <a
-                          href={detalheUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline underline-offset-2"
-                        >
-                          {ref}
-                        </a>
-                      ) : (
-                        ref
-                      )}
-                    </p>
+                    </div>
                   );
                 })()}
-                {audiencia.projeto_autores?.trim() && (
-                  <p className="text-muted-foreground">{audiencia.projeto_autores.trim()}</p>
-                )}
-              </>
-            )}
-          </div>
-          ) : null;
+              </div>
+            </div>
+          );
         })()}
 
         {/* Descrição abaixo do título: tema quando rico; senão descricao. Convidados vêm só da coluna convidados (removidos da descrição/tema). */}
@@ -346,29 +394,12 @@ const AudienciaDetailPage = () => {
           );
         })()}
 
-        {/* Observação e Mais informações (abaixo dos convidados, no padrão do site oficial) */}
-        {(audiencia.observacao?.trim() || (audiencia.mais_informacoes?.trim() && isAudienciaFutura)) && (
+        {/* Observação (Mais informações está em Documentos e materiais de referência) */}
+        {audiencia.observacao?.trim() && (
           <div className="space-y-2 text-sm text-muted-foreground">
-            {audiencia.observacao?.trim() && (
-              <p>
-                <strong className="text-foreground">Observação:</strong> {audiencia.observacao.trim()}
-              </p>
-            )}
-            {audiencia.mais_informacoes?.trim() && isAudienciaFutura && (
-              <p>
-                <strong className="text-foreground">Mais informações:</strong>{" "}
-                {extrairEmailDeMaisInformacoes(audiencia.mais_informacoes) ? (
-                  <a
-                    href={`mailto:${extrairEmailDeMaisInformacoes(audiencia.mais_informacoes)}`}
-                    className="text-primary underline underline-offset-2"
-                  >
-                    {extrairEmailDeMaisInformacoes(audiencia.mais_informacoes)}
-                  </a>
-                ) : (
-                  audiencia.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()
-                )}
-              </p>
-            )}
+            <p>
+              <strong className="text-foreground">Observação:</strong> {audiencia.observacao.trim()}
+            </p>
           </div>
         )}
 
