@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
+import { normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
@@ -183,13 +184,13 @@ const ChatMessageBubble = ({
   const { data: audienciasData = [] } = useQuery({
     queryKey: ["audiencias-chat"],
     queryFn: async () => {
-      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null }[] = [];
+      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null; convidados: string | null }[] = [];
       let offset = 0;
       const pageSize = 500;
       while (true) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, comissao")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados")
           .order("data", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -768,9 +769,9 @@ const ChatMessageBubble = ({
                 Próximas audiências {audienciasFiltradasNoChat.length > 0 && `(${audienciasFiltradasNoChat.length})`}
               </p>
               {audienciasFiltradasNoChat.length > 0 ? (
-                <ul className="space-y-1 list-none">
+                <ul className="space-y-2 list-none">
                   {audienciasFiltradasNoChat.map((a) => (
-                    <li key={a.id}>
+                    <li key={a.id} className="border-b border-border/40 pb-2 last:border-0 last:pb-0">
                       <button
                         type="button"
                         onClick={() => navigate(`/audiencias/${a.id}`)}
@@ -783,6 +784,14 @@ const ChatMessageBubble = ({
                           return format(new Date(y, m - 1, d), "dd/MM/yyyy", { locale: ptBR });
                         })()}
                       </button>
+                      {a.convidados?.trim() && (
+                        <p className="text-[11px] text-muted-foreground mt-1 pl-0 line-clamp-2">
+                          Convidados: {(() => {
+                            const norm = normalizarConvidadosParaExibicao(a.convidados).replace(/\s*;\s*/g, "; ").replace(/\r\n/g, " ").trim();
+                            return norm.length > 120 ? norm.slice(0, 120) + "…" : norm;
+                          })()}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

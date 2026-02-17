@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, Bell, Video, FileText, MapPin } from "lucide-react";
+import { normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
 
 const BAIRROS_SP = [
   "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
@@ -47,6 +48,7 @@ interface AudienciaOption {
   local: string | null;
   slug: string | null;
   ap_code: string | null;
+  convidados: string | null;
 }
 
 export function AudienciaInscricaoInline() {
@@ -71,7 +73,7 @@ export function AudienciaInscricaoInline() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, data, local, slug, ap_code")
+        .select("id, titulo, data, local, slug, ap_code, convidados")
         .eq("inscricoes_abertas", true)
         .gte("data", today)
         .order("data", { ascending: true })
@@ -81,7 +83,10 @@ export function AudienciaInscricaoInline() {
           console.error(error);
           setAudiencias([]);
         } else {
-          const list = (data as AudienciaOption[]) ?? [];
+          const list = ((data ?? []) as (AudienciaOption & { convidados?: string | null })[]).map((a) => ({
+            ...a,
+            convidados: a.convidados ?? null,
+          }));
           setAudiencias(list);
           if (list.length > 0) setAudienciaId(list[0].id);
         }
@@ -237,6 +242,29 @@ export function AudienciaInscricaoInline() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Convidados da audiência selecionada */}
+      {selectedAudiencia?.convidados?.trim() && (() => {
+        const textoNorm = normalizarConvidadosParaExibicao(selectedAudiencia.convidados);
+        const itens = textoNorm
+          .split(/\s*;\s*/)
+          .map((s) => s.replace(/^\s*-\s*/, "").trim())
+          .filter(Boolean);
+        if (itens.length === 0) return null;
+        return (
+          <div className="space-y-1 text-xs text-muted-foreground rounded-md border border-border/60 bg-muted/20 p-2">
+            <p className="font-semibold text-foreground">Convidados:</p>
+            <ul className="list-none space-y-0.5 pl-0">
+              {itens.map((item, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="shrink-0">–</span>
+                  <span>{item.endsWith(".") ? item : `${item};`}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {isPresencial ? (
         <>
