@@ -486,9 +486,6 @@ const AudienciaDetailPage = () => {
             )
           )}
 
-          <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
-            Voltar
-          </Button>
           {isAudienciaFinalizada ? (
             <Button disabled className="w-full bg-muted text-muted-foreground cursor-default">
               <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -496,9 +493,6 @@ const AudienciaDetailPage = () => {
             </Button>
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                Inscreva-se aqui no app. Não é necessário se cadastrar no site oficial da Câmara.
-              </p>
               <Button
                 onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -516,6 +510,9 @@ const AudienciaDetailPage = () => {
               </Button>
             </>
           )}
+          <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
+            Voltar
+          </Button>
         </div>
       </div>
     </div>
