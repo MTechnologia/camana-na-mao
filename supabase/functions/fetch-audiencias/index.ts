@@ -454,19 +454,24 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   }> | undefined;
   const projetosList = Array.isArray(projetosApi) ? projetosApi : [];
   const projetosDb: Array<{ referencia: string; autores: string | null; ementa?: string | null }> = [];
+  const promoventesPorRef = (item as Record<string, unknown>).PromoventesPorRef as Record<string, string> | undefined;
   for (const p of projetosList) {
     const siglaP = String(p.Sigla ?? "").trim();
     const numeroP = p.Numero != null && Number(p.Numero) !== 0 ? Number(p.Numero) : null;
     const anoP = p.Ano != null && Number(p.Ano) !== 0 ? Number(p.Ano) : null;
     const ref = siglaP && numeroP != null && anoP != null ? `${siglaP} ${numeroP}/${anoP}` : null;
+    const cacheKeyProjeto = siglaP && numeroP != null && anoP != null ? `${siglaP}-${numeroP}-${anoP}` : "";
+    const promoventes = cacheKeyProjeto && promoventesPorRef?.[cacheKeyProjeto]?.trim();
     const autoresP = p.Autores ?? (p as Record<string, unknown>)?.autores;
     const autoresStr =
-      Array.isArray(autoresP) && autoresP.length > 0
-        ? autoresP
-            .map((a: { Nome?: string; nome?: string }) => (a.Nome ?? a.nome ?? "").trim())
-            .filter(Boolean)
-            .join(" - ")
-        : null;
+      promoventes
+        ? promoventes
+        : Array.isArray(autoresP) && autoresP.length > 0
+          ? autoresP
+              .map((a: { Nome?: string; nome?: string }) => (a.Nome ?? a.nome ?? "").trim())
+              .filter(Boolean)
+              .join(" - ")
+          : null;
     const ementaP = (p.Ementa ?? p.ementa ?? "").trim() || null;
     if (ref) projetosDb.push({ referencia: ref, autores: autoresStr || null, ementa: ementaP || undefined });
   }
@@ -683,12 +688,17 @@ serve(async (req) => {
         projetoResumoCache.set(cacheKey, resumo);
       }
       if (resumo) {
+        const obj = item as Record<string, unknown>;
         const ementa = (resumo.Ementa ?? resumo.ementa ?? "").trim();
         if (ementa.length > 20) {
-          const obj = item as Record<string, unknown>;
           obj["Descricao"] = ementa;
           obj["descricao"] = ementa;
           ementasAplicadas++;
+        }
+        const promoventes = (resumo.Promoventes ?? resumo.promoventes ?? "").trim();
+        if (promoventes.length > 0) {
+          if (!obj["PromoventesPorRef"]) obj["PromoventesPorRef"] = {} as Record<string, string>;
+          (obj["PromoventesPorRef"] as Record<string, string>)[cacheKey] = promoventes;
         }
       }
     }
