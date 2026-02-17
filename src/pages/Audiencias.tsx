@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,8 @@ type AudienciaRow = {
   comissao: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
+  link_transmissao: string | null;
+  projeto_referencia: string | null;
 };
 
 const Audiencias = () => {
@@ -88,7 +90,7 @@ const Audiencias = () => {
       while (hasMore) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, vagas_disponiveis, inscricoes_abertas")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, vagas_disponiveis, inscricoes_abertas, link_transmissao, projeto_referencia")
           .order("data", { ascending: false })
           .range(offset, offset + pageSize - 1);
 
@@ -447,6 +449,13 @@ const Audiencias = () => {
                               {explicacaoSimplificadaParaCard(item.descricao, item.tema)}
                             </p>
                           </div>
+
+                          {(item.link_transmissao?.trim() || item.projeto_referencia?.trim()) && (
+                            <p className="text-xs text-primary flex items-center gap-1">
+                              <FileText className="h-3.5 w-3.5 shrink-0" />
+                              Documentos e materiais de referência na página
+                            </p>
+                          )}
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
                             <div className="flex items-center gap-1">

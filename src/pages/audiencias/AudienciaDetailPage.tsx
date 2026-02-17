@@ -219,7 +219,7 @@ const AudienciaDetailPage = () => {
         {/* Apenas título no topo (sem bloco cinza ao lado) */}
         <h1 className="text-2xl font-bold text-foreground leading-tight">{tituloExibicao}</h1>
 
-        {/* Documentos e materiais de referência: projetos de lei, transmissão, contato */}
+        {/* Documentos e materiais de referência: projetos de lei, transmissão, contato (sempre visível) */}
         {(() => {
           const projetosList = projetosAsArray(audiencia.projetos);
           const hasProjetos = projetosList.length > 0;
@@ -227,7 +227,6 @@ const AudienciaDetailPage = () => {
           const hasTransmissao = audiencia.link_transmissao?.trim();
           const hasContato = audiencia.mais_informacoes?.trim() && isAudienciaFutura;
           const temDocumentos = hasProjetos || hasFallback || hasTransmissao || hasContato;
-          if (!temDocumentos) return null;
           return (
             <div className="space-y-4">
               <h4 className="font-semibold text-foreground flex items-center gap-2">
@@ -235,6 +234,9 @@ const AudienciaDetailPage = () => {
                 Documentos e materiais de referência
               </h4>
               <div className="text-sm space-y-4">
+                {!temDocumentos && (
+                  <p className="text-muted-foreground">Não há documentos ou materiais vinculados a esta audiência no momento.</p>
+                )}
                 {(hasProjetos || hasFallback) && (
                   <div className="space-y-2">
                     <p className="font-medium text-foreground">Projetos de lei vinculados</p>
@@ -337,7 +339,7 @@ const AudienciaDetailPage = () => {
           );
         })()}
 
-        {/* Descrição abaixo do título: tema quando rico; senão descricao. Convidados vêm só da coluna convidados (removidos da descrição/tema). */}
+        {/* Descrição: tema quando rico; senão descricao. Convidados vêm só da coluna convidados (removidos da descrição/tema). */}
         {(() => {
           const projetosList = projetosAsArray(audiencia.projetos);
           const temaNormalizado = (audiencia.tema || "").trim().replace(/\r\n/g, "\n");
