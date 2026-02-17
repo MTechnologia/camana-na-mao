@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ type AudienciaRow = {
 
 const Audiencias = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -49,8 +50,31 @@ const Audiencias = () => {
     dateTo: "",
     year: "all",
   });
+  const [initializedFromUrl, setInitializedFromUrl] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+
+  // Inicializar filtros a partir da URL (ex.: vindo do chat com ?themes=Saúde&dateFrom=...&regions=Zona Sul)
+  useEffect(() => {
+    if (initializedFromUrl) return;
+    const themesParam = searchParams.get("themes");
+    const regionsParam = searchParams.get("regions");
+    const dateFrom = searchParams.get("dateFrom") ?? "";
+    const dateTo = searchParams.get("dateTo") ?? "";
+    const themes = themesParam ? themesParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    const regions = regionsParam ? regionsParam.split(",").map((r) => decodeURIComponent(r.trim())).filter(Boolean) : [];
+    if (themes.length || regions.length || dateFrom || dateTo) {
+      setFilters((prev) => ({
+        ...prev,
+        themes: themes.length ? themes : prev.themes,
+        regions: regions.length ? regions : prev.regions,
+        dateFrom: dateFrom || prev.dateFrom,
+        dateTo: dateTo || prev.dateTo,
+      }));
+      setShowFilters(true);
+    }
+    setInitializedFromUrl(true);
+  }, [searchParams, initializedFromUrl]);
 
   const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 

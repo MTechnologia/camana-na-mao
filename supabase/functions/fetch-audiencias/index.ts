@@ -274,6 +274,19 @@ function getBool(item: SplegisAudienciaItem, ...keys: string[]): boolean | null 
   return null;
 }
 
+/** Remove todo trecho "Convidados: ..." de descricao/tema antes de gravar no banco (evita duplicação com a coluna convidados). */
+function removerSecaoConvidados(texto: string | null | undefined): string {
+  if (!texto || typeof texto !== "string") return texto ?? "";
+  const re = /\s*Convidados\s*:[\s\S]+?(?=\s*Convidados\s*:|\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/gi;
+  let d = texto.trim();
+  let prev = "";
+  while (prev !== d) {
+    prev = d;
+    d = d.replace(re, " ").trim();
+  }
+  return d.replace(/\s+/g, " ").trim();
+}
+
 /** Extrai o trecho "Convidados: ..." de um texto (Colabore). Para até "Local:", "Observação:" ou "Mais informações:". */
 function extrairConvidados(texto: string | null | undefined): string | null {
   if (!texto || typeof texto !== "string") return null;
@@ -651,14 +664,18 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     descricao = "Audiência pública sobre Geral. Participe e contribua com sua opinião.";
   }
 
+  // Gravar descricao e tema sem o bloco Convidados (convidados ficam só na coluna convidados)
+  const descricaoSemConvidados = descricao ? removerSecaoConvidados(descricao) : null;
+  const temaSemConvidados = tema ? removerSecaoConvidados(tema) : tema;
+
   return {
     splegis_chave: splegisChave,
     titulo,
-    descricao: descricao || null,
+    descricao: (descricaoSemConvidados && descricaoSemConvidados.trim()) || null,
     data: dataNorm,
     hora: horaNorm,
     local,
-    tema,
+    tema: temaSemConvidados.trim() || "Geral",
     status,
     comissao,
     observacao:

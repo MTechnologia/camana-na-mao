@@ -57,7 +57,7 @@
         "projectId": "7fb6c435-44ad-4cda-b5c1-35c90072d7b3"
       }
     },
-    "plugins": ["expo-notifications"],
+    "plugins": ["expo-notifications", "./plugins/withAndroidSafeAreaContextAgp.js"],
     "updates": {
       "enabled": false,
       "fallbackToCacheTimeout": 0

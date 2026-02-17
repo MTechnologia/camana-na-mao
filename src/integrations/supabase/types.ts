@@ -149,6 +149,7 @@ export type Database = {
         Row: {
           ap_code: string | null
           comissao: string | null
+          convidados: string | null
           created_at: string
           data: string
           descricao: string | null
@@ -171,6 +172,7 @@ export type Database = {
         Insert: {
           ap_code?: string | null
           comissao?: string | null
+          convidados?: string | null
           created_at?: string
           data: string
           descricao?: string | null
@@ -193,6 +195,7 @@ export type Database = {
         Update: {
           ap_code?: string | null
           comissao?: string | null
+          convidados?: string | null
           created_at?: string
           data?: string
           descricao?: string | null

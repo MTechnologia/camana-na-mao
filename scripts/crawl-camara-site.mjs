@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Crawler do site da Câmara (www.saopaulo.sp.leg.br).
- * Extrai/salva apenas: HTML (texto → .txt), PDF (.pdf), TXT (.txt), DOCX (.docx).
+ * Extrai/salva: HTML (texto → .txt), PDF (.pdf), TXT (.txt), DOCX (.docx), ZIP (em subpasta zip/).
  * Ignora: MP3, JPG, PNG e demais extensões de mídia/arquivo.
  *
  * Uso:
@@ -25,16 +25,17 @@ const DEFAULT_MAX_PAGES = 500;
 const DEFAULT_DELAY_MS = 1200;
 const DEFAULT_CONCURRENCY = 1;
 
-// Extensões que serão baixadas/extraídas: PDF (binário), TXT, DOCX (binário), HTML (texto extraído → .txt)
-const ALLOWED_FILE_EXT = new Set([".pdf", ".txt", ".docx", ".html", ".htm"]);
+// Extensões que serão baixadas: PDF, TXT, DOCX, HTML (texto → .txt), ZIP (em subpasta zip/)
+const ALLOWED_FILE_EXT = new Set([".pdf", ".txt", ".docx", ".html", ".htm", ".zip"]);
 // Extensões ignoradas (não baixar, não enfileirar): áudio, imagem, vídeo, etc.
 const SKIP_EXT = new Set([
   ".mp3", ".wav", ".ogg", ".m4a", ".aac",
   ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".ico", ".svg",
   ".mp4", ".webm", ".avi", ".mov", ".wmv",
   ".css", ".js", ".map", ".xml", ".json",
-  ".zip", ".rar", ".7z", ".exe",
+  ".rar", ".7z", ".exe",
 ]);
+const ZIP_SUBDIR = "zip";
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -92,7 +93,7 @@ function pathToFilename(url) {
   if (path.length > 150) path = path.slice(0, 150);
   const safe = path.replace(/[^a-zA-Z0-9_.-]/g, "_");
   const ext = getExtension(url);
-  if (ext === ".pdf" || ext === ".txt" || ext === ".docx") return (safe || "index") + ext;
+  if (ext === ".pdf" || ext === ".txt" || ext === ".docx" || ext === ".zip") return (safe || "index") + ext;
   if (ext === ".html" || ext === ".htm") return (safe || "index") + ".txt";
   return (safe || "index") + ".txt";
 }
@@ -177,6 +178,7 @@ function saveState(visited, queue) {
 
 async function run() {
   mkdirSync(outDir, { recursive: true });
+  mkdirSync(join(outDir, ZIP_SUBDIR), { recursive: true });
   let visited = new Set();
   let queue = [BASE_URL + "/"];
   let done = 0;
@@ -203,7 +205,14 @@ async function run() {
     if (SKIP_EXT.has(ext)) return [];
 
     const filename = pathToFilename(norm);
-    const filepath = join(outDir, filename);
+    const filepath = ext === ".zip" ? join(outDir, ZIP_SUBDIR, filename) : join(outDir, filename);
+
+    if (ext === ".zip") {
+      const buf = await fetchWithRetry(norm, { binary: true });
+      if (!buf || !(buf instanceof ArrayBuffer)) return [];
+      writeFileSync(filepath, Buffer.from(buf));
+      return [];
+    }
 
     if (ext === ".pdf" || ext === ".docx") {
       const buf = await fetchWithRetry(norm, { binary: true });

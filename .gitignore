@@ -22,6 +22,9 @@ supabase/.branches/
 vapid.json
 vapid_public.txt
 
+# Saída do crawler RAG (upload no GCS; não commitar)
+crawl-output/
+
 # FCM / Firebase service account key (upload no EAS; não commitar)
 *-firebase-adminsdk-*.json
 *service-account*.json

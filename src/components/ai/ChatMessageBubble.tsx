@@ -545,6 +545,34 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
+              {/* Convidados na descrição: fallback quando a mensagem é sobre audiências e temos dados (para aparecer na bolha junto da descrição) */}
+              {!isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.some((a) => a.convidados?.trim()) && (
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                  {audienciasFiltradasNoChat.filter((a) => a.convidados?.trim()).map((a) => {
+                    const itens = normalizarConvidadosParaExibicao(a.convidados)
+                      .split(/\s*;\s*/)
+                      .map((s) => s.replace(/^\s*-\s*/, "").trim())
+                      .filter(Boolean);
+                    if (itens.length === 0) return null;
+                    return (
+                      <div key={a.id} className="text-xs text-muted-foreground">
+                        <p className="font-semibold text-foreground mb-1">
+                          Convidados {a.comissao || a.titulo}
+                          {a.data ? ` (${format(new Date(a.data.slice(0, 10)), "dd/MM/yyyy", { locale: ptBR })})` : ""}:
+                        </p>
+                        <ul className="list-none space-y-0.5 pl-0">
+                          {itens.map((item, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span className="shrink-0">–</span>
+                              <span>{item.endsWith(".") ? item : `${item};`}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>

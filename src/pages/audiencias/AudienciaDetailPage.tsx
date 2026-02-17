@@ -289,7 +289,7 @@ const AudienciaDetailPage = () => {
           ) : null;
         })()}
 
-        {/* Descrição abaixo do título: tema quando rico; senão descricao, mas não duplicar ementa já exibida nos PLs */}
+        {/* Descrição abaixo do título: tema quando rico; senão descricao. Convidados vêm só da coluna convidados (removidos da descrição/tema). */}
         {(() => {
           const projetosList = projetosAsArray(audiencia.projetos);
           const temaNormalizado = (audiencia.tema || "").trim().replace(/\r\n/g, "\n");
@@ -302,7 +302,7 @@ const AudienciaDetailPage = () => {
               (p) => p.ementa?.trim() && descTrim === p.ementa.trim().replace(/\r\n/g, "\n")
             );
           const texto = temaRico
-            ? temaNormalizado
+            ? descricaoParaDetalhe(audiencia.tema)
             : descricaoRepetida
               ? ""
               : descTrim

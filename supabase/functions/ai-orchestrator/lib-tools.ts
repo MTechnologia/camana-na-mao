@@ -251,7 +251,7 @@ export const tools = [
     type: "function",
     function: {
       name: "search_audiencias",
-      description: "Busca audiências públicas da Câmara (agendadas e histórico). OBRIGATÓRIO chamar com o parâmetro tema quando o cidadão escolher um tema da lista (ex: Saúde, Meio Ambiente) para retornar audiências desse tema inclusive do histórico. Usar também para: audiências, consultas públicas, participação popular, próximas audiências.",
+      description: "Busca audiências públicas da Câmara (agendadas e histórico) com filtros por tema, data e região. OBRIGATÓRIO chamar com o parâmetro tema quando o cidadão escolher um tema da lista. Usar data_inicio/data_fim quando o usuário mencionar período (ex: dezembro, próximo mês). Usar regiao quando mencionar zona de São Paulo (Centro, Zona Norte, Sul, Leste, Oeste).",
       parameters: {
         type: "object",
         properties: {
@@ -261,7 +261,14 @@ export const tools = [
             enum: ["scheduled", "ongoing", "finished"],
             description: "Status da audiência: scheduled (agendada), ongoing (em andamento), finished (encerrada)"
           },
-          inscricoes_abertas: { type: "boolean", description: "Filtrar apenas audiências com inscrições abertas" }
+          inscricoes_abertas: { type: "boolean", description: "Filtrar apenas audiências com inscrições abertas" },
+          data_inicio: { type: "string", description: "Data inicial do período (YYYY-MM-DD). Ex.: 2025-12-01. Usar quando o cidadão pedir audiências a partir de uma data ou em um mês/ano." },
+          data_fim: { type: "string", description: "Data final do período (YYYY-MM-DD). Ex.: 2026-01-31. Usar quando o cidadão pedir audiências até uma data ou em um intervalo." },
+          regiao: {
+            type: "string",
+            enum: ["Centro", "Zona Norte", "Zona Sul", "Zona Leste", "Zona Oeste"],
+            description: "Região (zona) de São Paulo onde a audiência ocorre. Usar quando o cidadão pedir audiências na zona norte, sul, centro, etc."
+          }
         },
         required: []
       }

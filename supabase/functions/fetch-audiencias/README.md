@@ -35,6 +35,10 @@ A função usa **upsert em lotes**; período padrão cobre de 2008 até o próxi
 - A tabela `audiencias` deve ter a coluna `splegis_chave` (ver migration `20260206120000_audiencias_splegis_chave.sql`).
 - Inserções/atualizações usam `splegis_chave` para identificar a mesma audiência e evitar duplicatas.
 
+## Horário (hora)
+
+O horário é lido dos campos **Hora**, **Horario**, **HorarioInicio** ou **DataHora** (ISO) da resposta da API SPLEGIS. Formatos aceitos: `HH:MM`, `HH:MM:SS`, `HHhMM`, ou data/hora ISO (o tempo é extraído). Se a API não enviar horário, a coluna `hora` fica `NULL` e o app exibe "Horário a definir". Se o **site oficial** da Câmara mostrar um horário diferente (ex.: 10h30 no site e 09h00 no app), é provável que o SPLEGIS não esteja retornando esse campo ou use outra fonte; rodar a sync de novo após a API expor o horário correto atualiza os dados.
+
 ## Deploy
 
 A função está configurada com `verify_jwt = false` em `supabase/config.toml` para aceitar chamadas sem validar JWT (sync é público, sem dados do usuário).
@@ -117,3 +121,15 @@ Ex.: `https://vjzkzsczlbtmrzewffdx.supabase.co/functions/v1/fetch-audiencias`
 Por padrão a função usa `dataInicial=2008-01-01` e `dataFinal` = fim do próximo ano. Para alterar, use query params na URL do cron, por exemplo:
 
 - `https://.../fetch-audiencias?dataInicial=2020-01-01&dataFinal=2027-12-31`
+
+### Timeout (erro "connection closed before message completed")
+
+Se o job falhar com **Http: connection closed before message completed**, o cliente (ex.: Cloud Scheduler) fechou a conexão antes da função terminar — a sync com muitos registros pode levar vários minutos. Ajuste o **attempt deadline** do job para até **30 minutos** (máximo para HTTP no GCP):
+
+```bash
+gcloud scheduler jobs update http Atualiza_Audiencias \
+  --location=southamerica-east1 \
+  --attempt-deadline=1800s
+```
+
+`1800s` = 30 min. Se preferir 10 min: `--attempt-deadline=600s`. No console: edite o job → "Configure optional settings" → **Attempt deadline**.

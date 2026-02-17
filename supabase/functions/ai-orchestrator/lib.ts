@@ -3628,6 +3628,19 @@ function formatAudienciaStatus(s: string) {
   return '✅ Encerrada';
 }
 
+/** Formata convidados para uma linha na descrição da audiência (normaliza —/– e quebras). */
+function formatConvidadosLine(convidados: string | null | undefined): string {
+  if (!convidados || !convidados.trim()) return '';
+  return convidados
+    .trim()
+    .replace(/\u2014/g, '-')
+    .replace(/\u2013/g, '-')
+    .replace(/\s*-\s*-\s*/g, ' - ')
+    .replace(/\r\n|\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // Helper: Search audiencias (with filters by tema, data, regiao)
 export async function searchAudiencias(
   supabase: any,
@@ -3656,7 +3669,7 @@ export async function searchAudiencias(
   if (hasExplicitDateRange) {
     let rangeQ = supabase
       .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
       .gte('data', dataMin)
       .order('data', { ascending: false })
       .limit(regiaoNorm ? 40 : 15);
@@ -3668,7 +3681,9 @@ export async function searchAudiencias(
       const formatted = inRange.map((a: any, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+        const convLine = formatConvidadosLine(a.convidados);
+        const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}`;
       }).join('\n\n');
       const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
       const intro = temaNorm
@@ -3682,7 +3697,7 @@ export async function searchAudiencias(
   if (!temaNorm) {
     let q = supabase
       .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
       .in('status', AUDIENCIA_STATUS_AGENDADA)
       .order('data', { ascending: true })
       .limit(limitBase);
@@ -3694,7 +3709,9 @@ export async function searchAudiencias(
       const formatted = proximas.map((a: any, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+        const convLine = formatConvidadosLine(a.convidados);
+        const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}`;
       }).join('\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
       const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
@@ -3705,7 +3722,7 @@ export async function searchAudiencias(
   // 2) Com tema: buscar por tema (agendadas primeiro, depois histórico)
   let query = supabase
     .from('audiencias')
-    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
     .limit(limitBase);
@@ -3727,7 +3744,9 @@ export async function searchAudiencias(
     return data.map((a: any, i: number) => {
       const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
-      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}`;
+      const convLine = formatConvidadosLine(a.convidados);
+      const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
+      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${convBlock}`;
     }).join('\n\n');
   }
 
