@@ -3591,6 +3591,30 @@ function audienciasTemaFilter(supabase: any, base: any, tema: string) {
   return base.or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
 }
 
+// Zonas de São Paulo para filtro por região (espelho de audienciaZonas no front)
+const ZONAS_KEYWORDS: { zona: string; keywords: string[] }[] = [
+  { zona: "Zona Norte", keywords: ["tucuruvi", "jaçanã", "santana", "vila maria", "vila guilherme", "casa verde", "limão", "brasilândia", "freguesia do ó", "perus", "pirituba", "vila leopoldina"] },
+  { zona: "Zona Sul", keywords: ["ipiranga", "jabaquara", "santo amaro", "cidade ademar", "socorro", "cursino", "saúde", "vila mariana", "campo belo"] },
+  { zona: "Zona Leste", keywords: ["mooca", "tatuapé", "vila carmosina", "vila formosa", "penha", "cangaíba", "são mateus", "itaquera", "guaianases", "vila prudente"] },
+  { zona: "Zona Oeste", keywords: ["lapa", "pinheiros", "butantã", "jaguaré", "rio pequeno", "raposo tavares", "vila sônia", "morumbi", "barra funda"] },
+  { zona: "Centro", keywords: ["sé", "república", "bela vista", "bom retiro", "cambuci", "consolação", "liberdade", "santa cecília", "prestes maia", "auditório", "câmara municipal", "centro", "vila buarque", "aclimação", "higienópolis"] },
+];
+
+function localParaZona(local: string | null | undefined): string {
+  const text = (local || "").toLowerCase().trim();
+  if (!text) return "Centro";
+  for (const { zona, keywords } of ZONAS_KEYWORDS) {
+    if (keywords.some((k) => text.includes(k))) return zona;
+  }
+  return "Centro";
+}
+
+function filterByRegiao<T extends { local?: string | null }>(rows: T[], regiao: string): T[] {
+  if (!regiao?.trim()) return rows;
+  const r = regiao.trim();
+  return rows.filter((a) => localParaZona(a.local) === r);
+}
+
 // Status no banco: 'agendada' | 'encerrada' (seed); aceitar também 'scheduled' | 'ongoing' | 'finished' por compatibilidade
 const AUDIENCIA_STATUS_AGENDADA = ['agendada', 'scheduled'];
 
@@ -3604,20 +3628,67 @@ function formatAudienciaStatus(s: string) {
   return '✅ Encerrada';
 }
 
-// Helper: Search audiencias (with fallback to upcoming and to historical by tema)
-export async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
+// Helper: Search audiencias (with filters by tema, data, regiao)
+export async function searchAudiencias(
+  supabase: any,
+  tema?: string,
+  status?: string,
+  inscricoesAbertas?: boolean,
+  dataInicio?: string,
+  dataFim?: string,
+  regiao?: string
+): Promise<string> {
   const temaNorm = tema?.trim();
   const today = new Date().toISOString().split('T')[0];
+  const dataMin = dataInicio?.trim() || today;
+  const dataMax = dataFim?.trim() || null;
+  const regiaoNorm = regiao?.trim() || null;
+  const limitBase = regiaoNorm ? 20 : 5; // fetch more when filtering by region in memory
+  const hasExplicitDateRange = !!(dataInicio?.trim() || dataFim?.trim());
 
-  // 1) Sem tema: priorizar PRÓXIMAS (data >= hoje, status agendada)
-  if (!temaNorm) {
-    const { data: proximas } = await supabase
+  const applyDateFilters = (q: any) => {
+    let out = q.gte('data', dataMin);
+    if (dataMax) out = out.lte('data', dataMax);
+    return out;
+  };
+
+  // 0) Período explícito (data_inicio/data_fim): retornar agendadas E encerradas no período
+  if (hasExplicitDateRange) {
+    let rangeQ = supabase
       .from('audiencias')
       .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-      .gte('data', today)
+      .gte('data', dataMin)
+      .order('data', { ascending: false })
+      .limit(regiaoNorm ? 40 : 15);
+    if (dataMax) rangeQ = rangeQ.lte('data', dataMax);
+    if (temaNorm) rangeQ = audienciasTemaFilter(supabase, rangeQ, temaNorm);
+    const { data: rawRange } = await rangeQ;
+    const inRange = filterByRegiao(rawRange || [], regiaoNorm).slice(0, 10);
+    if (inRange?.length) {
+      const formatted = inRange.map((a: any, i: number) => {
+        const statusText = formatAudienciaStatus(a.status);
+        const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+      }).join('\n\n');
+      const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
+      const intro = temaNorm
+        ? `Audiências sobre **${temaNorm}** no período (${periodo}):\n\n`
+        : `Audiências no período (${periodo}) — agendadas e realizadas:\n\n`;
+      return `${intro}${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
+    }
+  }
+
+  // 1) Sem tema: priorizar PRÓXIMAS (data >= dataMin, status agendada)
+  if (!temaNorm) {
+    let q = supabase
+      .from('audiencias')
+      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
       .in('status', AUDIENCIA_STATUS_AGENDADA)
       .order('data', { ascending: true })
-      .limit(5);
+      .limit(limitBase);
+    q = applyDateFilters(q);
+    const { data: rawProximas } = await q;
+    const proximas = filterByRegiao(rawProximas || [], regiaoNorm).slice(0, 5);
 
     if (proximas?.length) {
       const formatted = proximas.map((a: any, i: number) => {
@@ -3625,7 +3696,9 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
       }).join('\n\n');
-      return `Próximas audiências públicas agendadas:\n\n${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
+      const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
+      const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
+      return `${intro}${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
     }
   }
 
@@ -3633,11 +3706,10 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
   let query = supabase
     .from('audiencias')
     .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-    .gte('data', today)
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
-    .limit(5);
-
+    .limit(limitBase);
+  query = applyDateFilters(query);
   if (temaNorm) {
     query = audienciasTemaFilter(supabase, query, temaNorm);
   }
@@ -3648,7 +3720,8 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
     query = query.eq('inscricoes_abertas', true);
   }
 
-  const { data, error } = await query;
+  const { data: rawData, error } = await query;
+  const data = filterByRegiao(rawData || [], regiaoNorm).slice(0, 5);
 
   if (!error && data?.length) {
     return data.map((a: any, i: number) => {
@@ -3660,16 +3733,16 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
 
   // 3) Com tema mas sem próximas: buscar histórico desse tema
   if (temaNorm) {
-    const histQuery = audienciasTemaFilter(
-      supabase,
-      supabase
-        .from('audiencias')
-        .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-        .order('data', { ascending: false })
-        .limit(10),
-      temaNorm
-    );
-    const { data: historico } = await histQuery;
+    let histQuery = supabase
+      .from('audiencias')
+      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+      .order('data', { ascending: false })
+      .limit(regiaoNorm ? 30 : 10);
+    if (dataMin) histQuery = histQuery.gte('data', dataMin);
+    if (dataMax) histQuery = histQuery.lte('data', dataMax);
+    histQuery = audienciasTemaFilter(supabase, histQuery, temaNorm);
+    const { data: rawHist } = await histQuery;
+    const historico = filterByRegiao(rawHist || [], regiaoNorm).slice(0, 10);
     if (historico?.length) {
       const formatted = historico.map((a: any, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
@@ -3680,14 +3753,16 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
     }
   }
 
-  // 4) Fallback: listar próximas agendadas (qualquer tema) — status agendada no banco
-  const { data: upcoming } = await supabase
+  // 4) Fallback: listar próximas agendadas (qualquer tema)
+  let fallbackQ = supabase
     .from('audiencias')
     .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-    .gte('data', today)
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
-    .limit(5);
+    .limit(limitBase);
+  fallbackQ = applyDateFilters(fallbackQ);
+  const { data: rawUpcoming } = await fallbackQ;
+  const upcoming = filterByRegiao(rawUpcoming || [], regiaoNorm).slice(0, 5);
 
   if (upcoming?.length) {
     const formattedUpcoming = upcoming.map((a: any, i: number) => {
@@ -4749,7 +4824,15 @@ export async function executeTool(
       }
       
       case 'search_audiencias': {
-        const result = await searchAudiencias(supabase, args.tema, args.status, args.inscricoes_abertas);
+        const result = await searchAudiencias(
+          supabase,
+          args.tema,
+          args.status,
+          args.inscricoes_abertas,
+          args.data_inicio,
+          args.data_fim,
+          args.regiao
+        );
         return { success: true, message: result };
       }
       

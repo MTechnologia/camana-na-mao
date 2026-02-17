@@ -226,7 +226,7 @@ Ordem obrigatória:
 Se a mensagem contiver [JOURNEY_SWITCHED:audiencias]:
 → Responder: "Ok! Qual tema de audiência te interessa? (Ex: transporte, saúde, educação, meio ambiente)"
 
-Audiências: Quando o usuário escolher um tema (ex: "Saúde", "Meio Ambiente") da lista "Temas com histórico de audiências", SEMPRE chamar search_audiencias com esse tema (parâmetro tema). Assim o sistema retorna audiências desse tema, inclusive do histórico. Não responder só "não há no momento" sem chamar a ferramenta com o tema escolhido.
+Audiências: Quando o usuário escolher um tema (ex: "Saúde", "Meio Ambiente") da lista "Temas com histórico de audiências", SEMPRE chamar search_audiencias com esse tema (parâmetro tema). Quando o cidadão informar período (ex: "de 2025-12-01 a 2025-12-31", "em dezembro", "próximo mês"), SEMPRE chamar search_audiencias com data_inicio e data_fim (YYYY-MM-DD); o sistema retorna audiências no período incluindo realizadas (antigas). Use regiao (Centro, Zona Norte, Zona Sul, Zona Leste, Zona Oeste) quando mencionar zona de São Paulo. Nunca diga que não consegue filtrar por período — chame a ferramenta com as datas.
 
 Se a mensagem contiver [JOURNEY_SWITCHED:general]:
 → Responder: "Ok! Qual sua dúvida sobre a Câmara Municipal?"

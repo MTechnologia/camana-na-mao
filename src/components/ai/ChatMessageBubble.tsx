@@ -638,20 +638,48 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Listagem de audiências públicas: botão abre o bloco de filtros */}
+        {/* Audiências: os 3 botões sempre visíveis (ordem: Inscrever-se, Abrir, Buscar outras); "Buscar outras" abre o bloco de filtros */}
         {shouldShowAudienciasCta && (
           <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
-            {!showAudienciasFilters ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
+                className="w-full justify-center min-h-[40px]"
+              >
+                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (audienciaChatTema) params.set("themes", audienciaChatTema);
+                  if (audienciaChatRegiao) params.set("regions", audienciaChatRegiao);
+                  if (audienciaChatDateFrom) params.set("dateFrom", audienciaChatDateFrom);
+                  if (audienciaChatDateTo) params.set("dateTo", audienciaChatDateTo);
+                  const qs = params.toString();
+                  navigate(qs ? `/audiencias?${qs}` : "/audiencias");
+                }}
+                className="w-full justify-between min-h-[40px]"
+              >
+                <span className="truncate flex-1 text-left">Abrir Audiências</span>
+                <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
+              </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className="w-full justify-center min-h-[40px]"
-                onClick={() => setShowAudienciasFilters(true)}
+                onClick={() => setShowAudienciasFilters((v) => !v)}
               >
-                Buscar outras audiências públicas
+                {showAudienciasFilters ? "Ocultar filtros" : "Buscar outras audiências públicas"}
               </Button>
-            ) : (
+            </div>
+            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+
+            {showAudienciasFilters && (
               <>
             <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
               <p className="text-sm font-semibold text-foreground">Listagem de audiências públicas</p>
@@ -748,7 +776,12 @@ const ChatMessageBubble = ({
                         onClick={() => navigate(`/audiencias/${a.id}`)}
                         className="w-full text-left text-xs text-primary underline underline-offset-1 hover:no-underline truncate block"
                       >
-                        {a.comissao || a.titulo} — {format(new Date(a.data.slice(0, 10)), "dd/MM/yyyy", { locale: ptBR })}
+                        {a.comissao || a.titulo} — {(() => {
+                          const s = (a.data || "").slice(0, 10);
+                          if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+                          const [y, m, d] = s.split("-").map(Number);
+                          return format(new Date(y, m - 1, d), "dd/MM/yyyy", { locale: ptBR });
+                        })()}
                       </button>
                     </li>
                   ))}
@@ -759,34 +792,6 @@ const ChatMessageBubble = ({
                 </p>
               )}
             </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => {
-                  const params = new URLSearchParams();
-                  if (audienciaChatTema) params.set("themes", audienciaChatTema);
-                  if (audienciaChatRegiao) params.set("regions", audienciaChatRegiao);
-                  if (audienciaChatDateFrom) params.set("dateFrom", audienciaChatDateFrom);
-                  if (audienciaChatDateTo) params.set("dateTo", audienciaChatDateTo);
-                  const qs = params.toString();
-                  navigate(qs ? `/audiencias?${qs}` : "/audiencias");
-                }}
-                className="w-full justify-between min-h-[40px]"
-              >
-                <span className="truncate flex-1 text-left">Abrir Audiências</span>
-                <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
-                className="w-full justify-center min-h-[40px]"
-              >
-                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
-              </Button>
-            </div>
-                {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
               </>
             )}
           </div>
