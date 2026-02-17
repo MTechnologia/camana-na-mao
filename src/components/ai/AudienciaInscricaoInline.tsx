@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Bell } from "lucide-react";
+import { Loader2, CheckCircle2, Bell, Video, FileText, MapPin } from "lucide-react";
 
 function formatPhoneBr(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 11);
@@ -33,10 +33,11 @@ interface AudienciaOption {
 }
 
 export function AudienciaInscricaoInline() {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const [audiencias, setAudiencias] = useState<AudienciaOption[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [audienciaId, setAudienciaId] = useState<string>("");
+  const [tipoParticipacao, setTipoParticipacao] = useState<"videoconferencia" | "escrito" | "presencial">("videoconferencia");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -88,39 +89,9 @@ export function AudienciaInscricaoInline() {
 
     setIsSubmitting(true);
     try {
-      const slug = selectedAudiencia?.slug ?? null;
-      const apCode = selectedAudiencia?.ap_code ?? null;
-      const useNinja = slug && apCode && session?.access_token;
-      let enviadoCamara = false;
-
-      if (useNinja) {
-        const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
-        const res = await fetch(`${supabaseUrl}/functions/v1/api-router/audiencias/inscricao`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session!.access_token}`,
-          },
-          body: JSON.stringify({
-            nome: nome.trim(),
-            email: email.trim(),
-            telefone: telefone.trim(),
-            apCode,
-            slug,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        enviadoCamara = res.ok && data?.ok === true;
-        if (!enviadoCamara) {
-          const errors = Array.isArray(data?.errors) ? data.errors : data?.errors ? [String(data.errors)] : [];
-          if (errors.length) errors.forEach((msg: string) => toast.error(msg));
-          else toast.info("Inscrição registrada no app. Complete no site da Câmara para receber o e-mail.");
-        }
-      }
-
       const { error } = await supabase.from("audiencia_participacoes").insert({
         audiencia_id: audienciaId,
-        tipo: "videoconferencia",
+        tipo: tipoParticipacao,
         user_id: user?.id ?? null,
         nome: nome.trim(),
         email: email.trim(),
@@ -131,11 +102,7 @@ export function AudienciaInscricaoInline() {
       });
       if (error) throw error;
 
-      toast.success(
-        enviadoCamara
-          ? "Inscrição realizada! Você receberá o link por e-mail."
-          : "Inscrição registrada no app!"
-      );
+      toast.success("Inscrição registrada no app!");
       setSuccess(true);
     } catch (e) {
       console.error(e);
@@ -146,15 +113,25 @@ export function AudienciaInscricaoInline() {
   };
 
   if (success) {
+    const msgPresencial =
+      "Sua inscrição para participação presencial foi registrada. Compareça no local da audiência no dia e horário indicados.";
+    const msgEscrito =
+      "Sua manifestação por escrito foi registrada e será encaminhada à Comissão.";
+    const msgVideoconferencia =
+      "Sua inscrição foi registrada. No dia da audiência, acesse o app para ver o link da videoconferência (quando disponível).";
+    const successMsg =
+      tipoParticipacao === "presencial"
+        ? msgPresencial
+        : tipoParticipacao === "escrito"
+          ? msgEscrito
+          : msgVideoconferencia;
     return (
       <div className="mt-3 p-3 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 space-y-2">
         <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
           <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span className="font-medium">Inscrição realizada!</span>
         </div>
-        <p className="text-sm text-green-600 dark:text-green-400">
-          Sua inscrição foi registrada. Para receber o e-mail com link da Câmara, complete no site oficial se a audiência tiver formulário disponível.
-        </p>
+        <p className="text-sm text-green-600 dark:text-green-400">{successMsg}</p>
       </div>
     );
   }
@@ -179,6 +156,31 @@ export function AudienciaInscricaoInline() {
   return (
     <div className="mt-3 w-full max-w-[320px] rounded-lg border border-border bg-muted/30 p-3 space-y-3">
       <p className="text-xs font-medium text-foreground">Inscrever-se aqui</p>
+      <div className="space-y-2">
+        <Label className="text-xs">Forma de participação *</Label>
+        <Select
+          value={tipoParticipacao}
+          onValueChange={(v) => setTipoParticipacao(v as "videoconferencia" | "escrito" | "presencial")}
+        >
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="videoconferencia" className="text-sm flex items-center gap-2">
+              <Video className="h-3.5 w-3.5" />
+              Videoconferência
+            </SelectItem>
+            <SelectItem value="escrito" className="text-sm flex items-center gap-2">
+              <FileText className="h-3.5 w-3.5" />
+              Manifestação por escrito
+            </SelectItem>
+            <SelectItem value="presencial" className="text-sm flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5" />
+              Presencial
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div className="space-y-2">
         <Label className="text-xs">Audiência *</Label>
         <Select value={audienciaId} onValueChange={setAudienciaId}>
