@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const SPLEGIS_BASE = "https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx";
 const SPLEGIS_WS_BASE = "https://splegisws.saopaulo.sp.leg.br/ws";
+const VEREADORES_JSON_URL = "https://saopaulo.sp.leg.br/vereadores-json/";
+/** Fallback: vereadores que não constam no vereadores-json (ex.: André Souza, Dr. Nunes Peixeiro). */
+const VEREADORES_CMSP_JSON_URL = "https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx/VereadoresCMSPJSON";
 
 // Resposta possível da API SPLEGIS (nomes podem variar - PascalCase comum em .NET)
 interface SplegisAudienciaItem {
@@ -72,13 +75,155 @@ interface SplegisAudienciaItem {
   [key: string]: unknown;
 }
 
-/** Resposta do ProjetoResumoJSON (ementa e promoventes) - igual ao site oficial. */
+/** Resposta do ProjetoResumoJSON: ementa e Autores[] (a API não retorna Promoventes; partido vem de vereadores-json). */
 interface ProjetoResumoResponse {
   Ementa?: string;
   ementa?: string;
-  Promoventes?: string;
-  promoventes?: string;
+  Autores?: Array<{ Chave?: number; Nome?: string; nome?: string }>;
+  autores?: Array<{ Chave?: number; Nome?: string; nome?: string }>;
   [key: string]: unknown;
+}
+
+/** Normaliza nome para matching (maiúsculas, sem acentos, sem pontuação, espaços colapsados). */
+function normalizeNomeForMatch(nome: string): string {
+  return (nome ?? "")
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[.\-,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Siglas preferidas para exibição (como no site oficial: Ver. Nome (PL)). Nomes completos do vereadores-json -> sigla. */
+const PARTIDO_TO_SIGLA: Record<string, string> = {
+  "PARTIDO LIBERAL": "PL",
+  "MOVIMENTO DEMOCRATICO BRASILEIRO": "MDB",
+  "MOVIMENTO DEMOCRÁTICO BRASILEIRO": "MDB",
+  "REDE SUSTENTABILIDADE": "REDE",
+  "Rede Sustentabilidade": "REDE",
+  "PARTIDO DOS TRABALHADORES": "PT",
+  "PARTIDO SOCIALISMO E LIBERDADE": "PSOL",
+  "PARTIDO SOCIALISTA BRASILEIRO": "PSB",
+  "PARTIDO SOCIAL DEMOCRATICO": "PSD",
+  "PARTIDO VERDE": "PV",
+  "PARTIDO PROGRESSISTA": "PP",
+  "PARTIDO DA SOCIAL DEMOCRACIA BRASILEIRA": "PSDB",
+  "PARTIDO NOVO": "NOVO",
+  "Partido Novo": "NOVO",
+  "UNIÃO BRASIL": "UNIAO",
+  "UNIAO": "UNIAO",
+  "PODEMOS": "PODE",
+  "REPUBLICANOS": "Republicanos",
+  "PATRIOTA": "PATRIOTA",
+  "CIDADANIA": "CIDADANIA",
+  "AVANTE": "AVANTE",
+  "SOLIDARIEDADE": "SOLIDARIEDADE",
+};
+
+function partidoToSigla(partido: string): string {
+  const p = (partido ?? "").trim();
+  if (!p) return p;
+  const upper = p.toUpperCase();
+  return PARTIDO_TO_SIGLA[upper] ?? PARTIDO_TO_SIGLA[p] ?? p;
+}
+
+/** Busca lista de vereadores (nome + partido) e retorna mapa nome normalizado -> partido (sigla para exibição). */
+async function fetchVereadoresPartidoMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const res = await fetch(VEREADORES_JSON_URL, {
+      method: "GET",
+      headers: { Accept: "application/json", "User-Agent": "CamaraNaMao/1.0" },
+    });
+    if (!res.ok) return map;
+    const raw = await res.json();
+    const list = Array.isArray(raw) ? raw : (raw?.d && Array.isArray(raw.d) ? raw.d : []);
+    for (const v of list) {
+      const nome = (v.Vereador ?? v.vereador ?? "").trim();
+      const partido = (v.Partido ?? v.partido ?? "").trim();
+      if (!nome || !partido) continue;
+      const key = normalizeNomeForMatch(nome);
+      const partidoExibir = partidoToSigla(partido);
+      map.set(key, partidoExibir);
+      // Chave alternativa sem prefixos comuns (DR., Ver. etc.) para matching quando a API envia formato diferente
+      const semPrefixos = key.replace(/^(DR|VER|VEREADOR)\s+/, "").trim();
+      if (semPrefixos && semPrefixos !== key) map.set(semPrefixos, partidoExibir);
+    }
+  } catch (e) {
+    console.warn("[fetch-audiencias] Vereadores JSON failed:", (e as Error).message);
+  }
+  return map;
+}
+
+/** Item do VereadoresCMSPJSON: nome + mandatos/filiacoes com partido.sigla. */
+interface SplegisVereadorItem {
+  nome?: string;
+  mandatos?: Array<{ partido?: { sigla?: string; nome?: string }; fim?: string; inicio?: string }>;
+  filiacoes?: Array<{ partido?: { sigla?: string; nome?: string }; fim?: string; inicio?: string }>;
+}
+
+/** Busca VereadoresCMSPJSON e retorna mapa nome normalizado -> sigla (para preencher lacunas do vereadores-json). */
+async function fetchVereadoresPartidoMapFromSplegis(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const res = await fetch(VEREADORES_CMSP_JSON_URL, {
+      method: "GET",
+      headers: { Accept: "application/json", "User-Agent": "CamaraNaMao/1.0" },
+    });
+    if (!res.ok) return map;
+    const raw = await res.json();
+    const list = Array.isArray(raw) ? raw : (raw?.d && Array.isArray(raw.d) ? raw.d : []) as SplegisVereadorItem[];
+    for (const v of list) {
+      const nome = (v.nome ?? "").trim();
+      if (!nome) continue;
+      // Partido mais recente: último mandato (maior fim) ou última filiação sem fim
+      let sigla = "";
+      const mandatos = v.mandatos ?? [];
+      if (mandatos.length > 0) {
+        const sorted = [...mandatos].sort((a, b) => {
+          const fa = a.fim ?? "";
+          const fb = b.fim ?? "";
+          return fb.localeCompare(fa);
+        });
+        sigla = (sorted[0]?.partido?.sigla ?? "").trim();
+      }
+      if (!sigla && (v.filiacoes ?? []).length > 0) {
+        const fil = v.filiacoes!;
+        const semFim = fil.filter((f) => !(f.fim ?? "").trim());
+        const ref = semFim.length > 0 ? semFim[semFim.length - 1] : fil[fil.length - 1];
+        sigla = (ref?.partido?.sigla ?? "").trim();
+      }
+      if (!sigla) continue;
+      const key = normalizeNomeForMatch(nome);
+      map.set(key, sigla);
+      const semPrefixos = key.replace(/^(DR|VER|VEREADOR)\s+/, "").trim();
+      if (semPrefixos && semPrefixos !== key) map.set(semPrefixos, sigla);
+    }
+  } catch (e) {
+    console.warn("[fetch-audiencias] VereadoresCMSP JSON failed:", (e as Error).message);
+  }
+  return map;
+}
+
+/** Monta string "Nome (Sigla) - Nome2 (Sigla2)" a partir de Autores[] e mapa nome->partido (já em sigla). */
+function buildPromoventesFromAutores(
+  autores: Array<{ Chave?: number; Nome?: string; nome?: string }>,
+  partidoByNome: Map<string, string>
+): string {
+  if (!Array.isArray(autores) || autores.length === 0) return "";
+  const parts = autores
+    .map((a) => {
+      const nome = (a.Nome ?? a.nome ?? "").trim();
+      if (!nome) return "";
+      const key = normalizeNomeForMatch(nome);
+      let partido = partidoByNome.get(key);
+      if (!partido) partido = partidoByNome.get(key.replace(/^(DR|VER|VEREADOR)\s+/, "").trim());
+      return partido ? `${nome} (${partido})` : nome;
+    })
+    .filter(Boolean);
+  return parts.join(" - ");
 }
 
 function getStr(item: SplegisAudienciaItem, ...keys: string[]): string {
@@ -127,6 +272,16 @@ function getBool(item: SplegisAudienciaItem, ...keys: string[]): boolean | null 
     if (v === false || v === "false" || v === "0") return false;
   }
   return null;
+}
+
+/** Extrai o trecho "Convidados: ..." de um texto (Colabore). Para até "Local:", "Observação:" ou "Mais informações:". */
+function extrairConvidados(texto: string | null | undefined): string | null {
+  if (!texto || typeof texto !== "string") return null;
+  const t = texto.trim();
+  const match = t.match(/\bConvidados\s*:\s*([\s\S]+?)(?=\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/i);
+  if (!match) return null;
+  const extracted = match[1].trim();
+  return extracted.length > 2 ? extracted : null;
 }
 
 /** Extrai o trecho "Observação: ..." (ou "Observacao:" / "Obs:") de um texto. Para até "Mais informações" ou fim. */
@@ -460,7 +615,8 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     const numeroP = p.Numero != null && Number(p.Numero) !== 0 ? Number(p.Numero) : null;
     const anoP = p.Ano != null && Number(p.Ano) !== 0 ? Number(p.Ano) : null;
     const ref = siglaP && numeroP != null && anoP != null ? `${siglaP} ${numeroP}/${anoP}` : null;
-    const cacheKeyProjeto = siglaP && numeroP != null && anoP != null ? `${siglaP}-${numeroP}-${anoP}` : "";
+    const cacheKeyProjeto =
+      siglaP && numeroP != null && anoP != null ? `${String(siglaP).toUpperCase().trim()}-${numeroP}-${anoP}` : "";
     const promoventes = cacheKeyProjeto && promoventesPorRef?.[cacheKeyProjeto]?.trim();
     const autoresP = p.Autores ?? (p as Record<string, unknown>)?.autores;
     const autoresStr =
@@ -510,6 +666,11 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
       extrairObservacao(getStr(item, "Colabore", "colabore")) ||
       extrairObservacao(getStr(item, "FormInscricoes", "formInscricoes")) ||
       (dataNorm >= new Date().toISOString().slice(0, 10) ? observacaoPadraoSiteOficial(dataNorm) : null) ||
+      null,
+    convidados:
+      extrairConvidados(getStr(item, "Colabore", "colabore")) ||
+      extrairConvidados(getStr(item, "Tema", "tema")) ||
+      extrairConvidados(getStr(item, "Descricao", "descricao")) ||
       null,
     mais_informacoes: getStr(item, "Contato", "contato") || null,
     vagas_disponiveis: vagas,
@@ -664,45 +825,103 @@ serve(async (req) => {
     }
     if (propagated > 0) console.log("[fetch-audiencias] Detail propagated to items without Chave:", propagated);
 
-    // Descrição igual ao site oficial: buscar ementa via ProjetoResumoJSON. Priorizar itens com tema "Geral" ou sem descrição (os que hoje mostram "Geral. Participe...").
-    const projetoRefs = items
-      .map((item) => ({ item, ref: parseProjetoRef(item) }))
-      .filter((x): x is { item: SplegisAudienciaItem; ref: { tipo: string; ano: number; numero: number } } => x.ref != null)
-      .sort((a, b) => {
-        const temaA = getStr(a.item, "Tema", "tema");
-        const temaB = getStr(b.item, "Tema", "tema");
-        const descA = getStr(a.item, "Descricao", "descricao");
-        const descB = getStr(b.item, "Descricao", "descricao");
-        const precisaA = !temaA || temaA === "Geral" || !descA || descA.length < 50 ? 1 : 0;
-        const precisaB = !temaB || temaB === "Geral" || !descB || descB.length < 50 ? 1 : 0;
-        return precisaB - precisaA;
-      })
-      .slice(0, MAX_PROJETO_RESUMO);
-    let ementasAplicadas = 0;
-    const projetoResumoCache = new Map<string, ProjetoResumoResponse | null>();
-    for (const { item, ref } of projetoRefs) {
-      const cacheKey = `${ref.tipo}-${ref.numero}-${ref.ano}`;
-      let resumo = projetoResumoCache.get(cacheKey);
-      if (resumo === undefined) {
-        resumo = await fetchProjetoResumo(ref.ano, ref.tipo, ref.numero);
-        projetoResumoCache.set(cacheKey, resumo);
-      }
-      if (resumo) {
-        const obj = item as Record<string, unknown>;
-        const ementa = (resumo.Ementa ?? resumo.ementa ?? "").trim();
-        if (ementa.length > 20) {
-          obj["Descricao"] = ementa;
-          obj["descricao"] = ementa;
-          ementasAplicadas++;
-        }
-        const promoventes = (resumo.Promoventes ?? resumo.promoventes ?? "").trim();
-        if (promoventes.length > 0) {
-          if (!obj["PromoventesPorRef"]) obj["PromoventesPorRef"] = {} as Record<string, string>;
-          (obj["PromoventesPorRef"] as Record<string, string>)[cacheKey] = promoventes;
+    // Descrição e autores (Promoventes) iguais ao site: ProjetoResumoJSON por cada PL em item.Projetos[].
+    type RefEntry = { item: SplegisAudienciaItem; ref: { tipo: string; numero: number; ano: number }; cacheKey: string };
+    const allRefs: RefEntry[] = [];
+    for (const item of items) {
+      const projetosApi = (item["Projetos"] ?? item["projetos"]) as Array<{ Sigla?: string; Numero?: number; Ano?: number }> | undefined;
+      const list = Array.isArray(projetosApi) ? projetosApi : [];
+      for (const p of list) {
+        const sigla = String(p.Sigla ?? "").trim().toUpperCase();
+        const numero = p.Numero != null ? Number(p.Numero) : null;
+        const ano = p.Ano != null ? Number(p.Ano) : null;
+        if (sigla && numero != null && ano != null && !Number.isNaN(numero) && !Number.isNaN(ano) && ano >= 1990 && ano <= 2100) {
+          allRefs.push({ item, ref: { tipo: sigla, numero, ano }, cacheKey: `${sigla}-${numero}-${ano}` });
         }
       }
     }
-    if (projetoRefs.length > 0) console.log("[fetch-audiencias] Descrição from ProjetoResumo (ementa):", ementasAplicadas, "of", projetoRefs.length);
+    const uniqueKeys = [...new Set(allRefs.map((r) => r.cacheKey))];
+    const needsEmenta = (item: SplegisAudienciaItem) => {
+      const tema = getStr(item, "Tema", "tema");
+      const desc = getStr(item, "Descricao", "descricao");
+      return !tema || tema === "Geral" || !desc || desc.length < 50;
+    };
+    const keysNeedingEmenta = new Set(
+      allRefs.filter((r) => needsEmenta(r.item)).map((r) => r.cacheKey)
+    );
+    const toFetch = [
+      ...uniqueKeys.filter((k) => keysNeedingEmenta.has(k)),
+      ...uniqueKeys.filter((k) => !keysNeedingEmenta.has(k)),
+    ].slice(0, Math.max(MAX_PROJETO_RESUMO, 200));
+    let ementasAplicadas = 0;
+    const projetoResumoCache = new Map<string, ProjetoResumoResponse | null>();
+    const promoventesByKey = new Map<string, string>();
+    const firstItemByKey = new Map<string, SplegisAudienciaItem>();
+    for (const { item, cacheKey } of allRefs) {
+      if (!firstItemByKey.has(cacheKey)) firstItemByKey.set(cacheKey, item);
+    }
+    const vereadoresPartidoMap = await fetchVereadoresPartidoMap();
+    if (vereadoresPartidoMap.size > 0) {
+      console.log("[fetch-audiencias] Vereadores (nome->partido):", vereadoresPartidoMap.size);
+    }
+    const splegisVereadores = await fetchVereadoresPartidoMapFromSplegis();
+    if (splegisVereadores.size > 0) {
+      let merged = 0;
+      for (const [key, sigla] of splegisVereadores) {
+        if (!vereadoresPartidoMap.has(key)) {
+          vereadoresPartidoMap.set(key, sigla);
+          merged++;
+        }
+      }
+      if (merged > 0) console.log("[fetch-audiencias] Vereadores CMSP fallback:", merged, "added");
+    }
+    for (const cacheKey of toFetch) {
+      const parts = cacheKey.split("-");
+      const tipo = parts[0];
+      const numero = parseInt(parts[1] ?? "", 10);
+      const ano = parseInt(parts[2] ?? "", 10);
+      if (!tipo || Number.isNaN(numero) || Number.isNaN(ano)) continue;
+      let resumo = projetoResumoCache.get(cacheKey);
+      if (resumo === undefined) {
+        resumo = await fetchProjetoResumo(ano, tipo, numero);
+        projetoResumoCache.set(cacheKey, resumo);
+      }
+      if (resumo) {
+        const ementa = (resumo.Ementa ?? resumo.ementa ?? "").trim();
+        const autores = resumo.Autores ?? resumo.autores;
+        const promoventes = buildPromoventesFromAutores(
+          Array.isArray(autores) ? autores : [],
+          vereadoresPartidoMap
+        );
+        if (promoventes.length > 0) promoventesByKey.set(cacheKey, promoventes);
+        if (ementa.length > 20) {
+          const firstItem = firstItemByKey.get(cacheKey);
+          if (firstItem && needsEmenta(firstItem)) {
+            const obj = firstItem as Record<string, unknown>;
+            obj["Descricao"] = ementa;
+            obj["descricao"] = ementa;
+            ementasAplicadas++;
+          }
+        }
+      }
+    }
+    for (const { item, cacheKey } of allRefs) {
+      const promoventes = promoventesByKey.get(cacheKey);
+      if (!promoventes) continue;
+      const obj = item as Record<string, unknown>;
+      if (!obj["PromoventesPorRef"]) obj["PromoventesPorRef"] = {} as Record<string, string>;
+      (obj["PromoventesPorRef"] as Record<string, string>)[cacheKey] = promoventes;
+    }
+    if (toFetch.length > 0) {
+      console.log(
+        "[fetch-audiencias] ProjetoResumo: ementas",
+        ementasAplicadas,
+        "promoventes",
+        promoventesByKey.size,
+        "refs",
+        toFetch.length
+      );
+    }
 
     if (replace) {
       const { error: delError } = await supabase

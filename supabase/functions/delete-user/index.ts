@@ -100,13 +100,25 @@ serve(async (req) => {
 
     console.log(`Admin ${requestingUser.id} deleting user ${userId}`);
 
-    // Delete user from auth.users using Admin API
+    // Remove dados em public primeiro para evitar FK bloqueando auth.admin.deleteUser
+    const { error: rolesErr } = await supabaseAdmin
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId);
+    if (rolesErr) console.warn('delete-user: user_roles delete warning', rolesErr.message);
+
+    const { error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+    if (profileErr) console.warn('delete-user: profiles delete warning', profileErr.message);
+
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
       console.error('Error deleting user from auth:', deleteError);
       return new Response(
-        JSON.stringify({ error: `Erro ao excluir usuário: ${deleteError.message}` }),
+        JSON.stringify({ error: deleteError.message || 'Erro ao excluir usuário' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

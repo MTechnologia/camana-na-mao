@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText, Bell, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -68,6 +68,7 @@ interface Audiencia {
   status: string;
   comissao: string | null;
   observacao: string | null;
+  convidados: string | null;
   mais_informacoes: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
@@ -78,10 +79,15 @@ interface Audiencia {
   projetos: ProjetoVinculado[] | string | null;
 }
 
+/** Endereço oficial para protocolo/secretaria da Comissão (site CMSP). */
+const CMSP_SECRETARIA_COMISSAO =
+  "Viaduto Jacareí, 100, Bela Vista, 2º andar, salas 213-A ou 210";
+
 const AudienciaDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const presencialRef = useRef<HTMLDivElement>(null);
   const [audiencia, setAudiencia] = useState<Audiencia | null>(null);
   const [loading, setLoading] = useState(true);
   const [lembreteInscrito, setLembreteInscrito] = useState(false);
@@ -306,6 +312,31 @@ const AudienciaDetailPage = () => {
           );
         })()}
 
+        {/* Convidados (lista com marcadores, padrão do site oficial) */}
+        {audiencia.convidados?.trim() && (() => {
+          const itens = audiencia.convidados!
+            .trim()
+            .split(/\s*;\s*/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          if (itens.length === 0) return null;
+          return (
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p className="font-semibold text-foreground">Convidados:</p>
+              <ul className="list-none space-y-1 pl-0">
+                {itens.map((item, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="shrink-0">–</span>
+                    <span>
+                      {item.endsWith(".") ? item : `${item};`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
+
         {/* Observação e Mais informações (abaixo dos convidados, no padrão do site oficial) */}
         {(audiencia.observacao?.trim() || (audiencia.mais_informacoes?.trim() && isAudienciaFutura)) && (
           <div className="space-y-2 text-sm text-muted-foreground">
@@ -398,6 +429,26 @@ const AudienciaDetailPage = () => {
             <li>• Link de acesso à audiência</li>
             <li>• Materiais de apoio</li>
             <li>• Lembrete do evento</li>
+          </ul>
+        </div>
+
+        {/* Participar presencialmente: comparecer no local ou protocolar na secretaria (padrão site oficial) */}
+        <div id="participar-presencial" ref={presencialRef} className="bg-muted/50 rounded-lg p-4 space-y-3">
+          <h4 className="font-semibold text-foreground flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            Participar presencialmente
+          </h4>
+          <p className="text-sm text-muted-foreground">
+            Você pode participar da audiência no local ou protocolar sua manifestação pessoalmente:
+          </p>
+          <ul className="text-sm text-muted-foreground space-y-2 ml-4">
+            <li>
+              <strong className="text-foreground">Comparecer no local:</strong>{" "}
+              {audiencia.local}
+            </li>
+            <li>
+              <strong className="text-foreground">Protocolar na Câmara:</strong> no Protocolo Legislativo ou na Secretaria da Comissão — {CMSP_SECRETARIA_COMISSAO}.
+            </li>
           </ul>
         </div>
 
@@ -507,6 +558,14 @@ const AudienciaDetailPage = () => {
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Enviar manifestação por escrito para a audiência
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => presencialRef.current?.scrollIntoView({ behavior: "smooth" })}
+                className="w-full border-muted-foreground/30 text-muted-foreground hover:bg-muted/50"
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                Participar presencialmente
               </Button>
             </>
           )}
