@@ -436,11 +436,11 @@ const AudienciaDetailPage = () => {
           </ul>
         </div>
 
-        {/* Participar presencialmente: comparecer no local ou protocolar na secretaria (padrão site oficial) */}
+        {/* Localização da Câmara: comparecer no local ou protocolar na secretaria (padrão site oficial) */}
         <div id="participar-presencial" ref={presencialRef} className="bg-muted/50 rounded-lg p-4 space-y-3">
           <h4 className="font-semibold text-foreground flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
-            Participar presencialmente
+            Localização da Câmara
           </h4>
           <p className="text-sm text-muted-foreground">
             Você pode participar da audiência no local ou protocolar sua manifestação pessoalmente:
@@ -569,7 +569,7 @@ const AudienciaDetailPage = () => {
                 onClick={() => window.open(CMSP_MAPS_URL, "_blank", "noopener,noreferrer")}
               >
                 <MapPin className="h-4 w-4 mr-2" />
-                Participar presencialmente
+                Localização da Câmara
               </Button>
             </>
           )}
