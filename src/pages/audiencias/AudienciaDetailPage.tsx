@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloCardAudiencia, descricaoParaDetalhe } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, descricaoParaDetalhe, normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
@@ -316,12 +316,12 @@ const AudienciaDetailPage = () => {
           );
         })()}
 
-        {/* Convidados (lista com marcadores, padrão do site oficial) */}
+        {/* Convidados (lista com marcadores, padrão do site oficial; hífens duplicados normalizados) */}
         {audiencia.convidados?.trim() && (() => {
-          const itens = audiencia.convidados!
-            .trim()
+          const textoNorm = normalizarConvidadosParaExibicao(audiencia.convidados);
+          const itens = textoNorm
             .split(/\s*;\s*/)
-            .map((s) => s.trim())
+            .map((s) => s.replace(/^\s*-\s*/, "").trim())
             .filter(Boolean);
           if (itens.length === 0) return null;
           return (

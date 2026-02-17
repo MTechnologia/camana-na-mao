@@ -21,7 +21,15 @@ const PREFIXOS_DESCRICAO = [
 /** Prefixo comum da descrição (SPLEGIS); removido para a descrição começar pelo tema. */
 const PREFIXO_OBJETIVO_TEMA = /^Esta\s+audiência\s+tem\s+o\s+objetivo\s+de\s+debater\s+o\s+seguinte\s+tema\s*:\s*/i;
 
-/** Remove prefixos repetitivos e "Esta audiência tem o objetivo de debater o seguinte tema: ". */
+/** Remove o trecho "Convidados: ..." da descrição (até "Local:", "Observação:", "Mais informações:" ou fim). Evita duplicação com a coluna convidados. */
+export function removerSecaoConvidadosDaDescricao(desc: string): string {
+  return desc.replace(
+    /\s*Convidados\s*:[\s\S]+?(?=\s*Local\s*:|\s*Observa[cç][aã]o\s*:|\s*Mais\s+informa[cç][oõ]es\s*:|$)/gi,
+    ""
+  ).trim();
+}
+
+/** Remove prefixos repetitivos, "Esta audiência tem o objetivo... tema: " e a seção Convidados (exibida separadamente pela coluna convidados). */
 export function limparDescricaoRepetida(desc: string | null): string {
   if (!desc || !desc.trim()) return "";
   let d = desc.trim();
@@ -33,7 +41,8 @@ export function limparDescricaoRepetida(desc: string | null): string {
     }
   }
   d = d.replace(PREFIXO_OBJETIVO_TEMA, "").trim();
-  return d;
+  d = removerSecaoConvidadosDaDescricao(d);
+  return d.trim();
 }
 
 /** Extrai o texto após "tema:" na descrição, para usar como título curto. */
@@ -85,9 +94,9 @@ export function tituloCardAudiencia(
 
 /**
  * Descrição formatada para a página de detalhes: padrão do site oficial.
- * - Remove prefixos redundantes ("Audiência pública sobre", etc.).
+ * - Remove prefixos redundantes e a seção "Convidados:" (exibida separadamente pela coluna convidados).
  * - Quebra após "tema: " para o tema ficar na linha seguinte.
- * - Garante quebra antes de "Convidados:", "Local:", "Observação:", "Mais informações:".
+ * - Garante quebra antes de "Local:", "Observação:", "Mais informações:".
  * Retorna string com \n para exibir com whitespace-pre-line.
  */
 export function descricaoParaDetalhe(desc: string | null): string {
@@ -96,13 +105,24 @@ export function descricaoParaDetalhe(desc: string | null): string {
   for (const re of PREFIXOS_DESCRICAO) {
     d = d.replace(re, "").trim();
   }
+  d = removerSecaoConvidadosDaDescricao(d);
   // Padrão site oficial: "Esta audiência tem o objetivo de debater o seguinte tema: X."
   // → quebra de linha após "tema: " para X ficar sozinho na linha seguinte
   d = d.replace(/\b(tema\s*:\s*)(.+?)(\.)(\s|$)/gis, (_, prefixo, tema, ponto, esp) => `${prefixo}\n${tema}${ponto}${esp || ""}`);
-  // Quebras antes de seções (Convidados, Local, Observação, Mais informações)
-  d = d.replace(/\s+(Convidados\s*:)/gi, "\n\n$1");
+  // Quebras antes de seções (Local, Observação, Mais informações)
   d = d.replace(/\s+(Local\s*:)/gi, "\n\n$1");
   d = d.replace(/\s+(Observa[cç][aã]o\s*:)/gi, "\n\n$1");
   d = d.replace(/\s+(Mais\s+informa[cç][oõ]es\s*:)/gi, "\n\n$1");
   return d.trim();
+}
+
+/** Normaliza o texto da coluna convidados para exibição: remove hífens duplicados ("- - " → "- "). */
+export function normalizarConvidadosParaExibicao(texto: string | null | undefined): string {
+  if (!texto || !texto.trim()) return "";
+  return texto
+    .trim()
+    .replace(/\s*-\s*-\s*/g, " - ")
+    .replace(/\n\s*-\s*-\s*/g, "\n- ")
+    .replace(/^-\s*-\s*/, "- ")
+    .trim();
 }
