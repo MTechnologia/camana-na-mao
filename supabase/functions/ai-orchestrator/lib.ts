@@ -3641,6 +3641,14 @@ function formatConvidadosLine(convidados: string | null | undefined): string {
     .trim();
 }
 
+/** Trunca descrição para uso como contexto na explicação simplificada ao cidadão (evita payload grande). */
+function truncateDescricaoForContext(descricao: string | null | undefined, maxLen: number = 380): string {
+  if (!descricao || !descricao.trim()) return '';
+  const oneLine = descricao.trim().replace(/\s+/g, ' ').trim();
+  if (oneLine.length <= maxLen) return oneLine;
+  return oneLine.slice(0, maxLen) + '…';
+}
+
 // Helper: Search audiencias (with filters by tema, data, regiao)
 export async function searchAudiencias(
   supabase: any,
@@ -3669,7 +3677,7 @@ export async function searchAudiencias(
   if (hasExplicitDateRange) {
     let rangeQ = supabase
       .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
+      .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
       .gte('data', dataMin)
       .order('data', { ascending: false })
       .limit(regiaoNorm ? 40 : 15);
@@ -3683,7 +3691,9 @@ export async function searchAudiencias(
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const convLine = formatConvidadosLine(a.convidados);
         const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}`;
+        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}${ctxBlock}`;
       }).join('\n\n');
       const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
       const intro = temaNorm
@@ -3697,7 +3707,7 @@ export async function searchAudiencias(
   if (!temaNorm) {
     let q = supabase
       .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
+      .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
       .in('status', AUDIENCIA_STATUS_AGENDADA)
       .order('data', { ascending: true })
       .limit(limitBase);
@@ -3711,7 +3721,9 @@ export async function searchAudiencias(
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const convLine = formatConvidadosLine(a.convidados);
         const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}`;
+        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}${ctxBlock}`;
       }).join('\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
       const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
@@ -3722,7 +3734,7 @@ export async function searchAudiencias(
   // 2) Com tema: buscar por tema (agendadas primeiro, depois histórico)
   let query = supabase
     .from('audiencias')
-    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
+    .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados')
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
     .limit(limitBase);
@@ -3746,7 +3758,9 @@ export async function searchAudiencias(
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
       const convLine = formatConvidadosLine(a.convidados);
       const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
-      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${convBlock}`;
+      const ctx = truncateDescricaoForContext(a.descricao);
+      const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${convBlock}${ctxBlock}`;
     }).join('\n\n');
   }
 
@@ -3754,7 +3768,7 @@ export async function searchAudiencias(
   if (temaNorm) {
     let histQuery = supabase
       .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+      .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
       .order('data', { ascending: false })
       .limit(regiaoNorm ? 30 : 10);
     if (dataMin) histQuery = histQuery.gte('data', dataMin);
@@ -3766,7 +3780,9 @@ export async function searchAudiencias(
       const formatted = historico.map((a: any, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}`;
+        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}`;
       }).join('\n\n');
       return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
     }
@@ -3775,7 +3791,7 @@ export async function searchAudiencias(
   // 4) Fallback: listar próximas agendadas (qualquer tema)
   let fallbackQ = supabase
     .from('audiencias')
-    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+    .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
     .limit(limitBase);
@@ -3786,7 +3802,9 @@ export async function searchAudiencias(
   if (upcoming?.length) {
     const formattedUpcoming = upcoming.map((a: any, i: number) => {
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-      return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''} ${inscricao}`;
+      const ctx = truncateDescricaoForContext(a.descricao);
+      const ctxBlock = ctx ? `\n   📖 Em poucas palavras (explique assim ao cidadão): ${ctx}` : '';
+      return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''} ${inscricao}${ctxBlock}`;
     }).join('\n\n');
     const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
     return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\nQuer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
