@@ -205,6 +205,17 @@ const Audiencias = () => {
     });
   }, [audienciasData, searchQuery, filters]);
 
+  // Contagem de "próximas": apenas audiências não encerradas (data >= hoje e status não encerrada)
+  const countProximas = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    return audienciasData.filter((a) => {
+      const status = (a.status || "").toLowerCase();
+      const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
+      return !isFinished;
+    }).length;
+  }, [audienciasData]);
+
   const totalFiltered = filteredAudiencias.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / itemsPerPage));
   const paginatedAudiencias = useMemo(() => {
@@ -287,7 +298,7 @@ const Audiencias = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {isLoading ? "-" : filteredAudiencias.length}
+                    {isLoading ? "-" : countProximas}
                   </p>
                   <p className="text-xs text-muted-foreground">Próximos</p>
                 </div>
