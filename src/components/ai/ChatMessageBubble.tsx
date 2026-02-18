@@ -351,6 +351,17 @@ const ChatMessageBubble = ({
 
   const isLongContent = cleanContent.length > 450;
   const showVerMais = !isUser && isLongContent;
+
+  // Split para colocar Documentos e Convidados acima de "Quer saber mais sobre alguma ou inscrever-se?"
+  const audienciaContentSplit = useMemo(() => {
+    const needle = "Quer saber mais sobre alguma ou inscrever-se?";
+    const idx = cleanContent.indexOf(needle);
+    if (idx < 0) return { contentBefore: cleanContent, contentAfter: null as string | null };
+    return {
+      contentBefore: cleanContent.slice(0, idx).trim(),
+      contentAfter: cleanContent.slice(idx).trim(),
+    };
+  }, [cleanContent]);
   // Mostrar chips quando o backend enviou o marcador OU quando a mensagem é a resposta "off-topic" (fallback)
   const hasShowServicesChips = !isUser && (
     message.content.includes('[SHOW_SERVICES_CHIPS]') ||
@@ -523,30 +534,13 @@ const ChatMessageBubble = ({
                     ),
                   }}
                 >
-                  {cleanContent}
+                  {audienciaContentSplit.contentAfter === null
+                    ? cleanContent
+                    : audienciaContentSplit.contentBefore}
                 </ReactMarkdown>
               </div>
-              {showVerMais && (
-                <button
-                  type="button"
-                  onClick={() => setContentExpanded((v) => !v)}
-                  className="mt-2 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1"
-                >
-                  {contentExpanded ? (
-                    <>
-                      <ChevronUp className="h-3.5 w-3.5" />
-                      Ver menos
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                      Ver mais
-                    </>
-                  )}
-                </button>
-              )}
-              {/* Documentos e materiais de referência + Convidados — dentro do balão, logo abaixo da Explicação simplificada */}
-              {!isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
+              {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
+              {audienciaContentSplit.contentAfter !== null && !isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
                   {audienciasFiltradasNoChat
                     .filter((a) => a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim() || a.convidados?.trim())
@@ -557,6 +551,27 @@ const ChatMessageBubble = ({
                             {a.comissao || a.titulo}
                           </p>
                         )}
+                        {a.convidados?.trim() && (() => {
+                          const textoNorm = normalizarConvidadosParaExibicao(a.convidados);
+                          const itens = textoNorm
+                            .split(/\s*;\s*/)
+                            .map((s) => s.replace(/^\s*-\s*/, "").trim())
+                            .filter(Boolean);
+                          if (itens.length === 0) return null;
+                          return (
+                            <div className="space-y-1 text-muted-foreground">
+                              <p className="font-semibold text-foreground text-xs">Convidados:</p>
+                              <ul className="list-none space-y-0.5 pl-0 text-xs">
+                                {itens.map((item, i) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span className="shrink-0">–</span>
+                                    <span>{item.endsWith(".") ? item : `${item};`}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })()}
                         {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
                           <>
                             <p className="font-semibold text-foreground flex items-center gap-2">
@@ -608,30 +623,64 @@ const ChatMessageBubble = ({
                             </div>
                           </>
                         )}
-                        {a.convidados?.trim() && (() => {
-                          const textoNorm = normalizarConvidadosParaExibicao(a.convidados);
-                          const itens = textoNorm
-                            .split(/\s*;\s*/)
-                            .map((s) => s.replace(/^\s*-\s*/, "").trim())
-                            .filter(Boolean);
-                          if (itens.length === 0) return null;
-                          return (
-                            <div className="space-y-1 text-muted-foreground">
-                              <p className="font-semibold text-foreground text-xs">Convidados:</p>
-                              <ul className="list-none space-y-0.5 pl-0 text-xs">
-                                {itens.map((item, i) => (
-                                  <li key={i} className="flex gap-2">
-                                    <span className="shrink-0">–</span>
-                                    <span>{item.endsWith(".") ? item : `${item};`}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          );
-                        })()}
                       </div>
                     ))}
                 </div>
+              )}
+              {audienciaContentSplit.contentAfter !== null && (
+                <div className={cn("prose prose-sm dark:prose-invert max-w-none", showVerMais && !contentExpanded && "line-clamp-6")}>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      a: ({ href, children }) => {
+                        const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                        if (isInternal) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); navigate(href || '/'); }}
+                              className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
+                        return (
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium">
+                            {children}
+                          </a>
+                        );
+                      },
+                      code: ({ children }) => <code className="bg-background/50 px-1 py-0.5 rounded text-xs">{children}</code>,
+                    }}
+                  >
+                    {audienciaContentSplit.contentAfter}
+                  </ReactMarkdown>
+                </div>
+              )}
+              {showVerMais && (
+                <button
+                  type="button"
+                  onClick={() => setContentExpanded((v) => !v)}
+                  className="mt-2 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  {contentExpanded ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      Ver menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      Ver mais
+                    </>
+                  )}
+                </button>
               )}
             </div>
           )}

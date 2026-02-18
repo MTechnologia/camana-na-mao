@@ -3641,6 +3641,15 @@ function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_tra
   return '';
 }
 
+/** Formata uma linha de audiência para o chat: título em negrito com ":", quebras de linha, Local: em negrito. */
+function formatAudienciaLine(a: { titulo: string; tema: string; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
+  const dataHora = `📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}`;
+  const localLine = a.local ? `\n   **Local:** ${a.local}` : '';
+  const inscricaoTrim = inscricao.trim();
+  const statusInscricao = inscricaoTrim ? `\n   ${statusText}\n   ${inscricaoTrim}` : `\n   ${statusText}`;
+  return `${i + 1}. **${a.titulo}:**\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
+}
+
 // Helper: Search audiencias (with filters by tema, data, regiao)
 export async function searchAudiencias(
   supabase: any,
@@ -3684,7 +3693,7 @@ export async function searchAudiencias(
         const ctx = truncateDescricaoForContext(a.descricao);
         const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         const docsBlock = formatDocumentosLine(a);
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}${docsBlock}`;
+        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
       const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
       const intro = temaNorm
@@ -3713,7 +3722,7 @@ export async function searchAudiencias(
         const ctx = truncateDescricaoForContext(a.descricao);
         const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         const docsBlock = formatDocumentosLine(a);
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}${docsBlock}`;
+        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
       const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
@@ -3749,7 +3758,7 @@ export async function searchAudiencias(
       const ctx = truncateDescricaoForContext(a.descricao);
       const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
       const docsBlock = formatDocumentosLine(a);
-      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${ctxBlock}${docsBlock}`;
+      return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
     }).join('\n\n');
   }
 
@@ -3772,7 +3781,7 @@ export async function searchAudiencias(
         const ctx = truncateDescricaoForContext(a.descricao);
         const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         const docsBlock = formatDocumentosLine(a);
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}${docsBlock}`;
+        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
       return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
     }
@@ -3791,11 +3800,12 @@ export async function searchAudiencias(
 
   if (upcoming?.length) {
     const formattedUpcoming = upcoming.map((a: any, i: number) => {
+      const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
       const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
       const docsBlock = formatDocumentosLine(a);
-      return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''} ${inscricao}${ctxBlock}${docsBlock}`;
+      return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
     }).join('\n\n');
     const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
     return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\nQuer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
