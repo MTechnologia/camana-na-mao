@@ -785,49 +785,49 @@ const ChatMessageBubble = ({
                         })()}
                       </button>
                       {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
-                        <div className="text-[11px] text-muted-foreground mt-1.5 pl-0 space-y-1">
-                          <p className="font-semibold text-foreground flex items-center gap-1">
-                            <FileText className="h-3 w-3 shrink-0" />
+                        <div className="text-[11px] mt-2 pl-0 space-y-2" onClick={(e) => e.stopPropagation()}>
+                          <p className="font-semibold text-foreground flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
                             Documentos e materiais de referência
                           </p>
-                          {a.link_transmissao?.trim() && (
-                            <p className="pl-4">
-                              <span className="font-medium text-foreground">Transmissão ao vivo: </span>
-                              <a
-                                href={a.link_transmissao}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline underline-offset-1"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Acessar link da videoconferência
-                              </a>
-                            </p>
-                          )}
-                          {a.mais_informacoes?.trim() && (
-                            <p className="pl-4">
-                              <span className="font-medium text-foreground">Contato para mais informações: </span>
-                              {(() => {
-                                const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
-                                if (email) {
+                          <div className="space-y-2 text-muted-foreground">
+                            {a.link_transmissao?.trim() && (
+                              <div className="space-y-0.5">
+                                <p className="font-medium text-foreground text-[11px]">Transmissão ao vivo</p>
+                                <a
+                                  href={a.link_transmissao}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary underline underline-offset-2 text-[11px] block"
+                                >
+                                  Acessar link da videoconferência
+                                </a>
+                              </div>
+                            )}
+                            {a.mais_informacoes?.trim() && (
+                              <div className="space-y-0.5">
+                                <p className="font-medium text-foreground text-[11px]">Contato para mais informações</p>
+                                {(() => {
+                                  const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
+                                  if (email) {
+                                    return (
+                                      <a
+                                        href={`mailto:${email}`}
+                                        className="text-primary underline underline-offset-2 text-[11px] block"
+                                      >
+                                        {email}
+                                      </a>
+                                    );
+                                  }
                                   return (
-                                    <a
-                                      href={`mailto:${email}`}
-                                      className="text-primary underline underline-offset-1"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {email}
-                                    </a>
+                                    <span className="text-[11px]">
+                                      {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
+                                    </span>
                                   );
-                                }
-                                return (
-                                  <span>
-                                    {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
-                                  </span>
-                                );
-                              })()}
-                            </p>
-                          )}
+                                })()}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </li>

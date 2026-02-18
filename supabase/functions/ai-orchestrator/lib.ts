@@ -3628,19 +3628,6 @@ function formatAudienciaStatus(s: string) {
   return '✅ Encerrada';
 }
 
-/** Formata convidados para uma linha na descrição da audiência (normaliza —/– e quebras). */
-function formatConvidadosLine(convidados: string | null | undefined): string {
-  if (!convidados || !convidados.trim()) return '';
-  return convidados
-    .trim()
-    .replace(/\u2014/g, '-')
-    .replace(/\u2013/g, '-')
-    .replace(/\s*-\s*-\s*/g, ' - ')
-    .replace(/\r\n|\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 /** Trunca descrição para uso como contexto na explicação simplificada ao cidadão (evita payload grande). */
 function truncateDescricaoForContext(descricao: string | null | undefined, maxLen: number = 380): string {
   if (!descricao || !descricao.trim()) return '';
@@ -3649,14 +3636,9 @@ function truncateDescricaoForContext(descricao: string | null | undefined, maxLe
   return oneLine.slice(0, maxLen) + '…';
 }
 
-/** Linha de documentos e materiais de referência (projeto, transmissão, contato) para o assistente informar ao cidadão. */
-function formatDocumentosLine(a: { projeto_referencia?: string | null; link_transmissao?: string | null; mais_informacoes?: string | null }): string {
-  const parts: string[] = [];
-  if (a.projeto_referencia?.trim()) parts.push(`Projeto ${a.projeto_referencia.trim()}`);
-  if (a.link_transmissao?.trim()) parts.push('link de transmissão');
-  if (a.mais_informacoes?.trim()) parts.push('contato da comissão');
-  if (parts.length === 0) return '';
-  return `\n   📎 Documentos e materiais de referência: ${parts.join('; ')}. Ver na página da audiência.`;
+/** Documentos e materiais de referência não são incluídos no texto da resposta; o chat exibe na listagem (transmissão, contato). */
+function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_transmissao?: string | null; mais_informacoes?: string | null }): string {
+  return '';
 }
 
 // Helper: Search audiencias (with filters by tema, data, regiao)
@@ -3699,12 +3681,10 @@ export async function searchAudiencias(
       const formatted = inRange.map((a: any, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        const convLine = formatConvidadosLine(a.convidados);
-        const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
         const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         const docsBlock = formatDocumentosLine(a);
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}${ctxBlock}${docsBlock}`;
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}${docsBlock}`;
       }).join('\n\n');
       const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
       const intro = temaNorm
@@ -3730,12 +3710,10 @@ export async function searchAudiencias(
       const formatted = proximas.map((a: any, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        const convLine = formatConvidadosLine(a.convidados);
-        const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
         const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
         const docsBlock = formatDocumentosLine(a);
-        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${convBlock}${ctxBlock}${docsBlock}`;
+        return `${i + 1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}${a.local ? ` • ${a.local}` : ''}\n   ${statusText}${inscricao}${ctxBlock}${docsBlock}`;
       }).join('\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
       const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
@@ -3768,12 +3746,10 @@ export async function searchAudiencias(
     return data.map((a: any, i: number) => {
       const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
-      const convLine = formatConvidadosLine(a.convidados);
-      const convBlock = convLine ? `\n   👥 Convidados: ${convLine}` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
       const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
       const docsBlock = formatDocumentosLine(a);
-      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${convBlock}${ctxBlock}${docsBlock}`;
+      return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora?.slice(0, 5) || ''}\n   📍 ${a.local}\n   ${statusText} ${inscricao}${ctxBlock}${docsBlock}`;
     }).join('\n\n');
   }
 
