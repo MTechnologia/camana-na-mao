@@ -146,3 +146,10 @@ export function normalizarConvidadosParaExibicao(texto: string | null | undefine
     .replace(/\n\s*-\s+/g, "\n- ")
     .trim();
 }
+
+/** Extrai o primeiro e-mail de texto "Mais informações: ..." para usar em mailto:. */
+export function extrairEmailDeMaisInformacoes(texto: string | null | undefined): string | null {
+  if (!texto || !texto.trim()) return null;
+  const match = texto.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
+  return match ? match[0] : null;
+}

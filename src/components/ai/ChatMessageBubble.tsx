@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
-import { normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
@@ -545,34 +545,6 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
-              {/* Convidados na descrição: fallback quando a mensagem é sobre audiências e temos dados (para aparecer na bolha junto da descrição) */}
-              {!isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.some((a) => a.convidados?.trim()) && (
-                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                  {audienciasFiltradasNoChat.filter((a) => a.convidados?.trim()).map((a) => {
-                    const itens = normalizarConvidadosParaExibicao(a.convidados)
-                      .split(/\s*;\s*/)
-                      .map((s) => s.replace(/^\s*-\s*/, "").trim())
-                      .filter(Boolean);
-                    if (itens.length === 0) return null;
-                    return (
-                      <div key={a.id} className="text-xs text-muted-foreground">
-                        <p className="font-semibold text-foreground mb-1">
-                          Convidados {a.comissao || a.titulo}
-                          {a.data ? ` (${format(new Date(a.data.slice(0, 10)), "dd/MM/yyyy", { locale: ptBR })})` : ""}:
-                        </p>
-                        <ul className="list-none space-y-0.5 pl-0">
-                          {itens.map((item, i) => (
-                            <li key={i} className="flex gap-2">
-                              <span className="shrink-0">–</span>
-                              <span>{item.endsWith(".") ? item : `${item};`}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -812,19 +784,51 @@ const ChatMessageBubble = ({
                           return format(new Date(y, m - 1, d), "dd/MM/yyyy", { locale: ptBR });
                         })()}
                       </button>
-                      {a.convidados?.trim() && (
-                        <p className="text-[11px] text-muted-foreground mt-1 pl-0 line-clamp-2">
-                          Convidados: {(() => {
-                            const norm = normalizarConvidadosParaExibicao(a.convidados).replace(/\s*;\s*/g, "; ").replace(/\r\n/g, " ").trim();
-                            return norm.length > 120 ? norm.slice(0, 120) + "…" : norm;
-                          })()}
-                        </p>
-                      )}
                       {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
-                        <p className="text-[11px] text-muted-foreground mt-1 pl-0 flex items-center gap-1">
-                          <FileText className="h-3 w-3 shrink-0" />
-                          Documentos e materiais de referência na página da audiência
-                        </p>
+                        <div className="text-[11px] text-muted-foreground mt-1.5 pl-0 space-y-1">
+                          <p className="font-semibold text-foreground flex items-center gap-1">
+                            <FileText className="h-3 w-3 shrink-0" />
+                            Documentos e materiais de referência
+                          </p>
+                          {a.link_transmissao?.trim() && (
+                            <p className="pl-4">
+                              <span className="font-medium text-foreground">Transmissão ao vivo: </span>
+                              <a
+                                href={a.link_transmissao}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline underline-offset-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Acessar link da videoconferência
+                              </a>
+                            </p>
+                          )}
+                          {a.mais_informacoes?.trim() && (
+                            <p className="pl-4">
+                              <span className="font-medium text-foreground">Contato para mais informações: </span>
+                              {(() => {
+                                const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
+                                if (email) {
+                                  return (
+                                    <a
+                                      href={`mailto:${email}`}
+                                      className="text-primary underline underline-offset-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {email}
+                                    </a>
+                                  );
+                                }
+                                return (
+                                  <span>
+                                    {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
+                                  </span>
+                                );
+                              })()}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </li>
                   ))}

@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloCardAudiencia, descricaoParaDetalhe, normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, descricaoParaDetalhe, normalizarConvidadosParaExibicao, extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
@@ -28,12 +28,6 @@ function urlDetalhadoProjeto(referencia: string | null | undefined): string | nu
   const numero = m[1];
   const ano = m[2];
   return `${SPLEGIS_CONSULTA_DETALHADO}?COD_MTRA_LEGL=1&ANO_PCSS_CMSP=${ano}&COD_PCSS_CMSP=${numero}`;
-}
-
-/** Extrai o primeiro email de texto "Mais informações: email" para usar em mailto:. */
-function extrairEmailDeMaisInformacoes(texto: string): string | null {
-  const match = texto.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
-  return match ? match[0] : null;
 }
 
 interface ProjetoVinculado {
