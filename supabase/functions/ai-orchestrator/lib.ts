@@ -3659,6 +3659,38 @@ function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: strin
   return `${i + 1}. **Audiência pública:** ${nomeDaAudiencia}\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
 }
 
+/** Busca as N últimas notícias do cache (tabela news_cache) para injetar no contexto do chat. */
+export async function getUltimasNoticias(supabase: any, limit = 5): Promise<string> {
+  const { data: rows, error } = await supabase
+    .from('news_cache')
+    .select('id, title, description, link, pub_date')
+    .order('pub_date', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn('[getUltimasNoticias] Erro ao ler news_cache:', error.message);
+    return '';
+  }
+  if (!rows?.length) return '';
+
+  const formatDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return iso?.slice(0, 10) || '';
+    }
+  };
+
+  const lines = rows.map((r: { id: string; title: string; description: string; link: string; pub_date: string }, i: number) => {
+    const title = (r.title || '').trim();
+    const desc = (r.description || '').trim().slice(0, 200);
+    const date = formatDate(r.pub_date || '');
+    return `${i + 1}. **${title}**\n   ${desc}${desc.length >= 200 ? '...' : ''}\n   Data: ${date} | Link: ${r.link || ''}`;
+  });
+  return '[Últimas notícias da Câmara (use este bloco para listar as 5 últimas no chat)]\n\n' + lines.join('\n\n');
+}
+
 // Helper: Search audiencias (with filters by tema, data, regiao)
 export async function searchAudiencias(
   supabase: any,

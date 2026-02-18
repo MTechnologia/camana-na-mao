@@ -34,8 +34,14 @@ export const useUnifiedAIChat = (
   const [collectedFields, setCollectedFields] = useState<CollectedFields>({});
   const [lightJourneyType, setLightJourneyType] = useState<string | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId || null);
+  const prevConversationIdRef = useRef<string | null>(null);
+  const messagesRef = useRef<Message[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Storage key for tracker persistence
   const getTrackerStorageKey = (convId: string | null) => 
@@ -103,10 +109,15 @@ export const useUnifiedAIChat = (
       }
 
       try {
-        // IMPORTANT: when switching between conversations, do not carry over messages from the previous one.
-        // Otherwise, previous messages get treated as "optimistic" and leak into the next conversation.
         setIsHistoryLoaded(false);
-        setMessages([]);
+        // Só limpa se estiver trocando de conversa (não quando vem de null → nova conversa com mensagem otimista)
+        const prevId = prevConversationIdRef.current;
+        prevConversationIdRef.current = conversationId;
+        const hadNullAndNowHasId = prevId === null && !!conversationId;
+        const singleUserMessage = messagesRef.current.length === 1 && messagesRef.current[0]?.role === "user";
+        if (!(hadNullAndNowHasId && singleUserMessage)) {
+          setMessages([]);
+        }
 
         const { data, error } = await supabase
           .from('ai_conversations')
@@ -119,7 +130,12 @@ export const useUnifiedAIChat = (
         const savedMessages = (data.messages as any[]) || [];
         
         if (savedMessages.length === 0) {
-          setMessages([]);
+          // Não sobrescrever se já há mensagem do usuário (ex.: otimista ou recém-enviada) para evitar sumir a pergunta
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (prev.length > 0 && last?.role === "user") return prev;
+            return [];
+          });
         } else {
           // CRITICAL FIX: Preserve RAW content (with markers) for backend correlation
           // Sanitization happens ONLY in ChatMessageBubble for display

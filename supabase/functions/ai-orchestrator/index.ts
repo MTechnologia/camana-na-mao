@@ -1250,6 +1250,18 @@ ${empathyNote}
       });
     }
 
+    // === Notícias: injetar as 5 últimas no system prompt ===
+    if (collectionIntent?.type === 'noticias') {
+      try {
+        const noticiasContext = await lib.getUltimasNoticias(supabase, 5);
+        if (noticiasContext) {
+          dynamicSystemPrompt = dynamicSystemPrompt + '\n\n' + noticiasContext;
+          console.log('[ai-orchestrator] Injected 5 latest notícias for noticias intent');
+        }
+      } catch (e) {
+        console.warn('[ai-orchestrator] getUltimasNoticias error:', (e as Error).message);
+      }
+    }
 
     // === Opção B: RAG no Vertex para perguntas "gerais" ===
     // Se intenção é "general" e há data store ou corpus configurado, chama generateContent com retrieval
