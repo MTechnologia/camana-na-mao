@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
-import { extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
+import { extrairEmailDeMaisInformacoes, normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
@@ -545,60 +545,90 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
-              {/* Documentos e materiais de referência — dentro do balão, logo abaixo da Explicação simplificada */}
+              {/* Documentos e materiais de referência + Convidados — dentro do balão, logo abaixo da Explicação simplificada */}
               {!isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
                   {audienciasFiltradasNoChat
-                    .filter((a) => a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim())
+                    .filter((a) => a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim() || a.convidados?.trim())
                     .map((a) => (
                       <div key={a.id} className="text-sm space-y-2">
-                        <p className="font-semibold text-foreground flex items-center gap-2">
-                          <FileText className="h-4 w-4 shrink-0 text-primary" />
-                          Documentos e materiais de referência
-                          {(a.comissao || a.titulo) && (
-                            <span className="font-normal text-muted-foreground text-xs">
-                              — {a.comissao || a.titulo}
-                            </span>
-                          )}
-                        </p>
-                        <div className="space-y-2 text-muted-foreground pl-6">
-                          {a.link_transmissao?.trim() && (
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground text-xs">Transmissão ao vivo</p>
-                              <a
-                                href={a.link_transmissao}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline underline-offset-2 text-xs block"
-                              >
-                                Acessar link da videoconferência
-                              </a>
+                        {!(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (a.comissao || a.titulo) && (
+                          <p className="font-normal text-muted-foreground text-xs">
+                            {a.comissao || a.titulo}
+                          </p>
+                        )}
+                        {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
+                          <>
+                            <p className="font-semibold text-foreground flex items-center gap-2">
+                              <FileText className="h-4 w-4 shrink-0 text-primary" />
+                              Documentos e materiais de referência
+                              {(a.comissao || a.titulo) && (
+                                <span className="font-normal text-muted-foreground text-xs">
+                                  — {a.comissao || a.titulo}
+                                </span>
+                              )}
+                            </p>
+                            <div className="space-y-2 text-muted-foreground pl-6">
+                              {a.link_transmissao?.trim() && (
+                                <div className="space-y-0.5">
+                                  <p className="font-medium text-foreground text-xs">Transmissão ao vivo</p>
+                                  <a
+                                    href={a.link_transmissao}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary underline underline-offset-2 text-xs block"
+                                  >
+                                    Acessar link da videoconferência
+                                  </a>
+                                </div>
+                              )}
+                              {a.mais_informacoes?.trim() && (
+                                <div className="space-y-0.5">
+                                  <p className="font-medium text-foreground text-xs">Contato para mais informações</p>
+                                  {(() => {
+                                    const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
+                                    if (email) {
+                                      return (
+                                        <a
+                                          href={`mailto:${email}`}
+                                          className="text-primary underline underline-offset-2 text-xs block"
+                                        >
+                                          {email}
+                                        </a>
+                                      );
+                                    }
+                                    return (
+                                      <span className="text-xs">
+                                        {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {a.mais_informacoes?.trim() && (
-                            <div className="space-y-0.5">
-                              <p className="font-medium text-foreground text-xs">Contato para mais informações</p>
-                              {(() => {
-                                const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
-                                if (email) {
-                                  return (
-                                    <a
-                                      href={`mailto:${email}`}
-                                      className="text-primary underline underline-offset-2 text-xs block"
-                                    >
-                                      {email}
-                                    </a>
-                                  );
-                                }
-                                return (
-                                  <span className="text-xs">
-                                    {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
-                                  </span>
-                                );
-                              })()}
+                          </>
+                        )}
+                        {a.convidados?.trim() && (() => {
+                          const textoNorm = normalizarConvidadosParaExibicao(a.convidados);
+                          const itens = textoNorm
+                            .split(/\s*;\s*/)
+                            .map((s) => s.replace(/^\s*-\s*/, "").trim())
+                            .filter(Boolean);
+                          if (itens.length === 0) return null;
+                          return (
+                            <div className="space-y-1 text-muted-foreground">
+                              <p className="font-semibold text-foreground text-xs">Convidados:</p>
+                              <ul className="list-none space-y-0.5 pl-0 text-xs">
+                                {itens.map((item, i) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span className="shrink-0">–</span>
+                                    <span>{item.endsWith(".") ? item : `${item};`}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-                          )}
-                        </div>
+                          );
+                        })()}
                       </div>
                     ))}
                 </div>
