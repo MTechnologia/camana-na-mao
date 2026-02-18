@@ -10,7 +10,8 @@ import {
   HelpCircle, 
   Newspaper,
   Search,
-  X
+  X,
+  BookOpen
 } from "lucide-react";
 import {
   Drawer,
@@ -106,6 +107,13 @@ const categories: CapabilityCategory[] = [
     id: "aprender",
     label: "APRENDER",
     capabilities: [
+      {
+        id: "estrutura-funcionamento",
+        icon: BookOpen,
+        title: "Estrutura e funcionamento da Câmara",
+        description: "Conhecer como a Câmara é organizada e como funciona",
+        message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
+      },
       {
         id: "duvidas",
         icon: HelpCircle,

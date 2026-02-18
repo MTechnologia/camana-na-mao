@@ -114,7 +114,8 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
   ],
   general: [
     'informação', 'informacao', 'dúvida', 'duvida', 'pergunta', 'como funciona', 'o que é', 'o que e',
-    'horário', 'horario', 'endereço', 'endereco', 'telefone', 'contato', 'atendimento'
+    'horário', 'horario', 'endereço', 'endereco', 'telefone', 'contato', 'atendimento',
+    'estrutura', 'funcionamento', 'apresentação', 'apresentacao', 'conhecer a câmara', 'conhecer a camara'
   ]
 };
 
@@ -3141,6 +3142,12 @@ export function detectCollectionIntent(
     knowledgeScore = Math.max(knowledgeScore, 7);
     console.log('[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG');
   }
+  // Apresentação da estrutura e funcionamento da Câmara (card ClickUp)
+  const isEstruturaFuncionamento = /(estrutura|funcionamento|apresenta[cç][aã]o)\s+(da\s+)?(câmara|camara)|conhecer\s+(a\s+)?(câmara|camara)|como\s+(a\s+)?(câmara|camara)\s+(é|e)\s+organizada|como\s+funciona\s+(a\s+)?(câmara|camara)/i.test(fullUserContext);
+  if (isEstruturaFuncionamento) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
+  }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });
   }
@@ -3641,12 +3648,13 @@ function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_tra
   return '';
 }
 
-/** Formata uma linha de audiência para o chat: título em negrito com ":", quebras de linha, Local: em negrito. */
+/** Formata uma linha de audiência para o chat: título em negrito com ":", quebras de linha, Local: em negrito. (Dois espaços antes de \\n forçam <br> no Markdown.) */
 function formatAudienciaLine(a: { titulo: string; tema: string; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
+  const br = '  \n';
   const dataHora = `📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}`;
-  const localLine = a.local ? `\n   **Local:** ${a.local}` : '';
+  const localLine = a.local ? `${br}   **Local:** ${a.local}` : '';
   const inscricaoTrim = inscricao.trim();
-  const statusInscricao = inscricaoTrim ? `\n   ${statusText}\n   ${inscricaoTrim}` : `\n   ${statusText}`;
+  const statusInscricao = inscricaoTrim ? `${br}   ${statusText}${br}   ${inscricaoTrim}` : `${br}   ${statusText}`;
   return `${i + 1}. **${a.titulo}:**\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
 }
 

@@ -5,6 +5,7 @@ import {
   Star, 
   MapPin, 
   HelpCircle,
+  Landmark,
   MoreHorizontal 
 } from "lucide-react";
 
@@ -50,6 +51,13 @@ const chips: PromptChip[] = [
     label: "Serviços próximos",
     message: "Buscar serviços perto de mim",
     icon: MapPin,
+    collectionType: null,
+  },
+  {
+    id: "estrutura",
+    label: "Conhecer a Câmara",
+    message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
+    icon: Landmark,
     collectionType: null,
   },
   {
