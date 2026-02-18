@@ -545,6 +545,64 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
+              {/* Documentos e materiais de referência — dentro do balão, logo abaixo da Explicação simplificada */}
+              {!isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
+                  {audienciasFiltradasNoChat
+                    .filter((a) => a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim())
+                    .map((a) => (
+                      <div key={a.id} className="text-sm space-y-2">
+                        <p className="font-semibold text-foreground flex items-center gap-2">
+                          <FileText className="h-4 w-4 shrink-0 text-primary" />
+                          Documentos e materiais de referência
+                          {(a.comissao || a.titulo) && (
+                            <span className="font-normal text-muted-foreground text-xs">
+                              — {a.comissao || a.titulo}
+                            </span>
+                          )}
+                        </p>
+                        <div className="space-y-2 text-muted-foreground pl-6">
+                          {a.link_transmissao?.trim() && (
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-foreground text-xs">Transmissão ao vivo</p>
+                              <a
+                                href={a.link_transmissao}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline underline-offset-2 text-xs block"
+                              >
+                                Acessar link da videoconferência
+                              </a>
+                            </div>
+                          )}
+                          {a.mais_informacoes?.trim() && (
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-foreground text-xs">Contato para mais informações</p>
+                              {(() => {
+                                const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
+                                if (email) {
+                                  return (
+                                    <a
+                                      href={`mailto:${email}`}
+                                      className="text-primary underline underline-offset-2 text-xs block"
+                                    >
+                                      {email}
+                                    </a>
+                                  );
+                                }
+                                return (
+                                  <span className="text-xs">
+                                    {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -762,82 +820,6 @@ const ChatMessageBubble = ({
                   </Button>
                 )}
               </div>
-            </div>
-            {/* Listagem filtrada (tema, data, região) — até 5 próximas */}
-            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-2">
-              <p className="text-xs font-medium text-foreground px-1">
-                Próximas audiências {audienciasFiltradasNoChat.length > 0 && `(${audienciasFiltradasNoChat.length})`}
-              </p>
-              {audienciasFiltradasNoChat.length > 0 ? (
-                <ul className="space-y-2 list-none">
-                  {audienciasFiltradasNoChat.map((a) => (
-                    <li key={a.id} className="border-b border-border/40 pb-2 last:border-0 last:pb-0">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/audiencias/${a.id}`)}
-                        className="w-full text-left text-xs text-primary underline underline-offset-1 hover:no-underline truncate block"
-                      >
-                        {a.comissao || a.titulo} — {(() => {
-                          const s = (a.data || "").slice(0, 10);
-                          if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-                          const [y, m, d] = s.split("-").map(Number);
-                          return format(new Date(y, m - 1, d), "dd/MM/yyyy", { locale: ptBR });
-                        })()}
-                      </button>
-                      {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
-                        <div className="text-[11px] mt-2 pl-0 space-y-2" onClick={(e) => e.stopPropagation()}>
-                          <p className="font-semibold text-foreground flex items-center gap-1.5">
-                            <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            Documentos e materiais de referência
-                          </p>
-                          <div className="space-y-2 text-muted-foreground">
-                            {a.link_transmissao?.trim() && (
-                              <div className="space-y-0.5">
-                                <p className="font-medium text-foreground text-[11px]">Transmissão ao vivo</p>
-                                <a
-                                  href={a.link_transmissao}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary underline underline-offset-2 text-[11px] block"
-                                >
-                                  Acessar link da videoconferência
-                                </a>
-                              </div>
-                            )}
-                            {a.mais_informacoes?.trim() && (
-                              <div className="space-y-0.5">
-                                <p className="font-medium text-foreground text-[11px]">Contato para mais informações</p>
-                                {(() => {
-                                  const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
-                                  if (email) {
-                                    return (
-                                      <a
-                                        href={`mailto:${email}`}
-                                        className="text-primary underline underline-offset-2 text-[11px] block"
-                                      >
-                                        {email}
-                                      </a>
-                                    );
-                                  }
-                                  return (
-                                    <span className="text-[11px]">
-                                      {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-muted-foreground px-1">
-                  Nenhuma audiência nos filtros. Ajuste tema, data ou região ou abra a página completa.
-                </p>
-              )}
             </div>
               </>
             )}
