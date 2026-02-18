@@ -29,6 +29,7 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   "/institucional/agenda": () => import("@/pages/institucional/AgendaCMSP"),
   "/institucional/vereadores": () => import("@/pages/institucional/Vereadores"),
   "/institucional/conheca-camara": () => import("@/pages/institucional/ConhecaCamara"),
+  "/institucional/comissoes": () => import("@/pages/institucional/Comissoes"),
   "/institucional/camara-explica": () => import("@/pages/institucional/CamaraExplica"),
   "/institucional/escola-parlamento": () => import("@/pages/institucional/EscolaParlamento"),
   "/institucional/noticias": () => import("@/pages/institucional/Noticias"),

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { XMLParser } from "https://esm.sh/fast-xml-parser@4.3.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,6 +82,66 @@ function normalizeNomeForMatch(nome: string): string {
 
 const VEREADORES_CMSP_XML_URL = 'https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx/VereadoresCMSP';
 
+type XmlNode = Record<string, unknown> | unknown[] | string;
+
+function textVal(node: XmlNode | null | undefined): string {
+  if (node == null) return '';
+  if (typeof node === 'string') return node.trim();
+  if (Array.isArray(node)) return textVal(node[0]);
+  if (typeof node === 'object' && node !== null) {
+    const o = node as Record<string, unknown>;
+    const s = o['#text'] ?? o['#'] ?? o['_'];
+    if (s != null) return String(s).trim();
+  }
+  return '';
+}
+
+function arr<T>(node: XmlNode | null | undefined): T[] {
+  if (node == null) return [];
+  if (Array.isArray(node)) return node as T[];
+  return [node] as T[];
+}
+
+/** Extrai mapa nome -> áreas a partir do objeto parseado pelo fast-xml-parser. */
+function parseVereadoresFromObj(obj: Record<string, unknown> | null | undefined): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  if (!obj || typeof obj !== 'object') return map;
+  // Objeto pode ser raiz direta ou ter um único filho (ex.: DataSet, NewDataSet)
+  let root = obj;
+  const keys = Object.keys(obj).filter((k) => !k.startsWith('?') && typeof obj[k] === 'object');
+  if (keys.length === 1 && !obj['Vereador'] && !obj['Vereadores']) {
+    root = (obj[keys[0]] as Record<string, unknown>) ?? obj;
+  }
+  let vereadores = root['Vereador'] ?? root['Vereadores']?.['Vereador'] ?? (root as Record<string, unknown>)['VereadoresCMSPResponse']?.['VereadoresCMSPResult'];
+  const inner = typeof vereadores === 'string' && vereadores.includes('<') ? vereadores : null;
+  if (inner) {
+    const xmlParser = new XMLParser({ ignoreDeclaration: true, ignoreAttributes: true });
+    const parsed = xmlParser.parse(inner) as Record<string, unknown>;
+    const innerRoot = Object.keys(parsed).length === 1 ? (parsed[Object.keys(parsed)[0]] as Record<string, unknown>) : parsed;
+    vereadores = innerRoot?.['Vereador'] ?? innerRoot?.['Vereadores']?.['Vereador'];
+  }
+  const list = arr<Record<string, unknown>>(vereadores);
+  for (const v of list) {
+    const nomeVereador = textVal(v['Nome']) || textVal(v['nome']);
+    if (!nomeVereador) continue;
+    const areas: string[] = [];
+    const cargos = v['Cargos'] ?? v['cargos'];
+    const cargoList = arr<Record<string, unknown>>(cargos?.['Cargo'] ?? cargos?.['cargo']);
+    for (const c of cargoList) {
+      const ente = c['Ente'] ?? c['ente'];
+      const nomeEnte = textVal(ente?.['Nome'] ?? ente?.['nome']);
+      if (nomeEnte && !areas.includes(nomeEnte)) areas.push(nomeEnte);
+    }
+    const key = normalizeNomeForMatch(nomeVereador);
+    if (key && areas.length > 0) {
+      map.set(key, areas);
+      const semPrefixos = key.replace(/^(DR|VER|VEREADOR)\s+/, '').trim();
+      if (semPrefixos && semPrefixos !== key) map.set(semPrefixos, areas);
+    }
+  }
+  return map;
+}
+
 /** Busca XML VereadoresCMSP e retorna mapa nome normalizado -> áreas (comissões/cargos). */
 async function fetchAreasDeAtuacaoFromXml(): Promise<Map<string, string[]>> {
   const map = new Map<string, string[]>();
@@ -90,31 +151,19 @@ async function fetchAreasDeAtuacaoFromXml(): Promise<Map<string, string[]>> {
     });
     if (!res.ok) return map;
     const xml = await res.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, 'text/xml');
-    const vereadorNodes = doc.getElementsByTagName('Vereador');
-    for (let i = 0; i < vereadorNodes.length; i++) {
-      const v = vereadorNodes[i];
-      const nomeEl = v.getElementsByTagName('Nome')[0];
-      const nomeVereador = nomeEl?.textContent?.trim();
-      if (!nomeVereador) continue;
-      const areas: string[] = [];
-      const cargosEl = v.getElementsByTagName('Cargos')[0];
-      if (cargosEl) {
-        const cargos = cargosEl.getElementsByTagName('Cargo');
-        for (let j = 0; j < cargos.length; j++) {
-          const enteEl = cargos[j].getElementsByTagName('Ente')[0];
-          const nomeEnte = enteEl?.getElementsByTagName('Nome')[0]?.textContent?.trim();
-          if (nomeEnte && !areas.includes(nomeEnte)) areas.push(nomeEnte);
-        }
-      }
-      const key = normalizeNomeForMatch(nomeVereador);
-      if (key && areas.length > 0) {
-        map.set(key, areas);
-        const semPrefixos = key.replace(/^(DR|VER|VEREADOR)\s+/, '').trim();
-        if (semPrefixos && semPrefixos !== key) map.set(semPrefixos, areas);
+    const xmlParser = new XMLParser({ ignoreDeclaration: true, ignoreAttributes: true });
+    let parsed = xmlParser.parse(xml) as Record<string, unknown>;
+    let result = parseVereadoresFromObj(parsed);
+    if (result.size === 0 && parsed) {
+      const soapBody = parsed['soap:Envelope']?.['soap:Body'] ?? parsed['Envelope']?.['Body'];
+      const inner = soapBody?.['VereadoresCMSPResponse']?.['VereadoresCMSPResult'];
+      const innerStr = typeof inner === 'string' ? inner : null;
+      if (innerStr && innerStr.includes('<')) {
+        parsed = xmlParser.parse(innerStr) as Record<string, unknown>;
+        result = parseVereadoresFromObj(parsed);
       }
     }
+    result.forEach((areas, key) => map.set(key, areas));
     console.log(`[fetch-vereadores] Areas de atuacao loaded for ${map.size} vereadores from XML`);
   } catch (e) {
     console.warn('[fetch-vereadores] VereadoresCMSP XML failed:', (e as Error).message);

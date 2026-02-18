@@ -6,6 +6,7 @@ import {
   MapPin, 
   HelpCircle,
   Landmark,
+  LayoutList,
   MoreHorizontal 
 } from "lucide-react";
 
@@ -58,6 +59,13 @@ const chips: PromptChip[] = [
     label: "Conhecer a Câmara",
     message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
     icon: Landmark,
+    collectionType: null,
+  },
+  {
+    id: "comissoes",
+    label: "Comissões e atribuições",
+    message: "Quais são as comissões da Câmara e o que cada uma faz?",
+    icon: LayoutList,
     collectionType: null,
   },
   {

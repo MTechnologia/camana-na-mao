@@ -8,6 +8,7 @@ import {
   BookOpen, 
   GraduationCap, 
   Newspaper,
+  LayoutList,
   BarChart3,
   FileText,
   Shield,
@@ -108,18 +109,24 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
     { 
       id: 5, 
+      label: "Comissões", 
+      icon: LayoutList,
+      route: "/institucional/comissoes"
+    },
+    { 
+      id: 6, 
       label: "Câmara Explica", 
       icon: BookOpen,
       route: "/institucional/camara-explica"
     },
     { 
-      id: 6, 
+      id: 7, 
       label: "Escola do Parlamento", 
       icon: GraduationCap,
       route: "/institucional/escola-parlamento"
     },
     { 
-      id: 7, 
+      id: 8, 
       label: "Notícias", 
       icon: Newspaper,
       route: "/institucional/noticias"

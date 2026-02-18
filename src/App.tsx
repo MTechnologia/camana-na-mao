@@ -68,6 +68,7 @@ const Vereadores = lazy(() => import("./pages/institucional/Vereadores"));
 const VereadorDetailPage = lazy(() => import("./pages/institucional/VereadorDetailPage"));
 const ConhecaCamara = lazy(() => import("./pages/institucional/ConhecaCamara"));
 const CamaraExplica = lazy(() => import("./pages/institucional/CamaraExplica"));
+const Comissoes = lazy(() => import("./pages/institucional/Comissoes"));
 const EscolaParlamento = lazy(() => import("./pages/institucional/EscolaParlamento"));
 const Noticias = lazy(() => import("./pages/institucional/Noticias"));
 const NoticiaDetailPage = lazy(() => import("./pages/institucional/NoticiaDetailPage"));
@@ -160,6 +161,7 @@ const RoutePrefetcher = () => {
         prefetchMultiple([
           "/institucional/agenda",
           "/institucional/vereadores",
+          "/institucional/comissoes",
           "/institucional/noticias",
         ]);
       }
@@ -257,6 +259,7 @@ const AppContent = () => {
           <Route path="/institucional/vereadores" element={<Vereadores />} />
           <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
           <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
+          <Route path="/institucional/comissoes" element={<Comissoes />} />
           <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
           <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
           <Route path="/institucional/noticias" element={<Noticias />} />

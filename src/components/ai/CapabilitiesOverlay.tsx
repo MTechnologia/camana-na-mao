@@ -11,7 +11,8 @@ import {
   Newspaper,
   Search,
   X,
-  BookOpen
+  BookOpen,
+  LayoutList
 } from "lucide-react";
 import {
   Drawer,
@@ -113,6 +114,13 @@ const categories: CapabilityCategory[] = [
         title: "Estrutura e funcionamento da Câmara",
         description: "Conhecer como a Câmara é organizada e como funciona",
         message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
+      },
+      {
+        id: "comissoes-atribuicoes",
+        icon: LayoutList,
+        title: "Comissões e atribuições",
+        description: "Quais comissões existem e o que cada uma faz",
+        message: "Quais são as comissões da Câmara e o que cada uma faz?",
       },
       {
         id: "duvidas",
