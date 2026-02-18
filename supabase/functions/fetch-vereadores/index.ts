@@ -43,6 +43,8 @@ interface Vereador {
   isSubstitute: boolean;
   isOnLeave: boolean;
   region?: string;
+  /** Comissões e cargos (área de atuação), fonte: ws2.asmx/VereadoresCMSP */
+  areasDeAtuacao?: string[];
 }
 
 // Generate a stable ID from the name
@@ -65,10 +67,64 @@ function generateInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/** Normaliza nome para matching entre JSON e XML (maiúsculas, sem acentos, espaços colapsados). */
+function normalizeNomeForMatch(nome: string): string {
+  return (nome ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[.\-,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const VEREADORES_CMSP_XML_URL = 'https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx/VereadoresCMSP';
+
+/** Busca XML VereadoresCMSP e retorna mapa nome normalizado -> áreas (comissões/cargos). */
+async function fetchAreasDeAtuacaoFromXml(): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  try {
+    const res = await fetch(VEREADORES_CMSP_XML_URL, {
+      headers: { 'Accept': 'application/xml', 'User-Agent': 'CamaraNaMao/1.0' },
+    });
+    if (!res.ok) return map;
+    const xml = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, 'text/xml');
+    const vereadorNodes = doc.getElementsByTagName('Vereador');
+    for (let i = 0; i < vereadorNodes.length; i++) {
+      const v = vereadorNodes[i];
+      const nomeEl = v.getElementsByTagName('Nome')[0];
+      const nomeVereador = nomeEl?.textContent?.trim();
+      if (!nomeVereador) continue;
+      const areas: string[] = [];
+      const cargosEl = v.getElementsByTagName('Cargos')[0];
+      if (cargosEl) {
+        const cargos = cargosEl.getElementsByTagName('Cargo');
+        for (let j = 0; j < cargos.length; j++) {
+          const enteEl = cargos[j].getElementsByTagName('Ente')[0];
+          const nomeEnte = enteEl?.getElementsByTagName('Nome')[0]?.textContent?.trim();
+          if (nomeEnte && !areas.includes(nomeEnte)) areas.push(nomeEnte);
+        }
+      }
+      const key = normalizeNomeForMatch(nomeVereador);
+      if (key && areas.length > 0) {
+        map.set(key, areas);
+        const semPrefixos = key.replace(/^(DR|VER|VEREADOR)\s+/, '').trim();
+        if (semPrefixos && semPrefixos !== key) map.set(semPrefixos, areas);
+      }
+    }
+    console.log(`[fetch-vereadores] Areas de atuacao loaded for ${map.size} vereadores from XML`);
+  } catch (e) {
+    console.warn('[fetch-vereadores] VereadoresCMSP XML failed:', (e as Error).message);
+  }
+  return map;
+}
+
 // Transform API data to internal format
-function transformVereador(v: VereadorAPI): Vereador {
+function transformVereador(v: VereadorAPI, areasDeAtuacao?: string[]): Vereador {
   const name = v.Vereador.trim();
-  
   return {
     id: generateId(name),
     name: name,
@@ -84,34 +140,38 @@ function transformVereador(v: VereadorAPI): Vereador {
     isGovernmentLeader: v.LiderGoverno === 'on',
     isSubstitute: v.Suplente === 'on',
     isOnLeave: v.Licenciado === 'on',
-    region: undefined
+    region: undefined,
+    areasDeAtuacao: areasDeAtuacao?.length ? areasDeAtuacao : undefined,
   };
 }
 
-// Fetch from SP Legis API
+// Fetch from SP Legis API (JSON) + áreas de atuação from VereadoresCMSP (XML)
 async function fetchFromAPI(): Promise<Vereador[]> {
   console.log('[fetch-vereadores] Fetching from SP Legis API...');
-  
-  const response = await fetch('https://saopaulo.sp.leg.br/vereadores-json/', {
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'CamaraNaMao/1.0'
-    }
-  });
+  const [areasMap, response] = await Promise.all([
+    fetchAreasDeAtuacaoFromXml(),
+    fetch('https://saopaulo.sp.leg.br/vereadores-json/', {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'CamaraNaMao/1.0' },
+    }),
+  ]);
 
   if (!response.ok) {
     throw new Error(`API responded with status ${response.status}`);
   }
 
   const data: VereadorAPI[] = await response.json();
-  
+
   const activeVereadores = data
     .filter(v => v.Ativo === 'on' && v.Vereador?.trim())
-    .map(transformVereador)
+    .map(v => {
+      const name = v.Vereador.trim();
+      const key = normalizeNomeForMatch(name);
+      const areas = areasMap.get(key) ?? areasMap.get(key.replace(/^(DR|VER|VEREADOR)\s+/, '').trim());
+      return transformVereador(v, areas);
+    })
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   console.log(`[fetch-vereadores] Found ${activeVereadores.length} active council members`);
-  
   return activeVereadores;
 }
 
@@ -137,6 +197,7 @@ async function updateDatabaseCache(supabase: any, vereadores: Vereador[]): Promi
       is_substitute: v.isSubstitute,
       is_on_leave: v.isOnLeave,
       region: v.region,
+      areas_de_atuacao: v.areasDeAtuacao ?? [],
       updated_at: new Date().toISOString()
     }));
 
@@ -189,7 +250,8 @@ async function fetchFromDatabaseCache(supabase: any): Promise<Vereador[]> {
     isGovernmentLeader: row.is_government_leader,
     isSubstitute: row.is_substitute,
     isOnLeave: row.is_on_leave,
-    region: row.region
+    region: row.region,
+    areasDeAtuacao: Array.isArray(row.areas_de_atuacao) ? row.areas_de_atuacao : undefined,
   }));
 
   console.log(`[fetch-vereadores] Retrieved ${vereadores.length} records from cache`);

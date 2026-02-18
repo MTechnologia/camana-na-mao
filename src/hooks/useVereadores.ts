@@ -18,6 +18,8 @@ export interface Vereador {
   isSubstitute?: boolean;
   isOnLeave?: boolean;
   region?: string;
+  /** Comissões e cargos (área de atuação), fonte: ws2.asmx/VereadoresCMSP */
+  areasDeAtuacao?: string[];
 }
 
 async function fetchVereadores(): Promise<Vereador[]> {
