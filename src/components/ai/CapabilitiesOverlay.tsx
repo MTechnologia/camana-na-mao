@@ -6,6 +6,7 @@ import {
   Landmark, 
   MapPin, 
   Calendar, 
+  CalendarClock,
   Users, 
   HelpCircle, 
   Newspaper,
@@ -94,6 +95,13 @@ const categories: CapabilityCategory[] = [
         title: "Audiências públicas",
         description: "Próximos eventos e como participar",
         message: "Quais audiências públicas estão marcadas?",
+      },
+      {
+        id: "agenda-atividades",
+        icon: CalendarClock,
+        title: "Agenda de atividades",
+        description: "Próximas sessões, reuniões e eventos da Câmara",
+        message: "Quais são as próximas atividades da Câmara? O que tem na agenda?",
       },
       {
         id: "vereadores",

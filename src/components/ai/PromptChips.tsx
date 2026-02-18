@@ -7,6 +7,7 @@ import {
   HelpCircle,
   Landmark,
   LayoutList,
+  Calendar,
   MoreHorizontal 
 } from "lucide-react";
 
@@ -66,6 +67,13 @@ const chips: PromptChip[] = [
     label: "Comissões e atribuições",
     message: "Quais são as comissões da Câmara e o que cada uma faz?",
     icon: LayoutList,
+    collectionType: null,
+  },
+  {
+    id: "agenda",
+    label: "Ver agenda",
+    message: "Quais são as próximas atividades da Câmara? O que tem na agenda?",
+    icon: Calendar,
     collectionType: null,
   },
   {
