@@ -8,6 +8,7 @@ import {
   Landmark,
   LayoutList,
   Calendar,
+  Newspaper,
   MoreHorizontal 
 } from "lucide-react";
 
@@ -74,6 +75,13 @@ const chips: PromptChip[] = [
     label: "Ver agenda",
     message: "Quais são as próximas atividades da Câmara? O que tem na agenda?",
     icon: Calendar,
+    collectionType: null,
+  },
+  {
+    id: "noticias",
+    label: "Ver notícias",
+    message: "Quais as últimas notícias da Câmara?",
+    icon: Newspaper,
     collectionType: null,
   },
   {

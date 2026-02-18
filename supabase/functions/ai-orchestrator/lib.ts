@@ -3648,14 +3648,15 @@ function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_tra
   return '';
 }
 
-/** Formata uma linha de audiência para o chat: título em negrito com ":", quebras de linha, Local: em negrito. (Dois espaços antes de \\n forçam <br> no Markdown.) */
-function formatAudienciaLine(a: { titulo: string; tema: string; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
+/** Formata uma linha de audiência para o chat: "Audiência pública: [nome]" (nome = comissão, ex. Comissão de Finanças e Orçamento), descrição abaixo. Quebras de linha, Local: em negrito. */
+function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: string | null; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
   const br = '  \n';
+  const nomeDaAudiencia = (a.comissao && a.comissao.trim()) ? a.comissao.trim() : (a.tema && a.tema.trim()) ? a.tema.trim() : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : 'Audiência';
   const dataHora = `📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}`;
   const localLine = a.local ? `${br}   **Local:** ${a.local}` : '';
   const inscricaoTrim = inscricao.trim();
   const statusInscricao = inscricaoTrim ? `${br}   ${statusText}${br}   ${inscricaoTrim}` : `${br}   ${statusText}`;
-  return `${i + 1}. **${a.titulo}:**\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
+  return `${i + 1}. **Audiência pública:** ${nomeDaAudiencia}\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
 }
 
 // Helper: Search audiencias (with filters by tema, data, regiao)
@@ -3686,7 +3687,7 @@ export async function searchAudiencias(
   if (hasExplicitDateRange) {
     let rangeQ = supabase
       .from('audiencias')
-      .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
       .gte('data', dataMin)
       .order('data', { ascending: false })
       .limit(regiaoNorm ? 40 : 15);
@@ -3715,7 +3716,7 @@ export async function searchAudiencias(
   if (!temaNorm) {
     let q = supabase
       .from('audiencias')
-      .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
       .in('status', AUDIENCIA_STATUS_AGENDADA)
       .order('data', { ascending: true })
       .limit(limitBase);
@@ -3741,7 +3742,7 @@ export async function searchAudiencias(
   // 2) Com tema: buscar por tema (agendadas primeiro, depois histórico)
   let query = supabase
     .from('audiencias')
-    .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+    .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
     .limit(limitBase);
@@ -3774,7 +3775,7 @@ export async function searchAudiencias(
   if (temaNorm) {
     let histQuery = supabase
       .from('audiencias')
-      .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
       .order('data', { ascending: false })
       .limit(regiaoNorm ? 30 : 10);
     if (dataMin) histQuery = histQuery.gte('data', dataMin);
@@ -3798,7 +3799,7 @@ export async function searchAudiencias(
   // 4) Fallback: listar próximas agendadas (qualquer tema)
   let fallbackQ = supabase
     .from('audiencias')
-    .select('titulo, tema, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
+    .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
     .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
     .limit(limitBase);
