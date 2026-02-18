@@ -172,12 +172,19 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // Listagem de audiências com filtros (tema, data, região): mostrar sempre que o assistente falar de audiências.
+  // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
-    const hasAudienciasContext = content.includes('audiên') || content.includes('audienc');
-    return hasAudienciasContext;
+    const mentionsAudiencias = content.includes('audiên') || content.includes('audienc');
+    const isListingAudiencias =
+      content.includes('próximas audiências') ||
+      content.includes('proximas audiencias') ||
+      content.includes('audiências públicas agendadas') ||
+      content.includes('audiencias publicas agendadas') ||
+      content.includes('quer saber mais sobre alguma ou inscrever-se') ||
+      (content.includes('inscrever-se') && (content.includes('agendadas') || content.includes('próximas')));
+    return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
 
   // Dados para listagem filtrada no chat (tema, data, região) — query dedicada, ordem ascendente para próximas primeiro.
