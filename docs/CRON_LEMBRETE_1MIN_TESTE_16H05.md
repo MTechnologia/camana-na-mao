@@ -74,7 +74,7 @@ Para simular "agora = 11:49" sem esperar o cron (ajuste a data para hoje):
 - **splegis_chave:** `TESTE-MOCK-16H05` (mantido para não duplicar registro).
 - **data:** sempre o dia atual (atualizada no `ON CONFLICT` da migration).
 - **hora:** `11:50:00`
-- A migration `20260219160000_audiencia_teste_mock_16h05.sql` insere a linha; `20260219170000_audiencia_teste_mock_11h50.sql` atualiza para 11h50.
+- A migration `20260219160000_audiencia_teste_mock_16h05.sql` insere a linha; `20260219170000_audiencia_teste_mock_11h50.sql` atualiza para 11h50; `20260219180000_audiencia_teste_mock_amanha_11h.sql` define **data = amanhã, hora = 11:00** para testar o lembrete D-1 (24h antes).
 
 Para aplicar a migration no projeto:
 
