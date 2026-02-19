@@ -106,27 +106,27 @@ const Audiencias = () => {
     retry: 2,
   });
 
-  // Mock para teste do cron "faltando 1 minuto": visível às 16h ou com ?teste_16h=1
-  const showMock16h = useMemo(() => {
-    if (searchParams.get("teste_16h") === "1") return true;
+  // Mock para teste do cron "faltando 1 minuto": visível às 11h50 ou com ?teste_11h50=1
+  const showMock11h50 = useMemo(() => {
+    if (searchParams.get("teste_11h50") === "1") return true;
     const d = new Date();
     const h = d.getHours();
     const m = d.getMinutes();
-    return (h === 16 && m <= 2) || (h === 15 && m >= 59);
+    return (h === 11 && m >= 49 && m <= 52) || (h === 11 && m >= 58);
   }, [searchParams]);
 
-  const mockAudiencia16h: AudienciaRow = useMemo(() => {
+  const mockAudiencia11h50: AudienciaRow = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return {
-      id: "mock-16h-cron-test",
-      titulo: "Audiência: [TESTE] Mock 16h – validação cron 1 min",
+      id: "mock-11h50-cron-test",
+      titulo: "Audiência: [TESTE] Mock 11h50 – validação cron 1 min",
       descricao: "Audiência fictícia para testar o lembrete faltando 1 minuto. Pode ignorar.",
       data: today,
-      hora: "16:00",
+      hora: "11:50",
       local: "Sala de teste",
       tema: "Validação de cron",
       status: "Agendada",
-      comissao: "[TESTE] Mock 16h",
+      comissao: "[TESTE] Mock 11h50",
       vagas_disponiveis: null,
       inscricoes_abertas: null,
       link_transmissao: null,
@@ -135,8 +135,8 @@ const Audiencias = () => {
   }, []);
 
   const audienciasComMock = useMemo(
-    () => (showMock16h ? [mockAudiencia16h, ...audienciasData] : audienciasData),
-    [showMock16h, mockAudiencia16h, audienciasData]
+    () => (showMock11h50 ? [mockAudiencia11h50, ...audienciasData] : audienciasData),
+    [showMock11h50, mockAudiencia11h50, audienciasData]
   );
 
   const formatDate = (dateStr: string) => {
@@ -276,8 +276,8 @@ const Audiencias = () => {
   }, [currentPage, totalPages]);
 
   const handleCardClick = (item: AudienciaRow) => {
-    if (item.id === "mock-16h-cron-test") {
-      toast.info("Audiência de teste. Use para validar o cron às 15:59 (1 min antes das 16h).");
+    if (item.id === "mock-11h50-cron-test") {
+      toast.info("Audiência de teste. Use para validar o cron às 11:49 (1 min antes das 11h50).");
       return;
     }
     navigate(`/audiencias/${item.id}`);
@@ -327,10 +327,10 @@ const Audiencias = () => {
           </div>
 
           {/* Banner modo teste: mock 16h para validação do cron */}
-          {showMock16h && (
+          {showMock11h50 && (
             <Card className="p-3 bg-amber-500/15 border-amber-500/40 animate-fade-in">
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>Modo teste:</strong> exibindo audiência mock às 16h para validar o cron &quot;faltando 1 minuto&quot;. Dispare o cron às 15:59. Para forçar o mock a qualquer hora use <code className="bg-muted px-1 rounded">?teste_16h=1</code> na URL.
+                <strong>Modo teste:</strong> exibindo audiência mock às 11h50 para validar o cron &quot;faltando 1 minuto&quot;. Dispare o cron às 11:49. Para forçar o mock a qualquer hora use <code className="bg-muted px-1 rounded">?teste_11h50=1</code> na URL.
               </p>
             </Card>
           )}
