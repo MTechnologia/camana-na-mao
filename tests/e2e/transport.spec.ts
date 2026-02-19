@@ -1,13 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { e2eLogin } from './helpers';
 
 test.describe('Diagnóstico de Transporte', () => {
   test.beforeEach(async ({ page }) => {
-    // Login primeiro
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'test@example.com');
-    await page.fill('input[type="password"]', 'Test@123456');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/', { timeout: 10000 });
+    await e2eLogin(page);
   });
 
   test('deve criar relato de transporte via formulário', async ({ page }) => {

@@ -11,11 +11,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5173,
-    hmr: {
-      // Melhorar resiliência do WebSocket em ambientes Docker
-      clientPort: 8080, // Porta exposta no host (não a do container)
-      protocol: 'ws',
-    },
+    hmr: process.env.VITE_HMR_CLIENT_PORT
+      ? {
+          // Em Docker: host expõe 8080→5173, cliente deve conectar na 8080
+          clientPort: parseInt(process.env.VITE_HMR_CLIENT_PORT, 10),
+          protocol: "ws",
+        }
+      : true, // Localmente: usa a mesma porta do servidor (5173)
     watch: {
       // Evitar problemas com volumes montados no Docker
       usePolling: false,
