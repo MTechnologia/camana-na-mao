@@ -106,6 +106,39 @@ const Audiencias = () => {
     retry: 2,
   });
 
+  // Mock para teste do cron "faltando 1 minuto": visível às 16h ou com ?teste_16h=1
+  const showMock16h = useMemo(() => {
+    if (searchParams.get("teste_16h") === "1") return true;
+    const d = new Date();
+    const h = d.getHours();
+    const m = d.getMinutes();
+    return (h === 16 && m <= 2) || (h === 15 && m >= 59);
+  }, [searchParams]);
+
+  const mockAudiencia16h: AudienciaRow = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return {
+      id: "mock-16h-cron-test",
+      titulo: "Audiência: [TESTE] Mock 16h – validação cron 1 min",
+      descricao: "Audiência fictícia para testar o lembrete faltando 1 minuto. Pode ignorar.",
+      data: today,
+      hora: "16:00",
+      local: "Sala de teste",
+      tema: "Validação de cron",
+      status: "Agendada",
+      comissao: "[TESTE] Mock 16h",
+      vagas_disponiveis: null,
+      inscricoes_abertas: null,
+      link_transmissao: null,
+      projeto_referencia: null,
+    };
+  }, []);
+
+  const audienciasComMock = useMemo(
+    () => (showMock16h ? [mockAudiencia16h, ...audienciasData] : audienciasData),
+    [showMock16h, mockAudiencia16h, audienciasData]
+  );
+
   const formatDate = (dateStr: string) => {
     try {
       const iso = typeof dateStr === "string" ? dateStr.slice(0, 10) : "";
@@ -150,7 +183,7 @@ const Audiencias = () => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
 
-    return audienciasData.filter((a) => {
+    return audienciasComMock.filter((a) => {
       const title = (a.titulo || "").toLowerCase();
       const desc = (a.descricao || "").toLowerCase();
       const tema = (a.tema || "").toLowerCase();
@@ -203,18 +236,18 @@ const Audiencias = () => {
 
       return matchesSearch && matchesTheme && matchesRegion && matchesStatus && matchesDateRange && matchesYear;
     });
-  }, [audienciasData, searchQuery, filters]);
+  }, [audienciasComMock, searchQuery, filters]);
 
   // Contagem de "próximas": apenas audiências não encerradas (data >= hoje e status não encerrada)
   const countProximas = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
-    return audienciasData.filter((a) => {
+    return audienciasComMock.filter((a) => {
       const status = (a.status || "").toLowerCase();
       const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
       return !isFinished;
     }).length;
-  }, [audienciasData]);
+  }, [audienciasComMock]);
 
   const totalFiltered = filteredAudiencias.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / itemsPerPage));
@@ -243,6 +276,10 @@ const Audiencias = () => {
   }, [currentPage, totalPages]);
 
   const handleCardClick = (item: AudienciaRow) => {
+    if (item.id === "mock-16h-cron-test") {
+      toast.info("Audiência de teste. Use para validar o cron às 15:59 (1 min antes das 16h).");
+      return;
+    }
     navigate(`/audiencias/${item.id}`);
   };
 
@@ -289,6 +326,15 @@ const Audiencias = () => {
             </Button>
           </div>
 
+          {/* Banner modo teste: mock 16h para validação do cron */}
+          {showMock16h && (
+            <Card className="p-3 bg-amber-500/15 border-amber-500/40 animate-fade-in">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Modo teste:</strong> exibindo audiência mock às 16h para validar o cron &quot;faltando 1 minuto&quot;. Dispare o cron às 15:59. Para forçar o mock a qualquer hora use <code className="bg-muted px-1 rounded">?teste_16h=1</code> na URL.
+              </p>
+            </Card>
+          )}
+
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
             <Card className="p-4 bg-card border-border">
@@ -311,7 +357,7 @@ const Audiencias = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {isLoading ? "-" : audienciasData.length}
+                    {isLoading ? "-" : audienciasComMock.length}
                   </p>
                   <p className="text-xs text-muted-foreground">Audiências</p>
                 </div>
