@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
+import { toast } from "sonner";
 
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
 import { ServiceTypeFilter } from "@/components/evaluation/ServiceTypeFilter";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
+import { useVisitDetection } from "@/hooks/useVisitDetection";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, AlertCircle, Map, List } from "lucide-react";
@@ -17,6 +20,7 @@ type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "
 
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [selectedType, setSelectedType] = useState<ServiceType>("all");
   const [radiusMeters, setRadiusMeters] = useState(5000);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
@@ -28,6 +32,36 @@ export default function NearbyServicesPage() {
     radiusMeters,
     serviceType: selectedType === "all" ? undefined : selectedType
   });
+
+  const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
+    latitude,
+    longitude,
+    services: services.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude })),
+    userId: user?.id,
+    isSimulated,
+  });
+
+  const handleVisitAvaliar = useCallback(() => {
+    if (detectedVisit) {
+      onAcknowledged();
+      navigate(`/avaliar/${detectedVisit.visitId}`);
+    }
+  }, [detectedVisit, onAcknowledged, navigate]);
+
+  useEffect(() => {
+    if (!detectedVisit) return;
+    toast.info(
+      `Você visitou ${detectedVisit.serviceName}. Gostaria de avaliar?`,
+      {
+        duration: 15_000,
+        id: "visit-detected",
+        action: {
+          label: "Avaliar",
+          onClick: handleVisitAvaliar,
+        },
+      }
+    );
+  }, [detectedVisit, handleVisitAvaliar]);
 
   const isLoading = servicesLoading && services.length === 0;
   const userLocation = latitude && longitude ? { latitude, longitude } : null;
@@ -67,12 +101,19 @@ export default function NearbyServicesPage() {
         )}
 
         {latitude && longitude && !geoError && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
-            <span>
-              {services.length} {services.length === 1 ? 'serviço encontrado' : 'serviços encontrados'}
-            </span>
-          </div>
+          <>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="w-4 h-4" />
+              <span>
+                {services.length} {services.length === 1 ? 'serviço encontrado' : 'serviços encontrados'}
+              </span>
+            </div>
+            {user && !isSimulated && services.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
+              </p>
+            )}
+          </>
         )}
 
         <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
