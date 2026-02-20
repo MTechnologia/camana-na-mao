@@ -226,7 +226,7 @@ export default function ReportHistoryPage() {
       canReferToCouncilMember && !!user && report.user_id === user.id;
 
     return (
-      <Card key={report.id} className="hover:shadow-md transition-shadow">
+      <Card key={report.id} className="hover:shadow-md transition-shadow" data-testid="report-card">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">

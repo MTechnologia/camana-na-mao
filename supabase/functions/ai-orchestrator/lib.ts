@@ -1607,6 +1607,33 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
   const result: Record<string, any> = {};
   
   switch (fieldType) {
+    case 'cep':
+      // CEP numérico (8 dígitos)
+      const cepMatch = response.match(/\b(\d{5}[-]?\d{3})\b/);
+      if (cepMatch) {
+        result.cep = cepMatch[1].replace(/\D/g, '');
+        break;
+      }
+      // Endereço em texto livre "Rua X, Bairro" ou "Rua X 123, Centro"
+      const looksLikeAddr = /rua|av\.|avenida|praça|rua das|rua do|centro|vila|jardim|bairro/i.test(response) || (response.includes(',') && response.length > 15);
+      if (looksLikeAddr && response.length >= 10) {
+        const parts = response.split(',').map((p: string) => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const lastPart = parts[parts.length - 1];
+          const streetParts = parts.slice(0, -1);
+          const street = streetParts.join(', ');
+          if (street.length >= 3 && lastPart.length >= 2) {
+            result.street = street;
+            result.neighborhood = lastPart;
+            console.log('[parseFieldResponse] CEP: parsed free-form address:', { street, neighborhood: lastPart });
+          }
+        } else if (parts.length === 1 && parts[0].length >= 10 && /rua|av\.|avenida|praça/i.test(parts[0])) {
+          result.street = parts[0];
+          console.log('[parseFieldResponse] CEP: parsed single-part street:', parts[0]);
+        }
+      }
+      break;
+
     case 'street_number':
       // Try to extract number first
       const numberMatch = response.match(/^(\d+)/);
@@ -2122,6 +2149,31 @@ export function accumulateFieldsFromHistory(
           const cepMatch = answer.match(/\b(\d{5}[-]?\d{3})\b/);
           if (cepMatch) {
             accumulated.cep = cepMatch[1].replace('-', '');
+          }
+        }
+        
+        // === Parse free-form address when user gives "Rua X, Bairro" instead of CEP ===
+        // Question asked for CEP/address ("me diz a rua e bairro", "qual o cep", etc.)
+        const askedForAddress = (question.includes('cep do local') || question.includes('qual o cep') ||
+          question.includes('qual o endereço') || question.includes('rua e bairro') ||
+          question.includes('me diz a rua') || question.includes('cep ou endereço')) &&
+          answer.length >= 10 && !answer.toLowerCase().includes('endereço selecionado:');
+        const hasCepInAnswer = /\b\d{5}[-]?\d{3}\b/.test(answer);
+        const looksLikeAddress = /rua|av\.|avenida|praça|rua das|rua do|centro|vila|jardim|bairro/i.test(answer) || (answer.includes(',') && answer.length > 15);
+        if (askedForAddress && !hasCepInAnswer && looksLikeAddress && (!accumulated.street || !accumulated.neighborhood)) {
+          const parts = answer.split(',').map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            const lastPart = parts[parts.length - 1];
+            const streetParts = parts.slice(0, -1);
+            const street = streetParts.join(', ');
+            if (street.length >= 3 && lastPart.length >= 2) {
+              accumulated.street = street;
+              accumulated.neighborhood = lastPart;
+              console.log('[accumulateFields] Parsed free-form address:', { street, neighborhood: lastPart });
+            }
+          } else if (parts.length === 1 && parts[0].length >= 10 && /rua|av\.|avenida|praça/i.test(parts[0])) {
+            accumulated.street = parts[0];
+            console.log('[accumulateFields] Parsed single-part address as street:', { street: parts[0] });
           }
         }
         

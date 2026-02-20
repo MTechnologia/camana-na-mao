@@ -30,6 +30,7 @@ crawl-output/
 *service-account*.json
 
 # Env files (só variantes; .env na raiz não ignorado)
+.env.e2e.local
 
 
 # Editor directories and files

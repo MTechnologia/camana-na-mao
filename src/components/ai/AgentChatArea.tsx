@@ -270,7 +270,7 @@ const AgentChatArea = () => {
             />
             
             <ScrollArea className="flex-1">
-              <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
+              <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4" data-testid="chat-messages">
                 {messages.map((msg, index) => {
                   // Find last assistant message index
                   const lastAssistantIndex = messages.reduce((acc, m, i) => 

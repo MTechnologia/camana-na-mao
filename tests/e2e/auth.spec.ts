@@ -13,14 +13,14 @@ test.describe('Autenticação', () => {
     await page.getByRole('button', { name: 'Continuar' }).click();
 
     // Step 2: senha
-    await page.getByPlaceholder('Digite sua senha').fill(E2E_TEST_PASSWORD);
+    await page.getByPlaceholder('Digite sua senha', { exact: true }).fill(E2E_TEST_PASSWORD);
     await page.getByPlaceholder('Digite sua senha novamente').fill(E2E_TEST_PASSWORD);
-    await page.getByRole('checkbox', { name: /termos/ }).check();
-    await page.getByRole('checkbox', { name: /privacidade/ }).check();
+    await page.getByRole('checkbox', { name: /aceito os termos/i }).check();
+    await page.getByRole('checkbox', { name: /aceito a política de privacidade/i }).check();
     await page.getByRole('button', { name: /Continuar|Criando conta/ }).click();
 
-    // Step 2 -> Step 3 (Sobre você)
-    await expect(page.getByText(/conte mais sobre você|Sobre você/i)).toBeVisible({ timeout: 5000 });
+    // Step 2 -> Step 3 (Sobre você) - aguardar conta ser criada
+    await expect(page.getByText(/conte mais sobre você|Sobre você/i).first()).toBeVisible({ timeout: 15000 });
   });
 
   test('deve permitir login com credenciais válidas', async ({ page }) => {

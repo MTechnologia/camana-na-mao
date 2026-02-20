@@ -574,7 +574,7 @@ serve(async (req) => {
             return { field: 'street', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **nome da rua**?' };
           }
           // Default: ask for CEP with address picker fallback
-          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
+          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
         }
         
         // 4. Street number / reference (optional but helpful)

@@ -77,6 +77,8 @@ serve(async (req) => {
     }
 
     const nowMs = now.getTime();
+    console.log("[audiencia-reminder-1h] Executando com now (BRT):", now.toISOString(), "| participações videoconferência:", (participacoes || []).length);
+
     type P = { id?: string; user_id?: string; audiencia_id?: string; audiencias?: { data?: string; hora?: string; titulo?: string; local?: string } };
     const inWindow: Array<{ p: P; eventAt: Date }> = [];
     for (const p of (participacoes || []) as P[]) {
@@ -90,6 +92,7 @@ serve(async (req) => {
     }
 
     if (inWindow.length === 0) {
+      console.log("[audiencia-reminder-1h] Nenhuma audiência na janela de 1h (45–75 min a partir de agora).");
       return new Response(
         JSON.stringify({
           success: true,
@@ -148,6 +151,7 @@ serve(async (req) => {
     }
 
     if (toInsert.length === 0) {
+      console.log("[audiencia-reminder-1h] Lembretes 1h já enviados para esta janela (mesmo user+audiência nas últimas 2h).");
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: "Lembretes 1h já enviados para esta janela." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

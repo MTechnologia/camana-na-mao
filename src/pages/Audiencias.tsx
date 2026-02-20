@@ -275,6 +275,7 @@ const Audiencias = () => {
               size="icon"
               onClick={() => setShowFilters(true)}
               className="relative"
+              aria-label="Filtros"
             >
               <Filter className="h-4 w-4" />
               {activeFiltersCount > 0 && (
@@ -437,6 +438,7 @@ const Audiencias = () => {
                     >
                       <Card 
                         className="p-4 hover:shadow-md transition-all cursor-pointer h-full"
+                        data-testid="audiencia-card"
                         onClick={() => handleCardClick(item)}
                       >
                         <div className="space-y-3">

@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
+    "test:e2e:export-docx": "node scripts/export-test-results-to-docx.mjs",
     "playwright:install": "playwright install"
   },
   "dependencies": {
@@ -83,7 +84,10 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.10.0",
     "cheerio": "^1.0.0",
+    "docx": "^9.5.3",
+    "dotenv": "^16.4.5",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",

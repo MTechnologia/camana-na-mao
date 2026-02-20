@@ -148,9 +148,13 @@ serve(async (req) => {
       }
 
       // --- Push (app mobile Expo) — aparece na bandeja do celular ---
-      // (Sem log quando não há token: é esperado para quem ainda não abriu o app; evita ruído em info.)
-      if (expoPushToken && expoPushToken.startsWith("ExponentPushToken")) {
+      if (!expoPushToken || !expoPushToken.startsWith("ExponentPushToken")) {
+        if (pushEnabled && (record.type === "audiencia_lembrete_1h" || record.type === "audiencia_lembrete_1min" || record.type === "audiencia_lembrete_d1")) {
+          console.warn("[notification-delivery] Push na bandeja não enviado: expo_push_token ausente ou inválido no perfil. Usuário deve abrir o app ao menos uma vez (com permissão de notificação) para o token ser salvo.", { user_id: userId, type: record.type });
+        }
+      } else {
         try {
+          const isHighPriority = record.priority === "high";
           const expoRes = await fetch("https://exp.host/--/api/v2/push/send", {
             method: "POST",
             headers: {
@@ -164,6 +168,7 @@ serve(async (req) => {
               body: record.message,
               sound: "default",
               channelId: "default",
+              priority: isHighPriority ? "high" : "default",
               data: {
                 url: record.action_url || "/",
                 id: record.id,
@@ -175,15 +180,15 @@ serve(async (req) => {
           if (expoRes.ok) {
             try {
               const expoJson = JSON.parse(expoBody) as {
-                data?: Array<{ status: string }> | { status: string };
+                data?: Array<{ status: string; message?: string }> | { status: string; message?: string };
               };
               const data = expoJson.data;
-              const status =
-                Array.isArray(data) ? data[0]?.status : (data as { status?: string } | undefined)?.status;
+              const first = Array.isArray(data) ? data[0] : (data as { status?: string; message?: string } | undefined);
+              const status = first?.status;
               if (status === "ok") {
                 expoSent = 1;
               } else {
-                console.warn("[notification-delivery] Expo push ticket error:", expoBody);
+                console.warn("[notification-delivery] Expo push ticket error:", first?.message ?? expoBody);
               }
             } catch {
               console.warn("[notification-delivery] Expo push response (not JSON):", expoBody);

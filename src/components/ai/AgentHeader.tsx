@@ -166,6 +166,7 @@ const AgentHeader = () => {
                       variant="ghost" 
                       size="icon"
                       className="text-white hover:bg-white/20"
+                      data-testid="conversations-menu"
                     >
                       <MoreVertical className="h-5 w-5" />
                     </Button>
@@ -199,7 +200,7 @@ const AgentHeader = () => {
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.2 }}
             >
-              <Button variant="ghost" size="icon" onClick={openMenu}>
+              <Button variant="ghost" size="icon" onClick={openMenu} data-testid="menu-button">
                 <Menu className="h-5 w-5" />
               </Button>
             </motion.div>

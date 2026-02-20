@@ -123,7 +123,7 @@ export default function EvaluationPage() {
       
       <div className="p-4 space-y-4">
         {visit && (
-          <Card>
+          <Card data-testid="service-card">
             <CardContent className="p-4">
               <h3 className="font-semibold text-foreground mb-1">
                 {visit.service.name}

@@ -63,3 +63,20 @@ Detalhes em:
    `supabase functions deploy audiencia-reminder-1h` e  
    `supabase functions deploy audiencia-reminder-d1`.
 4. **Tabela e dados:** As funções leem `audiencia_participacoes` (tipo = `videoconferencia`, com `user_id` preenchido). Se não houver nenhuma participação nesse formato, a função responde 200 com `sent: 0`; falha só se der erro de banco ou de permissão.
+
+---
+
+## Push na bandeja do celular (notificação 1h / D-1)
+
+Para o lembrete **aparecer na bandeja do celular** (e não só no e-mail e dentro do app):
+
+1. **Token Expo no perfil:** O usuário precisa ter aberto o **app mobile** (Expo) ao menos uma vez, logado, com **permissão de notificação** concedida. O app envia o token para `profiles.expo_push_token`; sem esse token, a Edge Function `send-web-push` não envia push para o dispositivo.
+2. **Preferência de push:** Em `notification_settings`, `push_enabled` não deve ser `false` (por padrão é considerado habilitado se a linha não existir).
+3. **Diagnóstico:** Se o e-mail chegar mas o push na bandeja não:
+   - No **Supabase** → **Edge Functions** → **send-web-push** → **Logs**, procure por `expo_push_token ausente` para esse usuário. Se aparecer, o perfil ainda não tem token: peça para abrir o app no celular, aceitar notificações e (se possível) ir em Configurações do app e garantir que notificações estão ativas.
+   - Confirme em **Table Editor** → **profiles** se a linha do usuário tem `expo_push_token` preenchido (começa com `ExponentPushToken`).
+4. **Deploy:** Após alterações em `send-web-push`, faça `supabase functions deploy send-web-push`.
+
+5. **"Error fetching logs" / Job timed out em save-expo-push-token:** Esse erro pode ser do **visualizador de logs** do Supabase (timeout ao carregar os eventos), não necessariamente da função. Para confirmar se o token está sendo salvo: **Table Editor** → **profiles** → verifique se a linha do usuário tem `expo_push_token` preenchido. Se estiver vazio, abra o app no celular com boa conexão, aceite notificações e aguarde alguns segundos; a função **save-expo-push-token** foi otimizada (sem chamada extra a Auth) para reduzir timeout. O app também faz fallback de salvar o token direto em `profiles` se a Edge Function falhar.
+
+6. **Lembrete D-1 chegou na bandeja, lembrete 1h não:** Se o D-1 aparece no celular mas o 1h não, o mais provável é que **audiencia-reminder-1h** não tenha inserido nenhuma notificação: não havia audiência na janela de 45–75 min no momento em que o cron rodou. Confira nos **Logs** da função `audiencia-reminder-1h`: deve aparecer ou `N lembretes 1h enviados` (quando envia), ou `Nenhuma audiência na janela de 1h`, ou `Lembretes 1h já enviados para esta janela`. O cron do 1h precisa rodar **a cada 15 min** (ex.: `*/15 * * * *`) para não perder a janela. Se o job rodar só 1x por hora, pode ser que naquele minuto não haja nenhuma audiência entre 45 e 75 min — aí nenhum lembrete é enviado. Faça deploy da função (`supabase functions deploy audiencia-reminder-1h`) para ativar os novos logs.

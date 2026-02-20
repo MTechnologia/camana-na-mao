@@ -1,0 +1,51 @@
+# Reduz o tamanho do archive enviado ao EAS (evita ~300MB de node_modules, etc.)
+# Baseado no .gitignore + exclusões extras. Sem isso, o upload pode passar de 350MB.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native (gerados no prebuild; não enviar)
+/android
+/ios
+
+# Saída do eas build:inspect (cópia do archive extraída – pode ter 300MB+)
+archive-inspect/
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS / Windows
+.DS_Store
+*.pem
+Thumbs.db
+*.log
+
+# local env (não necessário no build)
+.env*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Testes e cobertura (não necessários para o build)
+coverage/
+__tests__/
+*.test.*
+*.spec.*

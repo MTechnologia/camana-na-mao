@@ -1,0 +1,66 @@
+# EAS Build: reduz archive (evita enviar 600MB+ quando o build é feito na raiz do repo)
+# Inclua aqui tudo do .gitignore + pastas que não são necessárias para o build do app mobile.
+
+# Dependencies (raiz e mobile)
+node_modules/
+mobile/node_modules/
+
+# Web app e infra – não usados no build do app Expo (só raiz; / = ancorado na raiz)
+/src/
+/public/
+/docs/
+/supabase/
+/tests/
+/gcp/
+/scripts/
+
+# Build / cache
+dist/
+dist-ssr/
+.expo/
+mobile/.expo/
+mobile/android/
+mobile/ios/
+
+# Git e IDE
+.git/
+.cursor/
+.vscode/
+.idea/
+
+# Logs e temp
+*.log
+logs/
+supabase/.temp/
+supabase/.branches/
+*.local
+~$*
+deploy-log.txt
+
+# Chaves e env (não enviar)
+vapid.json
+vapid_public.txt
+*-firebase-adminsdk-*.json
+*service-account*.json
+.env
+.env.*
+
+# Outros (raiz)
+Dockerfile
+docker-compose.yml
+.dockerignore
+nginx.conf
+cloudbuild.yaml
+render.yaml
+playwright.config.ts
+postcss.config.js
+prettier.config.cjs
+prettierignore
+tailwind.config.ts
+tsconfig.app.json
+tsconfig.node.json
+vite.config.ts
+components.json
+eslint.config.js
+index.html
+tmp_expo_config.json

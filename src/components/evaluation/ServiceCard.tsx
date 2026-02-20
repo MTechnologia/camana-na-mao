@@ -55,6 +55,7 @@ export const ServiceCard = ({
         onClick && "cursor-pointer"
       )}
       onClick={onClick}
+      data-testid="service-card"
     >
       <CardContent className="p-4">
         <div className="flex gap-3">
