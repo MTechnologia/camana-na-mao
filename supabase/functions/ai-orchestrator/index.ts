@@ -191,7 +191,7 @@ serve(async (req) => {
       );
     }
     
-    const { messages, conversationId, collectionType: frontendCollectionType } = requestBodyData;
+    const { messages, conversationId, collectionType: frontendCollectionType, evaluationContext } = requestBodyData;
     console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
     
     // Log frontend collection type for debugging
@@ -426,6 +426,11 @@ serve(async (req) => {
         accumulatedFields = lib.accumulateFieldsFromHistory(messages, collectionIntent.type);
         // Merge with detected fields from current message
         accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
+        // Avaliação conversacional: injeta contexto da visita (visit_id, service_id, service_name, service_type)
+        if (evaluationContext && collectionIntent.type === 'service_rating') {
+          accumulatedFields = { ...accumulatedFields, ...evaluationContext };
+          console.log('[ai-orchestrator] Evaluation context injected:', Object.keys(evaluationContext));
+        }
       }
       
       // ========== AUTO-LOOKUP CEP ==========
@@ -663,6 +668,17 @@ serve(async (req) => {
       }
       
       if (collectionType === 'service_rating') {
+        // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
+        if (fields.visit_id) {
+          if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
+            return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+          const textLen = (fields.rating_text || '').length;
+          if (textLen < 10)
+            return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
+          return { field: null, picker: null, prompt: null };
+        }
+        
+        // MODO LIVRE: coleta service_type, service_name, confirmação de endereço
         // 1. Service type
         if (!fields.service_type) {
           return { field: 'service_type', picker: '[SERVICE_TYPE_PICKER]', prompt: 'Qual **tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU...)' };
@@ -904,15 +920,21 @@ serve(async (req) => {
             };
             toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
           } else if (collectionIntent.type === 'service_rating') {
-            const toolArgs = {
-              service_type: accumulatedFields.service_type,
-              service_name: accumulatedFields.service_name,
-              service_neighborhood: accumulatedFields.service_neighborhood,
-              service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
+            const toolArgs: Record<string, any> = {
               rating_stars: accumulatedFields.rating_stars,
               rating_text: accumulatedFields.rating_text,
-              sentiment: accumulatedFields.sentiment
+              sentiment: accumulatedFields.sentiment || 'neutral'
             };
+            if (accumulatedFields.visit_id) {
+              toolArgs.visit_id = accumulatedFields.visit_id;
+              if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+              if (accumulatedFields.service_name) toolArgs.service_name = accumulatedFields.service_name;
+            } else {
+              toolArgs.service_type = accumulatedFields.service_type;
+              toolArgs.service_name = accumulatedFields.service_name;
+              toolArgs.service_neighborhood = accumulatedFields.service_neighborhood;
+              toolArgs.service_address_confirmed = accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed;
+            }
             toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
           }
           

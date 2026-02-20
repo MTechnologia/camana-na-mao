@@ -190,17 +190,20 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. NUNCA CHAMAR COM rating_stars=0 ou rating_text vazio. VERIFICAR que todos os campos foram coletados: 1) service_type, 2) service_name (mínimo 3 chars), 3) rating_stars (1-5, NUNCA 0), 4) rating_text (mínimo 10 chars). Se faltar algum dado, PERGUNTAR antes de chamar. NÃO CHAMAR para mensagens genéricas como 'quero avaliar'.",
+      description: "Registra avaliação de serviço público. Dois modos: 1) COM visit_id (página de avaliação): passe visit_id + rating_stars + rating_text + sentiment; serviço e visita já existem. 2) SEM visit_id: colete service_type, service_name, service_address_confirmed, rating_stars, rating_text, sentiment. NUNCA CHAMAR COM rating_stars=0 ou rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
+          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem - só pedir nota e comentário." },
+          service_id: { type: "string", description: "ID do serviço (public_services). Usado junto com visit_id para evitar lookup." },
           service_type: {
             type: "string",
             enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "PERGUNTAR PRIMEIRO: tipo do serviço (ubs, escola, hospital, etc)"
+            description: "Tipo do serviço. Obrigatório APENAS quando visit_id NÃO for informado."
           },
-          service_name: { type: "string", description: "Nome do serviço avaliado - MÍNIMO 3 caracteres (ex: UBS Vila Madalena)" },
-          service_neighborhood: { type: "string", description: "Bairro onde fica o serviço (ajuda a localizar)" },
+          service_name: { type: "string", description: "Nome do serviço. Obrigatório APENAS quando visit_id NÃO for informado." },
+          service_neighborhood: { type: "string", description: "Bairro (ajuda a localizar quando sem visit_id)" },
+          service_address_confirmed: { type: "boolean", description: "Confirmação do endereço. Obrigatório APENAS quando visit_id NÃO for informado." },
           rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO: Nota 1-5 estrelas. NUNCA usar 0!" },
           rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
@@ -209,7 +212,7 @@ export const tools = [
             description: "Sentimento inferido do comentário"
           }
         },
-        required: ["service_type", "service_name", "rating_stars", "rating_text", "sentiment"]
+        required: ["rating_stars", "rating_text", "sentiment"]
       }
     }
   },

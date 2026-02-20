@@ -32,26 +32,53 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 - Não há background/geofencing quando o app está em segundo plano
 - Não há push notification 30 min após saída (requer mobile)
 
-## Próximos passos (Mobile)
+## Implementação Mobile (background)
 
-O app mobile (Expo) permite geofencing e background location:
+Implementado em background com `expo-location` e `expo-task-manager`:
 
-1. **Adicionar `expo-location`** ao `mobile/package.json`
-2. **`startGeofencingAsync`** ou **`startLocationUpdatesAsync`** com task em background
-3. Detectar entrada em geofence de 50m em torno dos `public_services`
-4. Ao permanecer 10 min: criar `service_visit` via edge function
-5. Ao sair do geofence: agendar push notification 30 min depois (respeitando horário 22h–8h)
+1. **Migration** `20260218140000_visit_detection_state.sql`: tabela `visit_detection_state` (user_id, service_id, first_seen_at)
+2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 50m, permanência 10 min → cria `service_visit` e INSERT em `notifications`
+3. **Mobile** `src/tasks/visitDetectionTask.ts`: background task registrada com TaskManager; a cada atualização de localização chama a edge function
+4. **Bridge de auth**: `BackgroundAuthBridge` no web app envia `CAMARA_AUTH_STATE` ao native; o native armazena user_id e access_token em AsyncStorage para o background task
+5. **FrontendWebView**: trata `CAMARA_AUTH_STATE`, solicita permissões de localização (foreground e background), inicia `startLocationUpdatesAsync`
 
-### Edge function sugerida
+### Configuração Mobile
 
+- **app.json**: plugin `expo-location` com `isIosBackgroundLocationEnabled` e `isAndroidBackgroundLocationEnabled`
+- **Env**: definir `EXPO_PUBLIC_SUPABASE_URL` ou `EXPO_PUBLIC_CAMARA_URL` no `.env` do mobile (ou app.config.js) apontando para o projeto Supabase (ex.: `https://xxx.supabase.co`)
+
+### Deploy da edge function
+
+```bash
+supabase functions deploy detect-service-visit
 ```
-detect-service-visit
-  Input: user_id, latitude, longitude
-  Lógica: Haversine para public_services; se dist < 50m por 10 min, insert service_visit
-  Output: visit_id ou null
-```
 
-O mobile chamaria essa função periodicamente em background (ou ao detectar região).
+### Por que `detect-service-visit` não gera logs?
+
+A background task pode não chegar a chamar a API em vários casos:
+
+| Causa | Como verificar |
+|-------|----------------|
+| **EXPO_PUBLIC_SUPABASE_URL ausente** | Criar `mobile/.env` com `EXPO_PUBLIC_SUPABASE_URL=https://vjzkzsczlbtmrzewffdx.supabase.co` e refazer o build |
+| **Auth não armazenada** | Estar logado e deixar o app aberto na WebView; o `BackgroundAuthBridge` precisa enviar os dados ao native |
+| **Permissão de background negada** | Conferir nas configurações do app se a localização em segundo plano está permitida |
+| **Task não recebe localização** | Em Fake GPS, garantir que o app receba a localização simulada; em emulador a task em background costuma não rodar |
+| **Permanência de 10 min** | Ficar ao menos 10 minutos em um ponto a até 50 m de um registro em `public_services` |
+
+### Sobre os logs do `save-expo-push-token`
+
+O `save-expo-push-token` não depende de GPS. Ele é chamado quando o app está aberto e o web tenta registrar o token Expo (pelo `useExpoPushToken` em `NotificationsContext`). A coincidência com o Fake GPS provavelmente é porque, ao habilitá-lo, você estava usando o app (WebView carregada, usuário logado), o que dispara o fluxo de push normalmente. O **401** indica falha de autenticação; vale conferir se o JWT está sendo enviado corretamente no `Authorization`.
+
+## Avaliação conversacional (implementado)
+
+O fluxo de avaliação (`/avaliar/:visitId`) usa o **ConversationalEvaluation**, integrado ao ai-orchestrator:
+
+- Diálogo natural com o assistente (IA)
+- Quando há `evaluationContext` (visit_id, service_id, service_name): o assistente só pede nota e comentário
+- Modo livre (`/avaliar` sem visitId): o assistente coleta tipo e nome do serviço
+- Ferramenta `create_service_rating` aceita `visit_id` opcional para usar visita existente
+
+---
 
 ## Regras de negócio (referência)
 

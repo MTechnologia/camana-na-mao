@@ -22,9 +22,18 @@ interface CreatedReport {
   id: string;
 }
 
+export interface EvaluationContext {
+  visit_id: string;
+  service_id: string;
+  service_name: string;
+  service_type: string;
+  district?: string;
+}
+
 export const useUnifiedAIChat = (
   conversationId?: string | null,
-  initialCollectionType?: CollectionType
+  initialCollectionType?: CollectionType,
+  evaluationContext?: EvaluationContext | null
 ) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -898,6 +907,8 @@ export const useUnifiedAIChat = (
         conversationId: conversationIdRef.current,
         // Pass frontend context: structured type OR light journey type
         collectionType: collectionType || lightJourneyType || undefined,
+        // Avaliação conversacional: contexto da visita para pular coleta de serviço
+        evaluationContext: evaluationContext || undefined,
       };
       
       console.log('[useUnifiedAIChat] Payload message count:', effectiveMessages.length, 'hasOptimistic:', hasOptimisticMessage);

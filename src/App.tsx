@@ -10,6 +10,7 @@ import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { MenuProvider } from "@/contexts/MenuContext";
 
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
+import { BackgroundAuthBridge } from "@/components/BackgroundAuthBridge";
 import AppLayout from "@/components/layout/AppLayout";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { ProtectedAdminOnlyRoute } from "@/components/admin/ProtectedAdminOnlyRoute";
@@ -346,6 +347,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <BackgroundAuthBridge />
           <MenuProvider>
             <OnboardingProvider>
               <AIJourneyProvider>

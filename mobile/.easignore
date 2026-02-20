@@ -1,6 +1,11 @@
 # Reduz o tamanho do archive enviado ao EAS (evita ~300MB de node_modules, etc.)
 # Baseado no .gitignore + exclusões extras. Sem isso, o upload pode passar de 350MB.
 
+# crawl-output (RAG; fora do mobile; evita ENOENT em arquivos locais)
+crawl-output/
+../crawl-output/
+**/crawl-output/
+
 # dependencies
 node_modules/
 

@@ -45,6 +45,9 @@ vapid_public.txt
 .env
 .env.*
 
+# crawl-output (RAG; ~13GB; evita ENOENT em arquivos inexistentes)
+crawl-output/
+
 # Outros (raiz)
 Dockerfile
 docker-compose.yml

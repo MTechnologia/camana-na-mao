@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
+import { AUTH_STORAGE_KEY, VISIT_DETECTION_TASK } from '../tasks/visitDetectionTask';
 
 // Faz a notificação aparecer na bandeja do celular (foreground e usar canal no Android)
 Notifications.setNotificationHandler({
@@ -28,6 +32,7 @@ function normalizeAndValidate(url: string): string | null {
 const DEFAULT_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://camana-na-mao-767943602990.southamerica-east1.run.app/';
 
 const EXPO_PUSH_MESSAGE_TYPE = 'getExpoPushToken';
+const CAMARA_AUTH_STATE_TYPE = 'CAMARA_AUTH_STATE';
 
 export function FrontendWebView() {
   const [reloadKey, setReloadKey] = useState(0);
@@ -105,15 +110,56 @@ export function FrontendWebView() {
     return () => sub.remove();
   }, []);
 
+  // Background location para detecção de visitas (OS 05)
+  useEffect(() => {
+    if (!Device.isDevice) return;
+    (async () => {
+      try {
+        const { status: foreground } = await Location.requestForegroundPermissionsAsync();
+        if (foreground !== 'granted') return;
+        const { status: background } = await Location.requestBackgroundPermissionsAsync();
+        if (background !== 'granted') return;
+        const isRegistered = await TaskManager.isTaskRegisteredAsync(VISIT_DETECTION_TASK);
+        if (!isRegistered) {
+          await Location.startLocationUpdatesAsync(VISIT_DETECTION_TASK, {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 100,
+            timeInterval: 60_000,
+            foregroundService: {
+              notificationTitle: 'Câmara na Mão',
+              notificationBody: 'Monitorando visitas a serviços públicos',
+            },
+          });
+        }
+      } catch (e) {
+        // Silencioso; permissão negada ou não disponível
+      }
+    })();
+  }, []);
+
   const handleWebViewMessage = useCallback(
     (event: NativeSyntheticEvent<WebViewMessageEvent>) => {
       try {
         const data = JSON.parse(event.nativeEvent.data);
-        if (data?.type !== EXPO_PUSH_MESSAGE_TYPE) return;
-        if (webViewRef.current && expoPushTokenRef.current) {
-          sendTokenToWeb();
-        } else {
-          pendingTokenRequestRef.current = true;
+        if (data?.type === EXPO_PUSH_MESSAGE_TYPE) {
+          if (webViewRef.current && expoPushTokenRef.current) {
+            sendTokenToWeb();
+          } else {
+            pendingTokenRequestRef.current = true;
+          }
+          return;
+        }
+        if (data?.type === CAMARA_AUTH_STATE_TYPE) {
+          const userId = typeof data?.user_id === 'string' ? data.user_id : null;
+          const accessToken = typeof data?.access_token === 'string' ? data.access_token : null;
+          if (userId && accessToken) {
+            AsyncStorage.setItem(
+              AUTH_STORAGE_KEY,
+              JSON.stringify({ user_id: userId, access_token: accessToken })
+            ).catch(() => {});
+          } else {
+            AsyncStorage.removeItem(AUTH_STORAGE_KEY).catch(() => {});
+          }
         }
       } catch (_) {}
     },

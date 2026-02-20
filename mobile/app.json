@@ -57,7 +57,18 @@
         "projectId": "7fb6c435-44ad-4cda-b5c1-35c90072d7b3"
       }
     },
-    "plugins": ["expo-notifications", "./plugins/withAndroidSafeAreaContextAgp.js"],
+    "plugins": [
+      "expo-notifications",
+      "./plugins/withAndroidSafeAreaContextAgp.js",
+      [
+        "expo-location",
+        {
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "O app usa sua localização para detectar visitas a serviços públicos e sugerir avaliações."
+        }
+      ]
+    ],
     "updates": {
       "enabled": false,
       "fallbackToCacheTimeout": 0

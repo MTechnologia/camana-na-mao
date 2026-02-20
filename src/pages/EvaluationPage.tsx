@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
 
-import { ChatEvaluation } from "@/components/evaluation/ChatEvaluation";
+import { ConversationalEvaluation } from "@/components/evaluation/ConversationalEvaluation";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,32 +63,15 @@ export default function EvaluationPage() {
     }
   };
 
-  const handleComplete = async (data: {
+  const handleComplete = async (_data: {
     rating: number;
     comments: string;
     sentiment?: string;
   }) => {
-    if (!user || !visitId || !visit) {
-      toast.error("Erro ao salvar avaliação");
-      return;
-    }
+    if (!visitId || !visit) return;
 
     try {
-      // Salvar avaliação
-      const { error: ratingError } = await supabase
-        .from("service_ratings")
-        .insert({
-          user_id: user.id,
-          service_id: visit.service_id,
-          visit_id: visitId,
-          rating_stars: data.rating,
-          rating_text: data.comments,
-          sentiment: data.sentiment
-        });
-
-      if (ratingError) throw ratingError;
-
-      // Atualizar status da visita
+      // A avaliação já foi salva pelo create_service_rating (IA). Só atualizamos o status da visita.
       const { error: visitError } = await supabase
         .from("service_visits")
         .update({ status: "completed" })
@@ -99,8 +82,8 @@ export default function EvaluationPage() {
       toast.success("Avaliação enviada com sucesso!");
       navigate("/");
     } catch (error) {
-      console.error("Error saving rating:", error);
-      toast.error("Erro ao salvar avaliação");
+      console.error("Error updating visit:", error);
+      toast.error("Erro ao finalizar avaliação");
     }
   };
 
@@ -123,19 +106,39 @@ export default function EvaluationPage() {
       
       <div className="p-4 space-y-4">
         {visit && (
-          <Card data-testid="service-card">
-            <CardContent className="p-4">
-              <h3 className="font-semibold text-foreground mb-1">
-                {visit.service.name}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {visit.service.district}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          <>
+            <Card data-testid="service-card">
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-foreground mb-1">
+                  {visit.service.name}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {visit.service.district}
+                </p>
+              </CardContent>
+            </Card>
 
-        <ChatEvaluation onComplete={handleComplete} />
+            <ConversationalEvaluation
+              evaluationContext={{
+                visit_id: visitId!,
+                service_id: visit.service_id,
+                service_name: visit.service.name,
+                service_type: visit.service.service_type,
+                district: visit.service.district,
+              }}
+              onComplete={handleComplete}
+            />
+          </>
+        )}
+        {!visit && !loading && (
+          <ConversationalEvaluation
+            evaluationContext={null}
+            onComplete={() => {
+              toast.success("Avaliação enviada com sucesso!");
+              navigate("/");
+            }}
+          />
+        )}
       </div>
 
     </div>

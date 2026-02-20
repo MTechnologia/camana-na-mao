@@ -4773,42 +4773,7 @@ export async function executeTool(
       }
       
       case 'create_service_rating': {
-        // === VALIDATION: Prevent premature tool call with invalid data ===
-        
-        // 1. Validate service_type
-        if (!args.service_type) {
-          return {
-            success: false,
-            message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
-          };
-        }
-        
-        // 2. Validate service_name
-        if (!args.service_name || args.service_name.trim().length < 3) {
-          return {
-            success: false,
-            message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
-          };
-        }
-        
-        // 3. Validate service_address_confirmed
-        // Check both args and accumulatedFields (deterministic flow sets it there)
-        const addressConfirmed = args.service_address_confirmed || 
-                                 accumulatedFields?.service_address_confirmed ||
-                                 accumulatedFields?._address_reconfirmed;
-        if (!addressConfirmed) {
-          const address = args.service_address || 
-                          accumulatedFields?.service_address || 
-                          (accumulatedFields?.service_neighborhood ? 
-                            `${args.service_name} - ${accumulatedFields.service_neighborhood}` : null) ||
-                          'Endereço não informado';
-          return {
-            success: false,
-            message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`
-          };
-        }
-        
-        // 4. Validate rating_stars (CRITICAL: must be 1-5, never 0)
+        // 1. Validate rating_stars (CRITICAL: must be 1-5, never 0)
         const stars = args.rating_stars;
         if (!stars || stars < 1 || stars > 5) {
           return {
@@ -4817,7 +4782,7 @@ export async function executeTool(
           };
         }
         
-        // 5. Validate rating_text
+        // 2. Validate rating_text
         if (!args.rating_text || args.rating_text.trim().length < 10) {
           return {
             success: false,
@@ -4825,65 +4790,87 @@ export async function executeTool(
           };
         }
         
-        // === PROCESSING: All validations passed ===
+        let serviceId: string | null = null;
+        let visitId: string | null = null;
+        let serviceNameForMessage = args.service_name || '';
         
-        console.log('[create_service_rating] Attempting to create rating:', {
-          userId,
-          service_type: args.service_type,
-          service_name: args.service_name,
-          rating_stars: stars,
-          hasRatingText: !!args.rating_text
-        });
-        
-        // Find service by name/type
-        let serviceId = null;
-        let visitId = null;
-        
-        const { data: services, error: serviceError } = await supabase
-          .from('public_services')
-          .select('id')
-          .eq('service_type', args.service_type)
-          .ilike('name', `%${args.service_name}%`)
-          .limit(1);
-        
-        if (serviceError) {
-          console.error('[create_service_rating] Error finding service:', serviceError);
-        }
-        
-        if (services?.length) {
-          serviceId = services[0].id;
-          console.log('[create_service_rating] Service found:', serviceId);
-          
-          // Create a visit record
-          const expires = new Date();
-          expires.setDate(expires.getDate() + 7);
-          
-          const { data: visitData, error: visitError } = await supabase
+        // === MODO VISITA: visit_id informado (página de avaliação conversacional) ===
+        if (args.visit_id) {
+          const { data: visitData, error: visitLoadError } = await supabase
             .from('service_visits')
-            .insert({
-              user_id: userId,
-              service_id: serviceId,
-              expires_at: expires.toISOString(),
-              status: 'completed'
-            })
-            .select('id')
+            .select('id, service_id')
+            .eq('id', args.visit_id)
+            .eq('user_id', userId)
             .single();
           
-          if (visitError) {
-            console.error('[create_service_rating] Error creating visit:', visitError);
-          } else {
-            visitId = visitData?.id;
-            console.log('[create_service_rating] Visit created:', visitId);
+          if (visitLoadError || !visitData) {
+            console.error('[create_service_rating] Visit not found or access denied:', args.visit_id);
+            return { success: false, message: 'Visita não encontrada. Tente acessar novamente pela notificação.' };
           }
+          
+          visitId = visitData.id;
+          serviceId = visitData.service_id;
+          serviceNameForMessage = args.service_name || accumulatedFields?.service_name || 'serviço';
+          console.log('[create_service_rating] Using existing visit:', visitId, 'service:', serviceId);
         } else {
-          console.warn('[create_service_rating] Service not found:', {
-            service_type: args.service_type,
-            service_name: args.service_name
-          });
-        }
-        
-        if (!serviceId || !visitId) {
-          return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo e o bairro?' };
+          // === MODO LIVRE: sem visit_id - coleta service_type, service_name, confirmação de endereço ===
+          if (!args.service_type) {
+            return {
+              success: false,
+              message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
+            };
+          }
+          if (!args.service_name || args.service_name.trim().length < 3) {
+            return {
+              success: false,
+              message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
+            };
+          }
+          const addressConfirmed = args.service_address_confirmed || 
+                                   accumulatedFields?.service_address_confirmed ||
+                                   accumulatedFields?._address_reconfirmed;
+          if (!addressConfirmed) {
+            const address = args.service_address || 
+                            accumulatedFields?.service_address || 
+                            (accumulatedFields?.service_neighborhood ? 
+                              `${args.service_name} - ${accumulatedFields.service_neighborhood}` : null) ||
+                            'Endereço não informado';
+            return {
+              success: false,
+              message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`
+            };
+          }
+          
+          const { data: services, error: serviceError } = await supabase
+            .from('public_services')
+            .select('id, name')
+            .eq('service_type', args.service_type)
+            .ilike('name', `%${args.service_name}%`)
+            .limit(1);
+          
+          if (serviceError) {
+            console.error('[create_service_rating] Error finding service:', serviceError);
+          }
+          if (services?.length) {
+            serviceId = services[0].id;
+            serviceNameForMessage = services[0].name;
+            const expires = new Date();
+            expires.setDate(expires.getDate() + 7);
+            const { data: visitData, error: visitError } = await supabase
+              .from('service_visits')
+              .insert({
+                user_id: userId,
+                service_id: serviceId,
+                expires_at: expires.toISOString(),
+                status: 'completed'
+              })
+              .select('id')
+              .single();
+            if (!visitError && visitData) visitId = visitData.id;
+          }
+          if (!serviceId || !visitId) {
+            return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo e o bairro?' };
+          }
         }
         
         console.log('[create_service_rating] Attempting to insert rating:', {
@@ -4911,13 +4898,20 @@ export async function executeTool(
           throw error;
         }
         
+        if (args.visit_id) {
+          await supabase
+            .from('service_visits')
+            .update({ status: 'completed' })
+            .eq('id', visitId);
+        }
+        
         console.log('[create_service_rating] Rating saved successfully:', {
           id: data.id
         });
         
         return { 
           success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${args.service_name}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating' }
         };
       }
