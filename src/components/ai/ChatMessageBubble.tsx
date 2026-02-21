@@ -452,6 +452,26 @@ const ChatMessageBubble = ({
     const match = message.content.match(/\[SERVICE_ADDRESS_CONFIRM:([^\]]+)\]/);
     return match ? match[1] : null;
   }, [hasServiceAddressConfirm, message.content]);
+
+  // Extract serviceType e district para InlineServicePicker (dropdown pré-preenchido por bairro)
+  const servicePickerContext = useMemo(() => {
+    if (!hasServicePicker) return { serviceType: undefined, district: undefined };
+    let serviceType: string | undefined;
+    let district: string | undefined;
+    const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
+    if (typeMatch) serviceType = typeMatch[1];
+    const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
+    if (neighMatch) district = neighMatch[1];
+    const districtMatch = message.content.match(/\[SERVICE_PICKER:district=([^\]]+)\]/);
+    if (districtMatch) {
+      try {
+        district = decodeURIComponent(districtMatch[1]);
+      } catch {
+        district = districtMatch[1];
+      }
+    }
+    return { serviceType, district };
+  }, [hasServicePicker, message.content]);
   
   return (
     <div
@@ -748,7 +768,11 @@ const ChatMessageBubble = ({
         
         {/* Inline Service Picker */}
         {(hasServicePicker || isAskingForService) && !serviceSelected && isLastAssistantMessage && (
-          <InlineServicePicker onSelect={handleServiceSelected} />
+          <InlineServicePicker
+            serviceType={servicePickerContext.serviceType}
+            district={servicePickerContext.district}
+            onSelect={handleServiceSelected}
+          />
         )}
         
         {/* Inline Service Address Confirm */}

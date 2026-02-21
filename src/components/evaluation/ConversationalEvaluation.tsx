@@ -32,6 +32,9 @@ export function ConversationalEvaluation({
     sendMessage,
     createdReport,
     handleRatingSelected,
+    handleServiceSelected,
+    handleServiceTypeSelected,
+    handleServiceAddressConfirmed,
   } = useUnifiedAIChat(
     null,
     "service_rating",
@@ -80,15 +83,23 @@ export function ConversationalEvaluation({
     <Card className="h-[500px] flex flex-col">
       <CardContent className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
         <div className="flex-1 overflow-y-auto space-y-3 min-h-0">
-          {messages.map((msg) => (
-            <ChatMessageBubble
-              key={msg.id}
-              message={msg}
-              userAvatarUrl={userAvatarUrl}
-              userInitials={userInitials}
-              onRatingSelected={handleRatingSelected}
-            />
-          ))}
+          {messages.map((msg, idx) => {
+            const lastAssistantIdx = messages.reduce((acc, m, i) => (m.role === 'assistant' ? i : acc), -1);
+            const isLastAssistant = msg.role === 'assistant' && idx === lastAssistantIdx;
+            return (
+              <ChatMessageBubble
+                key={msg.id}
+                message={msg}
+                userAvatarUrl={userAvatarUrl}
+                userInitials={userInitials}
+                isLastAssistantMessage={isLastAssistant}
+                onRatingSelected={handleRatingSelected}
+                onServiceSelected={handleServiceSelected}
+                onServiceTypeSelected={handleServiceTypeSelected}
+                onServiceAddressConfirmed={handleServiceAddressConfirmed}
+              />
+            );
+          })}
           {isLoading && (
             <div className="flex justify-start">
               <TypingIndicator />

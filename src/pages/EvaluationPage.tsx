@@ -12,11 +12,12 @@ import { toast } from "sonner";
 export default function EvaluationPage() {
   const { visitId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [visit, setVisit] = useState<any>(null);
+  const { user, loading: authLoading } = useAuth();
+  const [visit, setVisit] = useState<{ id: string; service_id?: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       toast.error("Faça login para avaliar");
       navigate("/login");
@@ -28,7 +29,8 @@ export default function EvaluationPage() {
     } else {
       setLoading(false);
     }
-  }, [visitId, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadVisit/navigate intentionally excluded
+  }, [visitId, user, authLoading]);
 
   const loadVisit = async () => {
     try {

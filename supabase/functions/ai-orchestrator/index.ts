@@ -39,7 +39,7 @@ serve(async (req) => {
     });
     
     // Determine which AI provider to use
-    let finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
+    const finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
     let finalAiApiKey = aiChatApiKey || aiApiKey;
 
     // Vertex AI: obter token de um endpoint (ex.: GCP Cloud Function) quando configurado
@@ -178,7 +178,7 @@ serve(async (req) => {
     
     // === Parse request body AFTER authentication ===
     console.log('[ai-orchestrator] Parsing request body...');
-    let requestBodyData: any;
+    let requestBodyData: Record<string, unknown>;
     try {
       requestBodyData = await req.json();
       console.log('[ai-orchestrator] Request parsed successfully');
@@ -200,7 +200,7 @@ serve(async (req) => {
     }
     
     // Detect collection intent from user message for later injection
-    const lastUserMsg = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const lastUserMsg = messages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content || '';
     
     // === CRITICAL: Check for explicit JOURNEY_SWITCHED marker in last user message ===
     // When user clicks "Sim, iniciar X" button, the message contains [JOURNEY_SWITCHED:type]
@@ -225,7 +225,7 @@ serve(async (req) => {
       } else {
         // Light journey switch - still respect it
         collectionIntent = {
-          type: switchedToType as any,
+          type: switchedToType as lib.CollectionIntent['type'],
           fields: {},
         };
       }
@@ -249,7 +249,7 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
       
       // === CHECK FOR RECENTLY DECLINED JOURNEY SWITCHES ===
-      const getDeclinedJourneys = (msgs: any[]): Set<string> => {
+      const getDeclinedJourneys = (msgs: Record<string, unknown>[]): Set<string> => {
         const declined = new Set<string>();
         for (const msg of msgs) {
           if (msg.role === 'user') {
@@ -416,7 +416,7 @@ serve(async (req) => {
     
     // Accumulate fields from conversation history for better tracking
     // BUT if journey was just switched, start fresh
-    let accumulatedFields: Record<string, any> = {};
+    let accumulatedFields: Record<string, unknown> = {};
     if (collectionIntent) {
       if (journeySwitchMatch) {
         // Fresh start - don't accumulate from previous journey
@@ -466,7 +466,7 @@ serve(async (req) => {
     
     function getNextMissingField(
       collectionType: string, 
-      fields: Record<string, any>
+      fields: Record<string, unknown>
     ): { field: string | null; picker: string | null; prompt: string | null } {
       
       if (collectionType === 'urban_report') {
@@ -673,7 +673,7 @@ serve(async (req) => {
           if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
             return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
           const textLen = (fields.rating_text || '').length;
-          if (textLen < 10)
+          if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
           return { field: null, picker: null, prompt: null };
         }
@@ -684,12 +684,32 @@ serve(async (req) => {
           return { field: 'service_type', picker: '[SERVICE_TYPE_PICKER]', prompt: 'Qual **tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU...)' };
         }
         
-        // 2. Service name
+        // 2. Neighborhood first (para depois mostrar dropdown de serviços no bairro)
+        if (!fields.service_neighborhood && !fields.service_address) {
+          const serviceTypeLabel: Record<string, string> = {
+            ubs: 'UBS', school: 'escola', hospital: 'hospital',
+            ceu: 'CEU', library: 'biblioteca', sports_center: 'centro esportivo'
+          };
+          const typeLabel = serviceTypeLabel[fields.service_type] || fields.service_type;
+          return {
+            field: 'service_neighborhood',
+            picker: null,
+            prompt: `Em qual **bairro** fica a ${typeLabel} que você visitou?`
+          };
+        }
+
+        // 3. Service name com dropdown (SERVICE_PICKER) — mostra CEUs/serviços daquele bairro
         if (!fields.service_name || fields.service_name.length < 3) {
-          return { field: 'service_name', picker: '[SERVICE_PICKER]', prompt: 'Qual o **nome** do serviço que você visitou?' };
+          const typeLabel = (fields.service_type === 'ceu' ? 'CEU' : fields.service_type === 'ubs' ? 'UBS' : fields.service_type);
+          const districtHint = fields.service_neighborhood ? ` em **${fields.service_neighborhood}**` : '';
+          return {
+            field: 'service_name',
+            picker: `[SERVICE_PICKER${fields.service_neighborhood ? ':district=' + encodeURIComponent(String(fields.service_neighborhood)) : ''}]`,
+            prompt: `Qual **${typeLabel}** você visitou${districtHint}? Selecione na lista abaixo.`
+          };
         }
         
-        // 3. Address confirmation (NEW - CRITICAL)
+        // 4. Address confirmation (NEW - CRITICAL)
         // If service_address_confirmed is undefined, we need to ask
         if (fields.service_address_confirmed === undefined) {
           const serviceTypeLabel: Record<string, string> = {
@@ -698,9 +718,12 @@ serve(async (req) => {
           };
           const typeLabel = serviceTypeLabel[fields.service_type] || fields.service_type;
           
-          // Build address from available info
-          const address = fields.service_address || 
-                          (fields.service_neighborhood ? `${fields.service_name} - ${fields.service_neighborhood}` : null);
+          // Build address - avoid duplication when service_name already contains neighborhood (e.g. "UBS - Butantã")
+          const nameStr = fields.service_name || '';
+          const neighStr = fields.service_neighborhood || '';
+          const nameHasNeigh = neighStr && nameStr.toLowerCase().includes(neighStr.toLowerCase());
+          const address = fields.service_address ||
+                          (nameStr ? (nameHasNeigh ? nameStr : neighStr ? `${nameStr} - ${neighStr}` : nameStr) : null);
           
           if (address) {
             return { 
@@ -709,12 +732,6 @@ serve(async (req) => {
               prompt: `O serviço fica em **${address}**. Está correto? (sim/não)` 
             };
           }
-          // If no address info yet, ask for neighborhood first
-          return {
-            field: 'service_neighborhood',
-            picker: null,
-            prompt: `Em qual **bairro** fica a ${typeLabel} que você visitou?`
-          };
         }
         
         // 3b. If user said "no" to address, ask for correct neighborhood
@@ -745,9 +762,9 @@ serve(async (req) => {
         if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
           return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
         
-        // 5. Rating text
+        // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
         const textLen = (fields.rating_text || '').length;
-        if (textLen < 10)
+        if (textLen < 5)
           return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
         
         // All required fields collected
@@ -791,9 +808,9 @@ serve(async (req) => {
     }
     
     // === PEDIDO DE ROTA (antes do bloco services para não chamar find_nearby de novo) ===
-    const lastUserMessage = messages.filter((m: any) => m.role === 'user').pop()?.content || '';
+    const lastUserMessage = messages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content || '';
     const msgLower = lastUserMessage.toLowerCase().trim();
-    const lastAssistantMessage = messages.filter((m: any) => m.role === 'assistant').pop()?.content || '';
+    const lastAssistantMessage = messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content || '';
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
     const justShowedServicesList = lastAssistantLower.includes('quer que eu calcule a rota') || lastAssistantLower.includes('opções mais próximas') || lastAssistantLower.includes('opções mais próximas de');
     const wantsRoute = /(calcule?\s+a\s+rota|calcular\s+rota|rota\s+para|quero\s+a\s+rota)/i.test(lastUserMessage) || lastUserMessage.includes(' | ');
@@ -809,11 +826,11 @@ serve(async (req) => {
       let originLat: number | null = null;
       let originLon: number | null = null;
       // Helper: content pode ser string ou array OpenAI-style [{ type: 'text', text: '...' }]
-      const getMessageText = (m: any): string => {
+      const getMessageText = (m: Record<string, unknown>): string => {
         const raw = m?.content;
         if (typeof raw === 'string') return raw;
         if (Array.isArray(raw)) {
-          const part = raw.find((p: any) => p?.type === 'text' && p?.text);
+          const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
           return part ? String(part.text) : '';
         }
         return '';
@@ -865,7 +882,7 @@ serve(async (req) => {
     // === DÚVIDAS SOBRE A CÂMARA (general): saudação adequada, não relato de problema ===
     if (collectionIntent?.type === 'general') {
       const isDuvidaOpener = /d[uú]vida|pergunta|como funciona|quero saber|informa[cç][aã]o/i.test(lastUserMessage);
-      if (isDuvidaOpener && messages.filter((m: any) => m.role === 'user').length <= 1) {
+      if (isDuvidaOpener && messages.filter((m: Record<string, unknown>) => m.role === 'user').length <= 1) {
         const greeting = `[LIGHT_JOURNEY:general]Claro! Pode perguntar sobre a Câmara Municipal: funcionamento, audiências, vereadores, processos ou qualquer outra dúvida. Qual sua pergunta?`;
         const ssePayload = JSON.stringify({ choices: [{ delta: { content: greeting } }] });
         return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -920,7 +937,7 @@ serve(async (req) => {
             };
             toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
           } else if (collectionIntent.type === 'service_rating') {
-            const toolArgs: Record<string, any> = {
+            const toolArgs: Record<string, unknown> = {
               rating_stars: accumulatedFields.rating_stars,
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment || 'neutral'
@@ -1100,7 +1117,7 @@ ${empathyNote}
     if (cepOnlyMatch) {
       const cepRaw = cepOnlyMatch[1].replace(/\D/g, '');
       if (cepRaw.length === 8) {
-        const previousUserMessages = messages.filter((m: any) => m.role === 'user').map((m: any) => (m.content || '').toLowerCase());
+        const previousUserMessages = messages.filter((m: Record<string, unknown>) => m.role === 'user').map((m: Record<string, unknown>) => (typeof m.content === 'string' ? m.content : '').toLowerCase());
         let serviceType: string | null = null;
         for (let i = previousUserMessages.length - 1; i >= 0 && !serviceType; i--) {
           if (previousUserMessages[i] === lastUserMessage.toLowerCase()) continue; // skip current (CEP)
@@ -1409,7 +1426,7 @@ ${empathyNote}
         signal: controller.signal,
       });
       clearTimeout(apiTimeoutId);
-    } catch (fetchError: any) {
+    } catch (fetchError: unknown) {
       clearTimeout(apiTimeoutId);
       if (fetchError.name === 'AbortError') {
         console.error('[ai-orchestrator] API call timeout after 60s');
@@ -1478,7 +1495,7 @@ ${empathyNote}
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
-      let toolCallData: any = null;
+      let toolCallData: unknown = null;
       let toolCallArguments = '';
       
       // Read the entire stream with timeout protection (30s total, 10s per read)

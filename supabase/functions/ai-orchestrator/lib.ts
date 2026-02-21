@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
@@ -142,10 +142,10 @@ export function extractImplicitData(
   userMessage: string, 
   lastAssistantQuestion: string,
   domain: string
-): Record<string, any> {
+): Record<string, unknown> {
   const lower = userMessage.toLowerCase().trim();
   const questionLower = lastAssistantQuestion.toLowerCase();
-  const extracted: Record<string, any> = {};
+  const extracted: Record<string, unknown> = {};
   
   // === CONTEXT: Risk/Urgency question ===
   if (questionLower.includes('risco') || questionLower.includes('urgente') || 
@@ -440,7 +440,7 @@ export const EMERGING_PATTERNS = [
 export async function detectEmergingCategory(
   description: string,
   currentCategory: string,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<{ shouldCreate: boolean; suggestedKey?: string; suggestedName?: string; parentCategory?: string }> {
   const lower = description.toLowerCase();
   
@@ -486,7 +486,7 @@ export async function createDynamicCategory(
   name: string,
   parentCategory: string,
   description: string,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<void> {
   const keywords = extractCategoryKeywords(description);
   
@@ -529,7 +529,7 @@ export async function logCategoryUsage(
   subcategory: string | null,
   description: string,
   userId: string | null,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<void> {
   try {
     // Simple hash for deduplication
@@ -572,7 +572,7 @@ export interface CitizenLearningProfile {
  */
 export async function loadCitizenProfile(
   userId: string,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<CitizenLearningProfile | null> {
   try {
     const { data, error } = await supabaseClient
@@ -595,8 +595,8 @@ export async function loadCitizenProfile(
 export async function learnFromConversation(
   userId: string,
   messages: Array<{ role: string; content: string }>,
-  reportData: Record<string, any>,
-  supabaseClient: any
+  reportData: Record<string, unknown>,
+  supabaseClient: SupabaseClient
 ): Promise<void> {
   try {
     const userMessages = messages.filter(m => m.role === 'user');
@@ -629,7 +629,7 @@ export async function learnFromConversation(
     
     if (existing) {
       // Update existing profile
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         avg_message_length: Math.round((existing.avg_message_length + avgLength) / 2),
         communication_style: style,
         prefers_short_responses: avgLength < 30,
@@ -871,14 +871,14 @@ export function inferTransportTypeFromText(text: string): string | null {
 // Intent detection for collection progress tracking with scoring system
 export type CollectionIntent = {
   type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
-  fields: Record<string, any>;
-  accumulatedFields?: Record<string, any>; // All fields collected across conversation
+  fields: Record<string, unknown>;
+  accumulatedFields?: Record<string, unknown>; // All fields collected across conversation
 };
 
 export interface DetectionScore {
   type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
   score: number;
-  fields: Record<string, any>;
+  fields: Record<string, unknown>;
 }
 
 // Tool hint for light journeys (services, audiencias, general, history)
@@ -960,8 +960,8 @@ export const INTENT_KEYWORDS = [
 ];
 
 // Extract transport-specific fields - EXPANDED VOCABULARY
-export function extractTransportFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {};
+export function extractTransportFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
   const today = new Date().toISOString().split('T')[0];
   
   // Detect report_type - EXPANDED vocabulary for robust detection
@@ -1080,8 +1080,8 @@ export const classifiedCategories = new Map<string, { category: string; confiden
 
 // Extract urban report-specific fields - SIMPLIFIED: NO category inference, NO location extraction
 // Category is now EXCLUSIVELY determined by classify_report_category tool (AI classification)
-export function extractUrbanFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {};
+export function extractUrbanFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
   
   // REMOVED: All category inference logic - now handled by classify_report_category tool
   // The AI model will classify the category and call the tool explicitly
@@ -1601,13 +1601,13 @@ export function autoInferRisk(description: string): {
 }
 
 // Parse user response for specific field types
-export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, any> {
+export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, unknown> {
   const response = userResponse.trim();
   const responseLower = response.toLowerCase();
-  const result: Record<string, any> = {};
+  const result: Record<string, unknown> = {};
   
   switch (fieldType) {
-    case 'cep':
+    case 'cep': {
       // CEP numérico (8 dígitos)
       const cepMatch = response.match(/\b(\d{5}[-]?\d{3})\b/);
       if (cepMatch) {
@@ -1633,8 +1633,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         }
       }
       break;
+    }
 
-    case 'street_number':
+    case 'street_number': {
       // Try to extract number first
       const numberMatch = response.match(/^(\d+)/);
       if (numberMatch) {
@@ -1648,8 +1649,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.street_number = response;
       }
       break;
+    }
       
-    case 'category':
+    case 'category': {
       // === CRITICAL: Handle confirmation responses (sim/não) for pending category ===
       const confirmPatterns = /^(sim|s|yes|y|ok|pode|pode ser|isso|isso mesmo|confirmo|confirma|exato|correto)$/i;
       const denyPatterns = /^(não|nao|n|no|nope|outra|outro|diferente|errado|não é isso|nao e isso)$/i;
@@ -1660,7 +1662,6 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         console.log('[parseFieldResponse] Category confirmation detected: YES');
         break;
       }
-      
       if (denyPatterns.test(responseLower)) {
         // User denied - signal that we should clear pending and ask again
         result._category_denied = true;
@@ -1718,8 +1719,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         }
       }
       break;
+    }
       
-    case 'risk_level':
+    case 'risk_level': {
       // Parse risk level from natural language - EXPANDED VOCABULARY
       // Simple yes/no responses first
       if (responseLower === 'sim' || responseLower === 's' || responseLower === 'yes' || responseLower === 'y') {
@@ -1785,8 +1787,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.urgency_reason = response;
       }
       break;
+    }
       
-    case 'affected_scope':
+    case 'affected_scope': {
       // Parse affected scope
       const individualKeywords = ['só eu', 'so eu', 'minha casa', 'meu', 'apenas eu', 'só minha'];
       const streetKeywords = ['rua toda', 'toda a rua', 'rua inteira', 'vizinhos', 'quarteirão', 'a rua', 'toda rua'];
@@ -1800,8 +1803,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.affected_scope = 'individual';
       }
       break;
+    }
       
-    case 'active_consequences':
+    case 'active_consequences': {
       // Parse active consequences
       const consequences: string[] = [];
       if (responseLower.includes('luz') || responseLower.includes('apagão') || responseLower.includes('energia')) {
@@ -1825,8 +1829,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.active_consequences = consequences;
       }
       break;
+    }
       
-    case 'description':
+    case 'description': {
       // USE CENTRALIZED NLP FUNCTION - accepts 8+ chars with keyword
       if (isValidDomainDescription(response, 'urban')) {
         result.description = response;
@@ -1844,6 +1849,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         }
       }
       break;
+    }
   }
   
   return result;
@@ -1853,7 +1859,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
 export function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
   collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias'
-): Record<string, any> {
+): Record<string, unknown> {
   // === LIGHT JOURNEY: services (busca de serviços próximos) ===
   // Ordem: 1) location_method (GPS / cadastrado / manual), 2) se manual → CEP/endereço, 3) service_type
   if (collectionType === 'services') {
@@ -1861,12 +1867,12 @@ export function accumulateFieldsFromHistory(
       const raw = msg.content;
       if (typeof raw === 'string') return raw;
       if (Array.isArray(raw)) {
-        const part = raw.find((p: any) => p?.type === 'text' && p?.text);
+        const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
         return part ? String(part.text) : '';
       }
       return '';
     };
-    const acc: Record<string, any> = {};
+    const acc: Record<string, unknown> = {};
     for (const msg of messages) {
       if (msg.role === 'assistant') {
         const c = getContent(msg);
@@ -1875,7 +1881,7 @@ export function accumulateFieldsFromHistory(
           if (match) {
             try {
               Object.assign(acc, JSON.parse(match[1]));
-            } catch (e) {}
+            } catch { /* ignore parse errors */ }
           }
         }
       }
@@ -1945,7 +1951,7 @@ export function accumulateFieldsFromHistory(
   if (!['urban_report', 'transport_report', 'service_rating'].includes(collectionType)) {
     return {};
   }
-  const accumulated: Record<string, any> = {};
+  const accumulated: Record<string, unknown> = {};
   
   // Check for fields already collected via [COLLECTION_PROGRESS] markers
   for (const msg of messages) {
@@ -1955,7 +1961,7 @@ export function accumulateFieldsFromHistory(
         try {
           const fields = JSON.parse(match[1]);
           Object.assign(accumulated, fields);
-        } catch (e) {}
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -2293,8 +2299,8 @@ export function accumulateFieldsFromHistory(
     
     // === FLEXIBLE ADDRESS CONFIRMATION PATTERNS ===
     const addressConfirmPatterns = [
-      /^sim$/i,
-      /^s$/i,
+      /^sim\.?$/i,
+      /^s\.?$/i,
       /sim.*correto/i,
       /está correto/i,
       /esta correto/i,
@@ -2351,6 +2357,8 @@ export function accumulateFieldsFromHistory(
       if (accumulated.service_address_confirmed === undefined) {
         if (addressConfirmPatterns.some(p => p.test(contentLower))) {
           accumulated.service_address_confirmed = true;
+          accumulated._needs_address_reconfirm = false;
+          accumulated._address_reconfirmed = true;
           console.log('[accumulateFields] Service address confirmed by user (flexible match)');
         } else if (addressDenyPatterns.some(p => p.test(contentLower))) {
           accumulated.service_address_confirmed = false;
@@ -2399,7 +2407,7 @@ export function accumulateFieldsFromHistory(
           
           // Service-specific field parsing
           switch (fieldType) {
-            case 'service_type':
+            case 'service_type': {
               // Check if answer is actually a journey switch request
               const isJourneySwitchAttempt = 
                 answer.toLowerCase().includes('falar de') ||
@@ -2425,7 +2433,8 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_type = answer.toLowerCase();
               }
               break;
-            case 'service_name':
+            }
+            case 'service_name': {
               const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?$/i);
               if (nameMatch) {
                 accumulated.service_name = nameMatch[1].trim();
@@ -2434,54 +2443,72 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer;
               }
               break;
-            case 'rating_stars':
+            }
+            case 'rating_stars': {
               const starsMatch = answer.match(/(\d)/);
               if (starsMatch) {
                 accumulated.rating_stars = parseInt(starsMatch[1]);
               }
               break;
-            case 'rating_text':
+            }
+            case 'rating_text': {
               if (answer.length >= 5) {
                 accumulated.rating_text = answer;
               }
               break;
-            case 'service_address_confirmed':
-              // Parse sim/não response for address confirmation
+            }
+            case 'service_address_confirmed': {
               const confirmLower = answer.toLowerCase().trim();
-              if (/^(sim|s|isso|correto|confirmo)$/i.test(confirmLower) || 
+              if (/^(sim|s|isso|correto|confirmo)$/i.test(confirmLower) ||
                   confirmLower.includes('correto') || confirmLower.includes('isso mesmo')) {
                 accumulated.service_address_confirmed = true;
+                accumulated._needs_address_reconfirm = false;
+                accumulated._address_reconfirmed = true;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address confirmed');
-              } else if (/^(n[aã]o|n|errado|incorreto)$/i.test(confirmLower) || 
+              } else if (/^(n[aã]o|n|errado|incorreto)$/i.test(confirmLower) ||
                          confirmLower.includes('errado') || confirmLower.includes('outro')) {
                 accumulated.service_address_confirmed = false;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address denied');
               }
               break;
-            case 'service_neighborhood':
-              // User provided neighborhood after denying address
+            }
+            case 'service_neighborhood': {
+              // User provided neighborhood
               if (answer.length >= 2 && answer.length <= 60) {
                 accumulated.service_neighborhood = answer.trim();
-                // Update the service address with the new neighborhood
                 if (accumulated.service_name) {
                   accumulated.service_address = `${accumulated.service_name} - ${answer.trim()}`;
                 }
-                // Reset confirmation to undefined so we can re-ask
                 accumulated.service_address_confirmed = undefined;
-                accumulated._needs_address_reconfirm = true;
+                // Only set reconfirm when this was a CORRECTION (prev question was "qual o bairro correto")
+                const prevContent = (prevMsg?.content as string) || '';
+                if (/correto|ok.*bairro/i.test(prevContent)) {
+                  accumulated._needs_address_reconfirm = true;
+                }
                 console.log('[accumulateFields] FIELD_REQUEST: Service neighborhood captured:', answer);
               }
               break;
-            case 'service_address_reconfirm':
-              // Parse reconfirmation response
+            }
+            case 'service_address_reconfirm': {
               const reconfirmLower = answer.toLowerCase().trim();
-              if (/^(sim|s|isso|correto|confirmo)$/i.test(reconfirmLower) || 
+              const denied = /^(n[aã]o|n|errado|incorreto)$/i.test(reconfirmLower) ||
+                reconfirmLower.includes('errado') || reconfirmLower.includes('incorreto') || reconfirmLower.includes('outro');
+              if (/^(sim|s|isso|correto|confirmo)$/i.test(reconfirmLower) ||
                   reconfirmLower.includes('correto') || reconfirmLower.includes('isso mesmo')) {
                 accumulated.service_address_confirmed = true;
                 accumulated._address_reconfirmed = true;
+                accumulated._needs_address_reconfirm = false;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address reconfirmed');
+              } else if (denied) {
+                accumulated.service_address_confirmed = false;
+                accumulated.service_neighborhood = undefined;
+                accumulated.service_address = accumulated.service_name ? `${accumulated.service_name}` : undefined;
+                accumulated._needs_address_reconfirm = false;
+                accumulated._address_reconfirmed = false;
+                console.log('[accumulateFields] FIELD_REQUEST: Service address denied on reconfirm - will ask for correct bairro');
               }
               break;
+            }
           }
         }
       }
@@ -2607,9 +2634,13 @@ export function accumulateFieldsFromHistory(
   return accumulated;
 }
 
+function capitalizeWords(s: string): string {
+  return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // Extract service rating-specific fields
-export function extractServiceFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {};
+export function extractServiceFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
   
   // Detect service type
   if (context.includes('ubs') || context.includes('posto de saúde') || context.includes('posto de saude')) {
@@ -2626,10 +2657,32 @@ export function extractServiceFields(context: string): Record<string, any> {
     fields.service_type = 'sports_center';
   }
   
+  // Extract name/neighborhood from "UBS Butantã", "quero avaliar a UBS Butantã", etc.
+  const typeNameMatch = context.match(/\b(ubs|hospital|escola|ceu|biblioteca|centro\s+esportivo)\s+([a-záàâãéèêíìóòôõúùç]+(?:\s+[a-záàâãéèêíìóòôõúùç]+)*?)(?=\s+que|\s*[.,!?]|$)/i);
+  if (typeNameMatch) {
+    const typeKey = typeNameMatch[1].toLowerCase().replace(/\s+/, ' ');
+    const namePart = typeNameMatch[2].trim();
+    if (namePart.length >= 2 && namePart.length <= 50) {
+      const typeDisplay: Record<string, string> = {
+        ubs: 'UBS', hospital: 'Hospital', escola: 'Escola', ceu: 'CEU',
+        biblioteca: 'Biblioteca', 'centro esportivo': 'Centro esportivo',
+      };
+      const typeLabel = typeDisplay[typeKey] || capitalizeWords(typeKey);
+      fields.service_name = `${typeLabel} - ${capitalizeWords(namePart)}`;
+      fields.service_neighborhood = capitalizeWords(namePart);
+    }
+  }
+  
   // Detect rating
   const starsMatch = context.match(/(\d)\s*(?:estrela|nota)/);
   if (starsMatch) {
     fields.rating_stars = parseInt(starsMatch[1]);
+  }
+  
+  // Detect rating_text from short descriptive replies (excelente, ótimo, bom, ruim, etc.)
+  const shortCommentMatch = context.match(/^(excelente|ótimo|ótima|otimo|otima|bom|boa|ruim|regular|péssimo|maravilhoso|ótimo atendimento|atendimento excelente|muito bom|muito boa)$/i);
+  if (shortCommentMatch && !fields.rating_text) {
+    fields.rating_text = shortCommentMatch[1];
   }
   
   // Detect sentiment
@@ -2706,8 +2759,8 @@ export function findCouncilMemberMatches(partialName: string): { found: boolean;
 }
 
 // Extract chamber feedback-specific fields
-export function extractChamberFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {
+export function extractChamberFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
     category: 'feedback_camara'
   };
   
@@ -2761,7 +2814,7 @@ export function detectExistingJourney(
     if (msg.role === 'assistant') {
       const progressMatch = msg.content.match(/\[COLLECTION_PROGRESS:(\w+):/);
       if (progressMatch) {
-        const type = progressMatch[1] as any;
+        const type = progressMatch[1] as string;
         if (STRUCTURED_JOURNEY_TYPES.includes(type)) {
           return type;
         }
@@ -3434,7 +3487,7 @@ function hasValidAddress(s: { address?: string | null }): boolean {
 
 // Helper: Format services with positive context (Never Negative pattern)
 export function formatServicesWithContext(
-  services: any[], 
+  services: Record<string, unknown>[], 
   serviceType: string, 
   originalDistrict: string | null,
   isExpanded: boolean
@@ -3448,7 +3501,7 @@ export function formatServicesWithContext(
     ? `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
     : `Encontrei ${withAddress.length} ${typeName}:`;
   
-  const list = withAddress.map((s: any, i: number) => {
+  const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : '';
     const rating = s.average_rating ? ` ⭐ ${Number(s.average_rating).toFixed(1)}` : '';
     return `${i+1}. ${s.name}${districtInfo}\n   📍 ${s.address}${rating}`;
@@ -3462,7 +3515,7 @@ export function formatServicesWithContext(
 }
 
 // Helper: Search knowledge base (with positive alternatives)
-export async function searchKnowledgeBase(supabase: any, query: string): Promise<string> {
+export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {
   const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
   if (searchTerms.length === 0) {
     return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
@@ -3486,7 +3539,7 @@ export async function searchKnowledgeBase(supabase: any, query: string): Promise
   }
 
   const SNIPPET_LEN = 600; // Longer snippets so answers are less truncated (was 300)
-  return data.map((doc: any, i: number) => {
+  return data.map((doc: Record<string, unknown>, i: number) => {
     const source = doc.content_type === 'noticia' ? 'Notícia' : 
                    doc.content_type === 'audiencia' ? 'Audiência' : 'Info';
     const text = doc.content?.trim() || '';
@@ -3516,7 +3569,7 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number):
 
 // Helper: Find nearby services (com ordenação por distância quando userLat/userLon disponíveis). Só lista serviços com endereço válido.
 export async function findNearbyServices(
-  supabase: any,
+  supabase: SupabaseClient,
   serviceType: string,
   district?: string,
   limit: number = 5,
@@ -3530,7 +3583,7 @@ export async function findNearbyServices(
     ? 'name, address, district, phone, average_rating, service_type, latitude, longitude'
     : 'name, address, district, phone, average_rating, service_type';
 
-  const sortAndFormat = (data: any[], isExpanded: boolean): string => {
+  const sortAndFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => {
     const withAddress = data.filter(hasValidAddress);
     if (withAddress.length === 0) return '';
     let ordered = withAddress;
@@ -3546,7 +3599,7 @@ export async function findNearbyServices(
     return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded) || '';
   };
 
-  const tryFormat = (data: any[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
+  const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
 
   // Quando temos coordenadas do usuário, buscar mais resultados city-wide e ordenar por distância (prioridade sobre district)
   if (hasCoords) {
@@ -3607,7 +3660,7 @@ export async function findNearbyServices(
     .select('service_type')
     .limit(20);
   
-  const availableTypes = [...new Set((otherTypes || []).map((s: any) => s.service_type))] as string[];
+  const availableTypes = [...new Set((otherTypes || []).map((s: Record<string, unknown>) => s.service_type))] as string[];
   const typeNames = availableTypes.map((t: string) => getServiceTypeName(t)).slice(0, 4);
   
   if (typeNames.length > 0) {
@@ -3621,7 +3674,7 @@ export async function findNearbyServices(
  * Busca um serviço pelo nome (ex: "CEU Butantã") e retorna o endereço do banco de dados.
  * Usado para perguntas como "qual o endereço do CEU Butantã?" — evita que a LLM invente.
  */
-export async function getServiceAddressByName(supabase: any, serviceName: string): Promise<string | null> {
+export async function getServiceAddressByName(supabase: SupabaseClient, serviceName: string): Promise<string | null> {
   const nameTrim = serviceName.trim();
   if (nameTrim.length < 3) return null;
 
@@ -3644,7 +3697,7 @@ export async function getServiceAddressByName(supabase: any, serviceName: string
 }
 
 // Helper: build tema filter (ilike on tema or titulo)
-function audienciasTemaFilter(supabase: any, base: any, tema: string) {
+function audienciasTemaFilter(supabase: SupabaseClient, base: { or?: (a: string, b: string) => unknown }, tema: string) {
   const t = tema.trim().replace(/%/g, '');
   if (!t) return base;
   return base.or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
@@ -3712,7 +3765,7 @@ function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: strin
 }
 
 /** Busca as N últimas notícias do cache (tabela news_cache) para injetar no contexto do chat. */
-export async function getUltimasNoticias(supabase: any, limit = 5): Promise<string> {
+export async function getUltimasNoticias(supabase: SupabaseClient, limit = 5): Promise<string> {
   const { data: rows, error } = await supabase
     .from('news_cache')
     .select('id, title, description, link, pub_date')
@@ -3745,7 +3798,7 @@ export async function getUltimasNoticias(supabase: any, limit = 5): Promise<stri
 
 // Helper: Search audiencias (with filters by tema, data, regiao)
 export async function searchAudiencias(
-  supabase: any,
+  supabase: SupabaseClient,
   tema?: string,
   status?: string,
   inscricoesAbertas?: boolean,
@@ -3761,7 +3814,7 @@ export async function searchAudiencias(
   const limitBase = regiaoNorm ? 20 : 5; // fetch more when filtering by region in memory
   const hasExplicitDateRange = !!(dataInicio?.trim() || dataFim?.trim());
 
-  const applyDateFilters = (q: any) => {
+  const applyDateFilters = (q: { gte?: (a: string, b: string) => unknown; lte?: (a: string, b: string) => unknown }) => {
     let out = q.gte('data', dataMin);
     if (dataMax) out = out.lte('data', dataMax);
     return out;
@@ -3780,7 +3833,7 @@ export async function searchAudiencias(
     const { data: rawRange } = await rangeQ;
     const inRange = filterByRegiao(rawRange || [], regiaoNorm).slice(0, 10);
     if (inRange?.length) {
-      const formatted = inRange.map((a: any, i: number) => {
+      const formatted = inRange.map((a: Record<string, unknown>, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
@@ -3809,7 +3862,7 @@ export async function searchAudiencias(
     const proximas = filterByRegiao(rawProximas || [], regiaoNorm).slice(0, 5);
 
     if (proximas?.length) {
-      const formatted = proximas.map((a: any, i: number) => {
+      const formatted = proximas.map((a: Record<string, unknown>, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
@@ -3845,7 +3898,7 @@ export async function searchAudiencias(
   const data = filterByRegiao(rawData || [], regiaoNorm).slice(0, 5);
 
   if (!error && data?.length) {
-    return data.map((a: any, i: number) => {
+    return data.map((a: Record<string, unknown>, i: number) => {
       const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
@@ -3868,7 +3921,7 @@ export async function searchAudiencias(
     const { data: rawHist } = await histQuery;
     const historico = filterByRegiao(rawHist || [], regiaoNorm).slice(0, 10);
     if (historico?.length) {
-      const formatted = historico.map((a: any, i: number) => {
+      const formatted = historico.map((a: Record<string, unknown>, i: number) => {
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
@@ -3892,7 +3945,7 @@ export async function searchAudiencias(
   const upcoming = filterByRegiao(rawUpcoming || [], regiaoNorm).slice(0, 5);
 
   if (upcoming?.length) {
-    const formattedUpcoming = upcoming.map((a: any, i: number) => {
+    const formattedUpcoming = upcoming.map((a: Record<string, unknown>, i: number) => {
       const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
@@ -3910,7 +3963,7 @@ export async function searchAudiencias(
     .select('tema')
     .limit(100);
 
-  const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema).filter(Boolean))].slice(0, 8);
+  const availableThemes = [...new Set((allAudiencias || []).map((a: Record<string, unknown>) => a.tema).filter(Boolean))].slice(0, 8);
 
   if (availableThemes.length > 0) {
     return `Não há audiências ${temaNorm ? `sobre "${temaNorm}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses? (Ao escolher, mostro as audiências desse tema, inclusive do histórico.)`;
@@ -3932,7 +3985,7 @@ export async function suggestCouncilMember(issueType: string, description: strin
 
 // Helper: Get citizen history
 export async function getCitizenHistory(
-  supabase: any, 
+  supabase: SupabaseClient, 
   userId: string, 
   historyType: string = 'all',
   statusFilter: string = 'all',
@@ -3956,7 +4009,7 @@ export async function getCitizenHistory(
     const { data, error } = await query;
     if (!error && data?.length) {
       results.push('📍 **Relatos Urbanos:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         const location = r.street ? `${r.street}, ${r.neighborhood}` : r.location_address || 'Local não informado';
         results.push(`${i+1}. ${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
@@ -3981,7 +4034,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('🚌 **Relatos de Transporte:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         results.push(`${i+1}. ${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
@@ -4000,7 +4053,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('⭐ **Avaliações de Serviços:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const stars = '⭐'.repeat(r.rating_stars);
         const serviceName = r.service?.name || 'Serviço';
         results.push(`${i+1}. ${serviceName} - ${stars}\n   ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
@@ -4020,7 +4073,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('🎫 **Inscrições em Audiências:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const audiencia = r.audiencia;
         const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
         results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'}\n   ${statusEmoji} ${audiencia?.data || ''}`);
@@ -4040,7 +4093,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('📨 **Encaminhamentos a Vereadores:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'sent' ? '📤' : r.status === 'acknowledged' ? '👀' : '✅';
         results.push(`${i+1}. ${r.council_member_name} (${r.council_member_party})\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
@@ -4057,11 +4110,11 @@ export async function getCitizenHistory(
 // Execute tool
 export async function executeTool(
   name: string, 
-  args: any, 
+  args: Record<string, unknown>, 
   userId: string, 
-  supabase: any,
-  accumulatedFields?: any
-): Promise<{ success: boolean; message: string; data?: any }> {
+  supabase: SupabaseClient,
+  accumulatedFields?: Record<string, unknown>
+): Promise<{ success: boolean; message: string; data?: unknown }> {
   console.log(`[executeTool] Executing ${name} with args:`, JSON.stringify(args));
   console.log(`[executeTool] Accumulated fields:`, JSON.stringify(accumulatedFields || {}));
   
@@ -4458,7 +4511,7 @@ export async function executeTool(
         };
         
         // Build address section
-        let addressParts = [];
+        const addressParts: string[] = [];
         if (args.street) addressParts.push(args.street);
         if (args.street_number) addressParts.push(args.street_number);
         const addressLine = addressParts.join(', ');
@@ -4783,10 +4836,10 @@ export async function executeTool(
         }
         
         // 2. Validate rating_text
-        if (!args.rating_text || args.rating_text.trim().length < 10) {
+        if (!args.rating_text || args.rating_text.trim().length < 5) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:rating_text]**Pode descrever sua experiência?** Me conta como foi o atendimento. (mínimo 10 caracteres)'
+            message: '[FIELD_REQUEST:rating_text]**Pode descrever sua experiência?** Me conta como foi o atendimento. (mínimo 5 caracteres)'
           };
         }
         
@@ -4841,19 +4894,56 @@ export async function executeTool(
             };
           }
           
-          const { data: services, error: serviceError } = await supabase
-            .from('public_services')
-            .select('id, name')
-            .eq('service_type', args.service_type)
-            .ilike('name', `%${args.service_name}%`)
-            .limit(1);
-          
-          if (serviceError) {
-            console.error('[create_service_rating] Error finding service:', serviceError);
+          const serviceNameArg = (args.service_name as string || '').trim();
+          const serviceTypeArg = (args.service_type as string || '').toLowerCase();
+          const neighborhood = (args.service_neighborhood || accumulatedFields?.service_neighborhood) as string | undefined;
+
+          const tryFindService = async (
+            typeFilter: string | null,
+            namePattern: string
+          ): Promise<{ id: string; name: string } | null> => {
+            let q = supabase.from('public_services').select('id, name').ilike('name', namePattern).limit(5);
+            if (typeFilter) q = q.eq('service_type', typeFilter);
+            const { data } = await q;
+            if (data?.length) return data[0];
+            return null;
+          };
+
+          const tryFindByDistrict = async (namePart: string): Promise<{ id: string; name: string } | null> => {
+            if (!neighborhood || namePart.length < 3) return null;
+            const districtClean = neighborhood.split(/[-–—,]/)[0]?.trim().slice(0, 25);
+            if (!districtClean) return null;
+            const { data } = await supabase
+              .from('public_services')
+              .select('id, name')
+              .ilike('name', `%${namePart}%`)
+              .ilike('district', `%${districtClean}%`)
+              .limit(3);
+            return data?.length ? data[0] : null;
+          };
+
+          let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
+          if (!found && serviceNameArg.length > 8) {
+            const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro)\s+(de\s+)?/i, '').trim();
+            if (withoutPrefix.length >= 5) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`);
           }
-          if (services?.length) {
-            serviceId = services[0].id;
-            serviceNameForMessage = services[0].name;
+          if (!found && serviceNameArg.length > 10) {
+            const matchDistinctive = serviceNameArg.match(/(?:CEU|UBS|Biblioteca)\s+(.+?)(?:\s*[-–—]|$)/i);
+            const distinctive = matchDistinctive?.[1]?.trim();
+            if (distinctive && distinctive.length >= 4) {
+              found = await tryFindService(serviceTypeArg, `%${distinctive}%`)
+                || await tryFindService(null, `%${distinctive}%`);
+              if (!found) found = await tryFindByDistrict(distinctive);
+            }
+          }
+          if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
+          if (!found && serviceTypeArg === 'ceu') {
+            found = await tryFindService('library', `%${serviceNameArg}%`);
+          }
+
+          if (found) {
+            serviceId = found.id;
+            serviceNameForMessage = found.name;
             const expires = new Date();
             expires.setDate(expires.getDate() + 7);
             const { data: visitData, error: visitError } = await supabase
@@ -4869,7 +4959,11 @@ export async function executeTool(
             if (!visitError && visitData) visitId = visitData.id;
           }
           if (!serviceId || !visitId) {
-            return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo e o bairro?' };
+            console.warn('[create_service_rating] Service not found in DB:', { serviceTypeArg, serviceNameArg, neighborhood });
+            return {
+              success: false,
+              message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.',
+            };
           }
         }
         
@@ -5022,7 +5116,7 @@ export async function executeTool(
           // High confidence: activate journey with extracted data
           
           // Build progress data including category/description if extracted
-          const progressData: Record<string, any> = {};
+          const progressData: Record<string, unknown> = {};
           
           if (intent === 'urban_report') {
             // Include category if extracted with high confidence
