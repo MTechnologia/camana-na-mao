@@ -324,13 +324,15 @@ const ChatMessageBubble = ({
     );
   }, [isUser, message.content, serviceTypeSelected, hasServiceTypePicker, isLastAssistantMessage]);
   
-  // Detect service name question
+  // Detect service name question (incl. "Qual CEU você visitou em X? Selecione na lista")
   const isAskingForService = useMemo(() => {
     if (isUser || serviceSelected || hasServicePicker) return false;
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:service_name]') ||
-      (content.includes('qual o nome') && isLastAssistantMessage)
+      (content.includes('qual o nome') && isLastAssistantMessage) ||
+      (content.includes('selecione na lista') && isLastAssistantMessage) ||
+      (/qual\s+(ubs|ceu|hospital|escola)\s+você\s+visitou/i.test(content) && isLastAssistantMessage)
     );
   }, [isUser, message.content, serviceSelected, hasServicePicker, isLastAssistantMessage]);
   
@@ -458,17 +460,21 @@ const ChatMessageBubble = ({
     if (!hasServicePicker) return { serviceType: undefined, district: undefined };
     let serviceType: string | undefined;
     let district: string | undefined;
-    const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
-    if (typeMatch) serviceType = typeMatch[1];
-    const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
-    if (neighMatch) district = neighMatch[1];
-    const districtMatch = message.content.match(/\[SERVICE_PICKER:district=([^\]]+)\]/);
-    if (districtMatch) {
-      try {
-        district = decodeURIComponent(districtMatch[1]);
-      } catch {
-        district = districtMatch[1];
-      }
+    const typeInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:type=([^:\]]+)/);
+    if (typeInMarker) {
+      try { serviceType = decodeURIComponent(typeInMarker[1]); } catch { serviceType = typeInMarker[1]; }
+    }
+    if (!serviceType) {
+      const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
+      if (typeMatch) serviceType = typeMatch[1];
+    }
+    const districtInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:district=([^:\]]+)/);
+    if (districtInMarker) {
+      try { district = decodeURIComponent(districtInMarker[1]); } catch { district = districtInMarker[1]; }
+    }
+    if (!district) {
+      const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
+      if (neighMatch) district = neighMatch[1];
     }
     return { serviceType, district };
   }, [hasServicePicker, message.content]);

@@ -699,12 +699,20 @@ serve(async (req) => {
         }
 
         // 3. Service name com dropdown (SERVICE_PICKER) — mostra CEUs/serviços daquele bairro
-        if (!fields.service_name || fields.service_name.length < 3) {
+        // Forçar picker se: vazio, muito curto, só o tipo ("CEU"/"UBS"), ou genérico "TIPO - Bairro"
+        const tl = fields.service_type === 'ceu' ? 'CEU' : fields.service_type === 'ubs' ? 'UBS' : String(fields.service_type || '').charAt(0).toUpperCase() + String(fields.service_type || '').slice(1);
+        const sn = String(fields.service_name || '').trim();
+        const genericAddr = fields.service_neighborhood ? `${tl} - ${fields.service_neighborhood}` : '';
+        const isGenericName = genericAddr && sn && sn.toLowerCase() === genericAddr.toLowerCase();
+        const isJustTypeLabel = sn && (sn.toLowerCase() === 'ceu' || sn.toLowerCase() === 'ubs' || sn.toLowerCase() === tl.toLowerCase());
+        if (!fields.service_name || fields.service_name.length < 3 || isGenericName || isJustTypeLabel) {
           const typeLabel = (fields.service_type === 'ceu' ? 'CEU' : fields.service_type === 'ubs' ? 'UBS' : fields.service_type);
           const districtHint = fields.service_neighborhood ? ` em **${fields.service_neighborhood}**` : '';
+          const typeParam = fields.service_type ? ':type=' + encodeURIComponent(String(fields.service_type)) : '';
+          const districtParam = fields.service_neighborhood ? ':district=' + encodeURIComponent(String(fields.service_neighborhood)) : '';
           return {
             field: 'service_name',
-            picker: `[SERVICE_PICKER${fields.service_neighborhood ? ':district=' + encodeURIComponent(String(fields.service_neighborhood)) : ''}]`,
+            picker: `[SERVICE_PICKER${districtParam}${typeParam}]`,
             prompt: `Qual **${typeLabel}** você visitou${districtHint}? Selecione na lista abaixo.`
           };
         }

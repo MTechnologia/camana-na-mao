@@ -2473,17 +2473,22 @@ export function accumulateFieldsFromHistory(
               break;
             }
             case 'service_neighborhood': {
-              // User provided neighborhood
               if (answer.length >= 2 && answer.length <= 60) {
                 accumulated.service_neighborhood = answer.trim();
                 if (accumulated.service_name) {
                   accumulated.service_address = `${accumulated.service_name} - ${answer.trim()}`;
                 }
                 accumulated.service_address_confirmed = undefined;
-                // Only set reconfirm when this was a CORRECTION (prev question was "qual o bairro correto")
                 const prevContent = (prevMsg?.content as string) || '';
                 if (/correto|ok.*bairro/i.test(prevContent)) {
                   accumulated._needs_address_reconfirm = true;
+                }
+                // NUNCA preencher service_name com genérico - queremos o dropdown
+                const typeLabels: Record<string, string> = { ceu: 'CEU', ubs: 'UBS', hospital: 'Hospital', school: 'Escola', library: 'Biblioteca', sports_center: 'Centro esportivo' };
+                const tl = typeLabels[String(accumulated.service_type || '')] || '';
+                const generic = tl ? `${tl} - ${answer.trim()}` : '';
+                if (accumulated.service_name === generic || !accumulated.service_name || accumulated.service_name.length < 5) {
+                  accumulated.service_name = undefined;
                 }
                 console.log('[accumulateFields] FIELD_REQUEST: Service neighborhood captured:', answer);
               }
@@ -4922,23 +4927,30 @@ export async function executeTool(
             return data?.length ? data[0] : null;
           };
 
+          // Extrai a parte distintiva: "CEU - Rosa Da China" -> "Rosa Da China" (o banco usa "CEU AT COMPL ROSA DA CHINA")
+          const partsAfterDash = serviceNameArg.split(/\s*[-–—]\s*/);
+          const distinctivePart = (partsAfterDash.length > 1 ? partsAfterDash[partsAfterDash.length - 1] : serviceNameArg).trim();
+
           let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
-          if (!found && serviceNameArg.length > 8) {
-            const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro)\s+(de\s+)?/i, '').trim();
-            if (withoutPrefix.length >= 5) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`);
+          if (!found && distinctivePart.length >= 4) {
+            found = await tryFindService(serviceTypeArg, `%${distinctivePart}%`)
+              || await tryFindService(null, `%${distinctivePart}%`);
           }
-          if (!found && serviceNameArg.length > 10) {
-            const matchDistinctive = serviceNameArg.match(/(?:CEU|UBS|Biblioteca)\s+(.+?)(?:\s*[-–—]|$)/i);
-            const distinctive = matchDistinctive?.[1]?.trim();
-            if (distinctive && distinctive.length >= 4) {
-              found = await tryFindService(serviceTypeArg, `%${distinctive}%`)
-                || await tryFindService(null, `%${distinctive}%`);
-              if (!found) found = await tryFindByDistrict(distinctive);
-            }
+          if (!found && serviceNameArg.length > 8) {
+            const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro|ceu)\s+(de\s+)?/i, '').trim();
+            if (withoutPrefix.length >= 4) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`)
+              || await tryFindService(null, `%${withoutPrefix}%`);
+          }
+          if (!found && distinctivePart.length >= 4) {
+            found = await tryFindByDistrict(distinctivePart);
           }
           if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
+          if (!found && distinctivePart.length >= 4) {
+            found = await tryFindService(null, `%${distinctivePart}%`);
+          }
           if (!found && serviceTypeArg === 'ceu') {
-            found = await tryFindService('library', `%${serviceNameArg}%`);
+            found = await tryFindService('library', `%${serviceNameArg}%`)
+              || (distinctivePart.length >= 4 ? await tryFindService('library', `%${distinctivePart}%`) : null);
           }
 
           if (found) {
