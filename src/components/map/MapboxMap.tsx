@@ -25,11 +25,20 @@ interface MapboxMapProps {
   onServiceClick: (serviceId: string) => void;
 }
 
+const getInitialToken = (): string => {
+  const env = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+  if (env && typeof env === 'string' && env.startsWith('pk.')) return env;
+  return typeof localStorage !== 'undefined' ? localStorage.getItem('mapbox_token') || '' : '';
+};
+
 export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string>('');
-  const [tokenSaved, setTokenSaved] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState<string>(getInitialToken);
+  const [tokenSaved, setTokenSaved] = useState(() => {
+    const t = getInitialToken();
+    return !!(t && t.startsWith('pk.'));
+  });
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [showDirections, setShowDirections] = useState(false);
   const [transportMode, setTransportMode] = useState<'walking' | 'driving' | 'cycling'>('walking');
@@ -241,7 +250,14 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
           </div>
           
           <Button
-            onClick={() => setTokenSaved(true)}
+            onClick={() => {
+              if (mapboxToken.startsWith('pk.')) {
+                try {
+                  localStorage.setItem('mapbox_token', mapboxToken);
+                } catch (_) { /* ignore */ }
+                setTokenSaved(true);
+              }
+            }}
             disabled={!mapboxToken.startsWith('pk.')}
             className="w-full"
           >

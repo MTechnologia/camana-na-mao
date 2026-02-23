@@ -9,6 +9,11 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_PROJECT_ID?: string;
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   readonly VITE_SUPABASE_URL?: string;
+
+  /** Token público Mapbox (pk.*). Se definido, o mapa real é exibido em "Perto de Você". */
+  readonly VITE_MAPBOX_ACCESS_TOKEN?: string;
+  /** API key Google Maps Platform. Quando definida, o mapa usa Google Maps em vez de Mapbox. */
+  readonly VITE_GOOGLE_MAPS_API_KEY?: string;
 }
 
 interface ImportMeta {
