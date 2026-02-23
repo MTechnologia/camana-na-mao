@@ -2348,12 +2348,13 @@ export function accumulateFieldsFromHistory(
               }
               break;
             case 'service_name':
-              const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?$/i);
+              // Aceitar "Serviço: NOME - Bairro\nEndereço: ..." (regex sem $ para multilinha)
+              const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*([^\n]*))?(?:\n|$)/i);
               if (nameMatch) {
                 accumulated.service_name = nameMatch[1].trim();
-                if (nameMatch[2]) accumulated.service_neighborhood = nameMatch[2].trim();
+                if (nameMatch[2] && nameMatch[2].trim()) accumulated.service_neighborhood = nameMatch[2].trim();
               } else {
-                accumulated.service_name = answer;
+                accumulated.service_name = answer.trim();
               }
               break;
             case 'rating_stars':
@@ -5246,11 +5247,19 @@ export async function executeTool(
         
         // === PROCESSING: All validations passed ===
         
+        // Normalizar service_name: às vezes vem a mensagem inteira "Serviço: X - Y\nEndereço: ..."
+        let serviceNameForLookup = (args.service_name || '').trim();
+        const pickerFormatMatch = serviceNameForLookup.match(/serviço:\s*(.+?)(?:\s*-\s*[^\n]*)?(?:\n|$)/i);
+        if (pickerFormatMatch) {
+          serviceNameForLookup = pickerFormatMatch[1].trim();
+          console.log('[create_service_rating] Normalized service_name from picker format:', serviceNameForLookup);
+        }
+        
         const providedServiceId = (args as { service_id?: string }).service_id || accumulatedFields?.service_id;
         console.log('[create_service_rating] Attempting to create rating:', {
           userId,
           service_type: args.service_type,
-          service_name: args.service_name,
+          service_name: serviceNameForLookup,
           service_id_provided: !!providedServiceId,
           rating_stars: stars,
           hasRatingText: !!args.rating_text
@@ -5273,12 +5282,12 @@ export async function executeTool(
         }
         
         if (!serviceId) {
-          // Busca por nome/tipo (fluxo sem picker ou id não encontrado)
+          // Busca por nome/tipo (fluxo sem picker ou id não encontrado) — usar nome normalizado
           const { data: services, error: serviceError } = await supabase
             .from('public_services')
             .select('id')
             .eq('service_type', args.service_type)
-            .ilike('name', `%${args.service_name}%`)
+            .ilike('name', `%${serviceNameForLookup}%`)
             .limit(1);
           
           if (serviceError) {
@@ -5290,7 +5299,7 @@ export async function executeTool(
           } else {
             console.warn('[create_service_rating] Service not found:', {
               service_type: args.service_type,
-              service_name: args.service_name
+              service_name: serviceNameForLookup
             });
           }
         }
@@ -5341,8 +5350,11 @@ export async function executeTool(
           .single();
         
         if (error) {
-          console.error('[create_service_rating] Database insert error:', error);
-          throw error;
+          console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
+          return {
+            success: false,
+            message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'
+          };
         }
         
         console.log('[create_service_rating] Rating saved successfully:', {

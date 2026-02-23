@@ -4,6 +4,8 @@ import PageHeader from "@/components/ui/page-header";
 
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
 import { ServiceTypeFilter } from "@/components/evaluation/ServiceTypeFilter";
+import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
+import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
 import { Button } from "@/components/ui/button";
@@ -19,14 +21,29 @@ export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const [selectedType, setSelectedType] = useState<ServiceType>("all");
   const [radiusMeters, setRadiusMeters] = useState(5000);
+  const [minRating, setMinRating] = useState<MinRatingFilter>("all");
+  const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  
+
   const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
   const { services, loading: servicesLoading } = useNearbyServices({
     latitude,
     longitude,
     radiusMeters,
     serviceType: selectedType === "all" ? undefined : selectedType
+  });
+
+  const filteredByRating = minRating === "all"
+    ? services
+    : services.filter((s) => (s.average_rating ?? 0) >= minRating);
+
+  const sortedServices = [...filteredByRating].sort((a, b) => {
+    if (sortBy === "rating") {
+      const ra = a.average_rating ?? 0;
+      const rb = b.average_rating ?? 0;
+      if (rb !== ra) return rb - ra;
+    }
+    return (a.distance ?? 0) - (b.distance ?? 0);
   });
 
   const isLoading = servicesLoading && services.length === 0;
@@ -67,17 +84,22 @@ export default function NearbyServicesPage() {
         )}
 
         {latitude && longitude && !geoError && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
-            <span>
-              {services.length} {services.length === 1 ? 'serviço encontrado' : 'serviços encontrados'}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="w-4 h-4" />
+              <span>
+                {sortedServices.length} {sortedServices.length === 1 ? "serviço encontrado" : "serviços encontrados"}
+              </span>
+            </div>
+            <ServiceSortSelect value={sortBy} onValueChange={setSortBy} />
           </div>
         )}
 
         <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
 
         <ServiceTypeFilter selectedType={selectedType} onTypeChange={setSelectedType} />
+
+        <RatingFilter value={minRating} onChange={setMinRating} />
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -98,17 +120,17 @@ export default function NearbyServicesPage() {
                   <Skeleton key={i} className="h-32 w-full" />
                 ))}
               </div>
-            ) : services.length === 0 ? (
+            ) : sortedServices.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-4xl mb-3">📍</div>
                 <h3 className="font-semibold text-foreground mb-1">Nenhum serviço encontrado</h3>
                 <p className="text-sm text-muted-foreground">
-                  Tente aumentar o raio de busca ou selecionar outro tipo de serviço
+                  Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-                {services.map((service) => (
+                {sortedServices.map((service) => (
                   <ServiceCard
                     key={service.id}
                     id={service.id}
@@ -133,7 +155,7 @@ export default function NearbyServicesPage() {
             ) : userLocation ? (
               <MapView
                 userLocation={userLocation}
-                services={services}
+                services={sortedServices}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
               />
             ) : (
