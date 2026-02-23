@@ -2261,6 +2261,13 @@ export function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed service_address from picker:', accumulated.service_address);
       }
       
+      // Parse [SERVICE_ID:uuid] from InlineServicePicker (quando usuário escolhe da lista)
+      const serviceIdMatch = content.match(/\[SERVICE_ID:([a-f0-9-]{36})\]/i);
+      if (serviceIdMatch && !accumulated.service_id) {
+        accumulated.service_id = serviceIdMatch[1];
+        console.log('[accumulateFields] Parsed service_id from picker:', accumulated.service_id);
+      }
+      
       // === IMPROVED: Parse address confirmation responses with flexible patterns ===
       // Only parse if we're awaiting confirmation (service_address_confirmed is undefined)
       if (accumulated.service_address_confirmed === undefined) {
@@ -5239,37 +5246,58 @@ export async function executeTool(
         
         // === PROCESSING: All validations passed ===
         
+        const providedServiceId = (args as { service_id?: string }).service_id || accumulatedFields?.service_id;
         console.log('[create_service_rating] Attempting to create rating:', {
           userId,
           service_type: args.service_type,
           service_name: args.service_name,
+          service_id_provided: !!providedServiceId,
           rating_stars: stars,
           hasRatingText: !!args.rating_text
         });
         
-        // Find service by name/type
-        let serviceId = null;
-        let visitId = null;
+        let serviceId: string | null = null;
+        let visitId: string | null = null;
         
-        const { data: services, error: serviceError } = await supabase
-          .from('public_services')
-          .select('id')
-          .eq('service_type', args.service_type)
-          .ilike('name', `%${args.service_name}%`)
-          .limit(1);
-        
-        if (serviceError) {
-          console.error('[create_service_rating] Error finding service:', serviceError);
+        if (providedServiceId) {
+          // Usuário escolheu da lista: usar o ID enviado pelo picker (evita falha por nome)
+          const { data: serviceRow, error: fetchError } = await supabase
+            .from('public_services')
+            .select('id')
+            .eq('id', providedServiceId)
+            .maybeSingle();
+          if (!fetchError && serviceRow) {
+            serviceId = serviceRow.id;
+            console.log('[create_service_rating] Service found by id (from picker):', serviceId);
+          }
         }
         
-        if (services?.length) {
-          serviceId = services[0].id;
-          console.log('[create_service_rating] Service found:', serviceId);
+        if (!serviceId) {
+          // Busca por nome/tipo (fluxo sem picker ou id não encontrado)
+          const { data: services, error: serviceError } = await supabase
+            .from('public_services')
+            .select('id')
+            .eq('service_type', args.service_type)
+            .ilike('name', `%${args.service_name}%`)
+            .limit(1);
           
-          // Create a visit record
+          if (serviceError) {
+            console.error('[create_service_rating] Error finding service:', serviceError);
+          }
+          if (services?.length) {
+            serviceId = services[0].id;
+            console.log('[create_service_rating] Service found by name:', serviceId);
+          } else {
+            console.warn('[create_service_rating] Service not found:', {
+              service_type: args.service_type,
+              service_name: args.service_name
+            });
+          }
+        }
+        
+        if (serviceId) {
           const expires = new Date();
           expires.setDate(expires.getDate() + 7);
-          
           const { data: visitData, error: visitError } = await supabase
             .from('service_visits')
             .insert({
@@ -5280,22 +5308,16 @@ export async function executeTool(
             })
             .select('id')
             .single();
-          
           if (visitError) {
             console.error('[create_service_rating] Error creating visit:', visitError);
           } else {
-            visitId = visitData?.id;
+            visitId = visitData?.id ?? null;
             console.log('[create_service_rating] Visit created:', visitId);
           }
-        } else {
-          console.warn('[create_service_rating] Service not found:', {
-            service_type: args.service_type,
-            service_name: args.service_name
-          });
         }
         
         if (!serviceId || !visitId) {
-          return { success: false, message: 'Não encontrei o serviço. Pode informar o nome completo e o bairro?' };
+          return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
         }
         
         console.log('[create_service_rating] Attempting to insert rating:', {

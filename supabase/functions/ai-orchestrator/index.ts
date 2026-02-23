@@ -789,7 +789,7 @@ serve(async (req) => {
             };
             toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
           } else if (collectionIntent.type === 'service_rating') {
-            const toolArgs = {
+            const toolArgs: Record<string, unknown> = {
               service_type: accumulatedFields.service_type,
               service_name: accumulatedFields.service_name,
               service_neighborhood: accumulatedFields.service_neighborhood,
@@ -798,6 +798,7 @@ serve(async (req) => {
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment
             };
+            if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
             toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
           }
           

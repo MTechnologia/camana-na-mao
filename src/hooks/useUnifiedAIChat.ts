@@ -1467,9 +1467,11 @@ export const useUnifiedAIChat = (
       service_address: address || ''
     };
     if (neighborhood) newFields.service_neighborhood = neighborhood;
+    if (serviceId) newFields.service_id = serviceId;
     setCollectedFields(prev => ({ ...prev, ...newFields }));
-    // Include address in the message so the bot can ask for confirmation
-    sendMessage(`Serviço: ${name}${neighborhood ? ` - ${neighborhood}` : ''}\nEndereço: ${address || 'Não informado'}`);
+    // Include address and optional service_id (para o backend encontrar o serviço na base)
+    const msg = `Serviço: ${name}${neighborhood ? ` - ${neighborhood}` : ''}\nEndereço: ${address || 'Não informado'}${serviceId ? `\n[SERVICE_ID:${serviceId}]` : ''}`;
+    sendMessage(msg);
   }, [sendMessage]);
 
   // Handle service address confirmation
