@@ -946,6 +946,10 @@ serve(async (req) => {
             toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
           } else if (collectionIntent.type === 'service_rating') {
             const toolArgs: Record<string, unknown> = {
+              service_type: accumulatedFields.service_type,
+              service_name: accumulatedFields.service_name,
+              service_neighborhood: accumulatedFields.service_neighborhood,
+              service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
               rating_stars: accumulatedFields.rating_stars,
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment || 'neutral'
@@ -955,10 +959,7 @@ serve(async (req) => {
               if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
               if (accumulatedFields.service_name) toolArgs.service_name = accumulatedFields.service_name;
             } else {
-              toolArgs.service_type = accumulatedFields.service_type;
-              toolArgs.service_name = accumulatedFields.service_name;
-              toolArgs.service_neighborhood = accumulatedFields.service_neighborhood;
-              toolArgs.service_address_confirmed = accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed;
+              if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
             }
             toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
           }

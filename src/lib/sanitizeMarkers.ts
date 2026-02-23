@@ -78,6 +78,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
     .replace(/\[SERVICE_PICKER(?::[^\]]+)?\]/g, '')
     .replace(/\[SERVICE_ADDRESS_CONFIRM:[^\]]+\]/g, '')
+    .replace(/\[SERVICE_ID:[a-f0-9-]+\]/g, '')
     .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')

@@ -2352,6 +2352,13 @@ export function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed service_address from picker:', accumulated.service_address);
       }
       
+      // Parse [SERVICE_ID:uuid] from InlineServicePicker (quando usuário escolhe da lista)
+      const serviceIdMatch = content.match(/\[SERVICE_ID:([a-f0-9-]{36})\]/i);
+      if (serviceIdMatch && !accumulated.service_id) {
+        accumulated.service_id = serviceIdMatch[1];
+        console.log('[accumulateFields] Parsed service_id from picker:', accumulated.service_id);
+      }
+      
       // === IMPROVED: Parse address confirmation responses with flexible patterns ===
       // Only parse if we're awaiting confirmation (service_address_confirmed is undefined)
       if (accumulated.service_address_confirmed === undefined) {
@@ -2433,14 +2440,14 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_type = answer.toLowerCase();
               }
               break;
-            }
-            case 'service_name': {
-              const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*(.+))?$/i);
+            case 'service_name':
+              // Aceitar "Serviço: NOME - Bairro\nEndereço: ..." (regex sem $ para multilinha)
+              const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*([^\n]*))?(?:\n|$)/i);
               if (nameMatch) {
                 accumulated.service_name = nameMatch[1].trim();
-                if (nameMatch[2]) accumulated.service_neighborhood = nameMatch[2].trim();
+                if (nameMatch[2] && nameMatch[2].trim()) accumulated.service_neighborhood = nameMatch[2].trim();
               } else {
-                accumulated.service_name = answer;
+                accumulated.service_name = answer.trim();
               }
               break;
             }
@@ -4851,7 +4858,7 @@ export async function executeTool(
         let serviceId: string | null = null;
         let visitId: string | null = null;
         let serviceNameForMessage = args.service_name || '';
-        
+
         // === MODO VISITA: visit_id informado (página de avaliação conversacional) ===
         if (args.visit_id) {
           const { data: visitData, error: visitLoadError } = await supabase
@@ -4860,12 +4867,12 @@ export async function executeTool(
             .eq('id', args.visit_id)
             .eq('user_id', userId)
             .single();
-          
+
           if (visitLoadError || !visitData) {
             console.error('[create_service_rating] Visit not found or access denied:', args.visit_id);
             return { success: false, message: 'Visita não encontrada. Tente acessar novamente pela notificação.' };
           }
-          
+
           visitId = visitData.id;
           serviceId = visitData.service_id;
           serviceNameForMessage = args.service_name || accumulatedFields?.service_name || 'serviço';
@@ -4979,6 +4986,10 @@ export async function executeTool(
           }
         }
         
+        if (!serviceId || !visitId) {
+          return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
+        }
+        
         console.log('[create_service_rating] Attempting to insert rating:', {
           userId,
           serviceId,
@@ -5000,8 +5011,11 @@ export async function executeTool(
           .single();
         
         if (error) {
-          console.error('[create_service_rating] Database insert error:', error);
-          throw error;
+          console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
+          return {
+            success: false,
+            message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'
+          };
         }
         
         if (args.visit_id) {
