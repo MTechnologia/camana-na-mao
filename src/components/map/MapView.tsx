@@ -1,9 +1,8 @@
-import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
+import { lazy, Suspense } from 'react';
 import { SimulatedMap } from './SimulatedMap';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const GoogleMapView = lazy(() => import('./GoogleMapView').then(module => ({ default: module.GoogleMapView })));
-const MapboxMap = lazy(() => import('./MapboxMap').then(module => ({ default: module.MapboxMap })));
 
 interface Service {
   id: string;
@@ -30,19 +29,9 @@ const MapLoader = () => (
 );
 
 export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps) => {
-  const [hasMapboxToken, setHasMapboxToken] = useState(false);
   const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const useGoogleMaps = !!(googleMapsKey && googleMapsKey.trim().length > 0);
 
-  useEffect(() => {
-    const envToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-    const localToken = localStorage.getItem('mapbox_token');
-    setHasMapboxToken(!!(envToken || localToken));
-  }, []);
-
-  const handleTokenSaved = useCallback(() => setHasMapboxToken(true), []);
-
-  // Preferência: Google Maps (GCP) > Mapbox > Simulado
   if (useGoogleMaps) {
     return (
       <Suspense fallback={<MapLoader />}>
@@ -55,24 +44,11 @@ export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps
     );
   }
 
-  if (!hasMapboxToken) {
-    return (
-      <SimulatedMap
-        userLocation={userLocation}
-        services={services}
-        onServiceClick={onServiceClick}
-        onTokenSaved={handleTokenSaved}
-      />
-    );
-  }
-
   return (
-    <Suspense fallback={<MapLoader />}>
-      <MapboxMap
-        userLocation={userLocation}
-        services={services}
-        onServiceClick={onServiceClick}
-      />
-    </Suspense>
+    <SimulatedMap
+      userLocation={userLocation}
+      services={services}
+      onServiceClick={onServiceClick}
+    />
   );
 };

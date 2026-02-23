@@ -1,10 +1,6 @@
-import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { MapPin, Navigation, ChevronDown, ChevronUp } from "lucide-react";
+import { MapPin, Navigation } from "lucide-react";
 import { formatDistance } from "@/lib/mapUtils";
 
 interface Service {
@@ -20,8 +16,6 @@ interface SimulatedMapProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
-  /** Chamado quando o usuário salva um token Mapbox; o mapa real será carregado. */
-  onTokenSaved?: () => void;
 }
 
 const serviceIcons: Record<string, string> = {
@@ -34,26 +28,7 @@ const serviceIcons: Record<string, string> = {
   other: "📍"
 };
 
-export const SimulatedMap = ({ userLocation, services, onServiceClick, onTokenSaved }: SimulatedMapProps) => {
-  const [showTokenForm, setShowTokenForm] = useState(false);
-  const [tokenInput, setTokenInput] = useState("");
-  const [tokenError, setTokenError] = useState("");
-
-  const handleSaveToken = () => {
-    const t = tokenInput.trim();
-    if (!t.startsWith("pk.")) {
-      setTokenError("O token deve começar com pk.");
-      return;
-    }
-    setTokenError("");
-    try {
-      localStorage.setItem("mapbox_token", t);
-      onTokenSaved?.();
-    } catch {
-      setTokenError("Não foi possível salvar.");
-    }
-  };
-
+export const SimulatedMap = ({ userLocation, services, onServiceClick }: SimulatedMapProps) => {
   return (
     <div className="relative w-full h-[500px] bg-gradient-to-br from-secondary/20 via-background to-secondary/10 rounded-lg border-2 border-dashed border-muted-foreground/30 overflow-hidden">
       {/* Background grid pattern */}
@@ -65,39 +40,15 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, onTokenSa
         backgroundSize: '30px 30px'
       }} />
 
-      {/* Demo banner + link para ativar mapa real */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
+      {/* Demo banner + instrução Google Maps */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-center px-4">
         <Badge variant="secondary" className="shadow-lg">
           <Navigation className="w-3 h-3 mr-1" />
           Mapa de Demonstração
         </Badge>
-        {onTokenSaved && (
-          <button
-            type="button"
-            onClick={() => setShowTokenForm((v) => !v)}
-            className="text-xs text-primary hover:underline flex items-center gap-1"
-          >
-            {showTokenForm ? "Ocultar" : "Usar mapa com ruas (Mapbox)"}
-            {showTokenForm ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-        )}
-        {showTokenForm && onTokenSaved && (
-          <Card className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-[90%] max-w-sm p-3 shadow-lg">
-            <Label htmlFor="sim-mapbox-token" className="text-xs">Token Mapbox (pk.eyJ...)</Label>
-            <Input
-              id="sim-mapbox-token"
-              type="text"
-              placeholder="pk.eyJ1..."
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              className="mt-1 text-sm"
-            />
-            {tokenError && <p className="text-xs text-destructive mt-1">{tokenError}</p>}
-            <Button size="sm" className="mt-2 w-full" onClick={handleSaveToken} disabled={!tokenInput.trim().startsWith("pk.")}>
-              Salvar e carregar mapa
-            </Button>
-          </Card>
-        )}
+        <p className="text-xs text-muted-foreground max-w-xs">
+          Para ver o mapa com ruas, configure <code className="text-[10px] bg-muted px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no arquivo <code className="text-[10px] bg-muted px-1 rounded">.env</code> e reinicie o aplicativo.
+        </p>
       </div>
 
       {/* User location marker */}
