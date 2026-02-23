@@ -10,6 +10,8 @@ steps:
       - "CAMARA_PUBLISHABLE_KEY=${_CAMARA_PUBLISHABLE_KEY}"
       - "--build-arg"
       - "CAMARA_PROJECT_ID=${_CAMARA_PROJECT_ID}"
+      - "--build-arg"
+      - "VITE_GOOGLE_MAPS_API_KEY=${_VITE_GOOGLE_MAPS_API_KEY}"
       - "."
 
   # Push image BEFORE deploying, otherwise Cloud Run can't find it yet.
@@ -41,6 +43,7 @@ substitutions:
   _CAMARA_URL: ""
   _CAMARA_PUBLISHABLE_KEY: ""
   _CAMARA_PROJECT_ID: ""
+  _VITE_GOOGLE_MAPS_API_KEY: ""
   _CLOUD_RUN_SERVICE: "camana-na-mao"
   _CLOUD_RUN_REGION: "southamerica-east1"
 

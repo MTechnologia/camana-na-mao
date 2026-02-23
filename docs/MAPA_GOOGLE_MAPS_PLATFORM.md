@@ -60,3 +60,17 @@ Se quiser seguir com a troca, o fluxo seria:
 2. No código: novo componente de mapa com Google Maps, hook de rotas usando Directions API, e `MapView` passando a usar a API key (ex.: `VITE_GOOGLE_MAPS_API_KEY`) em vez do token Mapbox.
 
 Assim você deixa de depender do Mapbox e usa só o Google Maps Platform integrado ao GCP.
+
+---
+
+## Deploy no GCP (Cloud Build)
+
+A chave do Google Maps é injetada no **build** do front (Vite). No deploy automático:
+
+1. **Cloud Build** → **Triggers** → abra o trigger do repositório (ex.: branch `dev`).
+2. Em **Substitution variables** (ou "Variáveis de substituição"), adicione:
+   - **Nome:** `_VITE_GOOGLE_MAPS_API_KEY`
+   - **Valor:** sua API key (a mesma do `.env` local).
+3. Salve o trigger. Nos próximos builds (push na branch configurada), a chave será passada ao Docker e o mapa carregará em produção.
+
+Não commite a chave no repositório; use só a substituição do trigger (ou Secret Manager, se preferir).
