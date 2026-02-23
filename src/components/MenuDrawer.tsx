@@ -16,6 +16,7 @@ import {
   Lock,
   User,
   MessageSquare,
+  MapPin,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -66,6 +67,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       label: "Conversas", 
       icon: MessageSquare,
       route: "/conversas"
+    },
+    { 
+      id: 2.2, 
+      label: "Perto de Você", 
+      icon: MapPin,
+      route: "/servicos-proximos"
     },
     ...(canReferToCouncilMember ? [{
       id: 2.5,
