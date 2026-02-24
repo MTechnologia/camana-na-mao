@@ -46,8 +46,14 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+
+    // JWT: header (preferido) ou body.access_token (fallback para WebView/Android que às vezes não envia Authorization)
     const authHeader = req.headers.get("Authorization");
-    const jwt = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const jwtFromHeader = authHeader?.replace(/^Bearer\s+/i, "").trim();
+    const jwtFromBody = typeof body?.access_token === "string" ? body.access_token.trim() : null;
+    const jwt = jwtFromHeader || jwtFromBody;
+
     if (!jwt) {
       return new Response(
         JSON.stringify({ error: "Token de autenticação ausente" }),
@@ -63,7 +69,6 @@ serve(async (req) => {
       );
     }
 
-    const body = await req.json().catch(() => ({}));
     const token = typeof body?.token === "string" ? body.token.trim() : null;
     if (!token || !token.startsWith("ExponentPushToken")) {
       return new Response(

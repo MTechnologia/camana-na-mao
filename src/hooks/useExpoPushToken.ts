@@ -59,10 +59,11 @@ export function useExpoPushToken(userId: string | undefined) {
       const fnUrl = `${supabaseUrl}/functions/v1/save-expo-push-token`;
       console.log("[useExpoPushToken] chamando Edge Function", fnUrl);
       try {
+        // Enviar também access_token no body: em WebView/Android o header Authorization às vezes é removido
         const res = await fetch(fnUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ token }),
+          body: JSON.stringify({ token, access_token: session.access_token }),
         });
         if (res.ok) {
           console.log("[useExpoPushToken] token salvo via Edge Function");
