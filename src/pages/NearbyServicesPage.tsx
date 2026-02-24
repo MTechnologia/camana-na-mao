@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, AlertCircle, Map, List } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
+import { getServiceDisplayName } from "@/lib/mapUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center";
@@ -174,7 +175,7 @@ export default function NearbyServicesPage() {
                   <ServiceCard
                     key={service.id}
                     id={service.id}
-                    name={service.name}
+                    name={getServiceDisplayName({ name: service.name, address: service.address, district: service.district, service_type: service.service_type })}
                     serviceType={service.service_type}
                     address={service.address}
                     district={service.district}
@@ -182,6 +183,10 @@ export default function NearbyServicesPage() {
                     averageRating={service.average_rating}
                     totalRatings={service.total_ratings}
                     phone={service.phone}
+                    latitude={service.latitude}
+                    longitude={service.longitude}
+                    userLatitude={latitude}
+                    userLongitude={longitude}
                     onClick={() => navigate(`/servico/${service.id}`)}
                   />
                 ))}

@@ -1,3 +1,20 @@
+/** Nome legível para exibição. Se o nome no banco for ID técnico (ex.: ponto_onibus.fid--...), usa "Ponto de ônibus" + endereço/bairro. */
+export const getServiceDisplayName = (params: {
+  name: string;
+  address?: string;
+  district?: string;
+  service_type?: string;
+}): string => {
+  const { name, address, district } = params;
+  const isTechnicalId = /ponto_onibus\.fid--|\.fid--[a-f0-9_]+$/i.test(name?.trim() ?? "") ||
+    (name?.startsWith("Ponto de Onibus ") && name.includes("fid--"));
+  if (isTechnicalId) {
+    const suffix = [address?.trim(), district?.trim()].filter(Boolean)[0];
+    return suffix ? `Ponto de ônibus – ${suffix}` : "Ponto de ônibus";
+  }
+  return name?.trim() || "Serviço";
+};
+
 export const formatDistance = (meters: number): string => {
   if (meters < 1000) {
     return `${Math.round(meters)}m`;

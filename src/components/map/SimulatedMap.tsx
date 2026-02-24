@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation } from "lucide-react";
-import { formatDistance } from "@/lib/mapUtils";
+import { formatDistance, getServiceDisplayName } from "@/lib/mapUtils";
 
 interface Service {
   id: string;
@@ -10,6 +10,8 @@ interface Service {
   latitude: number;
   longitude: number;
   distance?: number;
+  address?: string;
+  district?: string;
 }
 
 interface SimulatedMapProps {
@@ -80,7 +82,7 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick }: Simulat
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm text-foreground line-clamp-1">
-                  {service.name}
+                  {getServiceDisplayName({ name: service.name, address: service.address, district: service.district, service_type: service.service_type })}
                 </p>
                 {service.distance && (
                   <p className="text-xs text-muted-foreground">

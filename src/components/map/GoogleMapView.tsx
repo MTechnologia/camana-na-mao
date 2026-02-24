@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Navigation, MapPin } from 'lucide-react';
 import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
+import { getServiceDisplayName, buildGoogleMapsUrl } from '@/lib/mapUtils';
 
 interface Service {
   id: string;
@@ -11,6 +12,7 @@ interface Service {
   longitude: number;
   distance?: number;
   address?: string;
+  district?: string;
 }
 
 interface GoogleMapViewProps {
@@ -94,20 +96,30 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
     markersRef.current = [];
 
     services.forEach((service) => {
+      const displayName = getServiceDisplayName({
+        name: service.name,
+        address: service.address,
+        district: service.district,
+        service_type: service.service_type,
+      });
       const marker = new google.maps.Marker({
         position: { lat: service.latitude, lng: service.longitude },
         map: mapInstanceRef.current!,
-        title: service.name,
+        title: displayName,
         label: {
           text: serviceIcons[service.service_type] || serviceIcons.other,
           fontSize: '20px',
         },
       });
 
+      const mapsUrl = userLocation
+        ? buildGoogleMapsUrl(userLocation.latitude, userLocation.longitude, service.latitude, service.longitude)
+        : `https://www.google.com/maps?q=${service.latitude},${service.longitude}`;
       const infoContent = `
         <div style="padding:8px;min-width:160px;">
-          <p style="font-weight:600;margin:0 0 4px;">${service.name}</p>
+          <p style="font-weight:600;margin:0 0 4px;">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
           ${service.distance != null ? `<p style="font-size:12px;color:#666;">${service.distance < 1000 ? Math.round(service.distance) + 'm' : (service.distance / 1000).toFixed(1) + 'km'}</p>` : ''}
+          <a href="${mapsUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1976d2;margin-top:6px;display:inline-block;">Como chegar</a>
         </div>
       `;
       const info = new google.maps.InfoWindow({ content: infoContent });
@@ -119,7 +131,7 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
 
       markersRef.current.push(marker);
     });
-  }, [isLoaded, services, onServiceClick]);
+  }, [isLoaded, services, onServiceClick, userLocation]);
 
   useEffect(() => {
     setLoadError(error ?? null);

@@ -1,8 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Phone } from "lucide-react";
+import { MapPin, Phone, ExternalLink } from "lucide-react";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
-import { formatDistance } from "@/lib/mapUtils";
+import { formatDistance, buildGoogleMapsUrl } from "@/lib/mapUtils";
 
 interface ServiceCardProps {
   id: string;
@@ -14,6 +14,12 @@ interface ServiceCardProps {
   averageRating: number;
   totalRatings: number;
   phone?: string | null;
+  /** Coordenadas do serviço para link "Abrir no Google Maps" */
+  latitude?: number;
+  longitude?: number;
+  /** Localização do usuário para "Como chegar" (rotas) */
+  userLatitude?: number | null;
+  userLongitude?: number | null;
   onClick?: () => void;
 }
 
@@ -46,8 +52,20 @@ export const ServiceCard = ({
   averageRating,
   totalRatings,
   phone,
+  latitude,
+  longitude,
+  userLatitude,
+  userLongitude,
   onClick
 }: ServiceCardProps) => {
+  const hasCoords = typeof latitude === "number" && typeof longitude === "number" && !Number.isNaN(latitude) && !Number.isNaN(longitude);
+  const hasUserCoords = typeof userLatitude === "number" && typeof userLongitude === "number" && !Number.isNaN(userLatitude) && !Number.isNaN(userLongitude);
+  const mapsUrl = hasCoords
+    ? hasUserCoords
+      ? buildGoogleMapsUrl(userLatitude!, userLongitude!, latitude!, longitude!)
+      : `https://www.google.com/maps?q=${latitude},${longitude}`
+    : null;
+
   return (
     <Card 
       className={cn(
@@ -83,6 +101,19 @@ export const ServiceCard = ({
               <MapPin className="w-3 h-3" />
               <span className="line-clamp-1">{address}, {district}</span>
             </div>
+
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mb-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3 h-3" />
+                {hasUserCoords ? "Como chegar" : "Abrir no Google Maps"}
+              </a>
+            )}
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
