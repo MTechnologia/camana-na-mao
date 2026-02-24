@@ -5,7 +5,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 ## Fluxo desejado
 
 1. Usuário visita fisicamente um serviço público (ex: UBS)
-2. Sistema detecta a permanência (geofencing 50m, mínimo 10 min)
+2. Sistema detecta a permanência (geofencing 100 m, mínimo 10 min)
 3. Após sair ou ao abrir o app: notificação "Você visitou [UBS X]. Gostaria de avaliar?"
 4. Usuário confirma e é levado à tela de avaliação (`/avaliar/:visitId`)
 
@@ -14,7 +14,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 ### O que está pronto
 
 - **Hook `useVisitDetection`** (`src/hooks/useVisitDetection.ts`)
-  - Geofence: raio de 50m
+  - Geofence: raio de 100 m
   - Permanência mínima: 10 minutos
   - Verificação a cada 1 minuto
   - Cria `service_visit` automaticamente ao detectar
@@ -37,7 +37,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 Implementado em background com `expo-location` e `expo-task-manager`:
 
 1. **Migration** `20260218140000_visit_detection_state.sql`: tabela `visit_detection_state` (user_id, service_id, first_seen_at)
-2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 50m, permanência 10 min → cria `service_visit` e INSERT em `notifications`
+2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 100 m, permanência 10 min → cria `service_visit` e INSERT em `notifications`
 3. **Mobile** `src/tasks/visitDetectionTask.ts`: background task registrada com TaskManager; a cada atualização de localização chama a edge function
 4. **Bridge de auth**: `BackgroundAuthBridge` no web app envia `CAMARA_AUTH_STATE` ao native; o native armazena user_id e access_token em AsyncStorage para o background task
 5. **FrontendWebView**: trata `CAMARA_AUTH_STATE`, solicita permissões de localização (foreground e background), inicia `startLocationUpdatesAsync`
@@ -53,17 +53,38 @@ Implementado em background com `expo-location` e `expo-task-manager`:
 supabase functions deploy detect-service-visit
 ```
 
+### Dois fluxos de detecção (não confundir)
+
+| Onde você está | Quem detecta | Quando |
+|----------------|--------------|--------|
+| **App nativo (Expo)** com tela **"Perto de Você" em primeiro plano** | Frontend (`useVisitDetection`) | A cada 1 min; após 10 min no geofence → toast no app + cria visita. **Não chama** a Edge Function. |
+| **App nativo** em **segundo plano** (app minimizado ou outra tela) | **Edge Function** `detect-service-visit` | A task de background envia localização para a Edge Function; ela cria a visita e insere em `notifications` (daí push/e-mail). |
+| **Web no navegador** | Só o frontend | Só se você mantiver a **página "Perto de Você"** aberta por 10+ min. Não há background. |
+
+Se você ficou 20 min no ponto de ônibus **com o app aberto na tela "Perto de Você"**, a detecção é feita pelo **frontend** (não pela Edge Function). Se nada apareceu, veja a seção "Checklist: por que não apareceu nada no app" abaixo.
+
 ### Por que `detect-service-visit` não gera logs?
 
 A background task pode não chegar a chamar a API em vários casos:
 
 | Causa | Como verificar |
 |-------|----------------|
+| **Você estava na tela "Perto de Você"** | Nesse caso o frontend faz a detecção; a Edge Function **só** é usada em background. Não haverá chamadas a `detect-service-visit`. |
+| **Uso só no navegador (web)** | Não existe background no web; a Edge Function nunca é chamada. |
 | **EXPO_PUBLIC_SUPABASE_URL ausente** | Criar `mobile/.env` com `EXPO_PUBLIC_SUPABASE_URL=https://vjzkzsczlbtmrzewffdx.supabase.co` e refazer o build |
 | **Auth não armazenada** | Estar logado e deixar o app aberto na WebView; o `BackgroundAuthBridge` precisa enviar os dados ao native |
 | **Permissão de background negada** | Conferir nas configurações do app se a localização em segundo plano está permitida |
 | **Task não recebe localização** | Em Fake GPS, garantir que o app receba a localização simulada; em emulador a task em background costuma não rodar |
-| **Permanência de 10 min** | Ficar ao menos 10 minutos em um ponto a até 50 m de um registro em `public_services` |
+| **Permanência de 10 min** | Ficar ao menos 10 minutos em um ponto a até 100 m de um registro em `public_services` |
+
+### Checklist: por que não apareceu nada no app (toast "Você visitou...")
+
+Quando a detecção é pelo **frontend** (tela "Perto de Você" aberta):
+
+- Estava **nessa tela** o tempo todo (10+ min)? Se mudou de aba ou fechou, não conta.
+- A **localização** era real (não "modo demonstração")? Em modo demonstração a detecção é desligada.
+- O **ponto de ônibus** está em `public_services` com as **mesmas coordenadas** (ou a &lt; 100 m) do lugar onde você ficou? Se o registro no banco for longe ou tiver sido deduplicado, pode não estar na lista.
+- O **raio de busca** (1 km, 2 km, 5 km…) inclui esse ponto? Se o serviço não entrou na lista da página, o frontend não considera ele para o geofence.
 
 ### Sobre os logs do `save-expo-push-token`
 

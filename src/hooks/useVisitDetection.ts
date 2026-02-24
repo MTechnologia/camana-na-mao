@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const GEOFENCE_RADIUS_M = 50;
+const GEOFENCE_RADIUS_M = 100;
 const MIN_DWELL_MINUTES = 10;
 const CHECK_INTERVAL_MS = 60_000; // 1 minuto
 
