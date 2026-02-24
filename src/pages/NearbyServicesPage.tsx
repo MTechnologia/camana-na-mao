@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
@@ -54,10 +54,16 @@ export default function NearbyServicesPage() {
 
   const resolvedAddresses = useReverseGeocodeForServices(sortedServices);
 
+  // Lista estável para o hook de detecção (evita reexecutar o efeito a cada render e resetar o timer de 10 min)
+  const servicesForVisit = useMemo(
+    () => services.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude })),
+    [services]
+  );
+
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
     latitude,
     longitude,
-    services: services.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude })),
+    services: servicesForVisit,
     userId: user?.id,
     isSimulated,
   });

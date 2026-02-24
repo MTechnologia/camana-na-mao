@@ -125,11 +125,16 @@ export function useVisitDetection({
       isSimulated ||
       services.length === 0
     ) {
+      if (import.meta.env?.DEV && services.length === 0) {
+        console.debug("[useVisitDetection] checkProximity não roda:", { isSimulated, servicesLength: services.length, hasUser: !!userId });
+      }
       return;
     }
 
     const now = Date.now();
     const minDwellMs = MIN_DWELL_MINUTES * 60 * 1000;
+    let withinRadius = 0;
+    let maxElapsed = 0;
 
     for (const svc of services) {
       const dist = distanceMeters(
@@ -143,12 +148,14 @@ export function useVisitDetection({
         continue;
       }
 
+      withinRadius += 1;
       let start = dwellStartRef.current.get(svc.id);
       if (!start) {
         start = now;
         dwellStartRef.current.set(svc.id, start);
       }
       const elapsed = now - start;
+      if (elapsed > maxElapsed) maxElapsed = elapsed;
       if (elapsed >= minDwellMs && !createdVisitsRef.current.has(svc.id)) {
         setIsChecking(true);
         const visitId = await createVisit(svc.id, svc.name);
@@ -158,6 +165,10 @@ export function useVisitDetection({
           setDetectedVisit({ visitId, serviceName: svc.name });
         }
       }
+    }
+
+    if (import.meta.env?.DEV && withinRadius > 0) {
+      console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: MIN_DWELL_MINUTES });
     }
   }, [
     latitude,
