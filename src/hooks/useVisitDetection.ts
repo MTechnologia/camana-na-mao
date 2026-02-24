@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const GEOFENCE_RADIUS_M = 1000;
+const GEOFENCE_RADIUS_M = 50;
 const MIN_DWELL_MINUTES = 10;
 const CHECK_INTERVAL_MS = 60_000; // 1 minuto
 
@@ -27,6 +27,8 @@ function distanceMeters(
 interface ServiceForVisit {
   id: string;
   name: string;
+  /** Nome para exibição (ex.: "Ponto de ônibus – Av. X" em vez do ID técnico) */
+  displayName?: string;
   latitude: number;
   longitude: number;
 }
@@ -158,11 +160,11 @@ export function useVisitDetection({
       if (elapsed > maxElapsed) maxElapsed = elapsed;
       if (elapsed >= minDwellMs && !createdVisitsRef.current.has(svc.id)) {
         setIsChecking(true);
-        const visitId = await createVisit(svc.id, svc.name);
+        const visitId = await createVisit(svc.id, svc.displayName ?? svc.name);
         dwellStartRef.current.delete(svc.id);
         setIsChecking(false);
         if (visitId) {
-          setDetectedVisit({ visitId, serviceName: svc.name });
+          setDetectedVisit({ visitId, serviceName: svc.displayName ?? svc.name });
         }
       }
     }

@@ -54,9 +54,16 @@ export default function NearbyServicesPage() {
 
   const resolvedAddresses = useReverseGeocodeForServices(sortedServices);
 
-  // Lista estável para o hook de detecção (evita reexecutar o efeito a cada render e resetar o timer de 10 min)
+  // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
-    () => services.map((s) => ({ id: s.id, name: s.name, latitude: s.latitude, longitude: s.longitude })),
+    () =>
+      services.map((s) => ({
+        id: s.id,
+        name: s.name,
+        displayName: getServiceDisplayName({ name: s.name, address: s.address, district: s.district, service_type: s.service_type }),
+        latitude: s.latitude,
+        longitude: s.longitude,
+      })),
     [services]
   );
 

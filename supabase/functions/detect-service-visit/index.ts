@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GEOFENCE_RADIUS_M = 1000;
+const GEOFENCE_RADIUS_M = 50;
 const MIN_DWELL_MINUTES = 10;
 const MIN_DWELL_MS = MIN_DWELL_MINUTES * 60 * 1000;
 
@@ -37,6 +37,20 @@ function distanceMeters(
     Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+/** Nome para exibição: se name for ID técnico (ponto_onibus.fid--...), usa "Ponto de ônibus - {endereço}". */
+function getServiceDisplayName(name: string, address?: string | null, district?: string | null): string {
+  const n = (name ?? "").trim();
+  const isTechnicalId = /ponto_onibus\.fid--|\.fid--[a-f0-9_]+$/i.test(n) ||
+    (n.startsWith("Ponto de Onibus ") && n.includes("fid--"));
+  if (isTechnicalId) {
+    const addr = (address ?? "").trim();
+    const addrOk = addr && !/endere[cç]o\s*nao?\s*informado/i.test(addr);
+    const suffix = [addrOk ? addr : null, (district ?? "").trim()].filter(Boolean)[0];
+    return suffix ? `Ponto de ônibus – ${suffix}` : "Ponto de ônibus";
+  }
+  return n || "Serviço";
 }
 
 /** Decodifica o payload do JWT para obter sub (user_id). Não verifica assinatura. */
@@ -104,7 +118,7 @@ serve(async (req) => {
     const delta = (GEOFENCE_RADIUS_M / 1000) * degPerKm * 2;
     const { data: services, error: svcError } = await supabase
       .from("public_services")
-      .select("id, name, latitude, longitude")
+      .select("id, name, address, district, latitude, longitude")
       .gte("latitude", lat - delta)
       .lte("latitude", lat + delta)
       .gte("longitude", lng - delta)
@@ -198,9 +212,10 @@ serve(async (req) => {
       if (visitId) {
         await supabase.from("visit_detection_state").delete().eq("user_id", userId).eq("service_id", svc.id);
 
+        const displayName = getServiceDisplayName(svc.name, svc.address, svc.district);
         await supabase.from("notifications").insert({
           user_id: userId,
-          title: `Você visitou ${svc.name}`,
+          title: `Você visitou ${displayName}`,
           message: "Gostaria de avaliar este serviço?",
           action_url: `/avaliar/${visitId}`,
           type: "visita_servico",
