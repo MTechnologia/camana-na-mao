@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Phone, ExternalLink } from "lucide-react";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
-import { formatDistance, buildGoogleMapsUrl } from "@/lib/mapUtils";
+import { formatDistance, buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
 
 interface ServiceCardProps {
   id: string;
@@ -98,8 +98,8 @@ export const ServiceCard = ({
             </p>
             
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-              <MapPin className="w-3 h-3" />
-              <span className="line-clamp-1">{address}, {district}</span>
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span className="line-clamp-1">{getAddressDisplay(address, district)}</span>
             </div>
 
             {mapsUrl && (

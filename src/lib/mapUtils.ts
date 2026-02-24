@@ -9,10 +9,22 @@ export const getServiceDisplayName = (params: {
   const isTechnicalId = /ponto_onibus\.fid--|\.fid--[a-f0-9_]+$/i.test(name?.trim() ?? "") ||
     (name?.startsWith("Ponto de Onibus ") && name.includes("fid--"));
   if (isTechnicalId) {
-    const suffix = [address?.trim(), district?.trim()].filter(Boolean)[0];
+    const addr = (address ?? "").trim();
+    const addrOk = addr && !/endere[cç]o\s*nao?\s*informado/i.test(addr);
+    const suffix = [addrOk ? addr : null, district?.trim()].filter(Boolean)[0];
     return suffix ? `Ponto de ônibus – ${suffix}` : "Ponto de ônibus";
   }
   return name?.trim() || "Serviço";
+};
+
+/** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */
+export const getAddressDisplay = (address: string | undefined | null, district?: string | undefined | null): string => {
+  const addr = (address ?? "").trim();
+  const isMissing = !addr || /endere[cç]o\s*nao?\s*informado/i.test(addr);
+  if (isMissing) {
+    return district?.trim() ? `Localização no mapa · ${district}` : "Localização disponível no mapa";
+  }
+  return district?.trim() ? `${addr}, ${district}` : addr;
 };
 
 export const formatDistance = (meters: number): string => {

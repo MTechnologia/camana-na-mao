@@ -11,6 +11,7 @@ import { Phone, Clock, Star, Bell, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
+import { getAddressDisplay } from "@/lib/mapUtils";
 
 export default function ServiceDetailPage() {
   const { id } = useParams();
@@ -272,7 +273,7 @@ export default function ServiceDetailPage() {
             <div>
               <h3 className="font-semibold text-foreground mb-1">Endereço</h3>
               <p className="text-sm text-muted-foreground">
-                {service.address}, {service.district}
+                {getAddressDisplay(service.address, service.district)}
               </p>
               <p className="text-sm text-muted-foreground">
                 {service.city} - {service.state}

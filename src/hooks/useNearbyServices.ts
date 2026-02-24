@@ -79,6 +79,10 @@ const getBoundingBox = (lat: number, lng: number, radius: number) => {
   };
 };
 
+/** Chave de localização para deduplicar serviços no mesmo ponto (evita cards repetidos). */
+const locationKey = (lat: number, lng: number, decimals = 5) =>
+  `${Number(lat.toFixed(decimals))},${Number(lng.toFixed(decimals))}`;
+
 export const useNearbyServices = ({
   latitude,
   longitude,
@@ -168,7 +172,16 @@ export const useNearbyServices = ({
         .filter((service) => (service.distance ?? 0) <= safeRadius)
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 
-      setServices(withinRadius);
+      // Um serviço por localização (evita duplicados no mesmo ponto)
+      const seen = new Set<string>();
+      const deduped = withinRadius.filter((s) => {
+        const key = locationKey(s.latitude, s.longitude);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setServices(deduped);
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
       setServices([]);

@@ -18,12 +18,13 @@ O mapa atual ("Perto de Você") usa **Mapbox** (mapa + rotas). É possível troc
 1. No **Google Cloud Console** → **APIs & Services** (como no print):
    - **Maps JavaScript API** – mapa interativo no navegador (markers, zoom, etc.).
    - **Directions API** – rotas a pé, carro e bicicleta (equivalente ao que o Mapbox faz hoje).
+   - **Geocoding API** – reverse geocode (coordenadas → endereço) para preencher endereços nos cards quando o cadastro não tem endereço (ex.: pontos de ônibus).
 
 2. Em **Keys & Credentials**:
    - Crie uma **API key** (ou use uma existente).
    - Recomendado: restringir a chave:
      - **Application restriction:** “HTTP referrers” e colocar seus domínios (ex.: `https://seu-dominio.com/*`, `http://localhost:*`).
-     - **API restriction:** “Restrict key” e marcar só **Maps JavaScript API** e **Directions API**.
+     - **API restriction:** “Restrict key” e marcar **Maps JavaScript API**, **Directions API** e **Geocoding API**.
 
 ---
 

@@ -9,6 +9,7 @@ import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/Rati
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
+import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,8 @@ export default function NearbyServicesPage() {
     }
     return (a.distance ?? 0) - (b.distance ?? 0);
   });
+
+  const resolvedAddresses = useReverseGeocodeForServices(sortedServices);
 
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
     latitude,
@@ -177,8 +180,8 @@ export default function NearbyServicesPage() {
                     id={service.id}
                     name={getServiceDisplayName({ name: service.name, address: service.address, district: service.district, service_type: service.service_type })}
                     serviceType={service.service_type}
-                    address={service.address}
-                    district={service.district}
+                    address={resolvedAddresses[service.id] ?? service.address}
+                    district={resolvedAddresses[service.id] ? undefined : service.district}
                     distance={service.distance}
                     averageRating={service.average_rating}
                     totalRatings={service.total_ratings}
