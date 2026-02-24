@@ -5,7 +5,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 ## Fluxo desejado
 
 1. Usuário visita fisicamente um serviço público (ex: UBS)
-2. Sistema detecta a permanência (geofencing 100 m, mínimo 10 min)
+2. Sistema detecta a permanência (geofencing 1 km, mínimo 10 min)
 3. Após sair ou ao abrir o app: notificação "Você visitou [UBS X]. Gostaria de avaliar?"
 4. Usuário confirma e é levado à tela de avaliação (`/avaliar/:visitId`)
 
@@ -14,7 +14,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 ### O que está pronto
 
 - **Hook `useVisitDetection`** (`src/hooks/useVisitDetection.ts`)
-  - Geofence: raio de 100 m
+  - Geofence: raio de 1 km
   - Permanência mínima: 10 minutos
   - Verificação a cada 1 minuto
   - Cria `service_visit` automaticamente ao detectar
@@ -37,7 +37,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 Implementado em background com `expo-location` e `expo-task-manager`:
 
 1. **Migration** `20260218140000_visit_detection_state.sql`: tabela `visit_detection_state` (user_id, service_id, first_seen_at)
-2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 100 m, permanência 10 min → cria `service_visit` e INSERT em `notifications`
+2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 1 km, permanência 10 min → cria `service_visit` e INSERT em `notifications`
 3. **Mobile** `src/tasks/visitDetectionTask.ts`: background task registrada com TaskManager; a cada atualização de localização chama a edge function
 4. **Bridge de auth**: `BackgroundAuthBridge` no web app envia `CAMARA_AUTH_STATE` ao native; o native armazena user_id e access_token em AsyncStorage para o background task
 5. **FrontendWebView**: trata `CAMARA_AUTH_STATE`, solicita permissões de localização (foreground e background), inicia `startLocationUpdatesAsync`
@@ -75,7 +75,7 @@ A background task pode não chegar a chamar a API em vários casos:
 | **Auth não armazenada** | Estar logado e deixar o app aberto na WebView; o `BackgroundAuthBridge` precisa enviar os dados ao native |
 | **Permissão de background negada** | Conferir nas configurações do app se a localização em segundo plano está permitida |
 | **Task não recebe localização** | Em Fake GPS, garantir que o app receba a localização simulada; em emulador a task em background costuma não rodar |
-| **Permanência de 10 min** | Ficar ao menos 10 minutos em um ponto a até 100 m de um registro em `public_services` |
+| **Permanência de 10 min** | Ficar ao menos 10 minutos em um ponto a até 1 km de um registro em `public_services` |
 
 ### Checklist: por que não apareceu nada no app (toast "Você visitou...")
 
@@ -83,7 +83,7 @@ Quando a detecção é pelo **frontend** (tela "Perto de Você" aberta):
 
 - Estava **nessa tela** o tempo todo (10+ min)? Se mudou de aba ou fechou, não conta.
 - A **localização** era real (não "modo demonstração")? Em modo demonstração a detecção é desligada.
-- O **ponto de ônibus** está em `public_services` com as **mesmas coordenadas** (ou a &lt; 100 m) do lugar onde você ficou? Se o registro no banco for longe ou tiver sido deduplicado, pode não estar na lista.
+- O **ponto de ônibus** está em `public_services` com as **mesmas coordenadas** (ou a &lt; 1 km) do lugar onde você ficou? Se o registro no banco for longe ou tiver sido deduplicado, pode não estar na lista.
 - O **raio de busca** (1 km, 2 km, 5 km…) inclui esse ponto? Se o serviço não entrou na lista da página, o frontend não considera ele para o geofence.
 
 ### Sobre os logs do `save-expo-push-token`

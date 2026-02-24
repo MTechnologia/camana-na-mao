@@ -14,7 +14,23 @@ Para o **Expo Push** funcionar no app Android (development build ou APK), o app 
 ## 2. Colocar o arquivo no projeto
 
 - Coloque o `google-services.json` na pasta **`mobile/`** (raiz do app Expo).
-- O `app.json` já está configurado com `"googleServicesFile": "./google-services.json"`.
+- O `app.config.js` usa `./google-services.json` localmente (e a variável de ambiente no EAS; veja abaixo).
+
+### 2.1. EAS Build (build na nuvem)
+
+O arquivo **não** é commitado no git, então o EAS Build não o envia. É preciso configurar uma **variável de ambiente do tipo arquivo** no EAS:
+
+1. Acesse [expo.dev](https://expo.dev) → seu projeto → **Environment variables** (ou Project settings → Environment variables).
+2. Clique em **Add variable**.
+3. **Name:** `GOOGLE_SERVICES_JSON`
+4. **Type:** Secret (e marque como **File** / upload de arquivo).
+5. Faça upload do seu `google-services.json` (o mesmo baixado do Firebase).
+6. Atribua aos ambientes **preview** e **production** (conforme os perfis que você usa no `eas build`).
+7. Salve.
+
+Na hora do build, o EAS coloca o conteúdo do arquivo no runner e define `GOOGLE_SERVICES_JSON` com o caminho; o `app.config.js` já usa esse valor para `googleServicesFile`.
+
+Referência: [EAS – File environment variables](https://docs.expo.dev/eas/environment-variables/#file-environment-variables).
 
 ## 3. Regenerar o build Android (se já tiver a pasta `android/`)
 

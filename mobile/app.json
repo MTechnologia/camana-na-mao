@@ -16,7 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.mtechnologia.camaranamao",
-      "associatedDomains": ["applinks:app-mtechnologia.com"],
+      "associatedDomains": [
+        "applinks:app-mtechnologia.com"
+      ],
       "infoPlist": {
         "NSMicrophoneUsageDescription": "O app usa o microfone para você ditar mensagens e perguntas por voz no assistente.",
         "NSSpeechRecognitionUsageDescription": "O app usa reconhecimento de voz para transformar sua fala em texto no assistente."
@@ -25,7 +27,9 @@
     "android": {
       "package": "br.com.mtechnologia.camaranamao",
       "googleServicesFile": "./google-services.json",
-      "permissions": ["android.permission.RECORD_AUDIO"],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -37,7 +41,10 @@
               "pathPrefix": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -58,7 +65,10 @@
       }
     },
     "plugins": [
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {}
+      ],
       "./plugins/withAndroidSafeAreaContextAgp.js",
       [
         "expo-location",
@@ -67,7 +77,8 @@
           "isAndroidBackgroundLocationEnabled": true,
           "locationAlwaysAndWhenInUsePermission": "O app usa sua localização para detectar visitas a serviços públicos e sugerir avaliações."
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "updates": {
       "enabled": false,

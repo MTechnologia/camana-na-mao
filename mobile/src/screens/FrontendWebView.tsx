@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Linking, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -39,6 +39,7 @@ export function FrontendWebView() {
   const [draftUrl, setDraftUrl] = useState(() => DEFAULT_WEB_URL.trim());
   const [activeUrl, setActiveUrl] = useState(() => normalizeAndValidate(DEFAULT_WEB_URL) ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [canGoBack, setCanGoBack] = useState(false);
   const expoPushTokenRef = useRef<string | null>(null);
   const pendingTokenRequestRef = useRef(false);
   const webViewRef = useRef<WebView>(null);
@@ -136,6 +137,19 @@ export function FrontendWebView() {
       }
     })();
   }, []);
+
+  // Android: seta/voltar da barra de navegação deve voltar na página do WebView; só minimiza se não houver histórico
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (canGoBack && webViewRef.current) {
+        webViewRef.current.goBack();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [canGoBack]);
 
   const handleWebViewMessage = useCallback(
     (event: NativeSyntheticEvent<WebViewMessageEvent>) => {
@@ -266,6 +280,7 @@ export function FrontendWebView() {
           </View>
         )}
         allowsBackForwardNavigationGestures
+        onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack ?? false)}
         onMessage={handleWebViewMessage}
         onLoadEnd={() => {
           if (expoPushTokenRef.current && webViewRef.current) {

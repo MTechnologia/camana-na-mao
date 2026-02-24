@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GEOFENCE_RADIUS_M = 100;
+const GEOFENCE_RADIUS_M = 1000;
 const MIN_DWELL_MINUTES = 10;
 const MIN_DWELL_MS = MIN_DWELL_MINUTES * 60 * 1000;
 

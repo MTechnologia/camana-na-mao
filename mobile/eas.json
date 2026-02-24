@@ -4,16 +4,15 @@
     "development": {
       "developmentClient": false,
       "distribution": "internal",
-      "node": "20.19.4",
       "android": { "buildType": "apk" }
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.19.4",
+      "environment": "preview",
       "android": { "buildType": "apk" }
     },
     "production": {
-      "node": "20.19.4",
+      "environment": "production",
       "android": { "buildType": "app-bundle" }
     }
   }
