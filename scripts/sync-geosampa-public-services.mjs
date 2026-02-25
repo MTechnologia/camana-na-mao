@@ -115,6 +115,15 @@ function featureToRow(feature, layerConfig, index) {
   };
 }
 
+/** Garante que URLs WFS do GeoSampa peçam coordenadas em WGS84 (lat/lon). */
+function ensureWfsWgs84(url) {
+  const u = url.trim();
+  if (!u.includes("wfs") || !u.includes("GetFeature")) return u;
+  if (/srsName=/i.test(u)) return u;
+  const sep = u.includes("?") && !u.endsWith("?") ? "&" : "?";
+  return u + sep + "srsName=EPSG:4326";
+}
+
 async function fetchGeoJSON(urlOrPath) {
   const u = urlOrPath.trim();
   if (u.startsWith("file://") || (!u.startsWith("http://") && !u.startsWith("https://"))) {
@@ -122,8 +131,9 @@ async function fetchGeoJSON(urlOrPath) {
     const raw = readFileSync(path, "utf8");
     return JSON.parse(raw);
   }
-  const res = await fetch(u, { headers: { "Accept": "application/geo+json, application/json" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${u}`);
+  const fetchUrl = ensureWfsWgs84(u);
+  const res = await fetch(fetchUrl, { headers: { "Accept": "application/geo+json, application/json" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${fetchUrl}`);
   return res.json();
 }
 

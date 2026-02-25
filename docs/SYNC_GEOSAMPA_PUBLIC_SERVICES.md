@@ -7,8 +7,25 @@ Script e fluxo para manter a tabela `public_services` atualizada com camadas do 
 ## Pré-requisitos
 
 - Node.js 18+
-- **Migration aplicada:** `20260225120000_public_services_geosampa_source.sql` (adiciona `source_layer` e `external_id` em `public_services`)
+- **Migration aplicada:** a tabela `public_services` precisa das colunas `source_layer` e `external_id`. Se ainda não existirem, rode no Supabase → SQL Editor o conteúdo de `supabase/migrations/20260225120000_public_services_geosampa_source.sql` (ou o bloco "Passo 1" abaixo).
 - **Chave Service Role** do Supabase no `.env`: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+
+### Aplicar a migration (se as colunas não existirem)
+
+No **Supabase → SQL Editor**, execute:
+
+```sql
+ALTER TABLE public.public_services
+  ADD COLUMN IF NOT EXISTS source_layer TEXT,
+  ADD COLUMN IF NOT EXISTS external_id TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_public_services_geosampa_key
+  ON public.public_services (source_layer, external_id)
+  WHERE source_layer IS NOT NULL AND external_id IS NOT NULL;
+
+COMMENT ON COLUMN public.public_services.source_layer IS 'Origem do dado no sync GeoSampa (ex: ponto_onibus, educacao_rede_privada)';
+COMMENT ON COLUMN public.public_services.external_id IS 'ID do feature no GeoJSON/GeoSampa para upsert';
+```
 
 ## Configuração das camadas
 
@@ -45,8 +62,25 @@ export GEOSAMPA_LAYERS_JSON='[{"url":"https://...","service_type":"other","sourc
 
 ## Onde obter as URLs dos GeoJSON
 
-1. **Portal GeoSampa:** em [geosampa.prefeitura.sp.gov.br](http://geosampa.prefeitura.sp.gov.br), abra a camada desejada (ex.: Equipamentos → Educação → Rede Privada), use o ícone de download e escolha **GeoJSON**. A URL de download pode ser reaproveitada se for estável.
-2. **API GeoSampa (protótipo):** o projeto [api-geosampa](https://github.com/yubathom/api-geosampa) expõe uma API REST que devolve URLs dos arquivos do portal. Se estiver no ar, você pode primeiro chamar essa API para obter as URLs e depois baixar os GeoJSON (ou adaptar o script para chamar a API antes).
+1. **WFS público do GeoSampa (recomendado):** O serviço WFS listado no [catálogo de metadados](https://metadados.geosampa.prefeitura.sp.gov.br/) **não exige sessão** e devolve GeoJSON estável. Use a base:
+   - **GetCapabilities:** `https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetCapabilities`
+   - **GetFeature (GeoJSON):** `https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:NOME_DA_CAMADA&outputFormat=application%2Fjson`
+   - Troque `NOME_DA_CAMADA` pelo `<Name>` da camada no XML do GetCapabilities (ex.: `classificacao_viaria_cet`, `ponto_onibus`, `equipamento_educacao_ceu`).
+2. **Portal GeoSampa:** em [geosampa.prefeitura.sp.gov.br](http://geosampa.prefeitura.sp.gov.br), o download por GeoJSON usa URL com parâmetro `hc` (sessão); essa URL **não é estável** para sync automático. Prefira o WFS acima.
+3. **API GeoSampa (protótipo):** o projeto [api-geosampa](https://github.com/yubathom/api-geosampa) expõe uma API REST que devolve URLs dos arquivos do portal. Se estiver no ar, você pode usá-la para descobrir recursos; para vetores em JSON, o WFS público é a opção estável.
+
+## Limpar dados GeoSampa antes de testar
+
+Para zerar apenas os registros que vieram do sync (e manter os manuais):
+
+1. Abra o **Supabase** → **SQL Editor** e execute:
+
+```sql
+DELETE FROM public.public_services
+WHERE source_layer IS NOT NULL;
+```
+
+Ou rode o conteúdo de `scripts/clean-geosampa-public-services.sql`.
 
 ## Execução
 

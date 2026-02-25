@@ -1,12 +1,12 @@
 # Sync GeoSampa -> public_services
-# Roda semanalmente (segunda 6h UTC) e pode ser disparado manualmente.
-# Configure os secrets no repositório: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEOSAMPA_LAYERS_JSON
+# Roda 1x por dia (6h UTC = 3h BRT); upsert atualiza só o que mudou no GeoJSON.
+# Configure os secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEOSAMPA_LAYERS_JSON
 
 name: Sync GeoSampa -> public_services
 
 on:
   schedule:
-    - cron: '0 6 * * 1'   # Segunda 6h UTC (3h BRT)
+    - cron: '0 6 * * *'   # Todo dia 6h UTC (3h BRT)
   workflow_dispatch:
 
 jobs:
