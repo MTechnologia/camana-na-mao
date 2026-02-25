@@ -13,6 +13,14 @@ import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
 import { getAddressDisplay } from "@/lib/mapUtils";
 
+/** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
+function sanitizeServicesOfferedHtml(html: string): string {
+  return html.replace(
+    /<(?!\/?(?:strong|p|br)\s*\/?\s*>)\/?\w+[^>]*>/gi,
+    ""
+  );
+}
+
 /** Horário padrão quando a fonte (GeoSampa) não fornece tx_horario_funcionamento. */
 const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
   ubs: "Segunda a sexta, 7h às 19h (horário padrão das UBS em SP). Confirme na unidade.",
@@ -312,48 +320,67 @@ export default function ServiceDetailPage() {
               </div>
             )}
 
-            {(() => {
-              const text = getOpeningHoursDisplay(
-                service.opening_hours,
-                service.service_type
-              );
-              return text ? (
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm text-muted-foreground">{text}</span>
-                </div>
-              ) : null;
-            })()}
+            {/* Horário de funcionamento — sempre exibido (dado real ou orientação por tipo) */}
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                Horário de funcionamento
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {getOpeningHoursDisplay(service.opening_hours, service.service_type) ??
+                  "Horário não informado. Confirme na unidade."}
+              </p>
+            </div>
 
-            {(service as { services_offered?: string | null }).services_offered && (
-              <div className="space-y-1">
-                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-                  <Info className="w-4 h-4 text-muted-foreground" />
-                  Serviços oferecidos
-                </h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-line">
-                  {(service as { services_offered?: string }).services_offered}
-                </p>
-              </div>
-            )}
-
-            {Array.isArray((service as { ambientes?: { ambiente?: string; total?: number }[] }).ambientes) &&
-              (service as { ambientes: { ambiente?: string; total?: number }[] }).ambientes.length > 0 && (
-              <div className="space-y-1">
-                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-                  <Info className="w-4 h-4 text-muted-foreground" />
-                  Ambientes
-                </h3>
-                <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
-                  {(service as { ambientes: { ambiente?: string; total?: number }[] }).ambientes.map((a, i) => (
-                    <li key={i}>
-                      {a.ambiente ?? "Ambiente"}
-                      {a.total != null && a.total > 0 ? ` (${a.total})` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* O que este serviço oferece — tipo, serviços e ambientes quando existirem */}
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <Info className="w-4 h-4 text-muted-foreground" />
+                O que este serviço oferece
+              </h3>
+              {(() => {
+                const svc = service as {
+                  services_offered?: string | null;
+                  ambientes?: { ambiente?: string; total?: number }[];
+                };
+                const hasOffered = !!svc.services_offered?.trim();
+                const hasAmbientes = Array.isArray(svc.ambientes) && svc.ambientes.length > 0;
+                if (!hasOffered && !hasAmbientes) {
+                  return (
+                    <p className="text-sm text-muted-foreground">
+                      Informações não disponíveis para esta unidade.
+                    </p>
+                  );
+                }
+                const offered = svc.services_offered!;
+                const isHtml = /<\s*(\/)?(strong|p|br)\s*(\/\s*)?>/i.test(offered);
+                return (
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    {hasOffered &&
+                      (isHtml ? (
+                        <div
+                          className="space-y-1 [&_strong]:font-semibold [&_p]:mt-1"
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeServicesOfferedHtml(offered),
+                          }}
+                        />
+                      ) : (
+                        <p className="whitespace-pre-line">{offered}</p>
+                      ))}
+                    {hasAmbientes && (
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {svc.ambientes!.map((a, i) => (
+                          <li key={i}>
+                            {a.ambiente ?? "Ambiente"}
+                            {a.total != null && a.total > 0 ? ` (${a.total})` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
             <div className="pt-2 border-t border-border">
               <div className="flex items-center justify-between">

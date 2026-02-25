@@ -184,6 +184,97 @@ function extractFromUnitPage(html) {
   return { name, horario };
 }
 
+/** Escapa HTML para uso seguro em conteúdo gerado. */
+function escapeHtml(s) {
+  if (!s || typeof s !== "string") return "";
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Extrai o conteúdo da aba "Sobre a Unidade" (descrição + serviços e instalações).
+ * Retorna HTML formatado: <strong>Título</strong>, <strong>Gestor: </strong> Nome, <p>parágrafo</p>.
+ * Remove lixo como "Ir para Facebook", "bullet bullet bullet", restos de tags.
+ */
+function extractSobreAUnidade(html) {
+  const normalized = html
+    .replace(/&#8211;/g, " ")
+    .replace(/&#243;|&#211;/g, "ó")
+    .replace(/&#225;|&#193;/g, "á")
+    .replace(/&oacute;|&Oacute;/g, "ó")
+    .replace(/&aacute;|&Aacute;/g, "á");
+  let start = normalized.search(/Saiba mais sobre|Gestor\s*:/i);
+  if (start < 0) start = normalized.search(/SOBRE A UNIDADE/i);
+  if (start < 0) return null;
+  const maxLen = 4500;
+  let block = normalized.slice(start, start + maxLen + 500);
+  const endMarkers = [/>\s*PROGRAMAÇÃO\s*</i, />\s*SERVIÇOS E INSTALAÇÕES\s*</i, />\s*COMO CHEGAR\s*</i, /<nav\s/i];
+  for (const re of endMarkers) {
+    const m = block.match(re);
+    if (m && m.index !== undefined && m.index > 100) {
+      block = block.slice(0, m.index);
+      break;
+    }
+  }
+  let text = block
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Remove lixo conhecido (redes sociais, bullets, restos de HTML)
+  text = text
+    .replace(/\s*Ir para Facebook\s*Ir para Instagram\s*bullet\s*bullet\s*bullet\s*.*$/i, "")
+    .replace(/\s*Ir para Facebook\s*.*$/i, "")
+    .replace(/\s*Ir para Instagram\s*.*$/i, "")
+    .replace(/\s*bullet\s*bullet\s*bullet\s*.*$/i, "")
+    .replace(/\s*<p\s+class[\s\S]*$/i, "")
+    .trim();
+
+  if (text.length < 80) return null;
+
+  // Estruturar: Título (até "Gestor:"), Gestor: Nome, Parágrafo
+  const gestorIdx = text.search(/\s+Gestor\s*:/i);
+  let title = "";
+  let gestorLine = "";
+  let paragraph = "";
+
+  if (gestorIdx >= 0) {
+    title = text.slice(0, gestorIdx).trim();
+    const afterGestor = text.slice(gestorIdx).replace(/^\s*Gestor\s*:\s*/i, "").trim();
+    const paraStart = afterGestor.search(/\s+(O\s+[A-Z]|Com\s+\d|A\s+unidade\s+)/);
+    if (paraStart > 10) {
+      gestorLine = afterGestor.slice(0, paraStart).trim();
+      paragraph = afterGestor.slice(paraStart).trim();
+    } else {
+      gestorLine = afterGestor.slice(0, 200).trim();
+      paragraph = afterGestor.length > 200 ? afterGestor.slice(200).trim() : "";
+    }
+  } else {
+    const firstPeriod = text.indexOf(". ");
+    if (firstPeriod > 20) {
+      title = text.slice(0, firstPeriod + 1).trim();
+      paragraph = text.slice(firstPeriod + 1).trim();
+    } else {
+      title = text.slice(0, 200).trim();
+      paragraph = text.length > 200 ? text.slice(200).trim() : "";
+    }
+  }
+
+  const parts = [];
+  if (title) parts.push(`<strong>${escapeHtml(title)}</strong>`);
+  if (gestorLine) parts.push(`<strong>Gestor: </strong> ${escapeHtml(gestorLine)}`);
+  if (paragraph) parts.push(`<p>${escapeHtml(paragraph)}</p>`);
+
+  if (parts.length === 0) return text.slice(0, 4500);
+  return parts.join("\n");
+}
+
 /** Retorna todos os ids em public_services que correspondem a esta unidade CEU (mesmo endereço/unidade). */
 function findAllMatches(smeName, slug, dbCeus) {
   const normSme = normalize(smeName);
@@ -256,6 +347,7 @@ async function main() {
       if (!res.ok) continue;
       const html = await res.text();
       const { name, horario } = extractFromUnitPage(html);
+      const sobreConteudo = extractSobreAUnidade(html);
       fetched++;
       if (!horario) {
         console.warn(`[${slug}] Sem horário na página`);
@@ -270,7 +362,7 @@ async function main() {
       }
       const serviceIds = findAllMatches(name || slug, slug, dbCeus);
       if (serviceIds.length > 0) {
-        updates.push({ ids: serviceIds, name: name || slug, horario });
+        updates.push({ ids: serviceIds, name: name || slug, horario, services_offered: sobreConteudo });
         continue;
       }
       const listingEntry = listingMap[slug];
@@ -282,6 +374,7 @@ async function main() {
           zip_code: listingEntry.zip_code,
           district: listingEntry.district || "São Paulo",
           horario,
+          services_offered: sobreConteudo,
         });
       } else {
         console.warn(`[${slug}] Nenhum match no banco e sem endereço na listagem: ${name || slug}`);
@@ -311,11 +404,13 @@ async function main() {
   }
 
   let ok = 0;
-  for (const { ids, horario } of updates) {
+  for (const { ids, horario, services_offered } of updates) {
+    const payload = { opening_hours: { text: horario.slice(0, 500) } };
+    if (services_offered && services_offered.trim()) payload.services_offered = services_offered.trim().slice(0, 5000);
     for (const id of ids) {
       const { error } = await supabase
         .from("public_services")
-        .update({ opening_hours: { text: horario.slice(0, 500) } })
+        .update(payload)
         .eq("id", id);
       if (error) {
         console.error("Erro ao atualizar", id, error.message);
@@ -324,7 +419,9 @@ async function main() {
       }
     }
   }
+  const withSobre = updates.filter((u) => u.services_offered?.trim()).length;
   console.log(`\nAtualizados ${ok} registros com horário de funcionamento (${updates.length} unidades CEU).`);
+  if (withSobre > 0) console.log(`  ${withSobre} unidades com conteúdo "Sobre a Unidade" em services_offered.`);
 
   if (toInsert.length > 0) {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -356,6 +453,7 @@ async function main() {
         source_layer: "ceu_sme",
         external_id: row.slug,
       };
+      if (row.services_offered?.trim()) payload.services_offered = row.services_offered.trim().slice(0, 5000);
       const { error } = await supabase
         .from("public_services")
         .upsert(payload, { onConflict: "source_layer,external_id" });
