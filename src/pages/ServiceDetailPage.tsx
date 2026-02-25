@@ -352,7 +352,12 @@ export default function ServiceDetailPage() {
                     </p>
                   );
                 }
-                const offered = svc.services_offered!;
+                let offered = svc.services_offered!;
+                // Corrige truncamento do GeoJSON das UBS: remove ", encaminhamentos par" e garante ponto final
+                if (typeof offered === "string" && /, encaminhamentos par\s*$/i.test(offered)) {
+                  offered = offered.replace(/, encaminhamentos par\s*$/i, "").trim();
+                  if (offered && !/[.!?]$/.test(offered)) offered += ".";
+                }
                 const isHtml = /<\s*(\/)?(strong|p|br)\s*(\/\s*)?>/i.test(offered);
                 return (
                   <div className="text-sm text-muted-foreground space-y-2">

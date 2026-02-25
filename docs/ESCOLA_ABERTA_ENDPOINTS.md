@@ -56,9 +56,22 @@ Todos os endpoints podem exigir **Bearer token** (inscrição no API Store). Use
 
 ---
 
+## Como obter a lista de códigos DRE (para `ESCOLA_ABERTA_DRE_CODES`)
+
+Use o endpoint **`GET /api/diretorias/`** (mesmo token da API):
+
+**URL completa:**  
+`https://gateway.apilib.prefeitura.sp.gov.br/sme/EscolaAberta/v1/api/diretorias/`
+
+A resposta deve trazer a lista de diretorias regionais com o campo usado como código (ex.: `cod_dre`, `sigla` ou `codigo`). Os valores que você ver aí são os que entram em `ESCOLA_ABERTA_DRE_CODES` separados por vírgula (ex.: `BT,CL,IP,...`).
+
+**Se a API estiver retornando 500:** o erro é do servidor da Prefeitura; tente de novo em outro horário ou contate o suporte (duvidasapicotic@sme.prefeitura.sp.gov.br). Enquanto isso, você pode deixar `ESCOLA_ABERTA_DRE_CODES` vazio — o sync roda normalmente e só preenche os totais gerais da rede (sem totais por DRE).
+
+---
+
 ## Outros endpoints (referência – uso opcional)
 
-- **`/api/diretorias/`** – Lista de DREs (filtro por região).
+- **`/api/diretorias/`** – Lista de DREs (filtro por região); use para montar a lista de códigos em `ESCOLA_ABERTA_DRE_CODES`.
 - **`/api/smeescolas/`** – Escolas por tipo/DRE (alternativa ao livroaberto com outros filtros).
 - **`/api/smevagasmat/`** – Vagas e matrículas (agregado).
 - **`/api/smeprofissionais/`** – Profissionais (agregado).

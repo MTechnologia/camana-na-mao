@@ -118,7 +118,11 @@ function featureToRow(feature, layerConfig, index) {
   };
   if (phone != null) row.phone = phone.slice(0, 50);
   if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
-  if (servicesOffered != null) row.services_offered = servicesOffered.slice(0, 2000);
+  if (servicesOffered != null) {
+    let text = String(servicesOffered).replace(/, encaminhamentos par\s*$/i, "").trim();
+    if (text && !/[.!?]$/.test(text)) text += ".";
+    row.services_offered = text.slice(0, 2000);
+  }
   return row;
 }
 

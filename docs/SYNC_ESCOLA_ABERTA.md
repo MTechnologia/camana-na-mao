@@ -63,6 +63,27 @@ node scripts/sync-escolaaberta-extras.mjs
 
 A tela de detalhe do serviço exibe a seção **Ambientes** quando `ambientes` estiver preenchido (array `[{ ambiente, total }, ...]`).
 
+## Agendamento (cron no GitHub Actions)
+
+O workflow **`.github/workflows/sync-escolaaberta-ceu.yml`** roda automaticamente todo dia às **7h UTC (4h BRT)** e executa em sequência:
+
+1. `sync-escolaaberta-public-services.mjs` — escolas e CEUs da ApiLib
+2. `sync-escolaaberta-extras.mjs` — tipos de escola, ambientes por unidade, totais da rede
+3. `sync-ceu-opening-hours-sme.mjs` — horários de funcionamento e "Sobre a unidade" dos CEUs (site SME)
+
+**Secrets no repositório (Settings → Secrets and variables → Actions):**
+
+| Secret | Obrigatório | Uso |
+|--------|-------------|-----|
+| `SUPABASE_URL` | Sim | URL do projeto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Chave service role do Supabase |
+| `ESCOLA_ABERTA_API_TOKEN` | Sim | Token da API Escola Aberta (API Store) |
+| `GOOGLE_MAPS_API_KEY` | Não | Só para o script CEU inserir unidades novas (geocodificação); sem ele, apenas atualiza CEUs já existentes |
+
+**Variável opcional (Variables):** `ESCOLA_ABERTA_DRE_CODES` — códigos de DRE separados por vírgula (ex.: `BT,CL`) para popular `escola_aberta_rede_ambientes` por DRE. Se não definir, só os totais gerais da rede são sincronizados.
+
+É possível rodar o workflow manualmente em **Actions → Sync Escola Aberta + CEU → Run workflow**.
+
 ## Relação com outros syncs
 
 - **GeoSampa:** traz equipamentos por camada WFS/GeoJSON (ex.: educação rede pública pode ter parte das escolas). O Escola Aberta é fonte oficial da SME com dados já georreferenciados e com telefone.

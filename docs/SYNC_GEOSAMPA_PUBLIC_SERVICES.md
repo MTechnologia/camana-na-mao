@@ -54,10 +54,21 @@ Formato de cada item:
 - **service_type:** um de: `ubs`, `school`, `ceu`, `hospital`, `library`, `sports_center`, `other`.
 - **source_layer:** identificador único da camada (ex.: `ponto_onibus`, `educacao_rede_privada`). Usado no upsert junto com `external_id`.
 
+**Camadas incluídas em `geosampa-layers.json` (padrão do projeto):** UBS, escolas (rede pública, infantil, privada, técnico, Senai/Sesi/Senac, outros), hospitais (e urgência/emergência), bibliotecas, centros esportivos e abastecimento (Mercados Municipais, Sacolões e Feira livre).
+
 O script também preenche **phone**, **opening_hours** e **services_offered** quando o GeoJSON do GeoSampa traz essas propriedades:
 - **phone:** `tx_numero_telefone`, `telefone`, etc.
 - **opening_hours:** `tx_horario_funcionamento` → armazenado como `{ "text": "..." }`; exibido na tela de detalhe.
 - **services_offered:** `tx_tipo_equipamento`, `tx_classe_equipamento` (descrição dos serviços oferecidos pelo equipamento); exibido na tela de detalhe em "Serviços oferecidos".
+
+### Enriquecimento de horários dos CEUs (site SME)
+
+O WFS do GeoSampa não preenche `tx_horario_funcionamento` para UBS/CEU. Para **CEUs**, é possível preencher `opening_hours` a partir do site da Secretaria Municipal de Educação:
+
+- **Script:** `scripts/sync-ceu-opening-hours-sme.mjs`
+- **Fonte:** [Unidades CEUs](https://ceu.sme.prefeitura.sp.gov.br/unidades-ceus/) — o script acessa a listagem, depois a página de cada unidade e extrai o texto "Horário de Funcionamento: ...".
+- **Uso:** `node scripts/sync-ceu-opening-hours-sme.mjs` (requer `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` no `.env`). Use `DRY_RUN=1` para apenas listar o que seria atualizado.
+- Não é automatizado; rode quando quiser atualizar os horários dos CEUs na base.
 
 ### Opção B – Variável de ambiente
 
