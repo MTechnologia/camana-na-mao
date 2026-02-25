@@ -13,6 +13,29 @@ import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
 import { getAddressDisplay } from "@/lib/mapUtils";
 
+/** Horário padrão quando a fonte (GeoSampa) não fornece tx_horario_funcionamento. */
+const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
+  ubs: "Segunda a sexta, 7h às 19h (horário padrão das UBS em SP). Confirme na unidade.",
+  hospital: "Atendimento 24h ou conforme unidade. Confirme pelo telefone.",
+  library: "Segunda a sexta, em geral 9h às 18h. Confirme na unidade.",
+  school: "Conforme calendário escolar. Confirme na unidade.",
+  ceu: "Conforme programação. Confirme na unidade.",
+  sports_center: "Varía por unidade. Confirme no local.",
+};
+
+function getOpeningHoursDisplay(
+  openingHours: unknown,
+  serviceType?: string
+): string | null {
+  const text =
+    typeof openingHours === "string"
+      ? openingHours
+      : (openingHours as { text?: string })?.text;
+  if (text?.trim()) return text.trim();
+  const type = serviceType ?? "other";
+  return DEFAULT_OPENING_HOURS_BY_TYPE[type] ?? null;
+}
+
 export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -289,13 +312,14 @@ export default function ServiceDetailPage() {
               </div>
             )}
 
-            {service.opening_hours && (() => {
-              const text = typeof service.opening_hours === "string"
-                ? service.opening_hours
-                : (service.opening_hours as { text?: string })?.text;
+            {(() => {
+              const text = getOpeningHoursDisplay(
+                service.opening_hours,
+                service.service_type
+              );
               return text ? (
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-sm text-muted-foreground">{text}</span>
                 </div>
               ) : null;
@@ -310,6 +334,24 @@ export default function ServiceDetailPage() {
                 <p className="text-sm text-muted-foreground whitespace-pre-line">
                   {(service as { services_offered?: string }).services_offered}
                 </p>
+              </div>
+            )}
+
+            {Array.isArray((service as { ambientes?: { ambiente?: string; total?: number }[] }).ambientes) &&
+              (service as { ambientes: { ambiente?: string; total?: number }[] }).ambientes.length > 0 && (
+              <div className="space-y-1">
+                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  Ambientes
+                </h3>
+                <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+                  {(service as { ambientes: { ambiente?: string; total?: number }[] }).ambientes.map((a, i) => (
+                    <li key={i}>
+                      {a.ambiente ?? "Ambiente"}
+                      {a.total != null && a.total > 0 ? ` (${a.total})` : ""}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
