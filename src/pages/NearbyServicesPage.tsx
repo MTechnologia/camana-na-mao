@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, AlertCircle, Map, List } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
+import { CepSearchCard, type CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -30,11 +31,15 @@ export default function NearbyServicesPage() {
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
 
   const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
+  const searchLat = cepCenter?.latitude ?? latitude;
+  const searchLng = cepCenter?.longitude ?? longitude;
+
   const { services, loading: servicesLoading } = useNearbyServices({
-    latitude,
-    longitude,
+    latitude: searchLat,
+    longitude: searchLng,
     radiusMeters,
     serviceType: selectedType === "all" ? undefined : selectedType
   });
@@ -68,8 +73,8 @@ export default function NearbyServicesPage() {
   );
 
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
-    latitude,
-    longitude,
+    latitude: latitude ?? undefined,
+    longitude: longitude ?? undefined,
     services: servicesForVisit,
     userId: user?.id,
     isSimulated,
@@ -97,7 +102,7 @@ export default function NearbyServicesPage() {
     );
   }, [detectedVisit, handleVisitAvaliar]);
   const isLoading = servicesLoading && services.length === 0;
-  const userLocation = latitude && longitude ? { latitude, longitude } : null;
+  const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
@@ -133,7 +138,7 @@ export default function NearbyServicesPage() {
           </div>
         )}
 
-        {latitude && longitude && !geoError && (
+        {(searchLat != null && searchLng != null) && !geoError && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -152,6 +157,7 @@ export default function NearbyServicesPage() {
           </>
         )}
 
+        <CepSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
         <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
 
         <ServiceTypeFilter selectedType={selectedType} onTypeChange={setSelectedType} />
@@ -201,8 +207,8 @@ export default function NearbyServicesPage() {
                     phone={service.phone}
                     latitude={service.latitude}
                     longitude={service.longitude}
-                    userLatitude={latitude}
-                    userLongitude={longitude}
+                    userLatitude={searchLat ?? undefined}
+                    userLongitude={searchLng ?? undefined}
                     onClick={() => navigate(`/servico/${service.id}`)}
                   />
                 ))}
@@ -213,9 +219,9 @@ export default function NearbyServicesPage() {
           <TabsContent value="map" className="mt-0">
             {isLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
-            ) : userLocation ? (
+            ) : mapCenter ? (
               <MapView
-                userLocation={userLocation}
+                userLocation={mapCenter}
                 services={sortedServices}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
               />
@@ -224,7 +230,7 @@ export default function NearbyServicesPage() {
                 <div className="text-4xl mb-3">📍</div>
                 <h3 className="font-semibold text-foreground mb-1">Localização necessária</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Precisamos da sua localização para mostrar o mapa
+                  Informe um CEP acima ou ative sua localização para ver o mapa
                 </p>
                 <Button onClick={refetchLocation}>
                   Ativar localização
