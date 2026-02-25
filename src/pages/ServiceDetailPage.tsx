@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Clock, Star, Bell, MapPin } from "lucide-react";
+import { Phone, Clock, Star, Bell, MapPin, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
@@ -17,17 +17,19 @@ export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [service, setService] = useState<any>(null);
+  const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
 
   useEffect(() => {
     loadService();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadService runs when id changes
   }, [id]);
 
   useEffect(() => {
     if (user && realServiceId) checkSubscription();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
   }, [user, realServiceId]);
 
   const isUUID = (str: string) => {
@@ -287,12 +289,27 @@ export default function ServiceDetailPage() {
               </div>
             )}
 
-            {service.opening_hours && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Seg-Sex: 7h às 19h
-                </span>
+            {service.opening_hours && (() => {
+              const text = typeof service.opening_hours === "string"
+                ? service.opening_hours
+                : (service.opening_hours as { text?: string })?.text;
+              return text ? (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{text}</span>
+                </div>
+              ) : null;
+            })()}
+
+            {(service as { services_offered?: string | null }).services_offered && (
+              <div className="space-y-1">
+                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  Serviços oferecidos
+                </h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {(service as { services_offered?: string }).services_offered}
+                </p>
               </div>
             )}
 

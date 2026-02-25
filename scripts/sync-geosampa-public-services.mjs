@@ -95,13 +95,16 @@ function featureToRow(feature, layerConfig, index) {
   if (!point) return null;
 
   const props = feature?.properties ?? {};
-  const name = getProp(props, "nome", "name", "NOME", "NAME", "nome_equip") ?? getExternalId(feature, index);
-  const address = getProp(props, "endereco", "endereço", "address", "ENDERECO", "endereco_c") ?? "Endereço não informado";
-  const district = getProp(props, "distrito", "district", "DISTRITO", "bairro", "ds_subpref", "subprefeitura") ?? "São Paulo";
+  const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip") ?? getExternalId(feature, index);
+  const address = getProp(props, "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c") ?? "Endereço não informado";
+  const district = getProp(props, "distrito", "district", "DISTRITO", "nm_bairro_equipamento", "bairro", "ds_subpref", "subprefeitura") ?? "São Paulo";
+  const phone = getProp(props, "tx_numero_telefone", "telefone", "phone", "TELEFONE");
+  const openingHoursRaw = getProp(props, "tx_horario_funcionamento", "horario_funcionamento", "opening_hours", "horario");
+  const servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description");
 
   const serviceType = SERVICE_TYPES.includes(layerConfig.service_type) ? layerConfig.service_type : "other";
 
-  return {
+  const row = {
     name: name.slice(0, 500),
     service_type: serviceType,
     address: address.slice(0, 500),
@@ -113,6 +116,10 @@ function featureToRow(feature, layerConfig, index) {
     source_layer: layerConfig.source_layer,
     external_id: getExternalId(feature, index),
   };
+  if (phone != null) row.phone = phone.slice(0, 50);
+  if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
+  if (servicesOffered != null) row.services_offered = servicesOffered.slice(0, 2000);
+  return row;
 }
 
 /** Garante que URLs WFS do GeoSampa peçam coordenadas em WGS84 (lat/lon). */

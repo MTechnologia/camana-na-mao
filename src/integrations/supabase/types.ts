@@ -1068,6 +1068,7 @@ export type Database = {
           opening_hours: Json | null
           phone: string | null
           service_type: Database["public"]["Enums"]["service_type"]
+          services_offered: string | null
           state: string
           total_ratings: number | null
           updated_at: string | null
@@ -1086,6 +1087,7 @@ export type Database = {
           opening_hours?: Json | null
           phone?: string | null
           service_type: Database["public"]["Enums"]["service_type"]
+          services_offered?: string | null
           state?: string
           total_ratings?: number | null
           updated_at?: string | null
@@ -1104,6 +1106,7 @@ export type Database = {
           opening_hours?: Json | null
           phone?: string | null
           service_type?: Database["public"]["Enums"]["service_type"]
+          services_offered?: string | null
           state?: string
           total_ratings?: number | null
           updated_at?: string | null

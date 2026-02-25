@@ -54,6 +54,11 @@ Formato de cada item:
 - **service_type:** um de: `ubs`, `school`, `ceu`, `hospital`, `library`, `sports_center`, `other`.
 - **source_layer:** identificador único da camada (ex.: `ponto_onibus`, `educacao_rede_privada`). Usado no upsert junto com `external_id`.
 
+O script também preenche **phone**, **opening_hours** e **services_offered** quando o GeoJSON do GeoSampa traz essas propriedades:
+- **phone:** `tx_numero_telefone`, `telefone`, etc.
+- **opening_hours:** `tx_horario_funcionamento` → armazenado como `{ "text": "..." }`; exibido na tela de detalhe.
+- **services_offered:** `tx_tipo_equipamento`, `tx_classe_equipamento` (descrição dos serviços oferecidos pelo equipamento); exibido na tela de detalhe em "Serviços oferecidos".
+
 ### Opção B – Variável de ambiente
 
 ```bash
