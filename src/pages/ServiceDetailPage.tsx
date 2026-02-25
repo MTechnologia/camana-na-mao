@@ -359,7 +359,7 @@ export default function ServiceDetailPage() {
                     {hasOffered &&
                       (isHtml ? (
                         <div
-                          className="space-y-1 [&_strong]:font-semibold [&_p]:mt-1"
+                          className="space-y-2 [&_strong]:font-semibold [&_p]:mb-0 [&_p:last-child]:mb-0"
                           dangerouslySetInnerHTML={{
                             __html: sanitizeServicesOfferedHtml(offered),
                           }}

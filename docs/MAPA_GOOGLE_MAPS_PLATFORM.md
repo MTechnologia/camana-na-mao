@@ -64,6 +64,15 @@ Assim você deixa de depender do Mapbox e usa só o Google Maps Platform integra
 
 ---
 
+## Por que o mapa aparece no dev mas não após o build?
+
+O Vite embute variáveis `VITE_*` **no momento do build**. Em desenvolvimento (`npm run dev`) o `.env` da raiz é lido e a chave está disponível. Quando você faz **build** (local ou CI):
+
+- **Build local:** rode `npm run build` com o `.env` na raiz contendo `VITE_GOOGLE_MAPS_API_KEY=...`; a chave será incluída no bundle.
+- **Build no Cloud Build / CI:** a variável precisa existir no ambiente de build. No GCP, configure a **substitution variable** no trigger (veja abaixo). Sem isso, o bundle é gerado com a chave vazia e o mapa mostra "Mapa não configurado".
+
+---
+
 ## Deploy no GCP (Cloud Build)
 
 A chave do Google Maps é injetada no **build** do front (Vite). No deploy automático:

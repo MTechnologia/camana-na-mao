@@ -10,6 +10,7 @@ O Vite foi configurado para expor variáveis que começam com `CAMARA_` (e tamb�
 - **`CAMARA_URL`**: URL do projeto Supabase (cloud ou local)
 - **`CAMARA_PUBLISHABLE_KEY`**: chave pública/anon do Supabase
 - **`CAMARA_PROJECT_ID`**: ID do projeto (opcional, quando necessário)
+- **`VITE_GOOGLE_MAPS_API_KEY`**: chave da API Google Maps (mapa "Perto de você", busca por CEP). No **build/deploy** a variável precisa existir no momento do build (ex.: variáveis de substituição do Cloud Build); veja `docs/MAPA_GOOGLE_MAPS_PLATFORM.md`.
 
 **Onde configurar**
 - **Local**: arquivo `.env` (não commitar)

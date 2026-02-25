@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MapPin, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
 
 interface ViaCepResponse {
   cep: string;
@@ -37,7 +38,7 @@ export function CepSearchCard({ cepCenter, onCepCenterChange, disabled }: CepSea
   const [cepInput, setCepInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const apiKey = getGoogleMapsApiKey();
 
   const searchByCep = useCallback(async () => {
     const clean = cepInput.replace(/\D/g, "");
@@ -46,7 +47,7 @@ export function CepSearchCard({ cepCenter, onCepCenterChange, disabled }: CepSea
       return;
     }
     if (!apiKey) {
-      toast.error("Mapa não configurado. Configure VITE_GOOGLE_MAPS_API_KEY para buscar por CEP.");
+      toast.error(getGoogleMapsNotConfiguredMessage());
       return;
     }
     setLoading(true);

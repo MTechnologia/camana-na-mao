@@ -267,8 +267,8 @@ function extractSobreAUnidade(html) {
   }
 
   const parts = [];
-  if (title) parts.push(`<strong>${escapeHtml(title)}</strong>`);
-  if (gestorLine) parts.push(`<strong>Gestor: </strong> ${escapeHtml(gestorLine)}`);
+  if (title) parts.push(`<p><strong>${escapeHtml(title)}</strong></p>`);
+  if (gestorLine) parts.push(`<p><strong>Gestor: </strong> ${escapeHtml(gestorLine)}</p>`);
   if (paragraph) parts.push(`<p>${escapeHtml(paragraph)}</p>`);
 
   if (parts.length === 0) return text.slice(0, 4500);

@@ -49,7 +49,11 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick }: Simulat
           Mapa de Demonstração
         </Badge>
         <p className="text-xs text-muted-foreground max-w-xs">
-          Para ver o mapa com ruas, configure <code className="text-[10px] bg-muted px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no arquivo <code className="text-[10px] bg-muted px-1 rounded">.env</code> e reinicie o aplicativo.
+          Para ver o mapa com ruas: em <strong>desenvolvimento</strong>, configure{" "}
+          <code className="text-[10px] bg-muted px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no{" "}
+          <code className="text-[10px] bg-muted px-1 rounded">.env</code> e reinicie{" "}
+          <code className="text-[10px] bg-muted px-1 rounded">npm run dev</code>. Em{" "}
+          <strong>build/deploy</strong>, defina a variável no momento do build (ex.: variáveis de substituição do Cloud Build).
         </p>
       </div>
 
