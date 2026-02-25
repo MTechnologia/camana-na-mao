@@ -1,0 +1,27 @@
+# Sync GeoSampa -> public_services
+# Roda semanalmente (segunda 6h UTC) e pode ser disparado manualmente.
+# Configure os secrets no repositório: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEOSAMPA_LAYERS_JSON
+
+name: Sync GeoSampa -> public_services
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Segunda 6h UTC (3h BRT)
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sync public_services from GeoSampa
+        run: node scripts/sync-geosampa-public-services.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GEOSAMPA_LAYERS_JSON: ${{ secrets.GEOSAMPA_LAYERS_JSON }}

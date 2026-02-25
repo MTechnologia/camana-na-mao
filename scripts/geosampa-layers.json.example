@@ -1,0 +1,12 @@
+[
+  {
+    "url": "https://url-do-geojson-ponto-onibus.geosampa ou caminho/local/ponto_onibus.geojson",
+    "service_type": "other",
+    "source_layer": "ponto_onibus"
+  },
+  {
+    "url": "https://url-do-geojson-rede-privada-educacao.geojson",
+    "service_type": "school",
+    "source_layer": "educacao_rede_privada"
+  }
+]
