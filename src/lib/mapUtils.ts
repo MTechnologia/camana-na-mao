@@ -10,17 +10,26 @@ export const getServiceDisplayName = (params: {
     (name?.startsWith("Ponto de Onibus ") && name.includes("fid--"));
   if (isTechnicalId) {
     const addr = (address ?? "").trim();
-    const addrOk = addr && !/endere[cç]o\s*nao?\s*informado/i.test(addr);
+    const addrOk = addr && !/endere[cç]o\s*n[aã]o\s*informado/i.test(addr);
     const suffix = [addrOk ? addr : null, district?.trim()].filter(Boolean)[0];
     return suffix ? `Ponto de ônibus – ${suffix}` : "Ponto de ônibus";
   }
   return name?.trim() || "Serviço";
 };
 
+/** Extrai texto de opening_hours (JSONB: { text } ou string). Retorna null se vazio. */
+export const getOpeningHoursText = (openingHours: unknown): string | null => {
+  const text =
+    typeof openingHours === "string"
+      ? openingHours
+      : (openingHours as { text?: string } | null)?.text;
+  return text?.trim() ? text.trim() : null;
+};
+
 /** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */
 export const getAddressDisplay = (address: string | undefined | null, district?: string | undefined | null): string => {
   const addr = (address ?? "").trim();
-  const isMissing = !addr || /endere[cç]o\s*nao?\s*informado/i.test(addr);
+  const isMissing = !addr || /endere[cç]o\s*n[aã]o\s*informado/i.test(addr);
   if (isMissing) {
     return district?.trim() ? `Localização no mapa · ${district}` : "Localização disponível no mapa";
   }

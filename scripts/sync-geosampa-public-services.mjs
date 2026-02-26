@@ -22,7 +22,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "street_market", "market", "other"];
+const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "other"];
 
 function loadEnv() {
   const envPath = resolve(ROOT, ".env");
@@ -79,13 +79,47 @@ function getProp(obj, ...keys) {
   return null;
 }
 
+/** Calcula centroide aproximado de um anel [lng, lat][] (média). */
+function ringCentroid(ring) {
+  if (!Array.isArray(ring) || ring.length === 0) return null;
+  let sumLng = 0, sumLat = 0, n = 0;
+  for (const p of ring) {
+    if (Array.isArray(p) && p.length >= 2 && typeof p[0] === "number" && typeof p[1] === "number") {
+      sumLng += p[0];
+      sumLat += p[1];
+      n++;
+    }
+  }
+  if (n === 0) return null;
+  return { lng: sumLng / n, lat: sumLat / n };
+}
+
 function extractPoint(feature) {
   const g = feature?.geometry;
-  if (!g || g.type !== "Point" || !Array.isArray(g.coordinates)) return null;
-  const [lng, lat] = g.coordinates;
-  if (typeof lat !== "number" || typeof lng !== "number") return null;
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-  return { lat, lng };
+  if (!g || !Array.isArray(g.coordinates)) return null;
+
+  if (g.type === "Point") {
+    const [lng, lat] = g.coordinates;
+    if (typeof lat !== "number" || typeof lng !== "number") return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return { lat, lng };
+  }
+
+  if (g.type === "Polygon") {
+    const ring = g.coordinates[0];
+    const c = ringCentroid(ring);
+    if (!c || c.lat < -90 || c.lat > 90 || c.lng < -180 || c.lng > 180) return null;
+    return { lat: c.lat, lng: c.lng };
+  }
+
+  if (g.type === "MultiPolygon") {
+    const firstRing = g.coordinates[0]?.[0];
+    const c = firstRing ? ringCentroid(firstRing) : null;
+    if (!c || c.lat < -90 || c.lat > 90 || c.lng < -180 || c.lng > 180) return null;
+    return { lat: c.lat, lng: c.lng };
+  }
+
+  return null;
 }
 
 /** Gera external_id estável para o feature (GeoSampa costuma ter id ou fid em properties). */
@@ -101,12 +135,37 @@ function featureToRow(feature, layerConfig, index) {
   if (!point) return null;
 
   const props = feature?.properties ?? {};
-  const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip") ?? getExternalId(feature, index);
-  const address = getProp(props, "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c") ?? "Endereço não informado";
+  const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip", "nm_area") ?? getExternalId(feature, index);
+  const address = getProp(
+    props,
+    "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c",
+    "tx_endereco", "ds_endereco", "logradouro", "tx_logradouro", "endereco_completo"
+  ) ?? "Endereço não informado";
   const district = getProp(props, "distrito", "district", "DISTRITO", "nm_bairro_equipamento", "bairro", "ds_subpref", "subprefeitura") ?? "São Paulo";
   const phone = getProp(props, "tx_numero_telefone", "telefone", "phone", "TELEFONE");
-  const openingHoursRaw = getProp(props, "tx_horario_funcionamento", "horario_funcionamento", "opening_hours", "horario");
-  const servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description");
+  const openingHoursRaw = getProp(
+    props,
+    "tx_horario_funcionamento", "horario_funcionamento", "opening_hours", "horario",
+    "tx_horario", "horario_abertura", "ds_horario", "horario_funcionamento"
+  );
+
+  let servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description");
+  if (!servicesOffered && layerConfig.source_layer === "parques_unidades_conservacao") {
+    const parts = [];
+    const tipo = getProp(props, "tx_tipo_categoria");
+    const situacao = getProp(props, "tx_situacao");
+    const admin = getProp(props, "nm_administrador");
+    const area = props.qt_area_metro != null && Number(props.qt_area_metro) > 0
+      ? `${Number(props.qt_area_metro).toLocaleString("pt-BR")} m²`
+      : null;
+    const diploma = getProp(props, "tx_instrumento_legal_criacao");
+    if (tipo) parts.push(tipo);
+    if (situacao) parts.push(situacao);
+    if (admin) parts.push(`Gestão: ${admin}`);
+    if (area) parts.push(`Área: ${area}`);
+    if (diploma) parts.push(`Criação: ${diploma}`);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
 
   const serviceType = SERVICE_TYPES.includes(layerConfig.service_type) ? layerConfig.service_type : "other";
 
@@ -150,8 +209,10 @@ async function fetchGeoJSON(urlOrPath) {
   }
   const fetchUrl = ensureWfsWgs84(u);
   const res = await fetch(fetchUrl, { headers: { "Accept": "application/geo+json, application/json" } });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${fetchUrl}`);
-  return res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+  if (text.trimStart().startsWith("<")) throw new Error(`WFS retornou XML em vez de JSON. Verifique typeName na URL. Resposta: ${text.slice(0, 300)}`);
+  return JSON.parse(text);
 }
 
 const BATCH = 200;

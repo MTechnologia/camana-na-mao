@@ -13,11 +13,13 @@ interface NearbyService {
   average_rating: number;
   total_ratings: number;
   distance?: number;
+  opening_hours: { text?: string } | string | null;
+  services_offered: string | null;
 }
 
 type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
   | "community_center" | "daycare" | "park" | "social_assistance" | "police_station" | "transit_station"
-  | "market" | "theater" | "museum" | "cemetery" | "other" | "all";
+  | "market" | "city_market" | "theater" | "museum" | "cemetery" | "other" | "all";
 
 interface UseNearbyServicesProps {
   latitude: number | null;
@@ -130,7 +132,7 @@ export const useNearbyServices = ({
       let query = supabase
         .from("public_services")
         .select(
-          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings"
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered"
         )
         .gte("latitude", minLat)
         .lte("latitude", maxLat)
@@ -169,6 +171,8 @@ export const useNearbyServices = ({
             average_rating: service.average_rating ?? 0,
             total_ratings: service.total_ratings ?? 0,
             distance: calculateDistance(userLat, userLng, lat, lng),
+            opening_hours: service.opening_hours ?? null,
+            services_offered: service.services_offered ?? null,
           } as NearbyService;
         })
         .filter((service): service is NearbyService => service !== null);

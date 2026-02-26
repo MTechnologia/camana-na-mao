@@ -8,7 +8,9 @@ const cacheKey = (lat: number, lng: number) => `${roundCoord(lat)},${roundCoord(
 
 const isAddressMissing = (address: string | undefined | null): boolean => {
   const a = (address ?? "").trim();
-  return !a || /endere[cç]o\s*nao?\s*informado/i.test(a);
+  if (!a) return true;
+  // "Endereço não informado" ou "Endereço nao informado" (com ou sem acento)
+  return /endere[cç]o\s*n[aã]o\s*informado/i.test(a);
 };
 
 export interface ServiceForGeocode {
@@ -48,14 +50,23 @@ export function useReverseGeocodeForServices(
   );
 
   useEffect(() => {
-    if (!apiKey?.trim()) return;
-
+    const hasKey = !!(apiKey && apiKey.trim());
     const toFetch = services.filter(
       (s) =>
         typeof s.latitude === "number" &&
         typeof s.longitude === "number" &&
         isAddressMissing(s.address)
     );
+
+    if (import.meta.env.DEV) {
+      console.log("[Geocoding] Chave presente:", hasKey, "| Serviços sem endereço:", toFetch.length, "| Total serviços:", services.length);
+    }
+
+    if (!hasKey) {
+      if (import.meta.env.DEV && toFetch.length > 0)
+        console.warn("[Geocoding] Chave da API não configurada (VITE_GOOGLE_MAPS_API_KEY). Reinicie o servidor (npm run dev) após conferir o .env.");
+      return;
+    }
 
     if (toFetch.length === 0) {
       setResolved({});
@@ -81,6 +92,9 @@ export function useReverseGeocodeForServices(
       return;
     }
 
+    if (import.meta.env.DEV)
+      console.log("[Geocoding] Resolvendo endereços para", keysToResolve.length, "coordenada(s). Requisições em maps.googleapis.com");
+
     const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     const fetchOne = async (lat: number, lng: number): Promise<string | null> => {
@@ -88,9 +102,13 @@ export function useReverseGeocodeForServices(
       try {
         const res = await fetch(url);
         const data = await res.json();
-        if (data.status !== "OK" || !data.results?.[0]) return null;
-        return data.results[0].formatted_address ?? null;
-      } catch {
+        if (data.status === "OK" && data.results?.[0])
+          return data.results[0].formatted_address ?? null;
+        if (import.meta.env.DEV && data.status !== "ZERO_RESULTS")
+          console.warn("[Geocoding]", data.status, data.error_message ?? "");
+        return null;
+      } catch (err) {
+        if (import.meta.env.DEV) console.warn("[Geocoding] request failed", err);
         return null;
       }
     };
@@ -128,7 +146,7 @@ export function useReverseGeocodeForServices(
     return () => {
       cancelled = true;
     };
-  }, [apiKey, throttleMs, maxConcurrent, servicesSignature]);
+  }, [apiKey, throttleMs, maxConcurrent, servicesSignature, services.length]);
 
   return resolved;
 }

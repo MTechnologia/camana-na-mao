@@ -1,8 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Phone, ExternalLink } from "lucide-react";
+import { MapPin, Phone, ExternalLink, Clock, Info } from "lucide-react";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
-import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
+import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay, getOpeningHoursText } from "@/lib/mapUtils";
 
 interface ServiceCardProps {
   id: string;
@@ -22,6 +22,10 @@ interface ServiceCardProps {
   /** Localização do usuário para "Como chegar" (rotas) */
   userLatitude?: number | null;
   userLongitude?: number | null;
+  /** Horário de funcionamento (JSONB com .text ou string) */
+  openingHours?: unknown;
+  /** O que o serviço oferece (descrição) */
+  servicesOffered?: string | null;
   onClick?: () => void;
 }
 
@@ -40,6 +44,7 @@ const serviceIcons: Record<string, string> = {
   police_station: "🚔",
   transit_station: "🚌",
   market: "🛒",
+  city_market: "🏪",
   theater: "🎬",
   museum: "🏛️",
   cemetery: "🪦",
@@ -61,6 +66,7 @@ const serviceLabels: Record<string, string> = {
   police_station: "Delegacia",
   transit_station: "Transporte",
   market: "Mercado",
+  city_market: "Mercado Municipal",
   theater: "Teatro/Cinema",
   museum: "Museu",
   cemetery: "Cemitério",
@@ -81,8 +87,11 @@ export const ServiceCard = ({
   longitude,
   userLatitude,
   userLongitude,
+  openingHours,
+  servicesOffered,
   onClick
 }: ServiceCardProps) => {
+  const openingHoursText = getOpeningHoursText(openingHours);
   const hasCoords = typeof latitude === "number" && typeof longitude === "number" && !Number.isNaN(latitude) && !Number.isNaN(longitude);
   const hasUserCoords = typeof userLatitude === "number" && typeof userLongitude === "number" && !Number.isNaN(userLatitude) && !Number.isNaN(userLongitude);
   const mapsUrl = hasCoords
@@ -129,6 +138,19 @@ export const ServiceCard = ({
               <MapPin className="w-3 h-3 shrink-0" />
               <span className="line-clamp-1">{getAddressDisplay(address, district)}</span>
             </div>
+
+            {openingHoursText && (
+              <div className="flex items-start gap-1 text-xs text-muted-foreground mb-1">
+                <Clock className="w-3 h-3 shrink-0 mt-0.5" />
+                <span className="line-clamp-2">{openingHoursText}</span>
+              </div>
+            )}
+            {servicesOffered?.trim() && (
+              <div className="flex items-start gap-1 text-xs text-muted-foreground mb-2">
+                <Info className="w-3 h-3 shrink-0 mt-0.5" />
+                <span className="line-clamp-3">{servicesOffered.trim()}</span>
+              </div>
+            )}
 
             {mapsUrl && (
               <a

@@ -21,10 +21,11 @@ import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { CepSearchCard, type CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName } from "@/lib/mapUtils";
+import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
-  | "community_center" | "daycare" | "park" | "market" | "theater" | "museum";
+  | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum";
 
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
@@ -96,7 +97,12 @@ export default function NearbyServicesPage() {
 
   const useWalkingDistanceLabel = !!(walkingDistances && walkingDistances.size > 0);
 
-  const resolvedAddresses = useReverseGeocodeForServices(sortedServices);
+  // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
+  const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
+    apiKey: getGoogleMapsApiKey(),
+    throttleMs: 200,
+    maxConcurrent: 2,
+  });
 
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
@@ -253,6 +259,8 @@ export default function NearbyServicesPage() {
                     longitude={service.longitude}
                     userLatitude={searchLat ?? undefined}
                     userLongitude={searchLng ?? undefined}
+                    openingHours={service.opening_hours}
+                    servicesOffered={service.services_offered}
                     onClick={() => navigate(`/servico/${service.id}`)}
                   />
                 ))}
