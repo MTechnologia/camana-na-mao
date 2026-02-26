@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center";
+type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
+  | "community_center" | "daycare" | "park" | "market" | "theater" | "museum";
 
 interface ServiceTypeFilterProps {
   selectedType: ServiceType;
@@ -16,6 +17,13 @@ const serviceTypes: { value: ServiceType; label: string; icon: string }[] = [
   { value: "hospital", label: "Hospitais", icon: "🏥" },
   { value: "library", label: "Bibliotecas", icon: "📚" },
   { value: "sports_center", label: "Esportes", icon: "⚽" },
+  { value: "street_market", label: "Feiras", icon: "🛒" },
+  { value: "community_center", label: "Centros Comunitários", icon: "🏘️" },
+  { value: "daycare", label: "Creches", icon: "🍼" },
+  { value: "park", label: "Parques", icon: "🌳" },
+  { value: "market", label: "Mercados", icon: "🛒" },
+  { value: "theater", label: "Teatro/Cinema", icon: "🎬" },
+  { value: "museum", label: "Museus", icon: "🏛️" },
 ];
 
 export const ServiceTypeFilter = ({ selectedType, onTypeChange }: ServiceTypeFilterProps) => {

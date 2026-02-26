@@ -62,6 +62,17 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     hospital: "🏥",
     library: "📚",
     sports_center: "⚽",
+    street_market: "🛒",
+    community_center: "🏘️",
+    daycare: "🍼",
+    park: "🌳",
+    social_assistance: "🤝",
+    police_station: "🚔",
+    transit_station: "🚌",
+    market: "🛒",
+    theater: "🎬",
+    museum: "🏛️",
+    cemetery: "🪦",
     other: "📍"
   };
 

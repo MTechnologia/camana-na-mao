@@ -15,7 +15,9 @@ interface NearbyService {
   distance?: number;
 }
 
-type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "other" | "all";
+type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
+  | "community_center" | "daycare" | "park" | "social_assistance" | "police_station" | "transit_station"
+  | "market" | "theater" | "museum" | "cemetery" | "other" | "all";
 
 interface UseNearbyServicesProps {
   latitude: number | null;
@@ -122,6 +124,9 @@ export const useNearbyServices = ({
         safeRadius
       );
 
+      const isAllTypes = !serviceType || serviceType === "all";
+      const limit = isAllTypes ? 800 : 200;
+
       let query = supabase
         .from("public_services")
         .select(
@@ -131,7 +136,7 @@ export const useNearbyServices = ({
         .lte("latitude", maxLat)
         .gte("longitude", minLng)
         .lte("longitude", maxLng)
-        .limit(200);
+        .limit(limit);
 
       if (serviceType && serviceType !== "all") {
         query = query.eq("service_type", serviceType as any);
@@ -181,7 +186,7 @@ export const useNearbyServices = ({
         return true;
       });
 
-      setServices(deduped);
+      setServices(deduped.slice(0, 200));
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
       setServices([]);

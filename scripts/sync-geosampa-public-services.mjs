@@ -22,7 +22,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"];
+const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "street_market", "market", "other"];
 
 function loadEnv() {
   const envPath = resolve(ROOT, ".env");
@@ -41,6 +41,12 @@ function loadEnv() {
     }
     if (!process.env.SUPABASE_URL && process.env.CAMARA_URL)
       process.env.SUPABASE_URL = process.env.CAMARA_URL;
+    if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL)
+      process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.CAMARA_SERVICE_ROLE_KEY)
+      process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.CAMARA_SERVICE_ROLE_KEY;
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.VITE_SUPABASE_SERVICE_ROLE_KEY)
+      process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
   } catch (e) {
     console.warn("Aviso: .env não encontrado -", e.message);
   }
@@ -157,7 +163,8 @@ async function main() {
   const dryRun = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 
   if (!supabaseUrl || !serviceRoleKey) {
-    console.error("Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env");
+    console.error("Defina no .env: SUPABASE_URL (ou VITE_SUPABASE_URL) e SUPABASE_SERVICE_ROLE_KEY.");
+    console.error("A chave service_role está em: Supabase Dashboard > Project Settings > API > service_role (secret).");
     process.exit(1);
   }
 

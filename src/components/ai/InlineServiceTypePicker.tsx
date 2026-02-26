@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Building2, GraduationCap, Heart, Library, Dumbbell, TreePine } from "lucide-react";
+import { Building2, GraduationCap, Heart, Library, Dumbbell, TreePine, ShoppingBag } from "lucide-react";
 
 interface InlineServiceTypePickerProps {
   onSelect: (type: string, displayName: string) => void;
@@ -13,6 +13,17 @@ const SERVICE_TYPES = [
   { id: 'ceu', label: 'CEU', icon: TreePine, color: 'text-green-500' },
   { id: 'library', label: 'Biblioteca', icon: Library, color: 'text-purple-500' },
   { id: 'sports_center', label: 'Centro Esportivo', icon: Dumbbell, color: 'text-orange-500' },
+  { id: 'street_market', label: 'Feira', icon: ShoppingBag, color: 'text-amber-600' },
+  { id: 'community_center', label: 'Centro Comunitário', icon: Building2, color: 'text-teal-600' },
+  { id: 'daycare', label: 'Creche', icon: GraduationCap, color: 'text-pink-500' },
+  { id: 'park', label: 'Parque', icon: TreePine, color: 'text-green-600' },
+  { id: 'social_assistance', label: 'Assistência Social', icon: Heart, color: 'text-rose-600' },
+  { id: 'police_station', label: 'Delegacia', icon: Building2, color: 'text-slate-600' },
+  { id: 'transit_station', label: 'Transporte', icon: Building2, color: 'text-indigo-600' },
+  { id: 'market', label: 'Mercado', icon: ShoppingBag, color: 'text-amber-700' },
+  { id: 'theater', label: 'Teatro/Cinema', icon: Building2, color: 'text-violet-600' },
+  { id: 'museum', label: 'Museu', icon: Building2, color: 'text-stone-600' },
+  { id: 'cemetery', label: 'Cemitério', icon: Building2, color: 'text-gray-600' },
 ] as const;
 
 export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerProps) => {

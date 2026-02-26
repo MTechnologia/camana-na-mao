@@ -62,6 +62,17 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
     hospital: 'Hospital',
     library: 'Biblioteca',
     sports_center: 'Centro Esportivo',
+    street_market: 'Feira',
+    community_center: 'Centro Comunitário',
+    daycare: 'Creche',
+    park: 'Parque',
+    social_assistance: 'Assistência Social',
+    police_station: 'Delegacia',
+    transit_station: 'Transporte',
+    market: 'Mercado',
+    theater: 'Teatro/Cinema',
+    museum: 'Museu',
+    cemetery: 'Cemitério',
     other: 'Outro'
   }
 };

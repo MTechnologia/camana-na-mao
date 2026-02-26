@@ -55,13 +55,17 @@ export function useWalkingDistancesMatrix(
       for (const chunk of chunks) {
         if (requestIdRef.current !== requestId) return;
 
+        // Mapbox Matrix exige mínimo 2 elementos (1 origem × 2 destinos). 1×1 retorna 422.
+        const dests = chunk.length >= 2 ? chunk : [chunk[0], { id: "__origin__", longitude: userLng, latitude: userLat } as ServiceWithCoords];
+        const destList = chunk.length >= 2 ? chunk : dests;
+
         const coords = [
           [userLng, userLat],
-          ...chunk.map((s) => [s.longitude, s.latitude] as [number, number]),
+          ...destList.map((s) => [s.longitude, s.latitude] as [number, number]),
         ];
         const coordinates = coords.map(([lng, lat]) => `${lng},${lat}`).join(";");
         const sources = "0";
-        const destinations = chunk.map((_, i) => i + 1).join(";");
+        const destinations = destList.map((_, i) => i + 1).join(";");
         const url = `https://api.mapbox.com/directions-matrix/v1/mapbox/walking/${coordinates}?sources=${sources}&destinations=${destinations}&annotations=distance,duration&access_token=${mapboxToken}`;
 
         try {

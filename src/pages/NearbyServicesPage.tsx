@@ -23,7 +23,8 @@ import { CepSearchCard, type CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center";
+type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
+  | "community_center" | "daycare" | "park" | "market" | "theater" | "museum";
 
 export default function NearbyServicesPage() {
   const navigate = useNavigate();

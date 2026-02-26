@@ -32,6 +32,17 @@ const serviceIcons: Record<string, string> = {
   hospital: "🏥",
   library: "📚",
   sports_center: "⚽",
+  street_market: "🛒",
+  community_center: "🏘️",
+  daycare: "🍼",
+  park: "🌳",
+  social_assistance: "🤝",
+  police_station: "🚔",
+  transit_station: "🚌",
+  market: "🛒",
+  theater: "🎬",
+  museum: "🏛️",
+  cemetery: "🪦",
   other: "📍"
 };
 
@@ -42,6 +53,17 @@ const serviceLabels: Record<string, string> = {
   hospital: "Hospital",
   library: "Biblioteca",
   sports_center: "Centro Esportivo",
+  street_market: "Feira",
+  community_center: "Centro Comunitário",
+  daycare: "Creche",
+  park: "Parque",
+  social_assistance: "Assistência Social",
+  police_station: "Delegacia",
+  transit_station: "Transporte",
+  market: "Mercado",
+  theater: "Teatro/Cinema",
+  museum: "Museu",
+  cemetery: "Cemitério",
   other: "Outro"
 };
 
