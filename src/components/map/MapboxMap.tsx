@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DirectionsDrawer } from './DirectionsDrawer';
 import { useMapboxDirections } from '@/hooks/useMapboxDirections';
+import { formatDistanceStraightLine } from '@/lib/mapUtils';
 
 interface Service {
   id: string;
@@ -44,6 +45,11 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
   const [transportMode, setTransportMode] = useState<'walking' | 'driving' | 'cycling'>('walking');
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const routeLayerIdRef = useRef<string | null>(null);
+  const servicesSourceId = 'services-cluster-source';
+  const servicesClusterLayerId = 'services-clusters';
+  const servicesClusterCountId = 'services-cluster-count';
+  const servicesUnclusteredId = 'services-unclustered';
+  const clickListenerRef = useRef<(() => void) | null>(null);
 
   const { getDirections, directions, loading, error } = useMapboxDirections(
     tokenSaved ? mapboxToken : null
@@ -106,43 +112,112 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     });
   }, [userLocation, tokenSaved]);
 
-  // Add service markers
+  // Serviços como source GeoJSON com clustering (evita sobreposição quando há muitos equipamentos)
   useEffect(() => {
     if (!map.current || !tokenSaved) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
+    const geojson: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+      type: 'FeatureCollection',
+      features: services.map((s) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.longitude, s.latitude] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          service_type: s.service_type,
+          distance: s.distance,
+          icon: serviceIcons[s.service_type] || serviceIcons.other,
+        },
+      })),
+    };
 
-    services.forEach(service => {
-      const el = document.createElement('div');
-      el.className = 'service-marker';
-      el.innerHTML = serviceIcons[service.service_type] || serviceIcons.other;
-      el.style.fontSize = '24px';
-      el.style.cursor = 'pointer';
-      el.style.transition = 'transform 0.2s';
-      
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.2)';
+    const setupLayers = () => {
+      if (!map.current) return;
+      const mapInstance = map.current;
+
+      if (mapInstance.getSource(servicesSourceId)) {
+        mapInstance.removeLayer(servicesUnclusteredId);
+        mapInstance.removeLayer(servicesClusterCountId);
+        mapInstance.removeLayer(servicesClusterLayerId);
+        mapInstance.removeSource(servicesSourceId);
+      }
+
+      mapInstance.addSource(servicesSourceId, {
+        type: 'geojson',
+        data: geojson,
+        cluster: true,
+        clusterMaxZoom: 16,
+        clusterRadius: 50,
       });
-      
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
+
+      mapInstance.addLayer({
+        id: servicesClusterLayerId,
+        type: 'circle',
+        source: servicesSourceId,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': ['step', ['get', 'point_count'], 'hsl(var(--primary))', 10, '#ea580c', 50, '#b91c1c'],
+          'circle-radius': ['step', ['get', 'point_count'], 20, 10, 28, 50, 36],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        },
       });
 
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div style="padding: 8px;">
-          <p style="font-weight: 600; margin-bottom: 4px;">${service.name}</p>
-          ${service.distance ? `<p style="font-size: 12px; color: #666;">${service.distance < 1000 ? Math.round(service.distance) + 'm' : (service.distance / 1000).toFixed(1) + 'km'}</p>` : ''}
-        </div>
-      `);
+      mapInstance.addLayer({
+        id: servicesClusterCountId,
+        type: 'symbol',
+        source: servicesSourceId,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 14,
+        },
+        paint: { 'text-color': '#fff' },
+      });
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([service.longitude, service.latitude])
-        .setPopup(popup)
-        .addTo(map.current!);
+      mapInstance.addLayer({
+        id: servicesUnclusteredId,
+        type: 'circle',
+        source: servicesSourceId,
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': 'hsl(var(--primary))',
+          'circle-radius': 10,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        },
+      });
 
-      el.addEventListener('click', () => {
+      clickListenerRef.current?.();
+      clickListenerRef.current = () => {
+        mapInstance.off('click', servicesClusterLayerId, onClusterClick);
+        mapInstance.off('click', servicesUnclusteredId, onPointClick);
+      };
+
+      const onClusterClick = (e: mapboxgl.MapMouseEvent) => {
+        e.originalEvent.stopPropagation();
+        const features = mapInstance.queryRenderedFeatures(e.point, { layers: [servicesClusterLayerId] });
+        if (!features.length) return;
+        const clusterId = features[0].properties?.cluster_id;
+        if (clusterId == null) return;
+        const source = mapInstance.getSource(servicesSourceId) as mapboxgl.GeoJSONSource;
+        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+          if (err || zoom == null) return;
+          const geometry = features[0].geometry as GeoJSON.Point;
+          mapInstance.flyTo({ center: geometry.coordinates as [number, number], zoom });
+        });
+      };
+
+      const onPointClick = (e: mapboxgl.MapMouseEvent) => {
+        e.originalEvent.stopPropagation();
+        const features = mapInstance.queryRenderedFeatures(e.point, { layers: [servicesUnclusteredId] });
+        if (!features.length) return;
+        const props = features[0].properties;
+        const serviceId = props?.id as string | undefined;
+        if (!serviceId) return;
+        const service = services.find((s) => s.id === serviceId);
+        if (!service) return;
         setSelectedService(service);
         setShowDirections(true);
         if (userLocation) {
@@ -153,10 +228,37 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
           );
         }
         onServiceClick(service.id);
-      });
 
-      markersRef.current.push(marker);
-    });
+        const distanceText = service.distance != null ? formatDistanceStraightLine(service.distance) : '';
+        const popup = new mapboxgl.Popup({ offset: 25 })
+          .setHTML(
+            `<div style="padding:8px;"><p style="font-weight:600;margin-bottom:4px;">${service.name}</p>${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText}</p>` : ''}</div>`
+          )
+          .setLngLat([service.longitude, service.latitude])
+          .addTo(mapInstance);
+        setTimeout(() => popup.remove(), 3000);
+      };
+
+      mapInstance.on('click', servicesClusterLayerId, onClusterClick);
+      mapInstance.on('click', servicesUnclusteredId, onPointClick);
+      mapInstance.getCanvas().style.cursor = 'pointer';
+    };
+
+    if (map.current.isStyleLoaded()) {
+      setupLayers();
+    } else {
+      map.current.once('load', setupLayers);
+    }
+
+    return () => {
+      clickListenerRef.current?.();
+      if (map.current?.getSource(servicesSourceId)) {
+        map.current.removeLayer(servicesUnclusteredId);
+        map.current.removeLayer(servicesClusterCountId);
+        map.current.removeLayer(servicesClusterLayerId);
+        map.current.removeSource(servicesSourceId);
+      }
+    };
   }, [services, tokenSaved, userLocation, transportMode]);
 
   // Draw route on map

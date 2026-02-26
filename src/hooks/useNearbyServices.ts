@@ -27,7 +27,7 @@ interface UseNearbyServicesProps {
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
 const CENTRO_SP = { lat: -23.5505, lng: -46.6333 };
 
-// Haversine formula to calculate distance between two points
+// Haversine: distância em linha reta (não é a distância da rota a pé/carro). A UI exibe "(em linha reta)" para evitar confusão com o Maps.
 const calculateDistance = (
   lat1: number,
   lon1: number,

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { Card } from '@/components/ui/card';
 import { Navigation, MapPin } from 'lucide-react';
 import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
-import { getServiceDisplayName, buildGoogleMapsUrl } from '@/lib/mapUtils';
+import { getServiceDisplayName, buildGoogleMapsUrl, formatDistance, formatDistanceStraightLine } from '@/lib/mapUtils';
 
 interface Service {
   id: string;
@@ -19,6 +20,7 @@ interface GoogleMapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
+  distanceLabel?: 'walking' | 'straight';
 }
 
 const serviceIcons: Record<string, string> = {
@@ -31,10 +33,11 @@ const serviceIcons: Record<string, string> = {
   other: '📍',
 };
 
-export const GoogleMapView = ({ userLocation, services, onServiceClick }: GoogleMapViewProps) => {
+export const GoogleMapView = ({ userLocation, services, onServiceClick, distanceLabel = 'straight' }: GoogleMapViewProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -59,6 +62,8 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
     mapInstanceRef.current = map;
 
     return () => {
+      clustererRef.current?.clearMarkers();
+      clustererRef.current = null;
       markersRef.current.forEach((m) => m.setMap(null));
       markersRef.current = [];
       mapInstanceRef.current = null;
@@ -88,13 +93,16 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
     return () => marker.setMap(null);
   }, [isLoaded, userLocation]);
 
-  // Service markers
+  // Service markers com clustering (evita sobreposição quando há muitos equipamentos)
   useEffect(() => {
     if (!mapInstanceRef.current || !window.google?.maps) return;
 
+    clustererRef.current?.clearMarkers();
+    clustererRef.current = null;
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
+    const markers: google.maps.Marker[] = [];
     services.forEach((service) => {
       const displayName = getServiceDisplayName({
         name: service.name,
@@ -104,7 +112,6 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
       });
       const marker = new google.maps.Marker({
         position: { lat: service.latitude, lng: service.longitude },
-        map: mapInstanceRef.current!,
         title: displayName,
         label: {
           text: serviceIcons[service.service_type] || serviceIcons.other,
@@ -115,10 +122,13 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
       const mapsUrl = userLocation
         ? buildGoogleMapsUrl(userLocation.latitude, userLocation.longitude, service.latitude, service.longitude)
         : `https://www.google.com/maps?q=${service.latitude},${service.longitude}`;
+      const distanceText = service.distance != null
+        ? (distanceLabel === 'walking' ? formatDistance(service.distance) : formatDistanceStraightLine(service.distance))
+        : '';
       const infoContent = `
-        <div style="padding:8px;min-width:160px;">
+        <div style="padding:8px;min-width:180px;">
           <p style="font-weight:600;margin:0 0 4px;">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          ${service.distance != null ? `<p style="font-size:12px;color:#666;">${service.distance < 1000 ? Math.round(service.distance) + 'm' : (service.distance / 1000).toFixed(1) + 'km'}</p>` : ''}
+          ${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : ''}
           <a href="${mapsUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1976d2;margin-top:6px;display:inline-block;">Como chegar</a>
         </div>
       `;
@@ -129,8 +139,17 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick }: Google
         onServiceClick(service.id);
       });
 
-      markersRef.current.push(marker);
+      markers.push(marker);
     });
+
+    markersRef.current = markers;
+    if (markers.length > 0) {
+      clustererRef.current = new MarkerClusterer({
+        map: mapInstanceRef.current,
+        markers,
+        // Renderer padrão: círculos com contagem; ao dar zoom os clusters se separam em marcadores individuais
+      });
+    }
   }, [isLoaded, services, onServiceClick, userLocation]);
 
   useEffect(() => {

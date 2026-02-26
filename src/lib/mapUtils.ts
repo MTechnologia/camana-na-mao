@@ -34,6 +34,12 @@ export const formatDistance = (meters: number): string => {
   return `${(meters / 1000).toFixed(1)}km`;
 };
 
+/** Formata distância em linha reta e deixa explícito para o usuário (evita confusão com distância da rota no Maps). */
+export const formatDistanceStraightLine = (meters: number): string => {
+  const value = formatDistance(meters);
+  return `${value} (em linha reta)`;
+};
+
 export const formatDuration = (seconds: number): string => {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) {

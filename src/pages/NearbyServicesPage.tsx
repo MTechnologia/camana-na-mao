@@ -9,6 +9,8 @@ import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/Rati
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
+import { useWalkingDistancesMatrix } from "@/hooks/useWalkingDistancesMatrix";
+import { useMapboxToken } from "@/hooks/useMapboxToken";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +39,9 @@ export default function NearbyServicesPage() {
   const searchLat = cepCenter?.latitude ?? latitude;
   const searchLng = cepCenter?.longitude ?? longitude;
 
+  const mapboxToken = useMapboxToken();
+  const hasMapboxToken = !!(mapboxToken && mapboxToken.startsWith("pk."));
+
   const { services, loading: servicesLoading } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
@@ -48,14 +53,47 @@ export default function NearbyServicesPage() {
     ? services
     : services.filter((s) => (s.average_rating ?? 0) >= minRating);
 
-  const sortedServices = [...filteredByRating].sort((a, b) => {
-    if (sortBy === "rating") {
-      const ra = a.average_rating ?? 0;
-      const rb = b.average_rating ?? 0;
-      if (rb !== ra) return rb - ra;
-    }
-    return (a.distance ?? 0) - (b.distance ?? 0);
-  });
+  const sortedServicesByHaversine = useMemo(
+    () =>
+      [...filteredByRating].sort((a, b) => {
+        if (sortBy === "rating") {
+          const ra = a.average_rating ?? 0;
+          const rb = b.average_rating ?? 0;
+          if (rb !== ra) return rb - ra;
+        }
+        return (a.distance ?? 0) - (b.distance ?? 0);
+      }),
+    [filteredByRating, sortBy]
+  );
+
+  const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
+  const { walkingDistances, loading: walkingLoading } = useWalkingDistancesMatrix(
+    mapCenter,
+    sortedServicesByHaversine,
+    hasMapboxToken ? mapboxToken : null
+  );
+
+  const sortedServices = useMemo(() => {
+    const withWalking =
+      walkingDistances && walkingDistances.size > 0
+        ? sortedServicesByHaversine.map((s) => ({
+            ...s,
+            distance: walkingDistances.get(s.id) ?? s.distance,
+          }))
+        : sortedServicesByHaversine.map((s) => ({ ...s }));
+
+    const withinRadius = withWalking.filter((s) => (s.distance ?? 0) <= radiusMeters);
+    return [...withinRadius].sort((a, b) => {
+      if (sortBy === "rating") {
+        const ra = a.average_rating ?? 0;
+        const rb = b.average_rating ?? 0;
+        if (rb !== ra) return rb - ra;
+      }
+      return (a.distance ?? 0) - (b.distance ?? 0);
+    });
+  }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters]);
+
+  const useWalkingDistanceLabel = !!(walkingDistances && walkingDistances.size > 0);
 
   const resolvedAddresses = useReverseGeocodeForServices(sortedServices);
 
@@ -102,7 +140,6 @@ export default function NearbyServicesPage() {
     );
   }, [detectedVisit, handleVisitAvaliar]);
   const isLoading = servicesLoading && services.length === 0;
-  const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
@@ -154,6 +191,11 @@ export default function NearbyServicesPage() {
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
               </p>
             )}
+            {hasMapboxToken && walkingLoading && sortedServices.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Atualizando distâncias a pé…
+              </p>
+            )}
           </>
         )}
 
@@ -202,6 +244,7 @@ export default function NearbyServicesPage() {
                     address={resolvedAddresses[service.id] ?? service.address}
                     district={resolvedAddresses[service.id] ? undefined : service.district}
                     distance={service.distance}
+                    distanceLabel={useWalkingDistanceLabel ? "walking" : "straight"}
                     averageRating={service.average_rating}
                     totalRatings={service.total_ratings}
                     phone={service.phone}
@@ -224,6 +267,7 @@ export default function NearbyServicesPage() {
                 userLocation={mapCenter}
                 services={sortedServices}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
+                distanceLabel={useWalkingDistanceLabel ? "walking" : "straight"}
               />
             ) : (
               <div className="text-center py-12">

@@ -17,6 +17,8 @@ interface MapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
+  /** Quando true, a distância exibida é a pé (rota real); caso contrário mostra "(em linha reta)" */
+  distanceLabel?: "walking" | "straight";
 }
 
 const MapLoader = () => (
@@ -28,7 +30,7 @@ const MapLoader = () => (
   </div>
 );
 
-export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps) => {
+export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight" }: MapViewProps) => {
   const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const useGoogleMaps = !!(googleMapsKey && googleMapsKey.trim().length > 0);
 
@@ -39,6 +41,7 @@ export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps
           userLocation={userLocation}
           services={services}
           onServiceClick={onServiceClick}
+          distanceLabel={distanceLabel}
         />
       </Suspense>
     );
@@ -49,6 +52,7 @@ export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps
       userLocation={userLocation}
       services={services}
       onServiceClick={onServiceClick}
+      distanceLabel={distanceLabel}
     />
   );
 };

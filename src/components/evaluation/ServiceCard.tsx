@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Phone, ExternalLink } from "lucide-react";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
-import { formatDistance, buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
+import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
 
 interface ServiceCardProps {
   id: string;
@@ -11,6 +11,8 @@ interface ServiceCardProps {
   address: string;
   district: string;
   distance?: number;
+  /** Quando "walking", exibe distância real a pé; quando "straight", exibe "(em linha reta)" */
+  distanceLabel?: "walking" | "straight";
   averageRating: number;
   totalRatings: number;
   phone?: string | null;
@@ -49,6 +51,7 @@ export const ServiceCard = ({
   address,
   district,
   distance,
+  distanceLabel = "straight",
   averageRating,
   totalRatings,
   phone,
@@ -87,8 +90,11 @@ export const ServiceCard = ({
                 {name}
               </h3>
               {distance !== undefined && (
-                <span className="text-xs font-medium text-primary whitespace-nowrap">
-                  {formatDistance(distance)}
+                <span
+                  className="text-xs font-medium text-primary whitespace-nowrap"
+                  title={distanceLabel === "walking" ? "Distância a pé (rota real)" : "Distância em linha reta. A rota a pé no mapa pode ser maior."}
+                >
+                  {distanceLabel === "walking" ? formatDistance(distance) : formatDistanceStraightLine(distance)}
                 </span>
               )}
             </div>
