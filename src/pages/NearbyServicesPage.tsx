@@ -19,7 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, AlertCircle, Map, List } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
-import { CepSearchCard, type CepCenter } from "@/components/map/CepSearchCard";
+import { LocationSearchCard } from "@/components/map/LocationSearchCard";
+import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -203,7 +204,7 @@ export default function NearbyServicesPage() {
           </>
         )}
 
-        <CepSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
+        <LocationSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
         <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
 
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
