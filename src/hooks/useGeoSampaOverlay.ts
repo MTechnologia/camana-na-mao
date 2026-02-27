@@ -4,6 +4,7 @@ import {
   buildWfsUrl,
   type GeoSampaOverlayLayer,
 } from "@/config/geosampa-overlay-layers";
+import { supabaseAnonKey } from "@/integrations/supabase/client";
 
 export interface GeoSampaOverlayState {
   layer: GeoSampaOverlayLayer;
@@ -20,10 +21,15 @@ export function useGeoSampaOverlay(enabledLayerIds: string[]) {
 
   const fetchLayer = useCallback(async (layer: GeoSampaOverlayLayer) => {
     const url = buildWfsUrl(layer);
+    const isSupabaseProxy = url.includes("/functions/v1/geosampa-wfs-proxy");
+    const headers: Record<string, string> = {
+      Accept: "application/geo+json, application/json",
+    };
+    if (isSupabaseProxy && supabaseAnonKey) {
+      headers.Authorization = `Bearer ${supabaseAnonKey}`;
+    }
     try {
-      const res = await fetch(url, {
-        headers: { Accept: "application/geo+json, application/json" },
-      });
+      const res = await fetch(url, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const geojson = (await res.json()) as GeoJSON.FeatureCollection;
       if (!geojson?.features) throw new Error("Resposta inválida");
