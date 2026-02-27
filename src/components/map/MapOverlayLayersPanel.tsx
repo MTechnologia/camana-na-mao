@@ -7,7 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Layers, Loader2, AlertCircle, ChevronDown } from "lucide-react";
+import { Layers, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
 import { GEOSAMPA_OVERLAY_LAYERS } from "@/config/geosampa-overlay-layers";
 import type { GeoSampaOverlayState } from "@/hooks/useGeoSampaOverlay";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,7 @@ export function MapOverlayLayersPanel({
         <Button
           variant="secondary"
           size="sm"
-          className=" top-20 right-20 z-10 shadow-lg gap-2"
+          className="shadow-sm gap-2"
         >
           <Layers className="w-4 h-4" />
           Camadas GeoSampa
@@ -69,10 +69,9 @@ export function MapOverlayLayersPanel({
                   <Loader2 className="w-3 h-3 animate-spin text-muted-foreground shrink-0" />
                 )}
                 {error && !loading && (
-                  <AlertCircle
-                    className="w-3 h-3 text-destructive shrink-0"
-                    title={error}
-                  />
+                  <span title={error} aria-label="Erro ao carregar">
+                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                  </span>
                 )}
                 <span className={cn("truncate", error && "text-destructive")}>
                   {layer.label}

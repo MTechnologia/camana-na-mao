@@ -42,18 +42,18 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
   if (useGoogleMaps) {
     return (
       <Suspense fallback={<MapLoader />}>
-        <div className="relative">
+        <div className="space-y-2">
+          <MapOverlayLayersPanel
+            enabledLayerIds={enabledOverlayIds}
+            onEnabledChange={setEnabledOverlayIds}
+            layerStates={overlayLayers}
+          />
           <GoogleMapView
             userLocation={userLocation}
             services={services}
             onServiceClick={onServiceClick}
             distanceLabel={distanceLabel}
             overlayLayers={overlayLayers}
-          />
-          <MapOverlayLayersPanel
-            enabledLayerIds={enabledOverlayIds}
-            onEnabledChange={setEnabledOverlayIds}
-            layerStates={overlayLayers}
           />
         </div>
       </Suspense>
