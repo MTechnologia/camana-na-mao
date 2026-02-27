@@ -37,7 +37,7 @@ export function MapOverlayLayersPanel({
         <Button
           variant="secondary"
           size="sm"
-          className="fixed top-20 right-20 z-10 shadow-lg gap-2"
+          className=" top-20 right-20 z-10 shadow-lg gap-2"
         >
           <Layers className="w-4 h-4" />
           Camadas GeoSampa

@@ -4,21 +4,31 @@
  *
  * WFS base: https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs
  *
- * CORS: GeoSampa não envia Access-Control-Allow-Origin. Em dev usamos proxy Vite.
- * Em produção: configurar VITE_GEOSAMPA_WFS_PROXY se tiver proxy no backend.
+ * CORS: GeoSampa não envia Access-Control-Allow-Origin.
+ * - Dev: proxy Vite (/geosampa-wfs)
+ * - Prod: Edge Function geosampa-wfs-proxy (via VITE_SUPABASE_URL)
  */
 const WFS_ORIGIN = "https://wfs.geosampa.prefeitura.sp.gov.br";
-const WFS_PATH =
-  "/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&outputFormat=application%2Fjson&srsName=EPSG:4326";
+const WFS_QUERY =
+  "service=WFS&version=1.0.0&request=GetFeature&outputFormat=application%2Fjson&srsName=EPSG:4326";
 
-const proxyBase =
-  import.meta.env.VITE_GEOSAMPA_WFS_PROXY as string | undefined;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const customProxy = import.meta.env.VITE_GEOSAMPA_WFS_PROXY as string | undefined;
 
-/** Em dev usa proxy Vite (/geosampa-wfs); em prod usa proxy env ou origem direta */
+/** Proxy em prod: Edge Function ou custom env */
+const prodProxyBase = customProxy
+  ? customProxy.replace(/\/?$/, "")
+  : supabaseUrl
+    ? `${supabaseUrl.replace(/\/$/, "")}/functions/v1/geosampa-wfs-proxy`
+    : null;
+
+/** Em dev usa proxy Vite; em prod usa Edge Function (ou custom) para evitar CORS */
 const WFS_BASE =
   import.meta.env.DEV
-    ? `/geosampa-wfs${WFS_PATH}`
-    : (proxyBase ? proxyBase.replace(/\/?$/, "") + WFS_PATH : `${WFS_ORIGIN}${WFS_PATH}`);
+    ? `/geosampa-wfs/geoserver/geoportal/wfs?${WFS_QUERY}`
+    : prodProxyBase
+      ? `${prodProxyBase}?${WFS_QUERY}`
+      : `${WFS_ORIGIN}/geoserver/geoportal/wfs?${WFS_QUERY}`;
 
 export interface GeoSampaOverlayLayer {
   id: string;
@@ -229,5 +239,6 @@ export const GEOSAMPA_OVERLAY_LAYERS: GeoSampaOverlayLayer[] = [
 
 export function buildWfsUrl(layer: GeoSampaOverlayLayer): string {
   const max = layer.maxFeatures ?? 500;
-  return `${WFS_BASE}&typeName=geoportal:${layer.typeName}&maxFeatures=${max}`;
+  const sep = WFS_BASE.includes("?") ? "&" : "?";
+  return `${WFS_BASE}${sep}typeName=geoportal:${layer.typeName}&maxFeatures=${max}`;
 }
