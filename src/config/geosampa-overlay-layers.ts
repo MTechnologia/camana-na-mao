@@ -6,13 +6,13 @@
  *
  * CORS: GeoSampa não envia Access-Control-Allow-Origin.
  * - Dev: proxy Vite (/geosampa-wfs)
- * - Prod: Edge Function geosampa-wfs-proxy (via VITE_SUPABASE_URL)
+ * - Prod: Edge Function geosampa-wfs-proxy (via CAMARA_URL ou VITE_SUPABASE_URL)
  */
 const WFS_ORIGIN = "https://wfs.geosampa.prefeitura.sp.gov.br";
 const WFS_QUERY =
   "service=WFS&version=1.0.0&request=GetFeature&outputFormat=application%2Fjson&srsName=EPSG:4326";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseUrl = (import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL) as string | undefined;
 const customProxy = import.meta.env.VITE_GEOSAMPA_WFS_PROXY as string | undefined;
 
 /** Proxy em prod: Edge Function ou custom env */
