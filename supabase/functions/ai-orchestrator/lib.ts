@@ -2440,6 +2440,7 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_type = answer.toLowerCase();
               }
               break;
+            }
             case 'service_name':
               // Aceitar "Serviço: NOME - Bairro\nEndereço: ..." (regex sem $ para multilinha)
               const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*([^\n]*))?(?:\n|$)/i);
@@ -2450,7 +2451,6 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
-            }
             case 'rating_stars': {
               const starsMatch = answer.match(/(\d)/);
               if (starsMatch) {

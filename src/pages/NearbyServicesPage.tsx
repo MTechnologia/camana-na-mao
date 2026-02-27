@@ -4,7 +4,7 @@ import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
-import { ServiceTypeFilter } from "@/components/evaluation/ServiceTypeFilter";
+import { ServiceTypeFilter, type ServiceTypeFilterValue } from "@/components/evaluation/ServiceTypeFilter";
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -24,13 +24,10 @@ import { getServiceDisplayName } from "@/lib/mapUtils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
-  | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum";
-
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedType, setSelectedType] = useState<ServiceType>("all");
+  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
   const [radiusMeters, setRadiusMeters] = useState(5000);
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
@@ -48,7 +45,7 @@ export default function NearbyServicesPage() {
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
-    serviceType: selectedType === "all" ? undefined : selectedType
+    serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined
   });
 
   const filteredByRating = minRating === "all"
@@ -209,7 +206,7 @@ export default function NearbyServicesPage() {
         <CepSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
         <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
 
-        <ServiceTypeFilter selectedType={selectedType} onTypeChange={setSelectedType} />
+        <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
 
         <RatingFilter value={minRating} onChange={setMinRating} />
 

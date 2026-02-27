@@ -48,6 +48,9 @@ const serviceIcons: Record<string, string> = {
   theater: "🎬",
   museum: "🏛️",
   cemetery: "🪦",
+  accessibility: "♿",
+  recycling_point: "♻️",
+  fire_station: "🚒",
   other: "📍"
 };
 
@@ -70,6 +73,9 @@ const serviceLabels: Record<string, string> = {
   theater: "Teatro/Cinema",
   museum: "Museu",
   cemetery: "Cemitério",
+  accessibility: "Acessibilidade",
+  recycling_point: "Reciclagem/Limpeza",
+  fire_station: "Bombeiros",
   other: "Outro"
 };
 

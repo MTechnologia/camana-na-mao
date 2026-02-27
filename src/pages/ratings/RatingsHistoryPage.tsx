@@ -42,9 +42,13 @@ const serviceTypeLabels: Record<string, string> = {
   police_station: 'Delegacia',
   transit_station: 'Transporte',
   market: 'Mercado',
+  city_market: 'Mercado Municipal',
   theater: 'Teatro/Cinema',
   museum: 'Museu',
   cemetery: 'Cemitério',
+  accessibility: 'Acessibilidade',
+  recycling_point: 'Reciclagem/Limpeza',
+  fire_station: 'Bombeiros',
   other: 'Outro'
 };
 

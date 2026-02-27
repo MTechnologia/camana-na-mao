@@ -2291,9 +2291,13 @@ export type Database = {
         | "police_station"
         | "transit_station"
         | "market"
+        | "city_market"
         | "theater"
         | "museum"
         | "cemetery"
+        | "accessibility"
+        | "recycling_point"
+        | "fire_station"
         | "other"
       visit_status: "pending" | "completed" | "expired" | "skipped"
     }
@@ -2447,9 +2451,13 @@ export const Constants = {
         "police_station",
         "transit_station",
         "market",
+        "city_market",
         "theater",
         "museum",
         "cemetery",
+        "accessibility",
+        "recycling_point",
+        "fire_station",
         "other",
       ],
       visit_status: ["pending", "completed", "expired", "skipped"],

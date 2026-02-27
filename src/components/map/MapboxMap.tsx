@@ -70,9 +70,13 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     police_station: "🚔",
     transit_station: "🚌",
     market: "🛒",
+    city_market: "🏪",
     theater: "🎬",
     museum: "🏛️",
     cemetery: "🪦",
+    accessibility: "♿",
+    recycling_point: "♻️",
+    fire_station: "🚒",
     other: "📍"
   };
 

@@ -22,7 +22,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "other"];
+const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
 
 function loadEnv() {
   const envPath = resolve(ROOT, ".env");
@@ -135,21 +135,66 @@ function featureToRow(feature, layerConfig, index) {
   if (!point) return null;
 
   const props = feature?.properties ?? {};
-  const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip", "nm_area") ?? getExternalId(feature, index);
+  const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip", "nm_area",
+    "nm_estabelecimento", "nm_central_intermediacao_libra", "nm_local", "nm_ecoponto", "nm_ponto_onibus",
+    "nm_estacao_transbordo", "nm_cooperativa", "nm_estacao_metro_trem", "nm_terminal", "nm_aterro_sanitario",
+    "nm_servico", "nm_entidade", "nm_shopping_center") ?? getExternalId(feature, index);
   const address = getProp(
     props,
     "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c",
-    "tx_endereco", "ds_endereco", "logradouro", "tx_logradouro", "endereco_completo"
+    "tx_endereco", "ds_endereco", "logradouro", "tx_logradouro", "endereco_completo",
+    "nm_endereco", "tx_endereco_ponto_onibus", "endereco1"
   ) ?? "Endereço não informado";
-  const district = getProp(props, "distrito", "district", "DISTRITO", "nm_bairro_equipamento", "bairro", "ds_subpref", "subprefeitura") ?? "São Paulo";
-  const phone = getProp(props, "tx_numero_telefone", "telefone", "phone", "TELEFONE");
+  const district = getProp(props, "distrito", "district", "DISTRITO", "nm_bairro_equipamento", "nm_bairro", "bairro", "ds_subpref", "subprefeitura", "nm_distrito", "nm_subprefeitura", "nm_prefeitura_regional") ?? "São Paulo";
+  const phone = getProp(props, "tx_numero_telefone", "tx_telefone", "nr_telefone", "telefone", "phone", "TELEFONE");
   const openingHoursRaw = getProp(
     props,
     "tx_horario_funcionamento", "horario_funcionamento", "opening_hours", "horario",
-    "tx_horario", "horario_abertura", "ds_horario", "horario_funcionamento"
+    "tx_horario", "horario_abertura", "ds_horario", "horario_funcionamento", "tx_atendimento"
   );
 
-  let servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description");
+  let servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description", "tx_descricao");
+  if (!servicesOffered && layerConfig.source_layer === "ecoponto") {
+    const comum = getProp(props, "tx_recebimento_comum");
+    const difer = getProp(props, "tx_recebimento_diferenciado");
+    const tipo = getProp(props, "tx_tipo_recebimento");
+    const parts = [comum, difer, tipo].filter(Boolean);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && (layerConfig.source_layer === "estacao_metro" || layerConfig.source_layer === "estacao_trem")) {
+    const linha = getProp(props, "nm_linha_metro_trem");
+    const empresa = getProp(props, "nm_empresa_metro_trem");
+    const status = getProp(props, "tx_situacao_metro_trem");
+    const parts = [linha, empresa, status].filter(Boolean);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && layerConfig.source_layer === "terminal_onibus") {
+    const tipo = getProp(props, "nm_tipo_terminal");
+    const status = getProp(props, "tx_status_terminal");
+    const parts = [tipo, status].filter(Boolean);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && layerConfig.source_layer === "bicicletario_paraciclo") {
+    const tipo = getProp(props, "tx_tipo_equipamento");
+    const vagas = props.qt_vaga != null ? `${props.qt_vaga} vagas` : null;
+    const org = getProp(props, "nm_orgao_responsavel");
+    const parts = [tipo, vagas, org].filter(Boolean);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && layerConfig.source_layer === "aterro_sanitario") {
+    const status = getProp(props, "tx_status_aterro_sanitario");
+    const conc = getProp(props, "nm_concessionaria");
+    const parts = [status, conc].filter(Boolean);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && layerConfig.source_layer === "praca_largo") {
+    const area = props.area_metro != null && Number(props.area_metro) > 0
+      ? `${Number(props.area_metro).toLocaleString("pt-BR")} m²`
+      : null;
+    const cat = getProp(props, "categoria");
+    const parts = [cat, area].filter(Boolean);
+    if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
   if (!servicesOffered && layerConfig.source_layer === "parques_unidades_conservacao") {
     const parts = [];
     const tipo = getProp(props, "tx_tipo_categoria");

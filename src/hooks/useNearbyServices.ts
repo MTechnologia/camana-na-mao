@@ -18,14 +18,18 @@ interface NearbyService {
 }
 
 type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
-  | "community_center" | "daycare" | "park" | "social_assistance" | "police_station" | "transit_station"
-  | "market" | "city_market" | "theater" | "museum" | "cemetery" | "other" | "all";
+  | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum"
+  | "social_assistance" | "transit_station" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
+  | "fire_station" | "other" | "all";
 
 interface UseNearbyServicesProps {
   latitude: number | null;
   longitude: number | null;
   radiusMeters?: number;
+  /** Um único tipo (legado) ou lista de tipos. Vazio/undefined = todos */
   serviceType?: ServiceType;
+  /** Múltiplos tipos (multiseleção). Vazio = todos. Tem precedência sobre serviceType */
+  serviceTypes?: ServiceType[];
 }
 
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
@@ -92,6 +96,7 @@ export const useNearbyServices = ({
   longitude,
   radiusMeters = 5000,
   serviceType,
+  serviceTypes,
 }: UseNearbyServicesProps) => {
   // useRef para manter última localização válida e evitar recálculos desnecessários
   const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
@@ -126,7 +131,11 @@ export const useNearbyServices = ({
         safeRadius
       );
 
-      const isAllTypes = !serviceType || serviceType === "all";
+      const types = serviceTypes?.filter((t) => t !== "all") ?? [];
+      const singleType = !serviceType || serviceType === "all" ? undefined : serviceType;
+      const effectiveTypes =
+        types.length > 0 ? types : singleType ? [singleType] : [];
+      const isAllTypes = effectiveTypes.length === 0;
       const limit = isAllTypes ? 800 : 200;
 
       let query = supabase
@@ -140,8 +149,8 @@ export const useNearbyServices = ({
         .lte("longitude", maxLng)
         .limit(limit);
 
-      if (serviceType && serviceType !== "all") {
-        query = query.eq("service_type", serviceType as any);
+      if (effectiveTypes.length > 0) {
+        query = query.in("service_type", effectiveTypes as any);
       }
 
       const { data, error: fetchError } = await query;
@@ -198,7 +207,7 @@ export const useNearbyServices = ({
     } finally {
       setLoading(false);
     }
-  }, [radiusMeters, serviceType]);
+  }, [radiusMeters, serviceType, serviceTypes]);
 
   useEffect(() => {
     fetchServices();

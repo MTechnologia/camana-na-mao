@@ -1,16 +1,44 @@
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Filter, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type ServiceType = "all" | "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
-  | "community_center" | "daycare" | "park" | "market" | "theater" | "museum";
+export type ServiceTypeFilterValue =
+  | "ubs"
+  | "school"
+  | "ceu"
+  | "hospital"
+  | "library"
+  | "sports_center"
+  | "street_market"
+  | "community_center"
+  | "daycare"
+  | "park"
+  | "market"
+  | "city_market"
+  | "theater"
+  | "museum"
+  | "social_assistance"
+  | "transit_station"
+  | "police_station"
+  | "cemetery"
+  | "accessibility"
+  | "recycling_point"
+  | "fire_station";
 
 interface ServiceTypeFilterProps {
-  selectedType: ServiceType;
-  onTypeChange: (type: ServiceType) => void;
+  selectedTypes: ServiceTypeFilterValue[];
+  onTypesChange: (types: ServiceTypeFilterValue[]) => void;
 }
 
-const serviceTypes: { value: ServiceType; label: string; icon: string }[] = [
-  { value: "all", label: "Todos", icon: "🔍" },
+const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string; icon: string }[] = [
   { value: "ubs", label: "UBS", icon: "🏥" },
   { value: "school", label: "Escolas", icon: "🏫" },
   { value: "ceu", label: "CEUs", icon: "🎭" },
@@ -22,31 +50,60 @@ const serviceTypes: { value: ServiceType; label: string; icon: string }[] = [
   { value: "daycare", label: "Creches", icon: "🍼" },
   { value: "park", label: "Parques", icon: "🌳" },
   { value: "market", label: "Mercados", icon: "🛒" },
+  { value: "city_market", label: "Mercados Municipais", icon: "🏪" },
   { value: "theater", label: "Teatro/Cinema", icon: "🎬" },
   { value: "museum", label: "Museus", icon: "🏛️" },
+  { value: "social_assistance", label: "Assistência Social", icon: "🤝" },
+  { value: "transit_station", label: "Transporte", icon: "🚌" },
+  { value: "police_station", label: "Delegacia/Polícia", icon: "🚔" },
+  { value: "cemetery", label: "Cemitério", icon: "🪦" },
+  { value: "accessibility", label: "Acessibilidade", icon: "♿" },
+  { value: "recycling_point", label: "Reciclagem/Limpeza", icon: "♻️" },
+  { value: "fire_station", label: "Bombeiros", icon: "🚒" },
 ];
 
-export const ServiceTypeFilter = ({ selectedType, onTypeChange }: ServiceTypeFilterProps) => {
+export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeFilterProps) => {
+  const toggle = (value: ServiceTypeFilterValue, checked: boolean) => {
+    if (checked) {
+      onTypesChange([...selectedTypes, value]);
+    } else {
+      onTypesChange(selectedTypes.filter((t) => t !== value));
+    }
+  };
+
+  const label =
+    selectedTypes.length === 0
+      ? "Tipos de serviço"
+      : selectedTypes.length === 1
+        ? SERVICE_TYPES.find((t) => t.value === selectedTypes[0])?.label ?? "1 tipo"
+        : `${selectedTypes.length} tipos`;
+
   return (
-    <div className="overflow-x-auto pb-2 -mx-4 px-4">
-      <div className="flex gap-2 min-w-max">
-        {serviceTypes.map((type) => (
-          <Badge
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Filter className="w-4 h-4" />
+          {label}
+          <ChevronDown className="w-4 h-4 opacity-70" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-56">
+        <DropdownMenuLabel>Filtrar por tipo (multiseleção)</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {SERVICE_TYPES.map((type) => (
+          <DropdownMenuCheckboxItem
             key={type.value}
-            variant={selectedType === type.value ? "default" : "outline"}
-            className={cn(
-              "cursor-pointer whitespace-nowrap transition-all",
-              selectedType === type.value 
-                ? "bg-primary text-primary-foreground" 
-                : "hover:bg-secondary"
-            )}
-            onClick={() => onTypeChange(type.value)}
+            checked={selectedTypes.includes(type.value)}
+            onCheckedChange={(checked) => toggle(type.value, !!checked)}
+            onSelect={(e) => e.preventDefault()}
           >
-            <span className="mr-1" aria-hidden="true">{type.icon}</span>
+            <span className="mr-2" aria-hidden="true">
+              {type.icon}
+            </span>
             {type.label}
-          </Badge>
+          </DropdownMenuCheckboxItem>
         ))}
-      </div>
-    </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };

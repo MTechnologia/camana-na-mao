@@ -11,6 +11,15 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5173,
+    proxy: {
+      // GeoSampa WFS não envia CORS; em dev usamos proxy para contornar
+      "/geosampa-wfs": {
+        target: "https://wfs.geosampa.prefeitura.sp.gov.br",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/geosampa-wfs/, ""),
+      },
+    },
     hmr: process.env.VITE_HMR_CLIENT_PORT
       ? {
           // Em Docker: host expõe 8080→5173, cliente deve conectar na 8080

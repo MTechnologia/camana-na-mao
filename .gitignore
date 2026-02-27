@@ -32,6 +32,9 @@ crawl-output/
 # Env files (só variantes; .env na raiz não ignorado)
 .env.e2e.local
 
+# GeoSampa sync – config com URLs (use .example como modelo)
+scripts/geosampa-layers.json
+
 
 # Editor directories and files
 .cursor/

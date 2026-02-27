@@ -21,9 +21,13 @@ const SERVICE_TYPES = [
   { id: 'police_station', label: 'Delegacia', icon: Building2, color: 'text-slate-600' },
   { id: 'transit_station', label: 'Transporte', icon: Building2, color: 'text-indigo-600' },
   { id: 'market', label: 'Mercado', icon: ShoppingBag, color: 'text-amber-700' },
+  { id: 'city_market', label: 'Mercado Municipal', icon: ShoppingBag, color: 'text-amber-800' },
   { id: 'theater', label: 'Teatro/Cinema', icon: Building2, color: 'text-violet-600' },
   { id: 'museum', label: 'Museu', icon: Building2, color: 'text-stone-600' },
   { id: 'cemetery', label: 'Cemitério', icon: Building2, color: 'text-gray-600' },
+  { id: 'accessibility', label: 'Acessibilidade', icon: Building2, color: 'text-sky-600' },
+  { id: 'recycling_point', label: 'Reciclagem/Limpeza', icon: Building2, color: 'text-emerald-600' },
+  { id: 'fire_station', label: 'Bombeiros', icon: Building2, color: 'text-red-600' },
 ] as const;
 
 export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerProps) => {

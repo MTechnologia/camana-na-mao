@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Navigation, MapPin } from 'lucide-react';
 import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
 import { getServiceDisplayName, buildGoogleMapsUrl, formatDistance, formatDistanceStraightLine } from '@/lib/mapUtils';
+import type { GeoSampaOverlayState } from '@/hooks/useGeoSampaOverlay';
 
 interface Service {
   id: string;
@@ -21,6 +22,8 @@ interface GoogleMapViewProps {
   services: Service[];
   onServiceClick: (serviceId: string) => void;
   distanceLabel?: 'walking' | 'straight';
+  /** Camadas overlay GeoSampa (WFS GeoJSON) */
+  overlayLayers?: Record<string, GeoSampaOverlayState>;
 }
 
 const serviceIcons: Record<string, string> = {
@@ -38,17 +41,22 @@ const serviceIcons: Record<string, string> = {
   police_station: '🚔',
   transit_station: '🚌',
   market: '🛒',
+  city_market: '🏪',
   theater: '🎬',
   museum: '🏛️',
   cemetery: '🪦',
+  accessibility: '♿',
+  recycling_point: '♻️',
+  fire_station: '🚒',
   other: '📍',
 };
 
-export const GoogleMapView = ({ userLocation, services, onServiceClick, distanceLabel = 'straight' }: GoogleMapViewProps) => {
+export const GoogleMapView = ({ userLocation, services, onServiceClick, distanceLabel = 'straight', overlayLayers = {} }: GoogleMapViewProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
+  const dataLayersRef = useRef<Map<string, google.maps.Data>>(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -73,6 +81,8 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick, distance
     mapInstanceRef.current = map;
 
     return () => {
+      dataLayersRef.current.forEach((data) => data.setMap(null));
+      dataLayersRef.current.clear();
       clustererRef.current?.clearMarkers();
       clustererRef.current = null;
       markersRef.current.forEach((m) => m.setMap(null));
@@ -162,6 +172,73 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick, distance
       });
     }
   }, [isLoaded, services, onServiceClick, userLocation]);
+
+  // Overlay layers (GeoSampa WFS GeoJSON)
+  const overlayLayersKey = JSON.stringify(
+    Object.entries(overlayLayers).map(([k, v]) => [
+      k,
+      !!v.geojson,
+      v.loading,
+      !!v.error,
+    ])
+  );
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !window.google?.maps) return;
+
+    const entries = Object.entries(overlayLayers);
+    for (const [id, state] of entries) {
+      if (state.loading || state.error || !state.geojson) {
+        const existing = dataLayersRef.current.get(id);
+        if (existing) {
+          existing.setMap(null);
+          dataLayersRef.current.delete(id);
+        }
+        continue;
+      }
+
+      // Remove existing layer and recreate to avoid forEach/remove bugs
+      const existing = dataLayersRef.current.get(id);
+      if (existing) {
+        existing.setMap(null);
+        dataLayersRef.current.delete(id);
+      }
+
+      const dataLayer = new google.maps.Data();
+      dataLayer.setMap(map);
+      dataLayersRef.current.set(id, dataLayer);
+
+      try {
+        dataLayer.addGeoJson(state.geojson as GeoJSON.FeatureCollection);
+      } catch (err) {
+        console.warn('[GeoSampa overlay] addGeoJson falhou:', id, err);
+        dataLayer.setMap(null);
+        dataLayersRef.current.delete(id);
+        continue;
+      }
+
+      const { layer } = state;
+      dataLayer.setStyle(() => ({
+        fillColor: layer.fillColor ?? 'transparent',
+        fillOpacity: layer.fillOpacity ?? 0.15,
+        strokeColor: layer.strokeColor ?? '#666',
+        strokeWeight: layer.strokeWeight ?? 1,
+      }));
+    }
+
+    // Remove layers no longer in overlayLayers
+    const toRemove = Array.from(dataLayersRef.current.keys()).filter(
+      (lid) => !(lid in overlayLayers) || !overlayLayers[lid]?.geojson
+    );
+    toRemove.forEach((lid) => {
+      const data = dataLayersRef.current.get(lid);
+      if (data) {
+        data.setMap(null);
+        dataLayersRef.current.delete(lid);
+      }
+    });
+  }, [isLoaded, overlayLayersKey]);
 
   useEffect(() => {
     setLoadError(error ?? null);

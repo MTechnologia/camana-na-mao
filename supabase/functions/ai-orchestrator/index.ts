@@ -41,6 +41,7 @@ serve(async (req) => {
     // Determine which AI provider to use
     const finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
     let finalAiApiKey = aiChatApiKey || aiApiKey;
+    let vertexTokenObtained = false;
 
     // Vertex AI: obter token de um endpoint (ex.: GCP Cloud Function) quando configurado
     const vertexTokenUrl = Deno.env.get('VERTEX_TOKEN_URL');
@@ -49,20 +50,27 @@ serve(async (req) => {
     const vertexRagCorpus = Deno.env.get('VERTEX_RAG_CORPUS');       // RAG Engine corpus path (optional)
     if (vertexTokenUrl && vertexTokenSecret) {
       try {
+        console.log('[ai-orchestrator] Fetching Vertex token from', vertexTokenUrl.replace(/\/[^/]*$/, '/...'));
         const tokenRes = await fetch(vertexTokenUrl, {
           method: 'GET',
           headers: { 'X-Token-Secret': vertexTokenSecret },
         });
+        const responseText = await tokenRes.text();
         if (tokenRes.ok) {
-          const data = (await tokenRes.json()) as { token?: string };
-          if (data?.token) {
-            finalAiApiKey = data.token;
-            console.log('[ai-orchestrator] Vertex token obtained from', vertexTokenUrl);
-          } else {
-            console.warn('[ai-orchestrator] Vertex token URL returned OK but no token in body');
+          try {
+            const data = JSON.parse(responseText) as { token?: string };
+            if (data?.token && typeof data.token === 'string' && data.token.length > 0) {
+              finalAiApiKey = data.token;
+              vertexTokenObtained = true;
+              console.log('[ai-orchestrator] Vertex token obtained successfully (length:', data.token.length, ')');
+            } else {
+              console.warn('[ai-orchestrator] Vertex token URL returned OK but no token in body. Body keys:', data ? Object.keys(data) : 'null', '| body length:', responseText.length);
+            }
+          } catch (parseErr) {
+            console.warn('[ai-orchestrator] Vertex token URL returned non-JSON or invalid:', responseText.substring(0, 200));
           }
         } else {
-          console.warn('[ai-orchestrator] Vertex token URL returned', tokenRes.status, await tokenRes.text());
+          console.warn('[ai-orchestrator] Vertex token URL returned', tokenRes.status, '| body:', responseText.substring(0, 300));
         }
       } catch (e) {
         console.warn('[ai-orchestrator] VERTEX_TOKEN_URL fetch failed:', (e as Error).message);
@@ -1387,6 +1395,16 @@ ${empathyNote}
       controller.abort();
     }, 60000); // Increased to 60s to prevent premature timeouts
 
+    // Vertex exige OAuth2 token; não enviar API key para Vertex (evita 401 ACCESS_TOKEN_TYPE_UNSUPPORTED)
+    const isVertex = !!(vertexTokenUrl || finalAiBaseUrl.includes('aiplatform'));
+    if (isVertex && !vertexTokenObtained) {
+      console.error('[ai-orchestrator] Vertex URL configurada mas token não obtido. Verifique VERTEX_TOKEN_URL, VERTEX_TOKEN_SECRET e se o serviço vertex-token retorna { "token": "<oauth2_access_token>" }.');
+      const errorMsg = 'O assistente de IA está temporariamente indisponível. O serviço de token do Vertex não retornou um token válido. Tente novamente em alguns instantes ou avise o administrador.';
+      return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: errorMsg } }] })}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     // Build headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -1399,7 +1417,6 @@ ${empathyNote}
     try {
       const apiUrl = `${finalAiBaseUrl.replace(/\/$/, '')}/chat/completions`;
       // Vertex OpenAI-compatible API exige model no formato "google/gemini-2.5-flash"
-      const isVertex = !!(vertexTokenUrl || finalAiBaseUrl.includes('aiplatform'));
       const effectiveModel = isVertex && !aiChatModel.startsWith('google/')
         ? `google/${aiChatModel}`
         : aiChatModel;
