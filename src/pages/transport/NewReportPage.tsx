@@ -20,10 +20,10 @@ export default function NewReportPage() {
   const { submitReport, submitting } = useTransportReport();
   const { patterns } = useReportPatterns();
   const [step, setStep] = useState(1);
-  const [reportData, setReportData] = useState<any>({});
+  const [reportData, setReportData] = useState<Record<string, unknown>>({});
   const [success, setSuccess] = useState(false);
   const [reportId, setReportId] = useState('');
-  const [relatedPattern, setRelatedPattern] = useState<any>(null);
+  const [relatedPattern, setRelatedPattern] = useState<{ id: string; [key: string]: unknown } | null>(null);
 
   useEffect(() => {
     if (reportData.line_id && reportData.report_type) {

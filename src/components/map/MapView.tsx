@@ -3,6 +3,7 @@ import { SimulatedMap } from './SimulatedMap';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapOverlayLayersPanel } from './MapOverlayLayersPanel';
 import { useGeoSampaOverlay } from '@/hooks/useGeoSampaOverlay';
+import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
 
 const GoogleMapView = lazy(() => import('./GoogleMapView').then(module => ({ default: module.GoogleMapView })));
 
@@ -33,8 +34,8 @@ const MapLoader = () => (
 );
 
 export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight" }: MapViewProps) => {
-  const googleMapsKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const useGoogleMaps = !!(googleMapsKey && googleMapsKey.trim().length > 0);
+  const googleMapsKey = getGoogleMapsApiKey();
+  const useGoogleMaps = !!googleMapsKey;
 
   const [enabledOverlayIds, setEnabledOverlayIds] = useState<string[]>([]);
   const overlayLayers = useGeoSampaOverlay(enabledOverlayIds);

@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+const getErrorMessage = (e: unknown): string =>
+  e instanceof Error ? e.message : (typeof e === 'object' && e !== null && 'message' in e)
+    ? String((e as { message: unknown }).message) : '';
+
 const translateError = (message: string): string => {
   const translations: Record<string, string> = {
     "Invalid login credentials": "E-mail ou senha incorretos",
@@ -94,14 +98,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       toast.success("Conta criada com sucesso!");
       return { data: { user: data.user }, error: null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Log do erro real para depuração (ex.: 422 com mensagem exata do Supabase)
       if (import.meta.env.DEV || import.meta.env.MODE === "development") {
-        console.warn("[Auth] signUp error:", { message: error?.message, status: error?.status });
+        const err = error as { message?: string; status?: number };
+        console.warn("[Auth] signUp error:", { message: err?.message, status: err?.status });
       }
-      const translatedMessage = translateError(error?.message ?? "");
-      const isEmailExists =
-        (error?.message?.trim() === "User already registered" || error?.message?.trim() === "email_exists");
+      const translatedMessage = translateError(getErrorMessage(error));
+      const msg = getErrorMessage(error);
+      const isEmailExists = (msg.trim() === "User already registered" || msg.trim() === "email_exists");
       toast.error(translatedMessage || "Erro ao criar conta");
       if (isEmailExists) {
         toast.info("Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.");
@@ -132,8 +137,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success("Login realizado com sucesso!");
       return { error: null };
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao fazer login");
       return { error };
     }
@@ -154,8 +159,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signOut();
       toast.success("Logout realizado com sucesso!");
       navigate('/login');
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao fazer logout");
     }
   }, [user, navigate]);
@@ -174,8 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success("E-mail de recuperação enviado!");
       return { error: null };
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao enviar e-mail");
       return { error };
     }
@@ -198,6 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook in same file
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

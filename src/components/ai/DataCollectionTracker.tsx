@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 export type CollectionType = 'urban_report' | 'transport_report' | 'service_rating' | null;
 
 export interface CollectedFields {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Human-readable labels for field values
@@ -192,11 +192,11 @@ const FieldIndicator = ({ label, isCollected, isRequired, isCurrent }: {
 );
 
 // Format field value for display
-const formatFieldValue = (key: string, value: any): string => {
+const formatFieldValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined) return '';
   
-  if (VALUE_LABELS[key] && VALUE_LABELS[key][value]) {
-    return VALUE_LABELS[key][value];
+  if (VALUE_LABELS[key] && VALUE_LABELS[key][String(value)]) {
+    return VALUE_LABELS[key][String(value)];
   }
   
   if (Array.isArray(value)) {

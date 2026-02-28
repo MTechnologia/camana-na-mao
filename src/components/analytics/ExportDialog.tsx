@@ -173,7 +173,7 @@ export const ExportDialog = ({
       if (!user) throw new Error('Usuário não autenticado');
 
       // Fetch real data based on export type
-      let data: any[] = [];
+      let data: Record<string, unknown>[] = [];
       
       if (exportType === 'urban_reports' || exportType === 'reports') {
         const { data: urbanData } = await supabase

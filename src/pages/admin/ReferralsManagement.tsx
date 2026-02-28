@@ -51,12 +51,12 @@ const ReferralsManagement = () => {
     refetch,
   } = useReferralsAdmin();
 
-  const [selectedReferral, setSelectedReferral] = useState<any>(null);
+  const [selectedReferral, setSelectedReferral] = useState<Record<string, unknown> | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [referralToDelete, setReferralToDelete] = useState<any>(null);
+  const [referralToDelete, setReferralToDelete] = useState<Record<string, unknown> | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const getStatusColor = (status: string) => {
@@ -79,14 +79,14 @@ const ReferralsManagement = () => {
     }
   };
 
-  const getReportType = (referral: any) => {
+  const getReportType = (referral: Record<string, unknown>) => {
     if (referral.transport_report_id) return { type: 'transport', label: 'Transporte', icon: Bus };
     if (referral.urban_report_id) return { type: 'urban', label: 'Urbano', icon: MapPin };
     if (referral.service_rating_id) return { type: 'service', label: 'Serviço', icon: Star };
     return { type: 'unknown', label: 'Desconhecido', icon: MessageSquare };
   };
 
-  const handleViewDetails = (referral: any) => {
+  const handleViewDetails = (referral: Record<string, unknown>) => {
     setSelectedReferral(referral);
     setResponseText(referral.response_text || '');
     setDetailsOpen(true);

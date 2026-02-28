@@ -1,12 +1,5 @@
 [
-  {
-    "url": "https://url-do-geojson-ponto-onibus.geosampa ou caminho/local/ponto_onibus.geojson",
-    "service_type": "other",
-    "source_layer": "ponto_onibus"
-  },
-  {
-    "url": "https://url-do-geojson-rede-privada-educacao.geojson",
-    "service_type": "school",
-    "source_layer": "educacao_rede_privada"
-  }
+  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:ponto_onibus&outputFormat=application%2Fjson","service_type":"other","source_layer":"ponto_onibus"},
+  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:equipamento_educacao_rede_privada&outputFormat=application%2Fjson","service_type":"school","source_layer":"educacao_rede_privada"},
+  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:classificacao_viaria_cet&outputFormat=application%2Fjson","service_type":"other","source_layer":"sistema_viario_classificacao_cet"}
 ]

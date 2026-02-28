@@ -78,7 +78,7 @@ interface ReportsAnalyticsStats {
     criticalScore: number;
     bySeverity: { severity: string; count: number; percentage: number; color?: string }[];
     patterns: PatternAlert[];
-    criticalPendingReports: any[];
+    criticalPendingReports: PatternAlert[];
   };
 }
 
@@ -227,7 +227,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
-      const demographicsFromRpc = rpcResult as any;
+      const demographicsFromRpc = rpcResult as Record<string, unknown>;
       
       // Usar dados da função segura
       const total = demographicsFromRpc?.total || 0;
@@ -279,11 +279,11 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
       // Processar categorias
       const categories = (demographicsFromRpc?.category_distribution || [])
-        .map((c: any) => ({ category: c.category || 'Outros', count: c.count }));
+        .map((c: { category?: string; count?: number }) => ({ category: c.category || 'Outros', count: c.count || 0 }));
 
       // Processar regiões
       const byRegion = (demographicsFromRpc?.neighborhood_distribution || [])
-        .map((n: any) => ({
+        .map((n: { neighborhood?: string; count?: number }) => ({
           region: n.neighborhood || 'Não especificado',
           count: n.count,
           sentiment: 50,
@@ -292,7 +292,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       // Processar status
       const statusData = demographicsFromRpc?.status_distribution || [];
       const statusMap = new Map<string, number>(
-        statusData.map((s: any) => [s.status, Number(s.count) || 0])
+        statusData.map((s: { status?: string; count?: number }) => [s.status ?? '', Number(s.count) || 0])
       );
       
       const byStatus = [
@@ -312,7 +312,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       ];
 
       // Buscar dados de engajamento separadamente (urban reports com likes/comments)
-      let urbanReports: any[] = [];
+      let urbanReports: Record<string, unknown>[] = [];
       try {
         const { data: urbanData } = await supabase
           .from('urban_reports')
@@ -327,13 +327,13 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         console.log('Could not fetch engagement data');
       }
 
-      const totalLikes = urbanReports.reduce((sum, r: any) => 
-        sum + (r.urban_report_likes?.[0]?.count || 0), 0);
-      const totalComments = urbanReports.reduce((sum, r: any) => 
+      const totalLikes = urbanReports.reduce((sum, r: Record<string, unknown>) => 
+        sum + ((r.urban_report_likes as { count?: number }[])?.[0]?.count || 0), 0);
+      const totalComments = urbanReports.reduce((sum, r: Record<string, unknown>) => 
         sum + (r.urban_report_comments?.[0]?.count || 0), 0);
 
       const topReports: TopReport[] = urbanReports
-        .map((report: any) => ({
+        .map((report: Record<string, unknown>) => ({
           id: report.id,
           description: report.description || 'Sem descrição',
           category: report.category,
@@ -346,10 +346,10 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         .sort((a, b) => b.likes - a.likes)
         .slice(0, 10);
 
-      const withInteraction = urbanReports.filter((r: any) => 
+      const withInteraction = urbanReports.filter((r: Record<string, unknown>) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0 || (r.urban_report_comments?.[0]?.count || 0) > 0
       ).length;
-      const withLikes = urbanReports.filter((r: any) => 
+      const withLikes = urbanReports.filter((r: Record<string, unknown>) => 
         (r.urban_report_likes?.[0]?.count || 0) > 0
       ).length;
 

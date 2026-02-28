@@ -28,7 +28,7 @@ const AuditLogs = () => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
   const { getAllLogs } = useAuditLog();
-  const [logs, setLogs] = useState<any[]>([]);
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState<AuditAction | 'all'>('all');
@@ -42,11 +42,12 @@ const AuditLogs = () => {
 
   useEffect(() => {
     loadLogs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadLogs runs when filters change
   }, [actionFilter, entityFilter]);
 
   const loadLogs = async () => {
     setIsLoading(true);
-    const filters: any = { limit: 100 };
+    const filters: Record<string, unknown> = { limit: 100 };
     
     if (actionFilter !== 'all') {
       filters.action = actionFilter;
@@ -127,7 +128,7 @@ const AuditLogs = () => {
             />
           </div>
 
-          <Select value={actionFilter} onValueChange={(value: any) => setActionFilter(value)}>
+          <Select value={actionFilter} onValueChange={(value: string) => setActionFilter(value)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filtrar ação" />
             </SelectTrigger>

@@ -50,6 +50,7 @@ const Profile = () => {
     if (user) {
       loadProfile();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProfile runs when user changes
   }, [user]);
 
   const loadProfile = async () => {
@@ -87,7 +88,7 @@ const Profile = () => {
       } else {
         setPrimaryAddress(null);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading profile:", error);
     }
   };
@@ -143,7 +144,7 @@ const Profile = () => {
       setProfile(prev => ({ ...prev, avatarUrl }));
       checkCompletion();
       toast.success("Foto atualizada com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error uploading avatar:", error);
       toast.error("Erro ao atualizar foto");
     } finally {

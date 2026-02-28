@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,11 +49,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
   const [addressId, setAddressId] = useState<string | null>(null);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
 
-  useEffect(() => {
-    loadAddress();
-  }, [userId]);
-
-  const loadAddress = async () => {
+  const loadAddress = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('user_addresses')
@@ -82,10 +78,14 @@ const AddressForm = ({ userId }: AddressFormProps) => {
           });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading address:", error);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadAddress();
+  }, [loadAddress]);
 
   const geocodeAddress = async (fullAddress: string): Promise<Coordinates | null> => {
     setGeocoding(true);
@@ -229,13 +229,12 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
       toast.success("Endereço salvo com sucesso!");
       loadAddress();
-    } catch (error: any) {
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
+    } catch (error: unknown) {
+      const err = error as { errors?: Array<{ message?: string }>; message?: string };
+      if (err?.errors) {
+        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
       } else {
-        toast.error(error.message || "Erro ao salvar endereço");
+        toast.error(err?.message || "Erro ao salvar endereço");
       }
     } finally {
       setLoading(false);

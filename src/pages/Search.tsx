@@ -44,13 +44,14 @@ const SearchPage = () => {
       setResults([]);
       setSuggestions([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- performSearch runs when debouncedQuery/activeFilter change
   }, [debouncedQuery, activeFilter]);
 
   const performSearch = async (searchQuery: string) => {
     setLoadingSuggestions(true);
     try {
       // Buscar nos dados mockados
-      let mockResults = searchAll(searchQuery);
+      const mockResults = searchAll(searchQuery);
       
       // Buscar em notícias do Supabase
       const { data: noticias } = await supabase

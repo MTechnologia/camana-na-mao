@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -88,13 +88,7 @@ export const UnifiedReportDrawer = ({
   const [newResponse, setNewResponse] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (open && manifest && manifest.type === 'transport') {
-      fetchResponses();
-    }
-  }, [open, manifest?.id]);
-
-  const fetchResponses = async () => {
+  const fetchResponses = useCallback(async () => {
     if (!manifest) return;
     setLoadingResponses(true);
     try {
@@ -123,7 +117,13 @@ export const UnifiedReportDrawer = ({
     } finally {
       setLoadingResponses(false);
     }
-  };
+  }, [manifest]);
+
+  useEffect(() => {
+    if (open && manifest && manifest.type === 'transport') {
+      fetchResponses();
+    }
+  }, [open, manifest, fetchResponses]);
 
   const handleSubmitResponse = async () => {
     if (!manifest || !newResponse.trim()) return;

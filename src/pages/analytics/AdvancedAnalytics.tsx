@@ -80,7 +80,7 @@ const AdvancedAnalytics = () => {
     );
   }
 
-  const handleDrillDown = (item: any) => {
+  const handleDrillDown = (item: { name: string; value?: number; satisfaction?: number }) => {
     setDrillPath([...drillPath, { label: selectedDimension, value: item.name }]);
     setDrillOpen(true);
   };

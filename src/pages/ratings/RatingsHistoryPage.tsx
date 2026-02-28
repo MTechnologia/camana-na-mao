@@ -79,6 +79,7 @@ export default function RatingsHistoryPage() {
     if (user) {
       loadRatings();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRatings runs when user changes
   }, [user]);
 
   const loadRatings = async () => {
@@ -106,7 +107,7 @@ export default function RatingsHistoryPage() {
 
       if (error) throw error;
 
-      setRatings((data as any) || []);
+      setRatings((data as Rating[]) || []);
     } catch (err) {
       console.error('Error loading ratings:', err);
     } finally {

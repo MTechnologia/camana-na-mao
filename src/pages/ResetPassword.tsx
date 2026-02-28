@@ -33,10 +33,11 @@ const ResetPassword = () => {
         setEmailSent(true);
         toast.success("Link de recuperação enviado! Verifique seu email.");
       }
-    } catch (error: any) {
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
+    } catch (error: unknown) {
+      const err = error as { errors?: Array<{ message?: string }> };
+      if (err?.errors) {
+        err.errors.forEach((e) => {
+          toast.error(e.message ?? 'Erro');
         });
       } else {
         toast.error("Erro ao enviar email de recuperação");

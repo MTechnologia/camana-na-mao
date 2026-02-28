@@ -26,7 +26,7 @@ export function useExpoPushToken(userId: string | undefined) {
     if (userId && typeof window !== "undefined") {
       console.log("[useExpoPushToken] check:", {
         userId: userId.slice(0, 8) + "...",
-        __CAMARA_IN_APP__: !!(window as any).__CAMARA_IN_APP__,
+        __CAMARA_IN_APP__: !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__,
         done: doneRef.current,
       });
     }
@@ -41,7 +41,8 @@ export function useExpoPushToken(userId: string | undefined) {
     const saveToken = async (token: string) => {
       if (!token || typeof token !== "string" || !token.startsWith("ExponentPushToken")) return false;
       doneRef.current = true;
-      if ((window as any).__EXPO_PUSH_TOKEN__ === token) delete (window as any).__EXPO_PUSH_TOKEN__;
+      const w = window as unknown as { __EXPO_PUSH_TOKEN__?: string };
+if (w.__EXPO_PUSH_TOKEN__ === token) delete w.__EXPO_PUSH_TOKEN__;
 
       const supabaseUrl = import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
@@ -82,7 +83,7 @@ export function useExpoPushToken(userId: string | undefined) {
     };
 
     // Token may already be injected by native (onLoadEnd or when token became ready)
-    const existing = (window as any).__EXPO_PUSH_TOKEN__;
+    const existing = (window as unknown as { __EXPO_PUSH_TOKEN__?: string }).__EXPO_PUSH_TOKEN__;
     if (existing && typeof existing === "string" && existing.startsWith("ExponentPushToken")) {
       console.log("[useExpoPushToken] token já injetado, salvando");
       saveToken(existing).then(() => {});
@@ -110,7 +111,7 @@ export function useExpoPushToken(userId: string | undefined) {
         clearInterval(pollId);
         return;
       }
-      const t = (window as any).__EXPO_PUSH_TOKEN__;
+      const t = (window as unknown as { __EXPO_PUSH_TOKEN__?: string }).__EXPO_PUSH_TOKEN__;
       if (t && typeof t === "string" && t.startsWith("ExponentPushToken")) {
         clearInterval(pollId);
         console.log("[useExpoPushToken] token encontrado no polling, salvando");
@@ -118,11 +119,11 @@ export function useExpoPushToken(userId: string | undefined) {
       }
     }, pollMs);
 
-    const rnw = (window as any).ReactNativeWebView;
+    const rnw = (window as unknown as { ReactNativeWebView?: { postMessage?: (msg: string) => void } }).ReactNativeWebView;
     const requestToken = () => {
       try {
         if (rnw?.postMessage) rnw.postMessage(JSON.stringify({ type: MESSAGE_TYPE }));
-      } catch (_) {}
+      } catch { /* ignore postMessage errors when RN bridge unavailable */ }
     };
     requestToken();
     const t1 = setTimeout(() => {

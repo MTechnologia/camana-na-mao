@@ -21,7 +21,7 @@ interface PriorityItem {
 const PriorityAction = ({ onAction }: PriorityActionProps) => {
   const { pendingRatings } = usePendingRatings();
   const { user } = useAuth();
-  const [upcomingAudiencia, setUpcomingAudiencia] = useState<any>(null);
+  const [upcomingAudiencia, setUpcomingAudiencia] = useState<{ id: string; titulo?: string; data?: string; hora?: string; status?: string } | null>(null);
 
   useEffect(() => {
     const fetchUpcomingAudiencia = async () => {
@@ -45,7 +45,7 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
         .eq("status", "confirmado");
 
       if (data && data.length > 0) {
-        const todayAudiencia = data.find((item: any) => {
+        const todayAudiencia = data.find((item: { audiencias?: { data?: string; status?: string } }) => {
           const audiencia = item.audiencias;
           return audiencia?.data === today && audiencia?.status === "agendada";
         });

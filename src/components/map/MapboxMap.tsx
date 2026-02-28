@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Card } from '@/components/ui/card';
@@ -55,7 +55,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     tokenSaved ? mapboxToken : null
   );
 
-  const serviceIcons: Record<string, string> = {
+  const serviceIcons = useMemo<Record<string, string>>(() => ({
     ubs: "🏥",
     school: "🏫",
     ceu: "🎭",
@@ -78,7 +78,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     recycling_point: "♻️",
     fire_station: "🚒",
     other: "📍"
-  };
+  }), []);
 
   // Initialize map
   useEffect(() => {
@@ -291,7 +291,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
 
     map.current.addSource(routeLayerId, {
       type: 'geojson',
-      data: directions.route as any,
+      data: directions.route as GeoJSON.Feature,
     });
 
     map.current.addLayer({
@@ -310,7 +310,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     });
 
     // Fit map to route bounds
-    const coordinates = (directions.route.geometry as any).coordinates;
+    const coordinates = (directions.route.geometry as GeoJSON.LineString).coordinates;
     const bounds = coordinates.reduce((bounds: mapboxgl.LngLatBounds, coord: [number, number]) => {
       return bounds.extend(coord as [number, number]);
     }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));

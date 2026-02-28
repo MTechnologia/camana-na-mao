@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -24,7 +24,7 @@ export const usePendingRatings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPendingRatings = async () => {
+  const fetchPendingRatings = useCallback(async () => {
     if (!user) {
       setPendingRatings([]);
       setLoading(false);
@@ -59,7 +59,7 @@ export const usePendingRatings = () => {
 
       if (fetchError) throw fetchError;
 
-      setPendingRatings((data as any) || []);
+      setPendingRatings((data as Array<Record<string, unknown>>) || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao buscar avaliações pendentes";
       setError(errorMessage);
@@ -67,11 +67,11 @@ export const usePendingRatings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchPendingRatings();
-  }, [user]);
+  }, [fetchPendingRatings]);
 
   const markAsSkipped = async (visitId: string) => {
     try {

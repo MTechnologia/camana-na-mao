@@ -20,7 +20,7 @@ interface CrossAnalysisStats {
 
 const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
-export const useCorrelationAnalytics = (filters?: any) => {
+export const useCorrelationAnalytics = (filters?: Record<string, unknown>) => {
   const [stats, setStats] = useState<CrossAnalysisStats>({
     correlations: {
       categoryByRegion: [],

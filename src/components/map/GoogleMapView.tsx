@@ -3,6 +3,7 @@ import { MarkerClusterer } from '@googlemaps/markerclusterer';
 import { Card } from '@/components/ui/card';
 import { Navigation, MapPin } from 'lucide-react';
 import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
+import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
 import { getServiceDisplayName, buildGoogleMapsUrl, formatDistance, formatDistanceStraightLine } from '@/lib/mapUtils';
 import type { GeoSampaOverlayState } from '@/hooks/useGeoSampaOverlay';
 
@@ -59,7 +60,7 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick, distance
   const dataLayersRef = useRef<Map<string, google.maps.Data>>(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const apiKey = getGoogleMapsApiKey();
   const { isLoaded, error } = useLoadGoogleMaps(apiKey);
 
   useEffect(() => {

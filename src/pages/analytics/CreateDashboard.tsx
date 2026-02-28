@@ -59,7 +59,7 @@ export default function CreateDashboard() {
       const { error } = await supabase.from('dashboards').insert([{
         title: title.trim(),
         description: description.trim() || null,
-        config: config as any,
+        config: config as Record<string, unknown>,
         is_public: isPublic,
         is_approved: false,
         user_id: user?.id,
@@ -74,9 +74,9 @@ export default function CreateDashboard() {
       );
       
       navigate('/paineis');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving dashboard:', error);
-      toast.error(error.message || 'Erro ao salvar o painel');
+      toast.error(error instanceof Error ? error.message : 'Erro ao salvar o painel');
     } finally {
       setSaving(false);
     }

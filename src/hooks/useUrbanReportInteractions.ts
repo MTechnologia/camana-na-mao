@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -11,11 +11,7 @@ export const useUrbanReportInteractions = (reportId: string) => {
   const [isLiked, setIsLiked] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadInteractions();
-  }, [reportId, user]);
-
-  const loadInteractions = async () => {
+  const loadInteractions = useCallback(async () => {
     try {
       // Carregar contagem de curtidas
       const { count: likes } = await supabase
@@ -49,7 +45,11 @@ export const useUrbanReportInteractions = (reportId: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId, user]);
+
+  useEffect(() => {
+    loadInteractions();
+  }, [loadInteractions]);
 
   const toggleLike = async () => {
     if (!user) {
