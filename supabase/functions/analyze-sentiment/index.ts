@@ -122,12 +122,12 @@ serve(async (req) => {
       }
     );
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in analyze-sentiment function:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Internal server error',
-        details: error.stack 
+        error: error instanceof Error ? error.message : 'Internal server error',
+        details: error instanceof Error ? error.stack : undefined 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

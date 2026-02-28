@@ -308,7 +308,7 @@ function extrairObservacao(texto: string | null | undefined): string | null {
     if (extracted.length > 5) return extracted;
   }
   // "Como participar" / texto instrucional do site (ex.: "As audiências públicas são abertas... Ao se inscrever você receberá...")
-  match = t.match(/(?:Como\s+participar|Participa[cç][aã]o)\s*[:\-]?\s*([\s\S]+?)(?=\s*Mais\s+informa[cç][oõ]es\s*:|Fonte\s*:|$)/i);
+  match = t.match(/(?:Como\s+participar|Participa[cç][aã]o)\s*[:-]?\s*([\s\S]+?)(?=\s*Mais\s+informa[cç][oõ]es\s*:|Fonte\s*:|$)/i);
   if (match) {
     const extracted = match[1].trim();
     if (extracted.length > 20) return extracted;
@@ -340,7 +340,7 @@ function normalizeDate(s: string): string {
   if (!s || typeof s !== "string") return "";
   const trimmed = s.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  const ddmmyyyy = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (ddmmyyyy) {
     const day = ddmmyyyy[1].padStart(2, "0");
     const month = ddmmyyyy[2].padStart(2, "0");
@@ -443,16 +443,16 @@ async function fetchAudienciasFromSplegis(
   }
 
   if (Array.isArray(raw)) return raw as SplegisAudienciaItem[];
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).d)) {
+  if (raw && typeof raw === "object" && Array.isArray((raw as { d?: unknown[] }).d)) {
     return (raw as { d: SplegisAudienciaItem[] }).d;
   }
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).Audiencias)) {
+  if (raw && typeof raw === "object" && Array.isArray((raw as { Audiencias?: unknown[] }).Audiencias)) {
     return (raw as { Audiencias: SplegisAudienciaItem[] }).Audiencias;
   }
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).audiencias)) {
+  if (raw && typeof raw === "object" && Array.isArray((raw as { audiencias?: unknown[] }).audiencias)) {
     return (raw as { audiencias: SplegisAudienciaItem[] }).audiencias;
   }
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).result)) {
+  if (raw && typeof raw === "object" && Array.isArray((raw as { result?: unknown[] }).result)) {
     return (raw as { result: SplegisAudienciaItem[] }).result;
   }
   return [];

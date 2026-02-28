@@ -28,7 +28,7 @@ export interface FilterFieldConfig<T> {
 }
 
 // Configuração completa de filtros
-export interface FilterConfig<T extends Record<string, any>> {
+export interface FilterConfig<T extends Record<string, unknown>> {
   fields: FilterFieldConfig<T>[];
   debounceMs?: number;
   persistKey?: string;
@@ -66,7 +66,7 @@ export interface UseFiltersReturn<T> {
 }
 
 // Props dos componentes
-export interface UnifiedFilterBarProps<T extends Record<string, any>> {
+export interface UnifiedFilterBarProps<T extends Record<string, unknown>> {
   config: FilterConfig<T>;
   filters: T;
   onChange: <K extends keyof T>(key: K, value: T[K]) => void;
@@ -77,7 +77,7 @@ export interface UnifiedFilterBarProps<T extends Record<string, any>> {
   className?: string;
 }
 
-export interface FilterSheetProps<T extends Record<string, any>> {
+export interface FilterSheetProps<T extends Record<string, unknown>> {
   config: FilterConfig<T>;
   filters: T;
   onChange: (filters: Partial<T>) => void;

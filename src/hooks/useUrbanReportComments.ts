@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -21,11 +21,7 @@ export const useUrbanReportComments = (reportId: string) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadComments();
-  }, [reportId]);
-
-  const loadComments = async () => {
+  const loadComments = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('urban_report_comments')
@@ -60,7 +56,11 @@ export const useUrbanReportComments = (reportId: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
 
   const addComment = async (text: string) => {
     if (!user) {

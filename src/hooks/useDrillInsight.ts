@@ -83,7 +83,7 @@ const INITIAL_STATE: DrillInsightState = {
   isLoading: false,
 };
 
-export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
+export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
   const [state, setState] = useState<DrillInsightState>(INITIAL_STATE);
 
   const calculateStats = (reports: DrillReport[]): DrillStats => {
@@ -153,9 +153,10 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
       case 'keyword':
         return `Foram encontrados ${stats.total} relatos mencionando "${value}". ${criticalPercent}% são críticos e a região ${stats.topRegion || 'Centro'} concentra a maioria das ocorrências. Tendência: ${trendText} em relação ao período anterior.`;
       
-      case 'sentiment':
+      case 'sentiment': {
         const sentimentLabel = value === 'positive' ? 'positivos' : value === 'negative' ? 'negativos' : 'neutros';
         return `${stats.total} relatos foram classificados como ${sentimentLabel}. Taxa de resolução de ${resolvedPercent}%. ${stats.critical > 0 ? `Atenção: ${stats.critical} relatos são críticos.` : 'Nenhum relato crítico nesta categoria.'}`;
+      }
       
       case 'category':
         return `A categoria "${value}" possui ${stats.total} relatos. ${stats.critical} críticos, ${stats.high} altos, ${stats.medium} médios e ${stats.low} baixos. Taxa de resolução: ${resolvedPercent}%.`;
@@ -190,17 +191,18 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
       case 'engagement':
         return `Nível de engajamento "${value}": ${stats.total} relatos. Taxa de resolução: ${resolvedPercent}%. Tendência: ${trendText}.`;
       
-      case 'source':
+      case 'source': {
         const sourceLabel = value === 'urban' ? 'urbanos' : 'de transporte';
         return `${stats.total} relatos ${sourceLabel}. ${stats.critical} críticos, ${stats.resolved} resolvidos. Região principal: ${stats.topRegion || 'Centro'}.`;
+      }
       
       default:
         return `${stats.total} relatos encontrados com ${criticalPercent}% de criticidade.`;
     }
   };
 
-  const mapUrbanReports = (data: any[]): DrillReport[] => {
-    return data.map((r: any) => ({
+  const mapUrbanReports = (data: Record<string, unknown>[]): DrillReport[] => {
+    return data.map((r: Record<string, unknown>) => ({
       id: r.id,
       category: r.category,
       description: r.description || '',
@@ -210,12 +212,12 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
       created_at: r.created_at,
       user_id: r.user_id,
       source: 'urban' as const,
-      sentiment: r.ai_classification?.sentiment,
+      sentiment: (r.ai_classification as { sentiment?: string } | undefined)?.sentiment,
     }));
   };
 
-  const mapTransportReports = (data: any[]): DrillReport[] => {
-    return data.map((r: any) => ({
+  const mapTransportReports = (data: Record<string, unknown>[]): DrillReport[] => {
+    return data.map((r: Record<string, unknown>) => ({
       id: r.id,
       category: r.report_type || 'Transporte',
       description: r.description || r.impact_description || '',
@@ -229,7 +231,7 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
     }));
   };
 
-  const fetchAllReports = async (): Promise<{ urban: any[]; transport: any[] }> => {
+  const fetchAllReports = async (): Promise<{ urban: Record<string, unknown>[]; transport: Record<string, unknown>[] }> => {
     const [{ data: urbanData }, { data: transportData }] = await Promise.all([
       supabase.from('urban_reports').select('*'),
       supabase.from('transport_reports').select('*'),
@@ -282,8 +284,8 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
       const { data: urbanData } = await supabase.from('urban_reports').select('*');
       const { data: transportData } = await supabase.from('transport_reports').select('*').eq('ai_sentiment', sentiment);
 
-      const filteredUrban = (urbanData || []).filter((r: any) => {
-        const reportSentiment = r.ai_classification?.sentiment?.toLowerCase();
+      const filteredUrban = (urbanData || []).filter((r: Record<string, unknown>) => {
+        const reportSentiment = (r.ai_classification as { sentiment?: string } | undefined)?.sentiment?.toLowerCase();
         return reportSentiment === sentiment || 
                (sentiment === 'positive' && reportSentiment === 'positivo') ||
                (sentiment === 'negative' && reportSentiment === 'negativo') ||
@@ -616,7 +618,7 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
     try {
       const { urban, transport } = await fetchAllReports();
       
-      const filterByHour = (reports: any[], hourToMatch: number) => {
+      const filterByHour = (reports: Record<string, unknown>[], hourToMatch: number) => {
         return reports.filter(r => {
           const createdHour = new Date(r.created_at).getHours();
           return createdHour === hourToMatch;
@@ -662,7 +664,7 @@ export const useDrillInsight = (baseFilters: Record<string, any> = {}) => {
 
       const { urban, transport } = await fetchAllReports();
       
-      const filterByWeekday = (reports: any[], dayToMatch: number) => {
+      const filterByWeekday = (reports: Record<string, unknown>[], dayToMatch: number) => {
         return reports.filter(r => {
           const createdDay = new Date(r.created_at).getDay();
           return createdDay === dayToMatch;

@@ -61,7 +61,7 @@ export const CHAMBER_FEEDBACK_FIELDS: FieldConfig[] = [
  */
 export function getMissingRequiredFields(
   collectionType: 'urban_report' | 'transport_report' | 'service_rating' | null,
-  collectedFields: Record<string, any>
+  collectedFields: Record<string, unknown>
 ): string[] {
   if (!collectionType) return [];
 
@@ -122,7 +122,7 @@ export function getMissingRequiredFields(
  */
 export function isCollectionComplete(
   collectionType: 'urban_report' | 'transport_report' | 'service_rating' | null,
-  collectedFields: Record<string, any>
+  collectedFields: Record<string, unknown>
 ): boolean {
   return getMissingRequiredFields(collectionType, collectedFields).length === 0;
 }

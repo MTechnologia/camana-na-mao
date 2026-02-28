@@ -59,7 +59,7 @@ export const useMapboxDirections = (mapboxToken: string | null) => {
         },
         distance: route.distance,
         duration: route.duration,
-        steps: route.legs[0].steps.map((step: any) => ({
+        steps: route.legs[0].steps.map((step: { maneuver: { instruction: string; type: string }; distance: number; duration: number }) => ({
           instruction: step.maneuver.instruction,
           distance: step.distance,
           duration: step.duration,

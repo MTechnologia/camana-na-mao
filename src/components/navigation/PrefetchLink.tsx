@@ -89,6 +89,7 @@ export const PrefetchLink = ({
 };
 
 // Hook for programmatic prefetching
+// eslint-disable-next-line react-refresh/only-export-components -- PrefetchLink + usePrefetch pattern
 export const usePrefetch = () => {
   const prefetch = useCallback((route: string) => {
     const prefetchFn = PREFETCH_MAP[route];

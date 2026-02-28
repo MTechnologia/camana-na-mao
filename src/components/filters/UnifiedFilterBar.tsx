@@ -13,7 +13,7 @@ import {
 import { UnifiedFilterBarProps, FilterFieldConfig, DateRangeValue } from './types';
 import { FilterDatePicker } from './FilterDatePicker';
 
-export function UnifiedFilterBar<T extends Record<string, any>>({
+export function UnifiedFilterBar<T extends Record<string, unknown>>({
   config,
   filters,
   onChange,

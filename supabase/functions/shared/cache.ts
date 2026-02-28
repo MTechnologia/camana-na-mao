@@ -8,7 +8,7 @@ interface CacheEntry<T> {
 }
 
 // Cache em memória para hot data
-const memoryCache = new Map<string, CacheEntry<any>>();
+const memoryCache = new Map<string, CacheEntry<unknown>>();
 const MAX_MEMORY_CACHE_SIZE = 1000;
 
 export async function getCached<T>(

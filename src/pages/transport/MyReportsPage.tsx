@@ -16,7 +16,7 @@ export default function MyReportsPage() {
   const navigate = useNavigate();
   const { getMyReports } = useTransportReport();
   const { canReferToCouncilMember } = useUserRole();
-  const [reports, setReports] = useState<any[]>([]);
+  const [reports, setReports] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralReport, setReferralReport] = useState<{
@@ -31,6 +31,7 @@ export default function MyReportsPage() {
 
   useEffect(() => {
     loadReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const loadReports = async () => {

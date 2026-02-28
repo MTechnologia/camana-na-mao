@@ -97,9 +97,9 @@ const Register = () => {
         phone: formData.phone,
       });
       setCurrentStep(2);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.errors) {
-        error.errors.forEach((err: any) => toast.error(err.message));
+        (error as { errors?: Array<{ message?: string }> }).errors?.forEach((e) => toast.error(e.message ?? 'Erro'));
       }
     }
   };
@@ -160,9 +160,9 @@ const Register = () => {
         
         setCurrentStep(3);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.errors) {
-        error.errors.forEach((err: any) => toast.error(err.message));
+        (error as { errors?: Array<{ message?: string }> }).errors?.forEach((e) => toast.error(e.message ?? 'Erro'));
       }
     } finally {
       setLoading(false);
@@ -289,7 +289,7 @@ const Register = () => {
       toast.success("Cadastro concluído! Faça login para acessar o app.");
       await signOut();
       navigate("/login", { replace: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error.message || "Erro ao salvar dados");
     } finally {
       setLoading(false);

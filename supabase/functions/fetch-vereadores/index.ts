@@ -225,7 +225,7 @@ async function fetchFromAPI(): Promise<Vereador[]> {
 }
 
 // Update the database cache
-async function updateDatabaseCache(supabase: any, vereadores: Vereador[]): Promise<void> {
+async function updateDatabaseCache(supabase: ReturnType<typeof createClient>, vereadores: Vereador[]): Promise<void> {
   console.log('[fetch-vereadores] Updating database cache...');
   
   try {
@@ -265,7 +265,7 @@ async function updateDatabaseCache(supabase: any, vereadores: Vereador[]): Promi
 }
 
 // Fetch from database cache
-async function fetchFromDatabaseCache(supabase: any): Promise<Vereador[]> {
+async function fetchFromDatabaseCache(supabase: ReturnType<typeof createClient>): Promise<Vereador[]> {
   console.log('[fetch-vereadores] Fetching from database cache...');
   
   const { data, error } = await supabase
@@ -284,7 +284,7 @@ async function fetchFromDatabaseCache(supabase: any): Promise<Vereador[]> {
   }
 
   // Transform database format back to Vereador format
-  const vereadores: Vereador[] = data.map((row: any) => ({
+  const vereadores: Vereador[] = data.map((row: Record<string, unknown>) => ({
     id: row.id,
     name: row.name,
     party: row.party,

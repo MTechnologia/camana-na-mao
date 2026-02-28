@@ -22,7 +22,7 @@ const ChatInput = ({
 }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasLoadedDraftRef = useRef(false);
   const { toast } = useToast();
@@ -54,21 +54,22 @@ const ChatInput = ({
   useEffect(() => {
     // Initialize Web Speech API (no app, o WebView pede permissão de microfone via react-native-webview)
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const w = window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition; SpeechRecognition?: new () => SpeechRecognition };
+      const SpeechRecognition = w.webkitSpeechRecognition ?? w.SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.lang = 'pt-BR';
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
 
-      recognitionRef.current.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = Array.from(event.results)
-          .map((result: any) => result[0])
+          .map((result) => result[0])
           .map((result) => result.transcript)
           .join('');
         setInputValue(transcript);
       };
 
-      recognitionRef.current.onerror = (event: any) => {
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setIsRecording(false);
         toast({

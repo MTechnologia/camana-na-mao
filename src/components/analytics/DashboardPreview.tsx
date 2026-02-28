@@ -20,7 +20,7 @@ export interface DashboardConfig {
 }
 
 interface DashboardPreviewProps {
-  config: DashboardConfig | any;
+  config: DashboardConfig;
 }
 
 export const DashboardPreview = ({ config }: DashboardPreviewProps) => {

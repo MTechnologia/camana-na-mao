@@ -175,7 +175,9 @@ export function FrontendWebView() {
             AsyncStorage.removeItem(AUTH_STORAGE_KEY).catch(() => {});
           }
         }
-      } catch (_) {}
+      } catch {
+        // Ignore parse errors from invalid postMessage payload
+      }
     },
     [sendTokenToWeb]
   );

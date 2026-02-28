@@ -94,10 +94,12 @@ export default function ReportHistoryPage() {
 
   useEffect(() => {
     loadReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   useEffect(() => {
     loadAllReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllReports runs when filters change
   }, [filters]);
 
   const loadReports = async () => {

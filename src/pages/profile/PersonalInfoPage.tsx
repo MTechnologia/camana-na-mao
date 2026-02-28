@@ -24,6 +24,7 @@ const PersonalInfoPage = () => {
     if (user) {
       loadData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadData runs when user changes
   }, [user]);
 
   const loadData = async () => {
@@ -47,7 +48,7 @@ const PersonalInfoPage = () => {
           phone: data.phone || "",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading profile:", error);
     }
   };
@@ -69,8 +70,8 @@ const PersonalInfoPage = () => {
 
       toast.success("Informações atualizadas!");
       navigate("/perfil");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Erro ao atualizar");
     } finally {
       setLoading(false);
     }

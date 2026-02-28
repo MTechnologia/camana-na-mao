@@ -37,6 +37,7 @@ export const InlineRatingPicker = ({ onSelect }: InlineRatingPickerProps) => {
             <button
               key={star}
               type="button"
+              data-star={star}
               onClick={() => handleSelect(star)}
               onMouseEnter={() => setHoveredStar(star)}
               onMouseLeave={() => setHoveredStar(null)}

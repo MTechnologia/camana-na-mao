@@ -85,7 +85,7 @@ Deno.test("submitNinjaForm: monta POST e trata resposta de sucesso (mock)", asyn
     assertExists(capturedInit);
     assertEquals(capturedInit.method, "POST");
     const headers = (capturedInit.headers as Headers) ?? new Map();
-    const ct = headers.get?.("Content-Type") ?? (headers as Record<string, string>).["Content-Type"];
+    const ct = headers.get?.("Content-Type") ?? (headers as Record<string, string>)["Content-Type"];
     assertEquals(ct?.includes("application/x-www-form-urlencoded"), true);
     assertEquals(headers.get?.("X-Requested-With") ?? (headers as Record<string, string>)["X-Requested-With"], "XMLHttpRequest");
 

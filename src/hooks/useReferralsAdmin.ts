@@ -131,7 +131,7 @@ export const useReferralsAdmin = () => {
 
   const updateReferralStatus = async (id: string, status: string) => {
     try {
-      const updateData: any = { status, updated_at: new Date().toISOString() };
+      const updateData: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
       
       if (status === 'sent') {
         updateData.sent_at = new Date().toISOString();

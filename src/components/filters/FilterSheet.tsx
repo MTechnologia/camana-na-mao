@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sheet';
 import { FilterSheetProps, FilterFieldConfig } from './types';
 
-export function FilterSheet<T extends Record<string, any>>({
+export function FilterSheet<T extends Record<string, unknown>>({
   config,
   filters,
   onChange,
@@ -106,7 +106,7 @@ export function FilterSheet<T extends Record<string, any>>({
           </div>
         );
 
-      case 'multiselect':
+      case 'multiselect': {
         const selectedValues: string[] = Array.isArray(value) ? value : [];
         return (
           <div key={String(field.key)} className="space-y-3">
@@ -144,6 +144,7 @@ export function FilterSheet<T extends Record<string, any>>({
             </div>
           </div>
         );
+      }
 
       case 'pills':
         // Pills are typically handled by QuickFilterPills, skip in sheet

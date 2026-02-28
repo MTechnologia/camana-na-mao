@@ -119,6 +119,7 @@ const ConsentsPage = () => {
     if (user) {
       loadConsents();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadConsents runs when user changes
   }, [user]);
 
   const loadConsents = async () => {
@@ -155,7 +156,7 @@ const ConsentsPage = () => {
       });
 
       setConsents(consentsMap);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading consents:', error);
       toast.error('Erro ao carregar consentimentos');
     }
@@ -198,9 +199,9 @@ const ConsentsPage = () => {
 
       // Recarregar consentimentos
       await loadConsents();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error toggling consent:', error);
-      toast.error(error.message || 'Erro ao atualizar consentimento');
+      toast.error(error instanceof Error ? error.message : 'Erro ao atualizar consentimento');
     } finally {
       setLoading(false);
     }

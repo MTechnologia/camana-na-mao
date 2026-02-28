@@ -28,7 +28,7 @@ interface AudienciaFiltersProps {
     dateTo: string;
     year: string;
   };
-  onFiltersChange: (filters: any) => void;
+  onFiltersChange: (filters: Record<string, unknown>) => void;
   availableRegions: string[];
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -51,11 +51,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
     show_phone: false,
   });
 
-  useEffect(() => {
-    loadPreferences();
-  }, [userId]);
-
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     try {
       const { data: notifData, error: notifError } = await supabase
         .from('notification_settings')
@@ -92,10 +88,14 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           show_phone: privData.show_phone,
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading preferences:", error);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -135,7 +135,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
       if (privError) throw privError;
 
       toast.success("Preferências atualizadas com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving preferences:", error);
       toast.error(error.message || "Erro ao salvar preferências");
     } finally {

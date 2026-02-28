@@ -46,9 +46,9 @@ export const WidgetSelector = ({ onAddWidget }: WidgetSelectorProps) => {
 
     const newWidget: WidgetConfig = {
       id: `widget-${Date.now()}`,
-      type: selectedType as any,
+      type: selectedType as 'kpi-card' | 'bar-chart' | 'pie-chart' | 'line-chart' | 'heatmap',
       title: widgetTitle,
-      dataSource: dataSource as any,
+      dataSource: dataSource as string,
       dimension: dimension || undefined,
       position: {
         x: 0,
