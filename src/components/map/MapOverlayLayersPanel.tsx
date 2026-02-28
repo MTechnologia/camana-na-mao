@@ -7,7 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Layers, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
+import { Layers, Loader2, AlertTriangle, ChevronDown, ExternalLink } from "lucide-react";
 import { GEOSAMPA_OVERLAY_LAYERS } from "@/config/geosampa-overlay-layers";
 import type { GeoSampaOverlayState } from "@/hooks/useGeoSampaOverlay";
 import { cn } from "@/lib/utils";
@@ -49,9 +49,10 @@ export function MapOverlayLayersPanel({
           <ChevronDown className="w-4 h-4 opacity-70" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto min-w-[280px] w-max max-w-[90vw]">
+      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto min-w-[640px] w-max max-w-[90vw]">
         <DropdownMenuLabel>Ativar camadas</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <div className="grid grid-cols-3 gap-0 p-1">
         {GEOSAMPA_OVERLAY_LAYERS.map((layer) => {
           const state = layerStates[layer.id];
           const loading = state?.loading;
@@ -80,6 +81,38 @@ export function MapOverlayLayersPanel({
             </DropdownMenuCheckboxItem>
           );
         })}
+        </div>
+        <DropdownMenuSeparator />
+        <div className="p-2 space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground px-2">Legislação Urbana e Zoneamento</p>
+          <a
+            href="https://www.prefeitura.sp.gov.br/web/licenciamento/w/legislacao/288079"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-accent"
+          >
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            Legenda do zoneamento (LPUOS)
+          </a>
+          <a
+            href="https://geosampa.prefeitura.sp.gov.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-accent"
+          >
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            Consultar no GeoSampa
+          </a>
+          <a
+            href="https://consultasiszon.prefeitura.sp.gov.br"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-xs text-primary hover:underline px-2 py-1 rounded hover:bg-accent"
+          >
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            Consulta zoneamento por endereço (SISZON)
+          </a>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
