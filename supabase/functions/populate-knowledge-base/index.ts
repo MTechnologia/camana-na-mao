@@ -231,6 +231,16 @@ const knowledgeContent = [
     source_id: "legislacao-paulistana",
     metadata: { url: "https://plpconsulta.saopaulo.sp.leg.br/", category: "legislativo" }
   },
+
+  // === LEGISLAÇÃO URBANA / ZONEAMENTO ===
+  {
+    title: "Zoneamento e LPUOS em São Paulo",
+    content: `O zoneamento de São Paulo é regulado pela Lei de Parcelamento, Uso e Ocupação do Solo (LPUOS - Lei 16.402/2016, com revisões pelas Leis 18.081/2024 e 18.177/2024). A LPUOS define o que pode ser construído ou reformado em cada imóvel da cidade, incluindo coeficiente de aproveitamento (CA), taxa de ocupação (TO), recuos e usos permitidos por zona (ZEIS, ZC, ZEP, ZER, etc.). Para consultar o zoneamento de um endereço, o cidadão pode acessar o SISZON (https://consultasiszon.prefeitura.sp.gov.br) ou o GeoSampa (https://geosampa.prefeitura.sp.gov.br). A legenda do zoneamento e a documentação completa estão disponíveis na Secretaria Municipal de Urbanismo e Licenciamento (SMUL): https://www.prefeitura.sp.gov.br/web/licenciamento/w/legislacao/288079`,
+    content_type: "legislativo",
+    source_table: "cmsp_portal",
+    source_id: "zoneamento-lpuos",
+    metadata: { url: "https://www.prefeitura.sp.gov.br/web/licenciamento/w/legislacao/288079", category: "urbanismo" }
+  },
   {
     title: "Orçamento Municipal 2026",
     content: `A Câmara Municipal de São Paulo analisa e aprova o orçamento municipal. O hotsite do Orçamento 2026 permite aos cidadãos conhecer a Lei Orçamentária Anual (LOA 2026) e o Plano Plurianual (PPA 2026-2029). Os cidadãos podem participar, opinar e transformar o orçamento da cidade.`,

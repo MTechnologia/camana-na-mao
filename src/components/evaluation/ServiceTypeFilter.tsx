@@ -87,22 +87,24 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
           <ChevronDown className="w-4 h-4 opacity-70" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-56">
+      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto min-w-[380px]">
         <DropdownMenuLabel>Filtrar por tipo (multiseleção)</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {SERVICE_TYPES.map((type) => (
-          <DropdownMenuCheckboxItem
-            key={type.value}
-            checked={selectedTypes.includes(type.value)}
-            onCheckedChange={(checked) => toggle(type.value, !!checked)}
-            onSelect={(e) => e.preventDefault()}
-          >
-            <span className="mr-2" aria-hidden="true">
-              {type.icon}
-            </span>
-            {type.label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <div className="grid grid-cols-2 gap-0 p-1">
+          {SERVICE_TYPES.map((type) => (
+            <DropdownMenuCheckboxItem
+              key={type.value}
+              checked={selectedTypes.includes(type.value)}
+              onCheckedChange={(checked) => toggle(type.value, !!checked)}
+              onSelect={(e) => e.preventDefault()}
+            >
+              <span className="mr-2" aria-hidden="true">
+                {type.icon}
+              </span>
+              {type.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
