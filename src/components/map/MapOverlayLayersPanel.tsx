@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +13,8 @@ import { GEOSAMPA_OVERLAY_LAYERS } from "@/config/geosampa-overlay-layers";
 import type { GeoSampaOverlayState } from "@/hooks/useGeoSampaOverlay";
 import { cn } from "@/lib/utils";
 
+const INITIAL_VISIBLE = 10;
+
 interface MapOverlayLayersPanelProps {
   enabledLayerIds: string[];
   onEnabledChange: (ids: string[]) => void;
@@ -23,6 +26,7 @@ export function MapOverlayLayersPanel({
   onEnabledChange,
   layerStates = {},
 }: MapOverlayLayersPanelProps) {
+  const [expanded, setExpanded] = useState(false);
   const toggle = (id: string, enabled: boolean) => {
     if (enabled) {
       onEnabledChange([...enabledLayerIds, id]);
@@ -30,6 +34,11 @@ export function MapOverlayLayersPanel({
       onEnabledChange(enabledLayerIds.filter((x) => x !== id));
     }
   };
+
+  const visibleLayers = expanded
+    ? GEOSAMPA_OVERLAY_LAYERS
+    : GEOSAMPA_OVERLAY_LAYERS.slice(0, INITIAL_VISIBLE);
+  const hasMore = GEOSAMPA_OVERLAY_LAYERS.length > INITIAL_VISIBLE;
 
   return (
     <DropdownMenu>
@@ -49,11 +58,11 @@ export function MapOverlayLayersPanel({
           <ChevronDown className="w-4 h-4 opacity-70" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto min-w-[640px] w-max max-w-[90vw]">
+      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-[min(320px,90vw)] sm:w-[min(360px,90vw)]">
         <DropdownMenuLabel>Ativar camadas</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <div className="grid grid-cols-3 gap-0 p-1">
-        {GEOSAMPA_OVERLAY_LAYERS.map((layer) => {
+        <div className="grid grid-cols-1 gap-0 p-1">
+        {visibleLayers.map((layer) => {
           const state = layerStates[layer.id];
           const loading = state?.loading;
           const error = state?.error;
@@ -82,6 +91,22 @@ export function MapOverlayLayersPanel({
           );
         })}
         </div>
+        {hasMore && (
+          <div className="p-1.5 border-t">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-center text-primary text-xs"
+              onClick={() => setExpanded((e) => !e)}
+            >
+              {expanded
+                ? "Ver menos"
+                : `Ver mais (${GEOSAMPA_OVERLAY_LAYERS.length - INITIAL_VISIBLE} camadas)`}
+              <ChevronDown className={cn("w-3.5 h-3.5 ml-1", expanded && "rotate-180")} />
+            </Button>
+          </div>
+        )}
         <DropdownMenuSeparator />
         <div className="p-2 space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground px-2">Legislação Urbana e Zoneamento</p>
