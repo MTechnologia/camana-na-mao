@@ -451,45 +451,57 @@ serve(async (req) => {
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Create a client with user token to get user info
-    const supabaseAnon = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '');
-    const { data: { user }, error: userError } = await supabaseAnon.auth.getUser(token);
-    
-    if (userError || !user) {
-      console.error('User authentication failed:', userError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+
+    // Alternativa: aceitar service_role para scripts (JWT com role "service_role" no payload)
+    const isServiceRoleKey = supabaseServiceKey && (
+      token === supabaseServiceKey.trim() ||
+      (token.startsWith('eyJ') && (() => {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1] || '{}'));
+          return payload.role === 'service_role';
+        } catch { return false; }
+      })())
+    );
+    if (isServiceRoleKey) {
+      console.log('[populate-knowledge-base] Authorized via service_role key');
+    } else {
+      // Fluxo normal: JWT de usuário admin
+      const supabaseAnon = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') || '');
+      const { data: { user }, error: userError } = await supabaseAnon.auth.getUser(token);
+      
+      if (userError || !user) {
+        console.error('User authentication failed:', userError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Invalid or expired token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+
+      if (rolesError) {
+        console.error('Error fetching user roles:', rolesError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to verify user permissions' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const isAdmin = roles?.some(r => r.role === 'admin');
+      if (!isAdmin) {
+        console.log(`User ${user.id} attempted to access populate-knowledge-base without admin role`);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Forbidden: Admin role required' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      console.log(`Admin user ${user.id} authorized to populate knowledge base`);
     }
-
-    // Check if user has admin role
-    const { data: roles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id);
-
-    if (rolesError) {
-      console.error('Error fetching user roles:', rolesError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to verify user permissions' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const isAdmin = roles?.some(r => r.role === 'admin');
-    if (!isAdmin) {
-      console.log(`User ${user.id} attempted to access populate-knowledge-base without admin role`);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Forbidden: Admin role required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Admin user ${user.id} authorized to populate knowledge base`);
 
     const results = {
       processed: 0,

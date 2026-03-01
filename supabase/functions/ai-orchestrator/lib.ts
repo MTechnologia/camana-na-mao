@@ -3208,14 +3208,15 @@ export function detectCollectionIntent(
     'quais são', 'quais sao', 'quais as', 'quais os', 'quantos ', 'quantas ', 'me explica', 'dúvida sobre', 'duvida sobre',
     'informação sobre', 'informacao sobre', 'atribuições', 'atribuicoes', 'atribuição', 'atribuicao', 'competências', 'competencias',
     'responsabilidades', 'importância', 'importancia', 'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do',
-    'onde fica', 'onde fica a', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
+    'onde fica', 'onde fica a', 'onde consultar', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
     'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia', 'mandato', 'presidente da câmara',
     'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica', 'regimento interno',
     'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum', 'orçamento', 'orcamento', 'emendas', 'para que serve', 'como nasce uma lei',
     'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
     'diferença entre', 'diferenca entre', 'requisitos para', 'história da câmara', 'historio da camara', 'o que é uma audiência', 'o que e uma audiencia',
     'equipamentos públicos', 'equipamentos publicos', 'população', 'populacao', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa',
-    'ubs', 'unidade de saúde', 'transporte público', 'transporte publico', 'rede de transporte', 'malha viária', 'infraestrutura viária', 'dados da cidade'
+    'ubs', 'unidade de saúde', 'transporte público', 'transporte publico', 'rede de transporte', 'malha viária', 'infraestrutura viária', 'dados da cidade',
+    'zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'legislação urbana', 'legislacao urbana', 'siszon', 'smul', 'loteamento', 'uso do solo', 'coeficiente de aproveitamento'
   ];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
@@ -3232,12 +3233,19 @@ export function detectCollectionIntent(
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
   // Variações: "o que é audiência (pública)?", "o que é uma audiência (pública)?", "o que é a audiência (pública)?", com/sem acento
   const isInformationalAboutAudience = (mentionsSessionsOrAudience && /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalizedUserMessage));
-  // GeoSampa / cidade: equipamentos, transportes, população, sistema viário (perguntas informativas → general/RAG)
-  const cityDataTerms = ['equipamentos', 'equipamento público', 'população', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa', 'ubs', 'transporte público', 'rede de transporte', 'malha viária', 'dados da cidade', 'são paulo', 'sao paulo'];
+  // GeoSampa / cidade / zoneamento: equipamentos, transportes, população, sistema viário, zoneamento (perguntas informativas → general/RAG)
+  const cityDataTerms = ['equipamentos', 'equipamento público', 'população', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa', 'ubs', 'transporte público', 'rede de transporte', 'malha viária', 'dados da cidade', 'são paulo', 'sao paulo', 'zoneamento', 'lpuos', 'construir', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana'];
   const isCityDataQuestion = cityDataTerms.some(t => fullUserContext.includes(t)) && (isInformationalQuestion || /^(qual a |qual o |quantos |quais |como funciona|o que é )/i.test(userMessage.trim()));
   if (isCityDataQuestion) {
     knowledgeScore = Math.max(knowledgeScore, 6);
-    console.log('[detectCollectionIntent] City data question (equipamentos/transportes/população/viário) → boosting general for RAG');
+    console.log('[detectCollectionIntent] City data question (equipamentos/transportes/população/viário/zoneamento) → boosting general for RAG');
+  }
+  // Zoneamento / LPUOS / construir no imóvel: priorizar base de conhecimento (Supabase KB tem conteúdo)
+  const zoneamentoTerms = ['zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana', 'smul'];
+  const isZoneamentoQuestion = zoneamentoTerms.some(t => fullUserContext.includes(t));
+  if (isZoneamentoQuestion) {
+    knowledgeScore = Math.max(knowledgeScore, 9);
+    console.log('[detectCollectionIntent] Zoneamento/LPUOS/construir question → boosting general for RAG/KB');
   }
   if (mentionsChamber && (isInformationalQuestion || isLocationQuestionAboutChamber)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
@@ -3528,7 +3536,14 @@ export function formatServicesWithContext(
 
 // Helper: Search knowledge base (with positive alternatives)
 export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {
-  const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+  let searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+  // Para zoneamento/LPUOS/construir: garantir termos que existem no conteúdo (evitar falha por acento: construir vs construído)
+  const zoneamentoBoost = ['zoneamento', 'lpuos', 'construir', 'construído', 'imóvel', 'imovel', 'siszon', 'geosampa'];
+  const q = query.toLowerCase();
+  if (zoneamentoBoost.some(k => q.includes(k))) {
+    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].filter(t => !searchTerms.includes(t));
+    searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 6);
+  }
   if (searchTerms.length === 0) {
     return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
   }

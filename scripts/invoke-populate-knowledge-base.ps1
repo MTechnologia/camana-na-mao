@@ -1,15 +1,42 @@
 # Invoca populate-knowledge-base manualmente
-# Uso: .\scripts\invoke-populate-knowledge-base.ps1 "SEU_ACCESS_TOKEN"
-# O token deve ser de um usuário admin (obtido ao fazer login no app).
-# O token deve ser do mesmo projeto que a função (vjzkzsczlbtrzewfdx).
+# Uso 1 (service_role - recomendado): .\scripts\invoke-populate-knowledge-base.ps1 -UseServiceRole
+# Uso 2 (JWT de usuário admin): .\scripts\invoke-populate-knowledge-base.ps1 -AccessToken "eyJ..."
 
 param(
-  [Parameter(Mandatory=$true)]
+  [Parameter(ParameterSetName="ServiceRole")]
+  [switch]$UseServiceRole,
+  [Parameter(ParameterSetName="UserToken")]
   [string]$AccessToken
 )
 
-# Projeto camara-na-mao - URL deve corresponder ao issuer do token
-$SupabaseUrl = "https://vjzkzsczlbtrzewfdx.supabase.co"
+$SupabaseUrl = "https://vjzkzsczlbtmrzewffdx.supabase.co"
+
+# Se -UseServiceRole: carrega SUPABASE_SERVICE_ROLE_KEY do .env
+if ($UseServiceRole) {
+  $envPath = Join-Path $PSScriptRoot "..\.env"
+  if (-not (Test-Path $envPath)) {
+    Write-Host "Erro: .env nao encontrado em $envPath" -ForegroundColor Red
+    exit 1
+  }
+  $lines = Get-Content $envPath
+  $AccessToken = $null
+  foreach ($line in $lines) {
+    if ($line -match '^\s*SUPABASE_SERVICE_ROLE_KEY\s*=') {
+      $AccessToken = ($line -split '=', 2)[1].Trim().Trim('"').Trim("'")
+      break
+    }
+  }
+  if ($AccessToken) {
+    Write-Host "Usando SUPABASE_SERVICE_ROLE_KEY do .env" -ForegroundColor Cyan
+  }
+  if (-not $AccessToken) {
+    Write-Host "Erro: SUPABASE_SERVICE_ROLE_KEY nao encontrado no .env" -ForegroundColor Red
+    exit 1
+  }
+} elseif (-not $AccessToken) {
+  Write-Host "Especifique -UseServiceRole ou -AccessToken" -ForegroundColor Red
+  exit 1
+}
 
 $Uri = "$SupabaseUrl/functions/v1/populate-knowledge-base"
 $Headers = @{
