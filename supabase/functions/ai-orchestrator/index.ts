@@ -1322,11 +1322,19 @@ ${empathyNote}
     // === Opção B: RAG no Vertex para perguntas "gerais" ===
     // Se intenção é "general" e há data store ou corpus configurado, chama generateContent com retrieval
     // e injeta o contexto grounded no system prompt antes de chamar chat/completions.
+    // Exceção: perguntas sobre zoneamento/LPUOS/construir imóvel → usar search_knowledge_base (Supabase KB),
+    // pois o conteúdo está na tabela knowledge_base (populate-knowledge-base) e o Vertex RAG pode não tê-lo.
+    const zoneamentoKeywords = ['zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana', 'smul'];
+    const isZoneamentoQuery = zoneamentoKeywords.some(k => lastUserMessage.toLowerCase().includes(k));
+    if (isZoneamentoQuery) {
+      console.log('[ai-orchestrator] Zoneamento/LPUOS query detected → skipping Vertex RAG, will use search_knowledge_base');
+    }
     if (
       collectionIntent?.type === 'general' &&
       (vertexRagDatastore || vertexRagCorpus) &&
       finalAiApiKey &&
-      lastUserMessage.trim().length > 3
+      lastUserMessage.trim().length > 3 &&
+      !isZoneamentoQuery
     ) {
       try {
         const baseUrl = finalAiBaseUrl.replace(/\/$/, '');
