@@ -15,8 +15,9 @@ import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServic
 import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
@@ -34,6 +35,10 @@ export default function NearbyServicesPage() {
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
+  const [searchByName, setSearchByName] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PAGE_SIZE = 20;
 
   const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
   const searchLat = cepCenter?.latitude ?? latitude;
@@ -70,20 +75,29 @@ export default function NearbyServicesPage() {
   const { walkingDistances, loading: walkingLoading } = useWalkingDistancesMatrix(
     mapCenter,
     sortedServicesByHaversine,
-    hasMapboxToken ? mapboxToken : null
+    hasMapboxToken ? mapboxToken : null,
+    "walking"
   );
 
-  const sortedServices = useMemo(() => {
-    const withWalking =
-      walkingDistances && walkingDistances.size > 0
-        ? sortedServicesByHaversine.map((s) => ({
-            ...s,
-            distance: walkingDistances.get(s.id) ?? s.distance,
-          }))
-        : sortedServicesByHaversine.map((s) => ({ ...s }));
+  const { sortedServices, routeFilterFallback } = useMemo(() => {
+    const hasRouteData = walkingDistances && walkingDistances.size > 0;
+    const withRouteDistance = hasRouteData
+      ? sortedServicesByHaversine.map((s) => ({
+          ...s,
+          distance: walkingDistances.get(s.id) ?? s.distance,
+        }))
+      : sortedServicesByHaversine.map((s) => ({ ...s }));
 
-    const withinRadius = withWalking.filter((s) => (s.distance ?? 0) <= radiusMeters);
-    return [...withinRadius].sort((a, b) => {
+    let withinRadius = withRouteDistance.filter((s) => (s.distance ?? 0) <= radiusMeters);
+
+    // Sem filtro de tipo há muitos serviços; após rota a pé quase todos ficam > raio e a lista zera. Fallback: mostrar por linha reta.
+    const fallback =
+      hasRouteData && withinRadius.length === 0 && sortedServicesByHaversine.length > 0;
+    if (fallback) {
+      withinRadius = sortedServicesByHaversine.filter((s) => (s.distance ?? 0) <= radiusMeters);
+    }
+
+    const sorted = [...withinRadius].sort((a, b) => {
       if (sortBy === "rating") {
         const ra = a.average_rating ?? 0;
         const rb = b.average_rating ?? 0;
@@ -91,9 +105,33 @@ export default function NearbyServicesPage() {
       }
       return (a.distance ?? 0) - (b.distance ?? 0);
     });
+    return { sortedServices: sorted, routeFilterFallback: fallback };
   }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters]);
 
-  const useWalkingDistanceLabel = !!(walkingDistances && walkingDistances.size > 0);
+  const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
+  const distanceLabelMode = useRouteDistance && !routeFilterFallback ? "walking" : "straight";
+
+  const filteredByName = useMemo(() => {
+    const q = searchByName.trim().toLowerCase();
+    if (!q) return sortedServices;
+    return sortedServices.filter((s) => {
+      const name = (s.name ?? "").toLowerCase();
+      const address = (s.address ?? "").toLowerCase();
+      const district = (s.district ?? "").toLowerCase();
+      return name.includes(q) || address.includes(q) || district.includes(q);
+    });
+  }, [sortedServices, searchByName]);
+
+  const totalFiltered = filteredByName.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const paginatedServices = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredByName.slice(start, start + PAGE_SIZE);
+  }, [filteredByName, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy]);
 
   // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
   const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
@@ -186,7 +224,9 @@ export default function NearbyServicesPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="w-4 h-4" />
                 <span>
-                  {sortedServices.length} {sortedServices.length === 1 ? "serviço encontrado" : "serviços encontrados"}
+                  {totalPages > 1
+                    ? `${(currentPage - 1) * PAGE_SIZE + 1}-${Math.min(currentPage * PAGE_SIZE, totalFiltered)} de ${totalFiltered}`
+                    : `${totalFiltered} ${totalFiltered === 1 ? "serviço encontrado" : "serviços encontrados"}`}
                 </span>
               </div>
               <ServiceSortSelect value={sortBy} onValueChange={setSortBy} />
@@ -201,6 +241,11 @@ export default function NearbyServicesPage() {
                 Atualizando distâncias a pé…
               </p>
             )}
+            {routeFilterFallback && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                Exibindo distâncias em linha reta; rota a pé indisponível para todos neste raio.
+              </p>
+            )}
           </>
         )}
 
@@ -210,6 +255,17 @@ export default function NearbyServicesPage() {
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
 
         <RatingFilter value={minRating} onChange={setMinRating} />
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar por nome, endereço ou bairro"
+            value={searchByName}
+            onChange={(e) => setSearchByName(e.target.value)}
+            className="pl-9"
+          />
+        </div>
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -230,17 +286,20 @@ export default function NearbyServicesPage() {
                   <Skeleton key={i} className="h-32 w-full" />
                 ))}
               </div>
-            ) : sortedServices.length === 0 ? (
+            ) : filteredByName.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-4xl mb-3">📍</div>
                 <h3 className="font-semibold text-foreground mb-1">Nenhum serviço encontrado</h3>
                 <p className="text-sm text-muted-foreground">
-                  Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação
+                  {searchByName.trim()
+                    ? "Tente outro termo de busca ou relaxe os filtros."
+                    : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
                 </p>
               </div>
             ) : (
+              <>
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-                {sortedServices.map((service) => (
+                {paginatedServices.map((service) => (
                   <ServiceCard
                     key={service.id}
                     id={service.id}
@@ -249,7 +308,7 @@ export default function NearbyServicesPage() {
                     address={resolvedAddresses[service.id] ?? service.address}
                     district={resolvedAddresses[service.id] ? undefined : service.district}
                     distance={service.distance}
-                    distanceLabel={useWalkingDistanceLabel ? "walking" : "straight"}
+                    distanceLabel={distanceLabelMode}
                     averageRating={service.average_rating}
                     totalRatings={service.total_ratings}
                     phone={service.phone}
@@ -263,6 +322,32 @@ export default function NearbyServicesPage() {
                   />
                 ))}
               </div>
+              {totalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                  >
+                    Próxima
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+              </>
             )}
           </TabsContent>
 
@@ -272,9 +357,9 @@ export default function NearbyServicesPage() {
             ) : mapCenter ? (
               <MapView
                 userLocation={mapCenter}
-                services={sortedServices}
+                services={filteredByName}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
-                distanceLabel={useWalkingDistanceLabel ? "walking" : "straight"}
+                distanceLabel={distanceLabelMode}
               />
             ) : (
               <div className="text-center py-12">
