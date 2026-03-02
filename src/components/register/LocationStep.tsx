@@ -132,6 +132,13 @@ const LocationStep = ({ data, onChange, onContinue }: LocationStepProps) => {
             </p>
           </div>
         )}
+        {cepLookupError === "not_found" && (
+          <div className="mt-3 rounded-xl border border-border bg-muted/50 px-3 py-2 text-muted-foreground">
+            <p className="text-xs">
+              CEP não encontrado. Você pode continuar sem endereço agora e completar depois em Perfil &gt; Endereço.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Endereço preenchido automaticamente: rua já preenchida, usuário só informa o número */}
