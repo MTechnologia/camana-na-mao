@@ -154,7 +154,7 @@ serve(async (req) => {
       );
     }
 
-    // 3) Endereço (obrigatório no fluxo)
+    // 3) Endereço (opcional; usuário pode completar depois no perfil)
     if (cep && neighborhood && number?.trim()) {
       const { error: addrErr } = await admin.from("user_addresses").insert({
         user_id: userId,

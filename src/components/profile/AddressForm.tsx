@@ -8,19 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addressSchema } from "@/lib/validations";
 import { MapPin, Loader2, CheckCircle2, Home, Building2, Navigation } from "lucide-react";
+import { lookupCepAddress } from "@/lib/cepLookup";
 
 interface AddressFormProps {
   userId: string;
-}
-
-interface ViaCepResponse {
-  cep: string;
-  logradouro: string;
-  complemento: string;
-  bairro: string;
-  localidade: string;
-  uf: string;
-  erro?: boolean;
 }
 
 interface Coordinates {
@@ -146,21 +137,32 @@ const AddressForm = ({ userId }: AddressFormProps) => {
     if (cleanedZipCode.length === 8) {
       setLoadingCep(true);
       try {
-        const response = await fetch(`https://viacep.com.br/ws/${cleanedZipCode}/json/`);
-        const data: ViaCepResponse = await response.json();
-
-        if (data.erro) {
-          toast.error("CEP não encontrado");
+        const result = await lookupCepAddress(cleanedZipCode);
+        if (!result.ok) {
+          if (result.errorType === "not_found") {
+            toast.error("CEP não encontrado");
+          } else {
+            toast.info("Não foi possível consultar o CEP agora. Você pode preencher o endereço manualmente.");
+          }
           return;
         }
 
-        setStreet(data.logradouro);
-        setNeighborhood(data.bairro);
-        setCity(data.localidade);
-        setState(data.uf);
-        
-        const fullAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade}, ${data.uf}, Brasil`;
-        const coords = await geocodeAddress(fullAddress);
+        setStreet(result.address.street);
+        setNeighborhood(result.address.neighborhood);
+        setCity(result.address.city);
+        setState(result.address.state);
+
+        const fullAddress = [
+          result.address.street,
+          result.address.neighborhood,
+          result.address.city,
+          result.address.state,
+          "Brasil",
+        ]
+          .filter(Boolean)
+          .join(", ");
+
+        const coords = fullAddress ? await geocodeAddress(fullAddress) : null;
         
         if (coords) {
           toast.success("Endereço encontrado com localização mapeada!");
