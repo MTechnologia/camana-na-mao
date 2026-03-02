@@ -190,13 +190,9 @@ const Register = () => {
   };
 
   const handleLocationContinue = () => {
-    if (!formData.cep || !formData.neighborhood) {
-      toast.error("Informe o CEP e aguarde o endereço ser preenchido.");
-      return;
-    }
-    if (!formData.number?.trim()) {
-      toast.error("Informe o número do endereço.");
-      return;
+    const hasCompleteAddress = !!(formData.cep && formData.neighborhood && formData.number?.trim());
+    if (!hasCompleteAddress) {
+      toast.info("Você pode concluir agora e cadastrar o endereço depois em Perfil > Endereço.");
     }
     setCurrentStep(5);
   };
@@ -222,13 +218,6 @@ const Register = () => {
 
     if (!userId) {
       toast.error("Erro no cadastro. Tente novamente.");
-      return;
-    }
-
-    // Endereço obrigatório no cadastro (CEP e número; complemento é opcional)
-    const hasAddress = formData.cep && formData.neighborhood && formData.number?.trim();
-    if (!hasAddress) {
-      toast.error("Preencha o CEP e o número do endereço.");
       return;
     }
 

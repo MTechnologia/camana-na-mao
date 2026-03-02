@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Search, MapPin, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { lookupCepAddress } from "@/lib/cepLookup";
 
 export interface StructuredAddress {
   street: string;
@@ -57,21 +58,25 @@ export function AddressAutocomplete({
   const fetchFromViaCep = useCallback(async (cep: string): Promise<StructuredAddress | null> => {
     const cleaned = cep.replace(/\D/g, '');
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleaned}/json/`);
-      const data = await response.json();
-      
-      if (data.erro) {
+      const result = await lookupCepAddress(cleaned);
+      if (!result.ok) {
         return null;
       }
-      
+
       return {
-        street: data.logradouro || '',
+        street: result.address.street || '',
         streetNumber: '',
-        neighborhood: data.bairro || '',
-        city: data.localidade || '',
-        state: data.uf || '',
-        cep: data.cep?.replace('-', '') || cleaned,
-        formattedAddress: `${data.logradouro || ''}, ${data.bairro || ''} - ${data.localidade || ''}/${data.uf || ''}`,
+        neighborhood: result.address.neighborhood || '',
+        city: result.address.city || '',
+        state: result.address.state || '',
+        cep: result.address.cep || cleaned,
+        formattedAddress: [
+          result.address.street,
+          result.address.neighborhood,
+          [result.address.city, result.address.state].filter(Boolean).join("/"),
+        ]
+          .filter(Boolean)
+          .join(" - "),
         latitude: 0,
         longitude: 0,
       };
@@ -95,18 +100,28 @@ export function AddressAutocomplete({
     // Check if it's a CEP - use ViaCEP instead of Google Places
     if (isCepFormat(searchQuery)) {
       const viaCepAddress = await fetchFromViaCep(searchQuery);
-      if (viaCepAddress && viaCepAddress.street) {
+      const hasAddressData = !!(
+        viaCepAddress &&
+        (viaCepAddress.street || viaCepAddress.neighborhood || viaCepAddress.city || viaCepAddress.state)
+      );
+
+      if (viaCepAddress && hasAddressData) {
         // Create a synthetic prediction for the CEP result
         setPredictions([{
           placeId: `viacep-${viaCepAddress.cep}`,
           description: viaCepAddress.formattedAddress,
-          mainText: viaCepAddress.street,
-          secondaryText: `${viaCepAddress.neighborhood}, ${viaCepAddress.city} - ${viaCepAddress.state}`,
+          mainText: viaCepAddress.street || `CEP ${viaCepAddress.cep}`,
+          secondaryText: [
+            viaCepAddress.neighborhood,
+            [viaCepAddress.city, viaCepAddress.state].filter(Boolean).join(" - "),
+          ]
+            .filter(Boolean)
+            .join(", "),
         }]);
         setShowDropdown(true);
         setSelectedIndex(-1);
       } else {
-        setError("CEP não encontrado");
+        setError("CEP não encontrado ou indisponível no momento");
         setPredictions([]);
         setShowDropdown(false);
       }
