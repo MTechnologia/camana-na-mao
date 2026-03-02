@@ -18,7 +18,7 @@ interface SimulatedMapProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
-  distanceLabel?: "walking" | "straight";
+  distanceLabel?: "walking" | "driving" | "straight";
 }
 
 const serviceIcons: Record<string, string> = {
@@ -135,7 +135,7 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                     </p>
                     {service.distance != null && (
                       <p className="text-xs text-muted-foreground">
-                        {distanceLabel === "walking" ? formatDistance(service.distance) : formatDistanceStraightLine(service.distance)}
+                        {distanceLabel === "straight" ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance)}
                       </p>
                     )}
                   </div>

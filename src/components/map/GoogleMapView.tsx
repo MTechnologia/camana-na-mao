@@ -22,7 +22,7 @@ interface GoogleMapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
-  distanceLabel?: 'walking' | 'straight';
+  distanceLabel?: 'walking' | 'driving' | 'straight';
   /** Camadas overlay GeoSampa (WFS GeoJSON) */
   overlayLayers?: Record<string, GeoSampaOverlayState>;
 }
@@ -145,7 +145,7 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick, distance
         ? buildGoogleMapsUrl(userLocation.latitude, userLocation.longitude, service.latitude, service.longitude)
         : `https://www.google.com/maps?q=${service.latitude},${service.longitude}`;
       const distanceText = service.distance != null
-        ? (distanceLabel === 'walking' ? formatDistance(service.distance) : formatDistanceStraightLine(service.distance))
+        ? (distanceLabel === 'straight' ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance))
         : '';
       const infoContent = `
         <div style="padding:8px;min-width:180px;">

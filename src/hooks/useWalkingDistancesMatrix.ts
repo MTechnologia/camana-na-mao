@@ -16,14 +16,18 @@ interface MatrixResponse {
   distances?: number[][];
 }
 
+export type RoutingProfile = "walking" | "driving";
+
 /**
- * Obtém distâncias reais a pé (Mapbox Matrix API) da origem até cada serviço.
+ * Obtém distâncias reais por rota (Mapbox Matrix API): a pé ou de carro.
+ * Para raios 5km/10km use profile "driving"; para 500m/1km use "walking".
  * Retorna um mapa serviceId -> distância em metros; se a API falhar ou não houver token, retorna null (use Haversine).
  */
 export function useWalkingDistancesMatrix(
   userLocation: { latitude: number; longitude: number } | null,
   services: ServiceWithCoords[],
-  mapboxToken: string | null
+  mapboxToken: string | null,
+  profile: RoutingProfile = "walking"
 ): { walkingDistances: Map<string, number> | null; loading: boolean; error: string | null } {
   const [walkingDistances, setWalkingDistances] = useState<Map<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,6 +47,7 @@ export function useWalkingDistancesMatrix(
     setError(null);
 
     const { latitude: userLat, longitude: userLng } = userLocation;
+    const mapboxProfile = profile === "driving" ? "mapbox/driving" : "mapbox/walking";
 
     async function fetchMatrix() {
       const results = new Map<string, number>();
@@ -66,7 +71,7 @@ export function useWalkingDistancesMatrix(
         const coordinates = coords.map(([lng, lat]) => `${lng},${lat}`).join(";");
         const sources = "0";
         const destinations = destList.map((_, i) => i + 1).join(";");
-        const url = `https://api.mapbox.com/directions-matrix/v1/mapbox/walking/${coordinates}?sources=${sources}&destinations=${destinations}&annotations=distance,duration&access_token=${mapboxToken}`;
+        const url = `https://api.mapbox.com/directions-matrix/v1/${mapboxProfile}/${coordinates}?sources=${sources}&destinations=${destinations}&annotations=distance,duration&access_token=${mapboxToken}`;
 
         try {
           const response = await fetch(url);
@@ -85,7 +90,7 @@ export function useWalkingDistancesMatrix(
           });
         } catch (err) {
           if (requestIdRef.current === requestId) {
-            setError(err instanceof Error ? err.message : "Erro ao buscar distâncias a pé");
+            setError(err instanceof Error ? err.message : `Erro ao buscar distâncias (${profile === "driving" ? "carro" : "a pé"})`);
           }
           return;
         }
@@ -100,7 +105,7 @@ export function useWalkingDistancesMatrix(
     fetchMatrix().finally(() => {
       if (requestIdRef.current === requestId) setLoading(false);
     });
-  }, [userLocation?.latitude, userLocation?.longitude, mapboxToken, services]);
+  }, [userLocation?.latitude, userLocation?.longitude, mapboxToken, services, profile]);
 
   return { walkingDistances, loading, error };
 }
