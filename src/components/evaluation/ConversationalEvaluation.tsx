@@ -45,6 +45,27 @@ export function ConversationalEvaluation({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  const isInApp = typeof window !== "undefined" && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+
+  // No app: blur em sequência para garantir que o campo de avaliação não fique focado
+  useEffect(() => {
+    if (!isInApp) return;
+    const delays = [100, 400, 800, 1200, 1800, 2500, 3200];
+    const timers = delays.map((ms) =>
+      setTimeout(() => {
+        try {
+          const el = document.activeElement;
+          if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && typeof (el as HTMLTextAreaElement).blur === "function") {
+            (el as HTMLTextAreaElement).blur();
+          }
+        } catch {
+          // ignore
+        }
+      }, ms)
+    );
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, [isInApp]);
+
   useEffect(() => {
     if (createdReport?.type === "rating" && createdReport.id && !hasCompletedRef.current) {
       hasCompletedRef.current = true;
@@ -80,8 +101,8 @@ export function ConversationalEvaluation({
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
 
   return (
-    <Card className="h-[500px] flex flex-col">
-      <CardContent className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
+    <Card className="flex-1 flex flex-col min-h-0">
+      <CardContent className="flex-1 flex flex-col p-4 gap-4 overflow-hidden min-h-0">
         <div className="flex-1 overflow-y-auto space-y-3 min-h-0">
           {messages.map((msg, idx) => {
             const lastAssistantIdx = messages.reduce((acc, m, i) => (m.role === 'assistant' ? i : acc), -1);
@@ -113,6 +134,8 @@ export function ConversationalEvaluation({
             disabled={isLoading}
             placeholder="Digite sua mensagem..."
             draftKey="evaluation"
+            autoFocus={false}
+            initialFocusLockSeconds={isInApp ? 5 : undefined}
           />
         </div>
       </CardContent>

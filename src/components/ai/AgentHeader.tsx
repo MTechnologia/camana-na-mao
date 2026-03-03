@@ -110,7 +110,8 @@ const AgentHeader = () => {
             animate="animate"
             exit="exit"
             className={cn(
-              "relative flex items-center justify-between h-14 px-4 shrink-0 overflow-hidden",
+              "fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4 overflow-hidden",
+              "lg:left-[280px] xl:left-[320px] 2xl:left-[360px]",
               "bg-gradient-to-r",
               headerColor
             )}
@@ -192,7 +193,7 @@ const AgentHeader = () => {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0"
+            className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4 border-b border-border bg-card lg:left-[280px] xl:left-[320px] 2xl:left-[360px]"
           >
             {/* Hamburger Menu */}
             <motion.div

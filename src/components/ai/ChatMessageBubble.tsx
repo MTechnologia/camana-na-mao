@@ -21,6 +21,7 @@ import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
+import NearbyServicesFiltersInline, { type NearbyFiltersValues } from "./NearbyServicesFiltersInline";
 import PromptChips, { CollectionTypePreset } from "./PromptChips";
 import { AudienciaInscricaoInline } from "./AudienciaInscricaoInline";
 import {
@@ -102,12 +103,14 @@ interface ChatMessageBubbleProps {
   onTimeSelected?: (time: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
-  onServiceTypeSelected?: (type: string, displayName: string) => void;
+  onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
   onServiceAddressConfirmed?: (confirmed: boolean) => void;
   isLastAssistantMessage?: boolean;
   /** Envia os filtros atuais para a IA trazer a listagem filtrada (nova mensagem no chat). */
   onRequestAudienciasWithFilters?: (filters: { tema: string; regiao: string; dateFrom: string; dateTo: string }) => void;
+  /** Aplicar filtros de raio/avaliação/busca no fluxo Perto de você (envia mensagem e re-busca). */
+  onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
 }
 
 const ChatMessageBubble = ({ 
@@ -128,6 +131,7 @@ const ChatMessageBubble = ({
   onChipSelect,
   onOpenDiscovery,
   onRequestAudienciasWithFilters,
+  onApplyNearbyFilters,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -377,6 +381,12 @@ const ChatMessageBubble = ({
     message.content.includes('o intuito deste canal é poder te ajudar com estes serviços')
   );
 
+  // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
+  const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
+    message.content.includes('opções mais próximas') ||
+    message.content.includes('Quer que eu calcule a rota')
+  );
+
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
     if (onAddressSelected) {
@@ -427,10 +437,10 @@ const ChatMessageBubble = ({
     }
   };
 
-  const handleServiceTypeSelected = (type: string, displayName: string) => {
+  const handleServiceTypeSelected = (type: string, displayName: string, otherSpec?: string) => {
     setServiceTypeSelected(true);
     if (onServiceTypeSelected) {
-      onServiceTypeSelected(type, displayName);
+      onServiceTypeSelected(type, displayName, otherSpec);
     }
   };
   
@@ -786,6 +796,16 @@ const ChatMessageBubble = ({
           <InlineAddressConfirm 
             address={serviceAddressToConfirm}
             onConfirm={handleServiceAddressConfirmed}
+          />
+        )}
+
+        {/* Filtros Perto de você: raio, avaliação mínima, busca por nome/endereço/bairro */}
+        {shouldShowNearbyFilters && (
+          <NearbyServicesFiltersInline
+            defaultRadius={5000}
+            defaultMinRating="all"
+            defaultSearchQuery=""
+            onApply={onApplyNearbyFilters}
           />
         )}
         

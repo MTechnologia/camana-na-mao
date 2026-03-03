@@ -101,15 +101,15 @@ export default function EvaluationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader 
-        title={visit ? `Avaliar ${visit.service.name}` : "Avaliar Serviço"} 
+    <div className="h-[100dvh] min-h-screen bg-background flex flex-col overflow-hidden pb-24 pt-[60px]">
+      <PageHeader
+        title={visit ? `Avaliar ${visit.service.name}` : "Avaliar Serviço"}
       />
-      
-      <div className="p-4 space-y-4">
+
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden p-4 gap-4">
         {visit && (
           <>
-            <Card data-testid="service-card">
+            <Card data-testid="service-card" className="shrink-0">
               <CardContent className="p-4">
                 <h3 className="font-semibold text-foreground mb-1">
                   {visit.service.name}
@@ -142,7 +142,6 @@ export default function EvaluationPage() {
           />
         )}
       </div>
-
     </div>
   );
 }
