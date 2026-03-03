@@ -1034,7 +1034,10 @@ serve(async (req) => {
           const toolArgs: Record<string, unknown> = {
             service_type: accumulatedFields.service_type,
             district,
-            limit: 10
+            limit: 10,
+            radius_meters: accumulatedFields.radius_meters ?? 5000,
+            min_rating: accumulatedFields.min_rating ?? 0,
+            search_query: accumulatedFields.search_query || undefined
           };
           if (hasGpsCoords) {
             toolArgs.user_lat = accumulatedFields.user_lat;

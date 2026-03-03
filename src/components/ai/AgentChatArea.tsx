@@ -60,7 +60,8 @@ const AgentChatArea = () => {
     handleRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
-    handleServiceSelected
+    handleServiceSelected,
+    handleApplyNearbyFilters,
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
@@ -85,6 +86,22 @@ const AgentChatArea = () => {
     requestAnimationFrame(() => {
       setIsInitialized(true);
     });
+  }, []);
+
+  // No app (WebView): remove foco automático que o WebView pode dar ao carregar a tela
+  useEffect(() => {
+    const isInApp = typeof window !== "undefined" && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+    if (!isInApp) return;
+    const t = setTimeout(() => {
+      try {
+        if (document.activeElement && typeof (document.activeElement as HTMLTextAreaElement).blur === "function") {
+          (document.activeElement as HTMLTextAreaElement).blur();
+        }
+      } catch {
+        // ignore
+      }
+    }, 400);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -301,6 +318,7 @@ const AgentChatArea = () => {
                         onChipSelect={handleStartConversation}
                         onOpenDiscovery={handleOpenDiscovery}
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
+                        onApplyNearbyFilters={handleApplyNearbyFilters}
                       />
                     </motion.div>
                   );
@@ -333,10 +351,11 @@ const AgentChatArea = () => {
       >
         <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
           <ChatInput
-            onSendMessage={handleSendMessage} 
+            onSendMessage={handleSendMessage}
             disabled={isLoading}
             placeholder="Digite sua mensagem..."
             draftKey={activeConversationId || "new"}
+            autoFocus={false}
           />
         </div>
       </motion.div>

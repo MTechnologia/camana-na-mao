@@ -1,41 +1,59 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Building2, GraduationCap, Heart, Library, Dumbbell, TreePine, ShoppingBag } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp, Building2, MoreHorizontal } from "lucide-react";
 
-interface InlineServiceTypePickerProps {
-  onSelect: (type: string, displayName: string) => void;
+export interface InlineServiceTypePickerProps {
+  onSelect: (type: string, displayName: string, otherSpec?: string) => void;
 }
 
-const SERVICE_TYPES = [
-  { id: 'ubs', label: 'UBS', icon: Heart, color: 'text-red-500' },
-  { id: 'hospital', label: 'Hospital', icon: Building2, color: 'text-blue-500' },
-  { id: 'school', label: 'Escola', icon: GraduationCap, color: 'text-yellow-600' },
-  { id: 'ceu', label: 'CEU', icon: TreePine, color: 'text-green-500' },
-  { id: 'library', label: 'Biblioteca', icon: Library, color: 'text-purple-500' },
-  { id: 'sports_center', label: 'Centro Esportivo', icon: Dumbbell, color: 'text-orange-500' },
-  { id: 'street_market', label: 'Feira', icon: ShoppingBag, color: 'text-amber-600' },
-  { id: 'community_center', label: 'Centro Comunitário', icon: Building2, color: 'text-teal-600' },
-  { id: 'daycare', label: 'Creche', icon: GraduationCap, color: 'text-pink-500' },
-  { id: 'park', label: 'Parque', icon: TreePine, color: 'text-green-600' },
-  { id: 'social_assistance', label: 'Assistência Social', icon: Heart, color: 'text-rose-600' },
-  { id: 'police_station', label: 'Delegacia', icon: Building2, color: 'text-slate-600' },
-  { id: 'transit_station', label: 'Transporte', icon: Building2, color: 'text-indigo-600' },
-  { id: 'market', label: 'Mercado', icon: ShoppingBag, color: 'text-amber-700' },
-  { id: 'city_market', label: 'Mercado Municipal', icon: ShoppingBag, color: 'text-amber-800' },
-  { id: 'theater', label: 'Teatro/Cinema', icon: Building2, color: 'text-violet-600' },
-  { id: 'museum', label: 'Museu', icon: Building2, color: 'text-stone-600' },
-  { id: 'cemetery', label: 'Cemitério', icon: Building2, color: 'text-gray-600' },
-  { id: 'accessibility', label: 'Acessibilidade', icon: Building2, color: 'text-sky-600' },
-  { id: 'recycling_point', label: 'Reciclagem/Limpeza', icon: Building2, color: 'text-emerald-600' },
-  { id: 'fire_station', label: 'Bombeiros', icon: Building2, color: 'text-red-600' },
+/** Principais (alinhado ao "Perto de você" e OS05): UBS, Escolas, CEUs, Hospitais, Bibliotecas, Esportes */
+const MAIN_TYPES = [
+  { id: "ubs", label: "UBS", icon: "🏥" },
+  { id: "school", label: "Escolas", icon: "🏫" },
+  { id: "ceu", label: "CEUs", icon: "🎭" },
+  { id: "hospital", label: "Hospitais", icon: "🏥" },
+  { id: "library", label: "Bibliotecas", icon: "📚" },
+  { id: "sports_center", label: "Esportes", icon: "⚽" },
+] as const;
+
+/** Demais tipos (exibidos em "Outros tipos" expansível) */
+const OTHER_TYPES = [
+  { id: "street_market", label: "Feiras", icon: "🛒" },
+  { id: "community_center", label: "Centros Comunitários", icon: "🏘️" },
+  { id: "daycare", label: "Creches", icon: "🍼" },
+  { id: "park", label: "Parques", icon: "🌳" },
+  { id: "market", label: "Mercados", icon: "🛒" },
+  { id: "city_market", label: "Mercados Municipais", icon: "🏪" },
+  { id: "theater", label: "Teatro/Cinema", icon: "🎬" },
+  { id: "museum", label: "Museus", icon: "🏛️" },
+  { id: "social_assistance", label: "Assistência Social", icon: "🤝" },
+  { id: "transit_station", label: "Transporte", icon: "🚌" },
+  { id: "police_station", label: "Delegacia/Polícia", icon: "🚔" },
+  { id: "cemetery", label: "Cemitério", icon: "🪦" },
+  { id: "accessibility", label: "Acessibilidade", icon: "♿" },
+  { id: "recycling_point", label: "Reciclagem/Limpeza", icon: "♻️" },
+  { id: "fire_station", label: "Bombeiros", icon: "🚒" },
 ] as const;
 
 export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerProps) => {
   const [selected, setSelected] = useState(false);
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [otherSpec, setOtherSpec] = useState("");
+  const [openOutrosTipos, setOpenOutrosTipos] = useState(false);
 
-  const handleSelect = (type: string, label: string) => {
+  const handleSelect = (type: string, label: string, spec?: string) => {
     setSelected(true);
-    onSelect(type, label);
+    onSelect(type, label, spec);
+  };
+
+  const handleOtherConfirm = () => {
+    handleSelect("other", "Outros", otherSpec.trim() || undefined);
   };
 
   if (selected) {
@@ -48,24 +66,94 @@ export const InlineServiceTypePicker = ({ onSelect }: InlineServiceTypePickerPro
   }
 
   return (
-    <div className="mt-2 w-full max-w-xs">
-      <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-        <Building2 className="h-3 w-3 flex-shrink-0" />
-        <span>Qual tipo de serviço?</span>
+    <div className="mt-3 w-full max-w-md space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+      <p className="text-xs font-medium text-foreground">Filtrar por tipo (igual ao Perto de você)</p>
+
+      {/* Principais */}
+      <div>
+        <p className="mb-1.5 text-xs text-muted-foreground">Principais</p>
+        <div className="flex flex-wrap gap-2">
+          {MAIN_TYPES.map(({ id, label, icon }) => (
+            <Button
+              key={id}
+              variant="default"
+              size="sm"
+              onClick={() => handleSelect(id, label)}
+              className="flex items-center gap-1.5 shadow-sm"
+            >
+              <span aria-hidden>{icon}</span>
+              <span className="whitespace-nowrap">{label}</span>
+            </Button>
+          ))}
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {SERVICE_TYPES.map(({ id, label, icon: Icon, color }) => (
+
+      {/* Outros tipos (expansível) */}
+      <Collapsible open={openOutrosTipos} onOpenChange={setOpenOutrosTipos}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground">
+            {openOutrosTipos ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            Outros tipos
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {OTHER_TYPES.map(({ id, label, icon }) => (
+              <Button
+                key={id}
+                variant="outline"
+                size="sm"
+                onClick={() => handleSelect(id, label)}
+                className="flex items-center gap-1.5 flex-shrink-0"
+              >
+                <span aria-hidden>{icon}</span>
+                <span className="whitespace-nowrap">{label}</span>
+              </Button>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Campo "Outros" */}
+      <div className="space-y-1.5 border-t border-border/50 pt-2">
+        {!showOtherInput ? (
           <Button
-            key={id}
             variant="outline"
             size="sm"
-            onClick={() => handleSelect(id, label)}
-            className="flex items-center gap-1.5 flex-shrink-0"
+            onClick={() => setShowOtherInput(true)}
+            className="gap-1.5 text-muted-foreground"
           >
-            <Icon className={`h-4 w-4 ${color} flex-shrink-0`} />
-            <span className="whitespace-nowrap">{label}</span>
+            <MoreHorizontal className="h-4 w-4" />
+            Outros (especificar)
           </Button>
-        ))}
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder="Ex.: posto de saúde, centro cultural..."
+              value={otherSpec}
+              onChange={(e) => setOtherSpec(e.target.value)}
+              className="h-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleOtherConfirm();
+              }}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleOtherConfirm} className="flex-1">
+                Confirmar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowOtherInput(false);
+                  setOtherSpec("");
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

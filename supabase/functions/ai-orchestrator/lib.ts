@@ -1944,6 +1944,60 @@ export function accumulateFieldsFromHistory(
         }
       }
     }
+    // Quando o assistente mostrou "Qual desses te interessa?" (lista de alternativas) e o usuário respondeu com número ou tipo, usar essa escolha (evita loop de "não tenho serviços")
+    const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
+    const lastUser = messages.filter((m) => m.role === 'user').pop();
+    if (lastAssistant && lastUser && getContent(lastAssistant).includes('Qual desses te interessa?')) {
+      const assistantText = getContent(lastAssistant);
+      const userText = getContent(lastUser).trim();
+      const labelToType: Record<string, string> = {
+        'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
+        'bibliotecas': 'library', 'centros esportivos': 'sports_center', 'esportes': 'sports_center'
+      };
+      let chosenType: string | null = null;
+      const digitMatch = userText.match(/^(\d)\s*$/);
+      if (digitMatch) {
+        const num = parseInt(digitMatch[1], 10);
+        const listMatch = assistantText.match(new RegExp(`^${num}\\.\\s*(.+)$`, 'm'));
+        if (listMatch) {
+          const label = listMatch[1].trim().toLowerCase().replace(/\s+/g, ' ');
+          chosenType = (labelToType[label] || Object.entries(labelToType).find(([k]) => label.includes(k))?.[1]) ?? null;
+        }
+      } else {
+        chosenType = inferServiceTypeFromText(userText);
+      }
+      if (chosenType) {
+        acc.service_type = chosenType;
+      }
+    }
+    // Filtros de busca (raio, avaliação mínima, busca por texto) — da última mensagem do usuário
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role !== 'user') continue;
+      const c = getContent(messages[i]).trim();
+      const cLower = c.toLowerCase();
+      if (!acc.radius_meters) {
+        const radiusMatch = c.match(/raio\s*[:\s]*(\d+)\s*(km|m)/i) || cLower.match(/raio\s*(\d+)\s*(km|m)/);
+        if (radiusMatch) {
+          const val = parseInt(radiusMatch[1], 10);
+          acc.radius_meters = (radiusMatch[2] || '').toLowerCase() === 'km' ? val * 1000 : val;
+        }
+      }
+      if (acc.min_rating === undefined || acc.min_rating === null || /avalia[cç][aã]o\s*(m[ií]nima)?\s*[:\s]*todas/i.test(c)) {
+        if (/avalia[cç][aã]o\s*(m[ií]nima)?\s*[:\s]*todas/i.test(c)) {
+          acc.min_rating = 0;
+        } else {
+          const ratingMatch = c.match(/avalia[cç][aã]o\s*(m[ií]nima)?\s*[:\s]*(\d+)\s*\+?/i) || c.match(/(\d+)\s*\+?\s*estrelas?/i);
+          if (ratingMatch) {
+            const stars = parseInt(ratingMatch[2] || ratingMatch[1], 10);
+            if (stars >= 2 && stars <= 5) acc.min_rating = stars;
+          }
+        }
+      }
+      if (!acc.search_query) {
+        const buscaMatch = c.match(/busca\s*[:\s]+([^.\n]+)/i) || c.match(/buscar\s+por\s+[^:]+[:\s]+([^.\n]+)/i);
+        if (buscaMatch?.[1]?.trim()) acc.search_query = buscaMatch[1].trim();
+      }
+    }
     return acc;
   }
 
@@ -3527,10 +3581,10 @@ export function formatServicesWithContext(
     return `${i+1}. ${s.name}${districtInfo}\n   📍 ${s.address}${rating}`;
   }).join('\n\n');
   
-  const footer = isExpanded 
-    ? '\n\n💡 Quer que eu calcule a rota para alguma delas?' 
+  const footer = isExpanded
+    ? '\n\n💡 Quer que eu calcule a rota para alguma delas?\n\nPara mais informações, [clique aqui](/servicos-proximos).'
     : '';
-  
+
   return `${header}\n\n${list}${footer}`;
 }
 
@@ -3601,7 +3655,10 @@ export async function findNearbyServices(
   district?: string,
   limit: number = 5,
   userLat?: number | null,
-  userLon?: number | null
+  userLon?: number | null,
+  radiusMeters: number = 5000,
+  minRating: number = 0,
+  searchQuery?: string | null
 ): Promise<string> {
   const typeName = getServiceTypeName(serviceType);
   const limitWithBuffer = Math.max(limit * 3, 15);
@@ -3609,20 +3666,44 @@ export async function findNearbyServices(
   const selectFields = hasCoords
     ? 'name, address, district, phone, average_rating, service_type, latitude, longitude'
     : 'name, address, district, phone, average_rating, service_type';
+  const search = (searchQuery || '').trim().toLowerCase();
 
-  const sortAndFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => {
-    const withAddress = data.filter(hasValidAddress);
+  const sortAndFormat = (data: Record<string, unknown>[], isExpanded: boolean, radiusOverride?: number): string => {
+    const radius = radiusOverride ?? radiusMeters;
+    let withAddress = data.filter(hasValidAddress);
     if (withAddress.length === 0) return '';
-    let ordered = withAddress;
-    if (hasCoords && withAddress[0].latitude != null && withAddress[0].longitude != null) {
-      ordered = [...withAddress].sort((a, b) => {
-        const dA = distanceMeters(userLat!, userLon!, Number(a.latitude), Number(a.longitude));
-        const dB = distanceMeters(userLat!, userLon!, Number(b.latitude), Number(b.longitude));
-        return dA - dB;
-      }).slice(0, limit);
-    } else {
-      ordered = withAddress.slice(0, limit);
+    if (search) {
+      withAddress = withAddress.filter((s: Record<string, unknown>) => {
+        const name = (s.name || '').toString().toLowerCase();
+        const address = (s.address || '').toString().toLowerCase();
+        const districtStr = (s.district || '').toString().toLowerCase();
+        return name.includes(search) || address.includes(search) || districtStr.includes(search);
+      });
+      if (withAddress.length === 0) return '';
     }
+    let ordered = withAddress;
+    if (hasCoords && withAddress.some((s: Record<string, unknown>) => s.latitude != null && s.longitude != null)) {
+      ordered = [...withAddress]
+        .map((s: Record<string, unknown>) => ({
+          ...s,
+          _distance: (s.latitude != null && s.longitude != null)
+            ? distanceMeters(userLat!, userLon!, Number(s.latitude), Number(s.longitude))
+            : Infinity
+        }))
+        .filter((s: Record<string, unknown>) => {
+          const d = s._distance as number;
+          return (Number.isFinite(d) && d <= radius) || d === Infinity;
+        })
+        .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
+        .sort((a, b) => (a._distance as number) - (b._distance as number))
+        .slice(0, limit)
+        .map(({ _distance, ...rest }) => rest) as Record<string, unknown>[];
+    } else {
+      ordered = withAddress
+        .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
+        .slice(0, limit);
+    }
+    if (ordered.length === 0) return '';
     return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded) || '';
   };
 
@@ -3630,17 +3711,29 @@ export async function findNearbyServices(
 
   // Quando temos coordenadas do usuário, buscar mais resultados city-wide e ordenar por distância (prioridade sobre district)
   if (hasCoords) {
-    const fetchSize = 80;
+    const fetchSize = 200;
     const { data, error } = await supabase
       .from('public_services')
       .select(selectFields)
       .eq('service_type', serviceType)
       .limit(fetchSize);
     if (!error && data?.length) {
-      const out = sortAndFormat(data, !district);
+      let out = sortAndFormat(data, !district);
       if (out) {
         console.log('[findNearbyServices] Sorted by distance from user');
         return out;
+      }
+      // Nenhum resultado no raio pedido: tentar com raio maior (20 km) para sempre mostrar opções quando existirem no DB
+      out = sortAndFormat(data, !district, 20000);
+      if (out) {
+        console.log('[findNearbyServices] No results in radius, showing within 20km');
+        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out}`;
+      }
+      // Ainda zero (ex.: todos além de 20 km ou registros sem lat/lon): sem filtro de distância (raio muito grande)
+      out = sortAndFormat(data, !district, 1e9);
+      if (out) {
+        console.log('[findNearbyServices] Showing first N without distance filter');
+        return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${out}`;
       }
     }
   }
@@ -5079,10 +5172,13 @@ export async function executeTool(
             userLon = Number(addr.longitude);
           }
         }
-        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon);
+        const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 5000;
+        const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
+        const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
+        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);
         return { success: true, message: result };
       }
-      
+
       case 'search_audiencias': {
         const result = await searchAudiencias(
           supabase,
