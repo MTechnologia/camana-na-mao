@@ -19,6 +19,20 @@ export default defineConfig(({ mode }) => ({
         secure: true,
         rewrite: (path) => path.replace(/^\/geosampa-wfs/, ""),
       },
+      // WMS (imageamento/fotos aéreas) – mesmo motivo
+      "/geosampa-wms": {
+        target: "https://wms.geosampa.prefeitura.sp.gov.br",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/geosampa-wms/, ""),
+      },
+      // WMS raster (Articulação de Imagens: ortofotos 2020, 2017, Orto_MDC, etc.)
+      "/geosampa-raster-wms": {
+        target: "https://raster.geosampa.prefeitura.sp.gov.br",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/geosampa-raster-wms/, ""),
+      },
     },
     hmr: process.env.VITE_HMR_CLIENT_PORT
       ? {
