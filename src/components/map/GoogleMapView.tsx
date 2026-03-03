@@ -6,6 +6,11 @@ import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
 import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
 import { getServiceDisplayName, buildGoogleMapsUrl, formatDistance, formatDistanceStraightLine } from '@/lib/mapUtils';
 import type { GeoSampaOverlayState } from '@/hooks/useGeoSampaOverlay';
+import {
+  GEOSAMPA_WMS_BASE,
+  GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
+  buildWmsGetMapUrl,
+} from '@/config/geosampa-wms-imageamento';
 
 interface Service {
   id: string;
@@ -25,6 +30,8 @@ interface GoogleMapViewProps {
   distanceLabel?: 'walking' | 'driving' | 'straight';
   /** Camadas overlay GeoSampa (WFS GeoJSON) */
   overlayLayers?: Record<string, GeoSampaOverlayState>;
+  /** Exibir camada WMS de imageamento (fotos aéreas GeoSampa) */
+  wmsImageamentoEnabled?: boolean;
 }
 
 const serviceIcons: Record<string, string> = {
@@ -52,12 +59,20 @@ const serviceIcons: Record<string, string> = {
   other: '📍',
 };
 
-export const GoogleMapView = ({ userLocation, services, onServiceClick, distanceLabel = 'straight', overlayLayers = {} }: GoogleMapViewProps) => {
+export const GoogleMapView = ({
+  userLocation,
+  services,
+  onServiceClick,
+  distanceLabel = 'straight',
+  overlayLayers = {},
+  wmsImageamentoEnabled = false,
+}: GoogleMapViewProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const dataLayersRef = useRef<Map<string, google.maps.Data>>(new Map());
+  const wmsOverlayRef = useRef<google.maps.ImageMapType | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const apiKey = getGoogleMapsApiKey();
@@ -82,6 +97,12 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick, distance
     mapInstanceRef.current = map;
 
     return () => {
+      if (wmsOverlayRef.current && map.overlayMapTypes) {
+        const arr = map.overlayMapTypes.getArray();
+        const idx = arr.indexOf(wmsOverlayRef.current);
+        if (idx >= 0) map.overlayMapTypes.removeAt(idx);
+        wmsOverlayRef.current = null;
+      }
       dataLayersRef.current.forEach((data) => data.setMap(null));
       dataLayersRef.current.clear();
       clustererRef.current?.clearMarkers();
@@ -91,6 +112,54 @@ export const GoogleMapView = ({ userLocation, services, onServiceClick, distance
       mapInstanceRef.current = null;
     };
   }, [isLoaded, userLocation?.latitude, userLocation?.longitude]);
+
+  // Imageamento ativo = visão Satélite (Google) + overlay WMS (camada foto_aerea_drone_helicoptero)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !window.google?.maps) return;
+    map.setMapTypeId(
+      wmsImageamentoEnabled ? google.maps.MapTypeId.HYBRID : google.maps.MapTypeId.ROADMAP
+    );
+  }, [wmsImageamentoEnabled]);
+
+  // Overlay WMS – camada foto aérea drone/helicóptero
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!isLoaded || !map || !window.google?.maps) return;
+
+    if (!wmsImageamentoEnabled) {
+      if (wmsOverlayRef.current && map.overlayMapTypes) {
+        const arr = map.overlayMapTypes.getArray();
+        const idx = arr.indexOf(wmsOverlayRef.current);
+        if (idx >= 0) map.overlayMapTypes.removeAt(idx);
+        wmsOverlayRef.current = null;
+      }
+      return;
+    }
+
+    const getTileUrl = buildWmsGetMapUrl({
+      baseUrl: GEOSAMPA_WMS_BASE,
+      layer: GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
+    });
+    const imageMapType = new google.maps.ImageMapType({
+      getTileUrl(coord, zoom) {
+        return getTileUrl(coord, zoom);
+      },
+      tileSize: new google.maps.Size(256, 256),
+      name: 'Imageamento (Ortofotos 2020)',
+      maxZoom: 21,
+      minZoom: 0,
+    });
+    map.overlayMapTypes.push(imageMapType);
+    wmsOverlayRef.current = imageMapType;
+
+    return () => {
+      const arr = map.overlayMapTypes.getArray();
+      const idx = arr.indexOf(imageMapType);
+      if (idx >= 0) map.overlayMapTypes.removeAt(idx);
+      wmsOverlayRef.current = null;
+    };
+  }, [isLoaded, wmsImageamentoEnabled]);
 
   // User location marker
   useEffect(() => {
