@@ -39,6 +39,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
   const [isPrimary, setIsPrimary] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  /** Quando true, rua, bairro, cidade e estado foram preenchidos pelo CEP e ficam somente leitura */
+  const [addressFilledFromCep, setAddressFilledFromCep] = useState(false);
 
   const loadAddress = useCallback(async () => {
     try {
@@ -61,7 +63,9 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setCity(data.city);
         setState(data.state);
         setIsPrimary(data.is_primary);
-        
+        const zipLen = (data.zip_code || "").replace(/\D/g, "").length;
+        const hasAddressFields = !!(data.street && data.neighborhood && data.city && data.state);
+        setAddressFilledFromCep(zipLen === 8 && hasAddressFields);
         if (data.latitude && data.longitude) {
           setCoordinates({
             latitude: data.latitude,
@@ -132,6 +136,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
     
     if (cleanedZipCode.length < 8) {
       setCoordinates(null);
+      setAddressFilledFromCep(false);
     }
 
     if (cleanedZipCode.length === 8) {
@@ -151,6 +156,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setNeighborhood(result.address.neighborhood);
         setCity(result.address.city);
         setState(result.address.state);
+        setAddressFilledFromCep(true);
 
         const fullAddress = [
           result.address.street,
@@ -314,6 +320,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
               value={street}
               onChange={(e) => setStreet(e.target.value)}
               className="h-11"
+              disabled={addressFilledFromCep}
+              readOnly={addressFilledFromCep}
             />
           </div>
 
@@ -356,6 +364,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
               className="h-11"
+              disabled={addressFilledFromCep}
+              readOnly={addressFilledFromCep}
             />
           </div>
 
@@ -371,6 +381,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className="h-11"
+                disabled={addressFilledFromCep}
+                readOnly={addressFilledFromCep}
               />
             </div>
 
@@ -378,7 +390,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
               <label className="text-sm text-muted-foreground mb-1.5 block">
                 Estado <span className="text-destructive">*</span>
               </label>
-              <Select value={state} onValueChange={setState}>
+              <Select value={state} onValueChange={setState} disabled={addressFilledFromCep}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="UF" />
                 </SelectTrigger>
