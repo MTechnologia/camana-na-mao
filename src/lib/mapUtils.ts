@@ -17,13 +17,26 @@ export const getServiceDisplayName = (params: {
   return name?.trim() || "Serviço";
 };
 
-/** Extrai texto de opening_hours (JSONB: { text } ou string). Retorna null se vazio. */
+/** Extrai texto de opening_hours (JSONB: { text } ou string, inclusive JSON stringificado). Retorna null se vazio. */
 export const getOpeningHoursText = (openingHours: unknown): string | null => {
-  const text =
-    typeof openingHours === "string"
-      ? openingHours
-      : (openingHours as { text?: string } | null)?.text;
-  return text?.trim() ? text.trim() : null;
+  if (openingHours == null) return null;
+  if (typeof openingHours === "string") {
+    const s = openingHours.trim();
+    if (!s) return null;
+    // JSON stringificado pelo backend/CSV: {"text":"..."}
+    if (s.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(s) as { text?: string };
+        const t = parsed?.text;
+        return typeof t === "string" && t.trim() ? t.trim() : null;
+      } catch {
+        return s; // não é JSON válido, usa como texto
+      }
+    }
+    return s;
+  }
+  const text = (openingHours as { text?: string })?.text;
+  return typeof text === "string" && text.trim() ? text.trim() : null;
 };
 
 /** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */

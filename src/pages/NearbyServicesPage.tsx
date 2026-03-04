@@ -16,13 +16,15 @@ import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
 import type { CepCenter } from "@/components/map/CepSearchCard";
-import { getServiceDisplayName } from "@/lib/mapUtils";
+import { getServiceDisplayName, getOpeningHoursText } from "@/lib/mapUtils";
+import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -36,6 +38,7 @@ export default function NearbyServicesPage() {
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
   const [searchByName, setSearchByName] = useState("");
+  const [onlyWithOpeningHours, setOnlyWithOpeningHours] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const PAGE_SIZE = 20;
@@ -111,16 +114,22 @@ export default function NearbyServicesPage() {
   const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
   const distanceLabelMode = useRouteDistance && !routeFilterFallback ? "walking" : "straight";
 
+  const filteredByOpeningHours = useMemo(() => {
+    if (!onlyWithOpeningHours) return sortedServices;
+    return sortedServices.filter((s) => getOpeningHoursText(s.opening_hours) != null);
+  }, [sortedServices, onlyWithOpeningHours]);
+
   const filteredByName = useMemo(() => {
     const q = searchByName.trim().toLowerCase();
-    if (!q) return sortedServices;
-    return sortedServices.filter((s) => {
+    const base = filteredByOpeningHours;
+    if (!q) return base;
+    return base.filter((s) => {
       const name = (s.name ?? "").toLowerCase();
       const address = (s.address ?? "").toLowerCase();
       const district = (s.district ?? "").toLowerCase();
       return name.includes(q) || address.includes(q) || district.includes(q);
     });
-  }, [sortedServices, searchByName]);
+  }, [filteredByOpeningHours, searchByName]);
 
   const totalFiltered = filteredByName.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
@@ -131,7 +140,7 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy]);
+  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, onlyWithOpeningHours]);
 
   // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
   const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
@@ -256,6 +265,23 @@ export default function NearbyServicesPage() {
 
         <RatingFilter value={minRating} onChange={setMinRating} />
 
+        <div className="overflow-x-auto pb-2 -mx-4 px-4">
+          <div className="flex items-center gap-2 min-w-max">
+            <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
+            <span className="text-sm text-muted-foreground shrink-0">Horário:</span>
+            <Badge
+              variant={onlyWithOpeningHours ? "default" : "outline"}
+              className={cn(
+                "cursor-pointer whitespace-nowrap transition-all",
+                onlyWithOpeningHours ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+              )}
+              onClick={() => setOnlyWithOpeningHours((v) => !v)}
+            >
+              Com horário informado
+            </Badge>
+          </div>
+        </div>
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -293,7 +319,9 @@ export default function NearbyServicesPage() {
                 <p className="text-sm text-muted-foreground">
                   {searchByName.trim()
                     ? "Tente outro termo de busca ou relaxe os filtros."
-                    : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
+                    : onlyWithOpeningHours
+                      ? "Nenhum serviço com horário informado neste raio. Tente aumentar o raio, desativar o filtro \"Com horário informado\" ou outro tipo de serviço."
+                      : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
                 </p>
               </div>
             ) : (
