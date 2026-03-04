@@ -1878,9 +1878,9 @@ export function accumulateFieldsFromHistory(
         const c = getContent(msg);
         if (c.includes('[COLLECTION_PROGRESS:services:')) {
           const match = c.match(/\[COLLECTION_PROGRESS:services:(\{[^}]+\})\]/);
-          if (match) {
-            try {
-              Object.assign(acc, JSON.parse(match[1]));
+        if (match) {
+          try {
+            Object.assign(acc, JSON.parse(match[1]));
             } catch { /* ignore parse errors */ }
           }
         }
@@ -2520,13 +2520,13 @@ export function accumulateFieldsFromHistory(
             }
             case 'service_address_confirmed': {
               const confirmLower = answer.toLowerCase().trim();
-              if (/^(sim|s|isso|correto|confirmo)$/i.test(confirmLower) ||
+              if (/^(sim|s|isso|correto|confirmo)$/i.test(confirmLower) || 
                   confirmLower.includes('correto') || confirmLower.includes('isso mesmo')) {
                 accumulated.service_address_confirmed = true;
                 accumulated._needs_address_reconfirm = false;
                 accumulated._address_reconfirmed = true;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address confirmed');
-              } else if (/^(n[aã]o|n|errado|incorreto)$/i.test(confirmLower) ||
+              } else if (/^(n[aã]o|n|errado|incorreto)$/i.test(confirmLower) || 
                          confirmLower.includes('errado') || confirmLower.includes('outro')) {
                 accumulated.service_address_confirmed = false;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address denied');
@@ -2542,7 +2542,7 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_address_confirmed = undefined;
                 const prevContent = (prevMsg?.content as string) || '';
                 if (/correto|ok.*bairro/i.test(prevContent)) {
-                  accumulated._needs_address_reconfirm = true;
+                accumulated._needs_address_reconfirm = true;
                 }
                 // NUNCA preencher service_name com genérico - queremos o dropdown
                 const typeLabels: Record<string, string> = { ceu: 'CEU', ubs: 'UBS', hospital: 'Hospital', school: 'Escola', library: 'Biblioteca', sports_center: 'Centro esportivo' };
@@ -2559,7 +2559,7 @@ export function accumulateFieldsFromHistory(
               const reconfirmLower = answer.toLowerCase().trim();
               const denied = /^(n[aã]o|n|errado|incorreto)$/i.test(reconfirmLower) ||
                 reconfirmLower.includes('errado') || reconfirmLower.includes('incorreto') || reconfirmLower.includes('outro');
-              if (/^(sim|s|isso|correto|confirmo)$/i.test(reconfirmLower) ||
+              if (/^(sim|s|isso|correto|confirmo)$/i.test(reconfirmLower) || 
                   reconfirmLower.includes('correto') || reconfirmLower.includes('isso mesmo')) {
                 accumulated.service_address_confirmed = true;
                 accumulated._address_reconfirmed = true;
@@ -2908,6 +2908,24 @@ export function isInformationalQuestionAboutAudience(userMessage: string): boole
   return /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalized);
 }
 
+/** True quando o cidadão pergunta sobre linhas/paradas/previsão de ônibus (consulta Olho Vivo), não relato de problema. */
+export function isBusInformationalQuery(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  const patterns = [
+    /linhas?\s+(de\s+)?(ônibus|onibus)\s+passam/i,
+    /quais\s+linhas\s+passam/i,
+    /(ônibus|onibus)\s+passam\s+próximo|(ônibus|onibus)\s+passam\s+perto/i,
+    /qual\s+(linha|ônibus|onibus)\s+passa/i,
+    /quando\s+passa\s+(o\s+)?(ônibus|onibus)/i,
+    /itinerário|itinerario\s+(da\s+)?linha/i,
+    /previsão\s+de\s+chegada|previsao\s+de\s+chegada/i,
+    /(paradas?|pontos?)\s+(de\s+)?(ônibus|onibus)\s+perto|(ônibus|onibus)\s+(que\s+)?passam\s+perto/i,
+    /próximo\s+a\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*próximo\s+a\s+mim/i,
+    /perto\s+de\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*perto\s+de\s+mim/i,
+  ];
+  return patterns.some(p => p.test(m));
+}
+
 export function detectCollectionIntent(
   userMessage: string, 
   conversationHistory: Array<{ role: string; content: string }>
@@ -3136,17 +3154,40 @@ export function detectCollectionIntent(
     console.log(`[detectCollectionIntent] Explicit intent in LAST message: ${lastMsgExplicitIntent.type} (boost: ${lastMsgExplicitIntent.boost})`);
   }
 
-  // Transport scoring
+  // Consulta informativa sobre ônibus/linhas (Olho Vivo) → general, NÃO transport_report
+  const isBusInformationalQuery = (() => {
+    const m = msgLower;
+    const patterns = [
+      /linhas?\s+(de\s+)?(ônibus|onibus)\s+passam/i,
+      /quais\s+linhas\s+passam/i,
+      /(ônibus|onibus)\s+passam\s+próximo|(ônibus|onibus)\s+passam\s+perto/i,
+      /qual\s+(linha|ônibus|onibus)\s+passa/i,
+      /quando\s+passa\s+(o\s+)?(ônibus|onibus)/i,
+      /itinerário|itinerario\s+(da\s+)?linha/i,
+      /previsão\s+de\s+chegada|previsao\s+de\s+chegada/i,
+      /(paradas?|pontos?)\s+(de\s+)?(ônibus|onibus)\s+perto|(ônibus|onibus)\s+(que\s+)?passam\s+perto/i,
+      /próximo\s+a\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*próximo\s+a\s+mim/i,
+      /perto\s+de\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*perto\s+de\s+mim/i,
+    ];
+    return patterns.some(p => p.test(m));
+  })();
+  if (isBusInformationalQuery) {
+    console.log('[detectCollectionIntent] Bus/line informational query detected → general (Olho Vivo tools), not transport_report');
+    scores.push({ type: 'general', score: 22, fields: {} });
+  }
+
+  // Transport scoring (relato de problema: atraso, lotação, etc.)
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus', 'transporte', 'transporte público', 'transporte publico'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
   let transportScore = 0;
-  transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
-  transportProblems.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 3; });
-  // Check for explicit transport intent
-  const hasExplicitTransportIntent = explicitTransportPhrases.some(phrase => fullUserContext.includes(phrase));
-  if (hasExplicitTransportIntent) {
-    transportScore += 5;
-    console.log('[detectCollectionIntent] Explicit transport intent detected');
+  if (!isBusInformationalQuery) {
+    transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
+    transportProblems.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 3; });
+    const hasExplicitTransportIntent = explicitTransportPhrases.some(phrase => fullUserContext.includes(phrase));
+    if (hasExplicitTransportIntent) {
+      transportScore += 5;
+      console.log('[detectCollectionIntent] Explicit transport intent detected');
+    }
   }
   if (transportScore > 0) {
     scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullUserContext) });
@@ -3524,6 +3565,200 @@ export { tools } from "./lib-tools.ts";
 // System prompt moved to lib-prompts.ts to reduce bundle size
 export { systemPrompt } from "./lib-prompts.ts";
 
+// ========== OLHO VIVO API (SPTrans ônibus São Paulo) ==========
+const OLHOVIVO_BASE = "https://api.olhovivo.sptrans.com.br/v2.1";
+const OLHOVIVO_GATEWAY_BASE = "https://gateway.apilib.prefeitura.sp.gov.br/sptrans/olhovivo/v2.1";
+let olhoVivoCookie: string | null = null;
+/** Quando true, usar gateway da Prefeitura com Bearer em vez de cookie (API Store). */
+let olhoVivoUseBearer: boolean = false;
+let olhoVivoBearerToken: string | null = null;
+
+async function olhoVivoLogin(): Promise<boolean> {
+  const token = Deno.env.get("OLHOVIVO_API_TOKEN");
+  if (!token?.trim()) {
+    console.warn("[olhoVivo] OLHOVIVO_API_TOKEN not set");
+    return false;
+  }
+  const trimmedToken = token.trim();
+
+  // 1) Tentar autenticação clássica (api.olhovivo.sptrans.com.br + cookie)
+  try {
+    console.warn("[olhoVivo] Trying classic login (POST)...");
+    const loginUrl = `${OLHOVIVO_BASE}/Login/Autenticar?token=${encodeURIComponent(trimmedToken)}`;
+    const res = await fetch(loginUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "CamaraNaMao/1.0 (https://github.com/camara-na-mao)",
+      },
+      body: new URLSearchParams({ token: trimmedToken }).toString(),
+      redirect: "follow",
+    });
+    const text = await res.text();
+    console.warn("[olhoVivo] Classic login status:", res.status, "bodyLen:", text?.length ?? 0, "bodySample:", text?.trim().slice(0, 120) ?? "");
+    // Capturar todos os cookies (Fetch pode enviar vários Set-Cookie; getSetCookie existe no Deno)
+    const setCookies = (res.headers as Headers & { getSetCookie?(): string[] }).getSetCookie?.() ?? [];
+    if (setCookies.length > 0) {
+      olhoVivoCookie = setCookies.map((c) => c.split(";")[0].trim()).join("; ");
+    } else {
+      const single = res.headers.get("set-cookie");
+      if (single) olhoVivoCookie = single.split(";")[0].trim();
+    }
+    const trimmed = text?.trim() ?? "";
+    let ok = trimmed === "true";
+    if (!ok && trimmed.length < 20) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        ok = parsed === true;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (trimmed === "false") {
+      console.warn("[olhoVivo] API retornou false no login. A SPTrans pode estar rejeitando requisições da origem (ex.: datacenter). Considere: (1) pedir à SPTrans liberação para uso server-side; (2) usar token do API Store (Prefeitura) com app inscrito na API Olho Vivo v2.1.");
+    }
+    if (ok) {
+      olhoVivoUseBearer = false;
+      olhoVivoBearerToken = null;
+      return true;
+    }
+  } catch (e) {
+    console.warn("[olhoVivo] Classic login failed:", (e as Error).message, (e as Error).stack?.slice(0, 300));
+  }
+
+  // 2) Se falhou, usar token como Bearer no gateway (só faz sentido para token do API Store, não para chave SPTrans)
+  const looksLikeSptransKey = /^[a-f0-9]{64}$/i.test(trimmedToken);
+  if (looksLikeSptransKey) {
+    console.warn("[olhoVivo] Token parece chave SPTrans; não tentando gateway Bearer.");
+  }
+  if (!looksLikeSptransKey) {
+    try {
+      const testUrl = `${OLHOVIVO_GATEWAY_BASE}/Linha/Buscar?termosBusca=0`;
+      const testRes = await fetch(testUrl, {
+        headers: { Authorization: `Bearer ${trimmedToken}` },
+      });
+      if (testRes.ok || testRes.status === 200) {
+        olhoVivoCookie = null;
+        olhoVivoUseBearer = true;
+        olhoVivoBearerToken = trimmedToken;
+        console.log("[olhoVivo] Using gateway (Bearer) auth");
+        return true;
+      }
+      const body = await testRes.text();
+      if (testRes.status === 403) {
+        console.warn("[olhoVivo] Gateway 403 Forbidden: o token do API Store não tem permissão para a API Olho Vivo. No portal apilib.prefeitura.sp.gov.br, inscreva o aplicativo na API Olho Vivo v2.1 (Production/Sandbox).");
+      } else {
+        console.warn("[olhoVivo] Gateway Bearer test status:", testRes.status, "body:", body?.slice(0, 200));
+      }
+    } catch (e) {
+      console.warn("[olhoVivo] Gateway Bearer test failed:", (e as Error).message);
+    }
+  }
+
+  console.warn("[olhoVivo] Login returned: false (classic and gateway failed)");
+  return false;
+}
+
+async function olhoVivoGet(path: string): Promise<{ ok: boolean; data?: unknown; status: number }> {
+  const base = olhoVivoUseBearer ? OLHOVIVO_GATEWAY_BASE : OLHOVIVO_BASE;
+  const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? path : "/" + path}`;
+
+  if (olhoVivoUseBearer && olhoVivoBearerToken) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${olhoVivoBearerToken}` },
+    });
+    const contentType = res.headers.get("content-type") || "";
+    let data: unknown;
+    if (contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      data = await res.text();
+    }
+    return { ok: res.ok, data, status: res.status };
+  }
+
+  if (!olhoVivoCookie) {
+    const loggedIn = await olhoVivoLogin();
+    if (!loggedIn) return { ok: false, status: 401 };
+    return olhoVivoGet(path);
+  }
+
+  const res = await fetch(url, {
+    headers: { Cookie: olhoVivoCookie },
+  });
+  if (res.status === 401) {
+    olhoVivoCookie = null;
+    const loggedIn = await olhoVivoLogin();
+    if (!loggedIn) return { ok: false, status: 401 };
+    return olhoVivoGet(path);
+  }
+  const contentType = res.headers.get("content-type") || "";
+  let data: unknown;
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    data = await res.text();
+  }
+  return { ok: res.ok, data, status: res.status };
+}
+
+/** Buscar linhas por número ou nome (ex: 8000, Lapa). Retorna array com cl, lt, tp, ts, sl. */
+export async function olhoVivoSearchLines(termosBusca: string): Promise<{ success: boolean; lines?: Array<{ cl: number; lt: string; tp: string; ts: string; sl: number }>; error?: string }> {
+  const q = encodeURIComponent(termosBusca.trim());
+  const { ok, data, status } = await olhoVivoGet(`/Linha/Buscar?termosBusca=${q}`);
+  if (!ok || !Array.isArray(data)) {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível buscar linhas." };
+  }
+  return { success: true, lines: data as Array<{ cl: number; lt: string; tp: string; ts: string; sl: number }> };
+}
+
+/** Buscar paradas por nome ou endereço. Retorna array com cp, np, ed, py, px. */
+export async function olhoVivoSearchStops(termosBusca: string): Promise<{ success: boolean; stops?: Array<{ cp: number; np: string; ed: string; py: number; px: number }>; error?: string }> {
+  const q = encodeURIComponent(termosBusca.trim());
+  const { ok, data, status } = await olhoVivoGet(`/Parada/Buscar?termosBusca=${q}`);
+  if (!ok || !Array.isArray(data)) {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível buscar paradas." };
+  }
+  return { success: true, stops: data as Array<{ cp: number; np: string; ed: string; py: number; px: number }> };
+}
+
+/** Itinerário da linha: paradas em ordem. codigoLinha = cl da linha. */
+export async function olhoVivoGetStopsByLine(codigoLinha: number): Promise<{ success: boolean; stops?: Array<{ cp: number; np: string; ed: string; py: number; px: number }>; error?: string }> {
+  const { ok, data, status } = await olhoVivoGet(`/Parada/BuscarParadasPorLinha?codigoLinha=${codigoLinha}`);
+  if (!ok || !Array.isArray(data)) {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível buscar itinerário." };
+  }
+  return { success: true, stops: data as Array<{ cp: number; np: string; ed: string; py: number; px: number }> };
+}
+
+/** Previsão de chegada na parada para uma linha. codigoParada e codigoLinha = códigos da API. */
+export async function olhoVivoPrevisao(codigoParada: number, codigoLinha: number): Promise<{
+  success: boolean;
+  parada?: { np: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> };
+  error?: string;
+}> {
+  const { ok, data, status } = await olhoVivoGet(`/Previsao?codigoParada=${codigoParada}&codigoLinha=${codigoLinha}`);
+  if (!ok || !data || typeof data !== "object") {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível obter previsão." };
+  }
+  const obj = data as { p?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> } };
+  return { success: true, parada: obj.p };
+}
+
+/** Previsão de chegada de todas as linhas em um ponto de parada. GET /Previsao/Parada?codigoParada= */
+export async function olhoVivoPrevisaoParada(codigoParada: number): Promise<{
+  success: boolean;
+  parada?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> };
+  error?: string;
+}> {
+  const { ok, data, status } = await olhoVivoGet(`/Previsao/Parada?codigoParada=${codigoParada}`);
+  if (!ok || !data || typeof data !== "object") {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível obter previsão." };
+  }
+  const obj = data as { p?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> } };
+  return { success: true, parada: obj.p };
+}
+
 
 // Helper: Get friendly service type name
 export function getServiceTypeName(type: string): string {
@@ -3534,6 +3769,7 @@ export function getServiceTypeName(type: string): string {
     'hospital': 'hospitais',
     'library': 'bibliotecas',
     'sports_center': 'centros esportivos',
+    'transit_station': 'pontos de ônibus e transporte',
     'other': 'serviços'
   };
   return names[type] || 'serviços';
@@ -3548,6 +3784,7 @@ export function inferServiceTypeFromText(text: string): string | null {
   if (/\bescola[s]?\b|educa[cç][aã]o/.test(t)) return 'school';
   if (/\bbiblioteca[s]?\b/.test(t)) return 'library';
   if (/\bcentro\s+esportivo|esportivo|quadra|academia\s+p[uú]blica/.test(t)) return 'sports_center';
+  if (/\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
   return null;
 }
 
@@ -3581,10 +3818,10 @@ export function formatServicesWithContext(
     return `${i+1}. ${s.name}${districtInfo}\n   📍 ${s.address}${rating}`;
   }).join('\n\n');
   
-  const footer = isExpanded
+  const footer = isExpanded 
     ? '\n\n💡 Quer que eu calcule a rota para alguma delas?\n\nPara mais informações, [clique aqui](/servicos-proximos).'
     : '';
-
+  
   return `${header}\n\n${list}${footer}`;
 }
 
@@ -3943,7 +4180,7 @@ export async function searchAudiencias(
   // 0) Período explícito (data_inicio/data_fim): retornar agendadas E encerradas no período
   if (hasExplicitDateRange) {
     let rangeQ = supabase
-      .from('audiencias')
+    .from('audiencias')
       .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
       .gte('data', dataMin)
       .order('data', { ascending: false })
@@ -3975,7 +4212,7 @@ export async function searchAudiencias(
       .from('audiencias')
       .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
       .in('status', AUDIENCIA_STATUS_AGENDADA)
-      .order('data', { ascending: true })
+    .order('data', { ascending: true })
       .limit(limitBase);
     q = applyDateFilters(q);
     const { data: rawProximas } = await q;
@@ -4013,7 +4250,7 @@ export async function searchAudiencias(
   if (inscricoesAbertas) {
     query = query.eq('inscricoes_abertas', true);
   }
-
+  
   const { data: rawData, error } = await query;
   const data = filterByRegiao(rawData || [], regiaoNorm).slice(0, 5);
 
@@ -4058,13 +4295,13 @@ export async function searchAudiencias(
     .from('audiencias')
     .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
     .in('status', AUDIENCIA_STATUS_AGENDADA)
-    .order('data', { ascending: true })
+      .order('data', { ascending: true })
     .limit(limitBase);
   fallbackQ = applyDateFilters(fallbackQ);
   const { data: rawUpcoming } = await fallbackQ;
   const upcoming = filterByRegiao(rawUpcoming || [], regiaoNorm).slice(0, 5);
-
-  if (upcoming?.length) {
+    
+    if (upcoming?.length) {
     const formattedUpcoming = upcoming.map((a: Record<string, unknown>, i: number) => {
       const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
@@ -4072,24 +4309,24 @@ export async function searchAudiencias(
       const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
       const docsBlock = formatDocumentosLine(a);
       return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
-    }).join('\n\n');
+      }).join('\n\n');
     const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
     return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\nQuer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
-  }
-
+    }
+    
   // 5) Sugerir temas com histórico
-  const { data: allAudiencias } = await supabase
-    .from('audiencias')
-    .select('tema')
+    const { data: allAudiencias } = await supabase
+      .from('audiencias')
+      .select('tema')
     .limit(100);
-
+    
   const availableThemes = [...new Set((allAudiencias || []).map((a: Record<string, unknown>) => a.tema).filter(Boolean))].slice(0, 8);
-
-  if (availableThemes.length > 0) {
+    
+    if (availableThemes.length > 0) {
     return `Não há audiências ${temaNorm ? `sobre "${temaNorm}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses? (Ao escolher, mostro as audiências desse tema, inclusive do histórico.)`;
-  }
-
-  return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
+    }
+    
+    return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
 }
 
 // Helper: Suggest council member
@@ -4987,33 +5224,33 @@ export async function executeTool(
           console.log('[create_service_rating] Using existing visit:', visitId, 'service:', serviceId);
         } else {
           // === MODO LIVRE: sem visit_id - coleta service_type, service_name, confirmação de endereço ===
-          if (!args.service_type) {
-            return {
-              success: false,
-              message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
-            };
-          }
-          if (!args.service_name || args.service_name.trim().length < 3) {
-            return {
-              success: false,
-              message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
-            };
-          }
-          const addressConfirmed = args.service_address_confirmed || 
-                                   accumulatedFields?.service_address_confirmed ||
-                                   accumulatedFields?._address_reconfirmed;
-          if (!addressConfirmed) {
-            const address = args.service_address || 
-                            accumulatedFields?.service_address || 
-                            (accumulatedFields?.service_neighborhood ? 
-                              `${args.service_name} - ${accumulatedFields.service_neighborhood}` : null) ||
-                            'Endereço não informado';
-            return {
-              success: false,
-              message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`
-            };
-          }
-          
+        if (!args.service_type) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
+          };
+        }
+        if (!args.service_name || args.service_name.trim().length < 3) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
+          };
+        }
+        const addressConfirmed = args.service_address_confirmed || 
+                                 accumulatedFields?.service_address_confirmed ||
+                                 accumulatedFields?._address_reconfirmed;
+        if (!addressConfirmed) {
+          const address = args.service_address || 
+                          accumulatedFields?.service_address || 
+                          (accumulatedFields?.service_neighborhood ? 
+                            `${args.service_name} - ${accumulatedFields.service_neighborhood}` : null) ||
+                          'Endereço não informado';
+          return {
+            success: false,
+            message: `[FIELD_REQUEST:service_address_confirmed]O serviço fica em **${address}**. Está correto? [SERVICE_ADDRESS_CONFIRM:${address}]`
+          };
+        }
+        
           const serviceNameArg = (args.service_name as string || '').trim();
           const serviceTypeArg = (args.service_type as string || '').toLowerCase();
           const neighborhood = (args.service_neighborhood || accumulatedFields?.service_neighborhood) as string | undefined;
@@ -5034,7 +5271,7 @@ export async function executeTool(
             const districtClean = neighborhood.split(/[-–—,]/)[0]?.trim().slice(0, 25);
             if (!districtClean) return null;
             const { data } = await supabase
-              .from('public_services')
+          .from('public_services')
               .select('id, name')
               .ilike('name', `%${namePart}%`)
               .ilike('district', `%${districtClean}%`)
@@ -5071,18 +5308,18 @@ export async function executeTool(
           if (found) {
             serviceId = found.id;
             serviceNameForMessage = found.name;
-            const expires = new Date();
-            expires.setDate(expires.getDate() + 7);
-            const { data: visitData, error: visitError } = await supabase
-              .from('service_visits')
-              .insert({
-                user_id: userId,
-                service_id: serviceId,
-                expires_at: expires.toISOString(),
-                status: 'completed'
-              })
-              .select('id')
-              .single();
+          const expires = new Date();
+          expires.setDate(expires.getDate() + 7);
+          const { data: visitData, error: visitError } = await supabase
+            .from('service_visits')
+            .insert({
+              user_id: userId,
+              service_id: serviceId,
+              expires_at: expires.toISOString(),
+              status: 'completed'
+            })
+            .select('id')
+            .single();
             if (!visitError && visitData) visitId = visitData.id;
           }
           if (!serviceId || !visitId) {
@@ -5155,10 +5392,14 @@ export async function executeTool(
       case 'find_nearby_services': {
         let userLat: number | null = null;
         let userLon: number | null = null;
-        // Prioridade: coordenadas da conversa (GPS one-time) > endereço cadastrado
+        // Prioridade: args (modelo) > accumulatedFields (conversa) > endereço cadastrado
         if (args.user_lat != null && args.user_lon != null) {
           userLat = Number(args.user_lat);
           userLon = Number(args.user_lon);
+        }
+        if ((userLat == null || userLon == null) && accumulatedFields?.user_lat != null && accumulatedFields?.user_lon != null) {
+          userLat = Number(accumulatedFields.user_lat);
+          userLon = Number(accumulatedFields.user_lon);
         }
         if (userLat == null || userLon == null) {
           const { data: addr } = await supabase
@@ -5178,7 +5419,7 @@ export async function executeTool(
         const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);
         return { success: true, message: result };
       }
-
+      
       case 'search_audiencias': {
         const result = await searchAudiencias(
           supabase,
@@ -5201,7 +5442,121 @@ export async function executeTool(
         const result = await getCitizenHistory(supabase, userId, args.history_type, args.status_filter, args.limit);
         return { success: true, message: result };
       }
-      
+
+      // === OLHO VIVO (SPTrans ônibus São Paulo) ===
+      case 'search_bus_lines': {
+        const termos = typeof args.termos_busca === 'string' ? args.termos_busca.trim() : '';
+        if (!termos) {
+          return { success: false, message: 'Informe o número ou nome da linha para buscar (ex: 8000 ou Lapa).' };
+        }
+        const out = await olhoVivoSearchLines(termos);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível consultar as linhas. Tente mais tarde.' };
+        }
+        if (!out.lines?.length) {
+          return { success: true, message: `Nenhuma linha encontrada para "${termos}". Tente outro número ou nome.` };
+        }
+        const linesText = out.lines.slice(0, 15).map((l) => {
+          const sentido = l.sl === 1 ? `${l.tp} → ${l.ts}` : `${l.ts} → ${l.tp}`;
+          return `• **${l.lt}** (cód. ${l.cl}): ${sentido}`;
+        }).join('\n');
+        return { success: true, message: `**Linhas encontradas:**\n${linesText}\n\n_Use o código (cód.) para consultar itinerário ou previsão._` };
+      }
+
+      case 'search_bus_stops': {
+        const termos = typeof args.termos_busca === 'string' ? args.termos_busca.trim() : '';
+        if (!termos) {
+          return { success: false, message: 'Informe o nome da parada ou endereço (rua, logradouro). A API não busca por coordenadas; peça um endereço ou nome de rua ao cidadão.' };
+        }
+        let out = await olhoVivoSearchStops(termos);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível consultar as paradas.' };
+        }
+        if (!out.stops?.length && termos.includes(' ')) {
+          const fallback = termos.split(/\s+/).filter((w) => w.length > 2).pop() || termos;
+          if (fallback !== termos) {
+            out = await olhoVivoSearchStops(fallback);
+          }
+        }
+        if (!out.stops?.length) {
+          return { success: true, message: `Nenhuma parada encontrada para "${termos}". Peça ao cidadão o nome da rua ou do ponto (ex.: Afonso Braz, Balthazar da Veiga). A API da SPTrans não permite busca por coordenadas.` };
+        }
+        const stopsText = out.stops.slice(0, 12).map((s) =>
+          `• **${s.np}** (cód. ${s.cp}) – ${s.ed}`
+        ).join('\n');
+        return { success: true, message: `**Paradas encontradas:**\n${stopsText}\n\n_Use o código (cód.) para consultar previsão de chegada._` };
+      }
+
+      case 'get_bus_line_itinerary': {
+        const codigoLinha = typeof args.codigo_linha === 'number' ? args.codigo_linha : parseInt(String(args.codigo_linha), 10);
+        if (!Number.isFinite(codigoLinha)) {
+          return { success: false, message: 'Informe o código da linha (obtido em "buscar linhas").' };
+        }
+        const out = await olhoVivoGetStopsByLine(codigoLinha);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível buscar o itinerário.' };
+        }
+        if (!out.stops?.length) {
+          return { success: true, message: 'Itinerário não disponível para esta linha.' };
+        }
+        const itineraryText = out.stops.map((s, i) => `${i + 1}. ${s.np} – ${s.ed}`).join('\n');
+        return { success: true, message: `**Itinerário da linha (paradas em ordem):**\n${itineraryText}` };
+      }
+
+      case 'get_bus_arrival_forecast': {
+        const codigoParada = typeof args.codigo_parada === 'number' ? args.codigo_parada : parseInt(String(args.codigo_parada), 10);
+        const codigoLinha = typeof args.codigo_linha === 'number' ? args.codigo_linha : parseInt(String(args.codigo_linha), 10);
+        if (!Number.isFinite(codigoParada) || !Number.isFinite(codigoLinha)) {
+          return { success: false, message: 'Informe o código da parada e o código da linha.' };
+        }
+        const out = await olhoVivoPrevisao(codigoParada, codigoLinha);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível obter a previsão.' };
+        }
+        const p = out.parada;
+        if (!p?.l?.length) {
+          return { success: true, message: `Parada **${p?.np || '?'}**: nenhuma previsão no momento para esta linha.` };
+        }
+        const parts: string[] = [`**Previsão – ${p.np}**`];
+        for (const lin of p.l) {
+          const vs = lin.vs || [];
+          if (vs.length === 0) {
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): sem previsão no momento.`);
+          } else {
+            const times = vs.slice(0, 5).map((v) => v.t || '--').join(', ');
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): ${times}`);
+          }
+        }
+        return { success: true, message: parts.join('\n') };
+      }
+
+      case 'get_bus_stop_forecast_all_lines': {
+        const codigoParada = typeof args.codigo_parada === 'number' ? args.codigo_parada : parseInt(String(args.codigo_parada), 10);
+        if (!Number.isFinite(codigoParada)) {
+          return { success: false, message: 'Informe o código da parada (obtido em "buscar paradas").' };
+        }
+        const out = await olhoVivoPrevisaoParada(codigoParada);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível obter a previsão.' };
+        }
+        const p = out.parada;
+        if (!p?.l?.length) {
+          return { success: true, message: `Parada **${p?.np || '?'}**: nenhuma previsão no momento.` };
+        }
+        const parts: string[] = [`**Previsão – ${p.np}** (todas as linhas)`];
+        for (const lin of p.l.slice(0, 15)) {
+          const vs = lin.vs || [];
+          if (vs.length === 0) {
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): sem previsão.`);
+          } else {
+            const times = vs.slice(0, 3).map((v) => v.t || '--').join(', ');
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): ${times}`);
+          }
+        }
+        if (p.l.length > 15) parts.push(`\n_… e mais ${p.l.length - 15} linhas._`);
+        return { success: true, message: parts.join('\n') };
+      }
+
       // === JORNADA CONSCIENTE: Handlers de Detecção e Transição ===
       case 'detect_user_intent': {
         const { 
