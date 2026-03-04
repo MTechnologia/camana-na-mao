@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapPin, Star, Search } from "lucide-react";
 
+// Padrão 2 km para todos os serviços; 500m por último para evitar resultado vazio
 const RADIUS_OPTIONS = [
-  { value: 500, label: "500m" },
+  { value: 2000, label: "2km" },
   { value: 1000, label: "1km" },
   { value: 5000, label: "5km" },
   { value: 10000, label: "10km" },
+  { value: 500, label: "500m" },
 ] as const;
 
 const RATING_OPTIONS = [
@@ -34,7 +36,7 @@ interface NearbyServicesFiltersInlineProps {
 }
 
 export const NearbyServicesFiltersInline = ({
-  defaultRadius = 5000,
+  defaultRadius = 2000,
   defaultMinRating = "all",
   defaultSearchQuery = "",
   onApply,

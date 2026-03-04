@@ -8,10 +8,11 @@ interface RadiusSelectorProps {
 }
 
 const radiusOptions = [
-  { value: 500, label: "500m" },
+  { value: 2000, label: "2km" },
   { value: 1000, label: "1km" },
   { value: 5000, label: "5km" },
   { value: 10000, label: "10km" },
+  { value: 500, label: "500m" },
 ];
 
 export const RadiusSelector = ({ radius, onRadiusChange }: RadiusSelectorProps) => {

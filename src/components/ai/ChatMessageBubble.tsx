@@ -814,7 +814,7 @@ const ChatMessageBubble = ({
         {/* Filtros Perto de você: raio, avaliação mínima, busca por nome/endereço/bairro */}
         {shouldShowNearbyFilters && (
           <NearbyServicesFiltersInline
-            defaultRadius={5000}
+            defaultRadius={2000}
             defaultMinRating="all"
             defaultSearchQuery=""
             onApply={onApplyNearbyFilters}

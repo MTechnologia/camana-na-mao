@@ -32,7 +32,7 @@ export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
-  const [radiusMeters, setRadiusMeters] = useState(5000);
+  const [radiusMeters, setRadiusMeters] = useState(2000);
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");

@@ -4028,7 +4028,7 @@ export async function findNearbyServices(
   limit: number = 5,
   userLat?: number | null,
   userLon?: number | null,
-  radiusMeters: number = 5000,
+  radiusMeters: number = 2000,
   minRating: number = 0,
   searchQuery?: string | null
 ): Promise<string> {
@@ -5583,7 +5583,7 @@ export async function executeTool(
             userLon = Number(addr.longitude);
           }
         }
-        const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 5000;
+        const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
         const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
         const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
         const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);

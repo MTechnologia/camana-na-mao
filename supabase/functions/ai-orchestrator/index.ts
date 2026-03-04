@@ -306,6 +306,15 @@ serve(async (req) => {
       }
     }
 
+    // === EARLY: Perguntas inapropriadas (ofensas/acusações a vereadores) — redirecionar com educação, NÃO entrar em fluxo de relato ===
+    const inappropriateAboutVereador = /(qual\s+vereador\s+[ée]\s+o\s+mais\s+ladr[aã]o|quem\s+[ée]\s+o\s+pior\s+vereador|vereador\s+corrupto|vereador\s+ladr[aã]o|mais\s+corrupto|mais\s+ladr[aã]o\s+vereador)/i.test(lastUserTextEarly);
+    if (inappropriateAboutVereador) {
+      const reply = `Não posso responder perguntas que envolvam ofensas ou acusações a pessoas. Posso ajudar com informações sobre vereadores da sua região, formas de participação na Câmara ou registro de problemas na cidade. Como posso ajudar?`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+      console.log('[ai-orchestrator] Inappropriate question about vereador: redirecting politely');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+    }
+
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content || '';
     
@@ -1320,11 +1329,13 @@ serve(async (req) => {
         const hasLocation = (method === 'manual' && (hasCep || hasAddress)) || method === 'registered_address' || hasGpsCoords;
         if (hasLocation) {
           const district = accumulatedFields.neighborhood || undefined;
+          // Raio padrão 2 km para todos os serviços (CMSP: evita UBS longe, ex. Vila Arriete)
+          const defaultRadius = 2000;
           const toolArgs: Record<string, unknown> = {
             service_type: accumulatedFields.service_type,
             district,
             limit: 10,
-            radius_meters: accumulatedFields.radius_meters ?? 5000,
+            radius_meters: accumulatedFields.radius_meters ?? defaultRadius,
             min_rating: accumulatedFields.min_rating ?? 0,
             search_query: accumulatedFields.search_query || undefined
           };
