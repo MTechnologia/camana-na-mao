@@ -8,15 +8,7 @@ import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/go
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { CepCenter } from "@/components/map/CepSearchCard";
-
-interface ViaCepResponse {
-  cep: string;
-  logradouro: string;
-  bairro: string;
-  localidade: string;
-  uf: string;
-  erro?: boolean;
-}
+import { lookupCepAddress } from "@/lib/cepLookup";
 
 type LocationOption = "my_location" | "registered_address" | "cep";
 
@@ -139,18 +131,21 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
     }
     setLoading(true);
     try {
-      const viaRes = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
-      const viaData: ViaCepResponse = await viaRes.json();
-      if (viaData.erro) {
-        toast.error("CEP não encontrado");
+      const result = await lookupCepAddress(clean);
+      if (!result.ok) {
+        if (result.errorType === "not_found") {
+          toast.error("CEP não encontrado");
+        } else {
+          toast.info("Não foi possível consultar o CEP agora. Tente novamente em instantes.");
+        }
         setLoading(false);
         return;
       }
       const addressParts = [
-        viaData.logradouro,
-        viaData.bairro,
-        viaData.localidade,
-        viaData.uf,
+        result.address.street,
+        result.address.neighborhood,
+        result.address.city,
+        result.address.state,
         "Brasil",
       ].filter(Boolean);
       const address = addressParts.join(", ");

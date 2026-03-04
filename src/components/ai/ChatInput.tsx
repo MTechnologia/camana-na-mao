@@ -10,7 +10,13 @@ interface ChatInputProps {
   onFocus?: () => void;
   autoFocus?: boolean;
   draftKey?: string | null;
+  /** No app: segundos em que o campo não pode receber foco (padrão 2.5). Use 4+ na tela de avaliação. */
+  initialFocusLockSeconds?: number;
 }
+
+const isInApp = typeof window !== "undefined" && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+
+const DEFAULT_FOCUS_LOCK_MS = 2500;
 
 const ChatInput = ({
   onSendMessage,
@@ -19,6 +25,7 @@ const ChatInput = ({
   onFocus,
   autoFocus = true,
   draftKey,
+  initialFocusLockSeconds,
 }: ChatInputProps) => {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -26,6 +33,21 @@ const ChatInput = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasLoadedDraftRef = useRef(false);
   const { toast } = useToast();
+
+  const focusLockMs = isInApp && initialFocusLockSeconds != null
+    ? initialFocusLockSeconds * 1000
+    : isInApp
+      ? DEFAULT_FOCUS_LOCK_MS
+      : 0;
+
+  const [allowFocusInApp, setAllowFocusInApp] = useState(!isInApp);
+  useEffect(() => {
+    if (!isInApp || focusLockMs <= 0) return;
+    const t = setTimeout(() => setAllowFocusInApp(true), focusLockMs);
+    return () => clearTimeout(t);
+  }, [focusLockMs]);
+
+  const effectiveAutoFocus = isInApp ? false : autoFocus;
 
   const draftStorageKey = `cmsp_chat_input_draft_${draftKey || "new"}`;
 
@@ -42,14 +64,43 @@ const ChatInput = ({
 
   // Auto-focus when disabled changes from true to false (agent finished responding)
   useEffect(() => {
-    if (!disabled && autoFocus && textareaRef.current) {
-      // Small delay to ensure DOM is ready
+    if (!disabled && effectiveAutoFocus && textareaRef.current) {
       const timer = setTimeout(() => {
         textareaRef.current?.focus();
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [disabled, autoFocus]);
+  }, [disabled, effectiveAutoFocus]);
+
+  // No app: remove foco que o WebView pode dar (várias tentativas)
+  useEffect(() => {
+    if (!isInApp) return;
+    const delays = [100, 300, 600, 1000, 1500, 2000, 2500, 3000, 3500];
+    const timers = delays.map((ms) =>
+      setTimeout(() => {
+        try {
+          const el = document.activeElement;
+          if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && typeof (el as HTMLTextAreaElement).blur === "function") {
+            (el as HTMLTextAreaElement).blur();
+          }
+        } catch {
+          // ignore
+        }
+      }, ms)
+    );
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, []);
+
+  const handleFocus = useCallback(
+    (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      if (isInApp && !allowFocusInApp) {
+        e.target.blur();
+        return;
+      }
+      onFocus?.();
+    },
+    [isInApp, allowFocusInApp, onFocus]
+  );
 
   useEffect(() => {
     // Initialize Web Speech API (no app, o WebView pede permissão de microfone via react-native-webview)
@@ -174,10 +225,12 @@ const ChatInput = ({
             onChange={(e) => setInputValue(e.target.value)}
             onInput={adjustTextareaHeight}
             onKeyPress={handleKeyPress}
-            onFocus={onFocus}
+            onFocus={handleFocus}
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
+            tabIndex={isInApp && !allowFocusInApp ? -1 : 0}
+            aria-hidden={isInApp && !allowFocusInApp}
             className="w-full rounded-2xl border-2 border-border bg-card pl-3 sm:pl-4 pr-10 sm:pr-12 py-3 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-muted-foreground overflow-y-auto"
             style={{ maxHeight: "120px" }}
           />

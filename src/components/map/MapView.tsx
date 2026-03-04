@@ -21,7 +21,7 @@ interface MapViewProps {
   services: Service[];
   onServiceClick: (serviceId: string) => void;
   /** Quando true, a distância exibida é a pé (rota real); caso contrário mostra "(em linha reta)" */
-  distanceLabel?: "walking" | "straight";
+  distanceLabel?: "walking" | "driving" | "straight";
 }
 
 const MapLoader = () => (
@@ -38,6 +38,7 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
   const useGoogleMaps = !!googleMapsKey;
 
   const [enabledOverlayIds, setEnabledOverlayIds] = useState<string[]>([]);
+  const [wmsImageamentoEnabled, setWmsImageamentoEnabled] = useState(false);
   const overlayLayers = useGeoSampaOverlay(enabledOverlayIds);
 
   if (useGoogleMaps) {
@@ -48,6 +49,8 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
             enabledLayerIds={enabledOverlayIds}
             onEnabledChange={setEnabledOverlayIds}
             layerStates={overlayLayers}
+            wmsImageamentoEnabled={wmsImageamentoEnabled}
+            onWmsImageamentoChange={setWmsImageamentoEnabled}
           />
           <GoogleMapView
             userLocation={userLocation}
@@ -55,6 +58,7 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
             onServiceClick={onServiceClick}
             distanceLabel={distanceLabel}
             overlayLayers={overlayLayers}
+            wmsImageamentoEnabled={wmsImageamentoEnabled}
           />
         </div>
       </Suspense>

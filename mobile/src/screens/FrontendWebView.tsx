@@ -288,9 +288,30 @@ export function FrontendWebView() {
           if (expoPushTokenRef.current && webViewRef.current) {
             setTimeout(sendTokenToWeb, 100);
           }
+          // No app: remove foco automático (vários horários para pegar foco tardio do WebView)
+          if (webViewRef.current) {
+            const blurScript = `
+              (function(){
+                [400, 800, 1200, 1800].forEach(function(ms){
+                  setTimeout(function(){
+                    try {
+                      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                        document.activeElement.blur();
+                      }
+                    } catch(e) {}
+                  }, ms);
+                });
+              })();
+              true;
+            `;
+            webViewRef.current.injectJavaScript(blurScript);
+          }
         }}
         injectedJavaScriptBeforeContentLoaded={
-          "window.__CAMARA_IN_APP__ = true;"
+          [
+            "window.__CAMARA_IN_APP__ = true;",
+            "(function(){ var end = Date.now() + 4000; var iv = setInterval(function(){ if (Date.now() > end) { clearInterval(iv); return; } try { var el = document.activeElement; if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) el.blur(); } catch(e){} }, 150); })();",
+          ].join("\n")
         }
       />
     </View>

@@ -1484,9 +1484,12 @@ export const useUnifiedAIChat = (
   }, [sendMessage]);
 
   // Handle service type selection from inline picker
-  const handleServiceTypeSelected = useCallback((type: string, displayName: string) => {
+  const handleServiceTypeSelected = useCallback((type: string, displayName: string, otherSpec?: string) => {
     setCollectedFields(prev => ({ ...prev, service_type: type }));
-    sendMessage(`Tipo de serviço: ${displayName}`);
+    const msg = otherSpec?.trim()
+      ? `Tipo de serviço: ${displayName}. Especificação: ${otherSpec.trim()}`
+      : `Tipo de serviço: ${displayName}`;
+    sendMessage(msg);
   }, [sendMessage]);
 
   // Handle service selection from inline picker
@@ -1513,6 +1516,14 @@ export const useUnifiedAIChat = (
     }
   }, [sendMessage]);
 
+  const handleApplyNearbyFilters = useCallback((filters: { radiusMeters: number; minRating: 'all' | 4 | 3 | 2; searchQuery: string }) => {
+    const radiusStr = filters.radiusMeters < 1000 ? `${filters.radiusMeters}m` : `${filters.radiusMeters / 1000}km`;
+    const ratingStr = filters.minRating === 'all' ? 'todas' : `${filters.minRating}+ estrelas`;
+    const parts = [`Raio: ${radiusStr}`, `Avaliação mínima: ${ratingStr}`];
+    if (filters.searchQuery.trim()) parts.push(`Busca: ${filters.searchQuery.trim()}`);
+    sendMessage(parts.join('. '));
+  }, [sendMessage]);
+
   return {
     messages,
     isLoading,
@@ -1536,5 +1547,6 @@ export const useUnifiedAIChat = (
     handleServiceTypeSelected,
     handleServiceSelected,
     handleServiceAddressConfirmed,
+    handleApplyNearbyFilters,
   };
 };

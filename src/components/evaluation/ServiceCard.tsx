@@ -11,8 +11,8 @@ interface ServiceCardProps {
   address: string;
   district: string;
   distance?: number;
-  /** Quando "walking", exibe distância real a pé; quando "straight", exibe "(em linha reta)" */
-  distanceLabel?: "walking" | "straight";
+  /** "walking" = a pé; "driving" = de carro; "straight" = em linha reta */
+  distanceLabel?: "walking" | "driving" | "straight";
   averageRating: number;
   totalRatings: number;
   phone?: string | null;
@@ -129,9 +129,9 @@ export const ServiceCard = ({
               {distance !== undefined && (
                 <span
                   className="text-xs font-medium text-primary whitespace-nowrap"
-                  title={distanceLabel === "walking" ? "Distância a pé (rota real)" : "Distância em linha reta. A rota a pé no mapa pode ser maior."}
+                  title={distanceLabel === "walking" ? "Distância a pé (rota real)" : distanceLabel === "driving" ? "Distância de carro (rota real)" : "Distância em linha reta. A rota no mapa pode ser maior."}
                 >
-                  {distanceLabel === "walking" ? formatDistance(distance) : formatDistanceStraightLine(distance)}
+                  {distanceLabel === "straight" ? formatDistanceStraightLine(distance) : formatDistance(distance)}
                 </span>
               )}
             </div>

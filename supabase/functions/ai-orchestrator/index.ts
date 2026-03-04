@@ -1048,8 +1048,9 @@ serve(async (req) => {
     
     // === DÚVIDAS SOBRE A CÂMARA (general): saudação adequada, não relato de problema ===
     if (collectionIntent?.type === 'general') {
+      const isBusQuery = lib.isBusInformationalQuery(lastUserMessage);
       const isDuvidaOpener = /d[uú]vida|pergunta|como funciona|quero saber|informa[cç][aã]o/i.test(lastUserMessage);
-      if (isDuvidaOpener && messages.filter((m: Record<string, unknown>) => m.role === 'user').length <= 1) {
+      if (!isBusQuery && isDuvidaOpener && messages.filter((m: Record<string, unknown>) => m.role === 'user').length <= 1) {
         const greeting = `[LIGHT_JOURNEY:general]Claro! Pode perguntar sobre a Câmara Municipal: funcionamento, audiências, vereadores, processos ou qualquer outra dúvida. Qual sua pergunta?`;
         const ssePayload = JSON.stringify({ choices: [{ delta: { content: greeting } }] });
         return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -1185,7 +1186,10 @@ serve(async (req) => {
           const toolArgs: Record<string, unknown> = {
             service_type: accumulatedFields.service_type,
             district,
-            limit: 10
+            limit: 10,
+            radius_meters: accumulatedFields.radius_meters ?? 5000,
+            min_rating: accumulatedFields.min_rating ?? 0,
+            search_query: accumulatedFields.search_query || undefined
           };
           if (hasGpsCoords) {
             toolArgs.user_lat = accumulatedFields.user_lat;
@@ -1485,7 +1489,8 @@ ${empathyNote}
       (vertexRagDatastore || vertexRagCorpus) &&
       finalAiApiKey &&
       lastUserMessage.trim().length > 3 &&
-      !isZoneamentoQuery
+      !isZoneamentoQuery &&
+      !lib.isBusInformationalQuery(lastUserMessage)
     ) {
       try {
         const baseUrl = finalAiBaseUrl.replace(/\/$/, '');
@@ -1534,6 +1539,12 @@ ${empathyNote}
       } catch (e) {
         console.warn('[ai-orchestrator] Vertex RAG fetch error:', (e as Error).message);
       }
+    }
+
+    // Pergunta sobre ônibus/linhas (Olho Vivo) → hint para usar search_bus_lines, search_bus_stops, etc.
+    if (lib.isBusInformationalQuery(lastUserMessage)) {
+      dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[CONTEXTO: Ônibus em São Paulo. Para PONTOS/PARADAS PRÓXIMOS A MIM com coordenadas: use find_nearby_services com service_type=transit_station (dados GeoSampa: pontos de ônibus, terminais). Para linhas/previsão: search_bus_lines, search_bus_stops (por nome/endereço), get_bus_line_itinerary, get_bus_arrival_forecast, get_bus_stop_forecast_all_lines.]';
+      console.log('[ai-orchestrator] Bus informational query → injected Olho Vivo tool hint');
     }
 
     // Se injetamos contexto do Vertex RAG, não expor search_knowledge_base para evitar que o modelo prefira a tool e "alucine"

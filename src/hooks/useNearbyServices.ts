@@ -136,7 +136,7 @@ export const useNearbyServices = ({
       const effectiveTypes =
         types.length > 0 ? types : singleType ? [singleType] : [];
       const isAllTypes = effectiveTypes.length === 0;
-      const limit = isAllTypes ? 800 : 200;
+      const limit = isAllTypes ? 5000 : 800;
 
       let query = supabase
         .from("public_services")
@@ -199,7 +199,7 @@ export const useNearbyServices = ({
         return true;
       });
 
-      setServices(deduped.slice(0, 200));
+      setServices(deduped);
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
       setServices([]);

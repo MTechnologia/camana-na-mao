@@ -12,6 +12,7 @@ import { Layers, Loader2, AlertTriangle, ChevronDown, ExternalLink } from "lucid
 import { GEOSAMPA_OVERLAY_LAYERS } from "@/config/geosampa-overlay-layers";
 import type { GeoSampaOverlayState } from "@/hooks/useGeoSampaOverlay";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const INITIAL_VISIBLE = 10;
 
@@ -19,12 +20,17 @@ interface MapOverlayLayersPanelProps {
   enabledLayerIds: string[];
   onEnabledChange: (ids: string[]) => void;
   layerStates?: Record<string, GeoSampaOverlayState>;
+  /** Camada WMS de imageamento (fotos aéreas) – só com Google Maps */
+  wmsImageamentoEnabled?: boolean;
+  onWmsImageamentoChange?: (enabled: boolean) => void;
 }
 
 export function MapOverlayLayersPanel({
   enabledLayerIds,
   onEnabledChange,
   layerStates = {},
+  wmsImageamentoEnabled = false,
+  onWmsImageamentoChange,
 }: MapOverlayLayersPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const toggle = (id: string, enabled: boolean) => {
@@ -61,6 +67,28 @@ export function MapOverlayLayersPanel({
       <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-[min(320px,90vw)] sm:w-[min(360px,90vw)]">
         <DropdownMenuLabel>Ativar camadas</DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {onWmsImageamentoChange != null && (
+          <>
+            <div
+              className="flex items-center gap-2 rounded-sm py-1.5 pl-2 pr-2 text-sm outline-none cursor-pointer hover:bg-accent focus:bg-accent"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <Checkbox
+                id="wms-imageamento"
+                checked={wmsImageamentoEnabled}
+                onCheckedChange={(checked) => onWmsImageamentoChange(checked === true)}
+              />
+              <label
+                htmlFor="wms-imageamento"
+                className="flex-1 cursor-pointer truncate"
+              >
+                Imageamento (fotos aéreas)
+              </label>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <div className="grid grid-cols-1 gap-0 p-1">
         {visibleLayers.map((layer) => {
           const state = layerStates[layer.id];
