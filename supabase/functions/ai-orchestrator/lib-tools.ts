@@ -234,19 +234,90 @@ export const tools = [
     type: "function",
     function: {
       name: "find_nearby_services",
-      description: "Busca serviços públicos próximos ao cidadão. Usar quando perguntar sobre: UBS perto, escola próxima, hospital mais próximo, CEU na região, biblioteca perto de mim.",
+      description: "Busca serviços públicos próximos ao cidadão (por coordenadas quando disponíveis). Usar para: UBS perto, escola próxima, hospital, CEU, biblioteca, e também PONTOS DE ÔNIBUS/paradas próximas (service_type=transit_station; dados GeoSampa).",
       parameters: {
         type: "object",
         properties: {
           service_type: {
             type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "Tipo do serviço buscado"
+            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "transit_station", "other"],
+            description: "Tipo: ubs, school, ceu, hospital, library, sports_center, transit_station (pontos de ônibus, terminais, estações), other"
           },
           district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
           limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
         },
         required: ["service_type"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_bus_lines",
+      description: "Busca linhas de ônibus da SPTrans (Olho Vivo) por número ou nome. Usar quando o cidadão perguntar: qual linha passa aqui, ônibus 8000, linha para a Lapa, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          termos_busca: { type: "string", description: "Número ou nome da linha (ex: 8000, Lapa, Ramos)" }
+        },
+        required: ["termos_busca"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_bus_stops",
+      description: "Busca pontos de parada por NOME da parada ou ENDEREÇO (rua, logradouro). NÃO aceita coordenadas; se o cidadão enviar só lat/lon, peça um endereço ou nome de rua/ponto (ex: Afonso Braz, Rua Augusta, Jóquei).",
+      parameters: {
+        type: "object",
+        properties: {
+          termos_busca: { type: "string", description: "Nome da parada ou endereço/rua (ex: Afonso Braz, Balthazar da Veiga). Nunca use coordenadas." }
+        },
+        required: ["termos_busca"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_bus_stop_forecast_all_lines",
+      description: "Previsão de chegada de TODAS as linhas em um ponto de parada. Usar quando perguntar: quando passa ônibus nesse ponto, previsão na parada X (sem citar linha específica).",
+      parameters: {
+        type: "object",
+        properties: {
+          codigo_parada: { type: "integer", description: "Código da parada (cp) obtido em search_bus_stops" }
+        },
+        required: ["codigo_parada"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_bus_line_itinerary",
+      description: "Retorna o itinerário (trajeto) de uma linha de ônibus: todas as paradas em ordem. Usar quando perguntar: por onde passa a linha X, trajeto da linha, percurso.",
+      parameters: {
+        type: "object",
+        properties: {
+          codigo_linha: { type: "integer", description: "Código da linha (cl) obtido em search_bus_lines" }
+        },
+        required: ["codigo_linha"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_bus_arrival_forecast",
+      description: "Previsão de chegada dos ônibus em um ponto de parada para uma linha. Usar quando perguntar: que horas passa o ônibus, quando chega o próximo, previsão no ponto.",
+      parameters: {
+        type: "object",
+        properties: {
+          codigo_parada: { type: "integer", description: "Código da parada (cp) obtido em search_bus_stops" },
+          codigo_linha: { type: "integer", description: "Código da linha (cl) obtido em search_bus_lines" }
+        },
+        required: ["codigo_parada", "codigo_linha"]
       }
     }
   },
