@@ -18,7 +18,10 @@ interface PendingRating {
   };
 }
 
-export const usePendingRatings = () => {
+const DEFAULT_PENDING_LIMIT = 3;
+
+export const usePendingRatings = (options?: { limit?: number }) => {
+  const limit = options?.limit ?? DEFAULT_PENDING_LIMIT;
   const { user } = useAuth();
   const [pendingRatings, setPendingRatings] = useState<PendingRating[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,7 @@ export const usePendingRatings = () => {
         .eq("status", "pending")
         .gt("expires_at", new Date().toISOString())
         .order("visited_at", { ascending: false })
-        .limit(3);
+        .limit(limit);
 
       if (fetchError) throw fetchError;
 
@@ -67,7 +70,7 @@ export const usePendingRatings = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, limit]);
 
   useEffect(() => {
     fetchPendingRatings();
