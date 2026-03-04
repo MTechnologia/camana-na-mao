@@ -1035,6 +1035,20 @@ export function extractTransportFields(context: string): Record<string, unknown>
   return fields;
 }
 
+/** Verifica se o nome da cidade corresponde ao município de São Paulo (capital). */
+export function isCitySaoPaulo(city: string | undefined | null): boolean {
+  if (!city || typeof city !== 'string') return false;
+  const normalized = city.trim().toLowerCase().normalize('NFD').replace(/\u0307/g, '').replace(/[\u0300-\u036f]/g, '');
+  return normalized === 'sao paulo' || normalized === 'são paulo';
+}
+
+/** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
+export const MESSAGE_OUTSIDE_SAO_PAULO = (
+  cityName?: string
+) => cityName
+  ? `O **Câmara na Mão** atende apenas ao **município de São Paulo**. O endereço informado corresponde a **${cityName}**, que fica fora da nossa área de atuação.\n\nPor isso não é possível registrar este relato aqui. Se o problema for na capital, informe um CEP ou endereço dentro da cidade de São Paulo.`
+  : `O **Câmara na Mão** atende apenas ao **município de São Paulo**. O endereço informado fica fora da nossa área de atuação.\n\nPor isso não é possível registrar este relato aqui. Se o problema for na capital, informe um CEP ou endereço dentro da cidade de São Paulo.`;
+
 // Lookup CEP via ViaCEP API
 export async function lookupCEP(cep: string): Promise<{
   valid: boolean;
@@ -2043,11 +2057,17 @@ export function accumulateFieldsFromHistory(
       if (cepMatch?.[1] && !accumulated.cep) {
         accumulated.cep = cepMatch[1].replace('-', '');
       }
+      // Extract city (Bairro, Cidade - CEP) for abrangência São Paulo
+      const cityMatch = content.match(/,\s*([^-\n]+?)\s*-\s*CEP/i);
+      if (cityMatch?.[1]?.trim() && !accumulated.city) {
+        accumulated.city = cityMatch[1].trim();
+      }
       
       console.log('[accumulateFields] Parsed Google Places address:', {
         street: accumulated.street,
         neighborhood: accumulated.neighborhood,
-        cep: accumulated.cep
+        cep: accumulated.cep,
+        city: accumulated.city
       });
     }
   }
@@ -3017,13 +3037,20 @@ export function detectCollectionIntent(
     'status do meu relato', 'minhas reclamações', 'minhas reclamacoes'
   ];
   
-  // NEW: Vereadores phrases
+  // NEW: Vereadores phrases (informação / saber sobre = consulta, NÃO relato)
   const explicitVereadoresPhrases = [
     'vereadores da minha região', 'vereadores da minha regiao',
     'quais vereadores representam', 'quem me representa na câmara',
     'quem me representa na camara', 'vereadores do meu bairro',
     'meus vereadores', 'vereador da zona', 'vereadores da zona',
-    'quais vereadores representam minha região', 'quais vereadores representam minha regiao'
+    'quais vereadores representam minha região', 'quais vereadores representam minha regiao',
+    'gostaria de saber sobre os vereadores', 'gostaria de saber sobre vereadores',
+    'quero saber sobre os vereadores', 'quero saber sobre vereadores',
+    'saber sobre os vereadores', 'saber sobre vereadores',
+    'informação sobre vereadores', 'informacao sobre vereadores',
+    'informação sobre os vereadores', 'informacao sobre os vereadores',
+    'vereadores referentes ao bairro', 'vereadores da cidade',
+    'vereadores do bairro', 'quem são os vereadores', 'quem sao os vereadores'
   ];
   
   // NEW: Noticias phrases
@@ -4741,6 +4768,12 @@ export async function executeTool(
       case 'validate_cep': {
         const result = await lookupCEP(args.cep);
         if (result.valid) {
+          if (!isCitySaoPaulo(result.city)) {
+            return {
+              success: false,
+              message: MESSAGE_OUTSIDE_SAO_PAULO(result.city || undefined),
+            };
+          }
           // Include COLLECTION_PROGRESS marker with validated address data
           const cleanCep = args.cep.replace(/\D/g, '');
           const addressData = { 
@@ -4767,6 +4800,13 @@ export async function executeTool(
       }
       
       case 'create_urban_report': {
+        // Validar abrangência: apenas município de São Paulo
+        if (args.city && !isCitySaoPaulo(args.city)) {
+          return {
+            success: false,
+            message: MESSAGE_OUTSIDE_SAO_PAULO(args.city),
+          };
+        }
         // Validate category is provided
         if (!args.category) {
           return {

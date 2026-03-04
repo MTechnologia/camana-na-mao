@@ -585,6 +585,12 @@ serve(async (req) => {
         const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
         const hasLocation = hasLocationViaCep || hasLocationViaAddress;
         
+        // Abrangência: se já temos cidade e não é São Paulo, informar de forma amigável antes de pedir número
+        const city = typeof fields.city === 'string' ? fields.city : undefined;
+        if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
+          return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(city) };
+        }
+        
         if (!hasLocation) {
           // If user already gave street without neighborhood (or vice versa), ask for the missing one
           if (fields.street && !fields.neighborhood) {
