@@ -214,6 +214,98 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Frontend collectionType received:', frontendCollectionType);
     }
     
+    // === EARLY: "Encaminhar meu relato para vereador" logo após relato registrado — NUNCA criar novo relato ===
+    const getContentText = (c: unknown): string => {
+      if (typeof c === 'string') return c;
+      if (Array.isArray(c)) {
+        const part = (c as Record<string, unknown>[]).find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
+        return part ? String(part.text) : '';
+      }
+      return '';
+    };
+    const lastUserContent = messages?.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content;
+    const lastAssistantContent = messages?.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
+    const lastUserTextEarly = getContentText(lastUserContent).trim();
+    const lastAssistantTextEarly = getContentText(lastAssistantContent).toLowerCase();
+    const botJustRegisteredReport = /relato\s+registrado|URB-2026-\d+/.test(lastAssistantTextEarly);
+    const userAsksForwardToCouncil = /(encaminhar|enviar|mandar)\s+(meu\s+)?relato\s+para\s+(um\s+)?vereador|poderia\s+encaminhar\s+meu\s+relato|enviar\s+meu\s+relato\s+para\s+vereador/i.test(lastUserTextEarly);
+    if (botJustRegisteredReport && userAsksForwardToCouncil && Array.isArray(messages) && messages.length >= 2) {
+      const catMatch = getContentText(lastAssistantContent).match(/Categoria:\s*\*?\*?\s*([^\n]+)/i);
+      const descMatch = getContentText(lastAssistantContent).match(/Descri[cç][aã]o:\s*\*?\*?\s*([^\n]+)/i);
+      const descText = (descMatch?.[1] ?? '').trim() || 'Problema urbano reportado';
+      const categoryLabel = (catMatch?.[1] ?? '').trim();
+      let district: string | undefined;
+      const afterEndereco = getContentText(lastAssistantContent).split(/Endere[cç]o:\s*/i)[1];
+      if (afterEndereco) {
+        const lines = afterEndereco.split(/\n/).map((l: string) => l.replace(/^-\s*/, '').trim()).filter((l: string) => l.length > 0 && !/^\d{5}-?\d{3}$/.test(l.replace(/\s/g, '')) && !/^CEP\s*/i.test(l));
+        if (lines.length >= 2) district = lines[1];
+      }
+      const categoryToIssueType: Record<string, string> = {
+        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
+        'calcada': 'urbanismo', 'calçada': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
+        'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
+      };
+      let issueType = 'urbanismo';
+      const catLower = categoryLabel.toLowerCase();
+      for (const [k, v] of Object.entries(categoryToIssueType)) {
+        if (catLower.includes(k)) { issueType = v; break; }
+      }
+      try {
+        const councilResult = await lib.suggestCouncilMember(issueType, descText, district);
+        const reply = `Claro! Seu relato já foi registrado. Para encaminhar a um vereador, seguem sugestões de parlamentares que podem ajudar com esse tipo de demanda:\n\n${councilResult}\n\nPosso ajudar com mais alguma coisa?`;
+        const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+        console.log('[ai-orchestrator] EARLY short-circuit: encaminhar relato para vereador (evita criar novo relato)');
+        return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+      } catch (err) {
+        console.error('[ai-orchestrator] suggestCouncilMember failed in early short-circuit:', err);
+      }
+    }
+
+    // === EARLY: Usuário escolheu um vereador da lista ("Nome (SIGLA)") — registrar encaminhamento, NUNCA criar novo relato ===
+    const lastAssistantText = getContentText(lastAssistantContent);
+    const botJustShowedCouncilList = /deseja que eu encaminhe sua demanda para algum deles\?/i.test(lastAssistantText);
+    const selectionMatch = lastUserTextEarly.match(/^(.+?)\s*\(([^)]+)\)\s*$/); // ex.: "Adrilles Jorge (UNIAO)"
+    if (botJustShowedCouncilList && selectionMatch && Array.isArray(messages)) {
+      const councilName = selectionMatch[1].trim();
+      const councilParty = selectionMatch[2].trim();
+      let urbanReportId: string | null = null;
+      let transportReportId: string | null = null;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i] as Record<string, unknown>;
+        if (m.role !== 'assistant') continue;
+        const text = getContentText(m.content);
+        const urbanMatch = text.match(/\[REPORT_CREATED:([0-9a-f-]{36})\]/);
+        const transportMatch = text.match(/\[TRANSPORT_CREATED:([0-9a-f-]{36})\]/);
+        if (urbanMatch) {
+          urbanReportId = urbanMatch[1];
+          break;
+        }
+        if (transportMatch) {
+          transportReportId = transportMatch[1];
+          break;
+        }
+      }
+      const councilId = councilName.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'vereador';
+      const referralRow: Record<string, unknown> = {
+        user_id: user.id,
+        council_member_id: councilId,
+        council_member_name: councilName,
+        council_member_party: councilParty,
+        status: 'pending'
+      };
+      if (urbanReportId) referralRow.urban_report_id = urbanReportId;
+      else if (transportReportId) referralRow.transport_report_id = transportReportId;
+      if (urbanReportId || transportReportId) {
+        const { error: refError } = await supabase.from('council_member_referrals').insert(referralRow);
+        if (!refError) {
+          const reply = `✅ **Encaminhamento registrado!** Seu relato foi encaminhado para **${councilName}** (${councilParty}). O gabinete poderá entrar em contato. Posso ajudar com mais alguma coisa?`;
+          const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+          console.log('[ai-orchestrator] User selected council member: referral recorded (no new report)');
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+        }
+      }
+    }
+
     // Detect collection intent from user message for later injection
     const lastUserMsg = messages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content || '';
     
@@ -858,6 +950,38 @@ serve(async (req) => {
     const lastAssistantMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
     const userMessagesOrdered = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+
+    // Encaminhar relato para vereador: se a última resposta do bot foi "Relato registrado com sucesso" e o usuário pede para encaminhar para vereador, NÃO criar novo relato — chamar suggest_council_member
+    const lastBotWasReportSuccess = /relato\s+registrado\s+com\s+sucesso|URB-2026-\d+/.test(lastAssistantLower);
+    const userWantsForwardToCouncil = /(encaminhar|enviar)\s+(meu\s+)?relato\s+para\s+(um\s+)?vereador|(poderia\s+)?encaminhar\s+meu\s+relato\s+para\s+um\s+vereador|enviar\s+meu\s+relato\s+para\s+vereador/i.test(lastUserMessage.trim());
+    if (lastBotWasReportSuccess && userWantsForwardToCouncil) {
+      const catMatch = lastAssistantMessage.match(/Categoria:\s*\*?\*?\s*([^\n]+)/i);
+      const descMatch = lastAssistantMessage.match(/Descri[cç][aã]o:\s*\*?\*?\s*([^\n]+)/i);
+      const descText = (descMatch && descMatch[1]) ? descMatch[1].trim() : 'Problema urbano reportado';
+      const categoryLabel = (catMatch && catMatch[1]) ? catMatch[1].trim() : '';
+      let district: string | undefined;
+      const afterEndereco = lastAssistantMessage.split(/Endere[cç]o:\s*/i)[1];
+      if (afterEndereco) {
+        const lines = afterEndereco.split(/\n/).map((l: string) => l.replace(/^-\s*/, '').trim()).filter((l: string) => l.length > 0 && !/^\d{5}-?\d{3}$/.test(l.replace(/\s/g, '')) && !/^CEP\s*/i.test(l));
+        if (lines.length >= 2) district = lines[1];
+      }
+      const description = descText;
+      const categoryToIssueType: Record<string, string> = {
+        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
+        'calcada': 'urbanismo', 'calçada': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
+        'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
+      };
+      let issueType = 'urbanismo';
+      const catLower = categoryLabel.toLowerCase();
+      for (const [k, v] of Object.entries(categoryToIssueType)) {
+        if (catLower.includes(k)) { issueType = v; break; }
+      }
+      const councilResult = await lib.suggestCouncilMember(issueType, description, district);
+      const reply = `Claro! Seu relato já foi registrado. Para encaminhar a um vereador, seguem sugestões de parlamentares que podem ajudar com esse tipo de demanda:\n\n${councilResult}\n\nPosso ajudar com mais alguma coisa?`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+      console.log('[ai-orchestrator] Encaminhar relato para vereador: short-circuit suggest_council_member (evita criar novo relato)');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+    }
 
     // Primeira pergunta "como chegar em X" → resposta fixa com as 3 opções (GPS, endereço cadastrado, digitar)
     const isFirstMessageComoChegar = userMessagesOrdered.length === 1 && (
