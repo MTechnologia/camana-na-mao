@@ -1046,8 +1046,8 @@ export function isCitySaoPaulo(city: string | undefined | null): boolean {
 export const MESSAGE_OUTSIDE_SAO_PAULO = (
   cityName?: string
 ) => cityName
-  ? `O **Câmara na Mão** atende apenas ao **município de São Paulo**. O endereço informado corresponde a **${cityName}**, que fica fora da nossa área de atuação.\n\nPor isso não é possível registrar este relato aqui. Se o problema for na capital, informe um CEP ou endereço dentro da cidade de São Paulo.`
-  : `O **Câmara na Mão** atende apenas ao **município de São Paulo**. O endereço informado fica fora da nossa área de atuação.\n\nPor isso não é possível registrar este relato aqui. Se o problema for na capital, informe um CEP ou endereço dentro da cidade de São Paulo.`;
+  ? `Entendemos que o endereço informado é na **${cityName}**. No entanto, este canal é exclusivo para atendimentos realizados na cidade de São Paulo.\n\nVocê teria algum outro relato ou solicitação referente à cidade de São Paulo para que possamos ajudar?`
+  : `Entendemos que o endereço informado fica fora da nossa área de atuação. No entanto, este canal é exclusivo para atendimentos realizados na cidade de São Paulo.\n\nVocê teria algum outro relato ou solicitação referente à cidade de São Paulo para que possamos ajudar?`;
 
 // Lookup CEP via ViaCEP API
 export async function lookupCEP(cep: string): Promise<{
