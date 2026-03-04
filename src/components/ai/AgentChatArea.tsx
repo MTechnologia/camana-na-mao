@@ -319,6 +319,7 @@ const AgentChatArea = () => {
                         onOpenDiscovery={handleOpenDiscovery}
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                         onApplyNearbyFilters={handleApplyNearbyFilters}
+                        onSendMessage={handleSendMessage}
                       />
                     </motion.div>
                   );

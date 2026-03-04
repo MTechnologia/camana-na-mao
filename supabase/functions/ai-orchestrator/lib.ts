@@ -4464,15 +4464,33 @@ export async function searchAudiencias(
     return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
 }
 
-// Helper: Suggest council member
+// Helper: Suggest council member (lista vem SEMPRE da API fetch-vereadores para refletir vereadores em exercício)
 export async function suggestCouncilMember(issueType: string, description: string, district?: string): Promise<string> {
-  const themes = COMMISSION_THEMES[issueType] || [];
-  const descLower = description.toLowerCase();
-  
-  // Find relevant council members based on theme
-  const relevantMembers = COUNCIL_MEMBERS.filter((_, i) => i < 3).map(m => `${m.name} (${m.party})`);
-  
-  return `Para questões de ${issueType}, você pode procurar:\n\n${relevantMembers.map((m, i) => `${i+1}. ${m}`).join('\n')}\n\nDeseja que eu encaminhe sua demanda para algum deles?`;
+  const baseUrl = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL') : undefined;
+  const anonKey = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_ANON_KEY') : undefined;
+
+  if (baseUrl && anonKey) {
+    try {
+      const res = await fetch(`${baseUrl}/functions/v1/fetch-vereadores`, {
+        headers: { 'Authorization': `Bearer ${anonKey}` },
+      });
+      if (res.ok) {
+        const json = await res.json() as { vereadores?: Array<{ name: string; party: string; isSubstitute?: boolean; isOnLeave?: boolean }> };
+        const vereadores = json.vereadores ?? [];
+        const active = vereadores.filter(v => !v.isSubstitute && !v.isOnLeave);
+        const top = active.slice(0, 5).map(v => `${v.name} (${v.party})`);
+        if (top.length > 0) {
+          return `Para questões de ${issueType}, você pode procurar:\n\n${top.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\nDeseja que eu encaminhe sua demanda para algum deles?`;
+        }
+      }
+    } catch (e) {
+      console.warn('[suggestCouncilMember] fetch-vereadores failed:', (e as Error).message);
+    }
+  }
+
+  // Sem fallback com lista fixa: evita mostrar vereadores que não estão mais em exercício.
+  // Direciona o cidadão à página oficial de vereadores, que consome a mesma API.
+  return `No momento não consegui carregar a lista atualizada de vereadores. Você pode ver a lista completa em [Vereadores](/institucional/vereadores), onde constam apenas os parlamentares em exercício. Posso ajudar com mais alguma coisa?`;
 }
 
 // Helper: Get citizen history
@@ -5069,6 +5087,8 @@ export async function executeTool(
           '',
           '🔗 [Ver Meus Relatos](/relato-urbano/historico) para acompanhar o status',
           '',
+          '**Quer que eu encaminhe esse relato para algum vereador?**',
+          '',
           'Posso ajudar com mais alguma coisa?'
         ].filter(line => line !== '').join('\n');
         
@@ -5311,6 +5331,8 @@ export async function executeTool(
           '---',
           '',
           '🔗 [Ver Meus Relatos](/transporte/meus-relatos) para acompanhar.',
+          '',
+          '**Quer que eu encaminhe esse relato para algum vereador?**',
           '',
           'Posso ajudar com mais alguma coisa?'
         ].filter(line => line !== '').join('\n');
