@@ -503,6 +503,13 @@ serve(async (req) => {
         if (!isValidDesc)
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         
+        // 1b. Abrangência: se já temos endereço/CEP com cidade fora de São Paulo, informar antes de qualquer outra pergunta (categoria, número, etc.)
+        const hasLocationEarly = !!(fields.cep && String(fields.cep).replace(/\D/g, '').length === 8) || (!!fields.street && !!fields.neighborhood);
+        const cityEarly = typeof fields.city === 'string' ? fields.city : undefined;
+        if (hasLocationEarly && cityEarly && !lib.isCitySaoPaulo(cityEarly)) {
+          return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(cityEarly) };
+        }
+        
         // 2. CATEGORY + SUBCATEGORY - try auto-classification with intuitive label, fallback to 'outro'
         if (!fields.category) {
           const description = (fields.description || '').toLowerCase();
