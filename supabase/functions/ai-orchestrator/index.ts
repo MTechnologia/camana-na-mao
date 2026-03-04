@@ -828,6 +828,43 @@ serve(async (req) => {
     const msgLower = lastUserMessage.toLowerCase().trim();
     const lastAssistantMessage = messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content || '';
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
+    const getMessageText = (m: Record<string, unknown>): string => {
+      const raw = m?.content;
+      if (typeof raw === 'string') return raw;
+      if (Array.isArray(raw)) {
+        const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
+        return part ? String(part.text) : '';
+      }
+      return '';
+    };
+    const userMessages = messages.filter((m: Record<string, unknown>) => m.role === 'user').map(getMessageText).map((c: string) => c.trim()).filter(Boolean);
+
+    // "Como chegar a X" / "quais meios de transporte para X" com origem em mensagem anterior (ex.: endereço)
+    let routeDestination: string | null = null;
+    let originAddress: string | null = null;
+    for (const um of userMessages) {
+      const dest = lib.extractRouteDestinationFromText(um);
+      if (dest) {
+        routeDestination = dest;
+        break;
+      }
+    }
+    for (let i = userMessages.length - 1; i >= 0; i--) {
+      if (lib.looksLikeAddress(userMessages[i])) {
+        originAddress = userMessages[i];
+        break;
+      }
+    }
+    if (routeDestination && originAddress) {
+      const routeUrl = lib.buildGoogleMapsDirectionsUrlFromAddresses(originAddress, routeDestination);
+      const routeMessage = `Para te ajudar a chegar a **${routeDestination}** saindo de **${originAddress}**, use o link abaixo. O Google Maps mostra a rota de transporte público (ônibus, metrô, trem):\n\n🗺️ [Abrir rota no Google Maps](${routeUrl})\n\nAssim você vê quais linhas pegar e onde descer. Posso ajudar em mais alguma coisa?`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeMessage } }] });
+      console.log('[ai-orchestrator] Route from addresses:', originAddress, '→', routeDestination);
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     const justShowedServicesList = lastAssistantLower.includes('quer que eu calcule a rota') || lastAssistantLower.includes('opções mais próximas') || lastAssistantLower.includes('opções mais próximas de');
     const wantsRoute = /(calcule?\s+a\s+rota|calcular\s+rota|rota\s+para|quero\s+a\s+rota)/i.test(lastUserMessage) || lastUserMessage.includes(' | ');
     let destinationAddress = '';
@@ -841,16 +878,6 @@ serve(async (req) => {
     if (justShowedServicesList && wantsRoute && destinationAddress) {
       let originLat: number | null = null;
       let originLon: number | null = null;
-      // Helper: content pode ser string ou array OpenAI-style [{ type: 'text', text: '...' }]
-      const getMessageText = (m: Record<string, unknown>): string => {
-        const raw = m?.content;
-        if (typeof raw === 'string') return raw;
-        if (Array.isArray(raw)) {
-          const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
-          return part ? String(part.text) : '';
-        }
-        return '';
-      };
       // 1) Prioridade: coordenadas na conversa ("Localização GPS: lat,lon") ou accumulatedFields (services)
       const allMessages = [...messages].reverse(); // mais recente primeiro
       for (const m of allMessages) {

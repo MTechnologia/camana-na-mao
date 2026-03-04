@@ -3873,6 +3873,35 @@ export function buildGoogleMapsDirectionsUrl(originLat: number, originLon: numbe
   return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLon}&destination=${dest}&travelmode=transit`;
 }
 
+/** Gera link do Google Maps para rota de transporte entre dois endereços (origem e destino como texto). */
+export function buildGoogleMapsDirectionsUrlFromAddresses(originAddress: string, destinationAddress: string): string {
+  const origin = encodeURIComponent(originAddress.trim());
+  const dest = encodeURIComponent(destinationAddress.trim());
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
+}
+
+/** Extrai destino de mensagens como "como chegar ao Parque Ibirapuera", "quais meios de transporte para X". */
+export function extractRouteDestinationFromText(text: string): string | null {
+  const t = text.trim();
+  if (t.length < 5) return null;
+  const m1 = t.match(/como\s+chegar\s+(?:a|ao|at[eé])\s+(.+?)(?:\?|\.|,|$)/i);
+  if (m1) return m1[1].trim();
+  const m2 = t.match(/quais?\s+meios?\s+de\s+transporte\s+(?:pego\s+)?(?:para\s+)?(?:chegar\s+(?:a|ao|at[eé])\s+)?(.+?)(?:\?|\.|,|$)/i);
+  if (m2) return m2[1].trim();
+  const m3 = t.match(/planejar\s+(?:a\s+)?rota\s+(?:para\s+)?(.+?)(?:\?|\.|,|$)/i);
+  if (m3) return m3[1].trim();
+  const m4 = t.match(/rota\s+para\s+(.+?)(?:\?|\.|,|$)/i);
+  if (m4) return m4[1].trim();
+  return null;
+}
+
+/** Verifica se o texto parece um endereço (ex.: "Avenida X, 123" ou "Rua Y, 100"). */
+export function looksLikeAddress(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 10 || t.length > 200) return false;
+  return /(?:av\.?|avenida|rua|r\.|alameda|travessa|pra[cç]a|viaduto|rod\.).+\d{1,5}/i.test(t) || /^\d{5}-?\d{3}\s/.test(t) || /,.+\d{1,5}\s*$/.test(t);
+}
+
 // Distância em metros (Haversine) para ordenar serviços por proximidade
 function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
