@@ -1,20 +1,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-import * as lib from "./lib.ts";
+// CORS para preflight: entrypoint NÃO importa lib para OPTIONS passar mesmo se lib falhar no cold start
+const PREFLIGHT_CORS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
 
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { status: 200, headers: PREFLIGHT_CORS });
+  }
+
+  try {
   const requestStartTime = Date.now();
+  const lib = await import("./lib.ts");
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
   console.log('[ai-orchestrator] DEPLOY VERSION: 2026-01-31-v4 (deteccao deterministica ANTES do short-circuit)');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);
-
-  if (req.method === 'OPTIONS') {
-    console.log('[ai-orchestrator] OPTIONS request, returning CORS headers');
-    return new Response(null, { status: 204, headers: lib.corsHeaders });
-  }
 
   try {
     // === AI Provider Configuration (load first to check env) ===
@@ -824,10 +831,6 @@ serve(async (req) => {
     }
     
     // === PEDIDO DE ROTA (antes do bloco services para não chamar find_nearby de novo) ===
-    const lastUserMessage = messages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content || '';
-    const msgLower = lastUserMessage.toLowerCase().trim();
-    const lastAssistantMessage = messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content || '';
-    const lastAssistantLower = lastAssistantMessage.toLowerCase();
     const getMessageText = (m: Record<string, unknown>): string => {
       const raw = m?.content;
       if (typeof raw === 'string') return raw;
@@ -837,32 +840,153 @@ serve(async (req) => {
       }
       return '';
     };
-    const userMessages = messages.filter((m: Record<string, unknown>) => m.role === 'user').map(getMessageText).map((c: string) => c.trim()).filter(Boolean);
+    const lastUserMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'user').pop() || {});
+    const msgLower = lastUserMessage.toLowerCase().trim();
+    const lastAssistantMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
+    const lastAssistantLower = lastAssistantMessage.toLowerCase();
+    const userMessagesOrdered = messages.filter((m: Record<string, unknown>) => m.role === 'user');
 
-    // "Como chegar a X" / "quais meios de transporte para X" com origem em mensagem anterior (ex.: endereço)
-    let routeDestination: string | null = null;
-    let originAddress: string | null = null;
-    for (const um of userMessages) {
-      const dest = lib.extractRouteDestinationFromText(um);
-      if (dest) {
-        routeDestination = dest;
-        break;
-      }
-    }
-    for (let i = userMessages.length - 1; i >= 0; i--) {
-      if (lib.looksLikeAddress(userMessages[i])) {
-        originAddress = userMessages[i];
-        break;
-      }
-    }
-    if (routeDestination && originAddress) {
-      const routeUrl = lib.buildGoogleMapsDirectionsUrlFromAddresses(originAddress, routeDestination);
-      const routeMessage = `Para te ajudar a chegar a **${routeDestination}** saindo de **${originAddress}**, use o link abaixo. O Google Maps mostra a rota de transporte público (ônibus, metrô, trem):\n\n🗺️ [Abrir rota no Google Maps](${routeUrl})\n\nAssim você vê quais linhas pegar e onde descer. Posso ajudar em mais alguma coisa?`;
-      const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeMessage } }] });
-      console.log('[ai-orchestrator] Route from addresses:', originAddress, '→', routeDestination);
+    // Primeira pergunta "como chegar em X" → resposta fixa com as 3 opções (GPS, endereço cadastrado, digitar)
+    const isFirstMessageComoChegar = userMessagesOrdered.length === 1 && (
+      /como\s+chegar\s+(?:em|na|no|ao|à|a)\s+/i.test(lastUserMessage) || /como\s+chegar\s+ao?\s+/i.test(lastUserMessage)
+    );
+    if (isFirstMessageComoChegar) {
+      const routeAskOrigin = `[FIELD_REQUEST:location_method]Para te ajudar com a rota, preciso saber de onde você está saindo. Como você quer informar sua localização?\n\n[LOCATION_METHOD_PICKER]`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeAskOrigin } }] });
+      console.log('[ai-orchestrator] Como chegar (first turn): returning location method picker');
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
         headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
       });
+    }
+
+    // Rota entre dois endereços: usuário pediu "como chegar em X", assistente perguntou "de onde?", usuário informou origem (endereço, GPS ou endereço cadastrado)
+    // Destino: primeira mensagem do usuário que contém "como chegar em/na/ao X" (pode haver "Digitar CEP" no meio)
+    if (userMessagesOrdered.length >= 2) {
+      const originCandidate = getMessageText(userMessagesOrdered[userMessagesOrdered.length - 1]).trim();
+      let destinationFromHistory = '';
+      for (let i = 0; i < userMessagesOrdered.length; i++) {
+        const uContent = getMessageText(userMessagesOrdered[i]).trim();
+        const matchDest = uContent.match(/como\s+chegar\s+(?:em|na|no|ao|à|a)\s+(.+)/i) || uContent.match(/como\s+chegar\s+ao?\s+(.+)/i);
+        if (matchDest) {
+          destinationFromHistory = matchDest[1].trim();
+          break;
+        }
+      }
+      const assistantAskedOrigin = /(de\s+onde|ponto\s+de\s+partida|onde\s+(você|voce)\s+(está|esta)\s+saindo|qual\s+(é|e)\s+(o\s+)?seu\s+ponto|saindo\s+de\s+qual|gostaria\s+de\s+sair|como\s+você\s+quer\s+informar|informar\s+sua\s+localiza[cç][aã]o|LOCATION_METHOD_PICKER|qual\s+seu\s+cep)/i.test(lastAssistantMessage);
+      const assistantAskedCepOrAddress = /(qual\s+seu\s+cep|qual\s+o\s+endere[cç]o|digite\s+o\s+cep)/i.test(lastAssistantMessage);
+      const assistantAskedStreetNumber = /(qual\s+o\s+n[uú]mero|n[uú]mero\s+do\s+endere[cç]o|n[uú]mero\s+de\s+partida)/i.test(lastAssistantMessage);
+      const isInComoChegarFlow = assistantAskedOrigin || assistantAskedCepOrAddress || assistantAskedStreetNumber;
+      if (!isInComoChegarFlow || !destinationFromHistory) {
+        // skip
+      } else {
+        // Não gerar rota quando o usuário só escolheu "Digitar CEP ou endereço" — pedir CEP/endereço e aguardar a próxima mensagem
+        const isChoiceDigitarCep = /^digitar\s+cep\s+ou\s+endere[cç]o$/i.test(originCandidate.trim());
+        if (isChoiceDigitarCep) {
+          const askCepForRoute = `[FIELD_REQUEST:cep]Qual seu CEP ou endereço de partida? (Digite o CEP ou a rua e o bairro.)\n\n[ADDRESS_PICKER]`;
+          const ssePayload = JSON.stringify({ choices: [{ delta: { content: askCepForRoute } }] });
+          console.log('[ai-orchestrator] Como chegar: user chose digitar CEP, asking for address');
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+        } else {
+        // Se o assistente pediu o número e o usuário enviou só o número, combinar com o endereço da mensagem anterior
+        let originForUrl = '';
+        if (assistantAskedStreetNumber && userMessagesOrdered.length >= 2) {
+          const streetNumberCandidate = originCandidate.trim();
+          const looksLikeNumber = /^[\d\s\-]+$/.test(streetNumberCandidate) || /^(casa|n[°º]?|n[uú]mero)\s*[\d\-]+$/i.test(streetNumberCandidate);
+          if (looksLikeNumber) {
+            const prevAddress = getMessageText(userMessagesOrdered[userMessagesOrdered.length - 2]).trim();
+            const prevAddressRaw = prevAddress.replace(/^Endere[cç]o\s+selecionado\s*:\s*/i, '').trim();
+            const num = streetNumberCandidate.replace(/^(casa|n[°º]?|n[uú]mero)\s*/i, '').trim();
+            if (prevAddressRaw.length >= 5 && num.length > 0) {
+              // Inserir número após o nome da rua (ex: "Rua X - Bairro, Cidade - CEP" → "Rua X, 123 - Bairro, Cidade - CEP")
+              originForUrl = prevAddressRaw.includes(' - ') ? prevAddressRaw.replace(/\s+-\s+/, `, ${num} - `) : `${prevAddressRaw}, ${num}`;
+            }
+          }
+        }
+        // Origem: endereço digitado (inclui "Endereço selecionado: Rua X - Bairro, Cidade - CEP: ...")
+        const originAddressRaw = originCandidate.replace(/^Endere[cç]o\s+selecionado\s*:\s*/i, '').trim();
+        const looksLikeAddress = (originAddressRaw.length >= 5 && (/\d/.test(originAddressRaw) || /(rua|av\.|avenida|r\.|alameda|praça|travessa|jd\.|jardim|endereço|cep)/i.test(originAddressRaw))) || /Endere[cç]o\s+selecionado\s*:/i.test(originCandidate);
+        // Endereço vindo de CEP geralmente não tem número (ex: "Rua X - Bairro, Cidade - CEP: ...") — pedir o número antes de gerar a rota
+        const hasStreetNumber = /,\s*\d{1,5}(\s+[A-Za-z])?\s*-\s+/.test(originAddressRaw);
+        if (looksLikeAddress && !hasStreetNumber && !originForUrl) {
+          const askNumber = `Qual o número do endereço de partida? (Ex.: 100, 456 A, sobrado)`;
+          const ssePayload = JSON.stringify({ choices: [{ delta: { content: askNumber } }] });
+          console.log('[ai-orchestrator] Como chegar: address without number, asking for number');
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+        }
+        const originFinal = originForUrl || (looksLikeAddress ? originAddressRaw : originCandidate);
+        const hasGps = /Localiza[cç][aã]o\s*GPS/i.test(originCandidate);
+        const coordMatch = originCandidate.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i) || (hasGps ? originCandidate.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/) : null);
+        const isRegisteredAddress = /usar\s+endere[cç]o\s+cadastrado/i.test(originCandidate);
+
+        if ((looksLikeAddress || originForUrl) && originFinal.length >= 5) {
+          const routeUrl = lib.buildGoogleMapsDirectionsUrlFromAddresses(originFinal, destinationFromHistory);
+          let routeMessage = `Trajeto de **${originFinal}** até **${destinationFromHistory}** (transporte público):\n\nNo link abaixo o Google Maps mostra o **passo a passo**: quais ônibus ou metrô pegar, onde embarcar e onde descer. Abra o link para ver as conduções detalhadas.\n\n[Abrir rota no Google Maps](${routeUrl})\n\nPosso ajudar em mais alguma coisa?`;
+          const googleMapsKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+          if (googleMapsKey) {
+            const directions = await lib.fetchGoogleDirectionsTransit(originFinal, destinationFromHistory, googleMapsKey);
+            if (directions.ok && (directions.steps.length || directions.durationText || directions.distanceText)) {
+              const previsao: string[] = [];
+              if (directions.durationText) previsao.push(`**Tempo estimado:** cerca de ${directions.durationText}`);
+              if (directions.distanceText) previsao.push(`**Distância:** ${directions.distanceText}`);
+              const previsaoLine = previsao.length ? previsao.join(' · ') + '\n\n' : '';
+              const stepsBlock = directions.steps.length ? directions.steps.join('\n') + '\n\n' : '';
+              routeMessage = `**Passo a passo:**\n\n${previsaoLine}${stepsBlock}---\n\n${routeMessage}`;
+            }
+          }
+          const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeMessage } }] });
+          console.log('[ai-orchestrator] Route link generated (two addresses):', originFinal, '->', destinationFromHistory);
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+        }
+        if (coordMatch) {
+          const lat = parseFloat(coordMatch[1].trim());
+          const lon = parseFloat(coordMatch[2].trim());
+          if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            const routeUrl = lib.buildGoogleMapsDirectionsUrl(lat, lon, destinationFromHistory);
+            let routeMessage = `Trajeto da sua localização atual até **${destinationFromHistory}** (transporte público):\n\nNo link abaixo o Google Maps mostra o **passo a passo**: quais ônibus ou metrô pegar, onde embarcar e onde descer. Abra o link para ver as conduções detalhadas.\n\n[Abrir rota no Google Maps](${routeUrl})\n\nPosso ajudar em mais alguma coisa?`;
+            const googleMapsKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+            if (googleMapsKey) {
+              const originCoord = `${lat},${lon}`;
+              const directions = await lib.fetchGoogleDirectionsTransit(originCoord, destinationFromHistory, googleMapsKey);
+              if (directions.ok && (directions.steps.length || directions.durationText || directions.distanceText)) {
+                const previsao: string[] = [];
+                if (directions.durationText) previsao.push(`**Tempo estimado:** cerca de ${directions.durationText}`);
+                if (directions.distanceText) previsao.push(`**Distância:** ${directions.distanceText}`);
+                const previsaoLine = previsao.length ? previsao.join(' · ') + '\n\n' : '';
+                const stepsBlock = directions.steps.length ? directions.steps.join('\n') + '\n\n' : '';
+                routeMessage = `**Passo a passo:**\n\n${previsaoLine}${stepsBlock}---\n\n${routeMessage}`;
+              }
+            }
+            const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeMessage } }] });
+            console.log('[ai-orchestrator] Route link generated (GPS -> destination):', lat, lon, '->', destinationFromHistory);
+            return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+          }
+        }
+        if (isRegisteredAddress) {
+          const { data: addr } = await supabase.from('user_addresses').select('latitude, longitude, street, street_number, neighborhood').eq('user_id', user.id).eq('is_primary', true).maybeSingle();
+          if (addr?.latitude != null && addr?.longitude != null) {
+            const routeUrl = lib.buildGoogleMapsDirectionsUrl(Number(addr.latitude), Number(addr.longitude), destinationFromHistory);
+            const originLabel = [addr.street, addr.street_number, addr.neighborhood].filter(Boolean).join(', ') || 'seu endereço cadastrado';
+            let routeMessage = `Trajeto de **${originLabel}** até **${destinationFromHistory}** (transporte público):\n\nNo link abaixo o Google Maps mostra o **passo a passo**: quais ônibus ou metrô pegar, onde embarcar e onde descer. Abra o link para ver as conduções detalhadas.\n\n[Abrir rota no Google Maps](${routeUrl})\n\nPosso ajudar em mais alguma coisa?`;
+            const googleMapsKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+            if (googleMapsKey) {
+              const originCoord = `${addr.latitude},${addr.longitude}`;
+              const directions = await lib.fetchGoogleDirectionsTransit(originCoord, destinationFromHistory, googleMapsKey);
+              if (directions.ok && (directions.steps.length || directions.durationText || directions.distanceText)) {
+                const previsao: string[] = [];
+                if (directions.durationText) previsao.push(`**Tempo estimado:** cerca de ${directions.durationText}`);
+                if (directions.distanceText) previsao.push(`**Distância:** ${directions.distanceText}`);
+                const previsaoLine = previsao.length ? previsao.join(' · ') + '\n\n' : '';
+                const stepsBlock = directions.steps.length ? directions.steps.join('\n') + '\n\n' : '';
+                routeMessage = `**Passo a passo:**\n\n${previsaoLine}${stepsBlock}---\n\n${routeMessage}`;
+              }
+            }
+            const ssePayload = JSON.stringify({ choices: [{ delta: { content: routeMessage } }] });
+            console.log('[ai-orchestrator] Route link generated (registered address -> destination)');
+            return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+          }
+        }
+        }
+      }
     }
 
     const justShowedServicesList = lastAssistantLower.includes('quer que eu calcule a rota') || lastAssistantLower.includes('opções mais próximas') || lastAssistantLower.includes('opções mais próximas de');
@@ -1849,5 +1973,14 @@ ${empathyNote}
     return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: errorMessage } }] })}\n\ndata: [DONE]\n\n`, {
       headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
     });
+  }
+  } catch (loadOrHandlerError) {
+    const err = loadOrHandlerError instanceof Error ? loadOrHandlerError : new Error(String(loadOrHandlerError));
+    console.error('[ai-orchestrator] Load or handler error:', err.message);
+    console.error('[ai-orchestrator] Stack:', err.stack);
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', detail: err.message }),
+      { status: 500, headers: { ...PREFLIGHT_CORS, 'Content-Type': 'application/json' } }
+    );
   }
 });

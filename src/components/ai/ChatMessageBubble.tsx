@@ -365,6 +365,12 @@ const ChatMessageBubble = ({
   const isLongContent = cleanContent.length > 450;
   const showVerMais = !isUser && isLongContent;
 
+  // Preserva quebra de linha a cada step no "Passo a passo" (Markdown: dois espaços + \n = <br>)
+  const withStepLineBreaks = (text: string): string => {
+    if (text.includes('**Passo a passo:**') && text.includes('•')) return text.replace(/\n/g, '  \n');
+    return text;
+  };
+
   // Split para colocar Documentos e Convidados acima de "Quer saber mais sobre alguma ou inscrever-se?"
   const audienciaContentSplit = useMemo(() => {
     const needle = "Quer saber mais sobre alguma ou inscrever-se?";
@@ -578,8 +584,8 @@ const ChatMessageBubble = ({
                   }}
                 >
                   {audienciaContentSplit.contentAfter === null
-                    ? cleanContent
-                    : audienciaContentSplit.contentBefore}
+                    ? withStepLineBreaks(cleanContent)
+                    : withStepLineBreaks(audienciaContentSplit.contentBefore)}
                 </ReactMarkdown>
               </div>
               {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
@@ -702,7 +708,7 @@ const ChatMessageBubble = ({
                       code: ({ children }) => <code className="bg-background/50 px-1 py-0.5 rounded text-xs">{children}</code>,
                     }}
                   >
-                    {audienciaContentSplit.contentAfter}
+                    {withStepLineBreaks(audienciaContentSplit.contentAfter)}
                   </ReactMarkdown>
                 </div>
               )}

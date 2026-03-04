@@ -3873,33 +3873,112 @@ export function buildGoogleMapsDirectionsUrl(originLat: number, originLon: numbe
   return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLon}&destination=${dest}&travelmode=transit`;
 }
 
-/** Gera link do Google Maps para rota de transporte entre dois endereços (origem e destino como texto). */
+/** Gera link do Google Maps para rota entre dois endereços (transporte público). */
 export function buildGoogleMapsDirectionsUrlFromAddresses(originAddress: string, destinationAddress: string): string {
   const origin = encodeURIComponent(originAddress.trim());
   const dest = encodeURIComponent(destinationAddress.trim());
   return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
 }
 
-/** Extrai destino de mensagens como "como chegar ao Parque Ibirapuera", "quais meios de transporte para X". */
-export function extractRouteDestinationFromText(text: string): string | null {
-  const t = text.trim();
-  if (t.length < 5) return null;
-  const m1 = t.match(/como\s+chegar\s+(?:a|ao|at[eé])\s+(.+?)(?:\?|\.|,|$)/i);
-  if (m1) return m1[1].trim();
-  const m2 = t.match(/quais?\s+meios?\s+de\s+transporte\s+(?:pego\s+)?(?:para\s+)?(?:chegar\s+(?:a|ao|at[eé])\s+)?(.+?)(?:\?|\.|,|$)/i);
-  if (m2) return m2[1].trim();
-  const m3 = t.match(/planejar\s+(?:a\s+)?rota\s+(?:para\s+)?(.+?)(?:\?|\.|,|$)/i);
-  if (m3) return m3[1].trim();
-  const m4 = t.match(/rota\s+para\s+(.+?)(?:\?|\.|,|$)/i);
-  if (m4) return m4[1].trim();
-  return null;
+// --- Google Directions API (transporte público) ---
+// Ref: https://developers.google.com/maps/documentation/directions/get-directions
+
+type DirectionsStep = {
+  travel_mode?: string;
+  html_instructions?: string;
+  transit_details?: {
+    line?: { short_name?: string; name?: string; vehicle?: { name?: string } };
+    departure_stop?: { name?: string };
+    arrival_stop?: { name?: string };
+    num_stops?: number;
+  };
+};
+
+type DirectionsLeg = {
+  steps?: DirectionsStep[];
+  duration?: { value?: number; text?: string };
+  distance?: { value?: number; text?: string };
+};
+type DirectionsRoute = { legs?: DirectionsLeg[] };
+type DirectionsResponse = {
+  status: string;
+  routes?: DirectionsRoute[];
+  error_message?: string;
+};
+
+/** Remove tags HTML simples para exibir instrução em texto. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .trim();
 }
 
-/** Verifica se o texto parece um endereço (ex.: "Avenida X, 123" ou "Rua Y, 100"). */
-export function looksLikeAddress(text: string): boolean {
-  const t = text.trim();
-  if (t.length < 10 || t.length > 200) return false;
-  return /(?:av\.?|avenida|rua|r\.|alameda|travessa|pra[cç]a|viaduto|rod\.).+\d{1,5}/i.test(t) || /^\d{5}-?\d{3}\s/.test(t) || /,.+\d{1,5}\s*$/.test(t);
+/**
+ * Chama a Google Directions API (mode=transit) e retorna o passo a passo em texto,
+ * além da duração e distância totais do trajeto.
+ * Requer GOOGLE_MAPS_API_KEY com Directions API ativada.
+ * Em caso de falha (sem key, erro de rede, ZERO_RESULTS, etc.), retorna { ok: false }.
+ */
+export async function fetchGoogleDirectionsTransit(
+  originAddress: string,
+  destinationAddress: string,
+  apiKey: string
+): Promise<
+  | { ok: true; steps: string[]; durationText?: string; distanceText?: string }
+  | { ok: false; error?: string }
+> {
+  if (!apiKey?.trim()) return { ok: false, error: 'missing_api_key' };
+  const origin = encodeURIComponent(originAddress.trim());
+  const dest = encodeURIComponent(destinationAddress.trim());
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&mode=transit&language=pt-BR&key=${apiKey}`;
+  try {
+    const res = await fetch(url);
+    const data = (await res.json()) as DirectionsResponse;
+    if (data.status !== 'OK' || !data.routes?.length) {
+      return { ok: false, error: data.status === 'ZERO_RESULTS' ? 'zero_results' : data.error_message || data.status };
+    }
+    const leg = data.routes[0].legs?.[0];
+    const durationText = leg?.duration?.text?.trim() || undefined;
+    const distanceText = leg?.distance?.text?.trim() || undefined;
+    if (!leg?.steps?.length) return { ok: true, steps: [], durationText, distanceText };
+    const rawSteps: { mode: string; text: string }[] = [];
+    for (const s of leg.steps) {
+      const mode = (s.travel_mode || '').toUpperCase();
+      const td = s.transit_details;
+      if (mode === 'TRANSIT' && td) {
+        const lineName = td.line?.short_name || td.line?.name || td.line?.vehicle?.name || 'ônibus/metrô';
+        const from = td.departure_stop?.name || 'parada de partida';
+        const to = td.arrival_stop?.name || 'parada de destino';
+        const n = td.num_stops != null ? ` (${td.num_stops} parada${td.num_stops !== 1 ? 's' : ''})` : '';
+        rawSteps.push({ mode: 'TRANSIT', text: `• Pegue **${lineName}** na parada *${from}*, desça em *${to}*${n}` });
+      } else {
+        const text = stripHtml(s.html_instructions || '');
+        if (text) rawSteps.push({ mode: 'WALKING', text: `• ${text}` });
+      }
+    }
+    // Agrupar "Ande até X" + "Pegue linha Y" na mesma linha, uma etapa por linha
+    const steps: string[] = [];
+    for (let i = 0; i < rawSteps.length; i++) {
+      const curr = rawSteps[i];
+      const next = rawSteps[i + 1];
+      if (curr.mode === 'WALKING' && next?.mode === 'TRANSIT') {
+        const walk = curr.text.replace(/^•\s*/, '');
+        const transit = next.text.replace(/^•\s*/, '');
+        steps.push(`• ${walk} • ${transit}`);
+        i++;
+      } else {
+        steps.push(curr.text);
+      }
+    }
+    return { ok: true, steps, durationText, distanceText };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 // Distância em metros (Haversine) para ordenar serviços por proximidade

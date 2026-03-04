@@ -48,6 +48,13 @@ export function AddressAutocomplete({
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Formata valor do input como CEP (00000-000) quando o usuário digita só números
+  const formatCepDisplay = (value: string): string => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
+  };
+
   // Check if input looks like a CEP (8 digits, optionally with hyphen)
   const isCepFormat = (input: string): boolean => {
     const cleaned = input.replace(/\D/g, '');
@@ -280,8 +287,19 @@ export function AddressAutocomplete({
         <Input
           ref={inputRef}
           type="text"
+          inputMode="numeric"
+          autoComplete="postal-code"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const digits = raw.replace(/\D/g, '');
+            // Se contém só números (e no máximo um hífen), aplicar máscara CEP (00000-000)
+            if (/^[\d\-]*$/.test(raw) && digits.length <= 8) {
+              setQuery(digits.length <= 5 ? digits : formatCepDisplay(digits));
+            } else {
+              setQuery(raw);
+            }
+          }}
           onKeyDown={handleKeyDown}
           onFocus={() => predictions.length > 0 && setShowDropdown(true)}
           placeholder={placeholder}
