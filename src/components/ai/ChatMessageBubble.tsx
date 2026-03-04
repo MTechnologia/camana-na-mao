@@ -111,6 +111,8 @@ interface ChatMessageBubbleProps {
   onRequestAudienciasWithFilters?: (filters: { tema: string; regiao: string; dateFrom: string; dateTo: string }) => void;
   /** Aplicar filtros de raio/avaliação/busca no fluxo Perto de você (envia mensagem e re-busca). */
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
+  /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
+  onSendMessage?: (message: string) => void;
 }
 
 const ChatMessageBubble = ({ 
@@ -132,6 +134,7 @@ const ChatMessageBubble = ({
   onOpenDiscovery,
   onRequestAudienciasWithFilters,
   onApplyNearbyFilters,
+  onSendMessage,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -386,6 +389,9 @@ const ChatMessageBubble = ({
     message.content.includes('[SHOW_SERVICES_CHIPS]') ||
     message.content.includes('o intuito deste canal é poder te ajudar com estes serviços')
   );
+
+  // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
+  const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
@@ -815,6 +821,21 @@ const ChatMessageBubble = ({
           />
         )}
         
+        {/* Botão Encaminhar para vereador (após relato registrado) */}
+        {hasEncaminharVereadorCta && onSendMessage && (
+          <div className="mt-3 w-full max-w-[280px]">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onSendMessage('Quero encaminhar meu relato para um vereador')}
+              className="w-full justify-between min-h-[40px]"
+            >
+              <span className="truncate flex-1 text-left">Encaminhar para vereador</span>
+              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
+            </Button>
+          </div>
+        )}
+
         {/* Journey Switch Confirmation Buttons */}
         {journeySwitchMatch && isLastAssistantMessage && !decisionMade && (
           <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
