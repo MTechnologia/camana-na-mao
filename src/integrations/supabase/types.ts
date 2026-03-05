@@ -2109,6 +2109,8 @@ export type Database = {
           font_size: string | null
           id: string
           newsletter: boolean
+          notify_new_reports: boolean
+          notify_new_users: boolean
           profile_visibility: string
           push_notifications: boolean
           reading_mode: boolean | null
@@ -2126,6 +2128,8 @@ export type Database = {
           font_size?: string | null
           id?: string
           newsletter?: boolean
+          notify_new_reports?: boolean
+          notify_new_users?: boolean
           profile_visibility?: string
           push_notifications?: boolean
           reading_mode?: boolean | null
@@ -2143,6 +2147,8 @@ export type Database = {
           font_size?: string | null
           id?: string
           newsletter?: boolean
+          notify_new_reports?: boolean
+          notify_new_users?: boolean
           profile_visibility?: string
           push_notifications?: boolean
           reading_mode?: boolean | null
