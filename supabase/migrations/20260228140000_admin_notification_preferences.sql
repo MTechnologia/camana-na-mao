@@ -68,7 +68,8 @@ DECLARE
   v_priority TEXT := 'normal';
   v_type TEXT := 'new_urban_report';
 BEGIN
-  IF NEW.severity IS NOT NULL AND NEW.severity >= 4 THEN
+  -- Crítico baseado em risk_level (severity na tabela é TEXT, não inteiro)
+  IF NEW.risk_level IS NOT NULL AND NEW.risk_level = 'critical' THEN
     v_priority := 'high';
     v_type := 'critical_report';
   END IF;
@@ -79,7 +80,7 @@ BEGIN
     v_type,
     '/admin/reports?type=urban&id=' || NEW.id,
     v_priority,
-    jsonb_build_object('report_id', NEW.id, 'category', NEW.category, 'subcategory', NEW.subcategory),
+    jsonb_build_object('report_id', NEW.id, 'category', NEW.category, 'subcategory', NEW.subcategory, 'risk_level', NEW.risk_level),
     'new_report'
   );
 
