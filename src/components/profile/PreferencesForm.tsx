@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -55,11 +55,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
     show_phone: false,
   });
 
-  useEffect(() => {
-    loadPreferences();
-  }, [userId]);
-
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     try {
       const { data: notifData, error: notifError } = await supabase
         .from('notification_settings')
@@ -98,10 +94,14 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         if (privData.notify_new_users !== undefined) setAdminNotifyNewUsers(privData.notify_new_users);
         if (privData.notify_new_reports !== undefined) setAdminNotifyNewReports(privData.notify_new_reports);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading preferences:", error);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -112,7 +112,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           user_id: userId,
           push_enabled: notificationSettings.push_enabled,
           email_enabled: notificationSettings.email_enabled,
-          sms_enabled: notificationSettings.sms_enabled,
+          sms_enabled: false,
           newsletter_enabled: notificationSettings.newsletter_enabled,
           categories_enabled: notificationSettings.categories_enabled,
           quiet_hours_start: notificationSettings.quiet_hours_start,
@@ -144,7 +144,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
       if (privError) throw privError;
 
       toast.success("Preferências atualizadas com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving preferences:", error);
       toast.error(error.message || "Erro ao salvar preferências");
     } finally {
@@ -204,37 +204,37 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
                   Push
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Notificações no navegador
+                  {pushSupported
+                    ? "Notificações no navegador (permita quando solicitado)"
+                    : "Push não suportado neste navegador"}
                 </p>
               </div>
             </div>
             <Switch
               id="push-notif"
               checked={notificationSettings.push_enabled}
-              onCheckedChange={(checked) =>
-                setNotificationSettings(prev => ({ ...prev, push_enabled: checked }))
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-3">
-              <MessageCircle className="h-4 w-4 text-muted-foreground" />
-              <div className="space-y-0.5">
-                <Label htmlFor="sms-notif" className="text-sm font-medium">
-                  SMS
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Mensagens de texto
-                </p>
-              </div>
-            </div>
-            <Switch
-              id="sms-notif"
-              checked={notificationSettings.sms_enabled}
-              onCheckedChange={(checked) =>
-                setNotificationSettings(prev => ({ ...prev, sms_enabled: checked }))
-              }
+              disabled={!pushSupported}
+              onCheckedChange={(checked) => {
+                if (!checked || !pushSupported) {
+                  setNotificationSettings((prev) => ({ ...prev, push_enabled: checked }));
+                  return;
+                }
+                // Pedir permissão no mesmo momento do clique para o navegador exibir o diálogo
+                Notification.requestPermission().then(async (permission) => {
+                  setNotificationSettings((prev) => ({ ...prev, push_enabled: checked }));
+                  if (permission === "granted") {
+                    const ok = await subscribe(userId);
+                    if (ok) toast.success("Notificações push ativadas");
+                    else toast.info("Permita notificações no navegador ou tente novamente.");
+                  } else {
+                    toast.info(
+                      permission === "denied"
+                        ? "Notificações bloqueadas. Para ativar: ícone de cadeado na barra de endereço → Configurações do site → Notificações → Permitir."
+                        : "Permita notificações no navegador ou tente novamente."
+                    );
+                  }
+                });
+              }}
             />
           </div>
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { XMLParser } from "https://esm.sh/fast-xml-parser@4.3.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,6 +44,8 @@ interface Vereador {
   isSubstitute: boolean;
   isOnLeave: boolean;
   region?: string;
+  /** Comissões e cargos (área de atuação), fonte: ws2.asmx/VereadoresCMSP */
+  areasDeAtuacao?: string[];
 }
 
 // Generate a stable ID from the name
@@ -65,10 +68,112 @@ function generateInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/** Normaliza nome para matching entre JSON e XML (maiúsculas, sem acentos, espaços colapsados). */
+function normalizeNomeForMatch(nome: string): string {
+  return (nome ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[.\-,]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const VEREADORES_CMSP_XML_URL = 'https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx/VereadoresCMSP';
+
+type XmlNode = Record<string, unknown> | unknown[] | string;
+
+function textVal(node: XmlNode | null | undefined): string {
+  if (node == null) return '';
+  if (typeof node === 'string') return node.trim();
+  if (Array.isArray(node)) return textVal(node[0]);
+  if (typeof node === 'object' && node !== null) {
+    const o = node as Record<string, unknown>;
+    const s = o['#text'] ?? o['#'] ?? o['_'];
+    if (s != null) return String(s).trim();
+  }
+  return '';
+}
+
+function arr<T>(node: XmlNode | null | undefined): T[] {
+  if (node == null) return [];
+  if (Array.isArray(node)) return node as T[];
+  return [node] as T[];
+}
+
+/** Extrai mapa nome -> áreas a partir do objeto parseado pelo fast-xml-parser. */
+function parseVereadoresFromObj(obj: Record<string, unknown> | null | undefined): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  if (!obj || typeof obj !== 'object') return map;
+  // Objeto pode ser raiz direta ou ter um único filho (ex.: DataSet, NewDataSet)
+  let root = obj;
+  const keys = Object.keys(obj).filter((k) => !k.startsWith('?') && typeof obj[k] === 'object');
+  if (keys.length === 1 && !obj['Vereador'] && !obj['Vereadores']) {
+    root = (obj[keys[0]] as Record<string, unknown>) ?? obj;
+  }
+  let vereadores = root['Vereador'] ?? root['Vereadores']?.['Vereador'] ?? (root as Record<string, unknown>)['VereadoresCMSPResponse']?.['VereadoresCMSPResult'];
+  const inner = typeof vereadores === 'string' && vereadores.includes('<') ? vereadores : null;
+  if (inner) {
+    const xmlParser = new XMLParser({ ignoreDeclaration: true, ignoreAttributes: true });
+    const parsed = xmlParser.parse(inner) as Record<string, unknown>;
+    const innerRoot = Object.keys(parsed).length === 1 ? (parsed[Object.keys(parsed)[0]] as Record<string, unknown>) : parsed;
+    vereadores = innerRoot?.['Vereador'] ?? innerRoot?.['Vereadores']?.['Vereador'];
+  }
+  const list = arr<Record<string, unknown>>(vereadores);
+  for (const v of list) {
+    const nomeVereador = textVal(v['Nome']) || textVal(v['nome']);
+    if (!nomeVereador) continue;
+    const areas: string[] = [];
+    const cargos = v['Cargos'] ?? v['cargos'];
+    const cargoList = arr<Record<string, unknown>>(cargos?.['Cargo'] ?? cargos?.['cargo']);
+    for (const c of cargoList) {
+      const ente = c['Ente'] ?? c['ente'];
+      const nomeEnte = textVal(ente?.['Nome'] ?? ente?.['nome']);
+      if (nomeEnte && !areas.includes(nomeEnte)) areas.push(nomeEnte);
+    }
+    const key = normalizeNomeForMatch(nomeVereador);
+    if (key && areas.length > 0) {
+      map.set(key, areas);
+      const semPrefixos = key.replace(/^(DR|VER|VEREADOR)\s+/, '').trim();
+      if (semPrefixos && semPrefixos !== key) map.set(semPrefixos, areas);
+    }
+  }
+  return map;
+}
+
+/** Busca XML VereadoresCMSP e retorna mapa nome normalizado -> áreas (comissões/cargos). */
+async function fetchAreasDeAtuacaoFromXml(): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  try {
+    const res = await fetch(VEREADORES_CMSP_XML_URL, {
+      headers: { 'Accept': 'application/xml', 'User-Agent': 'CamaraNaMao/1.0' },
+    });
+    if (!res.ok) return map;
+    const xml = await res.text();
+    const xmlParser = new XMLParser({ ignoreDeclaration: true, ignoreAttributes: true });
+    let parsed = xmlParser.parse(xml) as Record<string, unknown>;
+    let result = parseVereadoresFromObj(parsed);
+    if (result.size === 0 && parsed) {
+      const soapBody = parsed['soap:Envelope']?.['soap:Body'] ?? parsed['Envelope']?.['Body'];
+      const inner = soapBody?.['VereadoresCMSPResponse']?.['VereadoresCMSPResult'];
+      const innerStr = typeof inner === 'string' ? inner : null;
+      if (innerStr && innerStr.includes('<')) {
+        parsed = xmlParser.parse(innerStr) as Record<string, unknown>;
+        result = parseVereadoresFromObj(parsed);
+      }
+    }
+    result.forEach((areas, key) => map.set(key, areas));
+    console.log(`[fetch-vereadores] Areas de atuacao loaded for ${map.size} vereadores from XML`);
+  } catch (e) {
+    console.warn('[fetch-vereadores] VereadoresCMSP XML failed:', (e as Error).message);
+  }
+  return map;
+}
+
 // Transform API data to internal format
-function transformVereador(v: VereadorAPI): Vereador {
+function transformVereador(v: VereadorAPI, areasDeAtuacao?: string[]): Vereador {
   const name = v.Vereador.trim();
-  
   return {
     id: generateId(name),
     name: name,
@@ -84,39 +189,43 @@ function transformVereador(v: VereadorAPI): Vereador {
     isGovernmentLeader: v.LiderGoverno === 'on',
     isSubstitute: v.Suplente === 'on',
     isOnLeave: v.Licenciado === 'on',
-    region: undefined
+    region: undefined,
+    areasDeAtuacao: areasDeAtuacao?.length ? areasDeAtuacao : undefined,
   };
 }
 
-// Fetch from SP Legis API
+// Fetch from SP Legis API (JSON) + áreas de atuação from VereadoresCMSP (XML)
 async function fetchFromAPI(): Promise<Vereador[]> {
   console.log('[fetch-vereadores] Fetching from SP Legis API...');
-  
-  const response = await fetch('https://saopaulo.sp.leg.br/vereadores-json/', {
-    headers: {
-      'Accept': 'application/json',
-      'User-Agent': 'CamaraNaMao/1.0'
-    }
-  });
+  const [areasMap, response] = await Promise.all([
+    fetchAreasDeAtuacaoFromXml(),
+    fetch('https://saopaulo.sp.leg.br/vereadores-json/', {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'CamaraNaMao/1.0' },
+    }),
+  ]);
 
   if (!response.ok) {
     throw new Error(`API responded with status ${response.status}`);
   }
 
   const data: VereadorAPI[] = await response.json();
-  
+
   const activeVereadores = data
     .filter(v => v.Ativo === 'on' && v.Vereador?.trim())
-    .map(transformVereador)
+    .map(v => {
+      const name = v.Vereador.trim();
+      const key = normalizeNomeForMatch(name);
+      const areas = areasMap.get(key) ?? areasMap.get(key.replace(/^(DR|VER|VEREADOR)\s+/, '').trim());
+      return transformVereador(v, areas);
+    })
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
   console.log(`[fetch-vereadores] Found ${activeVereadores.length} active council members`);
-  
   return activeVereadores;
 }
 
 // Update the database cache
-async function updateDatabaseCache(supabase: any, vereadores: Vereador[]): Promise<void> {
+async function updateDatabaseCache(supabase: ReturnType<typeof createClient>, vereadores: Vereador[]): Promise<void> {
   console.log('[fetch-vereadores] Updating database cache...');
   
   try {
@@ -137,6 +246,7 @@ async function updateDatabaseCache(supabase: any, vereadores: Vereador[]): Promi
       is_substitute: v.isSubstitute,
       is_on_leave: v.isOnLeave,
       region: v.region,
+      areas_de_atuacao: v.areasDeAtuacao ?? [],
       updated_at: new Date().toISOString()
     }));
 
@@ -155,7 +265,7 @@ async function updateDatabaseCache(supabase: any, vereadores: Vereador[]): Promi
 }
 
 // Fetch from database cache
-async function fetchFromDatabaseCache(supabase: any): Promise<Vereador[]> {
+async function fetchFromDatabaseCache(supabase: ReturnType<typeof createClient>): Promise<Vereador[]> {
   console.log('[fetch-vereadores] Fetching from database cache...');
   
   const { data, error } = await supabase
@@ -174,7 +284,7 @@ async function fetchFromDatabaseCache(supabase: any): Promise<Vereador[]> {
   }
 
   // Transform database format back to Vereador format
-  const vereadores: Vereador[] = data.map((row: any) => ({
+  const vereadores: Vereador[] = data.map((row: Record<string, unknown>) => ({
     id: row.id,
     name: row.name,
     party: row.party,
@@ -189,7 +299,8 @@ async function fetchFromDatabaseCache(supabase: any): Promise<Vereador[]> {
     isGovernmentLeader: row.is_government_leader,
     isSubstitute: row.is_substitute,
     isOnLeave: row.is_on_leave,
-    region: row.region
+    region: row.region,
+    areasDeAtuacao: Array.isArray(row.areas_de_atuacao) ? row.areas_de_atuacao : undefined,
   }));
 
   console.log(`[fetch-vereadores] Retrieved ${vereadores.length} records from cache`);

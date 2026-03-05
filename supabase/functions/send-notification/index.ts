@@ -14,7 +14,7 @@ interface NotificationRequest {
   type?: string;
   actionUrl?: string;
   priority?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 serve(async (req) => {

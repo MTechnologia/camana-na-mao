@@ -35,8 +35,8 @@ export const ReferralDialog = ({
   report,
   onComplete 
 }: ReferralDialogProps) => {
-  if (!report) return null;
   const { loading, canReferToCouncilMember } = useUserRole();
+  if (!report) return null;
 
   const handleComplete = () => {
     onOpenChange(false);

@@ -3,13 +3,13 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DEFAULT_PING_URL } from './src/config';
 import { FrontendWebView } from './src/screens/FrontendWebView';
@@ -20,6 +20,7 @@ type PingResult =
   | { ok: false; error: string };
 
 export default function App() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'frontend' | 'api'>('frontend');
   const [pingUrl, setPingUrl] = useState(DEFAULT_PING_URL);
   const [loading, setLoading] = useState(false);
@@ -51,22 +52,27 @@ export default function App() {
     }
   }
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="dark" />
-      <View style={styles.tabs}>
-        <Pressable
-          onPress={() => setTab('frontend')}
-          style={[styles.tabBtn, tab === 'frontend' && styles.tabBtnActive]}
-        >
-          <Text style={[styles.tabText, tab === 'frontend' && styles.tabTextActive]}>Frontend</Text>
-        </Pressable>
-        <Pressable onPress={() => setTab('api')} style={[styles.tabBtn, tab === 'api' && styles.tabBtnActive]}>
-          <Text style={[styles.tabText, tab === 'api' && styles.tabTextActive]}>API</Text>
-        </Pressable>
-      </View>
+  // Em produção: só o WebView (sem abas Frontend/API)
+  const showDevTabs = __DEV__;
 
-      {tab === 'frontend' ? (
+  return (
+    <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <StatusBar hidden />
+      {showDevTabs && (
+        <View style={styles.tabs}>
+          <Pressable
+            onPress={() => setTab('frontend')}
+            style={[styles.tabBtn, tab === 'frontend' && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabText, tab === 'frontend' && styles.tabTextActive]}>Frontend</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('api')} style={[styles.tabBtn, tab === 'api' && styles.tabBtnActive]}>
+            <Text style={[styles.tabText, tab === 'api' && styles.tabTextActive]}>API</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {!showDevTabs || tab === 'frontend' ? (
         <FrontendWebView />
       ) : (
         <ScrollView contentContainerStyle={styles.container}>
@@ -127,7 +133,7 @@ export default function App() {
           </Text>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

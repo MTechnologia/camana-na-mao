@@ -66,7 +66,7 @@ export const useCouncilMemberSuggestions = () => {
       if (error) throw error;
 
       // Map back to full vereador objects
-      const fullSuggestions: SuggestionResult[] = (data.suggestions || []).map((s: any) => ({
+      const fullSuggestions: SuggestionResult[] = (data.suggestions || []).map((s: { vereador: Vereador; matchScore: number; matchReasons: string[] }) => ({
         vereador: vereadores.find((v: Vereador) => v.id === s.vereador.id) || s.vereador,
         matchScore: s.matchScore,
         matchReasons: s.matchReasons
@@ -101,7 +101,7 @@ export const useCouncilMemberSuggestions = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const referralData: any = {
+      const referralData: Record<string, unknown> = {
         user_id: user.id,
         council_member_id: params.vereador.id,
         council_member_name: params.vereador.name,

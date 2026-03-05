@@ -19,7 +19,7 @@ export const LineSearchInput = ({ onSelectLine, allowCustom = true }: LineSearch
   useEffect(() => {
     const results = searchLines(query);
     setFilteredLines(results);
-  }, [query]);
+  }, [query, searchLines]);
 
   const handleSelect = (line: { id: string; line_code: string; line_name: string }) => {
     onSelectLine(line);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   BarChart,
@@ -34,19 +34,15 @@ interface WidgetRendererProps {
 }
 
 export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadWidgetData();
-  }, [widget]);
-
-  const loadWidgetData = async () => {
+  const loadWidgetData = useCallback(async () => {
     try {
       setLoading(true);
       
       // Fetch data based on dataSource
-      let query = supabase.from(widget.dataSource).select('*');
+      const query = supabase.from(widget.dataSource).select('*');
       
       const { data: fetchedData, error } = await query.limit(10);
       
@@ -62,22 +58,27 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [widget]);
 
-  const processDataForWidget = (rawData: any[], widget: WidgetConfig) => {
+  useEffect(() => {
+    loadWidgetData();
+  }, [loadWidgetData]);
+
+  const processDataForWidget = (rawData: Record<string, unknown>[], widget: WidgetConfig) => {
     switch (widget.type) {
       case 'kpi-card':
         return [{ value: rawData.length, label: widget.title }];
       case 'bar-chart':
       case 'pie-chart':
-      case 'line-chart':
+      case 'line-chart': {
         // Group by dimension and count
-        const grouped = rawData.reduce((acc: any, item: any) => {
-          const key = widget.dimension ? item[widget.dimension] : 'Total';
+        const grouped = rawData.reduce((acc: Record<string, number>, item: Record<string, unknown>) => {
+          const key = String(widget.dimension ? item[widget.dimension] ?? 'Total' : 'Total');
           acc[key] = (acc[key] || 0) + 1;
           return acc;
         }, {});
         return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+      }
       default:
         return rawData;
     }
@@ -126,7 +127,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
 
   const renderChart = () => {
     switch (widget.type) {
-      case 'kpi-card':
+      case 'kpi-card': {
         const icons = [TrendingUp, Users, AlertTriangle, MapPin];
         const IconComponent = icons[Math.floor(Math.random() * icons.length)];
         return (
@@ -137,6 +138,7 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
             subtitle="Dados do painel"
           />
         );
+      }
 
       case 'bar-chart':
         return (

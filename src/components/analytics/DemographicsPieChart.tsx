@@ -81,7 +81,7 @@ export const DemographicsPieChart = ({
           <Legend 
             verticalAlign="bottom" 
             height={36}
-            formatter={(value, entry: any) => (
+            formatter={(value, entry: { payload?: { name?: string; value?: number } }) => (
               <span className="text-sm text-foreground">
                 {entry.payload.label}
               </span>

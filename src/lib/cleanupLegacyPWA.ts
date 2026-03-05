@@ -110,6 +110,7 @@ export const forceNuclearCleanup = async (): Promise<boolean> => {
 
 // Expor para debug via console
 if (typeof window !== 'undefined') {
-  (window as any).forceNuclearCleanup = forceNuclearCleanup;
-  (window as any).logPWADiagnostics = logPWADiagnostics;
+  const w = window as unknown as { forceNuclearCleanup?: typeof forceNuclearCleanup; logPWADiagnostics?: typeof logPWADiagnostics };
+  w.forceNuclearCleanup = forceNuclearCleanup;
+  w.logPWADiagnostics = logPWADiagnostics;
 }

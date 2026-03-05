@@ -2,13 +2,17 @@ import { cn } from "@/lib/utils";
 import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2 } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
+import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
+import { extrairEmailDeMaisInformacoes, normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineLinePicker from "./InlineLinePicker";
@@ -17,6 +21,30 @@ import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
+import NearbyServicesFiltersInline, { type NearbyFiltersValues } from "./NearbyServicesFiltersInline";
+import PromptChips, { CollectionTypePreset } from "./PromptChips";
+import { AudienciaInscricaoInline } from "./AudienciaInscricaoInline";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+/** Valor usado no Select para "qualquer"; Radix Select não aceita value="". */
+const AUDIENCIA_CHAT_ANY = "__any__";
+
+const AUDIENCIA_CHAT_TEMAS = [
+  { id: AUDIENCIA_CHAT_ANY, label: "Qualquer tema" },
+  { id: "Mobilidade", label: "Mobilidade" },
+  { id: "Educação", label: "Educação" },
+  { id: "Saúde", label: "Saúde" },
+  { id: "Meio Ambiente", label: "Meio Ambiente" },
+  { id: "Cultura", label: "Cultura" },
+  { id: "Segurança", label: "Segurança" },
+];
 
 interface ChatMessage {
   id: string;
@@ -75,10 +103,16 @@ interface ChatMessageBubbleProps {
   onTimeSelected?: (time: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
-  onServiceTypeSelected?: (type: string, displayName: string) => void;
+  onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
   onServiceAddressConfirmed?: (confirmed: boolean) => void;
   isLastAssistantMessage?: boolean;
+  /** Envia os filtros atuais para a IA trazer a listagem filtrada (nova mensagem no chat). */
+  onRequestAudienciasWithFilters?: (filters: { tema: string; regiao: string; dateFrom: string; dateTo: string }) => void;
+  /** Aplicar filtros de raio/avaliação/busca no fluxo Perto de você (envia mensagem e re-busca). */
+  onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
+  /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
+  onSendMessage?: (message: string) => void;
 }
 
 const ChatMessageBubble = ({ 
@@ -95,7 +129,12 @@ const ChatMessageBubble = ({
   onServiceTypeSelected,
   onServiceSelected,
   onServiceAddressConfirmed,
-  isLastAssistantMessage = false 
+  isLastAssistantMessage = false,
+  onChipSelect,
+  onOpenDiscovery,
+  onRequestAudienciasWithFilters,
+  onApplyNearbyFilters,
+  onSendMessage,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -109,7 +148,14 @@ const ChatMessageBubble = ({
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
-  
+  const [contentExpanded, setContentExpanded] = useState(false);
+  const [showAudienciaInscricaoInline, setShowAudienciaInscricaoInline] = useState(false);
+  const [showAudienciasFilters, setShowAudienciasFilters] = useState(false);
+  const [audienciaChatTema, setAudienciaChatTema] = useState("");
+  const [audienciaChatRegiao, setAudienciaChatRegiao] = useState("");
+  const [audienciaChatDateFrom, setAudienciaChatDateFrom] = useState("");
+  const [audienciaChatDateTo, setAudienciaChatDateTo] = useState("");
+
   // Detect journey switch prompt marker: [JOURNEY_SWITCH_PROMPT:new_journey:current_journey]
   const journeySwitchMatch = useMemo(() => {
     if (isUser || decisionMade) return null;
@@ -133,14 +179,71 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // If the assistant is talking about audiências/inscrição, show a shortcut CTA to the in-app flow.
+  // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
-    const hasAudienciasContext = content.includes('audiên') || content.includes('audienc');
-    const hasSignupIntent = content.includes('inscri') || content.includes('inscrev') || content.includes('participar');
-    return hasAudienciasContext && hasSignupIntent;
+    const mentionsAudiencias = content.includes('audiên') || content.includes('audienc');
+    const isListingAudiencias =
+      content.includes('próximas audiências') ||
+      content.includes('proximas audiencias') ||
+      content.includes('audiências públicas agendadas') ||
+      content.includes('audiencias publicas agendadas') ||
+      content.includes('quer saber mais sobre alguma ou inscrever-se') ||
+      (content.includes('inscrever-se') && (content.includes('agendadas') || content.includes('próximas')));
+    return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
+
+  // Dados para listagem filtrada no chat (tema, data, região) — query dedicada, ordem ascendente para próximas primeiro.
+  const { data: audienciasData = [] } = useQuery({
+    queryKey: ["audiencias-chat"],
+    queryFn: async () => {
+      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null; convidados: string | null; projeto_referencia: string | null; link_transmissao: string | null; mais_informacoes: string | null }[] = [];
+      let offset = 0;
+      const pageSize = 500;
+      while (true) {
+        const { data, error } = await supabase
+          .from("audiencias")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados, projeto_referencia, link_transmissao, mais_informacoes")
+          .order("data", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        const page = (data || []) as typeof all;
+        all.push(...page);
+        if (page.length < pageSize) break;
+        offset += pageSize;
+      }
+      return all;
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: shouldShowAudienciasCta,
+  });
+
+  const audienciasFiltradasNoChat = useMemo(() => {
+    if (!audienciasData.length) return [];
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const filtered = audienciasData.filter((a) => {
+      const tema = (a.tema || "").toLowerCase();
+      const title = (a.titulo || "").toLowerCase();
+      const desc = (a.descricao || "").toLowerCase();
+      const matchesTheme =
+        !audienciaChatTema ||
+        tema.includes(audienciaChatTema.toLowerCase()) ||
+        title.includes(audienciaChatTema.toLowerCase()) ||
+        desc.includes(audienciaChatTema.toLowerCase());
+      const zona = localParaZona(a.local);
+      const matchesRegion = !audienciaChatRegiao || zona === audienciaChatRegiao;
+      const itemDate = (a.data || "").slice(0, 10);
+      const matchesDate =
+        (!audienciaChatDateFrom && !audienciaChatDateTo) ||
+        (audienciaChatDateFrom && audienciaChatDateTo && itemDate >= audienciaChatDateFrom && itemDate <= audienciaChatDateTo) ||
+        (audienciaChatDateFrom && !audienciaChatDateTo && itemDate >= audienciaChatDateFrom) ||
+        (!audienciaChatDateFrom && audienciaChatDateTo && itemDate <= audienciaChatDateTo);
+      const isUpcoming = a.data >= todayStr;
+      return matchesTheme && matchesRegion && matchesDate && isUpcoming;
+    });
+    return [...filtered].sort((a, b) => (a.data || "").localeCompare(b.data || "")).slice(0, 5);
+  }, [audienciasData, audienciaChatTema, audienciaChatRegiao, audienciaChatDateFrom, audienciaChatDateTo]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -228,13 +331,15 @@ const ChatMessageBubble = ({
     );
   }, [isUser, message.content, serviceTypeSelected, hasServiceTypePicker, isLastAssistantMessage]);
   
-  // Detect service name question
+  // Detect service name question (incl. "Qual CEU você visitou em X? Selecione na lista")
   const isAskingForService = useMemo(() => {
     if (isUser || serviceSelected || hasServicePicker) return false;
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:service_name]') ||
-      (content.includes('qual o nome') && isLastAssistantMessage)
+      (content.includes('qual o nome') && isLastAssistantMessage) ||
+      (content.includes('selecione na lista') && isLastAssistantMessage) ||
+      (/qual\s+(ubs|ceu|hospital|escola)\s+você\s+visitou/i.test(content) && isLastAssistantMessage)
     );
   }, [isUser, message.content, serviceSelected, hasServicePicker, isLastAssistantMessage]);
   
@@ -255,9 +360,45 @@ const ChatMessageBubble = ({
     let text = sanitizeMessageContent(message.content);
     text = text.replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '');
     text = text.replace(/\[LOCATION_METHOD_PICKER\]/g, '');
+    // Garantir que o marcador de chips nunca apareça como texto (defesa em profundidade)
+    text = text.split('[SHOW_SERVICES_CHIPS]').join('').trim();
     return text.trim();
   }, [message.content]);
-  
+
+  const isLongContent = cleanContent.length > 450;
+  const showVerMais = !isUser && isLongContent;
+
+  // Preserva quebra de linha a cada step no "Passo a passo" (Markdown: dois espaços + \n = <br>)
+  const withStepLineBreaks = (text: string): string => {
+    if (text.includes('**Passo a passo:**') && text.includes('•')) return text.replace(/\n/g, '  \n');
+    return text;
+  };
+
+  // Split para colocar Documentos e Convidados acima de "Quer saber mais sobre alguma ou inscrever-se?"
+  const audienciaContentSplit = useMemo(() => {
+    const needle = "Quer saber mais sobre alguma ou inscrever-se?";
+    const idx = cleanContent.indexOf(needle);
+    if (idx < 0) return { contentBefore: cleanContent, contentAfter: null as string | null };
+    return {
+      contentBefore: cleanContent.slice(0, idx).trim(),
+      contentAfter: cleanContent.slice(idx).trim(),
+    };
+  }, [cleanContent]);
+  // Mostrar chips quando o backend enviou o marcador OU quando a mensagem é a resposta "off-topic" (fallback)
+  const hasShowServicesChips = !isUser && (
+    message.content.includes('[SHOW_SERVICES_CHIPS]') ||
+    message.content.includes('o intuito deste canal é poder te ajudar com estes serviços')
+  );
+
+  // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
+  const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
+
+  // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
+  const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
+    message.content.includes('opções mais próximas') ||
+    message.content.includes('Quer que eu calcule a rota')
+  );
+
   const handleAddressSelected = (address: StructuredAddress) => {
     setAddressSelected(true);
     if (onAddressSelected) {
@@ -308,10 +449,10 @@ const ChatMessageBubble = ({
     }
   };
 
-  const handleServiceTypeSelected = (type: string, displayName: string) => {
+  const handleServiceTypeSelected = (type: string, displayName: string, otherSpec?: string) => {
     setServiceTypeSelected(true);
     if (onServiceTypeSelected) {
-      onServiceTypeSelected(type, displayName);
+      onServiceTypeSelected(type, displayName, otherSpec);
     }
   };
   
@@ -335,6 +476,30 @@ const ChatMessageBubble = ({
     const match = message.content.match(/\[SERVICE_ADDRESS_CONFIRM:([^\]]+)\]/);
     return match ? match[1] : null;
   }, [hasServiceAddressConfirm, message.content]);
+
+  // Extract serviceType e district para InlineServicePicker (dropdown pré-preenchido por bairro)
+  const servicePickerContext = useMemo(() => {
+    if (!hasServicePicker) return { serviceType: undefined, district: undefined };
+    let serviceType: string | undefined;
+    let district: string | undefined;
+    const typeInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:type=([^:\]]+)/);
+    if (typeInMarker) {
+      try { serviceType = decodeURIComponent(typeInMarker[1]); } catch { serviceType = typeInMarker[1]; }
+    }
+    if (!serviceType) {
+      const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
+      if (typeMatch) serviceType = typeMatch[1];
+    }
+    const districtInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:district=([^:\]]+)/);
+    if (districtInMarker) {
+      try { district = decodeURIComponent(districtInMarker[1]); } catch { district = districtInMarker[1]; }
+    }
+    if (!district) {
+      const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
+      if (neighMatch) district = neighMatch[1];
+    }
+    return { serviceType, district };
+  }, [hasServicePicker, message.content]);
   
   return (
     <div
@@ -375,52 +540,203 @@ const ChatMessageBubble = ({
           {isUser ? (
             <p className="text-sm whitespace-pre-wrap">{sanitizeMessageContent(message.content)}</p>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
-                  ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
-                  ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
-                  li: ({ children }) => <li className="mb-1">{children}</li>,
-                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                  em: ({ children }) => <em className="italic">{children}</em>,
-                  a: ({ href, children }) => {
-                    // Check if internal link
-                    const isInternal = href?.startsWith('/') && !href?.startsWith('//');
-                    if (isInternal) {
+            <div className="w-full">
+              <div
+                className={cn(
+                  "prose prose-sm dark:prose-invert max-w-none",
+                  showVerMais && !contentExpanded && "line-clamp-6"
+                )}
+              >
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                    ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    a: ({ href, children }) => {
+                      const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                      if (isInternal) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(href || '/');
+                            }}
+                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                          >
+                            {children}
+                          </button>
+                        );
+                      }
                       return (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(href || '/');
-                          }}
-                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                        <a 
+                          href={href} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
                         >
                           {children}
-                        </button>
+                        </a>
                       );
-                    }
-                    return (
-                      <a 
-                        href={href} 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
-                      >
+                    },
+                    code: ({ children }) => (
+                      <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
                         {children}
-                      </a>
-                    );
-                  },
-                  code: ({ children }) => (
-                    <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
-                      {children}
-                    </code>
-                  ),
-                }}
-              >
-                {cleanContent}
-              </ReactMarkdown>
+                      </code>
+                    ),
+                  }}
+                >
+                  {audienciaContentSplit.contentAfter === null
+                    ? withStepLineBreaks(cleanContent)
+                    : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                </ReactMarkdown>
+              </div>
+              {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
+              {audienciaContentSplit.contentAfter !== null && !isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
+                  {audienciasFiltradasNoChat
+                    .filter((a) => a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim() || a.convidados?.trim())
+                    .map((a) => (
+                      <div key={a.id} className="text-sm space-y-2">
+                        {!(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (a.comissao || a.titulo) && (
+                          <p className="font-normal text-muted-foreground text-xs">
+                            {a.comissao || a.titulo}
+                          </p>
+                        )}
+                        {a.convidados?.trim() && (() => {
+                          const textoNorm = normalizarConvidadosParaExibicao(a.convidados);
+                          const itens = textoNorm
+                            .split(/\s*;\s*/)
+                            .map((s) => s.replace(/^\s*-\s*/, "").trim())
+                            .filter(Boolean);
+                          if (itens.length === 0) return null;
+                          return (
+                            <div className="space-y-1 text-muted-foreground">
+                              <p className="font-semibold text-foreground text-xs">Convidados:</p>
+                              <ul className="list-none space-y-0.5 pl-0 text-xs">
+                                {itens.map((item, i) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span className="shrink-0">–</span>
+                                    <span>{item.endsWith(".") ? item : `${item};`}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })()}
+                        {(a.projeto_referencia?.trim() || a.link_transmissao?.trim() || a.mais_informacoes?.trim()) && (
+                          <>
+                            <p className="font-semibold text-foreground flex items-center gap-2">
+                              <FileText className="h-4 w-4 shrink-0 text-primary" />
+                              Documentos e materiais de referência
+                              {(a.comissao || a.titulo) && (
+                                <span className="font-normal text-muted-foreground text-xs">
+                                  — {a.comissao || a.titulo}
+                                </span>
+                              )}
+                            </p>
+                            <div className="space-y-2 text-muted-foreground pl-6">
+                              {a.link_transmissao?.trim() && (
+                                <div className="space-y-0.5">
+                                  <p className="font-medium text-foreground text-xs">Transmissão ao vivo</p>
+                                  <a
+                                    href={a.link_transmissao}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary underline underline-offset-2 text-xs block"
+                                  >
+                                    Acessar link da videoconferência
+                                  </a>
+                                </div>
+                              )}
+                              {a.mais_informacoes?.trim() && (
+                                <div className="space-y-0.5">
+                                  <p className="font-medium text-foreground text-xs">Contato para mais informações</p>
+                                  {(() => {
+                                    const email = extrairEmailDeMaisInformacoes(a.mais_informacoes);
+                                    if (email) {
+                                      return (
+                                        <a
+                                          href={`mailto:${email}`}
+                                          className="text-primary underline underline-offset-2 text-xs block"
+                                        >
+                                          {email}
+                                        </a>
+                                      );
+                                    }
+                                    return (
+                                      <span className="text-xs">
+                                        {a.mais_informacoes.replace(/^Mais\s+informa[cç][oõ]es\s*:\s*/i, "").trim()}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+              {audienciaContentSplit.contentAfter !== null && (
+                <div className={cn("prose prose-sm dark:prose-invert max-w-none", showVerMais && !contentExpanded && "line-clamp-6")}>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      a: ({ href, children }) => {
+                        const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                        if (isInternal) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); navigate(href || '/'); }}
+                              className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
+                        return (
+                          <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium">
+                            {children}
+                          </a>
+                        );
+                      },
+                      code: ({ children }) => <code className="bg-background/50 px-1 py-0.5 rounded text-xs">{children}</code>,
+                    }}
+                  >
+                    {withStepLineBreaks(audienciaContentSplit.contentAfter)}
+                  </ReactMarkdown>
+                </div>
+              )}
+              {showVerMais && (
+                <button
+                  type="button"
+                  onClick={() => setContentExpanded((v) => !v)}
+                  className="mt-2 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1"
+                >
+                  {contentExpanded ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      Ver menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      Ver mais
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -480,7 +796,11 @@ const ChatMessageBubble = ({
         
         {/* Inline Service Picker */}
         {(hasServicePicker || isAskingForService) && !serviceSelected && isLastAssistantMessage && (
-          <InlineServicePicker onSelect={handleServiceSelected} />
+          <InlineServicePicker
+            serviceType={servicePickerContext.serviceType}
+            district={servicePickerContext.district}
+            onSelect={handleServiceSelected}
+          />
         )}
         
         {/* Inline Service Address Confirm */}
@@ -490,7 +810,32 @@ const ChatMessageBubble = ({
             onConfirm={handleServiceAddressConfirmed}
           />
         )}
+
+        {/* Filtros Perto de você: raio, avaliação mínima, busca por nome/endereço/bairro */}
+        {shouldShowNearbyFilters && (
+          <NearbyServicesFiltersInline
+            defaultRadius={2000}
+            defaultMinRating="all"
+            defaultSearchQuery=""
+            onApply={onApplyNearbyFilters}
+          />
+        )}
         
+        {/* Botão Encaminhar para vereador (após relato registrado) */}
+        {hasEncaminharVereadorCta && onSendMessage && (
+          <div className="mt-3 w-full max-w-[280px]">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => onSendMessage('Quero encaminhar meu relato para um vereador')}
+              className="w-full justify-between min-h-[40px]"
+            >
+              <span className="truncate flex-1 text-left">Encaminhar para vereador</span>
+              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
+            </Button>
+          </div>
+        )}
+
         {/* Journey Switch Confirmation Buttons */}
         {journeySwitchMatch && isLastAssistantMessage && !decisionMade && (
           <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
@@ -515,18 +860,139 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Audiencias CTA */}
+        {/* Audiências: os 3 botões sempre visíveis (ordem: Inscrever-se, Abrir, Buscar outras); "Buscar outras" abre o bloco de filtros */}
         {shouldShowAudienciasCta && (
-          <div className="mt-3 flex flex-col gap-2 w-full max-w-[280px]">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => navigate('/audiencias')}
-              className="w-full justify-between min-h-[40px]"
-            >
-              <span className="truncate flex-1 text-left">Abrir Audiências</span>
-              <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
-            </Button>
+          <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
+                className="w-full justify-center min-h-[40px]"
+              >
+                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (audienciaChatTema) params.set("themes", audienciaChatTema);
+                  if (audienciaChatRegiao) params.set("regions", audienciaChatRegiao);
+                  if (audienciaChatDateFrom) params.set("dateFrom", audienciaChatDateFrom);
+                  if (audienciaChatDateTo) params.set("dateTo", audienciaChatDateTo);
+                  const qs = params.toString();
+                  navigate(qs ? `/audiencias?${qs}` : "/audiencias");
+                }}
+                className="w-full justify-between min-h-[40px]"
+              >
+                <span className="truncate flex-1 text-left">Abrir Audiências</span>
+                <ArrowRight className="h-4 w-4 ml-2 flex-shrink-0" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-center min-h-[40px]"
+                onClick={() => setShowAudienciasFilters((v) => !v)}
+              >
+                {showAudienciasFilters ? "Ocultar filtros" : "Buscar outras audiências públicas"}
+              </Button>
+            </div>
+            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+
+            {showAudienciasFilters && (
+              <>
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+              <p className="text-sm font-semibold text-foreground">Listagem de audiências públicas</p>
+              <p className="text-xs text-muted-foreground">Filtros por tema, data e região</p>
+              <div className="grid grid-cols-1 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Tema</Label>
+                  <Select
+                    value={audienciaChatTema || AUDIENCIA_CHAT_ANY}
+                    onValueChange={(v) => setAudienciaChatTema(v === AUDIENCIA_CHAT_ANY ? "" : v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Qualquer tema" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUDIENCIA_CHAT_TEMAS.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Região</Label>
+                  <Select
+                    value={audienciaChatRegiao || AUDIENCIA_CHAT_ANY}
+                    onValueChange={(v) => setAudienciaChatRegiao(v === AUDIENCIA_CHAT_ANY ? "" : v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Qualquer região" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={AUDIENCIA_CHAT_ANY}>Qualquer região</SelectItem>
+                      {ZONAS_SAO_PAULO.map((z) => (
+                        <SelectItem key={z} value={z}>
+                          {z}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">De</Label>
+                    <input
+                      type="date"
+                      value={audienciaChatDateFrom}
+                      onChange={(e) => setAudienciaChatDateFrom(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Até</Label>
+                    <input
+                      type="date"
+                      value={audienciaChatDateTo}
+                      onChange={(e) => setAudienciaChatDateTo(e.target.value)}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                    />
+                  </div>
+                </div>
+                {onRequestAudienciasWithFilters && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="w-full h-8 text-xs"
+                    onClick={() =>
+                      onRequestAudienciasWithFilters({
+                        tema: audienciaChatTema,
+                        regiao: audienciaChatRegiao,
+                        dateFrom: audienciaChatDateFrom,
+                        dateTo: audienciaChatDateTo,
+                      })
+                    }
+                  >
+                    Trazer audiências filtradas (perguntar à IA)
+                  </Button>
+                )}
+              </div>
+            </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Serviços (ex.: após mensagem off-topic) */}
+        {hasShowServicesChips && onChipSelect && (
+          <div className="mt-3 w-full">
+            <PromptChips onSelect={onChipSelect} onOpenDiscovery={onOpenDiscovery} />
           </div>
         )}
         

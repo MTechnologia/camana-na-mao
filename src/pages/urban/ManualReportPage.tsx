@@ -40,14 +40,14 @@ const getN8NSettings = async () => {
 };
 
 // Enviar para processamento automático em background
-const sendToN8N = async (reportData: any) => {
+const sendToN8N = async (reportData: Record<string, unknown>) => {
   try {
     const settings = await getN8NSettings();
     if (!settings || !settings.webhook_url) return;
 
     // Verificar se o evento urban_report_created está habilitado
-    const events = (settings.enabled_events as any[]) || [];
-    const isEnabled = events.find((e: any) => e.key === 'urban_report_created')?.enabled;
+    const events = (settings.enabled_events as Array<{ key?: string; enabled?: boolean }>) || [];
+    const isEnabled = events.find((e) => e.key === 'urban_report_created')?.enabled;
     if (!isEnabled) return;
 
     // Enviar para N8N via edge function
@@ -80,8 +80,9 @@ export default function ManualReportPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const isSupported = typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const isInApp = typeof window !== 'undefined' && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+  const isSupported = typeof window !== 'undefined' && !isInApp && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
   const [formData, setFormData] = useState(() => {
     // Carregar draft do sessionStorage na inicialização
     try {
@@ -89,7 +90,7 @@ export default function ManualReportPage() {
       if (saved) {
         return JSON.parse(saved);
       }
-    } catch {}
+    } catch { /* ignore parse errors for draft */ }
     return {
       category: "",
       title: "",
@@ -111,13 +112,14 @@ export default function ManualReportPage() {
   // Initialize Web Speech API
   useEffect(() => {
     if (isSupported) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const w = window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition; SpeechRecognition?: new () => SpeechRecognition };
+      const SpeechRecognition = w.webkitSpeechRecognition ?? w.SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.lang = 'pt-BR';
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
 
-      recognitionRef.current.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         setFormData(prev => ({
           ...prev,
@@ -358,6 +360,7 @@ export default function ManualReportPage() {
                     className="absolute right-2 bottom-2"
                     onClick={handleVoiceInput}
                     disabled={!isSupported}
+                    title="Ditar por voz"
                   >
                     {isRecording ? (
                       <MicOff className="w-5 h-5 text-destructive" />

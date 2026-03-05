@@ -74,12 +74,12 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[delete-own-account] Unexpected error:', error);
     return new Response(
       JSON.stringify({ 
         error: 'Erro interno do servidor', 
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Erro desconhecido' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

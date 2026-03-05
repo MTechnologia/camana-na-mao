@@ -2,11 +2,13 @@ import { useNavigate } from "react-router-dom";
 import { 
   X, 
   Calendar, 
+  Mic2,
   Users, 
   Building2, 
   BookOpen, 
   GraduationCap, 
   Newspaper,
+  LayoutList,
   BarChart3,
   FileText,
   Shield,
@@ -14,6 +16,7 @@ import {
   Lock,
   User,
   MessageSquare,
+  MapPin,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -65,6 +68,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: MessageSquare,
       route: "/conversas"
     },
+    { 
+      id: 2.2, 
+      label: "Perto de Você", 
+      icon: MapPin,
+      route: "/servicos-proximos"
+    },
     ...(canReferToCouncilMember ? [{
       id: 2.5,
       label: "Relatos",
@@ -89,30 +98,42 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
     },
     { 
       id: 2, 
+      label: "Audiências Públicas", 
+      icon: Mic2,
+      route: "/audiencias"
+    },
+    { 
+      id: 3, 
       label: "Vereadores", 
       icon: Users,
       route: "/institucional/vereadores"
     },
     { 
-      id: 3, 
+      id: 4, 
       label: "Conheça a Câmara", 
       icon: Building2,
       route: "/institucional/conheca-camara"
     },
     { 
-      id: 4, 
+      id: 5, 
+      label: "Comissões", 
+      icon: LayoutList,
+      route: "/institucional/comissoes"
+    },
+    { 
+      id: 6, 
       label: "Câmara Explica", 
       icon: BookOpen,
       route: "/institucional/camara-explica"
     },
     { 
-      id: 5, 
+      id: 7, 
       label: "Escola do Parlamento", 
       icon: GraduationCap,
       route: "/institucional/escola-parlamento"
     },
     { 
-      id: 6, 
+      id: 8, 
       label: "Notícias", 
       icon: Newspaper,
       route: "/institucional/noticias"

@@ -1,51 +1,105 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, Users, Loader2 } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Search, Filter, Calendar, Users, Loader2, ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AudienciaFilters from "@/components/audiencias/AudienciaFilters";
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { tituloCardAudiencia, explicacaoSimplificadaParaCard } from "@/lib/audienciaDisplay";
+import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 
 type AudienciaRow = {
   id: string;
   titulo: string;
   descricao: string | null;
   data: string;
-  hora: string;
+  hora: string | null;
   local: string;
   tema: string;
   status: string;
+  comissao: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
+  link_transmissao: string | null;
+  projeto_referencia: string | null;
 };
 
 const Audiencias = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     themes: [] as string[],
+    regions: [] as string[],
     status: "all",
-    period: "all",
+    dateFrom: "",
+    dateTo: "",
+    year: "all",
   });
+  const [initializedFromUrl, setInitializedFromUrl] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+
+  // Inicializar filtros a partir da URL (ex.: vindo do chat com ?themes=Saúde&dateFrom=...&regions=Zona Sul)
+  useEffect(() => {
+    if (initializedFromUrl) return;
+    const themesParam = searchParams.get("themes");
+    const regionsParam = searchParams.get("regions");
+    const dateFrom = searchParams.get("dateFrom") ?? "";
+    const dateTo = searchParams.get("dateTo") ?? "";
+    const themes = themesParam ? themesParam.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    const regions = regionsParam ? regionsParam.split(",").map((r) => decodeURIComponent(r.trim())).filter(Boolean) : [];
+    if (themes.length || regions.length || dateFrom || dateTo) {
+      setFilters((prev) => ({
+        ...prev,
+        themes: themes.length ? themes : prev.themes,
+        regions: regions.length ? regions : prev.regions,
+        dateFrom: dateFrom || prev.dateFrom,
+        dateTo: dateTo || prev.dateTo,
+      }));
+      setShowFilters(true);
+    }
+    setInitializedFromUrl(true);
+  }, [searchParams, initializedFromUrl]);
+
+  const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
   const { data: audienciasData = [], isLoading, error, refetch } = useQuery({
     queryKey: ["audiencias"],
     queryFn: async (): Promise<AudienciaRow[]> => {
-      const { data, error } = await supabase
-        .from("audiencias")
-        .select("id, titulo, descricao, data, hora, local, tema, status, vagas_disponiveis, inscricoes_abertas")
-        .order("data", { ascending: false });
+      const pageSize = 1000;
+      const all: AudienciaRow[] = [];
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("audiencias")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, vagas_disponiveis, inscricoes_abertas, link_transmissao, projeto_referencia")
+          .order("data", { ascending: false })
+          .range(offset, offset + pageSize - 1);
 
-      if (error) throw error;
-      return (data || []) as AudienciaRow[];
+        if (error) throw error;
+        const page = (data || []) as AudienciaRow[];
+        all.push(...page);
+        hasMore = page.length === pageSize;
+        offset += pageSize;
+      }
+      return all;
     },
     staleTime: 5 * 60 * 1000,
     retry: 2,
@@ -53,6 +107,11 @@ const Audiencias = () => {
 
   const formatDate = (dateStr: string) => {
     try {
+      const iso = typeof dateStr === "string" ? dateStr.slice(0, 10) : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-").map(Number);
+        return format(new Date(y, m - 1, d), "dd/MM/yyyy");
+      }
       const date = parseISO(dateStr);
       return format(date, "dd/MM/yyyy");
     } catch {
@@ -62,6 +121,11 @@ const Audiencias = () => {
 
   const formatLongDate = (dateStr: string) => {
     try {
+      const iso = typeof dateStr === "string" ? dateStr.slice(0, 10) : "";
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-").map(Number);
+        return format(new Date(y, m - 1, d), "EEEE, d 'de' MMMM", { locale: ptBR });
+      }
       const date = parseISO(dateStr);
       return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
     } catch {
@@ -69,30 +133,48 @@ const Audiencias = () => {
     }
   };
 
+  const formatTime = (timeStr: string | null | undefined) => {
+    if (timeStr == null || typeof timeStr !== "string") return "";
+    const trimmed = timeStr.trim();
+    if (!trimmed) return "";
+    const parts = trimmed.split(":").map((s) => parseInt(s, 10));
+    const h = Number.isNaN(parts[0]) ? 0 : Math.min(23, Math.max(0, parts[0]));
+    const m = Number.isNaN(parts[1]) ? 0 : Math.min(59, Math.max(0, parts[1]));
+    return `${String(h).padStart(2, "0")}h${String(m).padStart(2, "0")}`;
+  };
+
+  const availableRegions = useMemo(() => [...ZONAS_SAO_PAULO], []);
+
   const filteredAudiencias = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
-
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
-    const nextMonthStart = startOfMonth(addMonths(now, 1));
-    const nextMonthEnd = endOfMonth(addMonths(now, 1));
 
     return audienciasData.filter((a) => {
       const title = (a.titulo || "").toLowerCase();
       const desc = (a.descricao || "").toLowerCase();
       const tema = (a.tema || "").toLowerCase();
       const status = (a.status || "").toLowerCase();
+      const local = (a.local || "").trim();
       const q = searchQuery.toLowerCase().trim();
 
       // Search filter
       const matchesSearch =
         !q || title.includes(q) || desc.includes(q) || tema.includes(q) || status.includes(q);
 
-      // Theme filter
-      const matchesTheme = filters.themes.length === 0 || filters.themes.includes(a.tema);
+      // Theme filter: match when selected theme appears in tema, título or descrição (case insensitive)
+      const matchesTheme =
+        filters.themes.length === 0 ||
+        filters.themes.some(
+          (selected) =>
+            tema.includes(selected.toLowerCase()) ||
+            title.includes(selected.toLowerCase()) ||
+            desc.includes(selected.toLowerCase())
+        );
+
+      // Region filter: match by zona de São Paulo (derivada do local do auditório)
+      const zona = localParaZona(local);
+      const matchesRegion =
+        filters.regions.length === 0 || filters.regions.includes(zona);
 
       // Status filter (heuristic + date fallback)
       const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
@@ -105,17 +187,59 @@ const Audiencias = () => {
         (filters.status === "ongoing" && isOngoing) ||
         (filters.status === "upcoming" && isUpcoming);
 
-      // Period filter
-      const dateObj = new Date(a.data);
-      const matchesPeriod =
-        filters.period === "all" ||
-        (filters.period === "week" && dateObj >= weekStart && dateObj <= weekEnd) ||
-        (filters.period === "month" && dateObj >= monthStart && dateObj <= monthEnd) ||
-        (filters.period === "next-month" && dateObj >= nextMonthStart && dateObj <= nextMonthEnd);
+      // Date range filter (data inicial / data final)
+      const itemDate = (a.data || "").slice(0, 10);
+      const matchesDateRange =
+        (!filters.dateFrom && !filters.dateTo) ||
+        (filters.dateFrom && filters.dateTo && itemDate >= filters.dateFrom && itemDate <= filters.dateTo) ||
+        (filters.dateFrom && !filters.dateTo && itemDate >= filters.dateFrom) ||
+        (!filters.dateFrom && filters.dateTo && itemDate <= filters.dateTo);
 
-      return matchesSearch && matchesTheme && matchesStatus && matchesPeriod;
+      // Year filter
+      const itemYear = a.data ? String(a.data).slice(0, 4) : "";
+      const matchesYear =
+        filters.year === "all" || itemYear === filters.year;
+
+      return matchesSearch && matchesTheme && matchesRegion && matchesStatus && matchesDateRange && matchesYear;
     });
   }, [audienciasData, searchQuery, filters]);
+
+  // Contagem de "próximas": apenas audiências não encerradas (data >= hoje e status não encerrada)
+  const countProximas = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    return audienciasData.filter((a) => {
+      const status = (a.status || "").toLowerCase();
+      const isFinished = a.data < todayStr || status.includes("encerr") || status.includes("final");
+      return !isFinished;
+    }).length;
+  }, [audienciasData]);
+
+  const totalFiltered = filteredAudiencias.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / itemsPerPage));
+  const paginatedAudiencias = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAudiencias.slice(start, start + itemsPerPage);
+  }, [filteredAudiencias, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters, itemsPerPage]);
+
+  const startItem = totalFiltered === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalFiltered);
+
+  const paginationItems = useMemo((): (number | "ellipsis")[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = new Set<number>([1, totalPages, currentPage, currentPage - 1, currentPage - 2, currentPage + 1, currentPage + 2]);
+    const sorted = Array.from(pages).filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+    const result: (number | "ellipsis")[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) result.push("ellipsis");
+      result.push(sorted[i]!);
+    }
+    return result;
+  }, [currentPage, totalPages]);
 
   const handleCardClick = (item: AudienciaRow) => {
     navigate(`/audiencias/${item.id}`);
@@ -123,8 +247,10 @@ const Audiencias = () => {
 
   const activeFiltersCount =
     filters.themes.length +
+    filters.regions.length +
     (filters.status !== "all" ? 1 : 0) +
-    (filters.period !== "all" ? 1 : 0);
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
+    (filters.year !== "all" ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -149,6 +275,7 @@ const Audiencias = () => {
               size="icon"
               onClick={() => setShowFilters(true)}
               className="relative"
+              aria-label="Filtros"
             >
               <Filter className="h-4 w-4" />
               {activeFiltersCount > 0 && (
@@ -171,7 +298,7 @@ const Audiencias = () => {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {isLoading ? "-" : filteredAudiencias.length}
+                    {isLoading ? "-" : countProximas}
                   </p>
                   <p className="text-xs text-muted-foreground">Próximos</p>
                 </div>
@@ -232,19 +359,86 @@ const Audiencias = () => {
             </Card>
           )}
 
+          {/* Pagination bar: per-page selector + info + controls */}
+          {!isLoading && !error && filteredAudiencias.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Mostrar por página</span>
+                <Select
+                  value={String(itemsPerPage)}
+                  onValueChange={(v) => setItemsPerPage(Number(v) as 25 | 50 | 100)}
+                >
+                  <SelectTrigger className="w-[90px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">
+                  {startItem}-{endItem} de {totalFiltered}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {paginationItems.map((item, i) =>
+                    item === "ellipsis" ? (
+                      <span key={`ellipsis-${i}`} className="px-2 text-sm text-muted-foreground">
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={item}
+                        variant={currentPage === item ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 min-w-9 px-2"
+                        onClick={() => setCurrentPage(item)}
+                      >
+                        {item}
+                      </Button>
+                    )
+                  )}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Audiências List */}
           {!isLoading && !error && (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredAudiencias.length > 0 ? (
-                filteredAudiencias.map((item, index) => {
+                paginatedAudiencias.map((item, index) => {
                   return (
                     <div
                       key={item.id}
                       className="animate-fade-in"
-                      style={{ animationDelay: `${100 + index * 50}ms` }}
+                      style={{ animationDelay: `${100 + index * 30}ms` }}
                     >
                       <Card 
                         className="p-4 hover:shadow-md transition-all cursor-pointer h-full"
+                        data-testid="audiencia-card"
                         onClick={() => handleCardClick(item)}
                       >
                         <div className="space-y-3">
@@ -255,20 +449,36 @@ const Audiencias = () => {
                             Audiência
                           </Badge>
                           
-                          <h3 className="font-semibold text-foreground line-clamp-2">
-                            {item.titulo}
+                          <h3 className="font-semibold text-foreground line-clamp-4 min-h-[2.5rem]">
+                            {tituloCardAudiencia(item.comissao, item.titulo, item.descricao, item.tema)}
                           </h3>
-                          
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {item.descricao || `Audiência pública sobre ${item.tema}`}
-                          </p>
+
+                          <div className="mt-3 space-y-1">
+                            <p className="text-xs font-semibold text-foreground">
+                              Explicação simplificada do que será discutido
+                            </p>
+                            <p className="text-sm text-muted-foreground line-clamp-3">
+                              {explicacaoSimplificadaParaCard(item.descricao, item.tema)}
+                            </p>
+                          </div>
+
+                          {(item.link_transmissao?.trim() || item.projeto_referencia?.trim()) && (
+                            <p className="text-xs text-primary flex items-center gap-1">
+                              <FileText className="h-3.5 w-3.5 shrink-0" />
+                              Documentos e materiais de referência na página
+                            </p>
+                          )}
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2 border-t">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
                               <span className="capitalize">{formatDate(item.data)}</span>
                             </div>
-                            {item.hora && <span>{item.hora.slice(0, 5)}</span>}
+                            {item.hora ? (
+                              <span>{formatTime(item.hora)}</span>
+                            ) : (
+                              <span className="text-muted-foreground/80">Horário a definir</span>
+                            )}
                           </div>
                           
                           <p className="text-xs text-muted-foreground truncate">
@@ -310,6 +520,7 @@ const Audiencias = () => {
         onOpenChange={setShowFilters}
         filters={filters}
         onFiltersChange={setFilters}
+        availableRegions={availableRegions}
       />
     </div>
   );

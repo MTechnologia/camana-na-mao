@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -21,16 +21,7 @@ export const useProfileCompletion = () => {
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    checkCompletion();
-  }, [user]);
-
-  const checkCompletion = async () => {
+  const checkCompletion = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -90,7 +81,15 @@ export const useProfileCompletion = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    checkCompletion();
+  }, [user, checkCompletion]);
 
   const markStepCompleted = async (step: string) => {
     if (!user) return;

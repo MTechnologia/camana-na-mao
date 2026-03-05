@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import InstitutionalLayout from "@/components/institucional/InstitutionalLayout";
-import { Search, MapPin, Phone, Mail, X, Users, Loader2 } from "lucide-react";
+import { Search, MapPin, Phone, Mail, X, Users, Loader2, Briefcase } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,7 +39,8 @@ const Vereadores = () => {
       const matchesSearch = searchQuery === "" ||
         v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         v.party.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (v.region && v.region.toLowerCase().includes(searchQuery.toLowerCase()));
+        (v.region && v.region.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (v.areasDeAtuacao?.some((a) => a.toLowerCase().includes(searchQuery.toLowerCase())));
 
       const matchesParty = selectedParty === "all" || v.party === selectedParty;
 
@@ -199,6 +200,16 @@ const Vereadores = () => {
                         <div className="flex items-center gap-2">
                           <MapPin className="h-3.5 w-3.5" />
                           <span>{vereador.region}</span>
+                        </div>
+                      )}
+                      {vereador.areasDeAtuacao && vereador.areasDeAtuacao.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Briefcase className="h-3.5 w-3.5 shrink-0" />
+                          <span className="line-clamp-2">
+                            {vereador.areasDeAtuacao.length === 1
+                              ? vereador.areasDeAtuacao[0]
+                              : `${vereador.areasDeAtuacao.length} comissões/áreas`}
+                          </span>
                         </div>
                       )}
                       <div className="flex items-center gap-2">

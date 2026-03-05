@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ImpactFilters {
@@ -42,7 +42,7 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
   // Serializar filters para comparação estável
   const filtersKey = JSON.stringify(filters);
 
-  const fetchImpactAnalytics = async (isMounted: boolean) => {
+  const fetchImpactAnalytics = useCallback(async (isMounted: boolean) => {
     try {
       setIsLoading(true);
 
@@ -211,13 +211,15 @@ export const useImpactAnalytics = (filters: ImpactFilters = {}) => {
         setIsLoading(false);
       }
     }
-  };
+  // filtersKey captures filters; listing filters.category etc. would be redundant
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersKey]);
 
   useEffect(() => {
     let isMounted = true;
     fetchImpactAnalytics(isMounted);
     return () => { isMounted = false; };
-  }, [filtersKey]);
+  }, [filtersKey, fetchImpactAnalytics]);
 
   return { stats, isLoading, refresh: () => fetchImpactAnalytics(true) };
 };

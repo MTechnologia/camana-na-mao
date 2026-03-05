@@ -36,6 +36,7 @@ export const RatingStars = ({
           <button
             key={index}
             type="button"
+            data-star={index + 1}
             onClick={() => handleClick(index)}
             disabled={readonly}
             className={cn(

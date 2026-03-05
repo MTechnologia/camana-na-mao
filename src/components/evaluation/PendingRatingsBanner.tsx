@@ -4,6 +4,7 @@ import { Star, X } from "lucide-react";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { getServiceDisplayName } from "@/lib/mapUtils";
 
 export const PendingRatingsBanner = () => {
   const { pendingRatings, loading, markAsSkipped } = usePendingRatings();
@@ -44,7 +45,12 @@ export const PendingRatingsBanner = () => {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm text-foreground truncate">
-                          {rating.service.name}
+                          {getServiceDisplayName({
+                            name: rating.service.name,
+                            address: rating.service.address,
+                            district: rating.service.district,
+                            service_type: rating.service.service_type,
+                          })}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {rating.service.district}

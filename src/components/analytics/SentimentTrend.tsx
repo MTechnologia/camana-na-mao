@@ -107,7 +107,7 @@ export const SentimentTrend = ({ data, comparisonData, onPointClick }: Sentiment
                     <p className="font-medium text-foreground mb-2">
                       {payload[0].payload.date}
                     </p>
-                    {payload.map((entry: any) => (
+                    {payload.map((entry: { name?: string; value?: number; color?: string }) => (
                       <div key={entry.name} className="flex items-center justify-between gap-4 text-sm">
                         <span className="text-muted-foreground">{entry.name}:</span>
                         <span className="font-medium" style={{ color: entry.color }}>

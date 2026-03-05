@@ -49,7 +49,7 @@ serve(async (req) => {
     console.log(`[export-user-data] Exporting data for user: ${user.id}`);
 
     // Collect all user data
-    const exportData: any = {
+    const exportData: Record<string, unknown> = {
       metadata: {
         export_date: new Date().toISOString(),
         user_id: user.id,
@@ -352,12 +352,12 @@ serve(async (req) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[export-user-data] Error:', error);
     return new Response(
       JSON.stringify({ 
         error: 'Erro ao exportar dados', 
-        details: error.message 
+        details: error instanceof Error ? error.message : 'Erro desconhecido' 
       }),
       { 
         status: 500, 

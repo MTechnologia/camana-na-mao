@@ -1,8 +1,65 @@
+/** Nome legível para exibição. Se o nome no banco for ID técnico (ex.: ponto_onibus.fid--...), usa "Ponto de ônibus" + endereço/bairro. */
+export const getServiceDisplayName = (params: {
+  name: string;
+  address?: string;
+  district?: string;
+  service_type?: string;
+}): string => {
+  const { name, address, district } = params;
+  const isTechnicalId = /ponto_onibus\.fid--|\.fid--[a-f0-9_]+$/i.test(name?.trim() ?? "") ||
+    (name?.startsWith("Ponto de Onibus ") && name.includes("fid--"));
+  if (isTechnicalId) {
+    const addr = (address ?? "").trim();
+    const addrOk = addr && !/endere[cç]o\s*n[aã]o\s*informado/i.test(addr);
+    const suffix = [addrOk ? addr : null, district?.trim()].filter(Boolean)[0];
+    return suffix ? `Ponto de ônibus – ${suffix}` : "Ponto de ônibus";
+  }
+  return name?.trim() || "Serviço";
+};
+
+/** Extrai texto de opening_hours (JSONB: { text } ou string, inclusive JSON stringificado). Retorna null se vazio. */
+export const getOpeningHoursText = (openingHours: unknown): string | null => {
+  if (openingHours == null) return null;
+  if (typeof openingHours === "string") {
+    const s = openingHours.trim();
+    if (!s) return null;
+    // JSON stringificado pelo backend/CSV: {"text":"..."}
+    if (s.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(s) as { text?: string };
+        const t = parsed?.text;
+        return typeof t === "string" && t.trim() ? t.trim() : null;
+      } catch {
+        return s; // não é JSON válido, usa como texto
+      }
+    }
+    return s;
+  }
+  const text = (openingHours as { text?: string })?.text;
+  return typeof text === "string" && text.trim() ? text.trim() : null;
+};
+
+/** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */
+export const getAddressDisplay = (address: string | undefined | null, district?: string | undefined | null): string => {
+  const addr = (address ?? "").trim();
+  const isMissing = !addr || /endere[cç]o\s*n[aã]o\s*informado/i.test(addr);
+  if (isMissing) {
+    return district?.trim() ? `Localização no mapa · ${district}` : "Localização disponível no mapa";
+  }
+  return district?.trim() ? `${addr}, ${district}` : addr;
+};
+
 export const formatDistance = (meters: number): string => {
   if (meters < 1000) {
     return `${Math.round(meters)}m`;
   }
   return `${(meters / 1000).toFixed(1)}km`;
+};
+
+/** Formata distância em linha reta e deixa explícito para o usuário (evita confusão com distância da rota no Maps). */
+export const formatDistanceStraightLine = (meters: number): string => {
+  const value = formatDistance(meters);
+  return `${value} (em linha reta)`;
 };
 
 export const formatDuration = (seconds: number): string => {

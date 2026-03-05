@@ -34,6 +34,21 @@ const serviceTypeLabels: Record<string, string> = {
   ceu: 'CEU',
   library: 'Biblioteca',
   sports_center: 'Centro Esportivo',
+  street_market: 'Feira',
+  community_center: 'Centro Comunitário',
+  daycare: 'Creche',
+  park: 'Parque',
+  social_assistance: 'Assistência Social',
+  police_station: 'Delegacia',
+  transit_station: 'Transporte',
+  market: 'Mercado',
+  city_market: 'Mercado Municipal',
+  theater: 'Teatro/Cinema',
+  museum: 'Museu',
+  cemetery: 'Cemitério',
+  accessibility: 'Acessibilidade',
+  recycling_point: 'Reciclagem/Limpeza',
+  fire_station: 'Bombeiros',
   other: 'Outro'
 };
 
@@ -64,6 +79,7 @@ export default function RatingsHistoryPage() {
     if (user) {
       loadRatings();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRatings runs when user changes
   }, [user]);
 
   const loadRatings = async () => {
@@ -91,7 +107,7 @@ export default function RatingsHistoryPage() {
 
       if (error) throw error;
 
-      setRatings((data as any) || []);
+      setRatings((data as Rating[]) || []);
     } catch (err) {
       console.error('Error loading ratings:', err);
     } finally {

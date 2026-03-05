@@ -36,36 +36,59 @@ const Profile = () => {
     phone: "",
     avatarUrl: null as string | null,
   });
+  const [primaryAddress, setPrimaryAddress] = useState<{
+    street?: string;
+    number?: string;
+    complement?: string | null;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (user) {
       loadProfile();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadProfile runs when user changes
   }, [user]);
 
   const loadProfile = async () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      const [profileRes, addressRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('user_addresses')
+          .select('street, number, complement, neighborhood, city, state, zip_code')
+          .eq('user_id', user.id)
+          .eq('is_primary', true)
+          .maybeSingle(),
+      ]);
 
-      if (error) {
-        console.error("Error loading profile:", error);
-        throw error;
+      if (profileRes.error) {
+        console.error("Error loading profile:", profileRes.error);
+        throw profileRes.error;
       }
-
-      if (data) {
+      if (profileRes.data) {
         setProfile({
-          fullName: data.full_name || "",
-          phone: data.phone || "",
-          avatarUrl: data.avatar_url,
+          fullName: profileRes.data.full_name || "",
+          phone: profileRes.data.phone || "",
+          avatarUrl: profileRes.data.avatar_url,
         });
       }
-    } catch (error: any) {
+
+      if (!addressRes.error && addressRes.data) {
+        setPrimaryAddress(addressRes.data);
+      } else {
+        setPrimaryAddress(null);
+      }
+    } catch (error: unknown) {
       console.error("Error loading profile:", error);
     }
   };
@@ -121,7 +144,7 @@ const Profile = () => {
       setProfile(prev => ({ ...prev, avatarUrl }));
       checkCompletion();
       toast.success("Foto atualizada com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error uploading avatar:", error);
       toast.error("Erro ao atualizar foto");
     } finally {
@@ -143,11 +166,17 @@ const Profile = () => {
     }
   };
 
+  const addressDescription = primaryAddress
+    ? [primaryAddress.street, primaryAddress.number, primaryAddress.complement, primaryAddress.neighborhood]
+        .filter(Boolean)
+        .join(" · ") || "CEP, rua e complemento"
+    : "CEP, rua e complemento";
+
   const dataCards = [
     {
       id: 'address',
       title: 'Endereço',
-      description: 'CEP, rua e complemento',
+      description: addressDescription,
       icon: MapPin,
       iconColor: 'text-emerald-600',
       iconBg: 'bg-emerald-100',

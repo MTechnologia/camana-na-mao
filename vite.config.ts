@@ -11,11 +11,36 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5173,
-    hmr: {
-      // Melhorar resiliência do WebSocket em ambientes Docker
-      clientPort: 8080, // Porta exposta no host (não a do container)
-      protocol: 'ws',
+    proxy: {
+      // GeoSampa WFS não envia CORS; em dev usamos proxy para contornar
+      "/geosampa-wfs": {
+        target: "https://wfs.geosampa.prefeitura.sp.gov.br",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/geosampa-wfs/, ""),
+      },
+      // WMS (imageamento/fotos aéreas) – mesmo motivo
+      "/geosampa-wms": {
+        target: "https://wms.geosampa.prefeitura.sp.gov.br",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/geosampa-wms/, ""),
+      },
+      // WMS raster (Articulação de Imagens: ortofotos 2020, 2017, Orto_MDC, etc.)
+      "/geosampa-raster-wms": {
+        target: "https://raster.geosampa.prefeitura.sp.gov.br",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/geosampa-raster-wms/, ""),
+      },
     },
+    hmr: process.env.VITE_HMR_CLIENT_PORT
+      ? {
+          // Em Docker: host expõe 8080→5173, cliente deve conectar na 8080
+          clientPort: parseInt(process.env.VITE_HMR_CLIENT_PORT, 10),
+          protocol: "ws",
+        }
+      : true, // Localmente: usa a mesma porta do servidor (5173)
     watch: {
       // Evitar problemas com volumes montados no Docker
       usePolling: false,

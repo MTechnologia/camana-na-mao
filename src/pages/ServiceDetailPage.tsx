@@ -7,26 +7,60 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Clock, Star, Bell, MapPin } from "lucide-react";
+import { Phone, Clock, Star, Bell, MapPin, Info } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
+import { getAddressDisplay } from "@/lib/mapUtils";
+
+/** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
+function sanitizeServicesOfferedHtml(html: string): string {
+  return html.replace(
+    /<(?!\/?(?:strong|p|br)\s*\/?\s*>)\/?\w+[^>]*>/gi,
+    ""
+  );
+}
+
+/** Horário padrão quando a fonte (GeoSampa) não fornece tx_horario_funcionamento. */
+const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
+  ubs: "Segunda a sexta, 7h às 19h (horário padrão das UBS em SP). Confirme na unidade.",
+  hospital: "Atendimento 24h ou conforme unidade. Confirme pelo telefone.",
+  library: "Segunda a sexta, em geral 9h às 18h. Confirme na unidade.",
+  school: "Conforme calendário escolar. Confirme na unidade.",
+  ceu: "Conforme programação. Confirme na unidade.",
+  sports_center: "Varía por unidade. Confirme no local.",
+};
+
+function getOpeningHoursDisplay(
+  openingHours: unknown,
+  serviceType?: string
+): string | null {
+  const text =
+    typeof openingHours === "string"
+      ? openingHours
+      : (openingHours as { text?: string })?.text;
+  if (text?.trim()) return text.trim();
+  const type = serviceType ?? "other";
+  return DEFAULT_OPENING_HOURS_BY_TYPE[type] ?? null;
+}
 
 export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [service, setService] = useState<any>(null);
+  const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
 
   useEffect(() => {
     loadService();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadService runs when id changes
   }, [id]);
 
   useEffect(() => {
     if (user && realServiceId) checkSubscription();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
   }, [user, realServiceId]);
 
   const isUUID = (str: string) => {
@@ -272,7 +306,7 @@ export default function ServiceDetailPage() {
             <div>
               <h3 className="font-semibold text-foreground mb-1">Endereço</h3>
               <p className="text-sm text-muted-foreground">
-                {service.address}, {service.district}
+                {getAddressDisplay(service.address, service.district)}
               </p>
               <p className="text-sm text-muted-foreground">
                 {service.city} - {service.state}
@@ -286,14 +320,72 @@ export default function ServiceDetailPage() {
               </div>
             )}
 
-            {service.opening_hours && (
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Seg-Sex: 7h às 19h
-                </span>
-              </div>
-            )}
+            {/* Horário de funcionamento — sempre exibido (dado real ou orientação por tipo) */}
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+                Horário de funcionamento
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {getOpeningHoursDisplay(service.opening_hours, service.service_type) ??
+                  "Horário não informado. Confirme na unidade."}
+              </p>
+            </div>
+
+            {/* O que este serviço oferece — tipo, serviços e ambientes quando existirem */}
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <Info className="w-4 h-4 text-muted-foreground" />
+                O que este serviço oferece
+              </h3>
+              {(() => {
+                const svc = service as {
+                  services_offered?: string | null;
+                  ambientes?: { ambiente?: string; total?: number }[];
+                };
+                const hasOffered = !!svc.services_offered?.trim();
+                const hasAmbientes = Array.isArray(svc.ambientes) && svc.ambientes.length > 0;
+                if (!hasOffered && !hasAmbientes) {
+                  return (
+                    <p className="text-sm text-muted-foreground">
+                      Informações não disponíveis para esta unidade.
+                    </p>
+                  );
+                }
+                let offered = svc.services_offered!;
+                // Corrige truncamento do GeoJSON das UBS: remove ", encaminhamentos par" e garante ponto final
+                if (typeof offered === "string" && /, encaminhamentos par\s*$/i.test(offered)) {
+                  offered = offered.replace(/, encaminhamentos par\s*$/i, "").trim();
+                  if (offered && !/[.!?]$/.test(offered)) offered += ".";
+                }
+                const isHtml = /<\s*(\/)?(strong|p|br)\s*(\/\s*)?>/i.test(offered);
+                return (
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    {hasOffered &&
+                      (isHtml ? (
+                        <div
+                          className="space-y-2 [&_strong]:font-semibold [&_p]:mb-0 [&_p:last-child]:mb-0"
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeServicesOfferedHtml(offered),
+                          }}
+                        />
+                      ) : (
+                        <p className="whitespace-pre-line">{offered}</p>
+                      ))}
+                    {hasAmbientes && (
+                      <ul className="list-disc list-inside space-y-0.5">
+                        {svc.ambientes!.map((a, i) => (
+                          <li key={i}>
+                            {a.ambiente ?? "Ambiente"}
+                            {a.total != null && a.total > 0 ? ` (${a.total})` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
             <div className="pt-2 border-t border-border">
               <div className="flex items-center justify-between">

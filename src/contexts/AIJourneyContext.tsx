@@ -28,6 +28,7 @@ export const AIJourneyProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook
 export const useAIJourney = () => {
   const context = useContext(AIJourneyContext);
   if (!context) {

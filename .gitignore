@@ -18,9 +18,23 @@ dist-ssr
 supabase/.temp/
 supabase/.branches/
 
-# Env files (não commitar segredos)
-.env
-.env.*
+# VAPID keys (Web Push) – não commitar
+vapid.json
+vapid_public.txt
+
+# Saída do crawler RAG (upload no GCS; não commitar)
+crawl-output/
+
+# FCM / Firebase service account key (upload no EAS; não commitar)
+*-firebase-adminsdk-*.json
+*service-account*.json
+
+# Env files (só variantes; .env na raiz não ignorado)
+.env.e2e.local
+
+# GeoSampa sync – config com URLs (use .example como modelo)
+scripts/geosampa-layers.json
+
 
 # Editor directories and files
 .cursor/

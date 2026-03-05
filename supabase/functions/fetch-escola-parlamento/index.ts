@@ -205,7 +205,7 @@ async function fetchAllPages(): Promise<EscolaParlamentoItem[]> {
 
 // Update database cache
 async function updateDatabaseCache(
-  supabase: any,
+  supabase: ReturnType<typeof createClient>,
   items: EscolaParlamentoItem[]
 ): Promise<void> {
   console.log(`[fetch-escola-parlamento] Updating database cache with ${items.length} items...`);
@@ -262,7 +262,7 @@ async function updateDatabaseCache(
 }
 
 // Fetch from database cache (fallback)
-async function fetchFromDatabaseCache(supabase: any): Promise<EscolaParlamentoItem[]> {
+async function fetchFromDatabaseCache(supabase: ReturnType<typeof createClient>): Promise<EscolaParlamentoItem[]> {
   console.log('[fetch-escola-parlamento] Fetching from database cache...');
   
   const { data, error } = await supabase
@@ -282,7 +282,7 @@ async function fetchFromDatabaseCache(supabase: any): Promise<EscolaParlamentoIt
   
   console.log(`[fetch-escola-parlamento] Retrieved ${data.length} items from database cache`);
   
-  return data.map((row: any) => ({
+  return data.map((row: Record<string, unknown>) => ({
     id: row.id,
     wp_id: row.wp_id,
     title: row.title,

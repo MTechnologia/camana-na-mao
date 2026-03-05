@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Star, Mic, FileText, ChevronRight } from "lucide-react";
+import { Star, Mic, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,9 +20,10 @@ interface PriorityItem {
 }
 
 const PriorityAction = ({ onAction }: PriorityActionProps) => {
+  const navigate = useNavigate();
   const { pendingRatings } = usePendingRatings();
   const { user } = useAuth();
-  const [upcomingAudiencia, setUpcomingAudiencia] = useState<any>(null);
+  const [upcomingAudiencia, setUpcomingAudiencia] = useState<{ id: string; titulo?: string; data?: string; hora?: string; status?: string } | null>(null);
 
   useEffect(() => {
     const fetchUpcomingAudiencia = async () => {
@@ -45,7 +47,7 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
         .eq("status", "confirmado");
 
       if (data && data.length > 0) {
-        const todayAudiencia = data.find((item: any) => {
+        const todayAudiencia = data.find((item: { audiencias?: { data?: string; status?: string } }) => {
           const audiencia = item.audiencias;
           return audiencia?.data === today && audiencia?.status === "agendada";
         });
@@ -96,9 +98,17 @@ const PriorityAction = ({ onAction }: PriorityActionProps) => {
 
   const IconComponent = priorityAction.icon;
 
+  const handleClick = () => {
+    if (priorityAction.type === "rating") {
+      navigate("/avaliar");
+    } else {
+      onAction(priorityAction.message);
+    }
+  };
+
   return (
     <motion.button
-      onClick={() => onAction(priorityAction.message)}
+      onClick={handleClick}
       className="w-full p-4 rounded-xl bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-primary/10 transition-all duration-200 group"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}

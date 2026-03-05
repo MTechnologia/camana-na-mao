@@ -90,13 +90,67 @@ docker run -d \
   --gpu-memory-utilization 0.9
 ```
 
-**Configuração atual:**
+**Configuração atual (sem tool calling):**
 - ✅ `--shm-size=16g` (aumentado de 8g)
 - ✅ `--max-model-len 24576` (24K tokens - ajustado para caber na memória)
 - ✅ **Sem** `--quantization awq` (não precisa, cabe sem quantização)
-- ✅ **Sem** `--enable-auto-tool-choice` (removido para evitar erros de streaming)
-- ✅ **Sem** `--tool-call-parser openai` (removido para evitar erros de streaming)
 - ✅ Driver NVIDIA 570 (compatível com vLLM)
+
+**🛠 Reativar Tool Calling (Llama 3.1):** Para a LLM chamar ferramentas (find_nearby_services, validate_cep, etc.) e retornar endereços sempre do banco, suba o vLLM **na VM** (não no seu PC):
+
+1. **Conecte na VM** (onde está a GPU e o Docker):
+   ```bash
+   gcloud compute ssh llm-chat-gpu-l4 --zone=us-central1-a
+   ```
+2. **Na VM**, pare o container atual e suba com tool calling. Use **uma das formas abaixo**.
+
+**Opção A – Comandos para colar na VM (copie só as linhas abaixo, sem \`\`\`bash):**
+
+Rode um comando de cada vez:
+
+```bash
+docker stop vllm-chat
+docker rm vllm-chat
+```
+
+```bash
+export HF_TOKEN="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"
+```
+
+```bash
+docker run -d --name vllm-chat --gpus all -p 8000:8000 -v ~/.cache/huggingface:/root/.cache/huggingface --restart unless-stopped --shm-size=16g -e HF_TOKEN="$HF_TOKEN" vllm/vllm-openai:latest meta-llama/Meta-Llama-3.1-8B-Instruct --host 0.0.0.0 --port 8000 --tensor-parallel-size 1 --max-model-len 24576 --gpu-memory-utilization 0.9 --enable-auto-tool-choice --tool-call-parser llama3_json --chat-template examples/tool_chat_template_llama3.1_json.jinja
+```
+
+Se o container morrer com erro no `--chat-template`, remova essa parte e rode de novo (sem `--chat-template examples/...`). Confira com `docker ps` e `docker logs vllm-chat --tail 30`.
+
+**Opção B – Várias linhas (só funciona em bash, ex.: terminal na VM após SSH):**
+```bash
+docker stop vllm-chat
+docker rm vllm-chat
+HF_TOKEN="hf_..."
+docker run -d \
+  --name vllm-chat \
+  --gpus all \
+  -p 8000:8000 \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
+  --restart unless-stopped \
+  --shm-size=16g \
+  -e HF_TOKEN="$HF_TOKEN" \
+  vllm/vllm-openai:latest \
+  meta-llama/Meta-Llama-3.1-8B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --tensor-parallel-size 1 \
+  --max-model-len 24576 \
+  --gpu-memory-utilization 0.9 \
+  --enable-auto-tool-choice \
+  --tool-call-parser llama3_json \
+  --chat-template examples/tool_chat_template_llama3.1_json.jinja
+```
+
+**⚠️ Não rode esse `docker run` no Windows/PowerShell do seu PC:** o container precisa de GPU (NVIDIA) e da API do Docker; isso existe na VM no GCP. No PC você só precisa do `gcloud` para fazer SSH. Se no seu PC aparecer "failed to connect to the docker API", é esperado: o Docker desse comando deve rodar **dentro da VM**.
+
+O ai-orchestrator já envia `tools` e `tool_choice: 'auto'` no request. Se o template não for encontrado no container, verifique o caminho em [vLLM Tool Calling](https://docs.vllm.ai/en/stable/features/tool_calling.html) (Llama Models).
 
 **⚠️ Nota importante:** O `max-model-len` foi reduzido para 24576 tokens devido à limitação de memória KV cache. Para usar 128K tokens, seria necessário mais memória GPU ou quantização.
 

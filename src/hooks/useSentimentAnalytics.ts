@@ -58,6 +58,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
     load();
     
     return () => { isMounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAnalytics uses filters via filtersKey
   }, [filtersKey]);
 
   const getSentimentScore = (sentiment: string | null): number => {
@@ -115,7 +116,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
       // Calcular estatísticas
       const allReports = [
         ...(urbanReports || []).map(r => {
-          const classification = r.ai_classification as any;
+          const classification = r.ai_classification as { sentiment?: string } | null;
           return {
             ...r, 
             sentiment: classification?.sentiment || 'neutral',
@@ -159,7 +160,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
         catStats.sentiment.push(getSentimentScore(report.sentiment));
 
         // REAL: Region stats from neighborhood
-        const region = (report as any).neighborhood || 'Não especificado';
+        const region = (report as Record<string, unknown>).neighborhood as string | undefined || 'Não especificado';
         if (!regionMap.has(region)) {
           regionMap.set(region, { count: 0, sentiments: [] });
         }
@@ -288,7 +289,7 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
         insights,
         byRegion
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading sentiment analytics:', error);
       // Fallback silencioso - sem toast intrusivo
       setStats({

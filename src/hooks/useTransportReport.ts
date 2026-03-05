@@ -25,13 +25,17 @@ export const useTransportReport = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      const insertData = {
+        ...reportData,
+        severity: reportData.severity || 'pending',
+        user_id: user.id,
+      };
+      if (insertData.line_id === '') {
+        delete insertData.line_id;
+      }
       const { data, error } = await supabase
         .from('transport_reports')
-        .insert({
-          ...reportData,
-          severity: reportData.severity || 'pending', // Default até N8N classificar
-          user_id: user.id,
-        })
+        .insert(insertData)
         .select()
         .single();
 

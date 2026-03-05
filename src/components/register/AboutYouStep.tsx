@@ -16,7 +16,6 @@ interface AboutYouStepProps {
   data: AboutYouData;
   onChange: (field: keyof AboutYouData, value: string) => void;
   onContinue: () => void;
-  onSkip: () => void;
 }
 
 const GENDER_OPTIONS = [
@@ -44,13 +43,13 @@ const INCOME_OPTIONS = [
   { value: "prefiro_nao_dizer", label: "Prefiro não informar" },
 ];
 
-const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps) => {
+const AboutYouStep = ({ data, onChange, onContinue }: AboutYouStepProps) => {
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-foreground mb-2">Sobre você</h2>
         <p className="text-muted-foreground text-sm">
-          Informações opcionais para personalizar sua experiência
+          Preencha todos os campos para concluir seu perfil
         </p>
       </div>
 
@@ -64,7 +63,7 @@ const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps)
       {/* Data de nascimento */}
       <div>
         <Label className="text-sm font-medium text-foreground mb-2 block">
-          Data de nascimento
+          Data de nascimento <span className="text-destructive">*</span>
         </Label>
         <Input
           type="date"
@@ -78,7 +77,7 @@ const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps)
       {/* Gênero */}
       <div>
         <Label className="text-sm font-medium text-foreground mb-3 block">
-          Gênero
+          Gênero <span className="text-destructive">*</span>
         </Label>
         <RadioGroup
           value={data.gender}
@@ -106,7 +105,7 @@ const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps)
       {/* Raça/Cor */}
       <div>
         <Label className="text-sm font-medium text-foreground mb-3 block">
-          Raça/Cor
+          Raça/Cor <span className="text-destructive">*</span>
         </Label>
         <RadioGroup
           value={data.race}
@@ -135,7 +134,7 @@ const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps)
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Label className="text-sm font-medium text-foreground">
-            Renda familiar mensal
+            Renda familiar mensal <span className="text-destructive">*</span>
           </Label>
           <div className="group relative">
             <Info className="w-4 h-4 text-muted-foreground cursor-help" />
@@ -167,20 +166,13 @@ const AboutYouStep = ({ data, onChange, onContinue, onSkip }: AboutYouStepProps)
         </RadioGroup>
       </div>
 
-      {/* Botões */}
-      <div className="space-y-3 pt-2">
+      {/* Botão - todos os campos são obrigatórios */}
+      <div className="pt-2">
         <Button
           onClick={onContinue}
           className="w-full h-12 bg-foreground text-background hover:bg-foreground/90 rounded-xl"
         >
           Continuar
-        </Button>
-        <Button
-          onClick={onSkip}
-          variant="ghost"
-          className="w-full h-10 text-muted-foreground hover:text-foreground"
-        >
-          Pular esta etapa
         </Button>
       </div>
     </div>

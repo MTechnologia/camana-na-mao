@@ -200,6 +200,7 @@ export const ChatEvaluation = ({ onComplete }: ChatEvaluationProps) => {
               disabled={isLoading || !input.trim()}
               size="icon"
               className="shrink-0 h-[60px]"
+              aria-label="Enviar avaliação"
             >
               <Send className="w-4 h-4" />
             </Button>
