@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -179,7 +179,7 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
+  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5".
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
@@ -190,9 +190,18 @@ const ChatMessageBubble = ({
       content.includes('audiências públicas agendadas') ||
       content.includes('audiencias publicas agendadas') ||
       content.includes('quer saber mais sobre alguma ou inscrever-se') ||
+      content.includes('este ano ainda não foram realizadas') ||
+      content.includes('últimas 5 realizadas') ||
+      content.includes('quer buscar outras audiências ou outro tema') ||
       (content.includes('inscrever-se') && (content.includes('agendadas') || content.includes('próximas')));
     return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
+
+  // Inscrições abertas: resposta contém "Inscrições abertas" ou emoji 🎫 → mostrar botão "Inscrever-se aqui no chat"; senão mostrar "Inscrições encerradas" (como no módulo).
+  const hasInscricoesAbertas = useMemo(() => {
+    if (!shouldShowAudienciasCta) return false;
+    return message.content.includes('Inscrições abertas') || message.content.includes('🎫');
+  }, [shouldShowAudienciasCta, message.content]);
 
   // Dados para listagem filtrada no chat (tema, data, região) — query dedicada, ordem ascendente para próximas primeiro.
   const { data: audienciasData = [] } = useQuery({
@@ -860,18 +869,25 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Audiências: os 3 botões sempre visíveis (ordem: Inscrever-se, Abrir, Buscar outras); "Buscar outras" abre o bloco de filtros */}
+        {/* Audiências: Inscrever-se (ou Inscrições encerradas), Abrir Audiências, Buscar outras; "Buscar outras" abre o bloco de filtros */}
         {shouldShowAudienciasCta && (
           <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
             <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
-                className="w-full justify-center min-h-[40px]"
-              >
-                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
-              </Button>
+              {hasInscricoesAbertas ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
+                  className="w-full justify-center min-h-[40px]"
+                >
+                  {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
+                </Button>
+              ) : (
+                <Button disabled className="w-full bg-muted text-muted-foreground cursor-default min-h-[40px]">
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Inscrições encerradas
+                </Button>
+              )}
               <Button
                 variant="default"
                 size="sm"
@@ -899,7 +915,7 @@ const ChatMessageBubble = ({
                 {showAudienciasFilters ? "Ocultar filtros" : "Buscar outras audiências públicas"}
               </Button>
             </div>
-            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+            {hasInscricoesAbertas && showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
 
             {showAudienciasFilters && (
               <>
