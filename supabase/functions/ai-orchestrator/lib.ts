@@ -1083,6 +1083,108 @@ export async function lookupCEP(cep: string): Promise<{
   }
 }
 
+/** Geocode endereço (rua, bairro, CEP, cidade) para lat/lon via Nominatim (OSM). Usado para buscar serviços próximos quando não há GPS nem lat/lon no endereço cadastrado. */
+export async function geocodeAddressToCoord(addressParts: {
+  street?: string | null;
+  street_number?: string | null;
+  neighborhood?: string | null;
+  cep?: string | null;
+  city?: string | null;
+}): Promise<{ lat: number; lon: number } | null> {
+  const city = addressParts.city || 'São Paulo';
+  const runQuery = async (query: string): Promise<{ lat: number; lon: number } | null> => {
+    if (!query || query.length < 5) return null;
+    const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
+      q: query,
+      format: 'json',
+      limit: '1',
+      countrycodes: 'br',
+    })}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const lat = Number(data[0].lat);
+    const lon = Number(data[0].lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  };
+
+  const parts: string[] = [];
+  if (addressParts.street) {
+    parts.push(addressParts.street_number ? `${addressParts.street}, ${addressParts.street_number}` : addressParts.street);
+  }
+  if (addressParts.neighborhood) parts.push(addressParts.neighborhood);
+  if (addressParts.cep) parts.push(addressParts.cep.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'));
+  parts.push(city, 'Brazil');
+  const fullQuery = parts.filter(Boolean).join(', ');
+  try {
+    let result = await runQuery(fullQuery);
+    if (result) return result;
+    // Fallback: sem número (rua + bairro + cidade) — Nominatim às vezes falha com número
+    if (addressParts.street_number && addressParts.street) {
+      const fallbackParts = [addressParts.street, addressParts.neighborhood, city, 'Brazil'].filter(Boolean);
+      result = await runQuery(fallbackParts.join(', '));
+    }
+    return result;
+  } catch (e) {
+    console.error('[geocodeAddressToCoord] Error:', e);
+    return null;
+  }
+}
+
+/** Geocode endereço usando Google Places (autocomplete + details), igual ao módulo e ao picker. Usado quando precisamos do mesmo ponto que o frontend (ex.: endereço cadastrado sem lat/lon). */
+export async function geocodeAddressWithGoogle(
+  supabase: SupabaseClient,
+  addressParts: {
+    street?: string | null;
+    street_number?: string | null;
+    neighborhood?: string | null;
+    cep?: string | null;
+    city?: string | null;
+  }
+): Promise<{ lat: number; lon: number } | null> {
+  const city = addressParts.city || 'São Paulo';
+  const parts: string[] = [];
+  if (addressParts.street) {
+    parts.push(addressParts.street_number ? `${addressParts.street}, ${addressParts.street_number}` : addressParts.street);
+  }
+  if (addressParts.neighborhood) parts.push(addressParts.neighborhood);
+  if (addressParts.cep) parts.push(String(addressParts.cep).replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'));
+  parts.push(city, 'Brasil');
+  const query = parts.filter(Boolean).join(', ');
+  if (!query || query.length < 5) return null;
+  try {
+    const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke<{
+      predictions?: Array<{ placeId?: string }>;
+      error?: string;
+    }>('google-places-autocomplete', { body: { query } });
+    if (autocompleteError || !autocompleteData?.predictions?.length) {
+      if (autocompleteError) console.warn('[geocodeAddressWithGoogle] Autocomplete error:', autocompleteError);
+      return null;
+    }
+    const placeId = autocompleteData.predictions[0].placeId;
+    if (!placeId) return null;
+    const { data: detailsData, error: detailsError } = await supabase.functions.invoke<{
+      address?: { latitude?: number; longitude?: number };
+      error?: string;
+    }>('google-places-details', { body: { placeId } });
+    if (detailsError || !detailsData?.address) {
+      if (detailsError) console.warn('[geocodeAddressWithGoogle] Details error:', detailsError);
+      return null;
+    }
+    const lat = Number(detailsData.address.latitude);
+    const lon = Number(detailsData.address.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  } catch (e) {
+    console.error('[geocodeAddressWithGoogle] Error:', e);
+    return null;
+  }
+}
+
 // Valid categories for urban reports (source of truth)
 export const VALID_URBAN_CATEGORIES = [
   'iluminacao', 'calcada', 'via_publica', 'lixo', 'esgoto', 
@@ -1926,10 +2028,23 @@ export function accumulateFieldsFromHistory(
           if (!acc.location_method) acc.location_method = 'gps';
         }
       }
-      // Tipo de serviço: chip/picker "Tipo de serviço: UBS"
-      if (!acc.service_type && /tipo de serviço:\s*(\w+)/i.test(c)) {
-        const m = c.match(/tipo de serviço:\s*(\w+)/i);
-        if (m) acc.service_type = m[1].toLowerCase();
+      // Tipo de serviço: chip/picker "Tipo de serviço: UBS" ou "Tipo de serviço: Parques"
+      if (!acc.service_type && /tipo de serviço:\s*(.+)/i.test(c)) {
+        const m = c.match(/tipo de serviço:\s*(.+?)(?:\s*\.\s*Especificação|$)/im);
+        const raw = m?.[1]?.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (raw) {
+          const labelToId: Record<string, string> = {
+            'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
+            'bibliotecas': 'library', 'esportes': 'sports_center', 'centros esportivos': 'sports_center',
+            'parques': 'park', 'feiras': 'street_market', 'centros comunitários': 'community_center',
+            'creches': 'daycare', 'mercados': 'market', 'mercados municipais': 'city_market',
+            'teatro/cinema': 'theater', 'teatros': 'theater', 'museus': 'museum',
+            'assistência social': 'social_assistance', 'transporte': 'transit_station',
+            'delegacia/polícia': 'police_station', 'cemitério': 'cemetery', 'acessibilidade': 'accessibility',
+            'reciclagem/limpeza': 'recycling_point', 'bombeiros': 'fire_station', 'outros': 'other'
+          };
+          acc.service_type = labelToId[raw] || raw;
+        }
       }
       // CEP em qualquer formato
       if (!acc.cep && /\b(\d{5}-?\d{3})\b/.test(c)) {
@@ -1944,6 +2059,20 @@ export function accumulateFieldsFromHistory(
         if (streetMatch?.[1]?.trim() && !acc.street) acc.street = streetMatch[1].trim();
         const neighborhoodMatch = c.match(/-\s*([^,\n]+?)(?:,|\s+-\s+CEP)/i);
         if (neighborhoodMatch?.[1]?.trim() && !acc.neighborhood) acc.neighborhood = neighborhoodMatch[1].trim();
+      }
+    }
+    // Número ou referência: se o assistente pediu e o usuário respondeu (services journey)
+    const lastAssistantContent = messages.filter((m) => m.role === 'assistant').map((m) => getContent(m)).pop() || '';
+    const lastUserContent = messages.filter((m) => m.role === 'user').map((m) => getContent(m)).pop()?.trim() || '';
+    if (lastUserContent && (lastAssistantContent.includes('número') || lastAssistantContent.includes('ponto de referência')) && !acc.street_number && !acc.reference_point) {
+      const skipPhrases = ['pular', 'não sei', 'nao sei', 'continuar', 'não tenho', 'nao tenho', 'opcional', 'próximo', 'proximo', 'sem número', 'sem numero'];
+      if (skipPhrases.some((p) => lastUserContent.toLowerCase().includes(p))) {
+        acc.reference_point = 'não informado';
+      } else {
+        const numberMatch = lastUserContent.match(/^(\d+)/);
+        if (numberMatch) acc.street_number = numberMatch[1];
+        else if (/altura|perto|frente|próximo|proximo/.test(lastUserContent.toLowerCase())) acc.reference_point = lastUserContent;
+        else if (lastUserContent.length < 50) acc.street_number = lastUserContent;
       }
     }
     // Inferir service_type por texto (UBS, hospital, CEU, etc.)
@@ -1966,7 +2095,9 @@ export function accumulateFieldsFromHistory(
       const userText = getContent(lastUser).trim();
       const labelToType: Record<string, string> = {
         'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
-        'bibliotecas': 'library', 'centros esportivos': 'sports_center', 'esportes': 'sports_center'
+        'bibliotecas': 'library', 'centros esportivos': 'sports_center', 'esportes': 'sports_center',
+        'parques': 'park', 'feiras': 'street_market', 'creches': 'daycare', 'museus': 'museum',
+        'teatros': 'theater', 'transporte': 'transit_station', 'bombeiros': 'fire_station'
       };
       let chosenType: string | null = null;
       const digitMatch = userText.match(/^(\d)\s*$/);
@@ -2274,15 +2405,20 @@ export function accumulateFieldsFromHistory(
         // Extract number/reference from specific question (NOW MARKDOWN-RESISTANT)
         if ((question.includes('qual o número') || question.includes('qual é o número') ||
              question.includes('número ou ponto') || question.includes('ponto de referência')) && answer.length > 0) {
-          // Try to parse as number first
-          const numberMatch = answer.match(/^(\d+)/);
-          if (numberMatch) {
-            accumulated.street_number = numberMatch[1];
-          } else if (answer.toLowerCase().includes('altura') || answer.toLowerCase().includes('perto') || 
-                     answer.toLowerCase().includes('frente') || answer.toLowerCase().includes('próximo')) {
-            accumulated.reference_point = answer;
+          const answerLower = answer.toLowerCase().trim();
+          const skipPhrases = ['pular', 'não sei', 'nao sei', 'continuar', 'não tenho', 'nao tenho', 'opcional', 'próximo', 'proximo', 'sem número', 'sem numero'];
+          if (skipPhrases.some(p => answerLower.includes(p))) {
+            accumulated.reference_point = 'não informado';
           } else {
-            accumulated.street_number = answer;
+            const numberMatch = answer.match(/^(\d+)/);
+            if (numberMatch) {
+              accumulated.street_number = numberMatch[1];
+            } else if (answerLower.includes('altura') || answerLower.includes('perto') ||
+                       answerLower.includes('frente') || answerLower.includes('próximo')) {
+              accumulated.reference_point = answer;
+            } else {
+              accumulated.street_number = answer;
+            }
           }
         }
         
@@ -2365,10 +2501,14 @@ export function accumulateFieldsFromHistory(
   
   // ========== SERVICE_RATING SPECIFIC PARSING ==========
   if (collectionType === 'service_rating') {
-    // Service type mapping from display names to IDs
+    // Service type mapping from display names to IDs (alinhado ao InlineServiceTypePicker)
     const serviceTypeMap: Record<string, string> = {
-      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 
-      'ceu': 'ceu', 'biblioteca': 'library', 'centro esportivo': 'sports_center'
+      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 'escolas': 'school',
+      'ceu': 'ceu', 'biblioteca': 'library', 'bibliotecas': 'library',
+      'centro esportivo': 'sports_center', 'esportes': 'sports_center',
+      'parques': 'park', 'park': 'park', 'feiras': 'street_market', 'creches': 'daycare',
+      'museus': 'museum', 'teatros': 'theater', 'teatro': 'theater', 'transporte': 'transit_station',
+      'mercados': 'market', 'mercados municipais': 'city_market', 'outros': 'other'
     };
     
     // === FLEXIBLE ADDRESS CONFIRMATION PATTERNS ===
@@ -3787,7 +3927,7 @@ export async function olhoVivoPrevisaoParada(codigoParada: number): Promise<{
 }
 
 
-// Helper: Get friendly service type name
+// Helper: Get friendly service type name (alinhado ao InlineServiceTypePicker / Perto de você)
 export function getServiceTypeName(type: string): string {
   const names: Record<string, string> = {
     'ubs': 'UBS',
@@ -3797,21 +3937,49 @@ export function getServiceTypeName(type: string): string {
     'library': 'bibliotecas',
     'sports_center': 'centros esportivos',
     'transit_station': 'pontos de ônibus e transporte',
+    'park': 'parques',
+    'street_market': 'feiras',
+    'community_center': 'centros comunitários',
+    'daycare': 'creches',
+    'market': 'mercados',
+    'city_market': 'mercados municipais',
+    'theater': 'teatros e cinema',
+    'museum': 'museus',
+    'social_assistance': 'assistência social',
+    'police_station': 'delegacia e polícia',
+    'cemetery': 'cemitérios',
+    'accessibility': 'acessibilidade',
+    'recycling_point': 'reciclagem e limpeza',
+    'fire_station': 'bombeiros',
     'other': 'serviços'
   };
   return names[type] || 'serviços';
 }
 
-/** Infer service_type from user text (e.g. "UBS próximo a mim" → ubs). For deterministic find_nearby_services. */
+/** Infer service_type from user text (ex.: "parques mais perto", "UBS próximo a mim" → park, ubs). Reconhece todos os equipamentos do módulo Perto de você. */
 export function inferServiceTypeFromText(text: string): string | null {
-  const t = text.toLowerCase();
+  const t = text.toLowerCase().trim();
   if (/\bubs\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
   if (/\bceu[s]?\b|centro\s+educacional/.test(t)) return 'ceu';
   if (/\bhospital(is)?\b/.test(t)) return 'hospital';
   if (/\bescola[s]?\b|educa[cç][aã]o/.test(t)) return 'school';
   if (/\bbiblioteca[s]?\b/.test(t)) return 'library';
-  if (/\bcentro\s+esportivo|esportivo|quadra|academia\s+p[uú]blica/.test(t)) return 'sports_center';
-  if (/\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
+  if (/\bcentro\s+esportivo|esportivo[s]?\b|quadra[s]?|academia\s+p[uú]blica/.test(t)) return 'sports_center';
+  if (/\bparque[s]?\b|parques?\s+pr[oó]ximos?/.test(t)) return 'park';
+  if (/\bfeira[s]?\s+(livres?|de\s+rua)?|feira\s+livre/.test(t)) return 'street_market';
+  if (/\bcentro[s]?\s+comunit[aá]rio|comunit[aá]rio/.test(t)) return 'community_center';
+  if (/\bcreche[s]?\b|ber[cç][aá]rio/.test(t)) return 'daycare';
+  if (/\bmercado[s]?\s+municipal|mercados?\s+p[uú]blicos?/.test(t)) return 'city_market';
+  if (/\bmercado[s]?\b/.test(t)) return 'market';
+  if (/\bteatro[s]?\b|cinema[s]?\b/.test(t)) return 'theater';
+  if (/\bmuseu[s]?\b/.test(t)) return 'museum';
+  if (/\bassist[eê]ncia\s+social|cr[aá]as?|social/.test(t)) return 'social_assistance';
+  if (/\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
+  if (/\bdelegacia|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return 'police_station';
+  if (/\bcemit[eé]rio[s]?\b/.test(t)) return 'cemetery';
+  if (/\bacessibilidade|acess[ií]vel/.test(t)) return 'accessibility';
+  if (/\breciclagem|ecoponto|limpeza\s+p[uú]blica/.test(t)) return 'recycling_point';
+  if (/\bbombeiro[s]?\b|corpo\s+de\s+bombeiros/.test(t)) return 'fire_station';
   return null;
 }
 
@@ -5574,13 +5742,34 @@ export async function executeTool(
         if (userLat == null || userLon == null) {
           const { data: addr } = await supabase
             .from('user_addresses')
-            .select('latitude, longitude')
+            .select('latitude, longitude, street, number, neighborhood, zip_code, city')
             .eq('user_id', userId)
             .eq('is_primary', true)
             .maybeSingle();
           if (addr?.latitude != null && addr?.longitude != null) {
             userLat = Number(addr.latitude);
             userLon = Number(addr.longitude);
+          } else if (addr?.street && addr?.neighborhood) {
+            let coords = await geocodeAddressWithGoogle(supabase, {
+              street: addr.street,
+              street_number: addr.number,
+              neighborhood: addr.neighborhood,
+              cep: addr.zip_code,
+              city: addr.city || 'São Paulo',
+            });
+            if (!coords) {
+              coords = await geocodeAddressToCoord({
+                street: addr.street,
+                street_number: addr.number,
+                neighborhood: addr.neighborhood,
+                cep: addr.zip_code,
+                city: addr.city || 'São Paulo',
+              });
+            }
+            if (coords) {
+              userLat = coords.lat;
+              userLon = coords.lon;
+            }
           }
         }
         const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;

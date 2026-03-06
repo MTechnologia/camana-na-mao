@@ -186,13 +186,21 @@ const AgentChatArea = () => {
     setIsDiscoveryOpen(true);
   };
 
-  // Handle address selection from Google Places picker
+  // Handle address selection from Google Places picker (or ViaCEP when coords available)
   const handleAddressSelected = useCallback((address: StructuredAddress) => {
     // Format address as a structured message that the AI can understand
     const addressMessage = `Endereço selecionado: ${address.street}${address.streetNumber ? `, ${address.streetNumber}` : ''} - ${address.neighborhood}, ${address.city}${address.cep ? ` - CEP: ${address.cep}` : ''}`;
-    
-    // Send the address as a user message
-    sendMessage(addressMessage);
+    // When we have coordinates (e.g. from Google Place Details), send them so the backend
+    // uses the same point for "nearby" search as with GPS, avoiding wrong results from CEP-only geocoding.
+    const hasValidCoords =
+      typeof address.latitude === 'number' &&
+      typeof address.longitude === 'number' &&
+      Math.abs(address.latitude) > 1e-6 &&
+      Math.abs(address.longitude) > 1e-6;
+    const message = hasValidCoords
+      ? `${addressMessage}\nLocalização GPS: ${address.latitude},${address.longitude}`
+      : addressMessage;
+    sendMessage(message);
   }, [sendMessage]);
 
   // Pedir à IA que traga audiências com os filtros selecionados no bloco do chat
