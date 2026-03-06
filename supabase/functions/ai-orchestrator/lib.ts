@@ -2188,10 +2188,17 @@ export function accumulateFieldsFromHistory(
       if (cepMatch?.[1] && !accumulated.cep) {
         accumulated.cep = cepMatch[1].replace('-', '');
       }
-      // Extract city (Bairro, Cidade - CEP) for abrangência São Paulo
-      const cityMatch = content.match(/,\s*([^-\n]+?)\s*-\s*CEP/i);
-      if (cityMatch?.[1]?.trim() && !accumulated.city) {
-        accumulated.city = cityMatch[1].trim();
+      // Extract city (Bairro, Cidade - CEP ou ... - Cidade - CEP) para validação relato só São Paulo
+      if (!accumulated.city) {
+        const cityComma = content.match(/,\s*([^-\n]+?)\s*-\s*CEP/i);
+        if (cityComma?.[1]?.trim()) {
+          accumulated.city = cityComma[1].trim();
+        } else {
+          const cityBeforeCep = content.match(/\s+-\s+([^-\n]+?)\s*-\s*CEP\s*:?/i);
+          if (cityBeforeCep?.[1]?.trim()) {
+            accumulated.city = cityBeforeCep[1].trim();
+          }
+        }
       }
       
       console.log('[accumulateFields] Parsed Google Places address:', {
@@ -4507,6 +4514,39 @@ export async function searchAudiencias(
         : `Audiências no período (${periodo}) — agendadas e realizadas:\n\n`;
       return `${intro}${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
     }
+    // Nenhuma audiência no período com tema: mensagem + últimas 5 realizadas para o tema (sempre ano anterior e ano retrasado em relação a hoje)
+    if (temaNorm) {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const yearBeforeLastStart = `${currentYear - 2}-01-01`; // ex.: 2026 → 2024-01-01
+      const startOfCurrentYear = `${currentYear}-01-01`;    // ex.: 2026 → 2026-01-01 (exclusive)
+      const histQ = supabase
+        .from('audiencias')
+        .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
+        .gte('data', yearBeforeLastStart)
+        .lt('data', startOfCurrentYear)
+        .order('data', { ascending: false })
+        .limit(regiaoNorm ? 20 : 10);
+      const histWithTema = audienciasTemaFilter(supabase, histQ, temaNorm);
+      const { data: rawUltimas } = await histWithTema;
+      const ultimas5 = filterByRegiao(rawUltimas || [], regiaoNorm).slice(0, 5);
+      const temaLabel = temaNorm.charAt(0).toUpperCase() + temaNorm.slice(1).toLowerCase();
+      let msg = `Este ano ainda não foram realizadas audiências públicas com este tema (**${temaLabel}**).\n\n`;
+      if (ultimas5?.length) {
+        const formatted = ultimas5.map((a: Record<string, unknown>, i: number) => {
+          const statusText = formatAudienciaStatus(a.status);
+          const ctx = truncateDescricaoForContext(a.descricao);
+          const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que foi discutido:**\n\n   ${ctx}` : '';
+          const docsBlock = formatDocumentosLine(a);
+          return formatAudienciaLine(a, i, statusText, '', ctxBlock, docsBlock);
+        }).join('\n\n');
+        msg += `Segue abaixo as últimas audiências realizadas para este tema:\n\n${formatted}`;
+      } else {
+        msg += `Não há audiências realizadas no histórico para este tema.`;
+      }
+      msg += '\n\nQuer buscar outras audiências ou outro tema?';
+      return msg;
+    }
   }
 
   // 1) Sem tema: priorizar PRÓXIMAS (data >= dataMin, status agendada)
@@ -4986,11 +5026,12 @@ export async function executeTool(
       }
       
       case 'create_urban_report': {
-        // Validar abrangência: apenas município de São Paulo
-        if (args.city && !isCitySaoPaulo(args.city)) {
+        // Validar abrangência: apenas município de São Paulo (Guarulhos e demais cidades não aceitos)
+        const reportCity = (args.city ?? accumulatedFields?.city) as string | undefined;
+        if (reportCity && !isCitySaoPaulo(reportCity)) {
           return {
             success: false,
-            message: MESSAGE_OUTSIDE_SAO_PAULO(args.city),
+            message: MESSAGE_OUTSIDE_SAO_PAULO(reportCity),
           };
         }
         // Validate category is provided
