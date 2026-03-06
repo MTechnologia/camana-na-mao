@@ -234,14 +234,14 @@ export const tools = [
     type: "function",
     function: {
       name: "find_nearby_services",
-      description: "Busca serviços públicos próximos ao cidadão (por coordenadas quando disponíveis). Usar para: UBS perto, escola próxima, hospital, CEU, biblioteca, e também PONTOS DE ÔNIBUS/paradas próximas (service_type=transit_station; dados GeoSampa).",
+      description: "Busca serviços públicos próximos ao cidadão (por coordenadas quando disponíveis). Usar para qualquer equipamento: UBS, escola, hospital, CEU, biblioteca, parques, feiras, creches, teatros, museus, centros esportivos, pontos de ônibus (transit_station), delegacia, bombeiros, etc. Quando o cidadão disser 'parques mais perto', 'qual UBS mais próxima', 'creches perto de mim', use o service_type correspondente.",
       parameters: {
         type: "object",
         properties: {
           service_type: {
             type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "transit_station", "other"],
-            description: "Tipo: ubs, school, ceu, hospital, library, sports_center, transit_station (pontos de ônibus, terminais, estações), other"
+            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "park", "street_market", "community_center", "daycare", "market", "city_market", "theater", "museum", "social_assistance", "transit_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"],
+            description: "Tipo do equipamento: ubs, school, ceu, hospital, library, sports_center, park (parques), street_market (feiras), community_center, daycare (creches), market, city_market, theater, museum, social_assistance, transit_station (ônibus/transporte), police_station, cemetery, accessibility, recycling_point, fire_station, other"
           },
           district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
           limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }

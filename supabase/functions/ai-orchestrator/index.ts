@@ -920,6 +920,10 @@ serve(async (req) => {
           if (!hasCep && !hasAddress) {
             return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual seu CEP ou endereço? (Digite o CEP ou a rua e o bairro.)' };
           }
+          // Pedir número ou referência para geocodificar com mais precisão (evita resultados distantes)
+          if (!fields.street_number && !fields.reference_point) {
+            return { field: 'street_number', picker: null, prompt: '[FIELD_REQUEST:street_number]Qual o **número** ou **ponto de referência** próximo? (Ex.: 100, 1477, próximo ao mercado). _Opcional: responda "pular" para continuar._' };
+          }
         }
         if (fields.location_method === 'gps' && (fields.user_lat == null || fields.user_lon == null)) {
           return { field: 'gps_coords', picker: null, prompt: '[FIELD_REQUEST:gps_coords]Permita o acesso à sua localização no navegador (e no celular, se pedir). Depois confirme para continuar.' };
@@ -1325,8 +1329,9 @@ serve(async (req) => {
         const method = accumulatedFields.location_method;
         const hasCep = !!(accumulatedFields.cep && String(accumulatedFields.cep).replace(/\D/g, '').length === 8);
         const hasAddress = !!(accumulatedFields.street && accumulatedFields.neighborhood);
-        const hasGpsCoords = method === 'gps' && accumulatedFields.user_lat != null && accumulatedFields.user_lon != null;
-        const hasLocation = (method === 'manual' && (hasCep || hasAddress)) || method === 'registered_address' || hasGpsCoords;
+        const hasUserCoords = accumulatedFields.user_lat != null && accumulatedFields.user_lon != null;
+        const hasGpsCoords = method === 'gps' && hasUserCoords;
+        const hasLocation = (method === 'manual' && (hasCep || hasAddress)) || method === 'registered_address' || hasGpsCoords || (method === 'manual' && hasUserCoords);
         if (hasLocation) {
           const district = accumulatedFields.neighborhood || undefined;
           // Raio padrão 2 km para todos os serviços (CMSP: evita UBS longe, ex. Vila Arriete)
@@ -1339,9 +1344,57 @@ serve(async (req) => {
             min_rating: accumulatedFields.min_rating ?? 0,
             search_query: accumulatedFields.search_query || undefined
           };
-          if (hasGpsCoords) {
+          if (hasUserCoords) {
             toolArgs.user_lat = accumulatedFields.user_lat;
             toolArgs.user_lon = accumulatedFields.user_lon;
+          } else if (method === 'manual' && (hasCep || hasAddress)) {
+            // Geocodificar CEP/endereço quando o frontend não enviou coordenadas (ex.: seleção só por CEP ViaCEP)
+            const coords = await lib.geocodeAddressToCoord({
+              street: accumulatedFields.street,
+              street_number: accumulatedFields.street_number,
+              neighborhood: accumulatedFields.neighborhood,
+              cep: accumulatedFields.cep,
+              city: 'São Paulo',
+            });
+            if (coords) {
+              toolArgs.user_lat = coords.lat;
+              toolArgs.user_lon = coords.lon;
+              accumulatedFields.user_lat = coords.lat;
+              accumulatedFields.user_lon = coords.lon;
+            }
+          } else if (method === 'registered_address') {
+            // Usar endereço cadastrado: buscar lat/lon no banco ou geocodificar (Google primeiro, igual ao módulo; fallback Nominatim)
+            const { data: addr } = await supabase
+              .from('user_addresses')
+              .select('latitude, longitude, street, number, neighborhood, zip_code, city')
+              .eq('user_id', user.id)
+              .eq('is_primary', true)
+              .maybeSingle();
+            if (addr?.latitude != null && addr?.longitude != null) {
+              toolArgs.user_lat = Number(addr.latitude);
+              toolArgs.user_lon = Number(addr.longitude);
+            } else if (addr?.street && addr?.neighborhood) {
+              let coords = await lib.geocodeAddressWithGoogle(supabase, {
+                street: addr.street,
+                street_number: addr.number,
+                neighborhood: addr.neighborhood,
+                cep: addr.zip_code,
+                city: addr.city || 'São Paulo',
+              });
+              if (!coords) {
+                coords = await lib.geocodeAddressToCoord({
+                  street: addr.street,
+                  street_number: addr.number,
+                  neighborhood: addr.neighborhood,
+                  cep: addr.zip_code,
+                  city: addr.city || 'São Paulo',
+                });
+              }
+              if (coords) {
+                toolArgs.user_lat = coords.lat;
+                toolArgs.user_lon = coords.lon;
+              }
+            }
           }
           let toolResult: { success: boolean; message: string } | null = null;
           try {

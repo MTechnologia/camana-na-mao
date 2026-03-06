@@ -204,6 +204,18 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
       setLoading(true);
 
+      // Se não temos coordenadas, tentar geocodificar (rua + número + bairro...) para salvar lat/lon
+      // e que "Usar endereço cadastrado" traga serviços ordenados por proximidade
+      let coordsToSave = coordinates;
+      if (!coordsToSave?.latitude && !coordsToSave?.longitude && (street || neighborhood)) {
+        const fullAddress = [street, number, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+        const geocoded = fullAddress ? await geocodeAddress(fullAddress) : null;
+        if (geocoded) {
+          coordsToSave = geocoded;
+          setCoordinates(geocoded);
+        }
+      }
+
       const addressData = {
         zip_code: validated.zipCode,
         street: validated.street,
@@ -213,8 +225,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         city: validated.city,
         state: validated.state,
         is_primary: validated.isPrimary,
-        latitude: coordinates?.latitude || null,
-        longitude: coordinates?.longitude || null,
+        latitude: coordsToSave?.latitude ?? null,
+        longitude: coordsToSave?.longitude ?? null,
       };
 
       if (addressId) {
