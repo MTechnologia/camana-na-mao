@@ -19,6 +19,7 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { tituloCardAudiencia, explicacaoSimplificadaParaCard } from "@/lib/audienciaDisplay";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 
@@ -40,6 +41,7 @@ type AudienciaRow = {
 
 const Audiencias = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -78,6 +80,22 @@ const Audiencias = () => {
   }, [searchParams, initializedFromUrl]);
 
   const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+
+  const { data: inscritosVideoconferenciaIds = [] } = useQuery({
+    queryKey: ["audiencia-participacoes-videoconferencia", user?.id],
+    queryFn: async (): Promise<string[]> => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("audiencia_participacoes")
+        .select("audiencia_id")
+        .eq("user_id", user.id)
+        .eq("tipo", "videoconferencia");
+      if (error) return [];
+      return (data ?? []).map((r) => r.audiencia_id);
+    },
+    enabled: !!user?.id,
+  });
+  const setInscritosVideoconferencia = useMemo(() => new Set(inscritosVideoconferenciaIds), [inscritosVideoconferenciaIds]);
 
   const { data: audienciasData = [], isLoading, error, refetch } = useQuery({
     queryKey: ["audiencias"],
@@ -442,12 +460,19 @@ const Audiencias = () => {
                         onClick={() => handleCardClick(item)}
                       >
                         <div className="space-y-3">
-                          <Badge
-                            variant="outline"
-                            className="bg-green-100 text-green-800"
-                          >
-                            Audiência
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="bg-green-100 text-green-800"
+                            >
+                              Audiência
+                            </Badge>
+                            {user && setInscritosVideoconferencia.has(item.id) && (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30">
+                                Inscrito
+                              </Badge>
+                            )}
+                          </div>
                           
                           <h3 className="font-semibold text-foreground line-clamp-4 min-h-[2.5rem]">
                             {tituloCardAudiencia(item.comissao, item.titulo, item.descricao, item.tema)}

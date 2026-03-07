@@ -44,6 +44,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/paineis/criar": "Criar Painel",
   // Demais rotas
   "/audiencias": "Audiências Públicas",
+  "/audiencias/minhas-inscricoes": "Minhas inscrições em audiências",
   "/servicos-proximos": "Serviços Próximos",
   "/avaliar": "Avaliar Serviço",
   "/transporte": "Transporte",

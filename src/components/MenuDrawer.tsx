@@ -17,6 +17,7 @@ import {
   User,
   MessageSquare,
   MapPin,
+  CalendarCheck,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -73,6 +74,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       label: "Perto de Você", 
       icon: MapPin,
       route: "/servicos-proximos"
+    },
+    { 
+      id: 2.3, 
+      label: "Minhas inscrições em audiências", 
+      icon: CalendarCheck,
+      route: "/audiencias/minhas-inscricoes"
     },
     ...(canReferToCouncilMember ? [{
       id: 2.5,
