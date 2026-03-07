@@ -66,6 +66,7 @@ export function AudienciaInscricaoInline() {
   const [receivePush, setReceivePush] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +101,25 @@ export function AudienciaInscricaoInline() {
   useEffect(() => {
     if (user?.email) setEmail(user.email);
   }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.id || !audienciaId) {
+      setInscritoVideoconferencia(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("audiencia_participacoes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("audiencia_id", audienciaId)
+        .eq("tipo", "videoconferencia")
+        .maybeSingle();
+      if (!cancelled) setInscritoVideoconferencia(!!data);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, audienciaId]);
 
   const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
 
@@ -143,6 +163,7 @@ export function AudienciaInscricaoInline() {
 
       toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
       setSuccess(true);
+      if (tipoParticipacao === "videoconferencia") setInscritoVideoconferencia(true);
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível enviar. Tente novamente.");
@@ -294,6 +315,14 @@ export function AudienciaInscricaoInline() {
         </>
       ) : (
         <>
+          {tipoParticipacao === "videoconferencia" && inscritoVideoconferencia && (
+            <div className="flex items-center justify-center gap-2 py-3 text-muted-foreground text-sm">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Já inscrito nesta audiência</span>
+            </div>
+          )}
+          {tipoParticipacao === "videoconferencia" && inscritoVideoconferencia ? null : (
+          <>
           <div className="space-y-2">
             <Label className="text-xs">Nome completo *</Label>
             <Input
@@ -393,6 +422,8 @@ export function AudienciaInscricaoInline() {
               "Inscrever-se"
             )}
           </Button>
+          </>
+          )}
         </>
       )}
     </div>

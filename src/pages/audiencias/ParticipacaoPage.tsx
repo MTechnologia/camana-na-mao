@@ -61,6 +61,7 @@ const ParticipacaoPage = () => {
   const [audienciaMaisInformacoes, setAudienciaMaisInformacoes] = useState<string | null>(null);
   const [audienciaLoading, setAudienciaLoading] = useState(true);
   const [confirmProtocolo, setConfirmProtocolo] = useState<number | null>(null);
+  const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
 
   const audienciaId = useMemo(() => (id ? String(id) : ""), [id]);
 
@@ -105,6 +106,21 @@ const ParticipacaoPage = () => {
     if (user?.email) setEmail(user.email);
   }, [user?.email]);
 
+  useEffect(() => {
+    if (!user?.id || !audienciaId) return;
+    const check = async () => {
+      const { data } = await supabase
+        .from("audiencia_participacoes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("audiencia_id", audienciaId)
+        .eq("tipo", "videoconferencia")
+        .maybeSingle();
+      setInscritoVideoconferencia(!!data);
+    };
+    check();
+  }, [user?.id, audienciaId]);
+
   if (audienciaLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -143,13 +159,20 @@ const ParticipacaoPage = () => {
           </p>
           <p className="text-sm text-muted-foreground">Escolha como deseja participar:</p>
           <div className="flex flex-col gap-3">
-            <Button
-              onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
-              className="w-full bg-primary hover:bg-primary/90 h-auto py-4"
-            >
-              <User className="h-5 w-5 mr-2 shrink-0" />
-              Inscrição para manifestar-se durante a videoconferência
-            </Button>
+            {inscritoVideoconferencia ? (
+              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span>Já inscrito nesta audiência</span>
+              </div>
+            ) : (
+              <Button
+                onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                className="w-full bg-primary hover:bg-primary/90 h-auto py-4"
+              >
+                <User className="h-5 w-5 mr-2 shrink-0" />
+                Inscrição para manifestar-se durante a videoconferência
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
@@ -309,6 +332,21 @@ const ParticipacaoPage = () => {
 
   // ——— Formulário VIDEOCONFERÊNCIA (formulário único, conforme CMSP) ———
   if (tipo === "videoconferencia") {
+    if (inscritoVideoconferencia) {
+      return (
+        <div className="min-h-screen bg-background pb-20">
+          <PageHeader title="Quero participar" backTo={backToDetail} />
+          <div className="pt-[60px] p-6 space-y-6 flex flex-col items-center">
+            <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
+              <CheckCircle2 className="h-5 w-5 shrink-0" />
+              <span>Já inscrito nesta audiência</span>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">Você já realizou a inscrição para manifestar-se durante a videoconferência.</p>
+            <Button variant="outline" onClick={() => navigate(backToDetail)} className="w-full max-w-xs border-border text-foreground hover:bg-muted/50">Voltar aos detalhes da audiência</Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-background pb-20">
         <PageHeader title="Quero participar" backTo={backToDetail} />
