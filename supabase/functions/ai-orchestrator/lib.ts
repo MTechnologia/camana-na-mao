@@ -4783,22 +4783,40 @@ export async function getCitizenHistory(
     }
   }
   
-  // Audiencia inscricoes
+  // Audiencia inscricoes (lembretes) e participacoes (videoconferência/escrito)
   if (historyType === 'all' || historyType === 'audiencias') {
-    const { data, error } = await supabase
+    const { data: inscricoesData, error: errInsc } = await supabase
       .from('audiencia_inscricoes')
       .select('id, status, created_at, audiencia:audiencias(titulo, data, status)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
     
-    if (!error && data?.length) {
+    if (!errInsc && inscricoesData?.length) {
       if (results.length) results.push('');
-      results.push('🎫 **Inscrições em Audiências:**');
-      data.forEach((r: Record<string, unknown>, i: number) => {
+      results.push('🎫 **Inscrições para lembretes de audiências:**');
+      inscricoesData.forEach((r: Record<string, unknown>, i: number) => {
         const audiencia = r.audiencia;
         const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
         results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'}\n   ${statusEmoji} ${audiencia?.data || ''}`);
+      });
+    }
+
+    const { data: participacoesData, error: errPart } = await supabase
+      .from('audiencia_participacoes')
+      .select('id, tipo, created_at, audiencia:audiencias(titulo, data, status)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (!errPart && participacoesData?.length) {
+      if (results.length) results.push('');
+      results.push('🎤 **Inscrições para participar (videoconferência/escrito):**');
+      participacoesData.forEach((r: Record<string, unknown>, i: number) => {
+        const audiencia = r.audiencia;
+        const tipoLabel = r.tipo === 'videoconferencia' ? 'Videoconferência' : r.tipo === 'escrito' ? 'Manifestação escrita' : String(r.tipo || '');
+        const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
+        results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'} (${tipoLabel})\n   ${statusEmoji} ${audiencia?.data || ''} | ${new Date(r.created_at as string).toLocaleDateString('pt-BR')}`);
       });
     }
   }

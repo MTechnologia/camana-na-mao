@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText, Bell, CheckCircle2 } from "lucide-react";
+import { Calendar, MapPin, Users, Clock, Building2, User, Loader2, FileText, Bell, CheckCircle2, CircleOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import PageHeader from "@/components/ui/page-header";
@@ -90,6 +90,7 @@ const AudienciaDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [lembreteInscrito, setLembreteInscrito] = useState(false);
   const [lembreteLoading, setLembreteLoading] = useState(false);
+  const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
 
   useEffect(() => {
     const fetchAudiencia = async () => {
@@ -120,6 +121,21 @@ const AudienciaDetailPage = () => {
         .eq('audiencia_id', id)
         .maybeSingle();
       setLembreteInscrito(!!data);
+    };
+    check();
+  }, [user?.id, id]);
+
+  useEffect(() => {
+    if (!user?.id || !id) return;
+    const check = async () => {
+      const { data } = await supabase
+        .from('audiencia_participacoes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('audiencia_id', id)
+        .eq('tipo', 'videoconferencia')
+        .maybeSingle();
+      setInscritoVideoconferencia(!!data);
     };
     check();
   }, [user?.id, id]);
@@ -546,20 +562,20 @@ const AudienciaDetailPage = () => {
           </p>
         </div>
 
-        {/* Actions */}
+        {/* Actions — layout minimalista: status em cinza, botões outline */}
         <div className="flex flex-col gap-3 pt-4">
           {/* Receber lembretes: só exibe quando a audiência não está finalizada (inscrições abertas) */}
           {!isAudienciaFinalizada && (
             lembreteInscrito ? (
-              <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-foreground">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
                 <span>Você receberá lembretes desta audiência no celular e e-mail.</span>
               </div>
             ) : (
               <Button
                 type="button"
                 variant="outline"
-                className="w-full gap-2 border-primary text-primary hover:bg-primary/10"
+                className="w-full gap-2 border-border text-foreground hover:bg-muted/50"
                 onClick={handleReceberLembretes}
                 disabled={lembreteLoading}
               >
@@ -574,38 +590,45 @@ const AudienciaDetailPage = () => {
           )}
 
           {isAudienciaFinalizada ? (
-            <Button disabled className="w-full bg-muted text-muted-foreground cursor-default">
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Inscrições encerradas
-            </Button>
+            <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+              <CircleOff className="h-5 w-5 shrink-0" />
+              <span>Inscrições encerradas</span>
+            </div>
           ) : (
             <>
-              <Button
-                onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <User className="h-4 w-4 mr-2" />
-                Inscrição para manifestar-se durante a videoconferência
-              </Button>
+              {inscritoVideoconferencia ? (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  <span>Já inscrito nesta audiência</span>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                  className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <User className="h-4 w-4 shrink-0" />
+                  Inscrição para manifestar-se durante a videoconferência
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
-                className="w-full border-primary text-primary hover:bg-primary/10"
+                className="w-full gap-2 border-primary text-primary hover:bg-primary/10"
               >
-                <FileText className="h-4 w-4 mr-2" />
+                <FileText className="h-4 w-4 shrink-0" />
                 Enviar manifestação por escrito para a audiência
               </Button>
               <Button
                 variant="outline"
-                className="w-full border-primary text-primary hover:bg-primary/10"
+                className="w-full gap-2 border-primary text-primary hover:bg-primary/10"
                 onClick={() => window.open(CMSP_MAPS_URL, "_blank", "noopener,noreferrer")}
               >
-                <MapPin className="h-4 w-4 mr-2" />
+                <MapPin className="h-4 w-4 shrink-0" />
                 Localização da Câmara
               </Button>
             </>
           )}
-          <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
+          <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full border-border text-foreground hover:bg-muted/50">
             Voltar
           </Button>
         </div>

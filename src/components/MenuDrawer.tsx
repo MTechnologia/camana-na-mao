@@ -17,6 +17,7 @@ import {
   User,
   MessageSquare,
   MapPin,
+  CalendarCheck,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
