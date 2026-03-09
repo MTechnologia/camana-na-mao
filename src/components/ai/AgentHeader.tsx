@@ -110,7 +110,8 @@ const AgentHeader = () => {
             animate="animate"
             exit="exit"
             className={cn(
-              "relative flex items-center justify-between h-14 px-4 shrink-0 overflow-hidden",
+              "fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4 overflow-hidden",
+              "lg:left-[280px] xl:left-[320px] 2xl:left-[360px]",
               "bg-gradient-to-r",
               headerColor
             )}
@@ -166,6 +167,7 @@ const AgentHeader = () => {
                       variant="ghost" 
                       size="icon"
                       className="text-white hover:bg-white/20"
+                      data-testid="conversations-menu"
                     >
                       <MoreVertical className="h-5 w-5" />
                     </Button>
@@ -191,7 +193,7 @@ const AgentHeader = () => {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="flex items-center justify-between h-14 px-4 border-b border-border bg-card shrink-0"
+            className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between h-14 px-4 border-b border-border bg-card lg:left-[280px] xl:left-[320px] 2xl:left-[360px]"
           >
             {/* Hamburger Menu */}
             <motion.div
@@ -199,7 +201,7 @@ const AgentHeader = () => {
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.2 }}
             >
-              <Button variant="ghost" size="icon" onClick={openMenu}>
+              <Button variant="ghost" size="icon" onClick={openMenu} data-testid="menu-button">
                 <Menu className="h-5 w-5" />
               </Button>
             </motion.div>

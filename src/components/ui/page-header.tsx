@@ -22,7 +22,7 @@ const PageHeader = ({ title, onBack, backTo, rightElement }: PageHeaderProps) =>
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-background shadow-sm" style={{ height: '60px' }}>
+    <header className="fixed top-0 left-0 right-0 z-[100] bg-white dark:bg-background shadow-sm" style={{ height: '60px' }}>
       <div className="flex items-center justify-between px-4 h-full">
         <button
           onClick={handleBack}

@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -13,7 +14,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 
 interface MenuItem {
   title: string;
-  icon: any;
+  icon: LucideIcon;
   href?: string;
   badge?: number | null;
   submenu?: Array<{ title: string; href: string; badge?: number }>;

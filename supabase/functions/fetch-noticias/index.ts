@@ -149,7 +149,7 @@ async function fetchFromAPI(): Promise<Noticia[]> {
 }
 
 // Update database cache
-async function updateDatabaseCache(supabase: any, noticias: Noticia[]): Promise<void> {
+async function updateDatabaseCache(supabase: ReturnType<typeof createClient>, noticias: Noticia[]): Promise<void> {
   console.log(`[fetch-noticias] Updating database cache with ${noticias.length} news items...`);
   
   try {
@@ -182,7 +182,7 @@ async function updateDatabaseCache(supabase: any, noticias: Noticia[]): Promise<
 }
 
 // Fetch from database cache (fallback)
-async function fetchFromDatabaseCache(supabase: any): Promise<Noticia[]> {
+async function fetchFromDatabaseCache(supabase: ReturnType<typeof createClient>): Promise<Noticia[]> {
   console.log('[fetch-noticias] Fetching from database cache...');
   
   const { data, error } = await supabase
@@ -203,7 +203,7 @@ async function fetchFromDatabaseCache(supabase: any): Promise<Noticia[]> {
   
   console.log(`[fetch-noticias] Retrieved ${data.length} items from database cache`);
   
-  return data.map((row: any) => ({
+  return data.map((row: Record<string, unknown>) => ({
     id: row.id,
     title: row.title,
     description: row.description,

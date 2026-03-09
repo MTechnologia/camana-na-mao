@@ -44,6 +44,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/paineis/criar": "Criar Painel",
   // Demais rotas
   "/audiencias": "Audiências Públicas",
+  "/audiencias/minhas-inscricoes": "Minhas inscrições em audiências",
   "/servicos-proximos": "Serviços Próximos",
   "/avaliar": "Avaliar Serviço",
   "/transporte": "Transporte",
@@ -56,6 +57,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/institucional/agenda": "Agenda da Câmara",
   "/institucional/vereadores": "Vereadores",
   "/institucional/conheca-camara": "Conheça a Câmara",
+  "/institucional/comissoes": "Comissões",
   "/institucional/camara-explica": "Câmara Explica",
   "/institucional/escola-parlamento": "Escola do Parlamento",
   "/institucional/noticias": "Notícias",

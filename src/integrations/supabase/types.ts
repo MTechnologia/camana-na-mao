@@ -147,15 +147,22 @@ export type Database = {
       }
       audiencias: {
         Row: {
+          ap_code: string | null
+          comissao: string | null
+          convidados: string | null
           created_at: string
           data: string
           descricao: string | null
           documentos: Json | null
           hora: string
+          mais_informacoes: string | null
+          observacao: string | null
           id: string
           inscricoes_abertas: boolean | null
           link_transmissao: string | null
           local: string
+          slug: string | null
+          splegis_chave: string | null
           status: string
           tema: string
           titulo: string
@@ -163,15 +170,22 @@ export type Database = {
           vagas_disponiveis: number | null
         }
         Insert: {
+          ap_code?: string | null
+          comissao?: string | null
+          convidados?: string | null
           created_at?: string
           data: string
           descricao?: string | null
           documentos?: Json | null
           hora: string
           id?: string
+          mais_informacoes?: string | null
+          observacao?: string | null
           inscricoes_abertas?: boolean | null
           link_transmissao?: string | null
           local: string
+          slug?: string | null
+          splegis_chave?: string | null
           status?: string
           tema: string
           titulo: string
@@ -179,15 +193,22 @@ export type Database = {
           vagas_disponiveis?: number | null
         }
         Update: {
+          ap_code?: string | null
+          comissao?: string | null
+          convidados?: string | null
           created_at?: string
           data?: string
           descricao?: string | null
           documentos?: Json | null
           hora?: string
           id?: string
+          mais_informacoes?: string | null
+          observacao?: string | null
           inscricoes_abertas?: boolean | null
           link_transmissao?: string | null
           local?: string
+          slug?: string | null
+          splegis_chave?: string | null
           status?: string
           tema?: string
           titulo?: string
@@ -859,6 +880,44 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          endpoint: string
+          p256dh_key: string
+          auth_key: string
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          endpoint: string
+          p256dh_key: string
+          auth_key: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          endpoint?: string
+          p256dh_key?: string
+          auth_key?: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           action_url: string | null
@@ -942,6 +1001,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          expo_push_token: string | null
           full_name: string
           id: string
           onboarding_completed_at: string | null
@@ -951,6 +1011,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          expo_push_token?: string | null
           full_name: string
           id: string
           onboarding_completed_at?: string | null
@@ -960,6 +1021,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          expo_push_token?: string | null
           full_name?: string
           id?: string
           onboarding_completed_at?: string | null
@@ -1006,6 +1068,7 @@ export type Database = {
           opening_hours: Json | null
           phone: string | null
           service_type: Database["public"]["Enums"]["service_type"]
+          services_offered: string | null
           state: string
           total_ratings: number | null
           updated_at: string | null
@@ -1024,6 +1087,7 @@ export type Database = {
           opening_hours?: Json | null
           phone?: string | null
           service_type: Database["public"]["Enums"]["service_type"]
+          services_offered?: string | null
           state?: string
           total_ratings?: number | null
           updated_at?: string | null
@@ -1042,6 +1106,7 @@ export type Database = {
           opening_hours?: Json | null
           phone?: string | null
           service_type?: Database["public"]["Enums"]["service_type"]
+          services_offered?: string | null
           state?: string
           total_ratings?: number | null
           updated_at?: string | null
@@ -2044,6 +2109,8 @@ export type Database = {
           font_size: string | null
           id: string
           newsletter: boolean
+          notify_new_reports: boolean
+          notify_new_users: boolean
           profile_visibility: string
           push_notifications: boolean
           reading_mode: boolean | null
@@ -2061,6 +2128,8 @@ export type Database = {
           font_size?: string | null
           id?: string
           newsletter?: boolean
+          notify_new_reports?: boolean
+          notify_new_users?: boolean
           profile_visibility?: string
           push_notifications?: boolean
           reading_mode?: boolean | null
@@ -2078,6 +2147,8 @@ export type Database = {
           font_size?: string | null
           id?: string
           newsletter?: boolean
+          notify_new_reports?: boolean
+          notify_new_users?: boolean
           profile_visibility?: string
           push_notifications?: boolean
           reading_mode?: boolean | null
@@ -2125,6 +2196,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      insert_audiencia_participacao: {
+        Args: {
+          p_audiencia_id: string
+          p_tipo: string
+          p_user_id: string | null
+          p_nome: string
+          p_email: string
+          p_telefone: string
+          p_entidade?: string | null
+          p_funcao?: string | null
+          p_bairro?: string | null
+          p_sugestao?: string | null
+          p_consent?: boolean
+        }
+        Returns: { protocolo: number; id: string }[]
+      }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
       get_reports_with_demographics: {
         Args: {
@@ -2202,6 +2289,21 @@ export type Database = {
         | "hospital"
         | "library"
         | "sports_center"
+        | "street_market"
+        | "community_center"
+        | "daycare"
+        | "park"
+        | "social_assistance"
+        | "police_station"
+        | "transit_station"
+        | "market"
+        | "city_market"
+        | "theater"
+        | "museum"
+        | "cemetery"
+        | "accessibility"
+        | "recycling_point"
+        | "fire_station"
         | "other"
       visit_status: "pending" | "completed" | "expired" | "skipped"
     }
@@ -2347,6 +2449,21 @@ export const Constants = {
         "hospital",
         "library",
         "sports_center",
+        "street_market",
+        "community_center",
+        "daycare",
+        "park",
+        "social_assistance",
+        "police_station",
+        "transit_station",
+        "market",
+        "city_market",
+        "theater",
+        "museum",
+        "cemetery",
+        "accessibility",
+        "recycling_point",
+        "fire_station",
         "other",
       ],
       visit_status: ["pending", "completed", "expired", "skipped"],

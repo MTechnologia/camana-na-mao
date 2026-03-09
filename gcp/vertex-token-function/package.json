@@ -1,0 +1,12 @@
+{
+  "name": "vertex-token-function",
+  "version": "1.0.0",
+  "description": "GCP Cloud Function that returns a Vertex AI access token for the Supabase ai-orchestrator",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.14.0"
+  }
+}

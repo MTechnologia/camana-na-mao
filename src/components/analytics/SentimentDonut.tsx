@@ -18,7 +18,7 @@ export const SentimentDonut = ({ data, total, onSegmentClick }: SentimentDonutPr
     { name: 'Negativo', value: data.negative, color: 'hsl(var(--chart-5))' },
   ];
 
-  const renderCustomLabel = (entry: any) => {
+  const renderCustomLabel = (entry: { payload?: { name?: string; value?: number } }) => {
     const percent = ((entry.value / total) * 100).toFixed(0);
     return `${percent}%`;
   };
@@ -70,7 +70,7 @@ export const SentimentDonut = ({ data, total, onSegmentClick }: SentimentDonutPr
           <Legend
             verticalAlign="bottom"
             height={36}
-            formatter={(value, entry: any) => (
+            formatter={(value, entry: { payload?: { name?: string; value?: number } }) => (
               <span className="text-sm text-foreground">
                 {value} ({entry.payload.value})
               </span>

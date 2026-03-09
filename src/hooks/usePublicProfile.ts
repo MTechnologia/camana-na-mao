@@ -69,7 +69,7 @@ export const usePublicProfile = (userId: string | null): UsePublicProfileResult 
         }
 
         // Converter para tipo PublicProfile
-        const profileData = data as any;
+        const profileData = data as { id: string; full_name?: string; avatar_url?: string; email?: string; phone?: string; created_at?: string; is_own_profile?: boolean; profile_visibility?: string };
         console.log('[usePublicProfile] Profile loaded:', {
           id: profileData.id,
           is_own_profile: profileData.is_own_profile,
@@ -88,9 +88,9 @@ export const usePublicProfile = (userId: string | null): UsePublicProfileResult 
           is_own_profile: profileData.is_own_profile || false,
           profile_visibility: profileData.profile_visibility || 'public',
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("[usePublicProfile] Error loading public profile:", err);
-        setError(err.message || "Erro ao carregar perfil");
+        setError(err instanceof Error ? err.message : "Erro ao carregar perfil");
         setProfile(null);
       } finally {
         setLoading(false);

@@ -192,6 +192,7 @@ const N8NIntegration = () => {
       loadSettings();
       loadLogs();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSettings/loadLogs run when user changes
   }, [user]);
 
   const loadLogs = async () => {
@@ -273,7 +274,7 @@ const N8NIntegration = () => {
         webhook_url: webhookUrl,
         secret_key: secretKey || null,
         is_connected: isConnected,
-        enabled_events: events as unknown as any,
+        enabled_events: events as Record<string, unknown>[],
       };
 
       if (settingsId) {

@@ -68,6 +68,7 @@ const EscolaParlamento = () => {
 
   useEffect(() => {
     loadCourses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadCourses runs when user/wpAllItems change
   }, [user, wpAllItems]);
 
   // Helper: Extrair duração do conteúdo HTML
@@ -240,7 +241,7 @@ const EscolaParlamento = () => {
         });
 
       setAllCourses(wpCourses);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading courses:", error);
       toast.error("Erro ao carregar cursos");
     } finally {
@@ -266,7 +267,7 @@ const EscolaParlamento = () => {
         });
 
       if (error) {
-        const errorMsg = (error as any)?.message?.toLowerCase() || '';
+        const errorMsg = (error instanceof Error ? error.message : String(error)).toLowerCase();
         if (errorMsg.includes('duplicate') || errorMsg.includes('unique') || errorMsg.includes('already')) {
           toast.success("Você já está inscrito neste curso!");
         } else {
@@ -293,7 +294,7 @@ const EscolaParlamento = () => {
           ? { ...c, is_enrolled: true, participants_count: (c.participants_count || 0) + 1 }
           : c
       ));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error enrolling in course:", error);
       toast.error("Erro ao realizar inscrição. Tente novamente.");
     } finally {

@@ -13,21 +13,29 @@ interface NearbyService {
   average_rating: number;
   total_ratings: number;
   distance?: number;
+  opening_hours: { text?: string } | string | null;
+  services_offered: string | null;
 }
 
-type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "other" | "all";
+type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
+  | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum"
+  | "social_assistance" | "transit_station" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
+  | "fire_station" | "other" | "all";
 
 interface UseNearbyServicesProps {
   latitude: number | null;
   longitude: number | null;
   radiusMeters?: number;
+  /** Um único tipo (legado) ou lista de tipos. Vazio/undefined = todos */
   serviceType?: ServiceType;
+  /** Múltiplos tipos (multiseleção). Vazio = todos. Tem precedência sobre serviceType */
+  serviceTypes?: ServiceType[];
 }
 
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
 const CENTRO_SP = { lat: -23.5505, lng: -46.6333 };
 
-// Haversine formula to calculate distance between two points
+// Haversine: distância em linha reta (não é a distância da rota a pé/carro). A UI exibe "(em linha reta)" para evitar confusão com o Maps.
 const calculateDistance = (
   lat1: number,
   lon1: number,
@@ -79,11 +87,16 @@ const getBoundingBox = (lat: number, lng: number, radius: number) => {
   };
 };
 
+/** Chave de localização para deduplicar serviços no mesmo ponto (evita cards repetidos). */
+const locationKey = (lat: number, lng: number, decimals = 5) =>
+  `${Number(lat.toFixed(decimals))},${Number(lng.toFixed(decimals))}`;
+
 export const useNearbyServices = ({
   latitude,
   longitude,
   radiusMeters = 5000,
   serviceType,
+  serviceTypes,
 }: UseNearbyServicesProps) => {
   // useRef para manter última localização válida e evitar recálculos desnecessários
   const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
@@ -118,19 +131,26 @@ export const useNearbyServices = ({
         safeRadius
       );
 
+      const types = serviceTypes?.filter((t) => t !== "all") ?? [];
+      const singleType = !serviceType || serviceType === "all" ? undefined : serviceType;
+      const effectiveTypes =
+        types.length > 0 ? types : singleType ? [singleType] : [];
+      const isAllTypes = effectiveTypes.length === 0;
+      const limit = isAllTypes ? 5000 : 800;
+
       let query = supabase
         .from("public_services")
         .select(
-          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings"
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered"
         )
         .gte("latitude", minLat)
         .lte("latitude", maxLat)
         .gte("longitude", minLng)
         .lte("longitude", maxLng)
-        .limit(200);
+        .limit(limit);
 
-      if (serviceType && serviceType !== "all") {
-        query = query.eq("service_type", serviceType as any);
+      if (effectiveTypes.length > 0) {
+        query = query.in("service_type", effectiveTypes as any);
       }
 
       const { data, error: fetchError } = await query;
@@ -160,6 +180,8 @@ export const useNearbyServices = ({
             average_rating: service.average_rating ?? 0,
             total_ratings: service.total_ratings ?? 0,
             distance: calculateDistance(userLat, userLng, lat, lng),
+            opening_hours: service.opening_hours ?? null,
+            services_offered: service.services_offered ?? null,
           } as NearbyService;
         })
         .filter((service): service is NearbyService => service !== null);
@@ -168,7 +190,16 @@ export const useNearbyServices = ({
         .filter((service) => (service.distance ?? 0) <= safeRadius)
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 
-      setServices(withinRadius);
+      // Um serviço por localização (evita duplicados no mesmo ponto)
+      const seen = new Set<string>();
+      const deduped = withinRadius.filter((s) => {
+        const key = locationKey(s.latitude, s.longitude);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setServices(deduped);
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
       setServices([]);
@@ -176,7 +207,7 @@ export const useNearbyServices = ({
     } finally {
       setLoading(false);
     }
-  }, [radiusMeters, serviceType]);
+  }, [radiusMeters, serviceType, serviceTypes]);
 
   useEffect(() => {
     fetchServices();

@@ -7,8 +7,8 @@ export interface N8NLog {
   entity_id: string;
   event_type: string;
   status: string | null;
-  payload: any;
-  response: any;
+  payload: unknown;
+  response: unknown;
   error_message: string | null;
   created_at: string | null;
 }

@@ -16,7 +16,7 @@ export default function MyReportsPage() {
   const navigate = useNavigate();
   const { getMyReports } = useTransportReport();
   const { canReferToCouncilMember } = useUserRole();
-  const [reports, setReports] = useState<any[]>([]);
+  const [reports, setReports] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralReport, setReferralReport] = useState<{
@@ -31,6 +31,7 @@ export default function MyReportsPage() {
 
   useEffect(() => {
     loadReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const loadReports = async () => {
@@ -78,7 +79,7 @@ export default function MyReportsPage() {
               const problem = transportProblems.find(p => p.id === report.report_type);
               
               return (
-                <Card key={report.id} className="hover:shadow-md transition-shadow border-border">
+                <Card key={report.id} className="hover:shadow-md transition-shadow border-border" data-testid="report-card">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">

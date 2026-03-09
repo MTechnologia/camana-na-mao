@@ -142,17 +142,21 @@ const UpdatePassword = () => {
       setTimeout(() => {
         navigate("/login");
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating password:', error);
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
+      const err = error as { errors?: Array<{ message?: string }>; message?: string };
+      if (err.errors) {
+        err.errors.forEach((e) => {
+          toast.error(e.message ?? 'Erro');
         });
-      } else if (error.message?.includes('session')) {
-        toast.error("Sessão expirada. Solicite um novo link de recuperação.");
-        setTimeout(() => navigate("/reset-password"), 2000);
       } else {
-        toast.error(error.message || "Erro ao alterar senha");
+        const msg = err.message ?? '';
+        if (msg.includes('session')) {
+          toast.error("Sessão expirada. Solicite um novo link de recuperação.");
+          setTimeout(() => navigate("/reset-password"), 2000);
+        } else {
+          toast.error(msg || "Erro ao alterar senha");
+        }
       }
     } finally {
       setLoading(false);

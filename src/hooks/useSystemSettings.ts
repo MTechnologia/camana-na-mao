@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 interface SystemSetting {
   id: string;
   setting_key: string;
-  setting_value: any;
+  setting_value: unknown;
   updated_by: string | null;
   updated_at: string;
   created_at: string;
@@ -14,7 +14,7 @@ interface SystemSetting {
 
 export const useSystemSettings = () => {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<Map<string, any>>(new Map());
+  const [settings, setSettings] = useState<Map<string, unknown>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const fetchSettings = async () => {
@@ -38,11 +38,11 @@ export const useSystemSettings = () => {
     }
   };
 
-  const getSetting = (key: string, defaultValue?: any) => {
+  const getSetting = (key: string, defaultValue?: unknown) => {
     return settings.get(key) ?? defaultValue;
   };
 
-  const updateSetting = async (key: string, value: any) => {
+  const updateSetting = async (key: string, value: unknown) => {
     try {
       if (!user) {
         throw new Error('User not authenticated');

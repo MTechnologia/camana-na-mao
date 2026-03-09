@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,19 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addressSchema } from "@/lib/validations";
 import { MapPin, Loader2, CheckCircle2, Home, Building2, Navigation } from "lucide-react";
+import { lookupCepAddress } from "@/lib/cepLookup";
 
 interface AddressFormProps {
   userId: string;
-}
-
-interface ViaCepResponse {
-  cep: string;
-  logradouro: string;
-  complemento: string;
-  bairro: string;
-  localidade: string;
-  uf: string;
-  erro?: boolean;
 }
 
 interface Coordinates {
@@ -48,12 +39,10 @@ const AddressForm = ({ userId }: AddressFormProps) => {
   const [isPrimary, setIsPrimary] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  /** Quando true, rua, bairro, cidade e estado foram preenchidos pelo CEP e ficam somente leitura */
+  const [addressFilledFromCep, setAddressFilledFromCep] = useState(false);
 
-  useEffect(() => {
-    loadAddress();
-  }, [userId]);
-
-  const loadAddress = async () => {
+  const loadAddress = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('user_addresses')
@@ -74,7 +63,9 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         setCity(data.city);
         setState(data.state);
         setIsPrimary(data.is_primary);
-        
+        const zipLen = (data.zip_code || "").replace(/\D/g, "").length;
+        const hasAddressFields = !!(data.street && data.neighborhood && data.city && data.state);
+        setAddressFilledFromCep(zipLen === 8 && hasAddressFields);
         if (data.latitude && data.longitude) {
           setCoordinates({
             latitude: data.latitude,
@@ -82,10 +73,14 @@ const AddressForm = ({ userId }: AddressFormProps) => {
           });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading address:", error);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadAddress();
+  }, [loadAddress]);
 
   const geocodeAddress = async (fullAddress: string): Promise<Coordinates | null> => {
     setGeocoding(true);
@@ -141,26 +136,39 @@ const AddressForm = ({ userId }: AddressFormProps) => {
     
     if (cleanedZipCode.length < 8) {
       setCoordinates(null);
+      setAddressFilledFromCep(false);
     }
 
     if (cleanedZipCode.length === 8) {
       setLoadingCep(true);
       try {
-        const response = await fetch(`https://viacep.com.br/ws/${cleanedZipCode}/json/`);
-        const data: ViaCepResponse = await response.json();
-
-        if (data.erro) {
-          toast.error("CEP não encontrado");
+        const result = await lookupCepAddress(cleanedZipCode);
+        if (!result.ok) {
+          if (result.errorType === "not_found") {
+            toast.error("CEP não encontrado");
+          } else {
+            toast.info("Não foi possível consultar o CEP agora. Você pode preencher o endereço manualmente.");
+          }
           return;
         }
 
-        setStreet(data.logradouro);
-        setNeighborhood(data.bairro);
-        setCity(data.localidade);
-        setState(data.uf);
-        
-        const fullAddress = `${data.logradouro}, ${data.bairro}, ${data.localidade}, ${data.uf}, Brasil`;
-        const coords = await geocodeAddress(fullAddress);
+        setStreet(result.address.street);
+        setNeighborhood(result.address.neighborhood);
+        setCity(result.address.city);
+        setState(result.address.state);
+        setAddressFilledFromCep(true);
+
+        const fullAddress = [
+          result.address.street,
+          result.address.neighborhood,
+          result.address.city,
+          result.address.state,
+          "Brasil",
+        ]
+          .filter(Boolean)
+          .join(", ");
+
+        const coords = fullAddress ? await geocodeAddress(fullAddress) : null;
         
         if (coords) {
           toast.success("Endereço encontrado com localização mapeada!");
@@ -196,6 +204,18 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
       setLoading(true);
 
+      // Se não temos coordenadas, tentar geocodificar (rua + número + bairro...) para salvar lat/lon
+      // e que "Usar endereço cadastrado" traga serviços ordenados por proximidade
+      let coordsToSave = coordinates;
+      if (!coordsToSave?.latitude && !coordsToSave?.longitude && (street || neighborhood)) {
+        const fullAddress = [street, number, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+        const geocoded = fullAddress ? await geocodeAddress(fullAddress) : null;
+        if (geocoded) {
+          coordsToSave = geocoded;
+          setCoordinates(geocoded);
+        }
+      }
+
       const addressData = {
         zip_code: validated.zipCode,
         street: validated.street,
@@ -205,8 +225,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         city: validated.city,
         state: validated.state,
         is_primary: validated.isPrimary,
-        latitude: coordinates?.latitude || null,
-        longitude: coordinates?.longitude || null,
+        latitude: coordsToSave?.latitude ?? null,
+        longitude: coordsToSave?.longitude ?? null,
       };
 
       if (addressId) {
@@ -229,13 +249,12 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
       toast.success("Endereço salvo com sucesso!");
       loadAddress();
-    } catch (error: any) {
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
+    } catch (error: unknown) {
+      const err = error as { errors?: Array<{ message?: string }>; message?: string };
+      if (err?.errors) {
+        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
       } else {
-        toast.error(error.message || "Erro ao salvar endereço");
+        toast.error(err?.message || "Erro ao salvar endereço");
       }
     } finally {
       setLoading(false);
@@ -313,6 +332,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
               value={street}
               onChange={(e) => setStreet(e.target.value)}
               className="h-11"
+              disabled={addressFilledFromCep}
+              readOnly={addressFilledFromCep}
             />
           </div>
 
@@ -355,6 +376,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
               className="h-11"
+              disabled={addressFilledFromCep}
+              readOnly={addressFilledFromCep}
             />
           </div>
 
@@ -370,6 +393,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className="h-11"
+                disabled={addressFilledFromCep}
+                readOnly={addressFilledFromCep}
               />
             </div>
 
@@ -377,7 +402,7 @@ const AddressForm = ({ userId }: AddressFormProps) => {
               <label className="text-sm text-muted-foreground mb-1.5 block">
                 Estado <span className="text-destructive">*</span>
               </label>
-              <Select value={state} onValueChange={setState}>
+              <Select value={state} onValueChange={setState} disabled={addressFilledFromCep}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="UF" />
                 </SelectTrigger>

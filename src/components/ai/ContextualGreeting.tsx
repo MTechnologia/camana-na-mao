@@ -8,7 +8,7 @@ import AnimatedAIAvatar from "./AnimatedAIAvatar";
 const ContextualGreeting = () => {
   const { profile } = useProfile();
   const { pendingRatings } = usePendingRatings();
-  const [nextAudiencia, setNextAudiencia] = useState<any>(null);
+  const [nextAudiencia, setNextAudiencia] = useState<{ id: string; titulo?: string; data?: string } | null>(null);
 
   const firstName = profile?.full_name?.split(' ')[0] || "Cidadão";
 

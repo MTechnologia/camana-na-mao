@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ export interface AIConversation {
 }
 
 // Extract report data from messages
-const extractReportData = (messages: any[]): { category?: string; address?: string; status?: string } | undefined => {
+const extractReportData = (messages: Array<{ content?: string }>): { category?: string; address?: string; status?: string } | undefined => {
   for (const msg of messages) {
     const content = msg?.content || "";
     
@@ -38,7 +38,7 @@ const extractReportData = (messages: any[]): { category?: string; address?: stri
           address: address || undefined,
           status: "Em andamento"
         };
-      } catch {}
+      } catch { /* ignore parse errors */ }
     }
     
     // Try to extract from REPORT_CREATED marker
@@ -72,7 +72,7 @@ const formatCategory = (category: string | undefined): string | undefined => {
 };
 
 // Generate intelligent title from user messages (skip generic starts, find descriptive content)
-const generateIntelligentTitle = (messages: any[]): string => {
+const generateIntelligentTitle = (messages: Array<{ role?: string; content?: string }>): string => {
   const userMessages = messages.filter(m => m?.role === "user");
   
   // Generic phrases to skip
@@ -115,9 +115,8 @@ export const useAIConversations = () => {
   const [conversations, setConversations] = useState<AIConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!user) return;
-
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -129,7 +128,7 @@ export const useAIConversations = () => {
       if (error) throw error;
 
       const formatted: AIConversation[] = (data || []).map((conv) => {
-        const messages = (conv.messages as any[]) || [];
+        const messages = (conv.messages as Array<{ role?: string; content?: string }>) || [];
         const lastMsg = messages[messages.length - 1];
         const lastMsgContent = cleanInternalMarkers(lastMsg?.content || '');
         
@@ -154,21 +153,22 @@ export const useAIConversations = () => {
       });
 
       setConversations(formatted);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading conversations:', error);
       toast({
         title: 'Erro ao carregar conversas',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toast is stable
+  }, [user]);
 
   useEffect(() => {
     loadConversations();
-  }, [user?.id]);
+  }, [loadConversations]);
 
   const conversationsByJourney = useMemo(() => {
     const grouped = conversations.reduce((acc, conv) => {
@@ -231,11 +231,11 @@ export const useAIConversations = () => {
 
       await loadConversations();
       return data.id;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating conversation:', error);
       toast({
         title: 'Erro ao criar conversa',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: 'destructive',
       });
       return null;
@@ -264,11 +264,11 @@ export const useAIConversations = () => {
       }
 
       return data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error resuming conversation:', error);
       toast({
         title: 'Erro ao retomar conversa',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: 'destructive',
       });
       return null;
@@ -292,11 +292,11 @@ export const useAIConversations = () => {
         title: 'Conversa arquivada',
         description: 'A conversa foi arquivada com sucesso',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error archiving conversation:', error);
       toast({
         title: 'Erro ao arquivar conversa',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: 'destructive',
       });
     }
@@ -319,7 +319,7 @@ export const useAIConversations = () => {
         title: 'Conversa restaurada',
         description: 'A conversa foi restaurada com sucesso.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error restoring conversation:', error);
       toast({
         title: 'Erro ao restaurar',
@@ -342,7 +342,7 @@ export const useAIConversations = () => {
       if (error) throw error;
 
       await loadConversations();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting conversation:', error);
       toast({
         title: 'Erro ao deletar',

@@ -68,9 +68,9 @@ const DataExportPage = () => {
 
       setExported(true);
       toast.success("Dados exportados com sucesso!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error exporting data:', error);
-      toast.error(error.message || 'Erro ao exportar dados. Tente novamente.');
+      toast.error(error instanceof Error ? error.message : 'Erro ao exportar dados. Tente novamente.');
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { forwardRef, useState, useEffect } from "react";
+import React, { forwardRef, useState, useEffect, useCallback } from "react";
 import { WifiOff, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,22 +12,19 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
   const [isRetrying, setIsRetrying] = useState(false);
   const [countdown, setCountdown] = useState(AUTO_RETRY_INTERVAL_S);
 
-  const handleRetry = async () => {
+  const handleRetry = useCallback(async () => {
     if (isRetrying) return;
-    
     setIsRetrying(true);
-    
     const success = await onRetry();
     if (!success) {
       setIsRetrying(false);
       setCountdown(AUTO_RETRY_INTERVAL_S);
     }
-  };
+  }, [isRetrying, onRetry]);
 
   // Auto-retry countdown
   useEffect(() => {
     if (isRetrying) return;
-    
     const interval = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -37,9 +34,8 @@ const OfflineMode = forwardRef<HTMLDivElement, OfflineModeProps>(({ onRetry }, r
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(interval);
-  }, [isRetrying]);
+  }, [isRetrying, handleRetry]);
 
   return (
     <div ref={ref} className="min-h-screen bg-background flex flex-col items-center justify-center p-6">

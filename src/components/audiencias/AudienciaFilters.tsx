@@ -3,6 +3,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -15,10 +22,14 @@ interface AudienciaFiltersProps {
   onOpenChange: (open: boolean) => void;
   filters: {
     themes: string[];
+    regions: string[];
     status: string;
-    period: string;
+    dateFrom: string;
+    dateTo: string;
+    year: string;
   };
-  onFiltersChange: (filters: any) => void;
+  onFiltersChange: (filters: Record<string, unknown>) => void;
+  availableRegions: string[];
 }
 
 const temas = [
@@ -35,6 +46,7 @@ const AudienciaFilters = ({
   onOpenChange,
   filters,
   onFiltersChange,
+  availableRegions = [],
 }: AudienciaFiltersProps) => {
   const toggleTheme = (themeId: string) => {
     const newThemes = filters.themes.includes(themeId)
@@ -43,18 +55,32 @@ const AudienciaFilters = ({
     onFiltersChange({ ...filters, themes: newThemes });
   };
 
+  const toggleRegion = (region: string) => {
+    const newRegions = filters.regions.includes(region)
+      ? filters.regions.filter(r => r !== region)
+      : [...filters.regions, region];
+    onFiltersChange({ ...filters, regions: newRegions });
+  };
+
   const handleClearFilters = () => {
     onFiltersChange({
       themes: [],
+      regions: [],
       status: "all",
-      period: "all",
+      dateFrom: "",
+      dateTo: "",
+      year: "all",
     });
   };
 
-  const activeFiltersCount = 
-    filters.themes.length + 
-    (filters.status !== "all" ? 1 : 0) + 
-    (filters.period !== "all" ? 1 : 0);
+  const activeFiltersCount =
+    filters.themes.length +
+    filters.regions.length +
+    (filters.status !== "all" ? 1 : 0) +
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
+    (filters.year !== "all" ? 1 : 0);
+
+  const anos = Array.from({ length: 2026 - 2008 + 1 }, (_, i) => String(2026 - i));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -105,6 +131,34 @@ const AudienciaFilters = ({
             </div>
           </div>
 
+          {/* Região */}
+          {availableRegions.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">📍 Região</Label>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {availableRegions.map((region) => (
+                  <div
+                    key={region}
+                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => toggleRegion(region)}
+                  >
+                    <Checkbox
+                      id={`filter-region-${region}`}
+                      checked={filters.regions.includes(region)}
+                      onCheckedChange={() => toggleRegion(region)}
+                    />
+                    <label
+                      htmlFor={`filter-region-${region}`}
+                      className="flex-1 text-sm font-medium leading-none cursor-pointer"
+                    >
+                      {region}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Status */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">📊 Status</Label>
@@ -131,30 +185,52 @@ const AudienciaFilters = ({
             </RadioGroup>
           </div>
 
-          {/* Período */}
+          {/* Período: data inicial e data final */}
           <div className="space-y-3">
             <Label className="text-base font-semibold">📅 Período</Label>
-            <RadioGroup
-              value={filters.period}
-              onValueChange={(value) => onFiltersChange({ ...filters, period: value })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-from" className="text-sm text-muted-foreground">Data inicial</Label>
+                <input
+                  id="filter-date-from"
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="filter-date-to" className="text-sm text-muted-foreground">Data final</Label>
+                <input
+                  id="filter-date-to"
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Ano */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">📆 Ano</Label>
+            <Select
+              value={filters.year}
+              onValueChange={(value) => onFiltersChange({ ...filters, year: value })}
             >
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="all" id="period-all" />
-                <Label htmlFor="period-all" className="cursor-pointer">Qualquer data</Label>
-              </div>
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="week" id="period-week" />
-                <Label htmlFor="period-week" className="cursor-pointer">Esta semana</Label>
-              </div>
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="month" id="period-month" />
-                <Label htmlFor="period-month" className="cursor-pointer">Este mês</Label>
-              </div>
-              <div className="flex items-center space-x-2 p-2">
-                <RadioGroupItem value="next-month" id="period-next-month" />
-                <Label htmlFor="period-next-month" className="cursor-pointer">Próximo mês</Label>
-              </div>
-            </RadioGroup>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os anos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {anos.map((ano) => (
+                  <SelectItem key={ano} value={ano}>
+                    {ano}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

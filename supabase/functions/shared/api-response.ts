@@ -4,7 +4,7 @@ export interface ApiResponse<T> {
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
     field?: string; // Para erros de validação
     timestamp?: string;
   };
@@ -78,7 +78,7 @@ export function errorResponse(
   message: string,
   status: number = 400,
   options?: {
-    details?: any;
+    details?: unknown;
     field?: string;
     headers?: Record<string, string>;
   }

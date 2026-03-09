@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -18,13 +18,16 @@ interface PendingRating {
   };
 }
 
-export const usePendingRatings = () => {
+const DEFAULT_PENDING_LIMIT = 3;
+
+export const usePendingRatings = (options?: { limit?: number }) => {
+  const limit = options?.limit ?? DEFAULT_PENDING_LIMIT;
   const { user } = useAuth();
   const [pendingRatings, setPendingRatings] = useState<PendingRating[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPendingRatings = async () => {
+  const fetchPendingRatings = useCallback(async () => {
     if (!user) {
       setPendingRatings([]);
       setLoading(false);
@@ -55,11 +58,11 @@ export const usePendingRatings = () => {
         .eq("status", "pending")
         .gt("expires_at", new Date().toISOString())
         .order("visited_at", { ascending: false })
-        .limit(3);
+        .limit(limit);
 
       if (fetchError) throw fetchError;
 
-      setPendingRatings((data as any) || []);
+      setPendingRatings((data as Array<Record<string, unknown>>) || []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Erro ao buscar avaliações pendentes";
       setError(errorMessage);
@@ -67,11 +70,11 @@ export const usePendingRatings = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, limit]);
 
   useEffect(() => {
     fetchPendingRatings();
-  }, [user]);
+  }, [fetchPendingRatings]);
 
   const markAsSkipped = async (visitId: string) => {
     try {

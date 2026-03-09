@@ -6,11 +6,14 @@ import {
   Landmark, 
   MapPin, 
   Calendar, 
+  CalendarClock,
   Users, 
   HelpCircle, 
   Newspaper,
   Search,
-  X
+  X,
+  BookOpen,
+  LayoutList
 } from "lucide-react";
 import {
   Drawer,
@@ -94,6 +97,13 @@ const categories: CapabilityCategory[] = [
         message: "Quais audiências públicas estão marcadas?",
       },
       {
+        id: "agenda-atividades",
+        icon: CalendarClock,
+        title: "Agenda de atividades",
+        description: "Próximas sessões, reuniões e eventos da Câmara",
+        message: "Quais são as próximas atividades da Câmara? O que tem na agenda?",
+      },
+      {
         id: "vereadores",
         icon: Users,
         title: "Vereadores da minha região",
@@ -106,6 +116,20 @@ const categories: CapabilityCategory[] = [
     id: "aprender",
     label: "APRENDER",
     capabilities: [
+      {
+        id: "estrutura-funcionamento",
+        icon: BookOpen,
+        title: "Estrutura e funcionamento da Câmara",
+        description: "Conhecer como a Câmara é organizada e como funciona",
+        message: "Quero conhecer a estrutura e o funcionamento da Câmara Municipal",
+      },
+      {
+        id: "comissoes-atribuicoes",
+        icon: LayoutList,
+        title: "Comissões e atribuições",
+        description: "Quais comissões existem e o que cada uma faz",
+        message: "Quais são as comissões da Câmara e o que cada uma faz?",
+      },
       {
         id: "duvidas",
         icon: HelpCircle,

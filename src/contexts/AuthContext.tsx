@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+const getErrorMessage = (e: unknown): string =>
+  e instanceof Error ? e.message : (typeof e === 'object' && e !== null && 'message' in e)
+    ? String((e as { message: unknown }).message) : '';
+
 const translateError = (message: string): string => {
   const translations: Record<string, string> = {
     "Invalid login credentials": "E-mail ou senha incorretos",
@@ -11,13 +15,19 @@ const translateError = (message: string): string => {
     "User already registered": "Este e-mail já está cadastrado",
     "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
     "Invalid email": "E-mail inválido",
-    "Email rate limit exceeded": "Muitas tentativas. Aguarde alguns minutos",
+    "Email rate limit exceeded": "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo",
     "Signup requires a valid password": "Senha inválida",
     "Unable to validate email address": "Não foi possível validar o e-mail",
     "signup_disabled": "Cadastro desabilitado pelo administrador",
     "email_exists": "Este e-mail já está cadastrado",
   };
-  return translations[message] || message;
+  const normalized = message.trim();
+  if (translations[normalized]) return translations[normalized];
+  // Supabase pode enviar "email rate limit exceeded" com outra capitalização
+  if (normalized.toLowerCase().includes("email rate limit") || normalized.toLowerCase().includes("rate limit exceeded")) {
+    return "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo";
+  }
+  return message;
 };
 
 interface AuthContextType {
@@ -38,34 +48,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const checkOnboardingStatus = useCallback(async (userId: string | undefined) => {
-    if (!userId) return;
-
-    const { data, error } = await supabase
-      .from('user_interests')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1);
-
-    if (!error && (!data || data.length === 0)) {
-      navigate('/onboarding');
-    } else {
-      navigate('/');
-    }
-  }, [navigate]);
-
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // Only check onboarding status for sign in events from login page
-      // Not for fresh signups which now have their own flow
+      // Após login, ir sempre para home (personalização já está no cadastro; não redirecionar para /onboarding)
       if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
-        setTimeout(() => {
-          checkOnboardingStatus(session?.user?.id);
-        }, 0);
+        navigate('/');
       }
     });
 
@@ -77,12 +67,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, [checkOnboardingStatus]);
+  }, [navigate]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone: string) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -95,8 +85,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       });
 
+      // Supabase às vezes retorna sucesso mesmo com e-mail já existente (identities vazio)
+      const emailAlreadyExists = !error && data?.user && (data.user.identities?.length ?? 0) === 0;
+      if (emailAlreadyExists) {
+        const msg = "Este e-mail já está cadastrado.";
+        toast.error(msg);
+        toast.info("Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.");
+        return { data: null, error: new Error(msg) };
+      }
+
       if (error) throw error;
-      
+
       toast.success("Conta criada com sucesso!");
       return { data: { user: data.user }, error: null };
     } catch (error: unknown) {
@@ -138,8 +137,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success("Login realizado com sucesso!");
       return { error: null };
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao fazer login");
       return { error };
     }
@@ -160,8 +159,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signOut();
       toast.success("Logout realizado com sucesso!");
       navigate('/login');
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao fazer logout");
     }
   }, [user, navigate]);
@@ -180,8 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success("E-mail de recuperação enviado!");
       return { error: null };
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
       toast.error(translatedMessage || "Erro ao enviar e-mail");
       return { error };
     }
@@ -204,6 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- Context pattern: Provider + hook in same file
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

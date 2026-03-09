@@ -7,23 +7,54 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "scheme": "camaranaomao",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.mtechnologia.camaranamao",
+      "associatedDomains": [
+        "applinks:app-mtechnologia.com"
+      ],
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "O app usa o microfone para você ditar mensagens e perguntas por voz no assistente.",
+        "NSSpeechRecognitionUsageDescription": "O app usa reconhecimento de voz para transformar sua fala em texto no assistente."
+      }
     },
     "android": {
       "package": "br.com.mtechnologia.camaranamao",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "app-mtechnologia.com",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "resize",
+      "label": "Câmara na Mão"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,6 +64,22 @@
         "projectId": "7fb6c435-44ad-4cda-b5c1-35c90072d7b3"
       }
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {}
+      ],
+      "./plugins/withAndroidSafeAreaContextAgp.js",
+      [
+        "expo-location",
+        {
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "O app usa sua localização para detectar visitas a serviços públicos e sugerir avaliações."
+        }
+      ],
+      "expo-build-properties"
+    ],
     "updates": {
       "enabled": false,
       "fallbackToCacheTimeout": 0

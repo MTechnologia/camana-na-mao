@@ -8,7 +8,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function usage() {
-  // eslint-disable-next-line no-console
   console.log('Usage: node scripts/generate-icons.mjs <relativePathToSourcePng>');
   process.exit(1);
 }
@@ -58,7 +57,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  // eslint-disable-next-line no-console
   console.error(e);
   process.exit(1);
 });

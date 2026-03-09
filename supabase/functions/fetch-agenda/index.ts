@@ -289,7 +289,7 @@ async function fetchFromAPI(): Promise<AgendaItem[]> {
 /**
  * Update database cache with fresh data
  */
-async function updateDatabaseCache(supabase: any, agenda: AgendaItem[]): Promise<void> {
+async function updateDatabaseCache(supabase: ReturnType<typeof createClient>, agenda: AgendaItem[]): Promise<void> {
   console.log(`[fetch-agenda] Updating database cache with ${agenda.length} items...`);
   
   // First, clean old cache entries with the old ID format (wp-XXXXX without event index)
@@ -330,7 +330,7 @@ async function updateDatabaseCache(supabase: any, agenda: AgendaItem[]): Promise
 /**
  * Fetch agenda from database cache (fallback)
  */
-async function fetchFromDatabaseCache(supabase: any): Promise<AgendaItem[]> {
+async function fetchFromDatabaseCache(supabase: ReturnType<typeof createClient>): Promise<AgendaItem[]> {
   console.log('[fetch-agenda] Fetching from database cache...');
   
   const { data, error } = await supabase
@@ -351,7 +351,7 @@ async function fetchFromDatabaseCache(supabase: any): Promise<AgendaItem[]> {
 
   console.log(`[fetch-agenda] Retrieved ${data.length} items from database cache`);
 
-  return data.map((row: any) => ({
+  return data.map((row: Record<string, unknown>) => ({
     id: row.id,
     title: row.title,
     description: row.description || '',

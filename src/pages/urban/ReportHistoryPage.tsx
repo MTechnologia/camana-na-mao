@@ -94,10 +94,12 @@ export default function ReportHistoryPage() {
 
   useEffect(() => {
     loadReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   useEffect(() => {
     loadAllReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllReports runs when filters change
   }, [filters]);
 
   const loadReports = async () => {
@@ -226,7 +228,7 @@ export default function ReportHistoryPage() {
       canReferToCouncilMember && !!user && report.user_id === user.id;
 
     return (
-      <Card key={report.id} className="hover:shadow-md transition-shadow">
+      <Card key={report.id} className="hover:shadow-md transition-shadow" data-testid="report-card">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">
@@ -272,6 +274,25 @@ export default function ReportHistoryPage() {
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
               {report.description}
             </p>
+          )}
+
+          {report.photos && report.photos.length > 0 && (
+            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+              {report.photos.slice(0, 5).map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border bg-muted"
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </a>
+              ))}
+              {report.photos.length > 5 && (
+                <span className="flex-shrink-0 text-xs text-muted-foreground self-center">+{report.photos.length - 5}</span>
+              )}
+            </div>
           )}
 
           <div className="space-y-1 mb-3">

@@ -10,7 +10,7 @@ export interface DrillOperation {
   type: DrillType;
   fromDimension: string;
   toDimension?: string;
-  filters: Record<string, any>;
+  filters: Record<string, unknown>;
   timestamp: Date;
 }
 
@@ -22,13 +22,13 @@ export interface AnalyticsState {
   metrics: string[];
   drillPath: DrillLevel[];
   comparisons: string[];
-  filters: Record<string, any>;
+  filters: Record<string, unknown>;
 }
 
 export interface DrillDataPoint {
   label: string;
   value: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ComparisonData {
@@ -41,5 +41,5 @@ export interface ComparisonData {
 
 export interface RawDataRow {
   id: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }

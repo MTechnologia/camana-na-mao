@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
@@ -114,7 +114,8 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
   ],
   general: [
     'informação', 'informacao', 'dúvida', 'duvida', 'pergunta', 'como funciona', 'o que é', 'o que e',
-    'horário', 'horario', 'endereço', 'endereco', 'telefone', 'contato', 'atendimento'
+    'horário', 'horario', 'endereço', 'endereco', 'telefone', 'contato', 'atendimento',
+    'estrutura', 'funcionamento', 'apresentação', 'apresentacao', 'conhecer a câmara', 'conhecer a camara'
   ]
 };
 
@@ -141,10 +142,10 @@ export function extractImplicitData(
   userMessage: string, 
   lastAssistantQuestion: string,
   domain: string
-): Record<string, any> {
+): Record<string, unknown> {
   const lower = userMessage.toLowerCase().trim();
   const questionLower = lastAssistantQuestion.toLowerCase();
-  const extracted: Record<string, any> = {};
+  const extracted: Record<string, unknown> = {};
   
   // === CONTEXT: Risk/Urgency question ===
   if (questionLower.includes('risco') || questionLower.includes('urgente') || 
@@ -439,7 +440,7 @@ export const EMERGING_PATTERNS = [
 export async function detectEmergingCategory(
   description: string,
   currentCategory: string,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<{ shouldCreate: boolean; suggestedKey?: string; suggestedName?: string; parentCategory?: string }> {
   const lower = description.toLowerCase();
   
@@ -485,7 +486,7 @@ export async function createDynamicCategory(
   name: string,
   parentCategory: string,
   description: string,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<void> {
   const keywords = extractCategoryKeywords(description);
   
@@ -528,7 +529,7 @@ export async function logCategoryUsage(
   subcategory: string | null,
   description: string,
   userId: string | null,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<void> {
   try {
     // Simple hash for deduplication
@@ -571,7 +572,7 @@ export interface CitizenLearningProfile {
  */
 export async function loadCitizenProfile(
   userId: string,
-  supabaseClient: any
+  supabaseClient: SupabaseClient
 ): Promise<CitizenLearningProfile | null> {
   try {
     const { data, error } = await supabaseClient
@@ -594,8 +595,8 @@ export async function loadCitizenProfile(
 export async function learnFromConversation(
   userId: string,
   messages: Array<{ role: string; content: string }>,
-  reportData: Record<string, any>,
-  supabaseClient: any
+  reportData: Record<string, unknown>,
+  supabaseClient: SupabaseClient
 ): Promise<void> {
   try {
     const userMessages = messages.filter(m => m.role === 'user');
@@ -628,7 +629,7 @@ export async function learnFromConversation(
     
     if (existing) {
       // Update existing profile
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         avg_message_length: Math.round((existing.avg_message_length + avgLength) / 2),
         communication_style: style,
         prefers_short_responses: avgLength < 30,
@@ -870,14 +871,14 @@ export function inferTransportTypeFromText(text: string): string | null {
 // Intent detection for collection progress tracking with scoring system
 export type CollectionIntent = {
   type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
-  fields: Record<string, any>;
-  accumulatedFields?: Record<string, any>; // All fields collected across conversation
+  fields: Record<string, unknown>;
+  accumulatedFields?: Record<string, unknown>; // All fields collected across conversation
 };
 
 export interface DetectionScore {
   type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
   score: number;
-  fields: Record<string, any>;
+  fields: Record<string, unknown>;
 }
 
 // Tool hint for light journeys (services, audiencias, general, history)
@@ -935,13 +936,32 @@ export const INTENT_KEYWORDS = [
   'ônibus atrasado', 'metrô lotado', 'trem atrasou', 'não passou',
   'motorista rude', 'falta de ônibus',
   
-  // === Perguntas sobre a Câmara ===
-  'como funciona', 'o que é', 'quem é', 'me explica', 'dúvida sobre'
+  // === Perguntas informativas / conhecimento (ativam scoring; general pode ganhar e acionar RAG) ===
+  'como funciona', 'o que é', 'o que e', 'quem é', 'quem e', 'me explica', 'dúvida sobre', 'duvida sobre',
+  'quais são', 'quais sao', 'qual é', 'qual e', 'quais as', 'quais os', 'qual a', 'qual o',
+  'atribuições', 'atribuicoes', 'atribuição', 'atribuicao', 'função dos', 'funcao dos', 'papel dos',
+  'vereadores', 'vereador', 'vereadora', 'câmara', 'camara', 'municipal', 'legislativo', 'legislatura',
+  'informação sobre', 'informacao sobre', 'saber sobre', 'entender sobre', 'conhecer sobre',
+  'sessões', 'sessão', 'sessoes', 'sessao', 'audiência', 'audiencia', 'como posso participar', 'como participar',
+  'onde fica a', 'endereço da câmara', 'endereco da camara',
+  'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do vereador', 'ganha um vereador',
+  'competências', 'competencias', 'responsabilidades', 'quantos vereadores', 'mandato', 'presidente da câmara',
+  'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica',
+  'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
+  'orçamento', 'orcamento', 'emendas', 'para que serve', 'por que existe', 'quando foi', 'história da câmara',
+  'como nasce uma lei', 'o que é uma audiência', 'diferença entre', 'diferenca entre', 'requisitos para ser vereador',
+  'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
+  // === GeoSampa / Prefeitura SP: equipamentos, transportes, população, sistema viário ===
+  'equipamentos públicos', 'equipamentos publicos', 'equipamento público', 'equipamento publico', 'ubs', 'hospital', 'escola', 'ceu ', 'cras', 'posto de saúde', 'unidade de saúde',
+  'população', 'populacao', 'habitantes', 'densidade', 'demografia', 'demográfico', 'censo', 'quantos habitantes',
+  'sistema viário', 'sistema viario', 'sistema viária', 'via', 'vias', 'infraestrutura viária', 'trânsito', 'transito', 'ciclovia', 'ciclovias', 'malha viária',
+  'transporte público', 'transporte publico', 'rede de transporte', 'linhas de ônibus', 'linhas de onibus', 'metrô', 'metro', 'cptm', 'bilhete único', 'bilhete unico',
+  'geosampa', 'geo sampa', 'dados da cidade', 'dados de são paulo', 'mapa da cidade', 'melhor ubs', 'qual ubs', 'unidades de saúde'
 ];
 
 // Extract transport-specific fields - EXPANDED VOCABULARY
-export function extractTransportFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {};
+export function extractTransportFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
   const today = new Date().toISOString().split('T')[0];
   
   // Detect report_type - EXPANDED vocabulary for robust detection
@@ -1015,6 +1035,20 @@ export function extractTransportFields(context: string): Record<string, any> {
   return fields;
 }
 
+/** Verifica se o nome da cidade corresponde ao município de São Paulo (capital). */
+export function isCitySaoPaulo(city: string | undefined | null): boolean {
+  if (!city || typeof city !== 'string') return false;
+  const normalized = city.trim().toLowerCase().normalize('NFD').replace(/\u0307/g, '').replace(/[\u0300-\u036f]/g, '');
+  return normalized === 'sao paulo' || normalized === 'são paulo';
+}
+
+/** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
+export const MESSAGE_OUTSIDE_SAO_PAULO = (
+  cityName?: string
+) => cityName
+  ? `Entendemos que o endereço informado é na **${cityName}**. No entanto, este canal é exclusivo para atendimentos realizados na cidade de São Paulo.\n\nVocê teria algum outro relato ou solicitação referente à cidade de São Paulo para que possamos ajudar?`
+  : `Entendemos que o endereço informado fica fora da nossa área de atuação. No entanto, este canal é exclusivo para atendimentos realizados na cidade de São Paulo.\n\nVocê teria algum outro relato ou solicitação referente à cidade de São Paulo para que possamos ajudar?`;
+
 // Lookup CEP via ViaCEP API
 export async function lookupCEP(cep: string): Promise<{
   valid: boolean;
@@ -1049,6 +1083,108 @@ export async function lookupCEP(cep: string): Promise<{
   }
 }
 
+/** Geocode endereço (rua, bairro, CEP, cidade) para lat/lon via Nominatim (OSM). Usado para buscar serviços próximos quando não há GPS nem lat/lon no endereço cadastrado. */
+export async function geocodeAddressToCoord(addressParts: {
+  street?: string | null;
+  street_number?: string | null;
+  neighborhood?: string | null;
+  cep?: string | null;
+  city?: string | null;
+}): Promise<{ lat: number; lon: number } | null> {
+  const city = addressParts.city || 'São Paulo';
+  const runQuery = async (query: string): Promise<{ lat: number; lon: number } | null> => {
+    if (!query || query.length < 5) return null;
+    const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
+      q: query,
+      format: 'json',
+      limit: '1',
+      countrycodes: 'br',
+    })}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const lat = Number(data[0].lat);
+    const lon = Number(data[0].lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  };
+
+  const parts: string[] = [];
+  if (addressParts.street) {
+    parts.push(addressParts.street_number ? `${addressParts.street}, ${addressParts.street_number}` : addressParts.street);
+  }
+  if (addressParts.neighborhood) parts.push(addressParts.neighborhood);
+  if (addressParts.cep) parts.push(addressParts.cep.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'));
+  parts.push(city, 'Brazil');
+  const fullQuery = parts.filter(Boolean).join(', ');
+  try {
+    let result = await runQuery(fullQuery);
+    if (result) return result;
+    // Fallback: sem número (rua + bairro + cidade) — Nominatim às vezes falha com número
+    if (addressParts.street_number && addressParts.street) {
+      const fallbackParts = [addressParts.street, addressParts.neighborhood, city, 'Brazil'].filter(Boolean);
+      result = await runQuery(fallbackParts.join(', '));
+    }
+    return result;
+  } catch (e) {
+    console.error('[geocodeAddressToCoord] Error:', e);
+    return null;
+  }
+}
+
+/** Geocode endereço usando Google Places (autocomplete + details), igual ao módulo e ao picker. Usado quando precisamos do mesmo ponto que o frontend (ex.: endereço cadastrado sem lat/lon). */
+export async function geocodeAddressWithGoogle(
+  supabase: SupabaseClient,
+  addressParts: {
+    street?: string | null;
+    street_number?: string | null;
+    neighborhood?: string | null;
+    cep?: string | null;
+    city?: string | null;
+  }
+): Promise<{ lat: number; lon: number } | null> {
+  const city = addressParts.city || 'São Paulo';
+  const parts: string[] = [];
+  if (addressParts.street) {
+    parts.push(addressParts.street_number ? `${addressParts.street}, ${addressParts.street_number}` : addressParts.street);
+  }
+  if (addressParts.neighborhood) parts.push(addressParts.neighborhood);
+  if (addressParts.cep) parts.push(String(addressParts.cep).replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'));
+  parts.push(city, 'Brasil');
+  const query = parts.filter(Boolean).join(', ');
+  if (!query || query.length < 5) return null;
+  try {
+    const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke<{
+      predictions?: Array<{ placeId?: string }>;
+      error?: string;
+    }>('google-places-autocomplete', { body: { query } });
+    if (autocompleteError || !autocompleteData?.predictions?.length) {
+      if (autocompleteError) console.warn('[geocodeAddressWithGoogle] Autocomplete error:', autocompleteError);
+      return null;
+    }
+    const placeId = autocompleteData.predictions[0].placeId;
+    if (!placeId) return null;
+    const { data: detailsData, error: detailsError } = await supabase.functions.invoke<{
+      address?: { latitude?: number; longitude?: number };
+      error?: string;
+    }>('google-places-details', { body: { placeId } });
+    if (detailsError || !detailsData?.address) {
+      if (detailsError) console.warn('[geocodeAddressWithGoogle] Details error:', detailsError);
+      return null;
+    }
+    const lat = Number(detailsData.address.latitude);
+    const lon = Number(detailsData.address.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  } catch (e) {
+    console.error('[geocodeAddressWithGoogle] Error:', e);
+    return null;
+  }
+}
+
 // Valid categories for urban reports (source of truth)
 export const VALID_URBAN_CATEGORIES = [
   'iluminacao', 'calcada', 'via_publica', 'lixo', 'esgoto', 
@@ -1060,8 +1196,8 @@ export const classifiedCategories = new Map<string, { category: string; confiden
 
 // Extract urban report-specific fields - SIMPLIFIED: NO category inference, NO location extraction
 // Category is now EXCLUSIVELY determined by classify_report_category tool (AI classification)
-export function extractUrbanFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {};
+export function extractUrbanFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
   
   // REMOVED: All category inference logic - now handled by classify_report_category tool
   // The AI model will classify the category and call the tool explicitly
@@ -1581,13 +1717,41 @@ export function autoInferRisk(description: string): {
 }
 
 // Parse user response for specific field types
-export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, any> {
+export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, unknown> {
   const response = userResponse.trim();
   const responseLower = response.toLowerCase();
-  const result: Record<string, any> = {};
+  const result: Record<string, unknown> = {};
   
   switch (fieldType) {
-    case 'street_number':
+    case 'cep': {
+      // CEP numérico (8 dígitos)
+      const cepMatch = response.match(/\b(\d{5}[-]?\d{3})\b/);
+      if (cepMatch) {
+        result.cep = cepMatch[1].replace(/\D/g, '');
+        break;
+      }
+      // Endereço em texto livre "Rua X, Bairro" ou "Rua X 123, Centro"
+      const looksLikeAddr = /rua|av\.|avenida|praça|rua das|rua do|centro|vila|jardim|bairro/i.test(response) || (response.includes(',') && response.length > 15);
+      if (looksLikeAddr && response.length >= 10) {
+        const parts = response.split(',').map((p: string) => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          const lastPart = parts[parts.length - 1];
+          const streetParts = parts.slice(0, -1);
+          const street = streetParts.join(', ');
+          if (street.length >= 3 && lastPart.length >= 2) {
+            result.street = street;
+            result.neighborhood = lastPart;
+            console.log('[parseFieldResponse] CEP: parsed free-form address:', { street, neighborhood: lastPart });
+          }
+        } else if (parts.length === 1 && parts[0].length >= 10 && /rua|av\.|avenida|praça/i.test(parts[0])) {
+          result.street = parts[0];
+          console.log('[parseFieldResponse] CEP: parsed single-part street:', parts[0]);
+        }
+      }
+      break;
+    }
+
+    case 'street_number': {
       // Try to extract number first
       const numberMatch = response.match(/^(\d+)/);
       if (numberMatch) {
@@ -1601,8 +1765,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.street_number = response;
       }
       break;
+    }
       
-    case 'category':
+    case 'category': {
       // === CRITICAL: Handle confirmation responses (sim/não) for pending category ===
       const confirmPatterns = /^(sim|s|yes|y|ok|pode|pode ser|isso|isso mesmo|confirmo|confirma|exato|correto)$/i;
       const denyPatterns = /^(não|nao|n|no|nope|outra|outro|diferente|errado|não é isso|nao e isso)$/i;
@@ -1613,7 +1778,6 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         console.log('[parseFieldResponse] Category confirmation detected: YES');
         break;
       }
-      
       if (denyPatterns.test(responseLower)) {
         // User denied - signal that we should clear pending and ask again
         result._category_denied = true;
@@ -1671,8 +1835,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         }
       }
       break;
+    }
       
-    case 'risk_level':
+    case 'risk_level': {
       // Parse risk level from natural language - EXPANDED VOCABULARY
       // Simple yes/no responses first
       if (responseLower === 'sim' || responseLower === 's' || responseLower === 'yes' || responseLower === 'y') {
@@ -1738,8 +1903,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.urgency_reason = response;
       }
       break;
+    }
       
-    case 'affected_scope':
+    case 'affected_scope': {
       // Parse affected scope
       const individualKeywords = ['só eu', 'so eu', 'minha casa', 'meu', 'apenas eu', 'só minha'];
       const streetKeywords = ['rua toda', 'toda a rua', 'rua inteira', 'vizinhos', 'quarteirão', 'a rua', 'toda rua'];
@@ -1753,8 +1919,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.affected_scope = 'individual';
       }
       break;
+    }
       
-    case 'active_consequences':
+    case 'active_consequences': {
       // Parse active consequences
       const consequences: string[] = [];
       if (responseLower.includes('luz') || responseLower.includes('apagão') || responseLower.includes('energia')) {
@@ -1778,8 +1945,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         result.active_consequences = consequences;
       }
       break;
+    }
       
-    case 'description':
+    case 'description': {
       // USE CENTRALIZED NLP FUNCTION - accepts 8+ chars with keyword
       if (isValidDomainDescription(response, 'urban')) {
         result.description = response;
@@ -1797,6 +1965,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         }
       }
       break;
+    }
   }
   
   return result;
@@ -1806,24 +1975,36 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
 export function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
   collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias'
-): Record<string, any> {
+): Record<string, unknown> {
   // === LIGHT JOURNEY: services (busca de serviços próximos) ===
   // Ordem: 1) location_method (GPS / cadastrado / manual), 2) se manual → CEP/endereço, 3) service_type
   if (collectionType === 'services') {
-    const acc: Record<string, any> = {};
+    const getContent = (msg: { role: string; content: string | unknown }): string => {
+      const raw = msg.content;
+      if (typeof raw === 'string') return raw;
+      if (Array.isArray(raw)) {
+        const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
+        return part ? String(part.text) : '';
+      }
+      return '';
+    };
+    const acc: Record<string, unknown> = {};
     for (const msg of messages) {
-      if (msg.role === 'assistant' && msg.content.includes('[COLLECTION_PROGRESS:services:')) {
-        const match = msg.content.match(/\[COLLECTION_PROGRESS:services:(\{[^}]+\})\]/);
+      if (msg.role === 'assistant') {
+        const c = getContent(msg);
+        if (c.includes('[COLLECTION_PROGRESS:services:')) {
+          const match = c.match(/\[COLLECTION_PROGRESS:services:(\{[^}]+\})\]/);
         if (match) {
           try {
             Object.assign(acc, JSON.parse(match[1]));
-          } catch (e) {}
+            } catch { /* ignore parse errors */ }
+          }
         }
       }
     }
     for (const msg of messages) {
       if (msg.role !== 'user') continue;
-      const c = msg.content.trim();
+      const c = getContent(msg).trim();
       const cLower = c.toLowerCase();
       // Método de localização
       if (!acc.location_method) {
@@ -1835,21 +2016,35 @@ export function accumulateFieldsFromHistory(
           acc.location_method = 'manual';
         }
       }
-      // Localização GPS: lat,lon (enviado pelo frontend após permissão) — define também location_method
-      const gpsMatch = c.match(/Localização\s+GPS:\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/i);
+      // Localização GPS: lat,lon (enviado pelo frontend) — aceita "Localização GPS: -23.58,-46.69" ou com espaços
+      const gpsMatch = c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps') ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/) : null);
       if (gpsMatch && !acc.user_lat) {
-        const lat = parseFloat(gpsMatch[1]);
-        const lon = parseFloat(gpsMatch[2]);
-        if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+        const lat = parseFloat(gpsMatch[1].trim());
+        const lon = parseFloat(gpsMatch[2].trim());
+        if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
           acc.user_lat = lat;
           acc.user_lon = lon;
           if (!acc.location_method) acc.location_method = 'gps';
         }
       }
-      // Tipo de serviço: chip/picker "Tipo de serviço: UBS"
-      if (!acc.service_type && /tipo de serviço:\s*(\w+)/i.test(c)) {
-        const m = c.match(/tipo de serviço:\s*(\w+)/i);
-        if (m) acc.service_type = m[1].toLowerCase();
+      // Tipo de serviço: chip/picker "Tipo de serviço: UBS" ou "Tipo de serviço: Parques"
+      if (!acc.service_type && /tipo de serviço:\s*(.+)/i.test(c)) {
+        const m = c.match(/tipo de serviço:\s*(.+?)(?:\s*\.\s*Especificação|$)/im);
+        const raw = m?.[1]?.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (raw) {
+          const labelToId: Record<string, string> = {
+            'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
+            'bibliotecas': 'library', 'esportes': 'sports_center', 'centros esportivos': 'sports_center',
+            'parques': 'park', 'feiras': 'street_market', 'centros comunitários': 'community_center',
+            'creches': 'daycare', 'mercados': 'market', 'mercados municipais': 'city_market',
+            'teatro/cinema': 'theater', 'teatros': 'theater', 'museus': 'museum',
+            'assistência social': 'social_assistance', 'transporte': 'transit_station',
+            'delegacia/polícia': 'police_station', 'cemitério': 'cemetery', 'acessibilidade': 'accessibility',
+            'reciclagem/limpeza': 'recycling_point', 'bombeiros': 'fire_station', 'outros': 'other'
+          };
+          acc.service_type = labelToId[raw] || raw;
+        }
       }
       // CEP em qualquer formato
       if (!acc.cep && /\b(\d{5}-?\d{3})\b/.test(c)) {
@@ -1866,16 +2061,86 @@ export function accumulateFieldsFromHistory(
         if (neighborhoodMatch?.[1]?.trim() && !acc.neighborhood) acc.neighborhood = neighborhoodMatch[1].trim();
       }
     }
+    // Número ou referência: se o assistente pediu e o usuário respondeu (services journey)
+    const lastAssistantContent = messages.filter((m) => m.role === 'assistant').map((m) => getContent(m)).pop() || '';
+    const lastUserContent = messages.filter((m) => m.role === 'user').map((m) => getContent(m)).pop()?.trim() || '';
+    if (lastUserContent && (lastAssistantContent.includes('número') || lastAssistantContent.includes('ponto de referência')) && !acc.street_number && !acc.reference_point) {
+      const skipPhrases = ['pular', 'não sei', 'nao sei', 'continuar', 'não tenho', 'nao tenho', 'opcional', 'próximo', 'proximo', 'sem número', 'sem numero'];
+      if (skipPhrases.some((p) => lastUserContent.toLowerCase().includes(p))) {
+        acc.reference_point = 'não informado';
+      } else {
+        const numberMatch = lastUserContent.match(/^(\d+)/);
+        if (numberMatch) acc.street_number = numberMatch[1];
+        else if (/altura|perto|frente|próximo|proximo/.test(lastUserContent.toLowerCase())) acc.reference_point = lastUserContent;
+        else if (lastUserContent.length < 50) acc.street_number = lastUserContent;
+      }
+    }
     // Inferir service_type por texto (UBS, hospital, CEU, etc.)
     if (!acc.service_type) {
       for (const msg of messages) {
         if (msg.role === 'user') {
-          const t = inferServiceTypeFromText(msg.content);
+          const t = inferServiceTypeFromText(getContent(msg));
           if (t) {
             acc.service_type = t;
             break;
           }
         }
+      }
+    }
+    // Quando o assistente mostrou "Qual desses te interessa?" (lista de alternativas) e o usuário respondeu com número ou tipo, usar essa escolha (evita loop de "não tenho serviços")
+    const lastAssistant = messages.filter((m) => m.role === 'assistant').pop();
+    const lastUser = messages.filter((m) => m.role === 'user').pop();
+    if (lastAssistant && lastUser && getContent(lastAssistant).includes('Qual desses te interessa?')) {
+      const assistantText = getContent(lastAssistant);
+      const userText = getContent(lastUser).trim();
+      const labelToType: Record<string, string> = {
+        'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
+        'bibliotecas': 'library', 'centros esportivos': 'sports_center', 'esportes': 'sports_center',
+        'parques': 'park', 'feiras': 'street_market', 'creches': 'daycare', 'museus': 'museum',
+        'teatros': 'theater', 'transporte': 'transit_station', 'bombeiros': 'fire_station'
+      };
+      let chosenType: string | null = null;
+      const digitMatch = userText.match(/^(\d)\s*$/);
+      if (digitMatch) {
+        const num = parseInt(digitMatch[1], 10);
+        const listMatch = assistantText.match(new RegExp(`^${num}\\.\\s*(.+)$`, 'm'));
+        if (listMatch) {
+          const label = listMatch[1].trim().toLowerCase().replace(/\s+/g, ' ');
+          chosenType = (labelToType[label] || Object.entries(labelToType).find(([k]) => label.includes(k))?.[1]) ?? null;
+        }
+      } else {
+        chosenType = inferServiceTypeFromText(userText);
+      }
+      if (chosenType) {
+        acc.service_type = chosenType;
+      }
+    }
+    // Filtros de busca (raio, avaliação mínima, busca por texto) — da última mensagem do usuário
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role !== 'user') continue;
+      const c = getContent(messages[i]).trim();
+      const cLower = c.toLowerCase();
+      if (!acc.radius_meters) {
+        const radiusMatch = c.match(/raio\s*[:\s]*(\d+)\s*(km|m)/i) || cLower.match(/raio\s*(\d+)\s*(km|m)/);
+        if (radiusMatch) {
+          const val = parseInt(radiusMatch[1], 10);
+          acc.radius_meters = (radiusMatch[2] || '').toLowerCase() === 'km' ? val * 1000 : val;
+        }
+      }
+      if (acc.min_rating === undefined || acc.min_rating === null || /avalia[cç][aã]o\s*(m[ií]nima)?\s*[:\s]*todas/i.test(c)) {
+        if (/avalia[cç][aã]o\s*(m[ií]nima)?\s*[:\s]*todas/i.test(c)) {
+          acc.min_rating = 0;
+        } else {
+          const ratingMatch = c.match(/avalia[cç][aã]o\s*(m[ií]nima)?\s*[:\s]*(\d+)\s*\+?/i) || c.match(/(\d+)\s*\+?\s*estrelas?/i);
+          if (ratingMatch) {
+            const stars = parseInt(ratingMatch[2] || ratingMatch[1], 10);
+            if (stars >= 2 && stars <= 5) acc.min_rating = stars;
+          }
+        }
+      }
+      if (!acc.search_query) {
+        const buscaMatch = c.match(/busca\s*[:\s]+([^.\n]+)/i) || c.match(/buscar\s+por\s+[^:]+[:\s]+([^.\n]+)/i);
+        if (buscaMatch?.[1]?.trim()) acc.search_query = buscaMatch[1].trim();
       }
     }
     return acc;
@@ -1885,7 +2150,7 @@ export function accumulateFieldsFromHistory(
   if (!['urban_report', 'transport_report', 'service_rating'].includes(collectionType)) {
     return {};
   }
-  const accumulated: Record<string, any> = {};
+  const accumulated: Record<string, unknown> = {};
   
   // Check for fields already collected via [COLLECTION_PROGRESS] markers
   for (const msg of messages) {
@@ -1895,7 +2160,7 @@ export function accumulateFieldsFromHistory(
         try {
           const fields = JSON.parse(match[1]);
           Object.assign(accumulated, fields);
-        } catch (e) {}
+        } catch { /* ignore parse errors */ }
       }
     }
   }
@@ -1923,11 +2188,24 @@ export function accumulateFieldsFromHistory(
       if (cepMatch?.[1] && !accumulated.cep) {
         accumulated.cep = cepMatch[1].replace('-', '');
       }
+      // Extract city (Bairro, Cidade - CEP ou ... - Cidade - CEP) para validação relato só São Paulo
+      if (!accumulated.city) {
+        const cityComma = content.match(/,\s*([^-\n]+?)\s*-\s*CEP/i);
+        if (cityComma?.[1]?.trim()) {
+          accumulated.city = cityComma[1].trim();
+        } else {
+          const cityBeforeCep = content.match(/\s+-\s+([^-\n]+?)\s*-\s*CEP\s*:?/i);
+          if (cityBeforeCep?.[1]?.trim()) {
+            accumulated.city = cityBeforeCep[1].trim();
+          }
+        }
+      }
       
       console.log('[accumulateFields] Parsed Google Places address:', {
         street: accumulated.street,
         neighborhood: accumulated.neighborhood,
-        cep: accumulated.cep
+        cep: accumulated.cep,
+        city: accumulated.city
       });
     }
   }
@@ -2092,6 +2370,31 @@ export function accumulateFieldsFromHistory(
           }
         }
         
+        // === Parse free-form address when user gives "Rua X, Bairro" instead of CEP ===
+        // Question asked for CEP/address ("me diz a rua e bairro", "qual o cep", etc.)
+        const askedForAddress = (question.includes('cep do local') || question.includes('qual o cep') ||
+          question.includes('qual o endereço') || question.includes('rua e bairro') ||
+          question.includes('me diz a rua') || question.includes('cep ou endereço')) &&
+          answer.length >= 10 && !answer.toLowerCase().includes('endereço selecionado:');
+        const hasCepInAnswer = /\b\d{5}[-]?\d{3}\b/.test(answer);
+        const looksLikeAddress = /rua|av\.|avenida|praça|rua das|rua do|centro|vila|jardim|bairro/i.test(answer) || (answer.includes(',') && answer.length > 15);
+        if (askedForAddress && !hasCepInAnswer && looksLikeAddress && (!accumulated.street || !accumulated.neighborhood)) {
+          const parts = answer.split(',').map(p => p.trim()).filter(Boolean);
+          if (parts.length >= 2) {
+            const lastPart = parts[parts.length - 1];
+            const streetParts = parts.slice(0, -1);
+            const street = streetParts.join(', ');
+            if (street.length >= 3 && lastPart.length >= 2) {
+              accumulated.street = street;
+              accumulated.neighborhood = lastPart;
+              console.log('[accumulateFields] Parsed free-form address:', { street, neighborhood: lastPart });
+            }
+          } else if (parts.length === 1 && parts[0].length >= 10 && /rua|av\.|avenida|praça/i.test(parts[0])) {
+            accumulated.street = parts[0];
+            console.log('[accumulateFields] Parsed single-part address as street:', { street: parts[0] });
+          }
+        }
+        
         // Extract street from specific question-answer pair (fallback if no CEP)
         if ((question.includes('qual o nome da rua') || question.includes('qual é o nome da rua') || 
              question.includes('qual a rua') || question.includes('qual é a rua')) && 
@@ -2109,15 +2412,20 @@ export function accumulateFieldsFromHistory(
         // Extract number/reference from specific question (NOW MARKDOWN-RESISTANT)
         if ((question.includes('qual o número') || question.includes('qual é o número') ||
              question.includes('número ou ponto') || question.includes('ponto de referência')) && answer.length > 0) {
-          // Try to parse as number first
-          const numberMatch = answer.match(/^(\d+)/);
-          if (numberMatch) {
-            accumulated.street_number = numberMatch[1];
-          } else if (answer.toLowerCase().includes('altura') || answer.toLowerCase().includes('perto') || 
-                     answer.toLowerCase().includes('frente') || answer.toLowerCase().includes('próximo')) {
-            accumulated.reference_point = answer;
+          const answerLower = answer.toLowerCase().trim();
+          const skipPhrases = ['pular', 'não sei', 'nao sei', 'continuar', 'não tenho', 'nao tenho', 'opcional', 'próximo', 'proximo', 'sem número', 'sem numero'];
+          if (skipPhrases.some(p => answerLower.includes(p))) {
+            accumulated.reference_point = 'não informado';
           } else {
-            accumulated.street_number = answer;
+            const numberMatch = answer.match(/^(\d+)/);
+            if (numberMatch) {
+              accumulated.street_number = numberMatch[1];
+            } else if (answerLower.includes('altura') || answerLower.includes('perto') ||
+                       answerLower.includes('frente') || answerLower.includes('próximo')) {
+              accumulated.reference_point = answer;
+            } else {
+              accumulated.street_number = answer;
+            }
           }
         }
         
@@ -2200,16 +2508,20 @@ export function accumulateFieldsFromHistory(
   
   // ========== SERVICE_RATING SPECIFIC PARSING ==========
   if (collectionType === 'service_rating') {
-    // Service type mapping from display names to IDs
+    // Service type mapping from display names to IDs (alinhado ao InlineServiceTypePicker)
     const serviceTypeMap: Record<string, string> = {
-      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 
-      'ceu': 'ceu', 'biblioteca': 'library', 'centro esportivo': 'sports_center'
+      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 'escolas': 'school',
+      'ceu': 'ceu', 'biblioteca': 'library', 'bibliotecas': 'library',
+      'centro esportivo': 'sports_center', 'esportes': 'sports_center',
+      'parques': 'park', 'park': 'park', 'feiras': 'street_market', 'creches': 'daycare',
+      'museus': 'museum', 'teatros': 'theater', 'teatro': 'theater', 'transporte': 'transit_station',
+      'mercados': 'market', 'mercados municipais': 'city_market', 'outros': 'other'
     };
     
     // === FLEXIBLE ADDRESS CONFIRMATION PATTERNS ===
     const addressConfirmPatterns = [
-      /^sim$/i,
-      /^s$/i,
+      /^sim\.?$/i,
+      /^s\.?$/i,
       /sim.*correto/i,
       /está correto/i,
       /esta correto/i,
@@ -2273,6 +2585,8 @@ export function accumulateFieldsFromHistory(
       if (accumulated.service_address_confirmed === undefined) {
         if (addressConfirmPatterns.some(p => p.test(contentLower))) {
           accumulated.service_address_confirmed = true;
+          accumulated._needs_address_reconfirm = false;
+          accumulated._address_reconfirmed = true;
           console.log('[accumulateFields] Service address confirmed by user (flexible match)');
         } else if (addressDenyPatterns.some(p => p.test(contentLower))) {
           accumulated.service_address_confirmed = false;
@@ -2321,7 +2635,7 @@ export function accumulateFieldsFromHistory(
           
           // Service-specific field parsing
           switch (fieldType) {
-            case 'service_type':
+            case 'service_type': {
               // Check if answer is actually a journey switch request
               const isJourneySwitchAttempt = 
                 answer.toLowerCase().includes('falar de') ||
@@ -2347,6 +2661,7 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_type = answer.toLowerCase();
               }
               break;
+            }
             case 'service_name':
               // Aceitar "Serviço: NOME - Bairro\nEndereço: ..." (regex sem $ para multilinha)
               const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*([^\n]*))?(?:\n|$)/i);
@@ -2357,23 +2672,26 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
-            case 'rating_stars':
+            case 'rating_stars': {
               const starsMatch = answer.match(/(\d)/);
               if (starsMatch) {
                 accumulated.rating_stars = parseInt(starsMatch[1]);
               }
               break;
-            case 'rating_text':
+            }
+            case 'rating_text': {
               if (answer.length >= 5) {
                 accumulated.rating_text = answer;
               }
               break;
-            case 'service_address_confirmed':
-              // Parse sim/não response for address confirmation
+            }
+            case 'service_address_confirmed': {
               const confirmLower = answer.toLowerCase().trim();
               if (/^(sim|s|isso|correto|confirmo)$/i.test(confirmLower) || 
                   confirmLower.includes('correto') || confirmLower.includes('isso mesmo')) {
                 accumulated.service_address_confirmed = true;
+                accumulated._needs_address_reconfirm = false;
+                accumulated._address_reconfirmed = true;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address confirmed');
               } else if (/^(n[aã]o|n|errado|incorreto)$/i.test(confirmLower) || 
                          confirmLower.includes('errado') || confirmLower.includes('outro')) {
@@ -2381,30 +2699,49 @@ export function accumulateFieldsFromHistory(
                 console.log('[accumulateFields] FIELD_REQUEST: Service address denied');
               }
               break;
-            case 'service_neighborhood':
-              // User provided neighborhood after denying address
+            }
+            case 'service_neighborhood': {
               if (answer.length >= 2 && answer.length <= 60) {
                 accumulated.service_neighborhood = answer.trim();
-                // Update the service address with the new neighborhood
                 if (accumulated.service_name) {
                   accumulated.service_address = `${accumulated.service_name} - ${answer.trim()}`;
                 }
-                // Reset confirmation to undefined so we can re-ask
                 accumulated.service_address_confirmed = undefined;
+                const prevContent = (prevMsg?.content as string) || '';
+                if (/correto|ok.*bairro/i.test(prevContent)) {
                 accumulated._needs_address_reconfirm = true;
+                }
+                // NUNCA preencher service_name com genérico - queremos o dropdown
+                const typeLabels: Record<string, string> = { ceu: 'CEU', ubs: 'UBS', hospital: 'Hospital', school: 'Escola', library: 'Biblioteca', sports_center: 'Centro esportivo' };
+                const tl = typeLabels[String(accumulated.service_type || '')] || '';
+                const generic = tl ? `${tl} - ${answer.trim()}` : '';
+                if (accumulated.service_name === generic || !accumulated.service_name || accumulated.service_name.length < 5) {
+                  accumulated.service_name = undefined;
+                }
                 console.log('[accumulateFields] FIELD_REQUEST: Service neighborhood captured:', answer);
               }
               break;
-            case 'service_address_reconfirm':
-              // Parse reconfirmation response
+            }
+            case 'service_address_reconfirm': {
               const reconfirmLower = answer.toLowerCase().trim();
+              const denied = /^(n[aã]o|n|errado|incorreto)$/i.test(reconfirmLower) ||
+                reconfirmLower.includes('errado') || reconfirmLower.includes('incorreto') || reconfirmLower.includes('outro');
               if (/^(sim|s|isso|correto|confirmo)$/i.test(reconfirmLower) || 
                   reconfirmLower.includes('correto') || reconfirmLower.includes('isso mesmo')) {
                 accumulated.service_address_confirmed = true;
                 accumulated._address_reconfirmed = true;
+                accumulated._needs_address_reconfirm = false;
                 console.log('[accumulateFields] FIELD_REQUEST: Service address reconfirmed');
+              } else if (denied) {
+                accumulated.service_address_confirmed = false;
+                accumulated.service_neighborhood = undefined;
+                accumulated.service_address = accumulated.service_name ? `${accumulated.service_name}` : undefined;
+                accumulated._needs_address_reconfirm = false;
+                accumulated._address_reconfirmed = false;
+                console.log('[accumulateFields] FIELD_REQUEST: Service address denied on reconfirm - will ask for correct bairro');
               }
               break;
+            }
           }
         }
       }
@@ -2530,9 +2867,13 @@ export function accumulateFieldsFromHistory(
   return accumulated;
 }
 
+function capitalizeWords(s: string): string {
+  return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // Extract service rating-specific fields
-export function extractServiceFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {};
+export function extractServiceFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
   
   // Detect service type
   if (context.includes('ubs') || context.includes('posto de saúde') || context.includes('posto de saude')) {
@@ -2549,10 +2890,32 @@ export function extractServiceFields(context: string): Record<string, any> {
     fields.service_type = 'sports_center';
   }
   
+  // Extract name/neighborhood from "UBS Butantã", "quero avaliar a UBS Butantã", etc.
+  const typeNameMatch = context.match(/\b(ubs|hospital|escola|ceu|biblioteca|centro\s+esportivo)\s+([a-záàâãéèêíìóòôõúùç]+(?:\s+[a-záàâãéèêíìóòôõúùç]+)*?)(?=\s+que|\s*[.,!?]|$)/i);
+  if (typeNameMatch) {
+    const typeKey = typeNameMatch[1].toLowerCase().replace(/\s+/, ' ');
+    const namePart = typeNameMatch[2].trim();
+    if (namePart.length >= 2 && namePart.length <= 50) {
+      const typeDisplay: Record<string, string> = {
+        ubs: 'UBS', hospital: 'Hospital', escola: 'Escola', ceu: 'CEU',
+        biblioteca: 'Biblioteca', 'centro esportivo': 'Centro esportivo',
+      };
+      const typeLabel = typeDisplay[typeKey] || capitalizeWords(typeKey);
+      fields.service_name = `${typeLabel} - ${capitalizeWords(namePart)}`;
+      fields.service_neighborhood = capitalizeWords(namePart);
+    }
+  }
+  
   // Detect rating
   const starsMatch = context.match(/(\d)\s*(?:estrela|nota)/);
   if (starsMatch) {
     fields.rating_stars = parseInt(starsMatch[1]);
+  }
+  
+  // Detect rating_text from short descriptive replies (excelente, ótimo, bom, ruim, etc.)
+  const shortCommentMatch = context.match(/^(excelente|ótimo|ótima|otimo|otima|bom|boa|ruim|regular|péssimo|maravilhoso|ótimo atendimento|atendimento excelente|muito bom|muito boa)$/i);
+  if (shortCommentMatch && !fields.rating_text) {
+    fields.rating_text = shortCommentMatch[1];
   }
   
   // Detect sentiment
@@ -2629,8 +2992,8 @@ export function findCouncilMemberMatches(partialName: string): { found: boolean;
 }
 
 // Extract chamber feedback-specific fields
-export function extractChamberFields(context: string): Record<string, any> {
-  const fields: Record<string, any> = {
+export function extractChamberFields(context: string): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
     category: 'feedback_camara'
   };
   
@@ -2684,7 +3047,7 @@ export function detectExistingJourney(
     if (msg.role === 'assistant') {
       const progressMatch = msg.content.match(/\[COLLECTION_PROGRESS:(\w+):/);
       if (progressMatch) {
-        const type = progressMatch[1] as any;
+        const type = progressMatch[1] as string;
         if (STRUCTURED_JOURNEY_TYPES.includes(type)) {
           return type;
         }
@@ -2698,6 +3061,36 @@ export function detectExistingJourney(
     }
   }
   return null;
+}
+
+/**
+ * Detecta se a mensagem é pergunta informativa sobre audiência (ex.: "o que é audiência pública?").
+ * Usado para forçar intent general e acionar RAG mesmo quando o usuário está na aba Audiências.
+ */
+export function isInformationalQuestionAboutAudience(userMessage: string): boolean {
+  const normalized = userMessage
+    .trim()
+    .replace(/^0\s*que\s/gi, 'o que ')
+    .replace(/\b0\s*que\s/gi, 'o que ');
+  return /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalized);
+}
+
+/** True quando o cidadão pergunta sobre linhas/paradas/previsão de ônibus (consulta Olho Vivo), não relato de problema. */
+export function isBusInformationalQuery(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  const patterns = [
+    /linhas?\s+(de\s+)?(ônibus|onibus)\s+passam/i,
+    /quais\s+linhas\s+passam/i,
+    /(ônibus|onibus)\s+passam\s+próximo|(ônibus|onibus)\s+passam\s+perto/i,
+    /qual\s+(linha|ônibus|onibus)\s+passa/i,
+    /quando\s+passa\s+(o\s+)?(ônibus|onibus)/i,
+    /itinerário|itinerario\s+(da\s+)?linha/i,
+    /previsão\s+de\s+chegada|previsao\s+de\s+chegada/i,
+    /(paradas?|pontos?)\s+(de\s+)?(ônibus|onibus)\s+perto|(ônibus|onibus)\s+(que\s+)?passam\s+perto/i,
+    /próximo\s+a\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*próximo\s+a\s+mim/i,
+    /perto\s+de\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*perto\s+de\s+mim/i,
+  ];
+  return patterns.some(p => p.test(m));
 }
 
 export function detectCollectionIntent(
@@ -2721,7 +3114,9 @@ export function detectCollectionIntent(
   const hasIntent = INTENT_KEYWORDS.some(kw => fullUserContext.includes(kw));
   
   if (!hasIntent) {
+    const excerpt = (userMessage || '').trim().slice(0, 120);
     console.log('[detectCollectionIntent] No intent keywords found, skipping tracker activation');
+    console.log('[ai-orchestrator] NÃO FOI POSSÍVEL ASSOCIAR A NENHUM INTENT; RAG NÃO FOI CONSULTADO. Mensagem do usuário (trecho):', excerpt || '(vazia)');
     return null;
   }
   
@@ -2733,9 +3128,11 @@ export function detectCollectionIntent(
   const explicitUrbanPhrases = [
     'quero fazer uma reclamação', 'quero fazer reclamação', 'quero fazer reclamacao',
     'quero denunciar', 'problema na minha rua', 'problema na cidade', 'problema urbano',
+    'problemas na cidade', 'problemas na rua', 'quero falar sobre problemas na cidade',
     'tem um buraco', 'poste apagado', 'lixo acumulado', 'quero abrir um chamado',
     'quero registrar um problema urbano', 'relatar problema urbano', 'fazer um relato urbano',
-    'problema na rua', 'problema no bairro', 'problema de infraestrutura'
+    'problema na rua', 'problema no bairro', 'problema de infraestrutura',
+    'quero falar de problema', 'quero falar sobre cidade', 'quero falar sobre problema'
     // REMOVED: 'quero relatar um problema' - too generic, matches transport!
   ];
   
@@ -2747,9 +3144,9 @@ export function detectCollectionIntent(
     'quero fazer um relato de transporte', 'relatar problema de transporte',
     'problema no transporte', 'problema no transporte público', 'problema no transporte publico',
     'relatar um problema no transporte', 'problema de transporte',
-    // Journey switch phrases
-    'quero falar de transporte', 'quero falar do transporte', 'falar de transporte',
-    'falar sobre transporte', 'mudar para transporte', 'trocar para transporte'
+    // Campo geral: falar sobre transporte
+    'quero falar de transporte', 'quero falar do transporte', 'quero falar sobre transporte',
+    'falar de transporte', 'falar sobre transporte', 'mudar para transporte', 'trocar para transporte'
   ];
   
   const explicitRatingPhrases = [
@@ -2768,8 +3165,22 @@ export function detectCollectionIntent(
   const explicitServicesPhrases = [
     'onde fica a ubs', 'onde fica o hospital', 'buscar serviço', 'buscar servico',
     'quero encontrar', 'preciso encontrar', 'procurar uma escola',
-    'qual ubs mais perto', 'como chegar na ubs', 'serviços perto de mim',
-    'servicos perto de mim', 'onde tem hospital', 'onde tem escola'
+    'qual ubs mais perto', 'qual a ubs perto de mim', 'quais ubs perto de mim',
+    'quais ubss perto de mim', 'quais as ubs perto de mim', 'quais as ubss perto de mim',
+    'quais as ubs\'s perto de mim', 'como chegar na ubs', 'serviços perto de mim',
+    'servicos perto de mim', 'onde tem hospital', 'onde tem escola',
+    'qual hospital perto de mim', 'quais hospitais perto de mim', 'qual hospital mais perto de mim',
+    'quais hospitais mais perto de mim', 'qual escola perto de mim', 'quais escolas perto de mim',
+    'qual escola mais perto de mim', 'quais escolas mais perto de mim',
+    'qual ceu perto de mim', 'quais ceus perto de mim', 'qual ceu mais perto de mim', 'quais ceus mais perto de mim',
+    'qual biblioteca perto de mim', 'quais bibliotecas perto de mim', 'qual biblioteca mais perto de mim', 'quais bibliotecas mais perto de mim',
+    'qual a ubs mais perto', 'quais as ubs mais perto', 'qual o hospital mais perto', 'quais os hospitais mais perto',
+    'quais assistências sociais mais perto de mim', 'qual assistência social mais perto de mim',
+    'quais esportes mais perto de mim', 'qual esporte mais perto de mim',
+    'qual transporte mais perto de mim', 'quais transportes mais perto de mim',
+    'qual delegacia mais perto de mim', 'quais delegacias mais perto de mim',
+    'quero falar sobre serviços', 'quero falar sobre servicos', 'quero falar de serviços',
+    'serviços próximos', 'servicos próximos', 'serviços proximos', 'quero serviços próximos'
   ];
   
   const explicitAudienciasPhrases = [
@@ -2785,13 +3196,20 @@ export function detectCollectionIntent(
     'status do meu relato', 'minhas reclamações', 'minhas reclamacoes'
   ];
   
-  // NEW: Vereadores phrases
+  // NEW: Vereadores phrases (informação / saber sobre = consulta, NÃO relato)
   const explicitVereadoresPhrases = [
     'vereadores da minha região', 'vereadores da minha regiao',
     'quais vereadores representam', 'quem me representa na câmara',
     'quem me representa na camara', 'vereadores do meu bairro',
     'meus vereadores', 'vereador da zona', 'vereadores da zona',
-    'quais vereadores representam minha região', 'quais vereadores representam minha regiao'
+    'quais vereadores representam minha região', 'quais vereadores representam minha regiao',
+    'gostaria de saber sobre os vereadores', 'gostaria de saber sobre vereadores',
+    'quero saber sobre os vereadores', 'quero saber sobre vereadores',
+    'saber sobre os vereadores', 'saber sobre vereadores',
+    'informação sobre vereadores', 'informacao sobre vereadores',
+    'informação sobre os vereadores', 'informacao sobre os vereadores',
+    'vereadores referentes ao bairro', 'vereadores da cidade',
+    'vereadores do bairro', 'quem são os vereadores', 'quem sao os vereadores'
   ];
   
   // NEW: Noticias phrases
@@ -2800,6 +3218,18 @@ export function detectCollectionIntent(
     'noticias da camara', 'novidades legislativas', 'o que está acontecendo na câmara',
     'o que esta acontecendo na camara', 'notícias recentes', 'noticias recentes',
     'quais as últimas notícias', 'quais as ultimas noticias'
+  ];
+
+  // Dúvidas gerais sobre a Câmara (não é relato de problema)
+  const explicitGeneralPhrases = [
+    'tenho uma dúvida', 'tenho uma duvida', 'tenho dúvida', 'tenho duvida',
+    'dúvida sobre a câmara', 'duvida sobre a camara', 'dúvida sobre a Câmara',
+    'dúvida sobre a Câmara Municipal', 'duvida sobre a camara municipal',
+    'tirar dúvida', 'tirar duvida', 'tirar uma dúvida', 'quero tirar dúvida',
+    'pergunta sobre a câmara', 'pergunta sobre a camara', 'como funciona a câmara',
+    'como funciona a camara', 'quero saber sobre a câmara', 'quero saber sobre a camara',
+    'informação sobre a câmara', 'informacao sobre a camara', 'dúvidas sobre a câmara',
+    'duvidas sobre a camara'
   ];
   
   // === INTENT CHANGE INDICATORS (generic signals of topic switch) ===
@@ -2813,7 +3243,7 @@ export function detectCollectionIntent(
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
   
   // === GENERIC "quero falar de X" PATTERN DETECTION ===
-  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'history' | 'vereadores' | 'noticias';
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
   const queroFalarMatch = msgLower.match(/(?:quero|vou|vamos)\s+falar\s+(?:de|do|da|sobre)\s+(\w+)/);
   let genericTopicIntent: { type: ExplicitIntentType; boost: number } | null = null;
   if (queroFalarMatch) {
@@ -2827,22 +3257,38 @@ export function detectCollectionIntent(
       'trem': 'transport_report',
       'avaliação': 'service_rating',
       'avaliaçao': 'service_rating',
+      'avaliações': 'service_rating',
+      'avaliacoes': 'service_rating',
       'serviço': 'service_rating',
       'servico': 'service_rating',
       'cidade': 'urban_report',
       'problema': 'urban_report',
+      'problemas': 'urban_report',
       'rua': 'urban_report',
       'bairro': 'urban_report',
+      'urbano': 'urban_report',
+      'urbanos': 'urban_report',
+      'relato': 'urban_report',
+      'relatos': 'urban_report',
+      'infraestrutura': 'urban_report',
       'serviços': 'services',
       'servicos': 'services',
       'audiência': 'audiencias',
       'audiencia': 'audiencias',
+      'audiências': 'audiencias',
+      'audiencias': 'audiencias',
       'vereador': 'vereadores',
       'vereadores': 'vereadores',
       'notícia': 'noticias',
       'noticia': 'noticias',
+      'notícias': 'noticias',
+      'noticias': 'noticias',
       'histórico': 'history',
-      'historico': 'history'
+      'historico': 'history',
+      'dúvida': 'general',
+      'duvida': 'general',
+      'dúvidas': 'general',
+      'duvidas': 'general'
     };
     const mappedJourney = topicToJourney[topic];
     if (mappedJourney) {
@@ -2857,6 +3303,10 @@ export function detectCollectionIntent(
   // Note: ExplicitIntentType is already defined above in generic pattern detection
   const lastMsgExplicitIntent: { type: ExplicitIntentType; boost: number } | null = (() => {
     // Check explicit phrases in LAST message only (not accumulated context)
+    // Dúvidas gerais primeiro, para não confundir com relato de problema
+    if (explicitGeneralPhrases.some(phrase => msgLower.includes(phrase))) {
+      return { type: 'general', boost: 15 };
+    }
     if (explicitRatingPhrases.some(phrase => msgLower.includes(phrase))) {
       return { type: 'service_rating', boost: 15 };
     }
@@ -2890,17 +3340,40 @@ export function detectCollectionIntent(
     console.log(`[detectCollectionIntent] Explicit intent in LAST message: ${lastMsgExplicitIntent.type} (boost: ${lastMsgExplicitIntent.boost})`);
   }
 
-  // Transport scoring
+  // Consulta informativa sobre ônibus/linhas (Olho Vivo) → general, NÃO transport_report
+  const isBusInformationalQuery = (() => {
+    const m = msgLower;
+    const patterns = [
+      /linhas?\s+(de\s+)?(ônibus|onibus)\s+passam/i,
+      /quais\s+linhas\s+passam/i,
+      /(ônibus|onibus)\s+passam\s+próximo|(ônibus|onibus)\s+passam\s+perto/i,
+      /qual\s+(linha|ônibus|onibus)\s+passa/i,
+      /quando\s+passa\s+(o\s+)?(ônibus|onibus)/i,
+      /itinerário|itinerario\s+(da\s+)?linha/i,
+      /previsão\s+de\s+chegada|previsao\s+de\s+chegada/i,
+      /(paradas?|pontos?)\s+(de\s+)?(ônibus|onibus)\s+perto|(ônibus|onibus)\s+(que\s+)?passam\s+perto/i,
+      /próximo\s+a\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*próximo\s+a\s+mim/i,
+      /perto\s+de\s+mim.*(ônibus|onibus|linha)|(ônibus|onibus|linha).*perto\s+de\s+mim/i,
+    ];
+    return patterns.some(p => p.test(m));
+  })();
+  if (isBusInformationalQuery) {
+    console.log('[detectCollectionIntent] Bus/line informational query detected → general (Olho Vivo tools), not transport_report');
+    scores.push({ type: 'general', score: 22, fields: {} });
+  }
+
+  // Transport scoring (relato de problema: atraso, lotação, etc.)
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus', 'transporte', 'transporte público', 'transporte publico'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
   let transportScore = 0;
-  transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
-  transportProblems.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 3; });
-  // Check for explicit transport intent
-  const hasExplicitTransportIntent = explicitTransportPhrases.some(phrase => fullUserContext.includes(phrase));
-  if (hasExplicitTransportIntent) {
-    transportScore += 5;
-    console.log('[detectCollectionIntent] Explicit transport intent detected');
+  if (!isBusInformationalQuery) {
+    transportDomain.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 4; });
+    transportProblems.forEach(kw => { if (fullUserContext.includes(kw)) transportScore += 3; });
+    const hasExplicitTransportIntent = explicitTransportPhrases.some(phrase => fullUserContext.includes(phrase));
+    if (hasExplicitTransportIntent) {
+      transportScore += 5;
+      console.log('[detectCollectionIntent] Explicit transport intent detected');
+    }
   }
   if (transportScore > 0) {
     scores.push({ type: 'transport_report', score: transportScore, fields: extractTransportFields(fullUserContext) });
@@ -2949,12 +3422,26 @@ export function detectCollectionIntent(
   }
   
   // Chamber feedback scoring - use user-only context
+  // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
   const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  const factualQuestionTerms = [
+    'salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'qual a ',
+    'quanto é', 'quanto e', 'quantos ', 'quantas ', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do',
+    'papel do', 'importância', 'importancia', 'o que faz', 'como funciona', 'o que é a', 'o que e a',
+    'competências', 'competencias', 'responsabilidades', 'mandato', 'duração', 'duracao', 'presidente da câmara',
+    'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica',
+    'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
+    'orçamento', 'orcamento', 'emendas', 'verba', 'para que serve', 'por que existe', 'quando foi', 'história', 'historio',
+    'como nasce', 'diferença entre', 'diferenca entre', 'requisitos para', 'cargo público', 'cargo publico',
+    'o que é uma', 'o que e uma', 'para que serve a', 'como participar da', 'como participar das'
+  ];
+  const isFactualQuestionAboutChamber = factualQuestionTerms.some(t => fullUserContext.includes(t))
+    && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
   feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
-  if (chamberScore > 0) {
+  if (chamberScore > 0 && !isFactualQuestionAboutChamber) {
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
@@ -2997,10 +3484,76 @@ export function detectCollectionIntent(
   }
   
   // Knowledge base / general scoring
-  const knowledgeDomain = ['como funciona', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e',
-                           'me explica', 'dúvida sobre', 'duvida sobre', 'informação sobre', 'informacao sobre'];
+  const knowledgeDomain = [
+    'como funciona', 'como posso', 'como participar', 'o que é', 'o que e', 'quem é', 'quem e', 'qual é', 'qual e', 'qual a ', 'qual o ',
+    'quais são', 'quais sao', 'quais as', 'quais os', 'quantos ', 'quantas ', 'me explica', 'dúvida sobre', 'duvida sobre',
+    'informação sobre', 'informacao sobre', 'atribuições', 'atribuicoes', 'atribuição', 'atribuicao', 'competências', 'competencias',
+    'responsabilidades', 'importância', 'importancia', 'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do',
+    'onde fica', 'onde fica a', 'onde consultar', 'qual o endereço', 'qual o endereco', 'qual endereço', 'qual endereco',
+    'participar das', 'sessões da', 'sessão da', 'audiência', 'audiencia', 'mandato', 'presidente da câmara',
+    'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica', 'regimento interno',
+    'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum', 'orçamento', 'orcamento', 'emendas', 'para que serve', 'como nasce uma lei',
+    'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
+    'diferença entre', 'diferenca entre', 'requisitos para', 'história da câmara', 'historio da camara', 'o que é uma audiência', 'o que e uma audiencia',
+    'equipamentos públicos', 'equipamentos publicos', 'população', 'populacao', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa',
+    'ubs', 'unidade de saúde', 'transporte público', 'transporte publico', 'rede de transporte', 'malha viária', 'infraestrutura viária', 'dados da cidade',
+    'zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'legislação urbana', 'legislacao urbana', 'siszon', 'smul', 'loteamento', 'uso do solo', 'coeficiente de aproveitamento'
+  ];
   let knowledgeScore = 0;
   knowledgeDomain.forEach(kw => { if (fullUserContext.includes(kw)) knowledgeScore += 4; });
+  // Normaliza typo comum "0 que" -> "o que" (início ou após fronteira) para detecção de pergunta informativa
+  const normalizedUserMessage = userMessage
+    .trim()
+    .replace(/^0\s*que\s/gi, 'o que ')
+    .replace(/\b0\s*que\s/gi, 'o que ');
+  // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
+  const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(normalizedUserMessage);
+  const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(normalizedUserMessage);
+  const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(normalizedUserMessage);
+  const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
+  const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
+  // Variações: "o que é audiência (pública)?", "o que é uma audiência (pública)?", "o que é a audiência (pública)?", com/sem acento
+  const isInformationalAboutAudience = (mentionsSessionsOrAudience && /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalizedUserMessage));
+  // GeoSampa / cidade / zoneamento: equipamentos, transportes, população, sistema viário, zoneamento (perguntas informativas → general/RAG)
+  const cityDataTerms = ['equipamentos', 'equipamento público', 'população', 'habitantes', 'densidade', 'sistema viário', 'sistema viario', 'geosampa', 'ubs', 'transporte público', 'rede de transporte', 'malha viária', 'dados da cidade', 'são paulo', 'sao paulo', 'zoneamento', 'lpuos', 'construir', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana'];
+  const isCityDataQuestion = cityDataTerms.some(t => fullUserContext.includes(t)) && (isInformationalQuestion || /^(qual a |qual o |quantos |quais |como funciona|o que é )/i.test(userMessage.trim()));
+  if (isCityDataQuestion) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] City data question (equipamentos/transportes/população/viário/zoneamento) → boosting general for RAG');
+  }
+  // Zoneamento / LPUOS / construir no imóvel: priorizar base de conhecimento (Supabase KB tem conteúdo)
+  const zoneamentoTerms = ['zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana', 'smul'];
+  const isZoneamentoQuestion = zoneamentoTerms.some(t => fullUserContext.includes(t));
+  if (isZoneamentoQuestion) {
+    knowledgeScore = Math.max(knowledgeScore, 9);
+    console.log('[detectCollectionIntent] Zoneamento/LPUOS/construir question → boosting general for RAG/KB');
+  }
+  if (mentionsChamber && (isInformationalQuestion || isLocationQuestionAboutChamber)) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] Informational/location question about Câmara → boosting general for RAG');
+  }
+  if ((isParticipationQuestion && mentionsSessionsOrAudience) || (mentionsChamber && isParticipationQuestion)) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] Participation question (sessões/audiência) → boosting general for RAG');
+  }
+  if (isInformationalAboutAudience) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Informational question about audiência (o que é / como funciona) → boosting general for RAG');
+  }
+  if ((fullUserContext.includes('atribuições') || fullUserContext.includes('atribuicoes')) && mentionsChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 6);
+    console.log('[detectCollectionIntent] Question about atribuições/vereadores → boosting general for RAG');
+  }
+  if (isFactualQuestionAboutChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 7);
+    console.log('[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG');
+  }
+  // Apresentação da estrutura e funcionamento da Câmara (card ClickUp)
+  const isEstruturaFuncionamento = /(estrutura|funcionamento|apresenta[cç][aã]o)\s+(da\s+)?(câmara|camara)|conhecer\s+(a\s+)?(câmara|camara)|como\s+(a\s+)?(câmara|camara)\s+(é|e)\s+organizada|como\s+funciona\s+(a\s+)?(câmara|camara)/i.test(fullUserContext);
+  if (isEstruturaFuncionamento) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
+  }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });
   }
@@ -3191,850 +3744,209 @@ export function detectCollectionIntent(
   return { type: winner.type as CollectionIntent['type'], fields: winner.fields };
 }
 
-// Unified tools for all citizen actions
-export const tools = [
-  {
-    type: "function",
-    function: {
-      name: "classify_report_category",
-      description: "Classifica a categoria do relato urbano. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'poste apagado', 'buraco na rua', 'bueiro entupido'). NÃO CHAMAR para mensagens genéricas como 'quero relatar um problema' ou 'problema na cidade'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
-      parameters: {
-        type: "object",
-        properties: {
-          category: {
-            type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento, alagamento), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
-          },
-          subcategory_label: {
-            type: "string",
-            description: "Label INTUITIVO em português que descreve o problema específico. SEMPRE gerar. Exemplos: 'Perturbação Sonora' (som alto de bar), 'Barulho de Obra' (obra fora de horário), 'Veículo Abandonado' (carro parado há meses), 'Estabelecimento Barulhento' (bar/balada), 'Poste Apagado', 'Bueiro Entupido', etc."
-          },
-          confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Nível de confiança na classificação (0.0 a 1.0). Se >= 0.8, classificação automática. Se < 0.8, perguntar ao usuário."
-          },
-          reasoning: {
-            type: "string",
-            description: "Justificativa da classificação (para auditoria)"
-          },
-          user_confirmed: {
-            type: "boolean",
-            description: "Se o usuário confirmou a categoria (true quando usuário escolheu entre opções)"
-          },
-          alternative_categories: {
-            type: "array",
-            items: { type: "string" },
-            description: "Quando confiança < 80%, listar 2-3 categorias alternativas mais prováveis"
-          }
-        },
-        required: ["category", "subcategory_label", "confidence", "reasoning", "user_confirmed"]
+// Tools moved to lib-tools.ts to reduce bundle size
+export { tools } from "./lib-tools.ts";
+
+
+// System prompt moved to lib-prompts.ts to reduce bundle size
+export { systemPrompt } from "./lib-prompts.ts";
+
+// ========== OLHO VIVO API (SPTrans ônibus São Paulo) ==========
+const OLHOVIVO_BASE = "https://api.olhovivo.sptrans.com.br/v2.1";
+const OLHOVIVO_GATEWAY_BASE = "https://gateway.apilib.prefeitura.sp.gov.br/sptrans/olhovivo/v2.1";
+let olhoVivoCookie: string | null = null;
+/** Quando true, usar gateway da Prefeitura com Bearer em vez de cookie (API Store). */
+let olhoVivoUseBearer: boolean = false;
+let olhoVivoBearerToken: string | null = null;
+
+async function olhoVivoLogin(): Promise<boolean> {
+  const token = Deno.env.get("OLHOVIVO_API_TOKEN");
+  if (!token?.trim()) {
+    console.warn("[olhoVivo] OLHOVIVO_API_TOKEN not set");
+    return false;
+  }
+  const trimmedToken = token.trim();
+
+  // 1) Tentar autenticação clássica (api.olhovivo.sptrans.com.br + cookie)
+  try {
+    console.warn("[olhoVivo] Trying classic login (POST)...");
+    const loginUrl = `${OLHOVIVO_BASE}/Login/Autenticar?token=${encodeURIComponent(trimmedToken)}`;
+    const res = await fetch(loginUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "CamaraNaMao/1.0 (https://github.com/camara-na-mao)",
+      },
+      body: new URLSearchParams({ token: trimmedToken }).toString(),
+      redirect: "follow",
+    });
+    const text = await res.text();
+    console.warn("[olhoVivo] Classic login status:", res.status, "bodyLen:", text?.length ?? 0, "bodySample:", text?.trim().slice(0, 120) ?? "");
+    // Capturar todos os cookies (Fetch pode enviar vários Set-Cookie; getSetCookie existe no Deno)
+    const setCookies = (res.headers as Headers & { getSetCookie?(): string[] }).getSetCookie?.() ?? [];
+    if (setCookies.length > 0) {
+      olhoVivoCookie = setCookies.map((c) => c.split(";")[0].trim()).join("; ");
+    } else {
+      const single = res.headers.get("set-cookie");
+      if (single) olhoVivoCookie = single.split(";")[0].trim();
+    }
+    const trimmed = text?.trim() ?? "";
+    let ok = trimmed === "true";
+    if (!ok && trimmed.length < 20) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        ok = parsed === true;
+      } catch {
+        /* ignore */
       }
     }
-  },
-  {
-    type: "function",
-    function: {
-      name: "classify_transport_type",
-      description: "Classifica o tipo de problema no transporte público. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'ônibus atrasou', 'metrô lotado', 'motorista imprudente'). NÃO CHAMAR para mensagens genéricas como 'quero relatar problema no transporte'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
-      parameters: {
-        type: "object",
-        properties: {
-          report_type: {
-            type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
-            description: "Tipo PAI mais próximo: atraso (demora, espera), lotacao (cheio, superlotado), seguranca (assédio, roubo, briga), acessibilidade (elevador, rampa), limpeza (sujo, fedido), conducao (motorista, freada), outro (quando não encaixar)"
-          },
-          subcategory_label: {
-            type: "string",
-            description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Superlotação', 'Assédio no Transporte', 'Elevador Quebrado', 'Veículo Sujo', 'Freada Brusca', etc."
-          },
-          confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Nível de confiança (0.0-1.0). Se >= 0.8, classificação automática. Se < 0.8, perguntar ao usuário."
-          },
-          reasoning: {
-            type: "string",
-            description: "Justificativa da classificação (para auditoria)"
-          },
-          user_confirmed: {
-            type: "boolean",
-            description: "Se o usuário confirmou o tipo (true quando usuário escolheu entre opções)"
-          },
-          alternative_types: {
-            type: "array",
-            items: { type: "string" },
-            description: "Quando confiança < 80%, listar 2-3 tipos alternativos mais prováveis"
-          }
-        },
-        required: ["report_type", "subcategory_label", "confidence", "reasoning", "user_confirmed"]
-      }
+    if (trimmed === "false") {
+      console.warn("[olhoVivo] API retornou false no login. A SPTrans pode estar rejeitando requisições da origem (ex.: datacenter). Considere: (1) pedir à SPTrans liberação para uso server-side; (2) usar token do API Store (Prefeitura) com app inscrito na API Olho Vivo v2.1.");
     }
-  },
-  {
-    type: "function",
-    function: {
-      name: "validate_cep",
-      description: "Valida CEP e retorna endereço completo. CHAMAR SEMPRE que cidadão informar um CEP (8 dígitos). Retorna rua, bairro, cidade automaticamente.",
-      parameters: {
-        type: "object",
-        properties: {
-          cep: { type: "string", description: "CEP no formato 00000-000 ou 00000000 (8 dígitos)" }
-        },
-        required: ["cep"]
-      }
+    if (ok) {
+      olhoVivoUseBearer = false;
+      olhoVivoBearerToken = null;
+      return true;
     }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_urban_report",
-      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Para categorias de risco (via_publica, iluminacao, esgoto, area_verde), coletar também dados de impacto.",
-      parameters: {
-        type: "object",
-        properties: {
-          category: {
-            type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
-          },
-          subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
-          description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
-          cep: { type: "string", description: "CEP do local (se validado via validate_cep)" },
-          street: { type: "string", description: "OBRIGATÓRIO: Nome da rua/avenida (ex: Rua Augusta, Av. Paulista)" },
-          street_number: { type: "string", description: "Número ou 'sem número' ou 'altura X'" },
-          reference_point: { type: "string", description: "Ponto de referência (ex: perto do metrô, em frente à escola)" },
-          neighborhood: { type: "string", description: "OBRIGATÓRIO: Bairro de São Paulo (ex: Consolação, Pinheiros, Centro)" },
-          council_member_name: { type: "string", description: "Para feedback_camara: nome COMPLETO do vereador" },
-          council_member_party: { type: "string", description: "Para feedback_camara: partido do vereador" },
-          risk_level: { 
-            type: "string", 
-            enum: ["critical", "moderate", "low", "none"],
-            description: "Nível de risco imediato: critical (risco de vida, fios expostos, desabamento), moderate (bloqueio parcial, risco de acidente), low (incômodo, desconforto), none (sem risco)"
-          },
-          risk_types: { 
-            type: "array", 
-            items: { type: "string", enum: ["electrical", "traffic", "flooding", "structural", "health", "fire"] },
-            description: "Tipos de risco presentes: electrical (fios/choque), traffic (via bloqueada), flooding (alagamento), structural (desabamento), health (contaminação), fire (incêndio)"
-          },
-          affected_scope: { 
-            type: "string", 
-            enum: ["individual", "street", "neighborhood", "zone", "city"],
-            description: "Alcance da afetação: individual (só eu), street (toda a rua), neighborhood (bairro todo), zone (zona inteira), city (cidade)"
-          },
-          affected_estimate: { 
-            type: "integer", 
-            description: "Estimativa de pessoas afetadas (quando conseguir inferir)"
-          },
-          active_consequences: { 
-            type: "array", 
-            items: { type: "string", enum: ["power_outage", "water_outage", "traffic_blocked", "flooding", "health_hazard", "service_disruption"] },
-            description: "Consequências já em andamento: power_outage (falta luz), water_outage (falta água), traffic_blocked (trânsito parado), flooding (alagando), health_hazard (risco saúde), service_disruption (serviço interrompido)"
-          },
-          urgency_reason: { 
-            type: "string", 
-            description: "Motivo de urgência descrito pelo cidadão em suas palavras"
-          }
-        },
-        required: ["category", "description", "street", "neighborhood"]
+  } catch (e) {
+    console.warn("[olhoVivo] Classic login failed:", (e as Error).message, (e as Error).stack?.slice(0, 300));
+  }
+
+  // 2) Se falhou, usar token como Bearer no gateway (só faz sentido para token do API Store, não para chave SPTrans)
+  const looksLikeSptransKey = /^[a-f0-9]{64}$/i.test(trimmedToken);
+  if (looksLikeSptransKey) {
+    console.warn("[olhoVivo] Token parece chave SPTrans; não tentando gateway Bearer.");
+  }
+  if (!looksLikeSptransKey) {
+    try {
+      const testUrl = `${OLHOVIVO_GATEWAY_BASE}/Linha/Buscar?termosBusca=0`;
+      const testRes = await fetch(testUrl, {
+        headers: { Authorization: `Bearer ${trimmedToken}` },
+      });
+      if (testRes.ok || testRes.status === 200) {
+        olhoVivoCookie = null;
+        olhoVivoUseBearer = true;
+        olhoVivoBearerToken = trimmedToken;
+        console.log("[olhoVivo] Using gateway (Bearer) auth");
+        return true;
       }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_transport_report",
-      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (min 10 chars), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
-      parameters: {
-        type: "object",
-        properties: {
-          report_type: {
-            type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "conducao", "outro"],
-            description: "Tipo PAI mais próximo. Se não encaixar, usar 'outro'."
-          },
-          subcategory_label: {
-            type: "string",
-            description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Veículo Lotado', 'Problema com Motorista', 'Veículo Não Parou', 'Porta com Defeito', etc."
-          },
-          description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
-          occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
-          occurrence_time: { type: "string", description: "Horário HH:MM (perguntar horário aproximado)" },
-          line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
-          location: { type: "string", description: "Ponto, estação ou trecho" },
-          severity: {
-            type: "string",
-            enum: ["baixa", "media", "alta", "critica"],
-            description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
-          },
-          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" }
-        },
-        required: ["report_type", "description", "occurrence_date"]
+      const body = await testRes.text();
+      if (testRes.status === 403) {
+        console.warn("[olhoVivo] Gateway 403 Forbidden: o token do API Store não tem permissão para a API Olho Vivo. No portal apilib.prefeitura.sp.gov.br, inscreva o aplicativo na API Olho Vivo v2.1 (Production/Sandbox).");
+      } else {
+        console.warn("[olhoVivo] Gateway Bearer test status:", testRes.status, "body:", body?.slice(0, 200));
       }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_service_rating",
-      description: "Registra avaliação de serviço público. NUNCA CHAMAR COM rating_stars=0 ou rating_text vazio. VERIFICAR que todos os campos foram coletados: 1) service_type, 2) service_name (mínimo 3 chars), 3) rating_stars (1-5, NUNCA 0), 4) rating_text (mínimo 10 chars). Se faltar algum dado, PERGUNTAR antes de chamar. NÃO CHAMAR para mensagens genéricas como 'quero avaliar'.",
-      parameters: {
-        type: "object",
-        properties: {
-          service_type: {
-            type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "PERGUNTAR PRIMEIRO: tipo do serviço (ubs, escola, hospital, etc)"
-          },
-          service_name: { type: "string", description: "Nome do serviço avaliado - MÍNIMO 3 caracteres (ex: UBS Vila Madalena)" },
-          service_neighborhood: { type: "string", description: "Bairro onde fica o serviço (ajuda a localizar)" },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO: Nota 1-5 estrelas. NUNCA usar 0!" },
-          rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
-          sentiment: {
-            type: "string",
-            enum: ["positive", "neutral", "negative"],
-            description: "Sentimento inferido do comentário"
-          }
-        },
-        required: ["service_type", "service_name", "rating_stars", "rating_text", "sentiment"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_knowledge_base",
-      description: "Busca informações sobre a Câmara Municipal: vereadores, audiências, projetos de lei, notícias, funcionamento legislativo.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Termo de busca" }
-        },
-        required: ["query"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "find_nearby_services",
-      description: "Busca serviços públicos próximos ao cidadão. Usar quando perguntar sobre: UBS perto, escola próxima, hospital mais próximo, CEU na região, biblioteca perto de mim.",
-      parameters: {
-        type: "object",
-        properties: {
-          service_type: {
-            type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "other"],
-            description: "Tipo do serviço buscado"
-          },
-          district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
-          limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
-        },
-        required: ["service_type"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_audiencias",
-      description: "Busca audiências públicas da Câmara. Usar quando cidadão perguntar sobre: audiências, consultas públicas, participação popular, eventos legislativos, próximas audiências.",
-      parameters: {
-        type: "object",
-        properties: {
-          tema: { type: "string", description: "Tema de interesse (ex: transporte, saúde, educação)" },
-          status: {
-            type: "string",
-            enum: ["scheduled", "ongoing", "finished"],
-            description: "Status da audiência: scheduled (agendada), ongoing (em andamento), finished (encerrada)"
-          },
-          inscricoes_abertas: { type: "boolean", description: "Filtrar apenas audiências com inscrições abertas" }
-        },
-        required: []
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "suggest_council_member",
-      description: "Sugere vereadores para encaminhar uma demanda cidadã. Usar quando cidadão quiser: encaminhar reclamação a vereador, saber qual vereador procurar, indicar vereador especialista no tema.",
-      parameters: {
-        type: "object",
-        properties: {
-          issue_type: {
-            type: "string",
-            enum: ["transporte", "urbanismo", "saude", "educacao", "meio_ambiente", "seguranca", "habitacao", "assistencia_social"],
-            description: "Tipo do problema/demanda"
-          },
-          description: { type: "string", description: "Descrição do problema para matching mais preciso" },
-          district: { type: "string", description: "Bairro ou região do cidadão" }
-        },
-        required: ["issue_type", "description"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_citizen_history",
-      description: "Consulta histórico completo do cidadão: relatos urbanos, relatos de transporte, avaliações de serviços, inscrições em audiências e encaminhamentos a vereadores. Usar quando cidadão perguntar: 'meus relatos', 'status das minhas denúncias', 'minhas avaliações', 'minhas participações', 'o que eu já fiz no app', 'meu histórico'.",
-      parameters: {
-        type: "object",
-        properties: {
-          history_type: {
-            type: "string",
-            enum: ["all", "urban_reports", "transport_reports", "ratings", "audiencias", "referrals"],
-            description: "Tipo de histórico: all (tudo), urban_reports (relatos urbanos), transport_reports (transporte), ratings (avaliações), audiencias (inscrições), referrals (encaminhamentos)"
-          },
-          status_filter: {
-            type: "string",
-            enum: ["all", "pending", "in_progress", "resolved", "closed"],
-            description: "Filtrar por status: all (todos), pending (pendente), in_progress (em andamento), resolved (resolvido), closed (fechado)"
-          },
-          limit: {
-            type: "integer",
-            description: "Quantidade máxima de resultados por tipo (padrão: 5)",
-            minimum: 1,
-            maximum: 20
-          }
-        },
-        required: []
-      }
-    }
-  },
-  // === JORNADA CONSCIENTE: Tools de Detecção e Transição ===
-  {
-    type: "function",
-    function: {
-      name: "detect_user_intent",
-      description: "Classificar a intenção do cidadão. USAR APENAS quando a mensagem contiver descrição específica do problema (>= 15 chars com contexto). Para mensagens genéricas como 'quero relatar', 'problema na cidade', 'avaliar serviço' SEM detalhes, NÃO CHAMAR - apenas pergunte 'Qual o problema/serviço e onde fica?'. Se a mensagem já contém descrição detalhada, extrair categoria/tipo junto.",
-      parameters: {
-        type: "object",
-        properties: {
-          intent: {
-            type: "string",
-            enum: ["urban_report", "transport_report", "service_rating", "services", "general", "unknown"],
-            description: "Intenção detectada semanticamente. Exemplos: 'ônibus capotou na avenida' = urban_report (acidente urbano), 'ônibus atrasou 30 minutos' = transport_report (problema de serviço)"
-          },
-          confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Nível de confiança (0.0-1.0). Se >= 0.8, ativar jornada automaticamente."
-          },
-          reasoning: {
-            type: "string",
-            description: "Justificativa semântica da classificação"
-          },
-          suggested_alternatives: {
-            type: "array",
-            items: { type: "string" },
-            description: "Se confiança < 80%, listar alternativas prováveis"
-          },
-          // NOVO: Campos extraídos da mensagem inicial
-          urban_category: {
-            type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "PARA urban_report: categoria inferida do problema. Ex: 'ônibus capotou' = via_publica, 'poste apagado' = iluminacao, 'bueiro entupido' = esgoto"
-          },
-          transport_type: {
-            type: "string",
-            enum: ["atraso", "lotacao", "seguranca", "acessibilidade", "limpeza", "outro"],
-            description: "PARA transport_report: tipo de problema inferido"
-          },
-          extracted_description: {
-            type: "string",
-            description: "Se a mensagem inicial já contém descrição detalhada do problema (>= 30 chars), extrair aqui. Ex: 'Ônibus capotou na Paulista' → 'Ônibus capotou na Avenida Paulista'"
-          },
-          category_confidence: {
-            type: "number",
-            minimum: 0,
-            maximum: 1,
-            description: "Confiança na categoria/tipo extraído (0.0-1.0)"
-          }
-        },
-        required: ["intent", "confidence", "reasoning"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "confirm_journey_switch",
-      description: "USAR quando detectar mudança de intenção durante uma jornada de coleta estruturada (urban_report, transport_report, service_rating). Gera prompt de confirmação com botões para o usuário decidir. NÃO usar para jornadas leves (services, general).",
-      parameters: {
-        type: "object",
-        properties: {
-          current_journey: {
-            type: "string",
-            enum: ["urban_report", "transport_report", "service_rating"],
-            description: "Jornada atual em andamento"
-          },
-          detected_journey: {
-            type: "string",
-            enum: ["urban_report", "transport_report", "service_rating", "services", "general"],
-            description: "Nova jornada detectada"
-          },
-          current_progress_summary: {
-            type: "string",
-            description: "Resumo do que já foi coletado na jornada atual (ex: 'Problema de iluminação na Rua Augusta')"
-          }
-        },
-        required: ["current_journey", "detected_journey", "current_progress_summary"]
-      }
+    } catch (e) {
+      console.warn("[olhoVivo] Gateway Bearer test failed:", (e as Error).message);
     }
   }
-];
 
-// Lean system prompt with AI-driven classification and CEP-first collection
-// OPTIMIZED: Concise responses, combined questions, flexible thresholds
-export const systemPrompt = `Você é o Assistente CMSP. Ajuda cidadãos de São Paulo de forma direta e eficiente.
+  console.warn("[olhoVivo] Login returned: false (classic and gateway failed)");
+  return false;
+}
+
+async function olhoVivoGet(path: string): Promise<{ ok: boolean; data?: unknown; status: number }> {
+  const base = olhoVivoUseBearer ? OLHOVIVO_GATEWAY_BASE : OLHOVIVO_BASE;
+  const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? path : "/" + path}`;
+
+  if (olhoVivoUseBearer && olhoVivoBearerToken) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${olhoVivoBearerToken}` },
+    });
+    const contentType = res.headers.get("content-type") || "";
+    let data: unknown;
+    if (contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      data = await res.text();
+    }
+    return { ok: res.ok, data, status: res.status };
+  }
+
+  if (!olhoVivoCookie) {
+    const loggedIn = await olhoVivoLogin();
+    if (!loggedIn) return { ok: false, status: 401 };
+    return olhoVivoGet(path);
+  }
+
+  const res = await fetch(url, {
+    headers: { Cookie: olhoVivoCookie },
+  });
+  if (res.status === 401) {
+    olhoVivoCookie = null;
+    const loggedIn = await olhoVivoLogin();
+    if (!loggedIn) return { ok: false, status: 401 };
+    return olhoVivoGet(path);
+  }
+  const contentType = res.headers.get("content-type") || "";
+  let data: unknown;
+  if (contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    data = await res.text();
+  }
+  return { ok: res.ok, data, status: res.status };
+}
+
+/** Buscar linhas por número ou nome (ex: 8000, Lapa). Retorna array com cl, lt, tp, ts, sl. */
+export async function olhoVivoSearchLines(termosBusca: string): Promise<{ success: boolean; lines?: Array<{ cl: number; lt: string; tp: string; ts: string; sl: number }>; error?: string }> {
+  const q = encodeURIComponent(termosBusca.trim());
+  const { ok, data, status } = await olhoVivoGet(`/Linha/Buscar?termosBusca=${q}`);
+  if (!ok || !Array.isArray(data)) {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível buscar linhas." };
+  }
+  return { success: true, lines: data as Array<{ cl: number; lt: string; tp: string; ts: string; sl: number }> };
+}
+
+/** Buscar paradas por nome ou endereço. Retorna array com cp, np, ed, py, px. */
+export async function olhoVivoSearchStops(termosBusca: string): Promise<{ success: boolean; stops?: Array<{ cp: number; np: string; ed: string; py: number; px: number }>; error?: string }> {
+  const q = encodeURIComponent(termosBusca.trim());
+  const { ok, data, status } = await olhoVivoGet(`/Parada/Buscar?termosBusca=${q}`);
+  if (!ok || !Array.isArray(data)) {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível buscar paradas." };
+  }
+  return { success: true, stops: data as Array<{ cp: number; np: string; ed: string; py: number; px: number }> };
+}
+
+/** Itinerário da linha: paradas em ordem. codigoLinha = cl da linha. */
+export async function olhoVivoGetStopsByLine(codigoLinha: number): Promise<{ success: boolean; stops?: Array<{ cp: number; np: string; ed: string; py: number; px: number }>; error?: string }> {
+  const { ok, data, status } = await olhoVivoGet(`/Parada/BuscarParadasPorLinha?codigoLinha=${codigoLinha}`);
+  if (!ok || !Array.isArray(data)) {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível buscar itinerário." };
+  }
+  return { success: true, stops: data as Array<{ cp: number; np: string; ed: string; py: number; px: number }> };
+}
+
+/** Previsão de chegada na parada para uma linha. codigoParada e codigoLinha = códigos da API. */
+export async function olhoVivoPrevisao(codigoParada: number, codigoLinha: number): Promise<{
+  success: boolean;
+  parada?: { np: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> };
+  error?: string;
+}> {
+  const { ok, data, status } = await olhoVivoGet(`/Previsao?codigoParada=${codigoParada}&codigoLinha=${codigoLinha}`);
+  if (!ok || !data || typeof data !== "object") {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível obter previsão." };
+  }
+  const obj = data as { p?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> } };
+  return { success: true, parada: obj.p };
+}
+
+/** Previsão de chegada de todas as linhas em um ponto de parada. GET /Previsao/Parada?codigoParada= */
+export async function olhoVivoPrevisaoParada(codigoParada: number): Promise<{
+  success: boolean;
+  parada?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> };
+  error?: string;
+}> {
+  const { ok, data, status } = await olhoVivoGet(`/Previsao/Parada?codigoParada=${codigoParada}`);
+  if (!ok || !data || typeof data !== "object") {
+    return { success: false, error: status === 401 ? "API Olho Vivo não configurada." : "Não foi possível obter previsão." };
+  }
+  const obj = data as { p?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> } };
+  return { success: true, parada: obj.p };
+}
 
-⚠️⚠️⚠️ REGRA ABSOLUTA - SAUDAÇÕES (LEIA PRIMEIRO) ⚠️⚠️⚠️
 
-SEMPRE, SEMPRE, SEMPRE responda a saudações ANTES de qualquer outra coisa:
-- Se o usuário disser "Olá", "Boa tarde", "Bom dia", "Oi", "Boa noite" → RESPONDA PRIMEIRO
-- Se o usuário pedir para ser mais empático/simpático → SEJA SIMPÁTICO IMEDIATAMENTE
-- Se o usuário combinar saudação + problema → RESPONDA À SAUDAÇÃO PRIMEIRO, depois o problema
-
-EXEMPLOS OBRIGATÓRIOS:
-- "Olá, boa tarde" → "Olá! Boa tarde! Como posso ajudar?"
-- "Você poderia ser mais empática?" → "Claro! Desculpe. Boa tarde! Como posso ajudar?"
-- "Olá, quero relatar um problema" → "Olá! Claro, vou te ajudar. Qual o problema?"
-- "Boa tarde, transformadores estourando" → "Boa tarde! Isso é muito perigoso! Qual o CEP?"
-
-NUNCA, NUNCA ignore saudações ou pedidos de simpatia.
-
-=== PERSONALIDADE E TOM ===
-
-Você é um assistente público amigável, empático e eficiente. Seu objetivo é ajudar cidadãos de São Paulo de forma clara e respeitosa.
-
-TOM:
-- Amigável mas profissional
-- Empático com problemas do cidadão
-- Direto mas não frio
-- Use linguagem coloquial quando apropriado
-- Evite jargões técnicos
-- Reconheça urgência quando presente
-- SEMPRE responda a saudações de forma simpática e natural
-
-=== SAUDAÇÕES E INTERAÇÕES SOCIAIS (CRÍTICO - SEMPRE OBRIGATÓRIO) ===
-
-⚠️ REGRA ABSOLUTA: SEMPRE reconheça e responda a saudações ANTES de qualquer outra coisa.
-
-Se o usuário disser QUALQUER saudação, você DEVE responder primeiro:
-- "Olá, boa tarde" → "Olá! Boa tarde! Como posso ajudar?"
-- "Oi, tudo bem?" → "Oi! Tudo bem, sim! Em que posso ajudar?"
-- "Bom dia" → "Bom dia! Como posso ajudar hoje?"
-- "Olá" → "Olá! Em que posso ajudar?"
-- "Boa tarde" → "Boa tarde! Como posso ajudar?"
-- "Boa noite" → "Boa noite! Como posso ajudar?"
-
-Se o usuário pedir para ser mais empático ou simpático:
-- "Você poderia ser mais empática?" → "Claro! Desculpe. Boa tarde! Como posso ajudar?"
-- "Me diga boa tarde" → "Boa tarde! Como posso ajudar hoje?"
-- "Seja mais simpático" → "Desculpe! Olá! Como posso ajudar?"
-
-Se o usuário combinar saudação + problema:
-- "Olá, boa tarde. Estamos com problemas na rua..." → "Olá! Boa tarde! Entendi, vocês estão com problemas na rua. Me conta mais sobre o que está acontecendo?"
-- "Oi, tudo bem? Poste apagado aqui" → "Oi! Tudo bem! Entendi, poste apagado. Qual o CEP do local?"
-- "Boa tarde, transformadores estourando" → "Boa tarde! Isso é muito perigoso! Transformadores estourando precisa de atenção urgente. Qual o CEP do local?"
-
-⚠️ NUNCA ignore saudações - SEMPRE responda de forma simpática ANTES de continuar.
-⚠️ Se o usuário pedir para ser mais empático, reconheça o pedido e seja simpático imediatamente.
-
-EXEMPLOS DE TOM MELHORADOS:
-✓ "Olá! Boa tarde! Entendi, transformadores estourando é muito perigoso! Qual o CEP do local?"
-✓ "Oi! Tudo bem! Poste apagado é perigoso mesmo. Qual o CEP do local?"
-✓ "Anotado! Qual o número ou uma referência próxima?"
-✓ "Relato registrado (URB-2026-000123)! Quer que eu encaminhe para algum vereador?"
-✓ "Perfeito! CEP válido. Qual o número ou referência?"
-✓ "Ok! Vou registrar. Qual o CEP do local?"
-
-NUNCA:
-- Ser robótico ou frio
-- Ignorar saudações
-- Usar linguagem excessivamente formal
-- Ignorar urgência do problema
-- Repetir exatamente as mesmas frases sempre
-
-=== TOM E EXTENSÃO (CRÍTICO) ===
-
-MÁXIMO 2 frases por resposta durante coleta de dados.
-Formato ideal:
-✓ [Confirmação breve e empática] → [Próxima pergunta]
-
-EXEMPLOS MELHORADOS:
-✓ "Entendi! Poste apagado é perigoso. Qual o CEP do local?"
-✓ "Anotado! Qual o número ou uma referência próxima?"
-✓ "Relato registrado (URB-2026-000123)! Quer que eu encaminhe para algum vereador?"
-✓ "Perfeito! CEP válido. Qual o número ou referência?"
-✓ "Ok! Vou registrar. Qual o CEP do local?"
-
-NUNCA fazer:
-- Explicações longas sobre o processo
-- Repetir informações já confirmadas
-- Múltiplos parágrafos desnecessários
-- Usar sempre as mesmas frases (varie naturalmente)
-
-=== PERGUNTAS COMBINADAS (EFICIÊNCIA) ===
-
-Na PRIMEIRA interação, preferir perguntas combinadas quando fizer sentido:
-
-URBANO: Se usuário clicar chip ou disser algo genérico:
-→ Use variações: "Qual o problema e onde fica? (CEP ou rua/bairro)" OU "Me conta qual o problema e onde está? (CEP ou rua/bairro)"
-
-TRANSPORTE: Se usuário clicar chip:
-→ Use variações: "Qual linha teve problema e o que aconteceu?" OU "Qual linha e o que aconteceu?"
-
-AVALIAÇÃO: Se usuário clicar chip:
-→ Use variações: "Qual serviço você quer avaliar e que nota dá (1-5)?" OU "Qual serviço e que nota você dá (1-5)?"
-
-=== REGRA ZERO: MENSAGEM GENÉRICA (CRÍTICO) ===
-
-MENSAGENS GENÉRICAS - NÃO classificar, NÃO chamar classify_report_category:
-- "Quero relatar um problema"
-- "Problema na cidade"
-- "Tenho um problema"
-- "Preciso relatar algo"
-- Qualquer frase SEM descrição específica do problema
-
-⚠️ IMPORTANTE: Se a mensagem genérica vier com saudação, responda à saudação PRIMEIRO:
-- "Olá, quero relatar um problema" → "Olá! Claro, vou te ajudar. Qual o problema e onde fica?"
-- "Boa tarde, tenho um problema" → "Boa tarde! Entendi, você tem um problema. Me conta qual é e onde está?"
-
-⚠️ SEMPRE seja empático e acolhedor ao receber um relato:
-- "Quero relatar um problema" → "Olá! Claro, vou te ajudar. Qual o problema e onde fica?"
-- "Tenho um problema" → "Entendi! Vou te ajudar a resolver. Me conta qual é o problema e onde está?"
-
-AÇÃO OBRIGATÓRIA: Perguntar com variações EMPÁTICAS:
-- "Qual o problema e onde fica?"
-- "Me conta qual o problema e onde está?"
-- "Qual o problema e em que local?"
-- "Pode me contar qual o problema e onde está acontecendo?"
-
-MENSAGENS ESPECÍFICAS - classificar normalmente:
-- "Poste apagado na minha rua"
-- "Buraco perigoso na Avenida Paulista"
-- "Lixo acumulado no parque"
-- "Bueiro entupido fedendo"
-
-AÇÃO: Chamar classify_report_category
-
-=== CLASSIFICAÇÃO DE CATEGORIA ===
-
-Quando cidadão DESCREVER problema específico:
-
-1. CLASSIFICAR via classify_report_category
-2. SE CONFIANÇA >= 80%: Confirmar e pedir CEP
-3. SE CONFIANÇA < 80%: Perguntar entre 2-3 opções
-
-EXEMPLOS:
-| Descrição | Categoria | Confiança |
-|-----------|-----------|-----------|
-| "bueiro fedido" | esgoto | 95% |
-| "poste apagado" | iluminacao | 95% |
-| "buraco na rua" | via_publica | 95% |
-| "cheiro ruim na rua" | 70% → perguntar |
-
-=== THRESHOLD FLEXÍVEL DE DESCRIÇÃO ===
-
-Descrição VÁLIDA se:
-- >= 30 caracteres OU
-- >= 15 caracteres + palavra-chave de categoria (buraco, poste, lixo, bueiro, etc.)
-
-EXEMPLOS DE DESCRIÇÕES CURTAS MAS VÁLIDAS:
-- "Buraco enorme perigoso" (21 chars + "buraco") → VÁLIDA
-- "Poste apagado há dias" (21 chars + "poste") → VÁLIDA
-- "Muito lixo na esquina" (21 chars + "lixo") → VÁLIDA
-
-=== COLETA DE DADOS ===
-
-FLUXO URBANO:
-1. Classificar categoria
-2. Perguntar CEP (ou rua+bairro se não souber)
-3. Pedir número/referência
-4. Se descrição < threshold: pedir mais detalhes
-5. Para categorias de risco: perguntar impacto
-6. Criar relato
-
-CATEGORIAS DE RISCO (exigem dados de impacto):
-- via_publica, iluminacao, esgoto, area_verde
-
-Perguntas de impacto:
-→ "[FIELD_REQUEST:risk_level]Há risco imediato? (fios expostos, via bloqueada, alagando)"
-→ Se risco >= moderate: "[FIELD_REQUEST:affected_scope]Afeta só você, a rua ou o bairro?"
-
-=== TRANSIÇÃO INTELIGENTE DE JORNADAS ===
-
-TRANSIÇÃO AUTOMÁTICA (sem confirm_journey_switch):
-- Se < 2 campos coletados na jornada atual
-- E nova intenção tem confiança >= 90%
-→ Trocar automaticamente
-
-PEDIR CONFIRMAÇÃO (com confirm_journey_switch):
-- Se >= 2 campos já coletados
-- OU confiança < 90%
-
-=== APÓS CONFIRMAÇÃO DE TROCA DE JORNADA ===
-
-JORNADAS ESTRUTURADAS:
-Se a mensagem do usuário contiver [JOURNEY_SWITCHED:transport_report]:
-→ Responder DIRETAMENTE: "Ok! [FIELD_REQUEST:line_code]Qual linha de ônibus ou metrô?[LINE_PICKER]"
-→ NÃO perguntar "o que aconteceu?" - assumir que já foi mencionado antes
-
-Se a mensagem contiver [JOURNEY_SWITCHED:urban_report]:
-→ Responder: "Ok! [FIELD_REQUEST:description]O que está acontecendo?"
-
-Se a mensagem contiver [JOURNEY_SWITCHED:service_rating]:
-→ Responder: "Ok! [FIELD_REQUEST:service_type]Qual tipo de serviço?[SERVICE_TYPE_PICKER]"
-
-JORNADAS LEVES:
-Se a mensagem contiver [JOURNEY_SWITCHED:services]:
-→ Responder: "Ok! [FIELD_REQUEST:service_type]Que tipo de serviço você procura?[SERVICE_TYPE_PICKER]"
-
-=== BUSCA DE SERVIÇOS PRÓXIMOS (find_nearby_services) - OBRIGATÓRIO ===
-
-NUNCA chame find_nearby_services na primeira mensagem nem sem ter localização E tipo de serviço.
-
-Ordem obrigatória:
-1. PRIMEIRO pergunte: "Como você quer informar sua localização?" com [FIELD_REQUEST:location_method][LOCATION_METHOD_PICKER]. Opções: usar GPS (localização atual), usar endereço cadastrado no perfil, ou digitar CEP/endereço.
-2. Se o usuário escolher "digitar" → pergunte CEP ou endereço [ADDRESS_PICKER]. Se escolher "GPS" → o app pedirá permissão e enviará as coordenadas. Se "endereço cadastrado" → use o endereço do perfil.
-3. DEPOIS pergunte: "Qual tipo de serviço você está procurando?" [FIELD_REQUEST:service_type][SERVICE_TYPE_PICKER].
-4. Só chame find_nearby_services quando tiver método de localização resolvido E tipo de serviço.
-
-Se a mensagem contiver [JOURNEY_SWITCHED:audiencias]:
-→ Responder: "Ok! Qual tema de audiência te interessa? (Ex: transporte, saúde, educação, meio ambiente)"
-
-Se a mensagem contiver [JOURNEY_SWITCHED:general]:
-→ Responder: "Ok! Qual sua dúvida sobre a Câmara Municipal?"
-
-Se a mensagem contiver [JOURNEY_SWITCHED:history]:
-→ Chamar get_citizen_history AUTOMATICAMENTE e mostrar resumo ao usuário
-
-=== TEMPLATES DE PERGUNTAS (COM VARIAÇÕES) ===
-
-URBANO:
-1ª CEP: Use variações:
-- "Qual o CEP do local?"
-- "Me passa o CEP, por favor?"
-- "Qual o CEP onde está o problema?"
-- "Preciso do CEP. Qual é?"
-(ou "[ADDRESS_PICKER]" se não souber)
-
-2ª Número/Referência: Use variações:
-- "[FIELD_REQUEST:street_number]Qual número ou uma referência?"
-- "[FIELD_REQUEST:street_number]Me diz o número ou um ponto de referência?"
-- "[FIELD_REQUEST:street_number]Qual número ou alguma referência próxima?"
-
-3ª Detalhes: Use variações:
-- "[FIELD_REQUEST:description]Mais detalhes sobre o problema?"
-- "[FIELD_REQUEST:description]Pode me contar mais sobre o que está acontecendo?"
-- "[FIELD_REQUEST:description]Consegue descrever melhor o problema?"
-
-4ª Risco: Use variações:
-- "[FIELD_REQUEST:risk_level]Há risco imediato? (fios expostos, via bloqueada, alagando)"
-- "[FIELD_REQUEST:risk_level]Isso representa algum risco agora?"
-- "[FIELD_REQUEST:risk_level]Tem algum perigo imediato?"
-
-TRANSPORTE:
-1ª Descrição: Use variações:
-- "[FIELD_REQUEST:description]O que aconteceu?"
-- "[FIELD_REQUEST:description]Me conta o que aconteceu?"
-- "[FIELD_REQUEST:description]Qual foi o problema?"
-
-2ª Linha: Use variações:
-- "[FIELD_REQUEST:line_code]Qual linha?[LINE_PICKER]"
-- "[FIELD_REQUEST:line_code]Qual linha de ônibus ou metrô?[LINE_PICKER]"
-- "[FIELD_REQUEST:line_code]Me diz qual linha?[LINE_PICKER]"
-
-3ª Data: Use variações:
-- "[FIELD_REQUEST:occurrence_date]Quando?[DATE_PICKER]"
-- "[FIELD_REQUEST:occurrence_date]Quando aconteceu?[DATE_PICKER]"
-- "[FIELD_REQUEST:occurrence_date]Que dia foi?[DATE_PICKER]"
-
-AVALIAÇÃO:
-1ª Tipo: Use variações:
-- "[FIELD_REQUEST:service_type]Qual tipo?[SERVICE_TYPE_PICKER]"
-- "[FIELD_REQUEST:service_type]Que tipo de serviço?[SERVICE_TYPE_PICKER]"
-- "[FIELD_REQUEST:service_type]Qual tipo você quer avaliar?[SERVICE_TYPE_PICKER]"
-
-2ª Serviço: Use variações:
-- "[FIELD_REQUEST:service_name]Qual serviço?[SERVICE_PICKER]"
-- "[FIELD_REQUEST:service_name]Qual serviço específico?[SERVICE_PICKER]"
-- "[FIELD_REQUEST:service_name]Me diz qual serviço?[SERVICE_PICKER]"
-
-3ª Nota: Use variações:
-- "[FIELD_REQUEST:rating_stars]Nota 1-5?[RATING_PICKER]"
-- "[FIELD_REQUEST:rating_stars]Que nota você dá (1-5)?[RATING_PICKER]"
-- "[FIELD_REQUEST:rating_stars]Como você avalia (1-5)?[RATING_PICKER]"
-
-4ª Comentário: Use variações:
-- "[FIELD_REQUEST:rating_text]Como foi?"
-- "[FIELD_REQUEST:rating_text]Pode me contar como foi?"
-- "[FIELD_REQUEST:rating_text]Quer comentar sobre a experiência?"
-
-=== CATEGORIAS URBANAS COM SUBCATEGORIAS ===
-
-CATEGORIA PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
-
-| Categoria | Quando Usar | Exemplo de subcategory_label |
-|-----------|-------------|------------------------------|
-| iluminacao | poste, luz | "Poste Apagado", "Lâmpada Queimada" |
-| via_publica | buraco, asfalto, semáforo | "Buraco na Via", "Semáforo com Defeito" |
-| calcada | passeio, acessibilidade | "Calçada Quebrada" |
-| lixo | entulho, coleta | "Lixo Acumulado", "Entulho na Via" |
-| esgoto | bueiro, vazamento, alagamento | "Bueiro Entupido", "Alagamento", "Vazamento" |
-| area_verde | praça, árvore, mato | "Árvore com Risco", "Mato Alto" |
-| higiene_urbana | fedor, sujeira | "Mau Cheiro", "Sujeira na Via" |
-| animais | bicho morto, rato, infestação | "Animal Morto", "Infestação de Ratos" |
-| poluicao | fumaça, BARULHO, som alto, perturbação | "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra" |
-| feedback_camara | vereador, câmara | "Feedback sobre Vereador" |
-| outro | QUALQUER coisa que não encaixe acima | "Veículo Abandonado", "Ocupação Irregular", "Obra Irregular" |
-
-REGRA DE OURO DO SUBCATEGORY_LABEL:
-- SEMPRE gerar label intuitivo em português
-- Usar palavras do cidadão quando possível
-- Se 'poluicao' + barulho → subcategory_label = "Perturbação Sonora" ou "Estabelecimento Barulhento"
-- Se 'outro' → gerar label a partir da descrição (ex: "Bar com Som Alto" → "Perturbação por Estabelecimento")
-
-QUANDO USAR 'outro':
-- Problema não se encaixa em nenhuma categoria acima
-- Situação complexa ou única (ex: carro abandonado, invasão, obra irregular)
-- NUNCA DEIXAR CIDADÃO SEM ATENDIMENTO - use 'outro' como fallback seguro
-- SEMPRE preservar 100% do relato original na descrição
-
-POLUIÇÃO SONORA (categoria: poluicao):
-- Som alto, música, festa, balada, bar barulhento
-- Vizinho fazendo barulho, obra fora de horário
-- Alarmes, buzinas, latidos excessivos
-- subcategory_label: "Perturbação Sonora", "Estabelecimento Barulhento", "Barulho de Obra", etc.
-
-=== TIPOS DE TRANSPORTE COM SUBCATEGORIAS ===
-
-TIPO PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
-
-| Tipo | Quando Usar | Exemplo de subcategory_label |
-|------|-------------|------------------------------|
-| atraso | veículo demorou | "Atraso de Veículo", "Longa Espera" |
-| lotacao | veículo cheio | "Veículo Lotado", "Superlotação" |
-| seguranca | assédio, roubo, briga | "Problema de Segurança", "Assédio" |
-| acessibilidade | cadeirante, elevador | "Problema de Acessibilidade" |
-| limpeza | sujeira, mau cheiro | "Problema de Limpeza" |
-| conducao | motorista, freada | "Problema com Motorista", "Condução Perigosa" |
-| outro | QUALQUER coisa que não encaixe | "Porta com Defeito", "Veículo Quebrado", "Ar Condicionado" |
-
-REGRA: Se não conseguir classificar → usar 'outro' + subcategory_label intuitivo
-
-=== CLASSIFICAÇÃO SEMÂNTICA TRANSPORTE vs URBANO ===
-
-URBANO (VIA/INFRAESTRUTURA):
-- "ônibus capotou" → via_publica
-- "ponto destruído" → via_publica
-- "lixo no ponto" → lixo
-
-TRANSPORTE (SERVIÇO/OPERAÇÃO):
-- "ônibus atrasou" → transport_report
-- "metrô lotado" → transport_report
-- "motorista rude" → transport_report
-
-=== REGRA DE OURO: NUNCA BLOQUEAR FLUXO ===
-
-1. Se não conseguir classificar categoria/tipo → usar 'outro' com label gerado
-2. Se busca retornar vazia → oferecer alternativa mais próxima
-3. NUNCA interromper o fluxo pedindo classificação que a IA não conseguiu inferir
-4. SEMPRE preservar 100% do relato original na descrição
-
-EXEMPLO: "Não encontrei UBS em Pinheiros, mas a UBS Vila Mariana fica perto. Quer a rota?"
-
-=== TOOLS DISPONÍVEIS ===
-• classify_report_category → classificar categoria (GERAR subcategory_label)
-• validate_cep → endereço via CEP
-• create_urban_report → registrar problema urbano
-• create_transport_report → registrar problema transporte (GERAR subcategory_label se outro)
-• create_service_rating → registrar avaliação
-• search_knowledge_base → dúvidas sobre Câmara
-• find_nearby_services → serviços próximos
-• search_audiencias → audiências públicas
-• get_citizen_history → histórico do cidadão
-• suggest_council_member → encaminhar a vereador
-• detect_user_intent → detectar intenção
-• confirm_journey_switch → confirmar mudança de jornada
-
-=== EMPATIA E CONTEXTO (CRÍTICO PARA RELATOS URBANOS) ===
-
-⚠️ SEMPRE reconheça urgência e impacto ANTES de fazer perguntas técnicas:
-
-PROBLEMAS URGENTES/PERIGOSOS (responda com empatia e urgência):
-- "Incêndio", "fogo", "queimando" → "Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP do local?"
-- "Fios expostos", "cabos soltos" → "Isso é perigoso! Vamos resolver rápido. Qual o CEP?"
-- "Transformadores estourando", "explosão" → "Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP?"
-- "Alagamento", "enchente" → "Que situação difícil! Vamos registrar. Qual o CEP?"
-- "Acidente", "atropelamento" → "Isso precisa de atenção imediata! Qual o CEP?"
-
-PROBLEMAS RECORRENTES (reconheça frustração):
-- "Já reportei antes", "sempre acontece" → "Entendo a frustração. Vamos registrar novamente. Qual o CEP?"
-- "Já faz tempo", "há semanas" → "Que chato isso estar acontecendo há tanto tempo! Vamos registrar. Qual o CEP?"
-
-PROBLEMAS GRAVES (seja empático):
-- "Muito perigoso", "risco de acidente" → "Isso é perigoso! Vamos resolver rápido. Qual o CEP?"
-- "Não consigo passar", "bloqueado" → "Entendo o transtorno. Vamos registrar. Qual o CEP?"
-
-Use linguagem empática quando apropriado:
-- "Sei como isso é chato"
-- "Entendo sua preocupação"
-- "Vamos resolver isso juntos"
-- "Obrigado por reportar"
-- "Que situação difícil!"
-- "Isso deve ser muito preocupante"
-- "Vou te ajudar a resolver isso"
-
-⚠️ REGRA DE OURO: Se o problema for URGENTE/PERIGOSO, SEMPRE:
-1. Reconheça a urgência/perigo PRIMEIRO
-2. Seja empático
-3. Depois faça a pergunta técnica (CEP)
-
-Mas mantenha foco:
-- Máximo 2-3 frases (pode ser um pouco mais se incluir saudação + urgência)
-- Não exagere na empatia
-- Balance empatia com eficiência
-- Se o usuário for simpático, seja simpático de volta
-
-=== MENSAGENS DE ERRO E CONFIRMAÇÃO (VARIAÇÕES) ===
-
-CEP inválido:
-- "Esse CEP não está válido. Pode verificar?"
-- "CEP inválido. Pode confirmar o número?"
-- "Não consegui validar esse CEP. Pode tentar novamente?"
-
-Confirmação de registro:
-- "Relato registrado! Número: URB-2026-000123"
-- "Pronto! Seu relato foi registrado (URB-2026-000123)"
-- "Registrado com sucesso! Número: URB-2026-000123"
-
-Erro genérico:
-- "Desculpe, tive um problema. Pode tentar novamente?"
-- "Ops, algo deu errado. Quer tentar de novo?"
-- "Não consegui processar. Pode repetir?"
-
-=== ORDEM DE PRIORIDADE (CRÍTICO) ===
-
-1. PRIMEIRO: Sempre responder a saudações (obrigatório)
-2. SEGUNDO: Reconhecer o problema ou pedido
-3. TERCEIRO: Fazer perguntas necessárias
-
-⚠️ NUNCA pule a etapa 1 - saudações SEMPRE vêm primeiro.
-⚠️ Se o usuário pedir para ser mais empático, reconheça imediatamente e seja simpático.
-
-TOM: Breve, direto, empático, máximo 2-3 frases (pode ser mais se incluir saudação). Varie naturalmente as respostas.
-Data: ${new Date().toISOString().split('T')[0]}`;
-
-// Helper: Get friendly service type name
+// Helper: Get friendly service type name (alinhado ao InlineServiceTypePicker / Perto de você)
 export function getServiceTypeName(type: string): string {
   const names: Record<string, string> = {
     'ubs': 'UBS',
@@ -4043,20 +3955,51 @@ export function getServiceTypeName(type: string): string {
     'hospital': 'hospitais',
     'library': 'bibliotecas',
     'sports_center': 'centros esportivos',
+    'transit_station': 'pontos de ônibus e transporte',
+    'park': 'parques',
+    'street_market': 'feiras',
+    'community_center': 'centros comunitários',
+    'daycare': 'creches',
+    'market': 'mercados',
+    'city_market': 'mercados municipais',
+    'theater': 'teatros e cinema',
+    'museum': 'museus',
+    'social_assistance': 'assistência social',
+    'police_station': 'delegacia e polícia',
+    'cemetery': 'cemitérios',
+    'accessibility': 'acessibilidade',
+    'recycling_point': 'reciclagem e limpeza',
+    'fire_station': 'bombeiros',
     'other': 'serviços'
   };
   return names[type] || 'serviços';
 }
 
-/** Infer service_type from user text (e.g. "UBS próximo a mim" → ubs). For deterministic find_nearby_services. */
+/** Infer service_type from user text (ex.: "parques mais perto", "UBS próximo a mim" → park, ubs). Reconhece todos os equipamentos do módulo Perto de você. */
 export function inferServiceTypeFromText(text: string): string | null {
-  const t = text.toLowerCase();
-  if (/\bubs\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
+  const t = text.toLowerCase().trim();
+  // UBS: singular, plural (UBSs, UBS's) e variações (aspas retas e curvas)
+  if (/\bubs[\u0027\u2019']?s?\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
   if (/\bceu[s]?\b|centro\s+educacional/.test(t)) return 'ceu';
-  if (/\bhospital(is)?\b/.test(t)) return 'hospital';
+  if (/\bhospital(is)?\b|\bhospitais\b/.test(t)) return 'hospital';
   if (/\bescola[s]?\b|educa[cç][aã]o/.test(t)) return 'school';
   if (/\bbiblioteca[s]?\b/.test(t)) return 'library';
-  if (/\bcentro\s+esportivo|esportivo|quadra|academia\s+p[uú]blica/.test(t)) return 'sports_center';
+  if (/\bcentro\s+esportivo|esportivo[s]?\b|esporte[s]?\b|quadra[s]?|academia\s+p[uú]blica/.test(t)) return 'sports_center';
+  if (/\bparque[s]?\b|parques?\s+pr[oó]ximos?/.test(t)) return 'park';
+  if (/\bfeira[s]?\s+(livres?|de\s+rua)?|feira\s+livre/.test(t)) return 'street_market';
+  if (/\bcentro[s]?\s+comunit[aá]rio|comunit[aá]rio/.test(t)) return 'community_center';
+  if (/\bcreche[s]?\b|ber[cç][aá]rio/.test(t)) return 'daycare';
+  if (/\bmercado[s]?\s+municipal|mercados?\s+p[uú]blicos?/.test(t)) return 'city_market';
+  if (/\bmercado[s]?\b/.test(t)) return 'market';
+  if (/\bteatro[s]?\b|cinema[s]?\b/.test(t)) return 'theater';
+  if (/\bmuseu[s]?\b/.test(t)) return 'museum';
+  if (/\bassist[eê]n[cç]ia[s]?\s+social(is)?|\bassist[eê]n[cç]ia[s]?\s+sociais\b|cr[aá]s?\b|social/.test(t)) return 'social_assistance';
+  if (/\btransporte[s]?\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
+  if (/\bdelegacia[s]?\b|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return 'police_station';
+  if (/\bcemit[eé]rio[s]?\b/.test(t)) return 'cemetery';
+  if (/\bacessibilidade|acess[ií]vel/.test(t)) return 'accessibility';
+  if (/\breciclagem|ecoponto|limpeza\s+p[uú]blica/.test(t)) return 'recycling_point';
+  if (/\bbombeiro[s]?\b|corpo\s+de\s+bombeiros/.test(t)) return 'fire_station';
   return null;
 }
 
@@ -4070,7 +4013,7 @@ function hasValidAddress(s: { address?: string | null }): boolean {
 
 // Helper: Format services with positive context (Never Negative pattern)
 export function formatServicesWithContext(
-  services: any[], 
+  services: Record<string, unknown>[], 
   serviceType: string, 
   originalDistrict: string | null,
   isExpanded: boolean
@@ -4084,22 +4027,29 @@ export function formatServicesWithContext(
     ? `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
     : `Encontrei ${withAddress.length} ${typeName}:`;
   
-  const list = withAddress.map((s: any, i: number) => {
+  const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : '';
     const rating = s.average_rating ? ` ⭐ ${Number(s.average_rating).toFixed(1)}` : '';
     return `${i+1}. ${s.name}${districtInfo}\n   📍 ${s.address}${rating}`;
   }).join('\n\n');
   
   const footer = isExpanded 
-    ? '\n\n💡 Quer que eu calcule a rota para alguma delas?' 
+    ? '\n\n💡 Quer que eu calcule a rota para alguma delas?\n\nPara mais informações, [clique aqui](/servicos-proximos).'
     : '';
   
   return `${header}\n\n${list}${footer}`;
 }
 
 // Helper: Search knowledge base (with positive alternatives)
-export async function searchKnowledgeBase(supabase: any, query: string): Promise<string> {
-  const searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {
+  let searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+  // Para zoneamento/LPUOS/construir: garantir termos que existem no conteúdo (evitar falha por acento: construir vs construído)
+  const zoneamentoBoost = ['zoneamento', 'lpuos', 'construir', 'construído', 'imóvel', 'imovel', 'siszon', 'geosampa'];
+  const q = query.toLowerCase();
+  if (zoneamentoBoost.some(k => q.includes(k))) {
+    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].filter(t => !searchTerms.includes(t));
+    searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 6);
+  }
   if (searchTerms.length === 0) {
     return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
   }
@@ -4121,10 +4071,14 @@ export async function searchKnowledgeBase(supabase: any, query: string): Promise
     return `Não encontrei informações específicas sobre "${query}", mas posso te ajudar com:\n\n${suggestions.join('\n')}\n\n📌 Ou você pode visitar cmsp.sp.gov.br para mais detalhes.`;
   }
 
-  return data.map((doc: any, i: number) => {
+  const SNIPPET_LEN = 600; // Longer snippets so answers are less truncated (was 300)
+  return data.map((doc: Record<string, unknown>, i: number) => {
     const source = doc.content_type === 'noticia' ? 'Notícia' : 
                    doc.content_type === 'audiencia' ? 'Audiência' : 'Info';
-    return `[${i+1}] ${doc.title || source}: ${doc.content.slice(0, 300)}...`;
+    const text = doc.content?.trim() || '';
+    const showMore = text.length > SNIPPET_LEN;
+    const snippet = showMore ? `${text.slice(0, SNIPPET_LEN)}...` : text;
+    return `[${i+1}] ${doc.title || source}: ${snippet}`;
   }).join('\n\n');
 }
 
@@ -4132,6 +4086,114 @@ export async function searchKnowledgeBase(supabase: any, query: string): Promise
 export function buildGoogleMapsDirectionsUrl(originLat: number, originLon: number, destinationAddress: string): string {
   const dest = encodeURIComponent(destinationAddress.trim());
   return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLon}&destination=${dest}&travelmode=transit`;
+}
+
+/** Gera link do Google Maps para rota entre dois endereços (transporte público). */
+export function buildGoogleMapsDirectionsUrlFromAddresses(originAddress: string, destinationAddress: string): string {
+  const origin = encodeURIComponent(originAddress.trim());
+  const dest = encodeURIComponent(destinationAddress.trim());
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
+}
+
+// --- Google Directions API (transporte público) ---
+// Ref: https://developers.google.com/maps/documentation/directions/get-directions
+
+type DirectionsStep = {
+  travel_mode?: string;
+  html_instructions?: string;
+  transit_details?: {
+    line?: { short_name?: string; name?: string; vehicle?: { name?: string } };
+    departure_stop?: { name?: string };
+    arrival_stop?: { name?: string };
+    num_stops?: number;
+  };
+};
+
+type DirectionsLeg = {
+  steps?: DirectionsStep[];
+  duration?: { value?: number; text?: string };
+  distance?: { value?: number; text?: string };
+};
+type DirectionsRoute = { legs?: DirectionsLeg[] };
+type DirectionsResponse = {
+  status: string;
+  routes?: DirectionsRoute[];
+  error_message?: string;
+};
+
+/** Remove tags HTML simples para exibir instrução em texto. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
+/**
+ * Chama a Google Directions API (mode=transit) e retorna o passo a passo em texto,
+ * além da duração e distância totais do trajeto.
+ * Requer GOOGLE_MAPS_API_KEY com Directions API ativada.
+ * Em caso de falha (sem key, erro de rede, ZERO_RESULTS, etc.), retorna { ok: false }.
+ */
+export async function fetchGoogleDirectionsTransit(
+  originAddress: string,
+  destinationAddress: string,
+  apiKey: string
+): Promise<
+  | { ok: true; steps: string[]; durationText?: string; distanceText?: string }
+  | { ok: false; error?: string }
+> {
+  if (!apiKey?.trim()) return { ok: false, error: 'missing_api_key' };
+  const origin = encodeURIComponent(originAddress.trim());
+  const dest = encodeURIComponent(destinationAddress.trim());
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${dest}&mode=transit&language=pt-BR&key=${apiKey}`;
+  try {
+    const res = await fetch(url);
+    const data = (await res.json()) as DirectionsResponse;
+    if (data.status !== 'OK' || !data.routes?.length) {
+      return { ok: false, error: data.status === 'ZERO_RESULTS' ? 'zero_results' : data.error_message || data.status };
+    }
+    const leg = data.routes[0].legs?.[0];
+    const durationText = leg?.duration?.text?.trim() || undefined;
+    const distanceText = leg?.distance?.text?.trim() || undefined;
+    if (!leg?.steps?.length) return { ok: true, steps: [], durationText, distanceText };
+    const rawSteps: { mode: string; text: string }[] = [];
+    for (const s of leg.steps) {
+      const mode = (s.travel_mode || '').toUpperCase();
+      const td = s.transit_details;
+      if (mode === 'TRANSIT' && td) {
+        const lineName = td.line?.short_name || td.line?.name || td.line?.vehicle?.name || 'ônibus/metrô';
+        const from = td.departure_stop?.name || 'parada de partida';
+        const to = td.arrival_stop?.name || 'parada de destino';
+        const n = td.num_stops != null ? ` (${td.num_stops} parada${td.num_stops !== 1 ? 's' : ''})` : '';
+        rawSteps.push({ mode: 'TRANSIT', text: `• Pegue **${lineName}** na parada *${from}*, desça em *${to}*${n}` });
+      } else {
+        const text = stripHtml(s.html_instructions || '');
+        if (text) rawSteps.push({ mode: 'WALKING', text: `• ${text}` });
+      }
+    }
+    // Agrupar "Ande até X" + "Pegue linha Y" na mesma linha, uma etapa por linha
+    const steps: string[] = [];
+    for (let i = 0; i < rawSteps.length; i++) {
+      const curr = rawSteps[i];
+      const next = rawSteps[i + 1];
+      if (curr.mode === 'WALKING' && next?.mode === 'TRANSIT') {
+        const walk = curr.text.replace(/^•\s*/, '');
+        const transit = next.text.replace(/^•\s*/, '');
+        steps.push(`• ${walk} • ${transit}`);
+        i++;
+      } else {
+        steps.push(curr.text);
+      }
+    }
+    return { ok: true, steps, durationText, distanceText };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 // Distância em metros (Haversine) para ordenar serviços por proximidade
@@ -4148,12 +4210,15 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number):
 
 // Helper: Find nearby services (com ordenação por distância quando userLat/userLon disponíveis). Só lista serviços com endereço válido.
 export async function findNearbyServices(
-  supabase: any,
+  supabase: SupabaseClient,
   serviceType: string,
   district?: string,
   limit: number = 5,
   userLat?: number | null,
-  userLon?: number | null
+  userLon?: number | null,
+  radiusMeters: number = 2000,
+  minRating: number = 0,
+  searchQuery?: string | null
 ): Promise<string> {
   const typeName = getServiceTypeName(serviceType);
   const limitWithBuffer = Math.max(limit * 3, 15);
@@ -4161,38 +4226,74 @@ export async function findNearbyServices(
   const selectFields = hasCoords
     ? 'name, address, district, phone, average_rating, service_type, latitude, longitude'
     : 'name, address, district, phone, average_rating, service_type';
+  const search = (searchQuery || '').trim().toLowerCase();
 
-  const sortAndFormat = (data: any[], isExpanded: boolean): string => {
-    const withAddress = data.filter(hasValidAddress);
+  const sortAndFormat = (data: Record<string, unknown>[], isExpanded: boolean, radiusOverride?: number): string => {
+    const radius = radiusOverride ?? radiusMeters;
+    let withAddress = data.filter(hasValidAddress);
     if (withAddress.length === 0) return '';
-    let ordered = withAddress;
-    if (hasCoords && withAddress[0].latitude != null && withAddress[0].longitude != null) {
-      ordered = [...withAddress].sort((a, b) => {
-        const dA = distanceMeters(userLat!, userLon!, Number(a.latitude), Number(a.longitude));
-        const dB = distanceMeters(userLat!, userLon!, Number(b.latitude), Number(b.longitude));
-        return dA - dB;
-      }).slice(0, limit);
-    } else {
-      ordered = withAddress.slice(0, limit);
+    if (search) {
+      withAddress = withAddress.filter((s: Record<string, unknown>) => {
+        const name = (s.name || '').toString().toLowerCase();
+        const address = (s.address || '').toString().toLowerCase();
+        const districtStr = (s.district || '').toString().toLowerCase();
+        return name.includes(search) || address.includes(search) || districtStr.includes(search);
+      });
+      if (withAddress.length === 0) return '';
     }
+    let ordered = withAddress;
+    if (hasCoords && withAddress.some((s: Record<string, unknown>) => s.latitude != null && s.longitude != null)) {
+      ordered = [...withAddress]
+        .map((s: Record<string, unknown>) => ({
+          ...s,
+          _distance: (s.latitude != null && s.longitude != null)
+            ? distanceMeters(userLat!, userLon!, Number(s.latitude), Number(s.longitude))
+            : Infinity
+        }))
+        .filter((s: Record<string, unknown>) => {
+          const d = s._distance as number;
+          return (Number.isFinite(d) && d <= radius) || d === Infinity;
+        })
+        .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
+        .sort((a, b) => (a._distance as number) - (b._distance as number))
+        .slice(0, limit)
+        .map(({ _distance, ...rest }) => rest) as Record<string, unknown>[];
+    } else {
+      ordered = withAddress
+        .filter((s: Record<string, unknown>) => minRating === 0 || (Number(s.average_rating) || 0) >= minRating)
+        .slice(0, limit);
+    }
+    if (ordered.length === 0) return '';
     return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded) || '';
   };
 
-  const tryFormat = (data: any[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
+  const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
 
   // Quando temos coordenadas do usuário, buscar mais resultados city-wide e ordenar por distância (prioridade sobre district)
   if (hasCoords) {
-    const fetchSize = 80;
+    const fetchSize = 200;
     const { data, error } = await supabase
       .from('public_services')
       .select(selectFields)
       .eq('service_type', serviceType)
       .limit(fetchSize);
     if (!error && data?.length) {
-      const out = sortAndFormat(data, !district);
+      let out = sortAndFormat(data, !district);
       if (out) {
         console.log('[findNearbyServices] Sorted by distance from user');
         return out;
+      }
+      // Nenhum resultado no raio pedido: tentar com raio maior (20 km) para sempre mostrar opções quando existirem no DB
+      out = sortAndFormat(data, !district, 20000);
+      if (out) {
+        console.log('[findNearbyServices] No results in radius, showing within 20km');
+        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out}`;
+      }
+      // Ainda zero (ex.: todos além de 20 km ou registros sem lat/lon): sem filtro de distância (raio muito grande)
+      out = sortAndFormat(data, !district, 1e9);
+      if (out) {
+        console.log('[findNearbyServices] Showing first N without distance filter');
+        return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${out}`;
       }
     }
   }
@@ -4239,7 +4340,7 @@ export async function findNearbyServices(
     .select('service_type')
     .limit(20);
   
-  const availableTypes = [...new Set((otherTypes || []).map((s: any) => s.service_type))] as string[];
+  const availableTypes = [...new Set((otherTypes || []).map((s: Record<string, unknown>) => s.service_type))] as string[];
   const typeNames = availableTypes.map((t: string) => getServiceTypeName(t)).slice(0, 4);
   
   if (typeNames.length > 0) {
@@ -4253,7 +4354,7 @@ export async function findNearbyServices(
  * Busca um serviço pelo nome (ex: "CEU Butantã") e retorna o endereço do banco de dados.
  * Usado para perguntas como "qual o endereço do CEU Butantã?" — evita que a LLM invente.
  */
-export async function getServiceAddressByName(supabase: any, serviceName: string): Promise<string | null> {
+export async function getServiceAddressByName(supabase: SupabaseClient, serviceName: string): Promise<string | null> {
   const nameTrim = serviceName.trim();
   if (nameTrim.length < 3) return null;
 
@@ -4275,16 +4376,233 @@ export async function getServiceAddressByName(supabase: any, serviceName: string
   return `${first.name}\n📍 ${addressLine}${phoneNote}`;
 }
 
-// Helper: Search audiencias (with fallback to upcoming or related)
-export async function searchAudiencias(supabase: any, tema?: string, status?: string, inscricoesAbertas?: boolean): Promise<string> {
+// Helper: build tema filter (ilike on tema or titulo)
+function audienciasTemaFilter(supabase: SupabaseClient, base: { or?: (a: string, b: string) => unknown }, tema: string) {
+  const t = tema.trim().replace(/%/g, '');
+  if (!t) return base;
+  return base.or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
+}
+
+// Zonas de São Paulo para filtro por região (espelho de audienciaZonas no front)
+const ZONAS_KEYWORDS: { zona: string; keywords: string[] }[] = [
+  { zona: "Zona Norte", keywords: ["tucuruvi", "jaçanã", "santana", "vila maria", "vila guilherme", "casa verde", "limão", "brasilândia", "freguesia do ó", "perus", "pirituba", "vila leopoldina"] },
+  { zona: "Zona Sul", keywords: ["ipiranga", "jabaquara", "santo amaro", "cidade ademar", "socorro", "cursino", "saúde", "vila mariana", "campo belo"] },
+  { zona: "Zona Leste", keywords: ["mooca", "tatuapé", "vila carmosina", "vila formosa", "penha", "cangaíba", "são mateus", "itaquera", "guaianases", "vila prudente"] },
+  { zona: "Zona Oeste", keywords: ["lapa", "pinheiros", "butantã", "jaguaré", "rio pequeno", "raposo tavares", "vila sônia", "morumbi", "barra funda"] },
+  { zona: "Centro", keywords: ["sé", "república", "bela vista", "bom retiro", "cambuci", "consolação", "liberdade", "santa cecília", "prestes maia", "auditório", "câmara municipal", "centro", "vila buarque", "aclimação", "higienópolis"] },
+];
+
+function localParaZona(local: string | null | undefined): string {
+  const text = (local || "").toLowerCase().trim();
+  if (!text) return "Centro";
+  for (const { zona, keywords } of ZONAS_KEYWORDS) {
+    if (keywords.some((k) => text.includes(k))) return zona;
+  }
+  return "Centro";
+}
+
+function filterByRegiao<T extends { local?: string | null }>(rows: T[], regiao: string): T[] {
+  if (!regiao?.trim()) return rows;
+  const r = regiao.trim();
+  return rows.filter((a) => localParaZona(a.local) === r);
+}
+
+// Status no banco: 'agendada' | 'encerrada' (seed); aceitar também 'scheduled' | 'ongoing' | 'finished' por compatibilidade
+const AUDIENCIA_STATUS_AGENDADA = ['agendada', 'scheduled'];
+
+function isAgendada(s: string) {
+  return s && AUDIENCIA_STATUS_AGENDADA.includes(String(s).toLowerCase());
+}
+
+function formatAudienciaStatus(s: string) {
+  if (isAgendada(s)) return '📅 Agendada';
+  if (s === 'ongoing' || s === 'em andamento') return '🔴 Em andamento';
+  return '✅ Encerrada';
+}
+
+/** Trunca descrição para uso como contexto na explicação simplificada ao cidadão (evita payload grande). */
+function truncateDescricaoForContext(descricao: string | null | undefined, maxLen: number = 380): string {
+  if (!descricao || !descricao.trim()) return '';
+  const oneLine = descricao.trim().replace(/\s+/g, ' ').trim();
+  if (oneLine.length <= maxLen) return oneLine;
+  return oneLine.slice(0, maxLen) + '…';
+}
+
+/** Documentos e materiais de referência não são incluídos no texto da resposta; o chat exibe na listagem (transmissão, contato). */
+function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_transmissao?: string | null; mais_informacoes?: string | null }): string {
+  return '';
+}
+
+/** Formata uma linha de audiência para o chat: "Audiência pública: [nome]" (nome = comissão, ex. Comissão de Finanças e Orçamento), descrição abaixo. Quebras de linha, Local: em negrito. */
+function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: string | null; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
+  const br = '  \n';
+  const nomeDaAudiencia = (a.comissao && a.comissao.trim()) ? a.comissao.trim() : (a.tema && a.tema.trim()) ? a.tema.trim() : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : 'Audiência';
+  const dataHora = `📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}`;
+  const localLine = a.local ? `${br}   **Local:** ${a.local}` : '';
+  const inscricaoTrim = inscricao.trim();
+  const statusInscricao = inscricaoTrim ? `${br}   ${statusText}${br}   ${inscricaoTrim}` : `${br}   ${statusText}`;
+  return `${i + 1}. **Audiência pública:** ${nomeDaAudiencia}\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
+}
+
+/** Busca as N últimas notícias do cache (tabela news_cache) para injetar no contexto do chat. */
+export async function getUltimasNoticias(supabase: SupabaseClient, limit = 5): Promise<string> {
+  const { data: rows, error } = await supabase
+    .from('news_cache')
+    .select('id, title, description, link, pub_date')
+    .order('pub_date', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn('[getUltimasNoticias] Erro ao ler news_cache:', error.message);
+    return '';
+  }
+  if (!rows?.length) return '';
+
+  const formatDate = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return iso?.slice(0, 10) || '';
+    }
+  };
+
+  const lines = rows.map((r: { id: string; title: string; description: string; link: string; pub_date: string }, i: number) => {
+    const title = (r.title || '').trim();
+    const desc = (r.description || '').trim().slice(0, 200);
+    const date = formatDate(r.pub_date || '');
+    return `${i + 1}. **${title}**\n   ${desc}${desc.length >= 200 ? '...' : ''}\n   Data: ${date} | Link: ${r.link || ''}`;
+  });
+  return '[Últimas notícias da Câmara (use este bloco para listar as 5 últimas no chat)]\n\n' + lines.join('\n\n');
+}
+
+// Helper: Search audiencias (with filters by tema, data, regiao)
+export async function searchAudiencias(
+  supabase: SupabaseClient,
+  tema?: string,
+  status?: string,
+  inscricoesAbertas?: boolean,
+  dataInicio?: string,
+  dataFim?: string,
+  regiao?: string
+): Promise<string> {
+  const temaNorm = tema?.trim();
+  const today = new Date().toISOString().split('T')[0];
+  const dataMin = dataInicio?.trim() || today;
+  let dataMax = dataFim?.trim() || null;
+  // Se só tem data_inicio (ex.: "este ano" sem data_fim), limitar ao fim desse ano para não incluir audiências de anos futuros
+  if (dataMin && !dataMax && /^\d{4}-\d{2}-\d{2}$/.test(dataMin)) {
+    dataMax = `${dataMin.slice(0, 4)}-12-31`;
+  }
+  const regiaoNorm = regiao?.trim() || null;
+  const limitBase = regiaoNorm ? 20 : 5; // fetch more when filtering by region in memory
+  const hasExplicitDateRange = !!(dataInicio?.trim() || dataFim?.trim());
+
+  const applyDateFilters = (q: { gte?: (a: string, b: string) => unknown; lte?: (a: string, b: string) => unknown }) => {
+    let out = q.gte('data', dataMin);
+    if (dataMax) out = out.lte('data', dataMax);
+    return out;
+  };
+
+  // 0) Período explícito (data_inicio/data_fim): retornar agendadas E encerradas no período
+  if (hasExplicitDateRange) {
+    let rangeQ = supabase
+    .from('audiencias')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+      .gte('data', dataMin)
+      .order('data', { ascending: false })
+      .limit(regiaoNorm ? 40 : 15);
+    if (dataMax) rangeQ = rangeQ.lte('data', dataMax);
+    if (temaNorm) rangeQ = audienciasTemaFilter(supabase, rangeQ, temaNorm);
+    const { data: rawRange } = await rangeQ;
+    const inRange = filterByRegiao(rawRange || [], regiaoNorm).slice(0, 10);
+    if (inRange?.length) {
+      const formatted = inRange.map((a: Record<string, unknown>, i: number) => {
+        const statusText = formatAudienciaStatus(a.status);
+        const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+        const docsBlock = formatDocumentosLine(a);
+        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+      }).join('\n\n');
+      const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
+      const intro = temaNorm
+        ? `Audiências sobre **${temaNorm}** no período (${periodo}):\n\n`
+        : `Audiências no período (${periodo}) — agendadas e realizadas:\n\n`;
+      return `${intro}${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
+    }
+    // Nenhuma audiência no período com tema: mensagem + últimas 5 realizadas para o tema (sempre ano anterior e ano retrasado em relação a hoje)
+    if (temaNorm) {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const yearBeforeLastStart = `${currentYear - 2}-01-01`; // ex.: 2026 → 2024-01-01
+      const startOfCurrentYear = `${currentYear}-01-01`;    // ex.: 2026 → 2026-01-01 (exclusive)
+      const histQ = supabase
+        .from('audiencias')
+        .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
+        .gte('data', yearBeforeLastStart)
+        .lt('data', startOfCurrentYear)
+        .order('data', { ascending: false })
+        .limit(regiaoNorm ? 20 : 10);
+      const histWithTema = audienciasTemaFilter(supabase, histQ, temaNorm);
+      const { data: rawUltimas } = await histWithTema;
+      const ultimas5 = filterByRegiao(rawUltimas || [], regiaoNorm).slice(0, 5);
+      const temaLabel = temaNorm.charAt(0).toUpperCase() + temaNorm.slice(1).toLowerCase();
+      let msg = `Este ano ainda não foram realizadas audiências públicas com este tema (**${temaLabel}**).\n\n`;
+      if (ultimas5?.length) {
+        const formatted = ultimas5.map((a: Record<string, unknown>, i: number) => {
+          const statusText = formatAudienciaStatus(a.status);
+          const ctx = truncateDescricaoForContext(a.descricao);
+          const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que foi discutido:**\n\n   ${ctx}` : '';
+          const docsBlock = formatDocumentosLine(a);
+          return formatAudienciaLine(a, i, statusText, '', ctxBlock, docsBlock);
+        }).join('\n\n');
+        msg += `Segue abaixo as últimas audiências realizadas para este tema:\n\n${formatted}`;
+      } else {
+        msg += `Não há audiências realizadas no histórico para este tema.`;
+      }
+      msg += '\n\nQuer buscar outras audiências ou outro tema?';
+      return msg;
+    }
+  }
+
+  // 1) Sem tema: priorizar PRÓXIMAS (data >= dataMin, status agendada)
+  if (!temaNorm) {
+    let q = supabase
+      .from('audiencias')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+      .in('status', AUDIENCIA_STATUS_AGENDADA)
+    .order('data', { ascending: true })
+      .limit(limitBase);
+    q = applyDateFilters(q);
+    const { data: rawProximas } = await q;
+    const proximas = filterByRegiao(rawProximas || [], regiaoNorm).slice(0, 5);
+
+    if (proximas?.length) {
+      const formatted = proximas.map((a: Record<string, unknown>, i: number) => {
+        const statusText = formatAudienciaStatus(a.status);
+        const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+        const docsBlock = formatDocumentosLine(a);
+        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+      }).join('\n\n');
+      const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
+      const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
+      return `${intro}${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
+    }
+  }
+
+  // 2) Com tema: buscar por tema (agendadas primeiro, depois histórico)
   let query = supabase
     .from('audiencias')
-    .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
+    .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+    .in('status', AUDIENCIA_STATUS_AGENDADA)
     .order('data', { ascending: true })
-    .limit(5);
-  
-  if (tema) {
-    query = query.or(`tema.ilike.%${tema}%,titulo.ilike.%${tema}%`);
+    .limit(limitBase);
+  query = applyDateFilters(query);
+  if (temaNorm) {
+    query = audienciasTemaFilter(supabase, query, temaNorm);
   }
   if (status) {
     query = query.eq('status', status);
@@ -4293,66 +4611,116 @@ export async function searchAudiencias(supabase: any, tema?: string, status?: st
     query = query.eq('inscricoes_abertas', true);
   }
   
-  const { data, error } = await query;
-  
-  if (error || !data?.length) {
-    // NEVER NEGATIVE: Fallback to any upcoming audiencias
-    console.log(`[searchAudiencias] No results for tema="${tema}", falling back to upcoming`);
-    
-    const { data: upcoming } = await supabase
+  const { data: rawData, error } = await query;
+  const data = filterByRegiao(rawData || [], regiaoNorm).slice(0, 5);
+
+  if (!error && data?.length) {
+    return data.map((a: Record<string, unknown>, i: number) => {
+      const statusText = formatAudienciaStatus(a.status);
+      const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
+      const ctx = truncateDescricaoForContext(a.descricao);
+      const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+      const docsBlock = formatDocumentosLine(a);
+      return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+    }).join('\n\n');
+  }
+
+  // 3) Com tema mas sem próximas: buscar histórico desse tema
+  if (temaNorm) {
+    let histQuery = supabase
       .from('audiencias')
-      .select('titulo, tema, data, hora, local, status, inscricoes_abertas, vagas_disponiveis')
-      .eq('status', 'scheduled')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
+      .order('data', { ascending: false })
+      .limit(regiaoNorm ? 30 : 10);
+    if (dataMin) histQuery = histQuery.gte('data', dataMin);
+    if (dataMax) histQuery = histQuery.lte('data', dataMax);
+    histQuery = audienciasTemaFilter(supabase, histQuery, temaNorm);
+    const { data: rawHist } = await histQuery;
+    const historico = filterByRegiao(rawHist || [], regiaoNorm).slice(0, 10);
+    if (historico?.length) {
+      const formatted = historico.map((a: Record<string, unknown>, i: number) => {
+        const statusText = formatAudienciaStatus(a.status);
+        const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+        const docsBlock = formatDocumentosLine(a);
+        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+      }).join('\n\n');
+      return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
+    }
+  }
+
+  // 4) Fallback: listar próximas agendadas (qualquer tema)
+  let fallbackQ = supabase
+    .from('audiencias')
+    .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, projeto_referencia, link_transmissao, mais_informacoes')
+    .in('status', AUDIENCIA_STATUS_AGENDADA)
       .order('data', { ascending: true })
-      .limit(3);
+    .limit(limitBase);
+  fallbackQ = applyDateFilters(fallbackQ);
+  const { data: rawUpcoming } = await fallbackQ;
+  const upcoming = filterByRegiao(rawUpcoming || [], regiaoNorm).slice(0, 5);
     
     if (upcoming?.length) {
-      const formattedUpcoming = upcoming.map((a: any, i: number) => {
-        const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas` : '';
-        return `${i+1}. ${a.titulo}\n   📋 ${a.tema}\n   📅 ${a.data} às ${a.hora} ${inscricao}`;
+    const formattedUpcoming = upcoming.map((a: Record<string, unknown>, i: number) => {
+      const statusText = formatAudienciaStatus(a.status);
+      const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
+      const ctx = truncateDescricaoForContext(a.descricao);
+      const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+      const docsBlock = formatDocumentosLine(a);
+      return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
-      
-      const temaText = tema ? `sobre "${tema}"` : 'com esses critérios';
-      return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\n📬 Quer que eu te avise quando houver audiências sobre ${tema || 'seu tema de interesse'}?`;
+    const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
+    return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\nQuer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
     }
     
-    // Fallback 2: Suggest available themes
+  // 5) Sugerir temas com histórico
     const { data: allAudiencias } = await supabase
       .from('audiencias')
       .select('tema')
-      .limit(50);
+    .limit(100);
     
-    const availableThemes = [...new Set((allAudiencias || []).map((a: any) => a.tema))].slice(0, 5);
+  const availableThemes = [...new Set((allAudiencias || []).map((a: Record<string, unknown>) => a.tema).filter(Boolean))].slice(0, 8);
     
     if (availableThemes.length > 0) {
-      return `Não há audiências ${tema ? `sobre "${tema}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t, i) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses?`;
+    return `Não há audiências ${temaNorm ? `sobre "${temaNorm}"` : 'agendadas'} no momento.\n\nTemas com histórico de audiências:\n${availableThemes.map((t) => `• ${t}`).join('\n')}\n\nQuer saber mais sobre algum desses? (Ao escolher, mostro as audiências desse tema, inclusive do histórico.)`;
     }
     
     return 'Não há audiências agendadas no momento. Você pode acompanhar a agenda em cmsp.sp.gov.br/agenda';
-  }
-  
-  return data.map((a: any, i: number) => {
-    const statusText = a.status === 'scheduled' ? '📅 Agendada' : 
-                       a.status === 'ongoing' ? '🔴 Em andamento' : '✅ Encerrada';
-    const inscricao = a.inscricoes_abertas ? `🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
-    return `${i+1}. ${a.titulo}\n   📋 Tema: ${a.tema}\n   📅 ${a.data} às ${a.hora}\n   📍 ${a.local}\n   ${statusText} ${inscricao}`;
-  }).join('\n\n');
 }
 
-// Helper: Suggest council member
+// Helper: Suggest council member (lista vem SEMPRE da API fetch-vereadores para refletir vereadores em exercício)
 export async function suggestCouncilMember(issueType: string, description: string, district?: string): Promise<string> {
-  const themes = COMMISSION_THEMES[issueType] || [];
-  const descLower = description.toLowerCase();
-  
-  // Find relevant council members based on theme
-  const relevantMembers = COUNCIL_MEMBERS.filter((_, i) => i < 3).map(m => `${m.name} (${m.party})`);
-  
-  return `Para questões de ${issueType}, você pode procurar:\n\n${relevantMembers.map((m, i) => `${i+1}. ${m}`).join('\n')}\n\nDeseja que eu encaminhe sua demanda para algum deles?`;
+  const baseUrl = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL') : undefined;
+  const anonKey = typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_ANON_KEY') : undefined;
+
+  if (baseUrl && anonKey) {
+    try {
+      const res = await fetch(`${baseUrl}/functions/v1/fetch-vereadores`, {
+        headers: { 'Authorization': `Bearer ${anonKey}` },
+      });
+      if (res.ok) {
+        const json = await res.json() as { vereadores?: Array<{ name: string; party: string; isSubstitute?: boolean; isOnLeave?: boolean }> };
+        const vereadores = json.vereadores ?? [];
+        const active = vereadores.filter(v => !v.isSubstitute && !v.isOnLeave);
+        const top = active.slice(0, 5).map(v => `${v.name} (${v.party})`);
+        if (top.length > 0) {
+          return `Para questões de ${issueType}, você pode procurar:\n\n${top.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\nDeseja que eu encaminhe sua demanda para algum deles?`;
+        }
+      }
+    } catch (e) {
+      console.warn('[suggestCouncilMember] fetch-vereadores failed:', (e as Error).message);
+    }
+  }
+
+  // Sem fallback com lista fixa: evita mostrar vereadores que não estão mais em exercício.
+  // Direciona o cidadão à página oficial de vereadores, que consome a mesma API.
+  return `No momento não consegui carregar a lista atualizada de vereadores. Você pode ver a lista completa em [Vereadores](/institucional/vereadores), onde constam apenas os parlamentares em exercício. Posso ajudar com mais alguma coisa?`;
 }
 
 // Helper: Get citizen history
 export async function getCitizenHistory(
-  supabase: any, 
+  supabase: SupabaseClient, 
   userId: string, 
   historyType: string = 'all',
   statusFilter: string = 'all',
@@ -4376,7 +4744,7 @@ export async function getCitizenHistory(
     const { data, error } = await query;
     if (!error && data?.length) {
       results.push('📍 **Relatos Urbanos:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         const location = r.street ? `${r.street}, ${r.neighborhood}` : r.location_address || 'Local não informado';
         results.push(`${i+1}. ${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
@@ -4401,7 +4769,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('🚌 **Relatos de Transporte:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         results.push(`${i+1}. ${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
@@ -4420,7 +4788,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('⭐ **Avaliações de Serviços:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const stars = '⭐'.repeat(r.rating_stars);
         const serviceName = r.service?.name || 'Serviço';
         results.push(`${i+1}. ${serviceName} - ${stars}\n   ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
@@ -4428,22 +4796,40 @@ export async function getCitizenHistory(
     }
   }
   
-  // Audiencia inscricoes
+  // Audiencia inscricoes (lembretes) e participacoes (videoconferência/escrito)
   if (historyType === 'all' || historyType === 'audiencias') {
-    const { data, error } = await supabase
+    const { data: inscricoesData, error: errInsc } = await supabase
       .from('audiencia_inscricoes')
       .select('id, status, created_at, audiencia:audiencias(titulo, data, status)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
     
-    if (!error && data?.length) {
+    if (!errInsc && inscricoesData?.length) {
       if (results.length) results.push('');
-      results.push('🎫 **Inscrições em Audiências:**');
-      data.forEach((r: any, i: number) => {
+      results.push('🎫 **Inscrições para lembretes de audiências:**');
+      inscricoesData.forEach((r: Record<string, unknown>, i: number) => {
         const audiencia = r.audiencia;
         const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
         results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'}\n   ${statusEmoji} ${audiencia?.data || ''}`);
+      });
+    }
+
+    const { data: participacoesData, error: errPart } = await supabase
+      .from('audiencia_participacoes')
+      .select('id, tipo, created_at, audiencia:audiencias(titulo, data, status)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (!errPart && participacoesData?.length) {
+      if (results.length) results.push('');
+      results.push('🎤 **Inscrições para participar (videoconferência/escrito):**');
+      participacoesData.forEach((r: Record<string, unknown>, i: number) => {
+        const audiencia = r.audiencia;
+        const tipoLabel = r.tipo === 'videoconferencia' ? 'Videoconferência' : r.tipo === 'escrito' ? 'Manifestação escrita' : String(r.tipo || '');
+        const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
+        results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'} (${tipoLabel})\n   ${statusEmoji} ${audiencia?.data || ''} | ${new Date(r.created_at as string).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -4460,7 +4846,7 @@ export async function getCitizenHistory(
     if (!error && data?.length) {
       if (results.length) results.push('');
       results.push('📨 **Encaminhamentos a Vereadores:**');
-      data.forEach((r: any, i: number) => {
+      data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'sent' ? '📤' : r.status === 'acknowledged' ? '👀' : '✅';
         results.push(`${i+1}. ${r.council_member_name} (${r.council_member_party})\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
@@ -4477,11 +4863,11 @@ export async function getCitizenHistory(
 // Execute tool
 export async function executeTool(
   name: string, 
-  args: any, 
+  args: Record<string, unknown>, 
   userId: string, 
-  supabase: any,
-  accumulatedFields?: any
-): Promise<{ success: boolean; message: string; data?: any }> {
+  supabase: SupabaseClient,
+  accumulatedFields?: Record<string, unknown>
+): Promise<{ success: boolean; message: string; data?: unknown }> {
   console.log(`[executeTool] Executing ${name} with args:`, JSON.stringify(args));
   console.log(`[executeTool] Accumulated fields:`, JSON.stringify(accumulatedFields || {}));
   
@@ -4643,6 +5029,12 @@ export async function executeTool(
       case 'validate_cep': {
         const result = await lookupCEP(args.cep);
         if (result.valid) {
+          if (!isCitySaoPaulo(result.city)) {
+            return {
+              success: false,
+              message: MESSAGE_OUTSIDE_SAO_PAULO(result.city || undefined),
+            };
+          }
           // Include COLLECTION_PROGRESS marker with validated address data
           const cleanCep = args.cep.replace(/\D/g, '');
           const addressData = { 
@@ -4669,6 +5061,14 @@ export async function executeTool(
       }
       
       case 'create_urban_report': {
+        // Validar abrangência: apenas município de São Paulo (Guarulhos e demais cidades não aceitos)
+        const reportCity = (args.city ?? accumulatedFields?.city) as string | undefined;
+        if (reportCity && !isCitySaoPaulo(reportCity)) {
+          return {
+            success: false,
+            message: MESSAGE_OUTSIDE_SAO_PAULO(reportCity),
+          };
+        }
         // Validate category is provided
         if (!args.category) {
           return {
@@ -4779,6 +5179,7 @@ export async function executeTool(
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
             neighborhood: args.neighborhood || null,
+            photos: Array.isArray(args.photos) && args.photos.length > 0 ? args.photos : null,
             ai_classification: {
               council_member_name: args.council_member_name || null,
               council_member_party: args.council_member_party || null
@@ -4878,7 +5279,7 @@ export async function executeTool(
         };
         
         // Build address section
-        let addressParts = [];
+        const addressParts: string[] = [];
         if (args.street) addressParts.push(args.street);
         if (args.street_number) addressParts.push(args.street_number);
         const addressLine = addressParts.join(', ');
@@ -4907,6 +5308,10 @@ export async function executeTool(
           }
         }
         
+        const photosSection = Array.isArray(args.photos) && args.photos.length > 0
+          ? `\n\n📷 **Fotos anexadas:** ${args.photos.length} imagem(ns)\n`
+          : '';
+
         // Compose full message
         const successMessage = [
           `[REPORT_CREATED:${data.id}]`,
@@ -4925,11 +5330,14 @@ export async function executeTool(
           neighborhoodLine ? `- ${neighborhoodLine}` : '',
           cepLine ? `- ${cepLine}` : '',
           args.reference_point ? `- Referência: ${args.reference_point}` : '',
+          photosSection,
           impactSection,
           '',
           '---',
           '',
           '🔗 [Ver Meus Relatos](/relato-urbano/historico) para acompanhar o status',
+          '',
+          '**Quer que eu encaminhe esse relato para algum vereador?**',
           '',
           'Posso ajudar com mais alguma coisa?'
         ].filter(line => line !== '').join('\n');
@@ -5174,6 +5582,8 @@ export async function executeTool(
           '',
           '🔗 [Ver Meus Relatos](/transporte/meus-relatos) para acompanhar.',
           '',
+          '**Quer que eu encaminhe esse relato para algum vereador?**',
+          '',
           'Posso ajudar com mais alguma coisa?'
         ].filter(line => line !== '').join('\n');
         
@@ -5193,26 +5603,59 @@ export async function executeTool(
       }
       
       case 'create_service_rating': {
-        // === VALIDATION: Prevent premature tool call with invalid data ===
+        // 1. Validate rating_stars (CRITICAL: must be 1-5, never 0)
+        const stars = args.rating_stars;
+        if (!stars || stars < 1 || stars > 5) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:rating_stars]**Qual nota de 1 a 5** você dá para o atendimento? [RATING_PICKER]'
+          };
+        }
         
-        // 1. Validate service_type
+        // 2. Validate rating_text
+        if (!args.rating_text || args.rating_text.trim().length < 5) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:rating_text]**Pode descrever sua experiência?** Me conta como foi o atendimento. (mínimo 5 caracteres)'
+          };
+        }
+        
+        let serviceId: string | null = null;
+        let visitId: string | null = null;
+        let serviceNameForMessage = args.service_name || '';
+
+        // === MODO VISITA: visit_id informado (página de avaliação conversacional) ===
+        if (args.visit_id) {
+          const { data: visitData, error: visitLoadError } = await supabase
+            .from('service_visits')
+            .select('id, service_id')
+            .eq('id', args.visit_id)
+            .eq('user_id', userId)
+            .single();
+
+          if (visitLoadError || !visitData) {
+            console.error('[create_service_rating] Visit not found or access denied:', args.visit_id);
+            return { success: false, message: 'Visita não encontrada. Tente acessar novamente pela notificação.' };
+          }
+
+          visitId = visitData.id;
+          serviceId = visitData.service_id;
+          serviceNameForMessage = args.service_name || accumulatedFields?.service_name || 'serviço';
+          console.log('[create_service_rating] Using existing visit:', visitId, 'service:', serviceId);
+        } else {
+          // === MODO LIVRE: sem visit_id - coleta service_type, service_name, confirmação de endereço ===
         if (!args.service_type) {
           return {
             success: false,
             message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
           };
         }
-        
-        // 2. Validate service_name
         if (!args.service_name || args.service_name.trim().length < 3) {
           return {
             success: false,
             message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
           };
         }
-        
-        // 3. Validate service_address_confirmed
-        // Check both args and accumulatedFields (deterministic flow sets it there)
         const addressConfirmed = args.service_address_confirmed || 
                                  accumulatedFields?.service_address_confirmed ||
                                  accumulatedFields?._address_reconfirmed;
@@ -5228,83 +5671,63 @@ export async function executeTool(
           };
         }
         
-        // 4. Validate rating_stars (CRITICAL: must be 1-5, never 0)
-        const stars = args.rating_stars;
-        if (!stars || stars < 1 || stars > 5) {
-          return {
-            success: false,
-            message: '[FIELD_REQUEST:rating_stars]**Qual nota de 1 a 5** você dá para o atendimento? [RATING_PICKER]'
+          const serviceNameArg = (args.service_name as string || '').trim();
+          const serviceTypeArg = (args.service_type as string || '').toLowerCase();
+          const neighborhood = (args.service_neighborhood || accumulatedFields?.service_neighborhood) as string | undefined;
+
+          const tryFindService = async (
+            typeFilter: string | null,
+            namePattern: string
+          ): Promise<{ id: string; name: string } | null> => {
+            let q = supabase.from('public_services').select('id, name').ilike('name', namePattern).limit(5);
+            if (typeFilter) q = q.eq('service_type', typeFilter);
+            const { data } = await q;
+            if (data?.length) return data[0];
+            return null;
           };
-        }
-        
-        // 5. Validate rating_text
-        if (!args.rating_text || args.rating_text.trim().length < 10) {
-          return {
-            success: false,
-            message: '[FIELD_REQUEST:rating_text]**Pode descrever sua experiência?** Me conta como foi o atendimento. (mínimo 10 caracteres)'
+
+          const tryFindByDistrict = async (namePart: string): Promise<{ id: string; name: string } | null> => {
+            if (!neighborhood || namePart.length < 3) return null;
+            const districtClean = neighborhood.split(/[-–—,]/)[0]?.trim().slice(0, 25);
+            if (!districtClean) return null;
+            const { data } = await supabase
+          .from('public_services')
+              .select('id, name')
+              .ilike('name', `%${namePart}%`)
+              .ilike('district', `%${districtClean}%`)
+              .limit(3);
+            return data?.length ? data[0] : null;
           };
-        }
-        
-        // === PROCESSING: All validations passed ===
-        
-        // Normalizar service_name: às vezes vem a mensagem inteira "Serviço: X - Y\nEndereço: ..."
-        let serviceNameForLookup = (args.service_name || '').trim();
-        const pickerFormatMatch = serviceNameForLookup.match(/serviço:\s*(.+?)(?:\s*-\s*[^\n]*)?(?:\n|$)/i);
-        if (pickerFormatMatch) {
-          serviceNameForLookup = pickerFormatMatch[1].trim();
-          console.log('[create_service_rating] Normalized service_name from picker format:', serviceNameForLookup);
-        }
-        
-        const providedServiceId = (args as { service_id?: string }).service_id || accumulatedFields?.service_id;
-        console.log('[create_service_rating] Attempting to create rating:', {
-          userId,
-          service_type: args.service_type,
-          service_name: serviceNameForLookup,
-          service_id_provided: !!providedServiceId,
-          rating_stars: stars,
-          hasRatingText: !!args.rating_text
-        });
-        
-        let serviceId: string | null = null;
-        let visitId: string | null = null;
-        
-        if (providedServiceId) {
-          // Usuário escolheu da lista: usar o ID enviado pelo picker (evita falha por nome)
-          const { data: serviceRow, error: fetchError } = await supabase
-            .from('public_services')
-            .select('id')
-            .eq('id', providedServiceId)
-            .maybeSingle();
-          if (!fetchError && serviceRow) {
-            serviceId = serviceRow.id;
-            console.log('[create_service_rating] Service found by id (from picker):', serviceId);
+
+          // Extrai a parte distintiva: "CEU - Rosa Da China" -> "Rosa Da China" (o banco usa "CEU AT COMPL ROSA DA CHINA")
+          const partsAfterDash = serviceNameArg.split(/\s*[-–—]\s*/);
+          const distinctivePart = (partsAfterDash.length > 1 ? partsAfterDash[partsAfterDash.length - 1] : serviceNameArg).trim();
+
+          let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
+          if (!found && distinctivePart.length >= 4) {
+            found = await tryFindService(serviceTypeArg, `%${distinctivePart}%`)
+              || await tryFindService(null, `%${distinctivePart}%`);
           }
-        }
-        
-        if (!serviceId) {
-          // Busca por nome/tipo (fluxo sem picker ou id não encontrado) — usar nome normalizado
-          const { data: services, error: serviceError } = await supabase
-            .from('public_services')
-            .select('id')
-            .eq('service_type', args.service_type)
-            .ilike('name', `%${serviceNameForLookup}%`)
-            .limit(1);
-          
-          if (serviceError) {
-            console.error('[create_service_rating] Error finding service:', serviceError);
+          if (!found && serviceNameArg.length > 8) {
+            const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro|ceu)\s+(de\s+)?/i, '').trim();
+            if (withoutPrefix.length >= 4) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`)
+              || await tryFindService(null, `%${withoutPrefix}%`);
           }
-          if (services?.length) {
-            serviceId = services[0].id;
-            console.log('[create_service_rating] Service found by name:', serviceId);
-          } else {
-            console.warn('[create_service_rating] Service not found:', {
-              service_type: args.service_type,
-              service_name: serviceNameForLookup
-            });
+          if (!found && distinctivePart.length >= 4) {
+            found = await tryFindByDistrict(distinctivePart);
           }
-        }
-        
-        if (serviceId) {
+          if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
+          if (!found && distinctivePart.length >= 4) {
+            found = await tryFindService(null, `%${distinctivePart}%`);
+          }
+          if (!found && serviceTypeArg === 'ceu') {
+            found = await tryFindService('library', `%${serviceNameArg}%`)
+              || (distinctivePart.length >= 4 ? await tryFindService('library', `%${distinctivePart}%`) : null);
+          }
+
+          if (found) {
+            serviceId = found.id;
+            serviceNameForMessage = found.name;
           const expires = new Date();
           expires.setDate(expires.getDate() + 7);
           const { data: visitData, error: visitError } = await supabase
@@ -5317,11 +5740,14 @@ export async function executeTool(
             })
             .select('id')
             .single();
-          if (visitError) {
-            console.error('[create_service_rating] Error creating visit:', visitError);
-          } else {
-            visitId = visitData?.id ?? null;
-            console.log('[create_service_rating] Visit created:', visitId);
+            if (!visitError && visitData) visitId = visitData.id;
+          }
+          if (!serviceId || !visitId) {
+            console.warn('[create_service_rating] Service not found in DB:', { serviceTypeArg, serviceNameArg, neighborhood });
+            return {
+              success: false,
+              message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.',
+            };
           }
         }
         
@@ -5357,13 +5783,20 @@ export async function executeTool(
           };
         }
         
+        if (args.visit_id) {
+          await supabase
+            .from('service_visits')
+            .update({ status: 'completed' })
+            .eq('id', visitId);
+        }
+        
         console.log('[create_service_rating] Rating saved successfully:', {
           id: data.id
         });
         
         return { 
           success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${args.service_name}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating' }
         };
       }
@@ -5379,30 +5812,95 @@ export async function executeTool(
       case 'find_nearby_services': {
         let userLat: number | null = null;
         let userLon: number | null = null;
-        // Prioridade: coordenadas da conversa (GPS one-time) > endereço cadastrado
+        // Prioridade: args (modelo) > accumulatedFields (conversa) > endereço cadastrado
         if (args.user_lat != null && args.user_lon != null) {
           userLat = Number(args.user_lat);
           userLon = Number(args.user_lon);
         }
+        if ((userLat == null || userLon == null) && accumulatedFields?.user_lat != null && accumulatedFields?.user_lon != null) {
+          userLat = Number(accumulatedFields.user_lat);
+          userLon = Number(accumulatedFields.user_lon);
+        }
         if (userLat == null || userLon == null) {
           const { data: addr } = await supabase
             .from('user_addresses')
-            .select('latitude, longitude')
+            .select('latitude, longitude, street, number, neighborhood, zip_code, city')
             .eq('user_id', userId)
             .eq('is_primary', true)
             .maybeSingle();
           if (addr?.latitude != null && addr?.longitude != null) {
             userLat = Number(addr.latitude);
             userLon = Number(addr.longitude);
+          } else if (addr?.street && addr?.neighborhood) {
+            let coords = await geocodeAddressWithGoogle(supabase, {
+              street: addr.street,
+              street_number: addr.number,
+              neighborhood: addr.neighborhood,
+              cep: addr.zip_code,
+              city: addr.city || 'São Paulo',
+            });
+            if (!coords) {
+              coords = await geocodeAddressToCoord({
+                street: addr.street,
+                street_number: addr.number,
+                neighborhood: addr.neighborhood,
+                cep: addr.zip_code,
+                city: addr.city || 'São Paulo',
+              });
+            }
+            if (coords) {
+              userLat = coords.lat;
+              userLon = coords.lon;
+            }
           }
         }
-        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon);
+        const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
+        const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
+        const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
+        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);
         return { success: true, message: result };
       }
       
       case 'search_audiencias': {
-        const result = await searchAudiencias(supabase, args.tema, args.status, args.inscricoes_abertas);
+        const result = await searchAudiencias(
+          supabase,
+          args.tema,
+          args.status,
+          args.inscricoes_abertas,
+          args.data_inicio,
+          args.data_fim,
+          args.regiao
+        );
         return { success: true, message: result };
+      }
+
+      case 'subscribe_audiencia_topic_alert': {
+        if (!userId) {
+          return { success: false, message: 'Para receber avisos quando houver audiências sobre um tema, faça login no app. Depois peça de novo: "avise quando tiver audiências sobre [tema]".' };
+        }
+        const temaRaw = typeof args.tema === 'string' ? args.tema.trim() : '';
+        if (!temaRaw) {
+          return { success: false, message: 'Informe o tema sobre o qual você quer receber avisos (ex.: Esportes, Saúde, Educação).' };
+        }
+        const tema = temaRaw.charAt(0).toUpperCase() + temaRaw.slice(1).toLowerCase();
+        // Service role evita RLS: o JWT do usuário nem sempre é repassado ao PostgREST no contexto da tool; userId já foi validado acima
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const client = (serviceKey && supabaseUrl) ? createClient(supabaseUrl, serviceKey) : supabase;
+        const { error } = await client
+          .from('audiencia_topic_alerts')
+          .upsert({ user_id: userId, tema }, { onConflict: 'user_id,tema' });
+        if (error) {
+          console.error('[subscribe_audiencia_topic_alert]', error.code, error.message, error.details);
+          if (error.code === '42P01' || error.message?.includes('does not exist')) {
+            return { success: false, message: 'O recurso de avisos por tema ainda não está disponível neste ambiente. Em breve você poderá ativar esse aviso.' };
+          }
+          return { success: false, message: 'Não foi possível registrar seu aviso. Tente novamente em instantes.' };
+        }
+        return {
+          success: true,
+          message: `Anotado! Você receberá uma notificação no app quando houver novas audiências públicas sobre **${tema}**. Quer que eu busque agora se já existe alguma agendada sobre esse tema?`
+        };
       }
       
       case 'suggest_council_member': {
@@ -5414,7 +5912,121 @@ export async function executeTool(
         const result = await getCitizenHistory(supabase, userId, args.history_type, args.status_filter, args.limit);
         return { success: true, message: result };
       }
-      
+
+      // === OLHO VIVO (SPTrans ônibus São Paulo) ===
+      case 'search_bus_lines': {
+        const termos = typeof args.termos_busca === 'string' ? args.termos_busca.trim() : '';
+        if (!termos) {
+          return { success: false, message: 'Informe o número ou nome da linha para buscar (ex: 8000 ou Lapa).' };
+        }
+        const out = await olhoVivoSearchLines(termos);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível consultar as linhas. Tente mais tarde.' };
+        }
+        if (!out.lines?.length) {
+          return { success: true, message: `Nenhuma linha encontrada para "${termos}". Tente outro número ou nome.` };
+        }
+        const linesText = out.lines.slice(0, 15).map((l) => {
+          const sentido = l.sl === 1 ? `${l.tp} → ${l.ts}` : `${l.ts} → ${l.tp}`;
+          return `• **${l.lt}** (cód. ${l.cl}): ${sentido}`;
+        }).join('\n');
+        return { success: true, message: `**Linhas encontradas:**\n${linesText}\n\n_Use o código (cód.) para consultar itinerário ou previsão._` };
+      }
+
+      case 'search_bus_stops': {
+        const termos = typeof args.termos_busca === 'string' ? args.termos_busca.trim() : '';
+        if (!termos) {
+          return { success: false, message: 'Informe o nome da parada ou endereço (rua, logradouro). A API não busca por coordenadas; peça um endereço ou nome de rua ao cidadão.' };
+        }
+        let out = await olhoVivoSearchStops(termos);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível consultar as paradas.' };
+        }
+        if (!out.stops?.length && termos.includes(' ')) {
+          const fallback = termos.split(/\s+/).filter((w) => w.length > 2).pop() || termos;
+          if (fallback !== termos) {
+            out = await olhoVivoSearchStops(fallback);
+          }
+        }
+        if (!out.stops?.length) {
+          return { success: true, message: `Nenhuma parada encontrada para "${termos}". Peça ao cidadão o nome da rua ou do ponto (ex.: Afonso Braz, Balthazar da Veiga). A API da SPTrans não permite busca por coordenadas.` };
+        }
+        const stopsText = out.stops.slice(0, 12).map((s) =>
+          `• **${s.np}** (cód. ${s.cp}) – ${s.ed}`
+        ).join('\n');
+        return { success: true, message: `**Paradas encontradas:**\n${stopsText}\n\n_Use o código (cód.) para consultar previsão de chegada._` };
+      }
+
+      case 'get_bus_line_itinerary': {
+        const codigoLinha = typeof args.codigo_linha === 'number' ? args.codigo_linha : parseInt(String(args.codigo_linha), 10);
+        if (!Number.isFinite(codigoLinha)) {
+          return { success: false, message: 'Informe o código da linha (obtido em "buscar linhas").' };
+        }
+        const out = await olhoVivoGetStopsByLine(codigoLinha);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível buscar o itinerário.' };
+        }
+        if (!out.stops?.length) {
+          return { success: true, message: 'Itinerário não disponível para esta linha.' };
+        }
+        const itineraryText = out.stops.map((s, i) => `${i + 1}. ${s.np} – ${s.ed}`).join('\n');
+        return { success: true, message: `**Itinerário da linha (paradas em ordem):**\n${itineraryText}` };
+      }
+
+      case 'get_bus_arrival_forecast': {
+        const codigoParada = typeof args.codigo_parada === 'number' ? args.codigo_parada : parseInt(String(args.codigo_parada), 10);
+        const codigoLinha = typeof args.codigo_linha === 'number' ? args.codigo_linha : parseInt(String(args.codigo_linha), 10);
+        if (!Number.isFinite(codigoParada) || !Number.isFinite(codigoLinha)) {
+          return { success: false, message: 'Informe o código da parada e o código da linha.' };
+        }
+        const out = await olhoVivoPrevisao(codigoParada, codigoLinha);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível obter a previsão.' };
+        }
+        const p = out.parada;
+        if (!p?.l?.length) {
+          return { success: true, message: `Parada **${p?.np || '?'}**: nenhuma previsão no momento para esta linha.` };
+        }
+        const parts: string[] = [`**Previsão – ${p.np}**`];
+        for (const lin of p.l) {
+          const vs = lin.vs || [];
+          if (vs.length === 0) {
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): sem previsão no momento.`);
+          } else {
+            const times = vs.slice(0, 5).map((v) => v.t || '--').join(', ');
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): ${times}`);
+          }
+        }
+        return { success: true, message: parts.join('\n') };
+      }
+
+      case 'get_bus_stop_forecast_all_lines': {
+        const codigoParada = typeof args.codigo_parada === 'number' ? args.codigo_parada : parseInt(String(args.codigo_parada), 10);
+        if (!Number.isFinite(codigoParada)) {
+          return { success: false, message: 'Informe o código da parada (obtido em "buscar paradas").' };
+        }
+        const out = await olhoVivoPrevisaoParada(codigoParada);
+        if (!out.success) {
+          return { success: false, message: out.error || 'Não foi possível obter a previsão.' };
+        }
+        const p = out.parada;
+        if (!p?.l?.length) {
+          return { success: true, message: `Parada **${p?.np || '?'}**: nenhuma previsão no momento.` };
+        }
+        const parts: string[] = [`**Previsão – ${p.np}** (todas as linhas)`];
+        for (const lin of p.l.slice(0, 15)) {
+          const vs = lin.vs || [];
+          if (vs.length === 0) {
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): sem previsão.`);
+          } else {
+            const times = vs.slice(0, 3).map((v) => v.t || '--').join(', ');
+            parts.push(`\n• Linha **${lin.c}** (${lin.lt0} → ${lin.lt1}): ${times}`);
+          }
+        }
+        if (p.l.length > 15) parts.push(`\n_… e mais ${p.l.length - 15} linhas._`);
+        return { success: true, message: parts.join('\n') };
+      }
+
       // === JORNADA CONSCIENTE: Handlers de Detecção e Transição ===
       case 'detect_user_intent': {
         const { 
@@ -5466,7 +6078,7 @@ export async function executeTool(
           // High confidence: activate journey with extracted data
           
           // Build progress data including category/description if extracted
-          const progressData: Record<string, any> = {};
+          const progressData: Record<string, unknown> = {};
           
           if (intent === 'urban_report') {
             // Include category if extracted with high confidence

@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Search, MapPin, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { lookupCepAddress } from "@/lib/cepLookup";
 
 export interface StructuredAddress {
   street: string;
@@ -47,6 +48,13 @@ export function AddressAutocomplete({
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Formata valor do input como CEP (00000-000) quando o usuário digita só números
+  const formatCepDisplay = (value: string): string => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
+  };
+
   // Check if input looks like a CEP (8 digits, optionally with hyphen)
   const isCepFormat = (input: string): boolean => {
     const cleaned = input.replace(/\D/g, '');
@@ -57,21 +65,25 @@ export function AddressAutocomplete({
   const fetchFromViaCep = useCallback(async (cep: string): Promise<StructuredAddress | null> => {
     const cleaned = cep.replace(/\D/g, '');
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleaned}/json/`);
-      const data = await response.json();
-      
-      if (data.erro) {
+      const result = await lookupCepAddress(cleaned);
+      if (!result.ok) {
         return null;
       }
-      
+
       return {
-        street: data.logradouro || '',
+        street: result.address.street || '',
         streetNumber: '',
-        neighborhood: data.bairro || '',
-        city: data.localidade || '',
-        state: data.uf || '',
-        cep: data.cep?.replace('-', '') || cleaned,
-        formattedAddress: `${data.logradouro || ''}, ${data.bairro || ''} - ${data.localidade || ''}/${data.uf || ''}`,
+        neighborhood: result.address.neighborhood || '',
+        city: result.address.city || '',
+        state: result.address.state || '',
+        cep: result.address.cep || cleaned,
+        formattedAddress: [
+          result.address.street,
+          result.address.neighborhood,
+          [result.address.city, result.address.state].filter(Boolean).join("/"),
+        ]
+          .filter(Boolean)
+          .join(" - "),
         latitude: 0,
         longitude: 0,
       };
@@ -95,18 +107,28 @@ export function AddressAutocomplete({
     // Check if it's a CEP - use ViaCEP instead of Google Places
     if (isCepFormat(searchQuery)) {
       const viaCepAddress = await fetchFromViaCep(searchQuery);
-      if (viaCepAddress && viaCepAddress.street) {
+      const hasAddressData = !!(
+        viaCepAddress &&
+        (viaCepAddress.street || viaCepAddress.neighborhood || viaCepAddress.city || viaCepAddress.state)
+      );
+
+      if (viaCepAddress && hasAddressData) {
         // Create a synthetic prediction for the CEP result
         setPredictions([{
           placeId: `viacep-${viaCepAddress.cep}`,
           description: viaCepAddress.formattedAddress,
-          mainText: viaCepAddress.street,
-          secondaryText: `${viaCepAddress.neighborhood}, ${viaCepAddress.city} - ${viaCepAddress.state}`,
+          mainText: viaCepAddress.street || `CEP ${viaCepAddress.cep}`,
+          secondaryText: [
+            viaCepAddress.neighborhood,
+            [viaCepAddress.city, viaCepAddress.state].filter(Boolean).join(" - "),
+          ]
+            .filter(Boolean)
+            .join(", "),
         }]);
         setShowDropdown(true);
         setSelectedIndex(-1);
       } else {
-        setError("CEP não encontrado");
+        setError("CEP não encontrado ou indisponível no momento");
         setPredictions([]);
         setShowDropdown(false);
       }
@@ -265,8 +287,19 @@ export function AddressAutocomplete({
         <Input
           ref={inputRef}
           type="text"
+          inputMode="numeric"
+          autoComplete="postal-code"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const digits = raw.replace(/\D/g, '');
+            // Se contém só números (e no máximo um hífen), aplicar máscara CEP (00000-000)
+            if (/^[\d\-]*$/.test(raw) && digits.length <= 8) {
+              setQuery(digits.length <= 5 ? digits : formatCepDisplay(digits));
+            } else {
+              setQuery(raw);
+            }
+          }}
           onKeyDown={handleKeyDown}
           onFocus={() => predictions.length > 0 && setShowDropdown(true)}
           placeholder={placeholder}

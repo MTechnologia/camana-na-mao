@@ -118,6 +118,24 @@ export const NOTIFICATION_TYPES = {
     icon: '🎤',
     audience: 'all'
   },
+  audiencia_inscricao: { 
+    label: 'Inscrição em Audiência', 
+    color: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+    icon: '✅',
+    audience: 'citizen'
+  },
+  audiencia_lembrete_d1: { 
+    label: 'Lembrete Audiência (D-1)', 
+    color: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    icon: '📅',
+    audience: 'citizen'
+  },
+  audiencia_lembrete_1h: { 
+    label: 'Lembrete Audiência (1h antes)', 
+    color: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    icon: '⏰',
+    audience: 'citizen'
+  },
   
   // Sistema
   info: { 

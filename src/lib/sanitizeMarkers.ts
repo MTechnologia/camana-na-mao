@@ -76,14 +76,16 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[RATING_PICKER\]/g, '')
     .replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '')
     .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
-    .replace(/\[SERVICE_PICKER\]/g, '')
+    .replace(/\[SERVICE_PICKER(?::[^\]]+)?\]/g, '')
     .replace(/\[SERVICE_ADDRESS_CONFIRM:[^\]]+\]/g, '')
     .replace(/\[SERVICE_ID:[a-f0-9-]+\]/g, '')
     .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
     .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
-    .trim();
+    .replace(/\[QUICK_REPLY:[^\]]+\]/g, '');
+  // Remove marker for "serviços" chips (string literal so it always matches)
+  result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
   
   return result;
 };

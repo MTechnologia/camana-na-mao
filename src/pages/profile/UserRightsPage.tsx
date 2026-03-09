@@ -78,9 +78,9 @@ const UserRightsPage = () => {
       // Sign out and redirect
       await signOut();
       navigate("/");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting account:', error);
-      toast.error(error.message || 'Erro ao excluir conta. Tente novamente.');
+      toast.error(error instanceof Error ? error.message : 'Erro ao excluir conta. Tente novamente.');
     } finally {
       setLoading(false);
       setShowDeleteDialog(false);
