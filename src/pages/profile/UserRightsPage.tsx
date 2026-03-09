@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import PageHeader from "@/components/ui/page-header";
 import ProfilePageHeader from "@/components/profile/ProfilePageHeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { clearOnboardingStorageForUser } from "@/contexts/OnboardingContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -69,8 +70,11 @@ const UserRightsPage = () => {
         throw error;
       }
 
+      // Limpa onboarding no localStorage para que, ao recadastrar no mesmo navegador, o tutorial apareça
+      clearOnboardingStorageForUser(user.id);
+
       toast.success("Conta excluída com sucesso");
-      
+
       // Sign out and redirect
       await signOut();
       navigate("/");

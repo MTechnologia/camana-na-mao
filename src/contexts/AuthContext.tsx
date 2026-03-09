@@ -99,9 +99,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success("Conta criada com sucesso!");
       return { data: { user: data.user }, error: null };
-    } catch (error: any) {
-      const translatedMessage = translateError(error.message);
+    } catch (error: unknown) {
+      const msg = getErrorMessage(error);
+      const isEmailExists = (msg.trim() === "User already registered" || msg.trim() === "email_exists");
+      // Só loga erros inesperados em dev (evita ruído quando e-mail já cadastrado)
+      if ((import.meta.env.DEV || import.meta.env.MODE === "development") && !isEmailExists) {
+        const err = error as { message?: string; status?: number };
+        console.warn("[Auth] signUp error:", { message: err?.message, status: err?.status });
+      }
+      const translatedMessage = translateError(msg);
       toast.error(translatedMessage || "Erro ao criar conta");
+      if (isEmailExists) {
+        toast.info("Faça login na tela de entrada ou use «Esqueci a senha» para redefinir.");
+      }
       return { data: null, error };
     }
   }, []);
