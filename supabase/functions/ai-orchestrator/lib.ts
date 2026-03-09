@@ -4476,7 +4476,11 @@ export async function searchAudiencias(
   const temaNorm = tema?.trim();
   const today = new Date().toISOString().split('T')[0];
   const dataMin = dataInicio?.trim() || today;
-  const dataMax = dataFim?.trim() || null;
+  let dataMax = dataFim?.trim() || null;
+  // Se só tem data_inicio (ex.: "este ano" sem data_fim), limitar ao fim desse ano para não incluir audiências de anos futuros
+  if (dataMin && !dataMax && /^\d{4}-\d{2}-\d{2}$/.test(dataMin)) {
+    dataMax = `${dataMin.slice(0, 4)}-12-31`;
+  }
   const regiaoNorm = regiao?.trim() || null;
   const limitBase = regiaoNorm ? 20 : 5; // fetch more when filtering by region in memory
   const hasExplicitDateRange = !!(dataInicio?.trim() || dataFim?.trim());
@@ -5831,6 +5835,35 @@ export async function executeTool(
           args.regiao
         );
         return { success: true, message: result };
+      }
+
+      case 'subscribe_audiencia_topic_alert': {
+        if (!userId) {
+          return { success: false, message: 'Para receber avisos quando houver audiências sobre um tema, faça login no app. Depois peça de novo: "avise quando tiver audiências sobre [tema]".' };
+        }
+        const temaRaw = typeof args.tema === 'string' ? args.tema.trim() : '';
+        if (!temaRaw) {
+          return { success: false, message: 'Informe o tema sobre o qual você quer receber avisos (ex.: Esportes, Saúde, Educação).' };
+        }
+        const tema = temaRaw.charAt(0).toUpperCase() + temaRaw.slice(1).toLowerCase();
+        // Service role evita RLS: o JWT do usuário nem sempre é repassado ao PostgREST no contexto da tool; userId já foi validado acima
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const client = (serviceKey && supabaseUrl) ? createClient(supabaseUrl, serviceKey) : supabase;
+        const { error } = await client
+          .from('audiencia_topic_alerts')
+          .upsert({ user_id: userId, tema }, { onConflict: 'user_id,tema' });
+        if (error) {
+          console.error('[subscribe_audiencia_topic_alert]', error.code, error.message, error.details);
+          if (error.code === '42P01' || error.message?.includes('does not exist')) {
+            return { success: false, message: 'O recurso de avisos por tema ainda não está disponível neste ambiente. Em breve você poderá ativar esse aviso.' };
+          }
+          return { success: false, message: 'Não foi possível registrar seu aviso. Tente novamente em instantes.' };
+        }
+        return {
+          success: true,
+          message: `Anotado! Você receberá uma notificação no app quando houver novas audiências públicas sobre **${tema}**. Quer que eu busque agora se já existe alguma agendada sobre esse tema?`
+        };
       }
       
       case 'suggest_council_member': {

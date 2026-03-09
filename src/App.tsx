@@ -289,8 +289,8 @@ const AppContent = () => {
           <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
           <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
           
-          {/* Urban report routes */}
-          <Route path="/relato-urbano" element={<Navigate to="/relatos" replace />} />
+          {/* Urban report routes: hub (IA / Manual / Histórico) e formulário manual */}
+          <Route path="/relato-urbano" element={<UrbanReportPage />} />
           <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
           <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
           

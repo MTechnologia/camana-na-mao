@@ -39,7 +39,7 @@ export default function UrbanReportPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Relatos Urbanos" />
+      <PageHeader title="Relatos Urbanos" backTo="/relatos" />
       
       <div className="p-4">
         {/* Hero Section */}
