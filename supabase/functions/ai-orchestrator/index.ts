@@ -1233,6 +1233,31 @@ serve(async (req) => {
       }
     }
     
+    // === SERVIÇOS PRÓXIMOS: quando o usuário já disse o tipo ("quais hospitais mais perto de mim", "qual UBS perto de mim", etc.) → pedir CEP direto ===
+    const isOnlyCepEarly = /^\d{5}-?\d{3}$/.test(lastUserMessage.trim());
+    const proximityPhrases = [
+      /mais\s+perto\s+de\s+mim/i,
+      /mais\s+pr[oó]ximo[s]?\s+(?:de\s+)?mim/i,
+      /perto\s+de\s+mim/i,
+      /pr[oó]ximo[s]?\s+a\s+mim/i,
+      /perto\s+aqui/i,
+      /na\s+minha\s+regi[aã]o/i,
+      /(?:mais\s+)?pr[oó]ximo[s]?\b/i,
+      /procurando|buscar|encontrar/i,
+    ];
+    const serviceSearchMatchEarly = !isOnlyCepEarly && proximityPhrases.some((p) => p.test(msgLower));
+    const inferredServiceTypeEarly = lib.inferServiceTypeFromText(lastUserMessage);
+    if (inferredServiceTypeEarly && serviceSearchMatchEarly && lastUserMessage.length < 120) {
+      const askCepMsg = `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceTypeEarly)} próximas a você. Qual é o CEP da sua região? (Se não souber, pode informar o bairro.)`;
+      const progressPayload = { service_type: inferredServiceTypeEarly };
+      const withMarker = (lightJourneyMarker ? lightJourneyMarker : '') + `[COLLECTION_PROGRESS:services:${JSON.stringify(progressPayload)}]${askCepMsg}`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: withMarker } }] });
+      console.log('[ai-orchestrator] Services: ask CEP first (tipo já na pergunta):', inferredServiceTypeEarly);
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
       nextFieldInfo = getNextMissingField(collectionIntent.type, accumulatedFields);
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
@@ -1593,22 +1618,7 @@ ${empathyNote}
       }
     }
     
-    // === DETERMINISTIC FIND NEARBY SERVICES (substitui tool calling para garantir endereços do banco) ===
-    // 1) "UBS próximo a mim" / "estou procurando UBS" → pedir CEP (determinístico). Não disparar se a mensagem for só CEP.
-    const isOnlyCep = /^\d{5}-?\d{3}$/.test(lastUserMessage.trim());
-    const serviceSearchMatch = !isOnlyCep && msgLower.match(/(?:pr[oó]ximo[s]?\s+a\s+mim|perto\s+de\s+mim|perto\s+aqui|na\s+minha\s+regi[aã]o|pr[oó]ximo|procurando|buscar|encontrar)/);
-    const inferredServiceType = lib.inferServiceTypeFromText(lastUserMessage);
-    if (inferredServiceType && serviceSearchMatch && lastUserMessage.length < 120) {
-      const askCep = `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceType)} próximas a você. Qual é o CEP da sua região? (Se não souber, pode informar o bairro.)`;
-      console.log('[ai-orchestrator] Deterministic ask CEP for service search:', inferredServiceType);
-      const ssePayload = JSON.stringify({
-        choices: [{ delta: { content: askCep } }]
-      });
-      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
-        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
-      });
-    }
-    // 2) Usuário manda "05601-001" após ter pedido UBS/CEU/etc → buscamos no banco e retornamos lista real
+    // === DETERMINISTIC: usuário manda só CEP após ter pedido UBS/CEU/etc → buscamos no banco e retornamos lista ===
     const cepOnlyMatch = lastUserMessage.trim().match(/^(\d{5}-?\d{3})$/);
     if (cepOnlyMatch) {
       const cepRaw = cepOnlyMatch[1].replace(/\D/g, '');

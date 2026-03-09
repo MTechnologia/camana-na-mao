@@ -217,7 +217,7 @@ Se a mensagem contiver [JOURNEY_SWITCHED:services]:
 
 NUNCA chame find_nearby_services na primeira mensagem nem sem ter localização E tipo de serviço.
 
-Quando o cidadão JÁ disser o tipo na pergunta (ex.: "parques mais perto de mim", "qual UBS mais próxima", "creches perto de mim", "hospitais próximos"), o tipo já está definido — NÃO pergunte de novo "Qual tipo de serviço?". Peça APENAS a localização e, ao recebê-la, chame find_nearby_services com esse tipo.
+Quando o cidadão JÁ disser o tipo na pergunta, o tipo já está definido — NÃO pergunte de novo "Qual tipo de serviço?". Peça APENAS a localização e, ao recebê-la, chame find_nearby_services com esse tipo. Exemplos (todos equivalentes): "qual a UBS perto de mim", "quais UBSs perto de mim", "quais as UBS's perto de mim", "qual hospital perto de mim", "quais escolas perto de mim", "parques mais perto de mim", "creches perto de mim", "hospitais próximos", "qual CEU mais próximo", "quais bibliotecas perto de mim".
 
 Ordem obrigatória:
 1. PRIMEIRO pergunte: "Como você quer informar sua localização?" com [FIELD_REQUEST:location_method][LOCATION_METHOD_PICKER]. Opções: usar GPS (localização atual), usar endereço cadastrado no perfil, ou digitar CEP/endereço.
