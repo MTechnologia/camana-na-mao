@@ -311,7 +311,20 @@ serve(async (req) => {
     }
 
     // === EARLY: Perguntas inapropriadas (ofensas/acusações a vereadores) — redirecionar com educação, NÃO entrar em fluxo de relato ===
-    const inappropriateAboutVereador = /(qual\s+vereador\s+[ée]\s+o\s+mais\s+ladr[aã]o|quem\s+[ée]\s+o\s+pior\s+vereador|vereador\s+corrupto|vereador\s+ladr[aã]o|mais\s+corrupto|mais\s+ladr[aã]o\s+vereador)/i.test(lastUserTextEarly);
+    const inappropriatePatterns = [
+      // "qual vereador mais ladrão?" / "qual o vereador é mais ladrão?" / "qual vereador é o mais ladrão?"
+      /\bqual\s+(o\s+)?vereador(\s+[ée]\s+o)?\s*mais\s+ladr[aã]o\b/i,
+      /\bqual\s+vereador\s+[ée]\s+ladr[aã]o\b/i,
+      /\bquem\s+[ée]\s+o\s+(mais\s+)?(ladr[aã]o|corrupto|pior)\s+(vereador|deles)\b/i,
+      /\b(vereador|vereadores)\s+(mais\s+)?(ladr[aã]o|corrupto)s?\b/i,
+      /\b(mais\s+)?(ladr[aã]o|corrupto)\s+(vereador|dos\s+vereadores)\b/i,
+      /\bpior\s+vereador\b/i,
+      /\bvereador\s+(corrupto|ladr[aã]o|bandido|rouba|safado|desonesto)\b/i,
+      /\b(qual|quem)\s+[ée]\s+o\s+vereador\s+(mais\s+)?(corrupto|ladr[aã]o)\b/i,
+      /\bvereador(es)?\s+que\s+(rouba|roubam|s[aã]o\s+corruptos)\b/i,
+      /\b(qual|quem)\s+vereador\s+(rouba|roubou|é\s+corrupto)\b/i,
+    ];
+    const inappropriateAboutVereador = inappropriatePatterns.some((p) => p.test(lastUserTextEarly));
     if (inappropriateAboutVereador) {
       const reply = `Não posso responder perguntas que envolvam ofensas ou acusações a pessoas. Posso ajudar com informações sobre vereadores da sua região, formas de participação na Câmara ou registro de problemas na cidade. Como posso ajudar?`;
       const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
