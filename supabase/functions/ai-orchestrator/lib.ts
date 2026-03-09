@@ -3165,8 +3165,20 @@ export function detectCollectionIntent(
   const explicitServicesPhrases = [
     'onde fica a ubs', 'onde fica o hospital', 'buscar serviço', 'buscar servico',
     'quero encontrar', 'preciso encontrar', 'procurar uma escola',
-    'qual ubs mais perto', 'como chegar na ubs', 'serviços perto de mim',
+    'qual ubs mais perto', 'qual a ubs perto de mim', 'quais ubs perto de mim',
+    'quais ubss perto de mim', 'quais as ubs perto de mim', 'quais as ubss perto de mim',
+    'quais as ubs\'s perto de mim', 'como chegar na ubs', 'serviços perto de mim',
     'servicos perto de mim', 'onde tem hospital', 'onde tem escola',
+    'qual hospital perto de mim', 'quais hospitais perto de mim', 'qual hospital mais perto de mim',
+    'quais hospitais mais perto de mim', 'qual escola perto de mim', 'quais escolas perto de mim',
+    'qual escola mais perto de mim', 'quais escolas mais perto de mim',
+    'qual ceu perto de mim', 'quais ceus perto de mim', 'qual ceu mais perto de mim', 'quais ceus mais perto de mim',
+    'qual biblioteca perto de mim', 'quais bibliotecas perto de mim', 'qual biblioteca mais perto de mim', 'quais bibliotecas mais perto de mim',
+    'qual a ubs mais perto', 'quais as ubs mais perto', 'qual o hospital mais perto', 'quais os hospitais mais perto',
+    'quais assistências sociais mais perto de mim', 'qual assistência social mais perto de mim',
+    'quais esportes mais perto de mim', 'qual esporte mais perto de mim',
+    'qual transporte mais perto de mim', 'quais transportes mais perto de mim',
+    'qual delegacia mais perto de mim', 'quais delegacias mais perto de mim',
     'quero falar sobre serviços', 'quero falar sobre servicos', 'quero falar de serviços',
     'serviços próximos', 'servicos próximos', 'serviços proximos', 'quero serviços próximos'
   ];
@@ -3966,12 +3978,13 @@ export function getServiceTypeName(type: string): string {
 /** Infer service_type from user text (ex.: "parques mais perto", "UBS próximo a mim" → park, ubs). Reconhece todos os equipamentos do módulo Perto de você. */
 export function inferServiceTypeFromText(text: string): string | null {
   const t = text.toLowerCase().trim();
-  if (/\bubs\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
+  // UBS: singular, plural (UBSs, UBS's) e variações (aspas retas e curvas)
+  if (/\bubs[\u0027\u2019']?s?\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
   if (/\bceu[s]?\b|centro\s+educacional/.test(t)) return 'ceu';
-  if (/\bhospital(is)?\b/.test(t)) return 'hospital';
+  if (/\bhospital(is)?\b|\bhospitais\b/.test(t)) return 'hospital';
   if (/\bescola[s]?\b|educa[cç][aã]o/.test(t)) return 'school';
   if (/\bbiblioteca[s]?\b/.test(t)) return 'library';
-  if (/\bcentro\s+esportivo|esportivo[s]?\b|quadra[s]?|academia\s+p[uú]blica/.test(t)) return 'sports_center';
+  if (/\bcentro\s+esportivo|esportivo[s]?\b|esporte[s]?\b|quadra[s]?|academia\s+p[uú]blica/.test(t)) return 'sports_center';
   if (/\bparque[s]?\b|parques?\s+pr[oó]ximos?/.test(t)) return 'park';
   if (/\bfeira[s]?\s+(livres?|de\s+rua)?|feira\s+livre/.test(t)) return 'street_market';
   if (/\bcentro[s]?\s+comunit[aá]rio|comunit[aá]rio/.test(t)) return 'community_center';
@@ -3980,9 +3993,9 @@ export function inferServiceTypeFromText(text: string): string | null {
   if (/\bmercado[s]?\b/.test(t)) return 'market';
   if (/\bteatro[s]?\b|cinema[s]?\b/.test(t)) return 'theater';
   if (/\bmuseu[s]?\b/.test(t)) return 'museum';
-  if (/\bassist[eê]ncia\s+social|cr[aá]as?|social/.test(t)) return 'social_assistance';
-  if (/\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
-  if (/\bdelegacia|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return 'police_station';
+  if (/\bassist[eê]n[cç]ia[s]?\s+social(is)?|\bassist[eê]n[cç]ia[s]?\s+sociais\b|cr[aá]s?\b|social/.test(t)) return 'social_assistance';
+  if (/\btransporte[s]?\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
+  if (/\bdelegacia[s]?\b|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return 'police_station';
   if (/\bcemit[eé]rio[s]?\b/.test(t)) return 'cemetery';
   if (/\bacessibilidade|acess[ií]vel/.test(t)) return 'accessibility';
   if (/\breciclagem|ecoponto|limpeza\s+p[uú]blica/.test(t)) return 'recycling_point';
