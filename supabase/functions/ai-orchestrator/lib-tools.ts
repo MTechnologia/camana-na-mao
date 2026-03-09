@@ -351,6 +351,20 @@ export const tools = [
   {
     type: "function",
     function: {
+      name: "subscribe_audiencia_topic_alert",
+      description: "Registra que o cidadão quer receber aviso quando houver novas audiências públicas sobre um tema. Usar quando o cidadão pedir para ser avisado, notificado ou lembrado sobre audiências de um tema (ex: 'avise quando tiver audiências sobre esporte', 'me notifique sobre audiências de saúde'). Requer que o cidadão esteja logado.",
+      parameters: {
+        type: "object",
+        properties: {
+          tema: { type: "string", description: "Tema para o qual o cidadão quer receber avisos (ex: Esportes, Saúde, Educação, Meio Ambiente, Cultura)." }
+        },
+        required: ["tema"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "suggest_council_member",
       description: "Sugere vereadores para encaminhar uma demanda cidadã. Usar quando cidadão quiser: encaminhar reclamação a vereador, saber qual vereador procurar, indicar vereador especialista no tema.",
       parameters: {

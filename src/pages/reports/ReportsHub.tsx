@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, MapPin, FileText, Star, CalendarCheck } from 'lucide-react';
+import { Bus, MapPin, FileText, Star, PlusCircle } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -27,6 +27,24 @@ export default function ReportsHub() {
                 </p>
               </div>
             </div>
+          </Card>
+
+          {/* Novo relato urbano: abre hub com opção IA, formulário manual (com foto) e histórico */}
+          <Card
+            className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99] border-primary/20 bg-primary/5"
+            onClick={() => navigate('/relato-urbano')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <PlusCircle className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold">Novo relato urbano</h3>
+                  <p className="text-sm text-muted-foreground">Conversar com a IA ou preencher formulário manual (com foto)</p>
+                </div>
+              </div>
+            </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

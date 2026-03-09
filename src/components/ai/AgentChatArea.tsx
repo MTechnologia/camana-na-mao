@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -33,7 +34,10 @@ const contentVariants = {
   }
 };
 
+const OPEN_MANUAL_REPORT_MESSAGE = "[OPEN_MANUAL_REPORT]";
+
 const AgentChatArea = () => {
+  const navigate = useNavigate();
   const { activeConversationId, setActiveConversationId } = useAIJourney();
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
@@ -156,6 +160,11 @@ const AgentChatArea = () => {
 
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
+
+    if (initialMessage === OPEN_MANUAL_REPORT_MESSAGE) {
+      navigate("/relato-urbano/manual");
+      return;
+    }
 
     if (collectionTypePreset) {
       setPresetCollectionType(collectionTypePreset as CollectionType);
@@ -358,7 +367,18 @@ const AgentChatArea = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.3 }}
       >
-        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
+        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-2">
+          {collectionType === "urban_report" && (
+            <p className="text-xs text-muted-foreground text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/relato-urbano/manual")}
+                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+              >
+                Preferir formulário manual (com foto)
+              </button>
+            </p>
+          )}
           <ChatInput
             onSendMessage={handleSendMessage}
             disabled={isLoading}

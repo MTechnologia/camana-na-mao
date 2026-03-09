@@ -76,17 +76,11 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       route: "/servicos-proximos"
     },
     { 
-      id: 2.3, 
-      label: "Minhas inscrições em audiências", 
-      icon: CalendarCheck,
-      route: "/audiencias/minhas-inscricoes"
-    },
-    ...(canReferToCouncilMember ? [{
       id: 2.5,
       label: "Relatos",
       icon: FileText,
       route: "/relatos",
-    }] : []),
+    },
     ...(canViewDashboards ? [{
       id: 3,
       label: "Painéis Analíticos",

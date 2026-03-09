@@ -550,11 +550,16 @@ serve(async (req) => {
       }
       
       // ========== AUTO-LOOKUP CEP ==========
-      // If we have CEP but missing street/neighborhood, auto-resolve via ViaCEP
-      if (accumulatedFields.cep && (!accumulatedFields.street || !accumulatedFields.neighborhood)) {
+      // Se temos CEP, resolver via ViaCEP quando faltar rua/bairro OU cidade (para relato urbano validar Guarulhos/fora de SP)
+      const needsCepLookup = accumulatedFields.cep && (
+        !accumulatedFields.street ||
+        !accumulatedFields.neighborhood ||
+        (collectionIntent?.type === 'urban_report' && !accumulatedFields.city)
+      );
+      if (needsCepLookup) {
         const cepLookup = await lib.lookupCEP(accumulatedFields.cep);
         if (cepLookup.valid) {
-          console.log('[ai-orchestrator] Auto-resolved CEP:', accumulatedFields.cep, '→', cepLookup.street, cepLookup.neighborhood);
+          console.log('[ai-orchestrator] Auto-resolved CEP:', accumulatedFields.cep, '→', cepLookup.street, cepLookup.neighborhood, cepLookup.city);
           if (!accumulatedFields.street && cepLookup.street) {
             accumulatedFields.street = cepLookup.street;
           }
@@ -604,9 +609,10 @@ serve(async (req) => {
         if (!isValidDesc)
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         
-        // 1b. Abrangência: se já temos endereço/CEP com cidade fora de São Paulo, informar antes de qualquer outra pergunta (categoria, número, etc.)
-        const hasLocationEarly = !!(fields.cep && String(fields.cep).replace(/\D/g, '').length === 8) || (!!fields.street && !!fields.neighborhood);
-        const cityEarly = typeof fields.city === 'string' ? fields.city : undefined;
+        // 1b. Abrangência: relatos só São Paulo — se já temos endereço/CEP com cidade (ex. Guarulhos), informar logo
+        const cepDigitsEarly = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+        const hasLocationEarly = cepDigitsEarly.length === 8 || (!!fields.street && !!fields.neighborhood);
+        const cityEarly = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocationEarly && cityEarly && !lib.isCitySaoPaulo(cityEarly)) {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(cityEarly) };
         }
@@ -689,12 +695,13 @@ serve(async (req) => {
         }
         
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
-        const hasLocationViaCep = !!fields.cep && fields.cep.length === 8;
+        const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+        const hasLocationViaCep = cepDigits.length === 8;
         const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
         const hasLocation = hasLocationViaCep || hasLocationViaAddress;
         
-        // Abrangência: se já temos cidade e não é São Paulo, informar de forma amigável antes de pedir número
-        const city = typeof fields.city === 'string' ? fields.city : undefined;
+        // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
+        const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(city) };
         }
@@ -1221,7 +1228,7 @@ serve(async (req) => {
         let toolResult;
         try {
           if (collectionIntent.type === 'urban_report') {
-            // Build args from accumulated fields
+            // Build args from accumulated fields (incl. city para validação Guarulhos/fora de SP)
             const toolArgs = {
               category: accumulatedFields.category,
               subcategory: accumulatedFields.subcategory,
@@ -1231,6 +1238,7 @@ serve(async (req) => {
               street_number: accumulatedFields.street_number,
               reference_point: accumulatedFields.reference_point,
               neighborhood: accumulatedFields.neighborhood,
+              city: accumulatedFields.city,
               risk_level: accumulatedFields.risk_level,
               risk_types: accumulatedFields.risk_types,
               affected_scope: accumulatedFields.affected_scope,
@@ -1747,6 +1755,12 @@ ${empathyNote}
       dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[CONTEXTO: Ônibus em São Paulo. Para PONTOS/PARADAS PRÓXIMOS A MIM com coordenadas: use find_nearby_services com service_type=transit_station (dados GeoSampa: pontos de ônibus, terminais). Para linhas/previsão: search_bus_lines, search_bus_stops (por nome/endereço), get_bus_line_itinerary, get_bus_arrival_forecast, get_bus_stop_forecast_all_lines.]';
       console.log('[ai-orchestrator] Bus informational query → injected Olho Vivo tool hint');
     }
+
+    // Data de hoje: evita que o modelo "alucine" respondendo como se estivesse em outro ano (ex.: 2025)
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentYear = now.getFullYear();
+    dynamicSystemPrompt = dynamicSystemPrompt + `\n\n[DATA E AUDIÊNCIAS] Data de hoje: ${todayStr} (ano civil ${currentYear}). Ao falar de "este ano" use sempre o ano ${currentYear}. Para audiências públicas: use APENAS o texto retornado pela ferramenta search_audiencias; não invente audiências, datas nem resuma com outro ano.`;
 
     // Se injetamos contexto do Vertex RAG, não expor search_knowledge_base para evitar que o modelo prefira a tool e "alucine"
     const vertexRagInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Vertex RAG)]');
