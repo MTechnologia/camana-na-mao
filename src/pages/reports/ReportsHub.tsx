@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, MapPin, FileText, Star, PlusCircle } from 'lucide-react';
+import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { useUserRole } from '@/hooks/useUserRole';
