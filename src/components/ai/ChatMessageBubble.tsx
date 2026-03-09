@@ -402,6 +402,26 @@ const ChatMessageBubble = ({
   // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
   const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
 
+  // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
+  const quickReplyButtons = useMemo(() => {
+    if (isUser || !onSendMessage) return [];
+    const match = message.content.match(/\[QUICK_REPLY:([^\]]+)\]/);
+    if (!match) return [];
+    const values = match[1].split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const labels: Record<string, string> = {
+      sim: 'Sim',
+      não: 'Não',
+      nao: 'Não',
+      registrar: 'Registrar',
+      confirmar: 'Confirmar',
+      corrigir: 'Corrigir',
+    };
+    return values.map((value) => ({
+      value,
+      label: labels[value] || value.charAt(0).toUpperCase() + value.slice(1),
+    }));
+  }, [isUser, message.content, onSendMessage]);
+
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
     message.content.includes('opções mais próximas') ||
@@ -830,6 +850,23 @@ const ChatMessageBubble = ({
           />
         )}
         
+        {/* Botões de resposta rápida (Sim/Não, Registrar, Confirmar/Corrigir) */}
+        {quickReplyButtons.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {quickReplyButtons.map((btn) => (
+              <Button
+                key={btn.value}
+                variant="default"
+                size="sm"
+                onClick={() => onSendMessage?.(btn.value)}
+                className="rounded-lg"
+              >
+                {btn.label}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Botão Encaminhar para vereador (após relato registrado) */}
         {hasEncaminharVereadorCta && onSendMessage && (
           <div className="mt-3 w-full max-w-[280px]">

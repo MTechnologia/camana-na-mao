@@ -5166,6 +5166,7 @@ export async function executeTool(
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
             neighborhood: args.neighborhood || null,
+            photos: Array.isArray(args.photos) && args.photos.length > 0 ? args.photos : null,
             ai_classification: {
               council_member_name: args.council_member_name || null,
               council_member_party: args.council_member_party || null
@@ -5294,6 +5295,10 @@ export async function executeTool(
           }
         }
         
+        const photosSection = Array.isArray(args.photos) && args.photos.length > 0
+          ? `\n\n📷 **Fotos anexadas:** ${args.photos.length} imagem(ns)\n`
+          : '';
+
         // Compose full message
         const successMessage = [
           `[REPORT_CREATED:${data.id}]`,
@@ -5312,6 +5317,7 @@ export async function executeTool(
           neighborhoodLine ? `- ${neighborhoodLine}` : '',
           cepLine ? `- ${cepLine}` : '',
           args.reference_point ? `- Referência: ${args.reference_point}` : '',
+          photosSection,
           impactSection,
           '',
           '---',
