@@ -116,13 +116,12 @@ serve(async (req) => {
   }
 
   try {
-    // 1) Perfil
+    // 1) Perfil (não setar onboarding_completed_at aqui; o tutorial da Home é concluído ao finalizar/pular na própria tela)
     const { error: profileErr } = await admin.from("profiles").upsert(
       {
         id: userId,
         full_name: (fullName || "Usuário").trim(),
         phone: phone?.trim() || null,
-        onboarding_completed_at: new Date().toISOString(),
       },
       { onConflict: "id" }
     );
