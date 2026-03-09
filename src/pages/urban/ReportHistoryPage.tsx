@@ -276,6 +276,25 @@ export default function ReportHistoryPage() {
             </p>
           )}
 
+          {report.photos && report.photos.length > 0 && (
+            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+              {report.photos.slice(0, 5).map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border bg-muted"
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </a>
+              ))}
+              {report.photos.length > 5 && (
+                <span className="flex-shrink-0 text-xs text-muted-foreground self-center">+{report.photos.length - 5}</span>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1 mb-3">
             {report.location_address && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

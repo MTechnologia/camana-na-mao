@@ -207,6 +207,10 @@ serve(async (req) => {
     }
     
     const { messages, conversationId, collectionType: frontendCollectionType, evaluationContext } = requestBodyData;
+    // Fotos anexadas no chat (relato urbano): usar a última mensagem do usuário que tiver attachmentUrls
+    const userMessages = Array.isArray(messages) ? messages.filter((m: Record<string, unknown>) => m.role === 'user') : [];
+    const lastWithAttachments = [...userMessages].reverse().find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
+    const attachmentUrls = (lastWithAttachments?.attachmentUrls as string[] | undefined) ?? [];
     console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
     
     // Log frontend collection type for debugging
@@ -1228,27 +1232,125 @@ serve(async (req) => {
         let toolResult;
         try {
           if (collectionIntent.type === 'urban_report') {
-            // Build args from accumulated fields (incl. city para validação Guarulhos/fora de SP)
-            const toolArgs = {
-              category: accumulatedFields.category,
-              subcategory: accumulatedFields.subcategory,
-              description: accumulatedFields.description,
-              cep: accumulatedFields.cep,
-              street: accumulatedFields.street,
-              street_number: accumulatedFields.street_number,
-              reference_point: accumulatedFields.reference_point,
-              neighborhood: accumulatedFields.neighborhood,
-              city: accumulatedFields.city,
-              risk_level: accumulatedFields.risk_level,
-              risk_types: accumulatedFields.risk_types,
-              affected_scope: accumulatedFields.affected_scope,
-              affected_estimate: accumulatedFields.affected_estimate,
-              active_consequences: accumulatedFields.active_consequences,
-              urgency_reason: accumulatedFields.urgency_reason,
-              council_member_name: accumulatedFields.council_member_name,
-              council_member_party: accumulatedFields.council_member_party
-            };
-            toolResult = await lib.executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
+            // --- Fluxo: perguntar "deseja anexar imagens?" → sim: mostrar anexos; não: mostrar preview → confirmar → criar ---
+            const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
+            const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*continuar|envie\s+\*?continuar\*?/i.test(lastAssistantLower);
+            const showedPreview = /resumo\s+do\s+relato|se\s+estiver\s+tudo\s+certo|confirmar\s+e\s+registrar/i.test(lastAssistantLower);
+            const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
+            const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
+            const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
+
+            // 1) Ainda não perguntamos se quer anexar → perguntar (botões Sim/Não no front)
+            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema relatado?**[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+              console.log('[ai-orchestrator] Urban report: asking photo choice');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 2) Perguntamos e usuário disse SIM (ou resposta ambígua) → instruir a anexar; só vamos ao preview com "não" explícito
+            if (askedPhotoChoice && !userSaidNo) {
+              const attachMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: attachMsg } }] });
+              console.log('[ai-orchestrator] Urban report: user said yes or unclear → showing attach instructions');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 3) Perguntamos e usuário disse NÃO → mostrar preview
+            if (askedPhotoChoice && userSaidNo) {
+              const catLabels: Record<string, string> = {
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
+                animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
+              };
+              const cat = String(accumulatedFields.category || '');
+              const catLabel = catLabels[cat] || cat;
+              const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
+                .filter(Boolean).join(', ');
+              const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
+              const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+
+• **Categoria:** ${catLabel}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Endereço:** ${addr}${neighborhood}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Urban report: user said no to photos, showing preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 4) Mostramos preview e usuário confirmou → criar relato (com fotos se tiver vindo na conversa)
+            if (showedPreview && userConfirms) {
+              let photosToSave = attachmentUrls;
+              if (photosToSave.length === 0 && conversationId) {
+                try {
+                  const { data: conv } = await supabase.from('ai_conversations').select('messages').eq('id', conversationId).single();
+                  const convMessages = (conv?.messages as Array<Record<string, unknown>>) || [];
+                  const lastWithPhotos = [...convMessages].filter((m: Record<string, unknown>) => m.role === 'user').reverse()
+                    .find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
+                  if (lastWithPhotos?.attachmentUrls) {
+                    photosToSave = lastWithPhotos.attachmentUrls as string[];
+                    console.log('[ai-orchestrator] Urban report: got attachmentUrls from conversation fallback, count:', photosToSave.length);
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Fallback load conversation for photos failed:', e);
+                }
+              }
+              const toolArgs: Record<string, unknown> = {
+                category: accumulatedFields.category,
+                subcategory: accumulatedFields.subcategory,
+                description: accumulatedFields.description,
+                cep: accumulatedFields.cep,
+                street: accumulatedFields.street,
+                street_number: accumulatedFields.street_number,
+                reference_point: accumulatedFields.reference_point,
+                neighborhood: accumulatedFields.neighborhood,
+                city: accumulatedFields.city,
+                risk_level: accumulatedFields.risk_level,
+                risk_types: accumulatedFields.risk_types,
+                affected_scope: accumulatedFields.affected_scope,
+                affected_estimate: accumulatedFields.affected_estimate,
+                active_consequences: accumulatedFields.active_consequences,
+                urgency_reason: accumulatedFields.urgency_reason,
+                council_member_name: accumulatedFields.council_member_name,
+                council_member_party: accumulatedFields.council_member_party
+              };
+              if (photosToSave.length > 0) {
+                toolArgs.photos = photosToSave;
+              }
+              toolResult = await lib.executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
+            }
+            // 5) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
+            if (askedToAttach && !toolResult) {
+              const catLabels: Record<string, string> = {
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
+                animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
+              };
+              const cat = String(accumulatedFields.category || '');
+              const catLabel = catLabels[cat] || cat;
+              const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
+                .filter(Boolean).join(', ');
+              const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
+              const photoLine = attachmentUrls.length > 0
+                ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n`
+                : '';
+              const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+• **Categoria:** ${catLabel}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Endereço:** ${addr}${neighborhood}${photoLine}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Urban report: user sent Continuar (attach flow), showing preview, attachmentUrls count:', attachmentUrls.length);
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
           } else if (collectionIntent.type === 'transport_report') {
             const toolArgs = {
               description: accumulatedFields.description,
@@ -1994,6 +2096,9 @@ ${empathyNote}
       if (toolCallData?.name) {
         try {
           const toolArgs = JSON.parse(toolCallArguments);
+          if (toolCallData.name === 'create_urban_report' && attachmentUrls.length > 0) {
+            toolArgs.photos = attachmentUrls;
+          }
           console.log('[ai-orchestrator] Executing tool:', toolCallData.name, toolArgs);
           
           const result = await lib.executeTool(toolCallData.name, toolArgs, user.id, supabase, accumulatedFields);
@@ -2115,7 +2220,9 @@ ${empathyNote}
       const toolCall = choice.message.tool_calls[0];
       const toolName = toolCall.function.name;
       const toolArgs = JSON.parse(toolCall.function.arguments);
-      
+      if (toolName === 'create_urban_report' && attachmentUrls.length > 0) {
+        toolArgs.photos = attachmentUrls;
+      }
       console.log('[ai-orchestrator] Tool call (non-stream):', toolName);
       
       const result = await lib.executeTool(toolName, toolArgs, user.id, supabase);

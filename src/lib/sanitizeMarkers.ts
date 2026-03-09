@@ -82,7 +82,8 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
-    .replace(/\[LIGHT_JOURNEY:\w+\]/g, '');
+    .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
+    .replace(/\[QUICK_REPLY:[^\]]+\]/g, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
   result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
   
