@@ -589,6 +589,16 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Overriding intent to general: buscar audiência pública → RAG');
       collectionIntent = { type: 'general', fields: {} };
     }
+    // Pergunta fora do escopo (shopping, restaurante, prefeito, multa, horário) → general para não pedir CEP
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isOutOfScopeQuestion(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: pergunta fora do escopo (shopping/restaurante/prefeito/multa) → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta informativa sobre vereador/Câmara (perfil, frequência, faltas, gastos, falar com vereador) → general (planilha + Pontos Críticos)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutVereadorOrCamara(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: pergunta informativa vereador/câmara → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
     
     // Accumulate fields from conversation history for better tracking
     // BUT if journey was just switched, start fresh
