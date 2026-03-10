@@ -17,6 +17,7 @@ import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
 
 const BAIRROS_SP = [
   "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
@@ -211,6 +212,25 @@ const ParticipacaoPage = () => {
       if (error) throw error;
       const protocolo = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
       setConfirmProtocolo(protocolo);
+      const podeEnviarCmsp = !!(user && audienciaSlug && audienciaApCode);
+      console.info("[ParticipacaoPage] Pós-inscrição videoconferência:", {
+        podeEnviarCmsp,
+        temUser: !!user,
+        audienciaSlug: audienciaSlug ?? null,
+        audienciaApCode: audienciaApCode ?? null,
+      });
+      if (podeEnviarCmsp) {
+        const cmspResult = await submitInscricaoToCmsp({
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim(),
+          apCode: audienciaApCode,
+          slug: audienciaSlug,
+        });
+        if (!cmspResult.ok) {
+          console.warn("[ParticipacaoPage] Inscrição CMSP (videoconferência):", cmspResult.error);
+        }
+      }
       toast.success("Inscrição realizada com sucesso!");
       setStep(3);
     } catch (e: unknown) {
@@ -247,6 +267,25 @@ const ParticipacaoPage = () => {
       if (error) throw error;
       const protocolo = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
       setConfirmProtocolo(protocolo);
+      const podeEnviarCmspEscrito = !!(user && audienciaSlug && audienciaApCode);
+      console.info("[ParticipacaoPage] Pós-inscrição escrito:", {
+        podeEnviarCmsp: podeEnviarCmspEscrito,
+        temUser: !!user,
+        audienciaSlug: audienciaSlug ?? null,
+        audienciaApCode: audienciaApCode ?? null,
+      });
+      if (podeEnviarCmspEscrito) {
+        const cmspResult = await submitInscricaoToCmsp({
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim(),
+          apCode: audienciaApCode,
+          slug: audienciaSlug,
+        });
+        if (!cmspResult.ok) {
+          console.warn("[ParticipacaoPage] Inscrição CMSP (escrito):", cmspResult.error);
+        }
+      }
       toast.success("Proposta enviada com sucesso!");
       setStep(3);
     } catch (e: unknown) {

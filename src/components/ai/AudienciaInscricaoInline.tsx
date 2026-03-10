@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, Bell, Video, FileText, MapPin } from "lucide-react";
 import { normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
 
 const BAIRROS_SP = [
   "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
@@ -160,6 +161,19 @@ export function AudienciaInscricaoInline() {
         consent: true,
       });
       if (error) throw error;
+
+      if (user && selectedAudiencia?.slug && selectedAudiencia?.ap_code) {
+        const cmspResult = await submitInscricaoToCmsp({
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim(),
+          apCode: selectedAudiencia.ap_code,
+          slug: selectedAudiencia.slug,
+        });
+        if (!cmspResult.ok) {
+          console.warn("[AudienciaInscricaoInline] Inscrição CMSP:", cmspResult.error);
+        }
+      }
 
       toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
       setSuccess(true);
