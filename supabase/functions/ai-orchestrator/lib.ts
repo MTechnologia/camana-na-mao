@@ -929,7 +929,7 @@ export const INTENT_KEYWORDS = [
   
   // === Audiências e eventos ===
   'quando vai ter', 'próxima', 'próximo', 'inscrever', 'participar',
-  'audiência', 'audiencia', 'consulta pública',
+  'audiência', 'audiencia', 'consulta pública', 'como posso buscar', 'buscar audiência', 'buscar audiencia', 'buscar uma audiência',
   
   // === Histórico pessoal ===
   'meu relato', 'minha reclamação', 'meus relatos', 'minhas avaliações',
@@ -956,8 +956,9 @@ export const INTENT_KEYWORDS = [
   'onde fica a', 'endereço da câmara', 'endereco da camara',
   'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do vereador', 'ganha um vereador',
   'competências', 'competencias', 'responsabilidades', 'quantos vereadores', 'mandato', 'presidente da câmara',
-  'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica',
+  'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'projetos', 'tramitação', 'tramitacao', 'em tramitação', 'em tramitacao', 'lei municipal', 'lei orgânica', 'lei organica',
   'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
+  'qual vereador', 'vereadore', 'qero saber', 'sabe dos vereadores', 'vereadores de sp',
   'orçamento', 'orcamento', 'emendas', 'para que serve', 'por que existe', 'quando foi', 'história da câmara',
   'como nasce uma lei', 'o que é uma audiência', 'diferença entre', 'diferenca entre', 'requisitos para ser vereador',
   'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
@@ -2979,6 +2980,29 @@ export function isInformationalQuestionAboutAudience(userMessage: string): boole
   return /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalized);
 }
 
+/**
+ * Detecta se a mensagem é pergunta sobre como entrar em contato com a Câmara (telefone, email, endereço).
+ * Usado para forçar intent general e acionar RAG em vez de iniciar fluxo de relato/feedback.
+ */
+export function isInformationalQuestionAboutContact(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  const chamber = /câmara|camara|municipal|legislativ/i.test(m);
+  const contact = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+)?(câmara|camara)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com|onde\s+posso\s+encontrar\s+(a\s+)?(câmara|camara)/i.test(m);
+  return chamber && (contact || /como\s+entrar\s+em\s+contato/i.test(m));
+}
+
+/** Pergunta sobre projetos em tramitação → deve acionar RAG (general). */
+export function isInformationalQuestionAboutProjetosTramitacao(userMessage: string): boolean {
+  const m = userMessage.toLowerCase();
+  return /projetos?\s+(est[aã]o\s+)?em\s+tramita[cç][aã]o|tramita[cç][aã]o\s+(de\s+)?projetos?|quais\s+projetos?\s+est[aã]o/i.test(m);
+}
+
+/** Pergunta sobre como buscar audiência pública → deve acionar RAG (general). */
+export function isInformationalQuestionAboutBuscarAudiencia(userMessage: string): boolean {
+  const m = userMessage.toLowerCase();
+  return /(como\s+posso\s+)?buscar\s+(uma\s+)?(audi[eê]ncia|audiencia)|buscar\s+(audi[eê]ncia|audiencia)\s+p[uú]blica/i.test(m);
+}
+
 /** True quando o cidadão pergunta sobre linhas/paradas/previsão de ônibus (consulta Olho Vivo), não relato de problema. */
 export function isBusInformationalQuery(userMessage: string): boolean {
   const m = userMessage.trim().toLowerCase();
@@ -3013,9 +3037,14 @@ export function detectCollectionIntent(
     .map(m => m.content.toLowerCase())
     .join(' ');
   const fullUserContext = `${userOnlyContext} ${msgLower}`;
+  // Normalização de typos comuns para detecção de intent (ex.: "qero sabe dos vereadore" → match "quero"/"vereador")
+  const normalizedForIntent = fullUserContext
+    .replace(/\bqero\b/g, 'quero')
+    .replace(/\bvereadore(s)?\b/g, 'vereador$1')
+    .replace(/\bsabe\s+dos\b/g, 'saber dos');
   
   // Check for intent keywords (REQUIRED to activate tracker)
-  const hasIntent = INTENT_KEYWORDS.some(kw => fullUserContext.includes(kw));
+  const hasIntent = INTENT_KEYWORDS.some(kw => normalizedForIntent.includes(kw));
   
   if (!hasIntent) {
     const excerpt = (userMessage || '').trim().slice(0, 120);
@@ -3401,6 +3430,7 @@ export function detectCollectionIntent(
   // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
   const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(normalizedUserMessage);
   const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(normalizedUserMessage);
+  const isContactQuestionAboutChamber = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+)?(câmara|camara)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com/i.test(fullUserContext);
   const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(normalizedUserMessage);
   const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
@@ -3424,6 +3454,10 @@ export function detectCollectionIntent(
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Informational/location question about Câmara → boosting general for RAG');
   }
+  if (mentionsChamber && isContactQuestionAboutChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 9);
+    console.log('[detectCollectionIntent] Contact question (telefone/email/contato com Câmara) → boosting general for RAG');
+  }
   if ((isParticipationQuestion && mentionsSessionsOrAudience) || (mentionsChamber && isParticipationQuestion)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Participation question (sessões/audiência) → boosting general for RAG');
@@ -3445,6 +3479,24 @@ export function detectCollectionIntent(
   if (isEstruturaFuncionamento) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
+  }
+  // Projetos em tramitação (PL 4 - planilha RAG)
+  const isProjetosTramitacao = /projetos?\s+(est[aã]o\s+)?em\s+tramita[cç][aã]o|tramita[cç][aã]o\s+(de\s+)?projetos?|quais\s+projetos?\s+est[aã]o/i.test(fullUserContext);
+  if (isProjetosTramitacao) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Projetos em tramitação → boosting general for RAG');
+  }
+  // Como buscar audiência pública (PL 8 - planilha RAG)
+  const isBuscarAudiencia = /(como\s+posso\s+)?buscar\s+(uma\s+)?(audi[eê]ncia|audiencia)|buscar\s+(audi[eê]ncia|audiencia)\s+p[uú]blica/i.test(fullUserContext);
+  if (isBuscarAudiencia) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Buscar audiência pública → boosting general for RAG');
+  }
+  // Qual vereador / saber dos vereadores (PL 11, 16 - planilha RAG)
+  const isQualVereadorOuSaber = /qual\s+vereador|quais\s+vereadores|(quero\s+)?saber\s+(dos\s+)?(os\s+)?vereadores|vereadore?s?\s+de\s+sp/i.test(normalizedForIntent);
+  if (isQualVereadorOuSaber && mentionsChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 7);
+    console.log('[detectCollectionIntent] Qual vereador / saber vereadores → boosting general for RAG');
   }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });

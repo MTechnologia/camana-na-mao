@@ -574,6 +574,21 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Overriding intent to general: informational question about audiência → RAG');
       collectionIntent = { type: 'general', fields: {} };
     }
+    // Pergunta sobre contato com a Câmara (telefone, email, como entrar em contato) → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutContact(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: contact question (como entrar em contato) → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta sobre projetos em tramitação → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutProjetosTramitacao(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: projetos em tramitação → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta sobre como buscar audiência pública → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutBuscarAudiencia(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: buscar audiência pública → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
     
     // Accumulate fields from conversation history for better tracking
     // BUT if journey was just switched, start fresh
@@ -2077,6 +2092,10 @@ ${empathyNote}
       if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
         const fieldsJson = JSON.stringify(accumulatedFields);
         responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
+      }
+      // RAG sobre audiências: oferecer ver no app (chat + módulo)
+      if (collectionIntent?.type === 'general' && (lib.isInformationalQuestionAboutBuscarAudiencia(lastUserMsg) || lib.isInformationalQuestionAboutAudience(lastUserMsg))) {
+        responseContent += '\n\n[APP_ACTIONS:audiencias]';
       }
       
       const ssePayload = JSON.stringify({

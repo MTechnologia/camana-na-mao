@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
+import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText } from "lucide-react";
@@ -367,6 +367,12 @@ const ChatMessageBubble = ({
 
   const isLongContent = cleanContent.length > 450;
   const showVerMais = !isUser && isLongContent;
+
+  // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
+  const appActions = useMemo(
+    () => (!isUser ? getAppActionsFromContent(message.content) : {}),
+    [isUser, message.content]
+  );
 
   // Preserva quebra de linha a cada step no "Passo a passo" (Markdown: dois espaços + \n = <br>)
   const withStepLineBreaks = (text: string): string => {
@@ -736,6 +742,41 @@ const ChatMessageBubble = ({
                     </>
                   )}
                 </button>
+              )}
+              {/* RAG sobre audiências: opção de trazer próximas audiências no chat ou ir ao módulo */}
+              {appActions.audiencias && (
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                  <p className="text-xs text-muted-foreground">Você também pode:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {onRequestAudienciasWithFilters && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() =>
+                          onRequestAudienciasWithFilters({
+                            tema: '',
+                            regiao: '',
+                            dateFrom: '',
+                            dateTo: '',
+                          })
+                        }
+                      >
+                        Ver próximas audiências no chat
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => navigate('/audiencias')}
+                    >
+                      Ver no módulo Audiências
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           )}
