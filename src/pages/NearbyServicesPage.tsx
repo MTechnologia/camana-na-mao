@@ -314,7 +314,9 @@ export default function NearbyServicesPage() {
               </div>
             ) : filteredByName.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-4xl mb-3">📍</div>
+                <div className="mb-3 flex justify-center" aria-hidden>
+                  <MapPin className="h-12 w-12 text-muted-foreground" />
+                </div>
                 <h3 className="font-semibold text-foreground mb-1">Nenhum serviço encontrado</h3>
                 <p className="text-sm text-muted-foreground">
                   {searchByName.trim()
@@ -391,7 +393,9 @@ export default function NearbyServicesPage() {
               />
             ) : (
               <div className="text-center py-12">
-                <div className="text-4xl mb-3">📍</div>
+                <div className="mb-3 flex justify-center" aria-hidden>
+                  <MapPin className="h-12 w-12 text-muted-foreground" />
+                </div>
                 <h3 className="font-semibold text-foreground mb-1">Localização necessária</h3>
                 <p className="text-sm text-muted-foreground mb-3">
                   Informe um CEP acima ou ative sua localização para ver o mapa

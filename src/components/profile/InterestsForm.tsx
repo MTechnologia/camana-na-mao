@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Heart } from "lucide-react";
+import { INTEREST_ICONS } from "@/components/icons";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -146,8 +147,11 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
                       : "border-border bg-card hover:border-primary/50 hover:bg-accent/50"
                   }`}
                 >
-                  <div className="text-2xl mb-1.5 transition-transform group-hover:scale-110">
-                    {category.icon}
+                  <div className="flex items-center justify-center w-9 h-9 mb-1.5 text-primary transition-transform group-hover:scale-110">
+                    {INTEREST_ICONS[category.id] && (() => {
+                      const Icon = INTEREST_ICONS[category.id];
+                      return <Icon size={28} aria-hidden />;
+                    })()}
                   </div>
                   <h3 className="font-semibold text-foreground text-sm leading-tight">
                     {category.label}
