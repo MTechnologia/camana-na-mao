@@ -297,8 +297,18 @@ export function tryPatternBasedLabel(description: string, category: string): str
     via_publica: [
       { pattern: /buraco\s*(grande|enorme|gigante)?/i, label: 'Buraco na Via' },
       { pattern: /asfalto\s*(danificad|quebrad)/i, label: 'Asfalto Danificado' },
-      { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' },
-      { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' }
+      { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' }
+    ],
+    sinalizacao: [
+      { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' },
+      { pattern: /faixa\s*(de\s*pedestre|apagad)/i, label: 'Faixa de Pedestre' },
+      { pattern: /placa\s*(ca[íi]d|quebrad|torta)?/i, label: 'Placa de Sinalização' },
+      { pattern: /sinaliza[çc][ãa]o/i, label: 'Problema de Sinalização' }
+    ],
+    drenagem: [
+      { pattern: /drenagem|água\s*pluvial|pluvial|galeria|sarjeta/i, label: 'Drenagem / Água Pluvial' },
+      { pattern: /água\s*da\s*chuva|chuva\s*acumulad/i, label: 'Acúmulo de Água da Chuva' },
+      { pattern: /bueiro\s*pluvial/i, label: 'Bueiro Pluvial' }
     ],
     calcada: [
       { pattern: /calcada\s*(quebrad|irregular|danificad)|calçada/i, label: 'Calçada Irregular' },
@@ -1083,9 +1093,9 @@ export async function lookupCEP(cep: string): Promise<{
   }
 }
 
-// Valid categories for urban reports (source of truth)
+// Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
-  'iluminacao', 'calcada', 'via_publica', 'lixo', 'esgoto', 
+  'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
   'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
 ] as const;
 
@@ -1309,8 +1319,12 @@ export function autoClassifyCategory(description: string): {
     // === POLUIÇÃO SONORA (weight 9) ===
     { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
     
-    // === VIA PÚBLICA (EXPANDED - weight 8) ===
-    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    // === SINALIZAÇÃO (weight 8.5 — escopo OS) ===
+    { keywords: /sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?/i, category: 'sinalizacao', weight: 8.5 },
+    // === DRENAGEM (weight 8.5 — escopo OS, águas pluviais) ===
+    { keywords: /drenagem|água\s*pluvial|pluvial|galeria\s*(de\s*águas)?|sarjeta|bueiro\s*pluvial|água\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente/i, category: 'drenagem', weight: 8.5 },
+    // === VIA PÚBLICA (weight 8 — buraco, asfalto, pavimentação; semáforo/faixa em sinalizacao) ===
+    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
     
     // === ÁREA VERDE (EXPANDED - weight 8) ===
     { keywords: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)?|galho\s*(ca[íi]d|quebrad|solto)|poda|ra[íi]z\s*(expost|levant)|pra[çc]a|parque|jardim|mato\s*(alto|crescend)|capim\s*alto|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 8 },
@@ -1359,6 +1373,34 @@ export function autoClassifyCategory(description: string): {
   }
   
   return { category: null, confidence: 0, suggestedLabel };
+}
+
+/** Feedback loop: retorna categoria/subcategoria sugerida a partir de correções anteriores (descrição similar). */
+export async function getClassificationFromFeedback(
+  supabase: SupabaseClient,
+  description: string,
+  reportType: 'urban' | 'transport'
+): Promise<{ category: string; subcategory: string | null } | null> {
+  if (!description || description.trim().length < 5) return null;
+  const { data: rows } = await supabase
+    .from('report_classification_feedback')
+    .select('description_excerpt, corrected_category, corrected_subcategory')
+    .eq('report_type', reportType)
+    .not('description_excerpt', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (!rows?.length) return null;
+  const descLower = description.toLowerCase();
+  for (const row of rows) {
+    const excerpt = (row.description_excerpt || '').trim();
+    if (excerpt.length >= 10 && descLower.includes(excerpt.toLowerCase())) {
+      return {
+        category: row.corrected_category,
+        subcategory: row.corrected_subcategory ?? null
+      };
+    }
+  }
+  return null;
 }
 
 // Generate intuitive label from description when no pattern matches
@@ -1461,8 +1503,13 @@ export function mapLabelToCategory(label: string): string | null {
       'apagado', 'queimado', 'caído', 'caido', 'torto', 'inclinado', 'pendendo'
     ],
     'via_publica': [
-      'buraco', 'asfalto', 'rua', 'via', 'semáforo', 'semaforo', 'sinalização', 
-      'sinalizacao', 'cratera', 'pista', 'faixa', 'erosão', 'desmoronamento'
+      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada', 'pavimentação'
+    ],
+    'sinalizacao': [
+      'semáforo', 'semaforo', 'sinalização', 'sinalizacao', 'faixa', 'pedestre', 'placa', 'sinal'
+    ],
+    'drenagem': [
+      'drenagem', 'água pluvial', 'pluvial', 'galeria', 'sarjeta', 'chuva', 'bueiro pluvial'
     ],
     'calcada': [
       'calçada', 'calcada', 'passeio', 'guia', 'meio-fio', 'rampa', 'acessibilidade'
@@ -1686,7 +1733,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       // Direct category answer - EXPANDED with more synonyms
       const categoryMap: Record<string, string> = {
         'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
-        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'semáforo': 'via_publica', 'semaforo': 'via_publica', 'rua': 'via_publica',
+        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'rua': 'via_publica',
+        'sinalização': 'sinalizacao', 'sinalizacao': 'sinalizacao', 'semáforo': 'sinalizacao', 'semaforo': 'sinalizacao', 'faixa': 'sinalizacao', 'placa': 'sinalizacao',
+        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem',
         'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
         'lixo': 'lixo', 'entulho': 'lixo', 'sujeira': 'lixo',
         'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto', 'água': 'esgoto', 'agua': 'esgoto',
@@ -2138,6 +2187,8 @@ export function accumulateFieldsFromHistory(
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
+          { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
@@ -4673,6 +4724,8 @@ export async function executeTool(
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
           calcada: 'Calçada',
+          sinalizacao: 'Sinalização',
+          drenagem: 'Drenagem',
           lixo: 'Lixo/Entulho',
           esgoto: 'Esgoto/Bueiro',
           area_verde: 'Área Verde',
@@ -4881,7 +4934,7 @@ export async function executeTool(
         }
         
         // === HARD VALIDATION FOR RISK CATEGORIES ===
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'sinalizacao', 'drenagem'];
         
         if (RISK_CATEGORIES.includes(args.category)) {
           // Require risk_level for risk categories
@@ -4890,7 +4943,9 @@ export async function executeTool(
               via_publica: 'via pública',
               iluminacao: 'iluminação',
               esgoto: 'esgoto/alagamento',
-              area_verde: 'área verde'
+              area_verde: 'área verde',
+              sinalizacao: 'sinalização',
+              drenagem: 'drenagem'
             };
             const label = categoryLabels[args.category] || args.category;
             // Add FIELD_REQUEST marker for deterministic capture of risk_level
@@ -4998,6 +5053,8 @@ export async function executeTool(
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
           calcada: 'Calçada',
+          sinalizacao: 'Sinalização',
+          drenagem: 'Drenagem',
           lixo: 'Lixo/Entulho',
           esgoto: 'Esgoto/Bueiro',
           area_verde: 'Área Verde',
@@ -5061,7 +5118,7 @@ export async function executeTool(
         
         // Build impact section (only for risk categories)
         let impactSection = '';
-        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
+        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
         if (riskCategories.includes(args.category) && args.risk_level) {
           const impactParts = [];
           if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
@@ -5773,6 +5830,8 @@ export async function executeTool(
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
           calcada: 'Calçada',
+          sinalizacao: 'Sinalização',
+          drenagem: 'Drenagem',
           lixo: 'Lixo/Entulho',
           esgoto: 'Esgoto/Bueiro',
           area_verde: 'Área Verde',

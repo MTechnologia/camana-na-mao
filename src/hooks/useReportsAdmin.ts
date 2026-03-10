@@ -130,6 +130,7 @@ interface UseReportsAdminReturn {
   totalCount: number;
   // Actions
   updateManifestStatus: (id: string, type: ManifestType, newStatus: string) => Promise<void>;
+  updateManifestCategory: (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => Promise<void>;
   updateBulkStatus: (ids: { id: string; type: ManifestType }[], newStatus: string) => Promise<void>;
   deleteManifest: (id: string, type: ManifestType) => Promise<void>;
   deleteBulkManifests: (ids: { id: string; type: ManifestType }[]) => Promise<void>;
@@ -534,6 +535,55 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   }, [manifests, fetchKPIs]);
 
+  const updateManifestCategory = useCallback(async (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => {
+    if (manifest.type !== 'urban' && manifest.type !== 'feedback') {
+      toast.error('Correção de categoria só para relatos urbanos');
+      return;
+    }
+    const originalCategory = manifest.urban_data?.category ?? '';
+    const originalSubcategory = manifest.urban_data?.subcategory ?? null;
+    if (originalCategory === newCategory && originalSubcategory === newSubcategory) {
+      toast.info('Nenhuma alteração');
+      return;
+    }
+    const previousManifests = [...manifests];
+    setManifests(prev => prev.map(m => {
+      if (m.id !== manifest.id) return m;
+      return {
+        ...m,
+        urban_data: m.urban_data ? { ...m.urban_data, category: newCategory, subcategory: newSubcategory } : undefined,
+      };
+    }));
+    try {
+      const { error: updateError } = await supabase
+        .from('urban_reports')
+        .update({ category: newCategory, subcategory: newSubcategory, updated_at: new Date().toISOString() })
+        .eq('id', manifest.id);
+      if (updateError) throw updateError;
+      const descriptionExcerpt = (manifest.description || '').slice(0, 500) || '(sem descrição)';
+      const { error: feedbackError } = await supabase
+        .from('report_classification_feedback')
+        .insert({
+          report_type: 'urban',
+          report_id: manifest.id,
+          original_category: originalCategory,
+          original_subcategory: originalSubcategory,
+          corrected_category: newCategory,
+          corrected_subcategory: newSubcategory,
+          description_excerpt: descriptionExcerpt,
+          source: 'admin',
+        });
+      if (feedbackError) {
+        console.warn('Feedback de classificação não registrado (RLS?):', feedbackError);
+      }
+      toast.success('Categoria atualizada; correção usada para melhorar a IA.');
+    } catch (error) {
+      setManifests(previousManifests);
+      console.error('Error updating category:', error);
+      toast.error('Erro ao atualizar categoria');
+    }
+  }, [manifests]);
+
   const updateBulkStatus = async (ids: { id: string; type: ManifestType }[], newStatus: string) => {
     try {
       const urbanIds = ids.filter(i => i.type === 'urban' || i.type === 'feedback').map(i => i.id);
@@ -765,6 +815,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     pageSize,
     totalCount,
     updateManifestStatus,
+    updateManifestCategory,
     updateBulkStatus,
     deleteManifest,
     deleteBulkManifests,
