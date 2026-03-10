@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search as SearchIcon, Clock, Trash2, Sparkles, X, TrendingUp, MapPin } from "lucide-react";
+import { Search as SearchIcon, Clock, Trash2, Sparkles, X, TrendingUp, MapPin, Star } from "lucide-react";
 import PageHeader from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   filterCategories,
   typeLabels,
 } from "@/data/searchData";
+import { FILTER_CATEGORY_ICONS } from "@/components/icons";
 
 interface SearchSuggestion {
   text: string;
@@ -208,20 +209,27 @@ const SearchPage = () => {
           {/* Filter Pills */}
           {query && results.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {filterCategories.map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => handleFilterClick(filter.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeFilter === filter.id
-                      ? "bg-primary text-white"
-                      : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
-                  }`}
-                >
-                  <span className="mr-1">{filter.icon}</span>
-                  {filter.label}
-                </button>
-              ))}
+              {filterCategories.map((filter) => {
+                const FilterIcon = FILTER_CATEGORY_ICONS[filter.id];
+                return (
+                  <button
+                    key={filter.id}
+                    onClick={() => handleFilterClick(filter.id)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors inline-flex items-center ${
+                      activeFilter === filter.id
+                        ? "bg-primary text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                    }`}
+                  >
+                    {FilterIcon && (
+                      <span className="mr-1.5 shrink-0" aria-hidden>
+                        <FilterIcon size={16} />
+                      </span>
+                    )}
+                    {filter.label}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -270,7 +278,8 @@ const SearchPage = () => {
                             )}
                             {result.metadata?.rating && (
                               <span className="text-xs text-gray-500 flex items-center gap-1">
-                                ⭐ {result.metadata.rating}
+                                <Star className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                {result.metadata.rating}
                               </span>
                             )}
                             {result.metadata?.status && (

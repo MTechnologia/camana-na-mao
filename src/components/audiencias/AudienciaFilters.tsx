@@ -16,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ClipboardList, MapPin, BarChart3, Calendar, CalendarDays } from "lucide-react";
 
 interface AudienciaFiltersProps {
   open: boolean;
@@ -134,7 +135,10 @@ const AudienciaFilters = ({
           {/* Região */}
           {availableRegions.length > 0 && (
             <div className="space-y-3">
-              <Label className="text-base font-semibold">📍 Região</Label>
+              <Label className="text-base font-semibold inline-flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+              Região
+            </Label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {availableRegions.map((region) => (
                   <div
@@ -161,7 +165,10 @@ const AudienciaFilters = ({
 
           {/* Status */}
           <div className="space-y-3">
-            <Label className="text-base font-semibold">📊 Status</Label>
+            <Label className="text-base font-semibold inline-flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4 shrink-0" aria-hidden />
+              Status
+            </Label>
             <RadioGroup
               value={filters.status}
               onValueChange={(value) => onFiltersChange({ ...filters, status: value })}
@@ -214,7 +221,10 @@ const AudienciaFilters = ({
 
           {/* Ano */}
           <div className="space-y-3">
-            <Label className="text-base font-semibold">📆 Ano</Label>
+            <Label className="text-base font-semibold inline-flex items-center gap-1.5">
+              <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
+              Ano
+            </Label>
             <Select
               value={filters.year}
               onValueChange={(value) => onFiltersChange({ ...filters, year: value })}

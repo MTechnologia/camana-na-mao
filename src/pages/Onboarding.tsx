@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { INTEREST_ICONS } from "@/components/icons";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -81,7 +82,12 @@ const Onboarding = () => {
                   : "border-border bg-card hover:border-primary/50"
               }`}
             >
-              <div className="text-3xl mb-2">{category.icon}</div>
+              <div className="flex items-center justify-center w-10 h-10 mb-2 text-primary">
+                {INTEREST_ICONS[category.id] && (() => {
+                  const Icon = INTEREST_ICONS[category.id];
+                  return <Icon size={32} aria-hidden />;
+                })()}
+              </div>
               <h3 className="font-semibold text-foreground text-sm mb-1">
                 {category.label}
               </h3>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNotificationType, getNotificationPriority, ADMIN_NOTIFICATION_TYPES } from '@/constants/notificationTypes';
+import { NOTIFICATION_TYPE_ICONS } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -238,11 +239,19 @@ const AdminNotifications = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os tipos</SelectItem>
-                  {ADMIN_NOTIFICATION_TYPES.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.icon} {type.label}
-                    </SelectItem>
-                  ))}
+                  {ADMIN_NOTIFICATION_TYPES.map(type => {
+                    const TypeIcon = NOTIFICATION_TYPE_ICONS[type.value];
+                    return (
+                      <SelectItem key={type.value} value={type.value}>
+                        {TypeIcon && (
+                          <span className="mr-1.5 inline-flex shrink-0" aria-hidden>
+                            <TypeIcon size={14} />
+                          </span>
+                        )}
+                        {type.label}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
 

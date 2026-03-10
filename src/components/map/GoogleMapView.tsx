@@ -11,6 +11,7 @@ import {
   GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
   buildWmsGetMapUrl,
 } from '@/config/geosampa-wms-imageamento';
+import { getServiceTypeBalloonIconUrl } from '@/components/icons';
 
 interface Service {
   id: string;
@@ -33,31 +34,6 @@ interface GoogleMapViewProps {
   /** Exibir camada WMS de imageamento (fotos aéreas GeoSampa) */
   wmsImageamentoEnabled?: boolean;
 }
-
-const serviceIcons: Record<string, string> = {
-  ubs: '🏥',
-  school: '🏫',
-  ceu: '🎭',
-  hospital: '🏥',
-  library: '📚',
-  sports_center: '⚽',
-  street_market: '🛒',
-  community_center: '🏘️',
-  daycare: '🍼',
-  park: '🌳',
-  social_assistance: '🤝',
-  police_station: '🚔',
-  transit_station: '🚌',
-  market: '🛒',
-  city_market: '🏪',
-  theater: '🎬',
-  museum: '🏛️',
-  cemetery: '🪦',
-  accessibility: '♿',
-  recycling_point: '♻️',
-  fire_station: '🚒',
-  other: '📍',
-};
 
 export const GoogleMapView = ({
   userLocation,
@@ -204,9 +180,10 @@ export const GoogleMapView = ({
       const marker = new google.maps.Marker({
         position: { lat: service.latitude, lng: service.longitude },
         title: displayName,
-        label: {
-          text: serviceIcons[service.service_type] || serviceIcons.other,
-          fontSize: '20px',
+        icon: {
+          url: getServiceTypeBalloonIconUrl(service.service_type),
+          scaledSize: new google.maps.Size(36, 36),
+          anchor: new google.maps.Point(18, 36),
         },
       });
 

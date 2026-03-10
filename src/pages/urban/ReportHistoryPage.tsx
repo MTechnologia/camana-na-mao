@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, Plus, Trash2, Info, FileText } from "lucide-react";
+import { Calendar, MapPin, Plus, Trash2, Info, FileText, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -390,7 +390,9 @@ export default function ReportHistoryPage() {
 
             {allReports.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-4xl mb-3">🔍</div>
+                <div className="mb-3 flex justify-center" aria-hidden>
+                  <Search className="h-12 w-12 text-muted-foreground" />
+                </div>
                 <h3 className="font-semibold text-foreground mb-1">
                   Nenhuma contribuição encontrada
                 </h3>

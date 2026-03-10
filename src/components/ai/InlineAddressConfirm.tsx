@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Check, X } from "lucide-react";
+import { IconCheck } from "@/components/icons";
 
 interface InlineAddressConfirmProps {
   address: string;
@@ -24,7 +25,16 @@ export const InlineAddressConfirm = ({ address, onConfirm }: InlineAddressConfir
     return (
       <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
         <MapPin className="h-3 w-3" />
-        <span>{confirmed ? 'Endereço confirmado ✓' : 'Endereço não confirmado'}</span>
+        <span className="inline-flex items-center gap-1">
+              {confirmed ? (
+                <>
+                  Endereço confirmado
+                  <IconCheck size={14} />
+                </>
+              ) : (
+                'Endereço não confirmado'
+              )}
+            </span>
       </div>
     );
   }

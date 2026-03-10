@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation } from "lucide-react";
+import { ServiceTypeIcon } from "@/components/icons";
 import { formatDistance, formatDistanceStraightLine, getServiceDisplayName } from "@/lib/mapUtils";
 
 interface Service {
@@ -20,31 +21,6 @@ interface SimulatedMapProps {
   onServiceClick: (serviceId: string) => void;
   distanceLabel?: "walking" | "driving" | "straight";
 }
-
-const serviceIcons: Record<string, string> = {
-  ubs: "🏥",
-  school: "🏫",
-  ceu: "🎭",
-  hospital: "🏥",
-  library: "📚",
-  sports_center: "⚽",
-  street_market: "🛒",
-  community_center: "🏘️",
-  daycare: "🍼",
-  park: "🌳",
-  social_assistance: "🤝",
-  police_station: "🚔",
-  transit_station: "🚌",
-  market: "🛒",
-  city_market: "🏪",
-  theater: "🎬",
-  museum: "🏛️",
-  cemetery: "🪦",
-  accessibility: "♿",
-  recycling_point: "♻️",
-  fire_station: "🚒",
-  other: "📍"
-};
 
 /** Agrupa serviços por proximidade (grid ~200m) para reduzir sobreposição visual. */
 function clusterServicesByProximity(services: Service[], maxItems: number): { type: "single"; service: Service } | { type: "cluster"; services: Service[] }[] {
@@ -126,8 +102,8 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                 style={{ animationDelay: `${index * 100}ms` }}
               >
                 <CardContent className="p-3 flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-2xl shrink-0">
-                    {serviceIcons[service.service_type] || serviceIcons.other}
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                    <ServiceTypeIcon serviceType={service.service_type} size={24} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground line-clamp-1">
