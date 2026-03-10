@@ -31,7 +31,7 @@ export default function PatternsPage() {
             </div>
           ) : (
             patterns.map((pattern) => (
-              <Card key={pattern.id} className="border-2 border-border">
+              <Card key={pattern.id} className="border-2 border-border" data-testid="pattern-card">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <Badge variant="secondary" className="text-xs">

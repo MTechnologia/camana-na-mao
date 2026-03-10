@@ -14,17 +14,20 @@ interface PublicService {
 
 interface InlineServicePickerProps {
   serviceType?: string;
+  /** Quando informado com serviceType, pre-carrega lista de serviços do bairro (dropdown) */
+  district?: string;
   onSelect: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
 }
 
-export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePickerProps) => {
+export const InlineServicePicker = ({ serviceType, district, onSelect }: InlineServicePickerProps) => {
   const [query, setQuery] = useState("");
   const [services, setServices] = useState<PublicService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selected, setSelected] = useState(false);
 
   const searchServices = useCallback(async (searchQuery: string) => {
-    if (!searchQuery || searchQuery.length < 2) {
+    const effectiveQuery = (searchQuery?.trim() || (district && serviceType ? district : ''));
+    if (!effectiveQuery || effectiveQuery.length < 2) {
       setServices([]);
       return;
     }
@@ -34,11 +37,11 @@ export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePick
       let dbQuery = supabase
         .from('public_services')
         .select('id, name, service_type, district, address')
-        .or(`name.ilike.%${searchQuery}%,district.ilike.%${searchQuery}%`)
-        .limit(8);
+        .or(`name.ilike.%${effectiveQuery}%,district.ilike.%${effectiveQuery}%`)
+        .limit(12);
       
       if (serviceType) {
-        dbQuery = dbQuery.eq('service_type', serviceType as any);
+        dbQuery = dbQuery.eq('service_type', serviceType);
       }
 
       const { data, error } = await dbQuery;
@@ -51,14 +54,21 @@ export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePick
     } finally {
       setIsLoading(false);
     }
-  }, [serviceType]);
+  }, [serviceType, district]);
 
   useEffect(() => {
+    if (district && serviceType) {
+      searchServices(district);
+    }
+  }, [district, serviceType]); // eslint-disable-line react-hooks/exhaustive-deps -- inicial
+
+  useEffect(() => {
+    if (district && serviceType) return;
     const debounce = setTimeout(() => {
       searchServices(query);
     }, 300);
     return () => clearTimeout(debounce);
-  }, [query, searchServices]);
+  }, [query, searchServices, district, serviceType]);
 
   const handleSelect = (service: PublicService) => {
     setSelected(true);
@@ -101,7 +111,7 @@ export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePick
         )}
       </div>
 
-      {query.length >= 2 && (
+      {((district && serviceType) || query.length >= 2) && (
         <div className="mt-2 rounded-md border bg-popover">
           {services.length > 0 ? (
             <ScrollArea className="max-h-[200px]">
@@ -124,12 +134,20 @@ export const InlineServicePicker = ({ serviceType, onSelect }: InlineServicePick
           ) : !isLoading ? (
             <div className="p-3">
               <p className="text-sm text-muted-foreground mb-2">Serviço não encontrado</p>
-              <button
-                onClick={handleCustomService}
-                className="w-full text-left px-3 py-2 rounded-sm hover:bg-accent text-sm border"
-              >
-                Usar "{query}"
-              </button>
+              {(query || district) && (
+                <button
+                  onClick={() => {
+                    const text = query.trim() || district || '';
+                    if (text) {
+                      setSelected(true);
+                      onSelect(text, district || '', '', undefined);
+                    }
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-sm hover:bg-accent text-sm border"
+                >
+                  Usar &quot;{query || district}&quot;
+                </button>
+              )}
             </div>
           ) : null}
         </div>

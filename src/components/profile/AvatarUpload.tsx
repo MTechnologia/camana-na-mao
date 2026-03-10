@@ -20,7 +20,7 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const getInitials = (name: string): string => {
@@ -32,7 +32,7 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
       .toUpperCase();
   };
 
-  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+  const onCropComplete = useCallback((_croppedArea: unknown, croppedAreaPixels: { x: number; y: number; width: number; height: number }) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
@@ -102,9 +102,9 @@ const AvatarUpload = ({ userId, userName, currentAvatarUrl, onAvatarUpdated }: A
       toast.success("Foto de perfil atualizada!");
       onAvatarUpdated(publicUrl);
       handleClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error uploading avatar:", error);
-      toast.error(error.message || "Erro ao fazer upload da foto");
+      toast.error((error instanceof Error ? error.message : String(error)) || "Erro ao fazer upload da foto");
     } finally {
       setUploading(false);
     }

@@ -1,8 +1,11 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { SimulatedMap } from './SimulatedMap';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MapOverlayLayersPanel } from './MapOverlayLayersPanel';
+import { useGeoSampaOverlay } from '@/hooks/useGeoSampaOverlay';
+import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
 
-const MapboxMap = lazy(() => import('./MapboxMap').then(module => ({ default: module.MapboxMap })));
+const GoogleMapView = lazy(() => import('./GoogleMapView').then(module => ({ default: module.GoogleMapView })));
 
 interface Service {
   id: string;
@@ -17,6 +20,8 @@ interface MapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
+  /** Quando true, a distância exibida é a pé (rota real); caso contrário mostra "(em linha reta)" */
+  distanceLabel?: "walking" | "driving" | "straight";
 }
 
 const MapLoader = () => (
@@ -28,34 +33,44 @@ const MapLoader = () => (
   </div>
 );
 
-export const MapView = ({ userLocation, services, onServiceClick }: MapViewProps) => {
-  const [hasMapboxToken, setHasMapboxToken] = useState(false);
+export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight" }: MapViewProps) => {
+  const googleMapsKey = getGoogleMapsApiKey();
+  const useGoogleMaps = !!googleMapsKey;
 
-  useEffect(() => {
-    // Check if Mapbox token exists in localStorage
-    const token = localStorage.getItem('mapbox_token');
-    setHasMapboxToken(!!token);
-  }, []);
+  const [enabledOverlayIds, setEnabledOverlayIds] = useState<string[]>([]);
+  const [wmsImageamentoEnabled, setWmsImageamentoEnabled] = useState(false);
+  const overlayLayers = useGeoSampaOverlay(enabledOverlayIds);
 
-  // Use simulated map as default (no Mapbox token needed)
-  if (!hasMapboxToken) {
+  if (useGoogleMaps) {
     return (
-      <SimulatedMap
-        userLocation={userLocation}
-        services={services}
-        onServiceClick={onServiceClick}
-      />
+      <Suspense fallback={<MapLoader />}>
+        <div className="space-y-2">
+          <MapOverlayLayersPanel
+            enabledLayerIds={enabledOverlayIds}
+            onEnabledChange={setEnabledOverlayIds}
+            layerStates={overlayLayers}
+            wmsImageamentoEnabled={wmsImageamentoEnabled}
+            onWmsImageamentoChange={setWmsImageamentoEnabled}
+          />
+          <GoogleMapView
+            userLocation={userLocation}
+            services={services}
+            onServiceClick={onServiceClick}
+            distanceLabel={distanceLabel}
+            overlayLayers={overlayLayers}
+            wmsImageamentoEnabled={wmsImageamentoEnabled}
+          />
+        </div>
+      </Suspense>
     );
   }
 
-  // Use real Mapbox map if token is configured - lazy loaded
   return (
-    <Suspense fallback={<MapLoader />}>
-      <MapboxMap
-        userLocation={userLocation}
-        services={services}
-        onServiceClick={onServiceClick}
-      />
-    </Suspense>
+    <SimulatedMap
+      userLocation={userLocation}
+      services={services}
+      onServiceClick={onServiceClick}
+      distanceLabel={distanceLabel}
+    />
   );
 };

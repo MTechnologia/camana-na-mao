@@ -14,7 +14,7 @@ export interface AIInsight {
   suggestedAction?: string;
   confidence: number; // 0-100
   priority: 'high' | 'medium' | 'low';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface AIInsightsCardProps {

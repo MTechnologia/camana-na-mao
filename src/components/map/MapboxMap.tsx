@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Card } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DirectionsDrawer } from './DirectionsDrawer';
 import { useMapboxDirections } from '@/hooks/useMapboxDirections';
+import { formatDistanceStraightLine } from '@/lib/mapUtils';
 
 interface Service {
   id: string;
@@ -25,30 +26,59 @@ interface MapboxMapProps {
   onServiceClick: (serviceId: string) => void;
 }
 
+const getInitialToken = (): string => {
+  const env = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+  if (env && typeof env === 'string' && env.startsWith('pk.')) return env;
+  return typeof localStorage !== 'undefined' ? localStorage.getItem('mapbox_token') || '' : '';
+};
+
 export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string>('');
-  const [tokenSaved, setTokenSaved] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState<string>(getInitialToken);
+  const [tokenSaved, setTokenSaved] = useState(() => {
+    const t = getInitialToken();
+    return !!(t && t.startsWith('pk.'));
+  });
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [showDirections, setShowDirections] = useState(false);
   const [transportMode, setTransportMode] = useState<'walking' | 'driving' | 'cycling'>('walking');
   const markersRef = useRef<mapboxgl.Marker[]>([]);
   const routeLayerIdRef = useRef<string | null>(null);
+  const servicesSourceId = 'services-cluster-source';
+  const servicesClusterLayerId = 'services-clusters';
+  const servicesClusterCountId = 'services-cluster-count';
+  const servicesUnclusteredId = 'services-unclustered';
+  const clickListenerRef = useRef<(() => void) | null>(null);
 
   const { getDirections, directions, loading, error } = useMapboxDirections(
     tokenSaved ? mapboxToken : null
   );
 
-  const serviceIcons: Record<string, string> = {
+  const serviceIcons = useMemo<Record<string, string>>(() => ({
     ubs: "🏥",
     school: "🏫",
     ceu: "🎭",
     hospital: "🏥",
     library: "📚",
     sports_center: "⚽",
+    street_market: "🛒",
+    community_center: "🏘️",
+    daycare: "🍼",
+    park: "🌳",
+    social_assistance: "🤝",
+    police_station: "🚔",
+    transit_station: "🚌",
+    market: "🛒",
+    city_market: "🏪",
+    theater: "🎬",
+    museum: "🏛️",
+    cemetery: "🪦",
+    accessibility: "♿",
+    recycling_point: "♻️",
+    fire_station: "🚒",
     other: "📍"
-  };
+  }), []);
 
   // Initialize map
   useEffect(() => {
@@ -97,43 +127,112 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     });
   }, [userLocation, tokenSaved]);
 
-  // Add service markers
+  // Serviços como source GeoJSON com clustering (evita sobreposição quando há muitos equipamentos)
   useEffect(() => {
     if (!map.current || !tokenSaved) return;
 
-    // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
+    const geojson: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+      type: 'FeatureCollection',
+      features: services.map((s) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.longitude, s.latitude] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          service_type: s.service_type,
+          distance: s.distance,
+          icon: serviceIcons[s.service_type] || serviceIcons.other,
+        },
+      })),
+    };
 
-    services.forEach(service => {
-      const el = document.createElement('div');
-      el.className = 'service-marker';
-      el.innerHTML = serviceIcons[service.service_type] || serviceIcons.other;
-      el.style.fontSize = '24px';
-      el.style.cursor = 'pointer';
-      el.style.transition = 'transform 0.2s';
-      
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.2)';
+    const setupLayers = () => {
+      if (!map.current) return;
+      const mapInstance = map.current;
+
+      if (mapInstance.getSource(servicesSourceId)) {
+        mapInstance.removeLayer(servicesUnclusteredId);
+        mapInstance.removeLayer(servicesClusterCountId);
+        mapInstance.removeLayer(servicesClusterLayerId);
+        mapInstance.removeSource(servicesSourceId);
+      }
+
+      mapInstance.addSource(servicesSourceId, {
+        type: 'geojson',
+        data: geojson,
+        cluster: true,
+        clusterMaxZoom: 16,
+        clusterRadius: 50,
       });
-      
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
+
+      mapInstance.addLayer({
+        id: servicesClusterLayerId,
+        type: 'circle',
+        source: servicesSourceId,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': ['step', ['get', 'point_count'], 'hsl(var(--primary))', 10, '#ea580c', 50, '#b91c1c'],
+          'circle-radius': ['step', ['get', 'point_count'], 20, 10, 28, 50, 36],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        },
       });
 
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div style="padding: 8px;">
-          <p style="font-weight: 600; margin-bottom: 4px;">${service.name}</p>
-          ${service.distance ? `<p style="font-size: 12px; color: #666;">${service.distance < 1000 ? Math.round(service.distance) + 'm' : (service.distance / 1000).toFixed(1) + 'km'}</p>` : ''}
-        </div>
-      `);
+      mapInstance.addLayer({
+        id: servicesClusterCountId,
+        type: 'symbol',
+        source: servicesSourceId,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 14,
+        },
+        paint: { 'text-color': '#fff' },
+      });
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([service.longitude, service.latitude])
-        .setPopup(popup)
-        .addTo(map.current!);
+      mapInstance.addLayer({
+        id: servicesUnclusteredId,
+        type: 'circle',
+        source: servicesSourceId,
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': 'hsl(var(--primary))',
+          'circle-radius': 10,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#fff',
+        },
+      });
 
-      el.addEventListener('click', () => {
+      clickListenerRef.current?.();
+      clickListenerRef.current = () => {
+        mapInstance.off('click', servicesClusterLayerId, onClusterClick);
+        mapInstance.off('click', servicesUnclusteredId, onPointClick);
+      };
+
+      const onClusterClick = (e: mapboxgl.MapMouseEvent) => {
+        e.originalEvent.stopPropagation();
+        const features = mapInstance.queryRenderedFeatures(e.point, { layers: [servicesClusterLayerId] });
+        if (!features.length) return;
+        const clusterId = features[0].properties?.cluster_id;
+        if (clusterId == null) return;
+        const source = mapInstance.getSource(servicesSourceId) as mapboxgl.GeoJSONSource;
+        source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+          if (err || zoom == null) return;
+          const geometry = features[0].geometry as GeoJSON.Point;
+          mapInstance.flyTo({ center: geometry.coordinates as [number, number], zoom });
+        });
+      };
+
+      const onPointClick = (e: mapboxgl.MapMouseEvent) => {
+        e.originalEvent.stopPropagation();
+        const features = mapInstance.queryRenderedFeatures(e.point, { layers: [servicesUnclusteredId] });
+        if (!features.length) return;
+        const props = features[0].properties;
+        const serviceId = props?.id as string | undefined;
+        if (!serviceId) return;
+        const service = services.find((s) => s.id === serviceId);
+        if (!service) return;
         setSelectedService(service);
         setShowDirections(true);
         if (userLocation) {
@@ -144,10 +243,37 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
           );
         }
         onServiceClick(service.id);
-      });
 
-      markersRef.current.push(marker);
-    });
+        const distanceText = service.distance != null ? formatDistanceStraightLine(service.distance) : '';
+        const popup = new mapboxgl.Popup({ offset: 25 })
+          .setHTML(
+            `<div style="padding:8px;"><p style="font-weight:600;margin-bottom:4px;">${service.name}</p>${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText}</p>` : ''}</div>`
+          )
+          .setLngLat([service.longitude, service.latitude])
+          .addTo(mapInstance);
+        setTimeout(() => popup.remove(), 3000);
+      };
+
+      mapInstance.on('click', servicesClusterLayerId, onClusterClick);
+      mapInstance.on('click', servicesUnclusteredId, onPointClick);
+      mapInstance.getCanvas().style.cursor = 'pointer';
+    };
+
+    if (map.current.isStyleLoaded()) {
+      setupLayers();
+    } else {
+      map.current.once('load', setupLayers);
+    }
+
+    return () => {
+      clickListenerRef.current?.();
+      if (map.current?.getSource(servicesSourceId)) {
+        map.current.removeLayer(servicesUnclusteredId);
+        map.current.removeLayer(servicesClusterCountId);
+        map.current.removeLayer(servicesClusterLayerId);
+        map.current.removeSource(servicesSourceId);
+      }
+    };
   }, [services, tokenSaved, userLocation, transportMode]);
 
   // Draw route on map
@@ -165,7 +291,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
 
     map.current.addSource(routeLayerId, {
       type: 'geojson',
-      data: directions.route as any,
+      data: directions.route as GeoJSON.Feature,
     });
 
     map.current.addLayer({
@@ -184,7 +310,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     });
 
     // Fit map to route bounds
-    const coordinates = (directions.route.geometry as any).coordinates;
+    const coordinates = (directions.route.geometry as GeoJSON.LineString).coordinates;
     const bounds = coordinates.reduce((bounds: mapboxgl.LngLatBounds, coord: [number, number]) => {
       return bounds.extend(coord as [number, number]);
     }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
@@ -241,7 +367,14 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
           </div>
           
           <Button
-            onClick={() => setTokenSaved(true)}
+            onClick={() => {
+              if (mapboxToken.startsWith('pk.')) {
+                try {
+                  localStorage.setItem('mapbox_token', mapboxToken);
+                } catch (_) { /* ignore */ }
+                setTokenSaved(true);
+              }
+            }}
             disabled={!mapboxToken.startsWith('pk.')}
             className="w-full"
           >

@@ -65,7 +65,7 @@ serve(async (req) => {
       
       if (data) {
         nearbyServices = data
-          .map((service: any) => {
+          .map((service: Record<string, unknown>) => {
             const distance = calculateDistance(
               address.latitude,
               address.longitude,
@@ -74,8 +74,8 @@ serve(async (req) => {
             );
             return { ...service, distance };
           })
-          .filter((s: any) => s.distance <= 5000)
-          .sort((a: any, b: any) => a.distance - b.distance)
+          .filter((s: Record<string, unknown>) => (s.distance as number) <= 5000)
+          .sort((a: Record<string, unknown>, b: Record<string, unknown>) => (a.distance as number) - (b.distance as number))
           .slice(0, 20);
       }
     }
@@ -111,7 +111,7 @@ Retorne no formato JSON com array "recommendations" contendo objetos com:
 
 Ordene por relevância (mais relevantes primeiro). Máximo 10 recomendações.`;
 
-    const servicesData = nearbyServices.map((s: any) => ({
+    const servicesData = nearbyServices.map((s: Record<string, unknown>) => ({
       id: s.id,
       name: s.name,
       type: s.service_type,
@@ -173,17 +173,17 @@ Ordene por relevância (mais relevantes primeiro). Máximo 10 recomendações.`;
 
     // Fallback: recomendações baseadas em regras simples
     if (aiRecommendations.length === 0) {
-      aiRecommendations = nearbyServices.slice(0, 10).map((s: any, i: number) => ({
+      aiRecommendations = nearbyServices.slice(0, 10).map((s: Record<string, unknown>, i: number) => ({
         service_id: s.id,
-        reason: `Serviço próximo com boa avaliação (${s.average_rating.toFixed(1)} ⭐)`,
+        reason: `Serviço próximo com boa avaliação (${Number(s.average_rating || 0).toFixed(1)} ⭐)`,
         confidence: Math.max(0.5, 1 - (i * 0.05))
       }));
     }
 
     // Enriquece recomendações com dados completos dos serviços
     const enrichedRecommendations = aiRecommendations
-      .map((rec: any) => {
-        const service = nearbyServices.find((s: any) => s.id === rec.service_id);
+      .map((rec: Record<string, unknown>) => {
+        const service = nearbyServices.find((s: Record<string, unknown>) => s.id === rec.service_id);
         if (!service) return null;
         
         return {
@@ -236,7 +236,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-function getTopRatedServiceTypes(ratings: any[]): string[] {
+function getTopRatedServiceTypes(ratings: Record<string, unknown>[]): string[] {
   const typeRatings: Record<string, { sum: number; count: number }> = {};
   
   ratings.forEach(rating => {

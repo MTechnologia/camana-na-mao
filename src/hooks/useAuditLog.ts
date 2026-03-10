@@ -17,9 +17,9 @@ interface AuditLogData {
   action: AuditAction;
   entityType: string;
   entityId?: string;
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
-  metadata?: Record<string, any>;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export const useAuditLog = () => {

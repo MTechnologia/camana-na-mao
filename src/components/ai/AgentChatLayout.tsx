@@ -15,12 +15,12 @@ const AgentChatLayout = () => {
       </aside>
 
       {/* Main Chat Area */}
-      <main className="flex flex-col flex-1 min-w-0 h-full">
-        {/* Dynamic Header */}
+      <main className="flex flex-col flex-1 min-w-0 h-full relative">
+        {/* Header fixo para o título "Câmara na Mão" permanecer visível com teclado aberto no app */}
         <AgentHeader />
-
-        {/* Chat Area with Contextual Feed */}
-        <AgentChatArea />
+        <div className="flex-1 flex flex-col min-h-0 pt-14">
+          <AgentChatArea />
+        </div>
 
         {/* Mobile Conversations Sheet */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>

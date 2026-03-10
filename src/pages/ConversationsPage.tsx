@@ -220,6 +220,7 @@ const ConversationsPage = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                data-testid="delete-conversation"
                                 onClick={(e) => handleDeleteClick(e, conversation)}
                               >
                                 <Trash2 className="h-4 w-4" />

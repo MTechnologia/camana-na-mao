@@ -60,7 +60,8 @@ const AgentChatArea = () => {
     handleRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
-    handleServiceSelected
+    handleServiceSelected,
+    handleApplyNearbyFilters,
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
@@ -85,6 +86,22 @@ const AgentChatArea = () => {
     requestAnimationFrame(() => {
       setIsInitialized(true);
     });
+  }, []);
+
+  // No app (WebView): remove foco automático que o WebView pode dar ao carregar a tela
+  useEffect(() => {
+    const isInApp = typeof window !== "undefined" && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
+    if (!isInApp) return;
+    const t = setTimeout(() => {
+      try {
+        if (document.activeElement && typeof (document.activeElement as HTMLTextAreaElement).blur === "function") {
+          (document.activeElement as HTMLTextAreaElement).blur();
+        }
+      } catch {
+        // ignore
+      }
+    }, 400);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -139,25 +156,27 @@ const AgentChatArea = () => {
 
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
-    
-    // Define o tipo de coleta ANTES de limpar para preservar
+
     if (collectionTypePreset) {
       setPresetCollectionType(collectionTypePreset as CollectionType);
     } else {
       setPresetCollectionType(null);
     }
-    
-    // Limpa mensagens mas preserva collectionType quando há preset
+
+    // Se já estamos em uma conversa (ex.: clicou no chip da resposta off-topic), só envia a mensagem na conversa atual
+    if (activeConversationId && initialMessage) {
+      sendMessage(initialMessage.trim());
+      return;
+    }
+
+    // Tela inicial: limpa, adiciona mensagem otimista e cria nova conversa
     clearMessages(!!collectionTypePreset);
-    
-    // UI otimista: adiciona mensagem do usuário imediatamente
     if (initialMessage) {
       addOptimisticMessage(initialMessage);
       pendingMessageRef.current = initialMessage;
     }
-    
+
     const newConvId = await createConversation('general');
-    
     if (newConvId) {
       setActiveConversationId(newConvId);
     }
@@ -175,6 +194,25 @@ const AgentChatArea = () => {
     // Send the address as a user message
     sendMessage(addressMessage);
   }, [sendMessage]);
+
+  // Pedir à IA que traga audiências com os filtros selecionados no bloco do chat
+  const handleRequestAudienciasWithFilters = useCallback(
+    (filters: { tema: string; regiao: string; dateFrom: string; dateTo: string }) => {
+      const parts: string[] = ["Mostre as audiências públicas agendadas"];
+      const opts: string[] = [];
+      if (filters.tema) opts.push(`tema: ${filters.tema}`);
+      if (filters.regiao) opts.push(`região: ${filters.regiao}`);
+      if (filters.dateFrom || filters.dateTo) {
+        if (filters.dateFrom && filters.dateTo) opts.push(`de ${filters.dateFrom} a ${filters.dateTo}`);
+        else if (filters.dateFrom) opts.push(`a partir de ${filters.dateFrom}`);
+        else if (filters.dateTo) opts.push(`até ${filters.dateTo}`);
+      }
+      if (opts.length) parts.push("com os filtros: " + opts.join(", "));
+      parts.push(".");
+      sendMessage(parts.join(" "));
+    },
+    [sendMessage]
+  );
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -249,7 +287,7 @@ const AgentChatArea = () => {
             />
             
             <ScrollArea className="flex-1">
-              <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4">
+              <div className="w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto px-4 py-6 space-y-4" data-testid="chat-messages">
                 {messages.map((msg, index) => {
                   // Find last assistant message index
                   const lastAssistantIndex = messages.reduce((acc, m, i) => 
@@ -277,6 +315,11 @@ const AgentChatArea = () => {
                         onServiceTypeSelected={handleServiceTypeSelected}
                         onServiceSelected={handleServiceSelected}
                         isLastAssistantMessage={isLastAssistantMessage}
+                        onChipSelect={handleStartConversation}
+                        onOpenDiscovery={handleOpenDiscovery}
+                        onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
+                        onApplyNearbyFilters={handleApplyNearbyFilters}
+                        onSendMessage={handleSendMessage}
                       />
                     </motion.div>
                   );
@@ -309,10 +352,11 @@ const AgentChatArea = () => {
       >
         <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
           <ChatInput
-            onSendMessage={handleSendMessage} 
+            onSendMessage={handleSendMessage}
             disabled={isLoading}
             placeholder="Digite sua mensagem..."
             draftKey={activeConversationId || "new"}
+            autoFocus={false}
           />
         </div>
       </motion.div>

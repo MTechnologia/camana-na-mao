@@ -33,11 +33,12 @@ async function registerRoutes() {
     
     registerRoute('GET', 'vereadores', getVereadores);
     registerRoute('GET', 'vereadores/:id', getVereadorById);
-    
-    // Adicionar mais rotas conforme necessário
-    // Exemplo:
-    // const { getProjetos } = await import('../api/v1/projetos/index.ts');
-    // registerRoute('GET', 'projetos', getProjetos);
+
+    // Audiências – inscrição Ninja Forms (CMSP)
+    const { postAudienciaInscricao } = await import('../api/v1/audiencias/index.ts');
+    if (postAudienciaInscricao) {
+      registerRoute('POST', 'audiencias/inscricao', postAudienciaInscricao);
+    }
   } catch (error) {
     console.error('[api-router] Erro ao registrar rotas:', error);
   }
@@ -133,6 +134,7 @@ serve(async (req) => {
         endpoints: {
           vereadores: '/functions/v1/api-router/vereadores',
           vereadorById: '/functions/v1/api-router/vereadores/:id',
+          audienciasInscricao: 'POST /functions/v1/api-router/audiencias/inscricao',
         },
         supportedFormats: [
           '/functions/v1/api-router/{recurso}',

@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "YOUR_APPLE_TEAM_ID.br.com.mtechnologia.camaranamao",
+        "paths": ["/audiencias/*", "/institucional/*", "/notificacoes", "/perfil", "/", "/*"]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["YOUR_APPLE_TEAM_ID.br.com.mtechnologia.camaranamao"]
+  }
+}

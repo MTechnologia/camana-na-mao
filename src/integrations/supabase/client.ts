@@ -14,6 +14,10 @@ const SUPABASE_URL =
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.CAMARA_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// Exportados para chamadas que precisam da anon key (ex.: complete-registration pós-cadastro sem sessão)
+export const supabaseUrl = SUPABASE_URL;
+export const supabaseAnonKey = SUPABASE_PUBLISHABLE_KEY;
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 

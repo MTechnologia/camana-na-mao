@@ -122,7 +122,7 @@ const AgendaCMSP = () => {
       const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.eventType);
 
       // Date filter
-      let matchesDate = true;
+      const matchesDate = true;
       if (dateRange?.from || dateRange?.to) {
         const itemIso = toDateOnly(item.eventDate);
         const fromIso = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : undefined;

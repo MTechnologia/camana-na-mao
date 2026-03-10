@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -11,18 +11,37 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Building2, Bus, Star, MessageSquare, MapPin, Calendar, Clock,
   Download, Trash2, Forward, ExternalLink, Send,
-  CheckCircle2, AlertCircle, Image as ImageIcon, Activity
+  CheckCircle2, AlertCircle, Image as ImageIcon, Activity, Edit3
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatShortDate, formatLongDateTime, formatDateTime, formatCompactDateTime } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UnifiedManifest, ManifestType } from '@/hooks/useReportsAdmin';
+
+const ADMIN_CATEGORY_OPTIONS = [
+  { value: 'iluminacao', label: 'Iluminação Pública' },
+  { value: 'calcada', label: 'Calçada' },
+  { value: 'via_publica', label: 'Via Pública' },
+  { value: 'sinalizacao', label: 'Sinalização' },
+  { value: 'drenagem', label: 'Drenagem' },
+  { value: 'lixo', label: 'Lixo e Limpeza' },
+  { value: 'esgoto', label: 'Esgoto/Bueiro' },
+  { value: 'area_verde', label: 'Área Verde' },
+  { value: 'higiene_urbana', label: 'Higiene Urbana' },
+  { value: 'animais', label: 'Animais' },
+  { value: 'poluicao', label: 'Poluição/Barulho' },
+  { value: 'feedback_camara', label: 'Feedback Câmara' },
+  { value: 'outro', label: 'Outro' },
+];
 
 interface UnifiedReportDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   manifest: UnifiedManifest | null;
   onStatusChange: (id: string, type: ManifestType, status: string) => void;
+  onCategoryCorrected?: (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => Promise<void>;
   onDelete: (manifest: UnifiedManifest) => void;
   onReferral: () => void;
 }
@@ -80,6 +99,7 @@ export const UnifiedReportDrawer = ({
   onOpenChange,
   manifest,
   onStatusChange,
+  onCategoryCorrected,
   onDelete,
   onReferral,
 }: UnifiedReportDrawerProps) => {
@@ -87,14 +107,11 @@ export const UnifiedReportDrawer = ({
   const [loadingResponses, setLoadingResponses] = useState(false);
   const [newResponse, setNewResponse] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [editCategory, setEditCategory] = useState('');
+  const [editSubcategory, setEditSubcategory] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
 
-  useEffect(() => {
-    if (open && manifest && manifest.type === 'transport') {
-      fetchResponses();
-    }
-  }, [open, manifest?.id]);
-
-  const fetchResponses = async () => {
+  const fetchResponses = useCallback(async () => {
     if (!manifest) return;
     setLoadingResponses(true);
     try {
@@ -123,7 +140,20 @@ export const UnifiedReportDrawer = ({
     } finally {
       setLoadingResponses(false);
     }
-  };
+  }, [manifest]);
+
+  useEffect(() => {
+    if (open && manifest && manifest.type === 'transport') {
+      fetchResponses();
+    }
+  }, [open, manifest, fetchResponses]);
+
+  useEffect(() => {
+    if (open && manifest?.urban_data) {
+      setEditCategory(manifest.urban_data.category || '');
+      setEditSubcategory(manifest.urban_data.subcategory || '');
+    }
+  }, [open, manifest?.id, manifest?.urban_data?.category, manifest?.urban_data?.subcategory]);
 
   const handleSubmitResponse = async () => {
     if (!manifest || !newResponse.trim()) return;
@@ -266,7 +296,7 @@ export const UnifiedReportDrawer = ({
               </div>
 
               {/* Type-specific info */}
-              {manifest.type === 'urban' && manifest.urban_data && (
+              {(manifest.type === 'urban' || manifest.type === 'feedback') && manifest.urban_data && (
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -280,6 +310,60 @@ export const UnifiedReportDrawer = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Correção de categoria (feedback loop IA) */}
+                  {onCategoryCorrected && (
+                    <div className="p-4 rounded-lg border border-dashed bg-muted/20">
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Edit3 className="h-4 w-4" />
+                        Corrigir categoria (melhora a classificação da IA)
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Categoria</Label>
+                          <Select
+                            value={editCategory}
+                            onValueChange={setEditCategory}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ADMIN_CATEGORY_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Subcategoria (opcional)</Label>
+                          <Input
+                            className="h-9"
+                            value={editSubcategory}
+                            onChange={(e) => setEditSubcategory(e.target.value)}
+                            placeholder="Ex.: Poste apagado"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="mt-3"
+                        disabled={savingCategory || (editCategory === (manifest.urban_data?.category ?? '') && editSubcategory === (manifest.urban_data?.subcategory ?? ''))}
+                        onClick={async () => {
+                          setSavingCategory(true);
+                          try {
+                            await onCategoryCorrected(manifest, editCategory, editSubcategory.trim() || null);
+                          } finally {
+                            setSavingCategory(false);
+                          }
+                        }}
+                      >
+                        {savingCategory ? 'Salvando…' : 'Salvar correção'}
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Structured Address Section */}
                   {manifest.urban_data.street && (

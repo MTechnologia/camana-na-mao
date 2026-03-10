@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Share2, Building2, Users, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Share2, Building2, Users, Loader2, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +112,24 @@ const VereadorDetailPage = () => {
             )}
           </div>
         </Card>
+
+        {/* Área de atuação (comissões/cargos) */}
+        {displayVereador.areasDeAtuacao && displayVereador.areasDeAtuacao.length > 0 && (
+          <Card className="p-6 mb-6">
+            <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-primary" />
+              Área de atuação
+            </h3>
+            <ul className="space-y-2">
+              {displayVereador.areasDeAtuacao.map((area, i) => (
+                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>{area}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* Contact Information */}
         <Card className="p-6 mb-6">

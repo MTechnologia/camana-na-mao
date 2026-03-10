@@ -7,7 +7,7 @@ import { Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { registerStep1Schema, registerStep2Schema } from "@/lib/validations";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseUrl, supabaseAnonKey } from "@/integrations/supabase/client";
 import StepIndicator from "@/components/register/StepIndicator";
 import AboutYouStep from "@/components/register/AboutYouStep";
 import LocationStep from "@/components/register/LocationStep";
@@ -35,6 +35,8 @@ interface FormData {
   // Step 4: Location
   cep: string;
   street: string;
+  number: string;
+  complement: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -44,7 +46,7 @@ interface FormData {
 
 const Register = () => {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { signUp, signOut } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -65,6 +67,8 @@ const Register = () => {
     incomeRange: "",
     cep: "",
     street: "",
+    number: "",
+    complement: "",
     neighborhood: "",
     city: "",
     state: "",
@@ -93,9 +97,9 @@ const Register = () => {
         phone: formData.phone,
       });
       setCurrentStep(2);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.errors) {
-        error.errors.forEach((err: any) => toast.error(err.message));
+        (error as { errors?: Array<{ message?: string }> }).errors?.forEach((e) => toast.error(e.message ?? 'Erro'));
       }
     }
   };
@@ -124,7 +128,18 @@ const Register = () => {
 
       if (!error && data?.user) {
         setUserId(data.user.id);
-        
+        // Garantir que nome e celular fiquem no perfil (upsert: cria se trigger ainda não rodou, atualiza se já existir)
+        await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: data.user.id,
+              full_name: formData.fullName.trim() || "Usuário",
+              phone: formData.phone.trim() || null,
+            },
+            { onConflict: "id" }
+          );
+
         // Record consents in database
         try {
           await supabase.rpc('grant_consent', {
@@ -145,20 +160,42 @@ const Register = () => {
         
         setCurrentStep(3);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.errors) {
-        error.errors.forEach((err: any) => toast.error(err.message));
+        (error as { errors?: Array<{ message?: string }> }).errors?.forEach((e) => toast.error(e.message ?? 'Erro'));
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAboutYouContinue = () => setCurrentStep(4);
-  const handleAboutYouSkip = () => setCurrentStep(4);
+  const handleAboutYouContinue = () => {
+    if (!formData.birthDate?.trim()) {
+      toast.error("Informe sua data de nascimento.");
+      return;
+    }
+    if (!formData.gender?.trim()) {
+      toast.error("Selecione o gênero.");
+      return;
+    }
+    if (!formData.race?.trim()) {
+      toast.error("Selecione raça/cor.");
+      return;
+    }
+    if (!formData.incomeRange?.trim()) {
+      toast.error("Selecione a faixa de renda familiar.");
+      return;
+    }
+    setCurrentStep(4);
+  };
 
-  const handleLocationContinue = () => setCurrentStep(5);
-  const handleLocationSkip = () => setCurrentStep(5);
+  const handleLocationContinue = () => {
+    const hasCompleteAddress = !!(formData.cep && formData.neighborhood && formData.number?.trim());
+    if (!hasCompleteAddress) {
+      toast.info("Você pode concluir agora e cadastrar o endereço depois em Perfil > Endereço.");
+    }
+    setCurrentStep(5);
+  };
 
   const toggleInterest = (interestId: string) => {
     const current = formData.interests;
@@ -168,20 +205,14 @@ const Register = () => {
     handleChange("interests", updated);
   };
 
-  // Map income range to social class for database
-  const mapIncomeToSocialClass = (incomeRange: string): string | null => {
-    const mapping: Record<string, string> = {
-      "ate_2sm": "E",
-      "2_a_4sm": "D",
-      "4_a_10sm": "C",
-      "acima_10sm": "AB",
-    };
-    return mapping[incomeRange] || null;
-  };
-
   const handleFinalSubmit = async () => {
     if (formData.interests.length < 3) {
       toast.error("Selecione pelo menos 3 interesses");
+      return;
+    }
+
+    if (!formData.birthDate?.trim() || !formData.gender?.trim() || !formData.race?.trim() || !formData.incomeRange?.trim()) {
+      toast.error("Preencha todos os campos da etapa Sobre você.");
       return;
     }
 
@@ -192,42 +223,62 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Save demographics if provided
-      if (formData.birthDate || formData.gender || formData.race || formData.incomeRange) {
-        const socialClass = mapIncomeToSocialClass(formData.incomeRange);
-        await supabase.from('user_demographics').upsert({
-          user_id: userId,
-          birth_date: formData.birthDate || null,
-          gender: formData.gender === "prefiro_nao_dizer" ? null : formData.gender || null,
-          race: formData.race === "prefiro_nao_dizer" ? null : formData.race || null,
-          social_class: socialClass,
-        });
+      if (!supabaseAnonKey || !supabaseUrl) {
+        toast.error("Configuração do app incompleta. Tente novamente ou contate o suporte.");
+        setLoading(false);
+        return;
+      }
+      const payload = {
+        userId,
+        fullName: formData.fullName.trim(),
+        phone: formData.phone.trim() || null,
+        birthDate: formData.birthDate || null,
+        gender: formData.gender || null,
+        race: formData.race || null,
+        incomeRange: formData.incomeRange || "",
+        cep: formData.cep,
+        street: formData.street || "",
+        number: formData.number.trim(),
+        complement: formData.complement?.trim() || null,
+        neighborhood: formData.neighborhood,
+        city: formData.city || "São Paulo",
+        state: formData.state || "SP",
+        interests: formData.interests,
+      };
+
+      // Token: preferir sessão (atualizada), depois anon key (produção pode não ter env no build)
+      await supabase.auth.refreshSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? supabaseAnonKey;
+      if (!token) {
+        toast.error("Sessão expirada. Faça login novamente e complete o cadastro em Perfil.");
+        return;
       }
 
-      // Save address if provided
-      if (formData.cep && formData.neighborhood) {
-        await supabase.from('user_addresses').insert({
-          user_id: userId,
-          street: formData.street || "",
-          number: "", // User can add later
-          neighborhood: formData.neighborhood,
-          city: formData.city || "São Paulo",
-          state: formData.state || "SP",
-          zip_code: formData.cep.replace(/\D/g, ""),
-          is_primary: true,
-        });
+      const res = await fetch(`${supabaseUrl}/functions/v1/complete-registration`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { error?: string; details?: string };
+      if (!res.ok) {
+        console.error("complete-registration error:", res.status, data);
+        toast.error(data?.details || data?.error || "Não foi possível concluir o cadastro. Tente novamente.");
+        return;
+      }
+      if (data?.error) {
+        toast.error(data.details || data.error);
+        return;
       }
 
-      // Save interests
-      const interests = formData.interests.map(category => ({
-        user_id: userId,
-        interest_category: category,
-      }));
-      await supabase.from('user_interests').insert(interests);
-
-      toast.success("Cadastro concluído com sucesso!");
-      navigate("/");
-    } catch (error: any) {
+      toast.success("Cadastro concluído! Faça login para acessar o app.");
+      await signOut();
+      navigate("/login", { replace: true });
+    } catch (error: unknown) {
       toast.error(error.message || "Erro ao salvar dados");
     } finally {
       setLoading(false);
@@ -469,7 +520,6 @@ const Register = () => {
             }}
             onChange={(field, value) => handleChange(field, value)}
             onContinue={handleAboutYouContinue}
-            onSkip={handleAboutYouSkip}
           />
         )}
 
@@ -478,13 +528,14 @@ const Register = () => {
             data={{
               cep: formData.cep,
               street: formData.street,
+              number: formData.number,
+              complement: formData.complement,
               neighborhood: formData.neighborhood,
               city: formData.city,
               state: formData.state,
             }}
             onChange={(field, value) => handleChange(field, value)}
             onContinue={handleLocationContinue}
-            onSkip={handleLocationSkip}
           />
         )}
 

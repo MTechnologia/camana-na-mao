@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -27,11 +27,7 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
-  useEffect(() => {
-    loadInterests();
-  }, [userId]);
-
-  const loadInterests = async () => {
+  const loadInterests = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('user_interests')
@@ -43,13 +39,17 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
       if (data) {
         setSelectedInterests(data.map(item => item.interest_category));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading interests:", error);
       toast.error("Erro ao carregar interesses");
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadInterests();
+  }, [loadInterests]);
 
   const toggleInterest = (interestId: string) => {
     setSelectedInterests(prev =>
@@ -87,7 +87,7 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
 
       toast.success("Interesses salvos com sucesso!");
       onSuccess?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error saving interests:", error);
       toast.error("Erro ao salvar interesses");
     } finally {

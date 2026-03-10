@@ -38,11 +38,10 @@ const Login = () => {
       if (!error) {
         navigate("/");
       }
-    } catch (error: any) {
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
+    } catch (error: unknown) {
+      const err = error as { errors?: Array<{ message?: string }> };
+      if (err?.errors) {
+        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
       }
     } finally {
       setLoading(false);

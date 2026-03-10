@@ -7,7 +7,7 @@ export interface SearchResult {
   icon: string;
   category: string;
   path: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Serviços Públicos (Perto de Mim)

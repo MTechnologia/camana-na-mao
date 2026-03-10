@@ -130,6 +130,7 @@ interface UseReportsAdminReturn {
   totalCount: number;
   // Actions
   updateManifestStatus: (id: string, type: ManifestType, newStatus: string) => Promise<void>;
+  updateManifestCategory: (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => Promise<void>;
   updateBulkStatus: (ids: { id: string; type: ManifestType }[], newStatus: string) => Promise<void>;
   deleteManifest: (id: string, type: ManifestType) => Promise<void>;
   deleteBulkManifests: (ids: { id: string; type: ManifestType }[]) => Promise<void>;
@@ -261,7 +262,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       const fetchLimit = pageSize * 3; // Overfetch para merge
 
       // Preparar queries em paralelo
-      const queries: Promise<any>[] = [];
+      const queries: Promise<{ data?: unknown[]; error?: Error; count?: number }>[] = [];
       const queryTypes: string[] = [];
 
       // Urban reports (excluding feedback)
@@ -314,7 +315,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       // Executar todas as queries em paralelo
       const results = await Promise.all(queries);
 
-      let allManifests: UnifiedManifest[] = [];
+      const allManifests: UnifiedManifest[] = [];
       let urbanCount = 0, feedbackCount = 0, transportCount = 0, evaluationCount = 0;
 
       results.forEach((result, index) => {
@@ -329,7 +330,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
 
         if (type === 'urban') {
           urbanCount = count;
-          allManifests.push(...data.map((r: any) => ({
+          allManifests.push(...data.map((r: Record<string, unknown>) => ({
             id: r.id,
             type: 'urban' as ManifestType,
             title: r.subcategory || r.category,
@@ -364,7 +365,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           })));
         } else if (type === 'feedback') {
           feedbackCount = count;
-          allManifests.push(...data.map((r: any) => ({
+          allManifests.push(...data.map((r: Record<string, unknown>) => ({
             id: r.id,
             type: 'feedback' as ManifestType,
             title: r.subcategory || 'Feedback Câmara',
@@ -399,7 +400,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           })));
         } else if (type === 'transport') {
           transportCount = count;
-          allManifests.push(...data.map((r: any) => ({
+          allManifests.push(...data.map((r: Record<string, unknown>) => ({
             id: r.id,
             type: 'transport' as ManifestType,
             title: r.report_type,
@@ -413,8 +414,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
             transport_data: {
               report_type: r.report_type,
               line_id: r.line_id,
-              line_code: (r.transport_lines as any)?.line_code || null,
-              line_name: (r.transport_lines as any)?.line_name || null,
+              line_code: (r.transport_lines as { line_code?: string; line_name?: string } | null)?.line_code || null,
+              line_name: (r.transport_lines as { line_code?: string; line_name?: string } | null)?.line_name || null,
               occurrence_date: r.occurrence_date,
               occurrence_time: r.occurrence_time,
               impact_description: null,
@@ -428,10 +429,10 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           })));
         } else if (type === 'evaluation') {
           evaluationCount = count;
-          allManifests.push(...data.map((r: any) => ({
+          allManifests.push(...data.map((r: Record<string, unknown>) => ({
             id: r.id,
             type: 'evaluation' as ManifestType,
-            title: (r.public_services as any)?.name || 'Avaliação de Serviço',
+            title: (r.public_services as { name?: string; service_type?: string } | null)?.name || 'Avaliação de Serviço',
             description: r.rating_text,
             severity: r.rating_stars <= 2 ? 'high' : r.rating_stars <= 3 ? 'medium' : 'low',
             status: 'completed',
@@ -441,8 +442,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
             author: null,
             evaluation_data: {
               service_id: r.service_id,
-              service_name: (r.public_services as any)?.name || null,
-              service_type: (r.public_services as any)?.service_type || null,
+              service_name: (r.public_services as { name?: string; service_type?: string } | null)?.name || null,
+              service_type: (r.public_services as { name?: string; service_type?: string } | null)?.service_type || null,
               rating_stars: r.rating_stars,
               rating_text: r.rating_text,
               sentiment: r.sentiment,
@@ -460,7 +461,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       // Buscar profiles apenas para os itens paginados
       const userIds = [...new Set(paginated.map(m => {
         // Extrair user_id do item original baseado no type
-        const originalItem = results.flatMap(r => r.data || []).find((d: any) => d.id === m.id);
+        const originalItem = results.flatMap(r => r.data || []).find((d: Record<string, unknown>) => d.id === m.id);
         return originalItem?.user_id;
       }).filter(Boolean))];
 
@@ -470,7 +471,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
 
         // Atribuir profiles
         paginated.forEach(m => {
-          const originalItem = results.flatMap(r => r.data || []).find((d: any) => d.id === m.id);
+          const originalItem = results.flatMap(r => r.data || []).find((d: Record<string, unknown>) => d.id === m.id);
           if (originalItem?.user_id && profileMap.has(originalItem.user_id)) {
             m.author = profileMap.get(originalItem.user_id) || null;
           }
@@ -533,6 +534,55 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
       toast.error('Erro ao atualizar status');
     }
   }, [manifests, fetchKPIs]);
+
+  const updateManifestCategory = useCallback(async (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => {
+    if (manifest.type !== 'urban' && manifest.type !== 'feedback') {
+      toast.error('Correção de categoria só para relatos urbanos');
+      return;
+    }
+    const originalCategory = manifest.urban_data?.category ?? '';
+    const originalSubcategory = manifest.urban_data?.subcategory ?? null;
+    if (originalCategory === newCategory && originalSubcategory === newSubcategory) {
+      toast.info('Nenhuma alteração');
+      return;
+    }
+    const previousManifests = [...manifests];
+    setManifests(prev => prev.map(m => {
+      if (m.id !== manifest.id) return m;
+      return {
+        ...m,
+        urban_data: m.urban_data ? { ...m.urban_data, category: newCategory, subcategory: newSubcategory } : undefined,
+      };
+    }));
+    try {
+      const { error: updateError } = await supabase
+        .from('urban_reports')
+        .update({ category: newCategory, subcategory: newSubcategory, updated_at: new Date().toISOString() })
+        .eq('id', manifest.id);
+      if (updateError) throw updateError;
+      const descriptionExcerpt = (manifest.description || '').slice(0, 500) || '(sem descrição)';
+      const { error: feedbackError } = await supabase
+        .from('report_classification_feedback')
+        .insert({
+          report_type: 'urban',
+          report_id: manifest.id,
+          original_category: originalCategory,
+          original_subcategory: originalSubcategory,
+          corrected_category: newCategory,
+          corrected_subcategory: newSubcategory,
+          description_excerpt: descriptionExcerpt,
+          source: 'admin',
+        });
+      if (feedbackError) {
+        console.warn('Feedback de classificação não registrado (RLS?):', feedbackError);
+      }
+      toast.success('Categoria atualizada; correção usada para melhorar a IA.');
+    } catch (error) {
+      setManifests(previousManifests);
+      console.error('Error updating category:', error);
+      toast.error('Erro ao atualizar categoria');
+    }
+  }, [manifests]);
 
   const updateBulkStatus = async (ids: { id: string; type: ManifestType }[], newStatus: string) => {
     try {
@@ -765,6 +815,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     pageSize,
     totalCount,
     updateManifestStatus,
+    updateManifestCategory,
     updateBulkStatus,
     deleteManifest,
     deleteBulkManifests,

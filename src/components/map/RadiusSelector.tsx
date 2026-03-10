@@ -8,10 +8,11 @@ interface RadiusSelectorProps {
 }
 
 const radiusOptions = [
-  { value: 1000, label: "1km" },
   { value: 2000, label: "2km" },
+  { value: 1000, label: "1km" },
   { value: 5000, label: "5km" },
   { value: 10000, label: "10km" },
+  { value: 500, label: "500m" },
 ];
 
 export const RadiusSelector = ({ radius, onRadiusChange }: RadiusSelectorProps) => {
@@ -33,7 +34,7 @@ export const RadiusSelector = ({ radius, onRadiusChange }: RadiusSelectorProps) 
         <Slider
           value={[radius]}
           onValueChange={([value]) => onRadiusChange(value)}
-          min={1000}
+          min={500}
           max={10000}
           step={500}
           className="mb-3"

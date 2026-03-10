@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -61,11 +61,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => 1900 + i).reverse();
 
-  useEffect(() => {
-    loadDemographics();
-  }, [userId]);
-
-  const loadDemographics = async () => {
+  const loadDemographics = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('user_demographics')
@@ -84,12 +80,18 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
         }
         if (data.gender) setGender(data.gender);
         if (data.race) setRace(data.race);
+        // social_class no cadastro vem como E/D/C/AB (complete-registration); exibir corretamente
         if (data.social_class) setSocialClass(data.social_class);
+        else setSocialClass("prefiro_nao_informar");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading demographics:", error);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadDemographics();
+  }, [loadDemographics]);
 
   const handleSave = async () => {
     try {
@@ -140,13 +142,12 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
       setTimeout(() => {
         navigate("/perfil");
       }, 500);
-    } catch (error: any) {
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
+    } catch (error: unknown) {
+      const err = error as { errors?: Array<{ message?: string }>; message?: string };
+      if (err?.errors) {
+        err.errors.forEach((e) => toast.error(e.message ?? 'Erro'));
       } else {
-        toast.error(error.message || "Erro ao salvar dados");
+        toast.error(err?.message || "Erro ao salvar dados");
       }
     } finally {
       setLoading(false);
@@ -305,6 +306,7 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
               <SelectContent>
                 <SelectItem value="A">Classe A (Acima de R$ 20.000)</SelectItem>
                 <SelectItem value="B">Classe B (R$ 10.000 - R$ 20.000)</SelectItem>
+                <SelectItem value="AB">Classe A/B (Acima de R$ 10.000)</SelectItem>
                 <SelectItem value="C">Classe C (R$ 4.000 - R$ 10.000)</SelectItem>
                 <SelectItem value="D">Classe D (R$ 2.000 - R$ 4.000)</SelectItem>
                 <SelectItem value="E">Classe E (Até R$ 2.000)</SelectItem>

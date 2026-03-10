@@ -62,6 +62,7 @@ export default function ReportsManagement() {
     pageSize,
     totalCount,
     updateManifestStatus,
+    updateManifestCategory,
     deleteManifest,
     deleteBulkManifests,
     exportToCSV,
@@ -439,6 +440,12 @@ export default function ReportsManagement() {
         onOpenChange={setDrawerOpen}
         manifest={selectedManifest}
         onStatusChange={updateManifestStatus}
+        onCategoryCorrected={async (manifest, newCategory, newSubcategory) => {
+          await updateManifestCategory(manifest, newCategory, newSubcategory);
+          setSelectedManifest(prev => prev && prev.id === manifest.id && prev.urban_data
+            ? { ...prev, urban_data: { ...prev.urban_data, category: newCategory, subcategory: newSubcategory } }
+            : prev);
+        }}
         onDelete={handleDeleteClick}
         onReferral={() => setReferralDialogOpen(true)}
       />

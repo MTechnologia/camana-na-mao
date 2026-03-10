@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const mockPatterns: Pattern[] = [
@@ -81,11 +81,7 @@ export const useReportPatterns = (lineId?: string) => {
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPatterns();
-  }, [lineId]);
-
-  const fetchPatterns = async () => {
+  const fetchPatterns = useCallback(async () => {
     try {
       setLoading(true);
       let query = supabase
@@ -106,7 +102,11 @@ export const useReportPatterns = (lineId?: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [lineId]);
+
+  useEffect(() => {
+    fetchPatterns();
+  }, [fetchPatterns]);
 
   return { patterns, loading, refetch: fetchPatterns };
 };

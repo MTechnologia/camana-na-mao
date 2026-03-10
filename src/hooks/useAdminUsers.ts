@@ -108,8 +108,14 @@ export const useAdminUsers = () => {
 
       toast.success('Roles atualizados com sucesso');
       await fetchUsers();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating roles:', error);
+      const err = error as { code?: string; message?: string };
+      if (err?.code === '23503') {
+        toast.error('Usuário não encontrado (pode ter sido excluído). Atualize a lista.');
+        await fetchUsers();
+        return;
+      }
       toast.error('Erro ao atualizar roles');
       throw error;
     }
@@ -134,25 +140,7 @@ export const useAdminUsers = () => {
         throw new Error(data.error);
       }
 
-      // Delete user roles
-      const { error: rolesError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (rolesError) {
-        console.warn('Error deleting user roles (user may already be cascade deleted):', rolesError);
-      }
-
-      // Delete user profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (profileError) {
-        console.warn('Error deleting profile (user may already be cascade deleted):', profileError);
-      }
+      // user_roles e profiles já são apagados pela Edge Function delete-user
 
       // Register audit log
       const { data: { user } } = await supabase.auth.getUser();
