@@ -959,6 +959,15 @@ export const INTENT_KEYWORDS = [
   'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'projetos', 'tramitação', 'tramitacao', 'em tramitação', 'em tramitacao', 'lei municipal', 'lei orgânica', 'lei organica',
   'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
   'qual vereador', 'vereadore', 'qero saber', 'sabe dos vereadores', 'vereadores de sp',
+  'entrar em contato com um vereador', 'entrar em contato com vereador', 'falar com um vereador', 'falar com vereador', 'fala com vereador',
+  'principais funções', 'funções de um vereador', 'consultar projetos de lei', 'projetos de lei da câmara', 'projetos de lei da camara',
+  'últimas votações', 'ultimas votações', 'votações da câmara', 'votacoes da camara',
+  'canal oficial', 'sugestões ou reclamações', 'sugestoes ou reclamacoes', 'sugestões reclamações',
+  'papel das comissões', 'comissões dentro da câmara', 'tipos de projetos', 'apresentados por vereadores',
+  'acompanhar as atividades dos vereadores', 'acompanhar atividades vereadores',
+  'estrutura da Câmara', 'estrutura da camara', 'participar de uma audiência', 'participar de audiencia',
+  'processo de votação', 'processo de votacao', 'votação de um PL', 'votacao de um PL',
+  'reunião da câmara', 'reuniao da camara', 'reunião da câmara hoje', 'alguma reunião',
   'orçamento', 'orcamento', 'emendas', 'para que serve', 'por que existe', 'quando foi', 'história da câmara',
   'como nasce uma lei', 'o que é uma audiência', 'diferença entre', 'diferenca entre', 'requisitos para ser vereador',
   'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
@@ -967,7 +976,9 @@ export const INTENT_KEYWORDS = [
   'população', 'populacao', 'habitantes', 'densidade', 'demografia', 'demográfico', 'censo', 'quantos habitantes',
   'sistema viário', 'sistema viario', 'sistema viária', 'via', 'vias', 'infraestrutura viária', 'trânsito', 'transito', 'ciclovia', 'ciclovias', 'malha viária',
   'transporte público', 'transporte publico', 'rede de transporte', 'linhas de ônibus', 'linhas de onibus', 'metrô', 'metro', 'cptm', 'bilhete único', 'bilhete unico',
-  'geosampa', 'geo sampa', 'dados da cidade', 'dados de são paulo', 'mapa da cidade', 'melhor ubs', 'qual ubs', 'unidades de saúde'
+  'geosampa', 'geo sampa', 'dados da cidade', 'dados de são paulo', 'mapa da cidade', 'melhor ubs', 'qual ubs', 'unidades de saúde',
+  // Perguntas genéricas (Não Funcionais: restaurante, shopping, prefeito) → ativam intent para RAG responder "fora do escopo"
+  'quem é o', 'quem e o', 'qual é o melhor', 'qual e o melhor', 'que horas',
 ];
 
 // Extract transport-specific fields - EXPANDED VOCABULARY
@@ -2985,9 +2996,11 @@ export function isInformationalQuestionAboutAudience(userMessage: string): boole
  * Usado para forçar intent general e acionar RAG em vez de iniciar fluxo de relato/feedback.
  */
 export function isInformationalQuestionAboutContact(userMessage: string): boolean {
-  const m = userMessage.trim().toLowerCase();
-  const chamber = /câmara|camara|municipal|legislativ/i.test(m);
-  const contact = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+)?(câmara|camara)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com|onde\s+posso\s+encontrar\s+(a\s+)?(câmara|camara)/i.test(m);
+  const m = userMessage.trim().toLowerCase()
+    .replace(/\bveread(o|or)\b/g, 'vereador')
+    .replace(/\bfala\s+com\b/g, 'falar com');
+  const chamber = /câmara|camara|municipal|legislativ|vereador/i.test(m);
+  const contact = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+|um\s+)?(câmara|camara|vereador)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com|onde\s+posso\s+encontrar|como\s+faz\s+pra\s+falar\s+com/i.test(m);
   return chamber && (contact || /como\s+entrar\s+em\s+contato/i.test(m));
 }
 
@@ -3001,6 +3014,36 @@ export function isInformationalQuestionAboutProjetosTramitacao(userMessage: stri
 export function isInformationalQuestionAboutBuscarAudiencia(userMessage: string): boolean {
   const m = userMessage.toLowerCase();
   return /(como\s+posso\s+)?buscar\s+(uma\s+)?(audi[eê]ncia|audiencia)|buscar\s+(audi[eê]ncia|audiencia)\s+p[uú]blica/i.test(m);
+}
+
+/** Pergunta claramente fora do escopo (shopping, restaurante, prefeito, multa, horário de comércio) → general para RAG responder "não temos essa informação", sem coletar CEP. */
+export function isOutOfScopeQuestion(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  return (
+    /(que\s+horas\s+)(fecha|abre|funciona)\s+(o\s+)?(shopping|restaurante|mercado|loja|comércio|comercio)/i.test(m) ||
+    /(shopping|restaurante|mercado)\s+(mais\s+próximo|mais\s+proximo|perto)/i.test(m) ||
+    /qual\s+é\s+o\s+melhor\s+restaurante/i.test(m) ||
+    /quem\s+é\s+o\s+prefeito/i.test(m) ||
+    /(resolv(er|a)|resolver|resolve)\s+(minha\s+)?multa/i.test(m) ||
+    /\bmulta\s+(de\s+)?trânsito|\bmulta\s+(de\s+)?transito/i.test(m)
+  );
+}
+
+/**
+ * Perguntas informativas sobre vereador ou Câmara que não devem acionar coleta de relato (CEP).
+ * Ex.: perfil da vereadora, frequência nas sessões, quem faltou, gastos da câmara, como falar com vereador.
+ * Baseado na planilha "plano de teste executado" e relatório M-TECH (Pontos Críticos a Endereçar).
+ */
+export function isInformationalQuestionAboutVereadorOrCamara(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  return (
+    /(mostre?\s+o\s+)?perfil\s+(da\s+)?(vereador(a|e)s?|vereadora)/i.test(m) ||
+    /frequ[eê]ncia\s+(do|da)\s+vereador(a|e)s?\s+(nas\s+)?sess[oõ]es/i.test(m) ||
+    /quais\s+vereadores\s+faltaram\s+(na\s+)?(última|ultima)\s+sess[aã]o/i.test(m) ||
+    /quanto\s+a\s+(c[aâ]mara|camara)\s+gasta\s*(por\s+m[eê]s)?/i.test(m) ||
+    /(como\s+posso\s+)?falar\s+com\s+(meu\s+)?vereador/i.test(m) ||
+    /onde\s+(ta|est[aá])\s+os\s+gastos\s+(dos\s+)?vereadores/i.test(m)
+  );
 }
 
 /** True quando o cidadão pergunta sobre linhas/paradas/previsão de ônibus (consulta Olho Vivo), não relato de problema. */
@@ -3037,11 +3080,23 @@ export function detectCollectionIntent(
     .map(m => m.content.toLowerCase())
     .join(' ');
   const fullUserContext = `${userOnlyContext} ${msgLower}`;
-  // Normalização de typos comuns para detecção de intent (ex.: "qero sabe dos vereadore" → match "quero"/"vereador")
+  // Normalização de typos comuns para detecção de intent (planilha plano de teste executado + Pontos Críticos)
   const normalizedForIntent = fullUserContext
     .replace(/\bqero\b/g, 'quero')
     .replace(/\bvereadore(s)?\b/g, 'vereador$1')
-    .replace(/\bsabe\s+dos\b/g, 'saber dos');
+    .replace(/\bvereadoe(s)?\b/g, 'vereador$1')
+    .replace(/\bveread(o|or)\b/g, 'vereador')
+    .replace(/\bsabe\s+dos\b/g, 'saber dos')
+    .replace(/\bmunicpal\b/g, 'municipal')
+    .replace(/\bprojeots?\b/g, 'projetos')
+    .replace(/\bprojetu(s)?\b/g, 'projeto$1')
+    .replace(/\bdi\s+lei\b/g, 'de lei')
+    .replace(/\bonde\s+ta\b/g, 'onde está')
+    .replace(/\bta\s+os\b/g, 'está os')
+    .replace(/\bleiiii+\b/g, 'lei')
+    .replace(/\bfala\s+(com|pra)\b/g, 'falar $1')
+    .replace(/\bfala\s+com\b/g, 'falar com')
+    .replace(/\breuniao\b/g, 'reunião');
   
   // Check for intent keywords (REQUIRED to activate tracker)
   const hasIntent = INTENT_KEYWORDS.some(kw => normalizedForIntent.includes(kw));
@@ -3430,7 +3485,7 @@ export function detectCollectionIntent(
   // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
   const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(normalizedUserMessage);
   const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(normalizedUserMessage);
-  const isContactQuestionAboutChamber = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+)?(câmara|camara)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com/i.test(fullUserContext);
+  const isContactQuestionAboutChamber = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+|um\s+)?(câmara|camara|vereador)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com|como\s+faz\s+pra\s+falar\s+com/i.test(normalizedForIntent);
   const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(normalizedUserMessage);
   const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
@@ -3497,6 +3552,15 @@ export function detectCollectionIntent(
   if (isQualVereadorOuSaber && mentionsChamber) {
     knowledgeScore = Math.max(knowledgeScore, 7);
     console.log('[detectCollectionIntent] Qual vereador / saber vereadores → boosting general for RAG');
+  }
+  // Planilha Funcionais / Não Funcionais: votações, canal oficial, comissões, processo legislativo, reunião
+  const isVotacoesOuCanal = /(últimas\s+)?vota[cç][oõ]es|canal\s+oficial|sugest[oõ]es\s+ou\s+reclama[cç][oõ]es/i.test(normalizedForIntent);
+  const isComissoesOuProcesso = /papel\s+das\s+comiss[oõ]es|comiss[oõ]es\s+(dentro\s+)?da\s+(c[aâ]mara|camara)|processo\s+legislativo|processo\s+de\s+vota[cç][aã]o|tipos\s+de\s+projetos|acompanhar\s+(as\s+)?atividades/i.test(normalizedForIntent);
+  const isReuniaoCamara = /reuni[aã]o\s+da\s+(c[aâ]mara|camara)|alguma\s+reuni[aã]o|tem\s+reuni[aã]o/i.test(normalizedForIntent);
+  const isConsultarProjetos = /consultar\s+projetos\s+de\s+lei|onde\s+(posso\s+)?consultar\s+os\s+projetos|onde\s+vejo\s+os\s+projetos/i.test(normalizedForIntent);
+  if (mentionsChamber && (isVotacoesOuCanal || isComissoesOuProcesso || isReuniaoCamara || isConsultarProjetos)) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Planilha Funcionais (votações/comissões/reunião/consultar projetos) → boosting general for RAG');
   }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });
