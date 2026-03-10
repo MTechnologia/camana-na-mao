@@ -82,11 +82,20 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
-    .replace(/\[LIGHT_JOURNEY:\w+\]/g, '');
+    .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
+  .replace(/\[APP_ACTIONS:audiencias\]/g, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
   result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
   
   return result;
+};
+
+/** Ações do app sugeridas na resposta (ex.: ver no módulo Audiências). Usado para exibir botões de redirecionamento. */
+export const getAppActionsFromContent = (content: string): { audiencias?: boolean } => {
+  if (!content) return {};
+  return {
+    ...(content.includes('[APP_ACTIONS:audiencias]') && { audiencias: true }),
+  };
 };
 
 /**
