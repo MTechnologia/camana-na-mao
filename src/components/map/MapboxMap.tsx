@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { DirectionsDrawer } from './DirectionsDrawer';
 import { useMapboxDirections } from '@/hooks/useMapboxDirections';
 import { formatDistanceStraightLine } from '@/lib/mapUtils';
+import { getServiceTypeMarkerChar } from '@/components/icons';
 
 interface Service {
   id: string;
@@ -55,30 +56,6 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
     tokenSaved ? mapboxToken : null
   );
 
-  const serviceIcons = useMemo<Record<string, string>>(() => ({
-    ubs: "🏥",
-    school: "🏫",
-    ceu: "🎭",
-    hospital: "🏥",
-    library: "📚",
-    sports_center: "⚽",
-    street_market: "🛒",
-    community_center: "🏘️",
-    daycare: "🍼",
-    park: "🌳",
-    social_assistance: "🤝",
-    police_station: "🚔",
-    transit_station: "🚌",
-    market: "🛒",
-    city_market: "🏪",
-    theater: "🎬",
-    museum: "🏛️",
-    cemetery: "🪦",
-    accessibility: "♿",
-    recycling_point: "♻️",
-    fire_station: "🚒",
-    other: "📍"
-  }), []);
 
   // Initialize map
   useEffect(() => {
@@ -141,7 +118,7 @@ export const MapboxMap = ({ userLocation, services, onServiceClick }: MapboxMapP
           name: s.name,
           service_type: s.service_type,
           distance: s.distance,
-          icon: serviceIcons[s.service_type] || serviceIcons.other,
+          icon: getServiceTypeMarkerChar(s.service_type),
         },
       })),
     };

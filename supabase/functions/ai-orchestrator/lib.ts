@@ -297,8 +297,18 @@ export function tryPatternBasedLabel(description: string, category: string): str
     via_publica: [
       { pattern: /buraco\s*(grande|enorme|gigante)?/i, label: 'Buraco na Via' },
       { pattern: /asfalto\s*(danificad|quebrad)/i, label: 'Asfalto Danificado' },
-      { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' },
-      { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' }
+      { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' }
+    ],
+    sinalizacao: [
+      { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' },
+      { pattern: /faixa\s*(de\s*pedestre|apagad)/i, label: 'Faixa de Pedestre' },
+      { pattern: /placa\s*(ca[íi]d|quebrad|torta)?/i, label: 'Placa de Sinalização' },
+      { pattern: /sinaliza[çc][ãa]o/i, label: 'Problema de Sinalização' }
+    ],
+    drenagem: [
+      { pattern: /drenagem|água\s*pluvial|pluvial|galeria|sarjeta/i, label: 'Drenagem / Água Pluvial' },
+      { pattern: /água\s*da\s*chuva|chuva\s*acumulad/i, label: 'Acúmulo de Água da Chuva' },
+      { pattern: /bueiro\s*pluvial/i, label: 'Bueiro Pluvial' }
     ],
     calcada: [
       { pattern: /calcada\s*(quebrad|irregular|danificad)|calçada/i, label: 'Calçada Irregular' },
@@ -919,7 +929,7 @@ export const INTENT_KEYWORDS = [
   
   // === Audiências e eventos ===
   'quando vai ter', 'próxima', 'próximo', 'inscrever', 'participar',
-  'audiência', 'audiencia', 'consulta pública',
+  'audiência', 'audiencia', 'consulta pública', 'como posso buscar', 'buscar audiência', 'buscar audiencia', 'buscar uma audiência',
   
   // === Histórico pessoal ===
   'meu relato', 'minha reclamação', 'meus relatos', 'minhas avaliações',
@@ -946,8 +956,18 @@ export const INTENT_KEYWORDS = [
   'onde fica a', 'endereço da câmara', 'endereco da camara',
   'salário', 'salario', 'remuneração', 'remuneracao', 'quanto ganha', 'valor do vereador', 'ganha um vereador',
   'competências', 'competencias', 'responsabilidades', 'quantos vereadores', 'mandato', 'presidente da câmara',
-  'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'lei municipal', 'lei orgânica', 'lei organica',
+  'comissões', 'comissoes', 'processo legislativo', 'projeto de lei', 'projetos', 'tramitação', 'tramitacao', 'em tramitação', 'em tramitacao', 'lei municipal', 'lei orgânica', 'lei organica',
   'regimento interno', 'tribuna livre', 'sessão ordinária', 'sessao ordinaria', 'votação', 'votacao', 'quórum', 'quorum',
+  'qual vereador', 'vereadore', 'qero saber', 'sabe dos vereadores', 'vereadores de sp',
+  'entrar em contato com um vereador', 'entrar em contato com vereador', 'falar com um vereador', 'falar com vereador', 'fala com vereador',
+  'principais funções', 'funções de um vereador', 'consultar projetos de lei', 'projetos de lei da câmara', 'projetos de lei da camara',
+  'últimas votações', 'ultimas votações', 'votações da câmara', 'votacoes da camara',
+  'canal oficial', 'sugestões ou reclamações', 'sugestoes ou reclamacoes', 'sugestões reclamações',
+  'papel das comissões', 'comissões dentro da câmara', 'tipos de projetos', 'apresentados por vereadores',
+  'acompanhar as atividades dos vereadores', 'acompanhar atividades vereadores',
+  'estrutura da Câmara', 'estrutura da camara', 'participar de uma audiência', 'participar de audiencia',
+  'processo de votação', 'processo de votacao', 'votação de um PL', 'votacao de um PL',
+  'reunião da câmara', 'reuniao da camara', 'reunião da câmara hoje', 'alguma reunião',
   'orçamento', 'orcamento', 'emendas', 'para que serve', 'por que existe', 'quando foi', 'história da câmara',
   'como nasce uma lei', 'o que é uma audiência', 'diferença entre', 'diferenca entre', 'requisitos para ser vereador',
   'cpi', 'cpis', 'comissão parlamentar de inquérito', 'comissao parlamentar de inquerito', 'comissão parlamentar', 'comissao parlamentar',
@@ -956,7 +976,9 @@ export const INTENT_KEYWORDS = [
   'população', 'populacao', 'habitantes', 'densidade', 'demografia', 'demográfico', 'censo', 'quantos habitantes',
   'sistema viário', 'sistema viario', 'sistema viária', 'via', 'vias', 'infraestrutura viária', 'trânsito', 'transito', 'ciclovia', 'ciclovias', 'malha viária',
   'transporte público', 'transporte publico', 'rede de transporte', 'linhas de ônibus', 'linhas de onibus', 'metrô', 'metro', 'cptm', 'bilhete único', 'bilhete unico',
-  'geosampa', 'geo sampa', 'dados da cidade', 'dados de são paulo', 'mapa da cidade', 'melhor ubs', 'qual ubs', 'unidades de saúde'
+  'geosampa', 'geo sampa', 'dados da cidade', 'dados de são paulo', 'mapa da cidade', 'melhor ubs', 'qual ubs', 'unidades de saúde',
+  // Perguntas genéricas (Não Funcionais: restaurante, shopping, prefeito) → ativam intent para RAG responder "fora do escopo"
+  'quem é o', 'quem e o', 'qual é o melhor', 'qual e o melhor', 'que horas',
 ];
 
 // Extract transport-specific fields - EXPANDED VOCABULARY
@@ -1185,9 +1207,9 @@ export async function geocodeAddressWithGoogle(
   }
 }
 
-// Valid categories for urban reports (source of truth)
+// Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
-  'iluminacao', 'calcada', 'via_publica', 'lixo', 'esgoto', 
+  'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
   'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
 ] as const;
 
@@ -1411,8 +1433,12 @@ export function autoClassifyCategory(description: string): {
     // === POLUIÇÃO SONORA (weight 9) ===
     { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
     
-    // === VIA PÚBLICA (EXPANDED - weight 8) ===
-    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    // === SINALIZAÇÃO (weight 8.5 — escopo OS) ===
+    { keywords: /sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?/i, category: 'sinalizacao', weight: 8.5 },
+    // === DRENAGEM (weight 8.5 — escopo OS, águas pluviais) ===
+    { keywords: /drenagem|água\s*pluvial|pluvial|galeria\s*(de\s*águas)?|sarjeta|bueiro\s*pluvial|água\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente/i, category: 'drenagem', weight: 8.5 },
+    // === VIA PÚBLICA (weight 8 — buraco, asfalto, pavimentação; semáforo/faixa em sinalizacao) ===
+    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
     
     // === ÁREA VERDE (EXPANDED - weight 8) ===
     { keywords: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)?|galho\s*(ca[íi]d|quebrad|solto)|poda|ra[íi]z\s*(expost|levant)|pra[çc]a|parque|jardim|mato\s*(alto|crescend)|capim\s*alto|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 8 },
@@ -1461,6 +1487,34 @@ export function autoClassifyCategory(description: string): {
   }
   
   return { category: null, confidence: 0, suggestedLabel };
+}
+
+/** Feedback loop: retorna categoria/subcategoria sugerida a partir de correções anteriores (descrição similar). */
+export async function getClassificationFromFeedback(
+  supabase: SupabaseClient,
+  description: string,
+  reportType: 'urban' | 'transport'
+): Promise<{ category: string; subcategory: string | null } | null> {
+  if (!description || description.trim().length < 5) return null;
+  const { data: rows } = await supabase
+    .from('report_classification_feedback')
+    .select('description_excerpt, corrected_category, corrected_subcategory')
+    .eq('report_type', reportType)
+    .not('description_excerpt', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (!rows?.length) return null;
+  const descLower = description.toLowerCase();
+  for (const row of rows) {
+    const excerpt = (row.description_excerpt || '').trim();
+    if (excerpt.length >= 10 && descLower.includes(excerpt.toLowerCase())) {
+      return {
+        category: row.corrected_category,
+        subcategory: row.corrected_subcategory ?? null
+      };
+    }
+  }
+  return null;
 }
 
 // Generate intuitive label from description when no pattern matches
@@ -1563,8 +1617,13 @@ export function mapLabelToCategory(label: string): string | null {
       'apagado', 'queimado', 'caído', 'caido', 'torto', 'inclinado', 'pendendo'
     ],
     'via_publica': [
-      'buraco', 'asfalto', 'rua', 'via', 'semáforo', 'semaforo', 'sinalização', 
-      'sinalizacao', 'cratera', 'pista', 'faixa', 'erosão', 'desmoronamento'
+      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada', 'pavimentação'
+    ],
+    'sinalizacao': [
+      'semáforo', 'semaforo', 'sinalização', 'sinalizacao', 'faixa', 'pedestre', 'placa', 'sinal'
+    ],
+    'drenagem': [
+      'drenagem', 'água pluvial', 'pluvial', 'galeria', 'sarjeta', 'chuva', 'bueiro pluvial'
     ],
     'calcada': [
       'calçada', 'calcada', 'passeio', 'guia', 'meio-fio', 'rampa', 'acessibilidade'
@@ -1788,7 +1847,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       // Direct category answer - EXPANDED with more synonyms
       const categoryMap: Record<string, string> = {
         'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
-        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'semáforo': 'via_publica', 'semaforo': 'via_publica', 'rua': 'via_publica',
+        'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'rua': 'via_publica',
+        'sinalização': 'sinalizacao', 'sinalizacao': 'sinalizacao', 'semáforo': 'sinalizacao', 'semaforo': 'sinalizacao', 'faixa': 'sinalizacao', 'placa': 'sinalizacao',
+        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem',
         'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
         'lixo': 'lixo', 'entulho': 'lixo', 'sujeira': 'lixo',
         'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto', 'água': 'esgoto', 'agua': 'esgoto',
@@ -2276,6 +2337,8 @@ export function accumulateFieldsFromHistory(
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
+          { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
@@ -3075,6 +3138,61 @@ export function isInformationalQuestionAboutAudience(userMessage: string): boole
   return /(o que (é|e) (uma |a )?(audiência|audiencia)(\s+pública|\s+publica)?|como funciona (a )?(audiência|audiencia)(\s+pública|\s+publica)?|o que são (as )?(audiências|audiencias)(\s+públicas|\s+publicas)?)/i.test(normalized);
 }
 
+/**
+ * Detecta se a mensagem é pergunta sobre como entrar em contato com a Câmara (telefone, email, endereço).
+ * Usado para forçar intent general e acionar RAG em vez de iniciar fluxo de relato/feedback.
+ */
+export function isInformationalQuestionAboutContact(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase()
+    .replace(/\bveread(o|or)\b/g, 'vereador')
+    .replace(/\bfala\s+com\b/g, 'falar com');
+  const chamber = /câmara|camara|municipal|legislativ|vereador/i.test(m);
+  const contact = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+|um\s+)?(câmara|camara|vereador)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com|onde\s+posso\s+encontrar|como\s+faz\s+pra\s+falar\s+com/i.test(m);
+  return chamber && (contact || /como\s+entrar\s+em\s+contato/i.test(m));
+}
+
+/** Pergunta sobre projetos em tramitação → deve acionar RAG (general). */
+export function isInformationalQuestionAboutProjetosTramitacao(userMessage: string): boolean {
+  const m = userMessage.toLowerCase();
+  return /projetos?\s+(est[aã]o\s+)?em\s+tramita[cç][aã]o|tramita[cç][aã]o\s+(de\s+)?projetos?|quais\s+projetos?\s+est[aã]o/i.test(m);
+}
+
+/** Pergunta sobre como buscar audiência pública → deve acionar RAG (general). */
+export function isInformationalQuestionAboutBuscarAudiencia(userMessage: string): boolean {
+  const m = userMessage.toLowerCase();
+  return /(como\s+posso\s+)?buscar\s+(uma\s+)?(audi[eê]ncia|audiencia)|buscar\s+(audi[eê]ncia|audiencia)\s+p[uú]blica/i.test(m);
+}
+
+/** Pergunta claramente fora do escopo (shopping, restaurante, prefeito, multa, horário de comércio) → general para RAG responder "não temos essa informação", sem coletar CEP. */
+export function isOutOfScopeQuestion(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  return (
+    /(que\s+horas\s+)(fecha|abre|funciona)\s+(o\s+)?(shopping|restaurante|mercado|loja|comércio|comercio)/i.test(m) ||
+    /(shopping|restaurante|mercado)\s+(mais\s+próximo|mais\s+proximo|perto)/i.test(m) ||
+    /qual\s+é\s+o\s+melhor\s+restaurante/i.test(m) ||
+    /quem\s+é\s+o\s+prefeito/i.test(m) ||
+    /(resolv(er|a)|resolver|resolve)\s+(minha\s+)?multa/i.test(m) ||
+    /\bmulta\s+(de\s+)?trânsito|\bmulta\s+(de\s+)?transito/i.test(m)
+  );
+}
+
+/**
+ * Perguntas informativas sobre vereador ou Câmara que não devem acionar coleta de relato (CEP).
+ * Ex.: perfil da vereadora, frequência nas sessões, quem faltou, gastos da câmara, como falar com vereador.
+ * Baseado na planilha "plano de teste executado" e relatório M-TECH (Pontos Críticos a Endereçar).
+ */
+export function isInformationalQuestionAboutVereadorOrCamara(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  return (
+    /(mostre?\s+o\s+)?perfil\s+(da\s+)?(vereador(a|e)s?|vereadora)/i.test(m) ||
+    /frequ[eê]ncia\s+(do|da)\s+vereador(a|e)s?\s+(nas\s+)?sess[oõ]es/i.test(m) ||
+    /quais\s+vereadores\s+faltaram\s+(na\s+)?(última|ultima)\s+sess[aã]o/i.test(m) ||
+    /quanto\s+a\s+(c[aâ]mara|camara)\s+gasta\s*(por\s+m[eê]s)?/i.test(m) ||
+    /(como\s+posso\s+)?falar\s+com\s+(meu\s+)?vereador/i.test(m) ||
+    /onde\s+(ta|est[aá])\s+os\s+gastos\s+(dos\s+)?vereadores/i.test(m)
+  );
+}
+
 /** True quando o cidadão pergunta sobre linhas/paradas/previsão de ônibus (consulta Olho Vivo), não relato de problema. */
 export function isBusInformationalQuery(userMessage: string): boolean {
   const m = userMessage.trim().toLowerCase();
@@ -3109,9 +3227,26 @@ export function detectCollectionIntent(
     .map(m => m.content.toLowerCase())
     .join(' ');
   const fullUserContext = `${userOnlyContext} ${msgLower}`;
+  // Normalização de typos comuns para detecção de intent (planilha plano de teste executado + Pontos Críticos)
+  const normalizedForIntent = fullUserContext
+    .replace(/\bqero\b/g, 'quero')
+    .replace(/\bvereadore(s)?\b/g, 'vereador$1')
+    .replace(/\bvereadoe(s)?\b/g, 'vereador$1')
+    .replace(/\bveread(o|or)\b/g, 'vereador')
+    .replace(/\bsabe\s+dos\b/g, 'saber dos')
+    .replace(/\bmunicpal\b/g, 'municipal')
+    .replace(/\bprojeots?\b/g, 'projetos')
+    .replace(/\bprojetu(s)?\b/g, 'projeto$1')
+    .replace(/\bdi\s+lei\b/g, 'de lei')
+    .replace(/\bonde\s+ta\b/g, 'onde está')
+    .replace(/\bta\s+os\b/g, 'está os')
+    .replace(/\bleiiii+\b/g, 'lei')
+    .replace(/\bfala\s+(com|pra)\b/g, 'falar $1')
+    .replace(/\bfala\s+com\b/g, 'falar com')
+    .replace(/\breuniao\b/g, 'reunião');
   
   // Check for intent keywords (REQUIRED to activate tracker)
-  const hasIntent = INTENT_KEYWORDS.some(kw => fullUserContext.includes(kw));
+  const hasIntent = INTENT_KEYWORDS.some(kw => normalizedForIntent.includes(kw));
   
   if (!hasIntent) {
     const excerpt = (userMessage || '').trim().slice(0, 120);
@@ -3509,6 +3644,7 @@ export function detectCollectionIntent(
   // Perguntas informativas sobre a Câmara/vereadores devem acionar RAG (general)
   const isInformationalQuestion = /^(o que (é|e) |como funciona|quem (é|são|sao)|qual (é|e) (a |o )?(função|papel|salário|salario|importância|importancia|competência|competencia)|qual a |qual o |quantos |quantas |me explica|o que são|quais são|quais sao|quais as |quais os |para que serve|por que existe|como nasce|diferença entre|requisitos )/i.test(normalizedUserMessage);
   const isLocationQuestionAboutChamber = /^(onde fica|qual (é|e) (o )?endereço|qual (é|e) (o )?endereco|como chego)/i.test(normalizedUserMessage);
+  const isContactQuestionAboutChamber = /como\s+(entrar\s+em\s+)?contato|entrar\s+em\s+contato\s+com|telefone\s+(da\s+)?(câmara|camara)?|email\s+(da\s+)?(câmara|camara)?|endere[cç]o\s+(da\s+)?(câmara|camara)?|falar\s+com\s+(a\s+|um\s+)?(câmara|camara|vereador)|ligar\s+para\s+(a\s+)?(câmara|camara)|contato\s+(da\s+)?(câmara|camara)|como\s+fal(o|ar)\s+com|como\s+faz\s+pra\s+falar\s+com/i.test(normalizedForIntent);
   const isParticipationQuestion = /^(como posso participar|como participar|participar das sessões|participar da sessão)/i.test(normalizedUserMessage);
   const mentionsChamber = fullUserContext.match(/câmara|camara|municipal|legislativo|vereador|vereadores/i);
   const mentionsSessionsOrAudience = fullUserContext.match(/sessões|sessão|audiência|audiencia|participar/i);
@@ -3532,6 +3668,10 @@ export function detectCollectionIntent(
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Informational/location question about Câmara → boosting general for RAG');
   }
+  if (mentionsChamber && isContactQuestionAboutChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 9);
+    console.log('[detectCollectionIntent] Contact question (telefone/email/contato com Câmara) → boosting general for RAG');
+  }
   if ((isParticipationQuestion && mentionsSessionsOrAudience) || (mentionsChamber && isParticipationQuestion)) {
     knowledgeScore = Math.max(knowledgeScore, 6);
     console.log('[detectCollectionIntent] Participation question (sessões/audiência) → boosting general for RAG');
@@ -3553,6 +3693,33 @@ export function detectCollectionIntent(
   if (isEstruturaFuncionamento) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
+  }
+  // Projetos em tramitação (PL 4 - planilha RAG)
+  const isProjetosTramitacao = /projetos?\s+(est[aã]o\s+)?em\s+tramita[cç][aã]o|tramita[cç][aã]o\s+(de\s+)?projetos?|quais\s+projetos?\s+est[aã]o/i.test(fullUserContext);
+  if (isProjetosTramitacao) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Projetos em tramitação → boosting general for RAG');
+  }
+  // Como buscar audiência pública (PL 8 - planilha RAG)
+  const isBuscarAudiencia = /(como\s+posso\s+)?buscar\s+(uma\s+)?(audi[eê]ncia|audiencia)|buscar\s+(audi[eê]ncia|audiencia)\s+p[uú]blica/i.test(fullUserContext);
+  if (isBuscarAudiencia) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Buscar audiência pública → boosting general for RAG');
+  }
+  // Qual vereador / saber dos vereadores (PL 11, 16 - planilha RAG)
+  const isQualVereadorOuSaber = /qual\s+vereador|quais\s+vereadores|(quero\s+)?saber\s+(dos\s+)?(os\s+)?vereadores|vereadore?s?\s+de\s+sp/i.test(normalizedForIntent);
+  if (isQualVereadorOuSaber && mentionsChamber) {
+    knowledgeScore = Math.max(knowledgeScore, 7);
+    console.log('[detectCollectionIntent] Qual vereador / saber vereadores → boosting general for RAG');
+  }
+  // Planilha Funcionais / Não Funcionais: votações, canal oficial, comissões, processo legislativo, reunião
+  const isVotacoesOuCanal = /(últimas\s+)?vota[cç][oõ]es|canal\s+oficial|sugest[oõ]es\s+ou\s+reclama[cç][oõ]es/i.test(normalizedForIntent);
+  const isComissoesOuProcesso = /papel\s+das\s+comiss[oõ]es|comiss[oõ]es\s+(dentro\s+)?da\s+(c[aâ]mara|camara)|processo\s+legislativo|processo\s+de\s+vota[cç][aã]o|tipos\s+de\s+projetos|acompanhar\s+(as\s+)?atividades/i.test(normalizedForIntent);
+  const isReuniaoCamara = /reuni[aã]o\s+da\s+(c[aâ]mara|camara)|alguma\s+reuni[aã]o|tem\s+reuni[aã]o/i.test(normalizedForIntent);
+  const isConsultarProjetos = /consultar\s+projetos\s+de\s+lei|onde\s+(posso\s+)?consultar\s+os\s+projetos|onde\s+vejo\s+os\s+projetos/i.test(normalizedForIntent);
+  if (mentionsChamber && (isVotacoesOuCanal || isComissoesOuProcesso || isReuniaoCamara || isConsultarProjetos)) {
+    knowledgeScore = Math.max(knowledgeScore, 8);
+    console.log('[detectCollectionIntent] Planilha Funcionais (votações/comissões/reunião/consultar projetos) → boosting general for RAG');
   }
   if (knowledgeScore > 0) {
     scores.push({ type: 'general', score: knowledgeScore, fields: {} });
@@ -4898,6 +5065,8 @@ export async function executeTool(
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
           calcada: 'Calçada',
+          sinalizacao: 'Sinalização',
+          drenagem: 'Drenagem',
           lixo: 'Lixo/Entulho',
           esgoto: 'Esgoto/Bueiro',
           area_verde: 'Área Verde',
@@ -5107,7 +5276,7 @@ export async function executeTool(
         }
         
         // === HARD VALIDATION FOR RISK CATEGORIES ===
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'sinalizacao', 'drenagem'];
         
         if (RISK_CATEGORIES.includes(args.category)) {
           // Require risk_level for risk categories
@@ -5116,7 +5285,9 @@ export async function executeTool(
               via_publica: 'via pública',
               iluminacao: 'iluminação',
               esgoto: 'esgoto/alagamento',
-              area_verde: 'área verde'
+              area_verde: 'área verde',
+              sinalizacao: 'sinalização',
+              drenagem: 'drenagem'
             };
             const label = categoryLabels[args.category] || args.category;
             // Add FIELD_REQUEST marker for deterministic capture of risk_level
@@ -5225,6 +5396,8 @@ export async function executeTool(
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
           calcada: 'Calçada',
+          sinalizacao: 'Sinalização',
+          drenagem: 'Drenagem',
           lixo: 'Lixo/Entulho',
           esgoto: 'Esgoto/Bueiro',
           area_verde: 'Área Verde',
@@ -5288,7 +5461,7 @@ export async function executeTool(
         
         // Build impact section (only for risk categories)
         let impactSection = '';
-        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
+        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
         if (riskCategories.includes(args.category) && args.risk_level) {
           const impactParts = [];
           if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
@@ -6055,6 +6228,8 @@ export async function executeTool(
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
           calcada: 'Calçada',
+          sinalizacao: 'Sinalização',
+          drenagem: 'Drenagem',
           lixo: 'Lixo/Entulho',
           esgoto: 'Esgoto/Bueiro',
           area_verde: 'Área Verde',

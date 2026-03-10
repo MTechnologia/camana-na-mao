@@ -13,6 +13,7 @@ interface CallbackPayload {
   processed_data: {
     priority?: string;
     validated_category?: string;
+    validated_subcategory?: string;
     tags?: string[];
     enriched_data?: Record<string, unknown>;
     workflow_id?: string;
@@ -69,16 +70,67 @@ serve(async (req) => {
         status: 'received'
       });
 
-    // Prepare update data
-    const updateData = {
+    const validatedCategory = payload.processed_data.validated_category;
+    const validatedSubcategory = payload.processed_data.validated_subcategory ?? null;
+
+    // Feedback loop: se N8N enviou categoria validada diferente da atual, registrar correção e aplicar
+    if (payload.report_type === 'urban' && validatedCategory) {
+      const { data: report } = await supabase
+        .from('urban_reports')
+        .select('category, subcategory, description')
+        .eq('id', payload.report_id)
+        .single();
+
+      if (report && report.category !== validatedCategory) {
+        const excerpt = (report.description || '').slice(0, 500);
+        await supabase.from('report_classification_feedback').insert({
+          report_type: 'urban',
+          report_id: payload.report_id,
+          original_category: report.category,
+          original_subcategory: report.subcategory ?? null,
+          corrected_category: validatedCategory,
+          corrected_subcategory: validatedSubcategory,
+          description_excerpt: excerpt || '(sem descrição)',
+          source: 'n8n'
+        });
+      }
+    } else if (payload.report_type === 'transport' && validatedCategory) {
+      const { data: report } = await supabase
+        .from('transport_reports')
+        .select('report_type as category, description')
+        .eq('id', payload.report_id)
+        .single();
+
+      if (report && (report as { category: string }).category !== validatedCategory) {
+        const excerpt = ((report as { description?: string }).description || '').slice(0, 500);
+        await supabase.from('report_classification_feedback').insert({
+          report_type: 'transport',
+          report_id: payload.report_id,
+          original_category: (report as { category: string }).category,
+          original_subcategory: null,
+          corrected_category: validatedCategory,
+          corrected_subcategory: validatedSubcategory,
+          description_excerpt: excerpt || '(sem descrição)',
+          source: 'n8n'
+        });
+      }
+    }
+
+    // Prepare update data (aplicar categoria validada no relato quando enviada)
+    const updateData: Record<string, unknown> = {
       n8n_processed: true,
       n8n_processed_at: new Date().toISOString(),
       n8n_priority: payload.processed_data.priority,
-      n8n_validated_category: payload.processed_data.validated_category,
+      n8n_validated_category: validatedCategory,
       n8n_tags: payload.processed_data.tags,
       n8n_enriched_data: payload.processed_data.enriched_data,
       n8n_workflow_id: payload.processed_data.workflow_id
     };
+    if (payload.report_type === 'urban' && validatedCategory) {
+      (updateData as Record<string, string | null>).category = validatedCategory;
+      if (validatedSubcategory != null) (updateData as Record<string, string | null>).subcategory = validatedSubcategory;
+    }
+    // transport: só persiste n8n_validated_category; report_type não é sobrescrito
 
     // Update the appropriate table
     let updateResult;

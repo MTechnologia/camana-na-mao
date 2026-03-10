@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Phone, ExternalLink, Clock, Info } from "lucide-react";
+import { ServiceTypeIcon } from "@/components/icons";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
 import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay, getOpeningHoursText } from "@/lib/mapUtils";
@@ -28,31 +29,6 @@ interface ServiceCardProps {
   servicesOffered?: string | null;
   onClick?: () => void;
 }
-
-const serviceIcons: Record<string, string> = {
-  ubs: "🏥",
-  school: "🏫",
-  ceu: "🎭",
-  hospital: "🏥",
-  library: "📚",
-  sports_center: "⚽",
-  street_market: "🛒",
-  community_center: "🏘️",
-  daycare: "🍼",
-  park: "🌳",
-  social_assistance: "🤝",
-  police_station: "🚔",
-  transit_station: "🚌",
-  market: "🛒",
-  city_market: "🏪",
-  theater: "🎬",
-  museum: "🏛️",
-  cemetery: "🪦",
-  accessibility: "♿",
-  recycling_point: "♻️",
-  fire_station: "🚒",
-  other: "📍"
-};
 
 const serviceLabels: Record<string, string> = {
   ubs: "UBS",
@@ -117,8 +93,8 @@ export const ServiceCard = ({
     >
       <CardContent className="p-4">
         <div className="flex gap-3">
-          <div className="text-3xl" aria-hidden="true">
-            {serviceIcons[serviceType] || serviceIcons.other}
+          <div className="shrink-0" aria-hidden="true">
+            <ServiceTypeIcon serviceType={serviceType} size={40} />
           </div>
           
           <div className="flex-1 min-w-0">

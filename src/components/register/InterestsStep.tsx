@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { INTEREST_ICONS } from "@/components/icons";
 import CollapsibleInfoCard from "./CollapsibleInfoCard";
 
 const INTEREST_CATEGORIES = [
@@ -51,7 +52,12 @@ const InterestsStep = ({ selectedInterests, onToggle, onContinue, loading }: Int
                 : "border-border bg-card hover:border-primary/50"
             }`}
           >
-            <div className="text-2xl mb-2">{category.icon}</div>
+            <div className="flex items-center justify-center w-9 h-9 mb-2 text-primary">
+              {INTEREST_ICONS[category.id] && (() => {
+                const Icon = INTEREST_ICONS[category.id];
+                return <Icon size={28} aria-hidden />;
+              })()}
+            </div>
             <h3 className="font-semibold text-foreground text-sm mb-0.5">
               {category.label}
             </h3>

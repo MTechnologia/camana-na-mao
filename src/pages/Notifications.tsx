@@ -9,6 +9,7 @@ import { Trash2, Check, CheckCheck } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { getNotificationType, getNotificationPriority } from "@/constants/notificationTypes";
+import { NOTIFICATION_TYPE_ICONS } from "@/components/icons";
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -111,9 +112,17 @@ const Notifications = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <Badge 
                         variant="secondary" 
-                        className={`text-xs ${getNotificationType(notification.type).color}`}
+                        className={`text-xs inline-flex items-center gap-1 ${getNotificationType(notification.type).color}`}
                       >
-                        {getNotificationType(notification.type).icon} {getNotificationType(notification.type).label}
+                        {NOTIFICATION_TYPE_ICONS[notification.type] && (
+                          <span className="shrink-0 inline-flex" aria-hidden>
+                            {(() => {
+                              const Icon = NOTIFICATION_TYPE_ICONS[notification.type];
+                              return Icon ? <Icon size={12} /> : null;
+                            })()}
+                          </span>
+                        )}
+                        {getNotificationType(notification.type).label}
                       </Badge>
                       
                       {notification.priority === 'high' && (

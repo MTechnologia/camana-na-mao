@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 // CORS para preflight: entrypoint NÃO importa lib para OPTIONS passar mesmo se lib falhar no cold start
 const PREFLIGHT_CORS: Record<string, string> = {
@@ -246,7 +246,8 @@ serve(async (req) => {
       }
       const categoryToIssueType: Record<string, string> = {
         'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
-        'calcada': 'urbanismo', 'calçada': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
+        'calcada': 'urbanismo', 'calçada': 'urbanismo', 'sinalizacao': 'urbanismo', 'sinalização': 'urbanismo',
+        'drenagem': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
         'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
       };
       let issueType = 'urbanismo';
@@ -534,16 +535,85 @@ serve(async (req) => {
         }
       } else {
         // Stay in light journey - pass through to AI without deterministic flow
-        collectionIntent = { type: frontendCollectionType as lib.CollectionIntent['type'], fields: {} };
+        // Correção: se frontend enviou "services" mas a mensagem é confirmação de endereço e o histórico
+        // é de relato urbano (ex.: semáforos + "Qual é a avenida?"), preservar urban_report para não perder contexto
+        const isAddressConfirmationLight =
+          /endere[cç]o\s*selecionado\s*:/i.test(lastUserMsg) ||
+          (/CEP\s*:\s*\d{5}-?\d{3}/i.test(lastUserMsg) && /(avenida|rua|r\.|al\.|pra[cç]a)/i.test(lastUserMsg));
+        if (frontendCollectionType === 'services' && isAddressConfirmationLight) {
+          const urbanAccumulated = lib.accumulateFieldsFromHistory(messages, 'urban_report');
+          const hasUrbanContext =
+            (urbanAccumulated.category || urbanAccumulated.description) &&
+            (lib.isGenericIntentText(String(urbanAccumulated.description || '')) === false || urbanAccumulated.category);
+          const lastAssistantContentRaw = (messages as Record<string, unknown>[]).filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
+          const lastAssistantTextForAddress = getContentText(lastAssistantContentRaw);
+          const assistantAskedForAddress =
+            /qual\s*(é|e)\s*(a\s*)?(avenida|rua)|CEP\s*do\s*local|endere[cç]o\s*do\s*local|onde\s*fica/i.test(lastAssistantTextForAddress) ||
+            /\[COLLECTION_PROGRESS:urban_report\]/i.test(lastAssistantTextForAddress);
+          if (hasUrbanContext && assistantAskedForAddress) {
+            collectionIntent = { type: 'urban_report', fields: {} };
+            console.log('[ai-orchestrator] Overriding services → urban_report: address confirmation in urban report context');
+          }
+        }
+        if (!collectionIntent) {
+          collectionIntent = { type: frontendCollectionType as lib.CollectionIntent['type'], fields: {} };
+        }
       }
     } else {
       // Fallback: detect intent from message content
-      collectionIntent = lib.detectCollectionIntent(lastUserMsg, messages);
+      // Preservar contexto: se a última mensagem for só confirmação de endereço/CEP e o histórico
+      // já indica relato urbano (categoria + descrição), não re-detectar como "services"
+      const isAddressConfirmation =
+        /endere[cç]o\s*selecionado\s*:/i.test(lastUserMsg) ||
+        (/CEP\s*:\s*\d{5}-?\d{3}/i.test(lastUserMsg) && /(avenida|rua|r\.|al\.|pra[cç]a)/i.test(lastUserMsg));
+      if (isAddressConfirmation) {
+        const urbanAccumulated = lib.accumulateFieldsFromHistory(messages, 'urban_report');
+        const hasUrbanContext =
+          (urbanAccumulated.category || urbanAccumulated.description) &&
+          (lib.isGenericIntentText(String(urbanAccumulated.description || '')) === false || urbanAccumulated.category);
+        const lastAssistantContentRaw = (messages as Record<string, unknown>[]).filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
+        const lastAssistantTextForAddress = getContentText(lastAssistantContentRaw);
+        const assistantAskedForAddress =
+          /qual\s*(é|e)\s*(a\s*)?(avenida|rua)|CEP\s*do\s*local|endere[cç]o\s*do\s*local|onde\s*fica/i.test(lastAssistantTextForAddress) ||
+          /\[COLLECTION_PROGRESS:urban_report\]/i.test(lastAssistantTextForAddress);
+        if (hasUrbanContext && assistantAskedForAddress) {
+          collectionIntent = { type: 'urban_report', fields: {} };
+          console.log('[ai-orchestrator] Preserving urban_report context: last message is address confirmation');
+        }
+      }
+      if (!collectionIntent) {
+        collectionIntent = lib.detectCollectionIntent(lastUserMsg, messages);
+      }
     }
     
     // Pergunta informativa sobre audiência ("o que é audiência pública?", etc.) → sempre RAG (general)
     if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutAudience(lastUserMsg)) {
       console.log('[ai-orchestrator] Overriding intent to general: informational question about audiência → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta sobre contato com a Câmara (telefone, email, como entrar em contato) → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutContact(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: contact question (como entrar em contato) → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta sobre projetos em tramitação → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutProjetosTramitacao(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: projetos em tramitação → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta sobre como buscar audiência pública → sempre RAG (general)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutBuscarAudiencia(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: buscar audiência pública → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta fora do escopo (shopping, restaurante, prefeito, multa, horário) → general para não pedir CEP
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isOutOfScopeQuestion(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: pergunta fora do escopo (shopping/restaurante/prefeito/multa) → RAG');
+      collectionIntent = { type: 'general', fields: {} };
+    }
+    // Pergunta informativa sobre vereador/Câmara (perfil, frequência, faltas, gastos, falar com vereador) → general (planilha + Pontos Críticos)
+    if (collectionIntent && collectionIntent.type !== 'general' && lib.isInformationalQuestionAboutVereadorOrCamara(lastUserMsg)) {
+      console.log('[ai-orchestrator] Overriding intent to general: pergunta informativa vereador/câmara → RAG');
       collectionIntent = { type: 'general', fields: {} };
     }
     
@@ -602,10 +672,11 @@ serve(async (req) => {
     // ========== DETERMINISTIC NEXT STEP ENGINE ==========
     // Smart field sequencing that prevents repeated questions
     
-    function getNextMissingField(
-      collectionType: string, 
-      fields: Record<string, unknown>
-    ): { field: string | null; picker: string | null; prompt: string | null } {
+    async function getNextMissingField(
+      collectionType: string,
+      fields: Record<string, unknown>,
+      supabaseClient: SupabaseClient
+    ): Promise<{ field: string | null; picker: string | null; prompt: string | null }> {
       
       if (collectionType === 'urban_report') {
         // === NEW FLOW: Description FIRST, then category, then location ===
@@ -634,13 +705,20 @@ serve(async (req) => {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(cityEarly) };
         }
         
-        // 2. CATEGORY + SUBCATEGORY - try auto-classification with intuitive label, fallback to 'outro'
+        // 2. CATEGORY + SUBCATEGORY - feedback loop primeiro, depois auto-classification
         if (!fields.category) {
           const description = (fields.description || '').toLowerCase();
           
+          // Feedback loop: correções anteriores com descrição similar têm prioridade
+          const feedback = await lib.getClassificationFromFeedback(supabaseClient, fields.description || '', 'urban');
+          if (feedback) {
+            fields.category = feedback.category;
+            fields.subcategory = feedback.subcategory || lib.generateLabelFromDescription(fields.description || '');
+            fields._auto_classified = true;
+            fields._from_feedback = true;
+            console.log('[getNextMissingField] Category from feedback:', feedback.category, 'label:', fields.subcategory);
+          } else if (/(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?)/i.test(description)) {
           // CRITICAL: Check for urgent/grave problems first (security, violence, drugs, noise)
-          if (/(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?)/i.test(description)) {
-            // Security/violence issues - classify as 'poluicao' (noise/disturbance) or 'outro' (security)
             if (/(barulho|som|música|música|festa|balada|ruído|ruido)/i.test(description)) {
               fields.category = 'poluicao';
               fields.subcategory = 'Perturbação Sonora com Risco';
@@ -1005,7 +1083,8 @@ serve(async (req) => {
       const description = descText;
       const categoryToIssueType: Record<string, string> = {
         'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
-        'calcada': 'urbanismo', 'calçada': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
+        'calcada': 'urbanismo', 'calçada': 'urbanismo', 'sinalizacao': 'urbanismo', 'sinalização': 'urbanismo',
+        'drenagem': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
         'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
       };
       let issueType = 'urbanismo';
@@ -1259,7 +1338,7 @@ serve(async (req) => {
     }
 
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
-      nextFieldInfo = getNextMissingField(collectionIntent.type, accumulatedFields);
+      nextFieldInfo = await getNextMissingField(collectionIntent.type, accumulatedFields, supabase);
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
       
       // === CRITICAL FIX: Auto-call create function when all fields are ready ===
@@ -2218,6 +2297,10 @@ ${empathyNote}
       if (collectionIntent && !responseContent.includes('[COLLECTION_PROGRESS:')) {
         const fieldsJson = JSON.stringify(accumulatedFields);
         responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]${responseContent}`;
+      }
+      // RAG sobre audiências: oferecer ver no app (chat + módulo)
+      if (collectionIntent?.type === 'general' && (lib.isInformationalQuestionAboutBuscarAudiencia(lastUserMsg) || lib.isInformationalQuestionAboutAudience(lastUserMsg))) {
+        responseContent += '\n\n[APP_ACTIONS:audiencias]';
       }
       
       const ssePayload = JSON.stringify({
