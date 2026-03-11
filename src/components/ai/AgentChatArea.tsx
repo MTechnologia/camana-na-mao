@@ -92,10 +92,25 @@ const AgentChatArea = () => {
     return undefined;
   }, [messages]);
 
-  // Mostrar botões de anexar fotos durante relato urbano ou de transporte (conforme relato urbano)
+  // Mostrar botões de anexar fotos apenas após "Você deseja anexar imagens?" e usuário ter respondido Sim (backend envia "Pode anexar até 3 fotos")
+  const hasReachedAttachPhotosStep = useMemo(() => {
+    return messages.some(
+      (m) =>
+        m.role === "assistant" && m.content.includes("Pode anexar até 3 fotos")
+    );
+  }, [messages]);
+
   const showUrbanAttachmentUI = useMemo(() => {
-    return collectionType === "urban_report" || collectionType === "transport_report";
-  }, [collectionType]);
+    return (
+      (collectionType === "urban_report" || collectionType === "transport_report") &&
+      hasReachedAttachPhotosStep
+    );
+  }, [collectionType, hasReachedAttachPhotosStep]);
+
+  // Registrar habilitado só após anexar fotos quando estamos no passo "Pode anexar até 3 fotos"
+  const disableRegistrarUntilPhotosAttached = useMemo(() => {
+    return hasReachedAttachPhotosStep && chatPhotoPreviews.length === 0;
+  }, [hasReachedAttachPhotosStep, chatPhotoPreviews.length]);
 
   // Força re-render após hydration completa
   useEffect(() => {
@@ -396,6 +411,7 @@ const AgentChatArea = () => {
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                         onApplyNearbyFilters={handleApplyNearbyFilters}
                         onSendMessage={handleSendMessage}
+                        disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
                       />
                     </motion.div>
                   );

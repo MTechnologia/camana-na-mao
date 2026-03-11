@@ -113,6 +113,8 @@ interface ChatMessageBubbleProps {
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
   /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
   onSendMessage?: (message: string) => void;
+  /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
+  disableRegistrarUntilPhotosAttached?: boolean;
 }
 
 const ChatMessageBubble = ({ 
@@ -135,6 +137,7 @@ const ChatMessageBubble = ({
   onRequestAudienciasWithFilters,
   onApplyNearbyFilters,
   onSendMessage,
+  disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -894,17 +897,22 @@ const ChatMessageBubble = ({
         {/* Botões de resposta rápida (Sim/Não, Registrar, Confirmar/Corrigir) */}
         {quickReplyButtons.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {quickReplyButtons.map((btn) => (
-              <Button
-                key={btn.value}
-                variant="default"
-                size="sm"
-                onClick={() => onSendMessage?.(btn.value)}
-                className="rounded-lg"
-              >
-                {btn.label}
-              </Button>
-            ))}
+            {quickReplyButtons.map((btn) => {
+              const isRegistrar = btn.value === "registrar";
+              const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
+              return (
+                <Button
+                  key={btn.value}
+                  variant="default"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => !disabled && onSendMessage?.(btn.value)}
+                  className="rounded-lg"
+                >
+                  {btn.label}
+                </Button>
+              );
+            })}
           </div>
         )}
 

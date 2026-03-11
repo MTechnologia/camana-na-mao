@@ -7,14 +7,20 @@ const CMSP_AUDIENCIA_BASE = "https://www.saopaulo.sp.leg.br/audienciaspublicas/a
 const CMSP_AJAX_URL = "https://www.saopaulo.sp.leg.br/audienciaspublicas/wp-admin/admin-ajax.php";
 const NINJA_FORM_ID = 2;
 
-/** Campos do formulário Ninja (form_id=2) na CMSP */
-const FIELD_NAMES = {
+/** Campos do formulário Ninja (form_id=2) na CMSP – usados quando a página não expõe outros IDs ou em fallback */
+const FIELD_NAMES_FORM_2 = {
   nome: 7,
   email: 9,
   telefone: 10,
   apCode: 19,
   lgpd: 94,
 } as const;
+
+/** Conjuntos de field IDs conhecidos por form_id (CMSP pode ter form 1 com mesmos IDs ou diferentes) */
+const FIELD_IDS_BY_FORM: Record<number, Record<string, number>> = {
+  1: { nome: 7, email: 9, telefone: 10, apCode: 19, lgpd: 94 },
+  2: { nome: 7, email: 9, telefone: 10, apCode: 19, lgpd: 94 },
+};
 
 export interface NinjaInscricaoInput {
   nome: string;
@@ -26,6 +32,8 @@ export interface NinjaInscricaoInput {
   referer?: string;
   /** form_id do Ninja Forms (extraído da página se não informado). */
   formId?: number;
+  /** IDs dos campos por nome (se não informado, usa FIELD_IDS_BY_FORM[formId] ou form 2). */
+  fieldIds?: Record<string, number>;
 }
 
 export interface NinjaSubmitSuccess {
@@ -74,29 +82,42 @@ export function extractNinjaSecurity(html: string): string | null {
 
 /**
  * Extrai o form_id do formulário de inscrição (Ninja Forms) no HTML da página.
- * Procura form.id='X' no bloco que contém "Inscrições" ou "Event Registration".
+ * Ninja Forms pode expor formID/form_id no nfFrontEnd ou em form.id, data-form-id, etc.
  */
 export function extractNinjaFormId(html: string): number | null {
   if (!html || typeof html !== "string") return null;
-  const m = html.match(/form\.id\s*=\s*['"](\d+)['"]/);
-  if (m && m[1]) {
-    const n = parseInt(m[1], 10);
-    if (n >= 1 && n <= 9999) return n;
+  const patterns: Array<{ re: RegExp; group: number }> = [
+    { re: /["']formID["']\s*:\s*["']?(\d+)["']?/i, group: 1 },
+    { re: /["']form_id["']\s*:\s*(\d+)/i, group: 1 },
+    { re: /form\.id\s*=\s*['"]?(\d+)['"]?/i, group: 1 },
+    { re: /data-form-id=["'](\d+)["']/i, group: 1 },
+    { re: /nf-form-(\d+)(?:_\d+)?/i, group: 1 },
+    { re: /ninja_form[^\]]*id=(\d+)/i, group: 1 },
+  ];
+  for (const { re, group } of patterns) {
+    const m = html.match(re);
+    const val = m?.[group];
+    if (val) {
+      const n = parseInt(val, 10);
+      if (n >= 1 && n <= 9999) return n;
+    }
   }
   return null;
 }
 
 /**
  * Monta o formData no formato esperado pelo Ninja Forms (JSON string).
+ * Usa fieldIds do input, ou FIELD_IDS_BY_FORM[formId], ou fallback form 2.
  */
 function buildFormDataPayload(input: NinjaInscricaoInput): string {
   const formId = input.formId ?? NINJA_FORM_ID;
+  const ids = input.fieldIds ?? FIELD_IDS_BY_FORM[formId] ?? FIELD_NAMES_FORM_2;
   const fields: Record<string, unknown> = {
-    [String(FIELD_NAMES.nome)]: input.nome.trim(),
-    [String(FIELD_NAMES.email)]: input.email.trim(),
-    [String(FIELD_NAMES.telefone)]: input.telefone.trim(),
-    [String(FIELD_NAMES.apCode)]: input.apCode.trim(),
-    [String(FIELD_NAMES.lgpd)]: 1,
+    [String(ids.nome)]: input.nome.trim(),
+    [String(ids.email)]: input.email.trim(),
+    [String(ids.telefone)]: input.telefone.trim(),
+    [String(ids.apCode)]: input.apCode.trim(),
+    [String(ids.lgpd)]: 1,
   };
   const formData = {
     form_id: formId,
@@ -161,7 +182,8 @@ export async function submitNinjaForm(input: NinjaInscricaoInput): Promise<Ninja
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       "X-Requested-With": "XMLHttpRequest",
       Referer: referer,
-      "User-Agent": "CamaraNaMao/1.0 (Integracao CMSP)",
+      Origin: "https://www.saopaulo.sp.leg.br",
+      "User-Agent": "Mozilla/5.0 (compatible; CamaraNaMao/1.0; Integracao CMSP)",
     },
     body,
   });
@@ -191,9 +213,11 @@ export async function submitNinjaForm(input: NinjaInscricaoInput): Promise<Ninja
   const dataErrors = obj?.data?.errors as unknown;
 
   if (errors !== undefined && errors !== null) {
+    console.warn("[inscricao-ninja] CMSP respondeu com errors (raw):", JSON.stringify(errors));
     return { ok: false, errors: mapNinjaErrors(errors) };
   }
   if (dataErrors !== undefined && dataErrors !== null) {
+    console.warn("[inscricao-ninja] CMSP respondeu com data.errors (raw):", JSON.stringify(dataErrors));
     return { ok: false, errors: mapNinjaErrors(dataErrors) };
   }
 
@@ -238,8 +262,29 @@ export async function fetchPageAndSubmit(
   }
 
   const html = await pageRes.text();
+
+  // CMSP remove/desativa o formulário quando as inscrições encerram; detectar na página e evitar POST que retorna "Formulário não existe".
+  const inscricoesEncerradas =
+    /inscri[çc][oõ]es\s+encerradas?/i.test(html) ||
+    /inscri[çc][oõ]es\s+para\s+(?:participa[çc][aã]o|manifesta[çc][aã]o)[^.]*foram\s+encerradas/i.test(html);
+  if (inscricoesEncerradas) {
+    return {
+      ok: false,
+      errors: ["As inscrições para esta audiência já foram encerradas. Você pode comparecer presencialmente ou enviar manifestação por escrito pelo site da Câmara (link na audiência)."],
+    };
+  }
+
   const security = extractNinjaSecurity(html);
-  const formId = extractNinjaFormId(html) ?? NINJA_FORM_ID;
+  const extractedFormId = extractNinjaFormId(html);
+  const formId = extractedFormId ?? NINJA_FORM_ID;
+
+  console.warn(
+    "[inscricao-ninja] fetchPageAndSubmit:",
+    "slug=" + slug,
+    "form_id=" + formId,
+    "form_id_from_page=" + (extractedFormId ?? "null (usando fallback " + NINJA_FORM_ID + ")"),
+    "nonce_length=" + (security?.length ?? 0)
+  );
 
   if (!security) {
     return {
@@ -248,5 +293,28 @@ export async function fetchPageAndSubmit(
     };
   }
 
-  return submitNinjaForm({ ...input, security, referer: pageUrl, formId });
+  let result = await submitNinjaForm({ ...input, security, referer: pageUrl, formId });
+
+  // Fallback: CMSP às vezes devolve "Formulário não existe" para form_id extraído da página (ex.: 1).
+  // Tenta reenviar com form_id=2 e campos padrão (form 2), que é o formulário de inscrição histórico.
+  // Nota: result.errors já passou por mapNinjaErrors, então pode vir a mensagem mapeada ("temporariamente indisponível") em vez do texto bruto.
+  const formNotExist =
+    !result.ok &&
+    result.errors.some(
+      (e) =>
+        /formulário não existe|form does not exist|form not found/i.test(e) ||
+        /formulário da Câmara está temporariamente indisponível/i.test(e)
+    );
+  if (formNotExist && formId === 1) {
+    console.warn("[inscricao-ninja] Formulário não existe com form_id=1; tentando fallback form_id=2");
+    result = await submitNinjaForm({
+      ...input,
+      security,
+      referer: pageUrl,
+      formId: NINJA_FORM_ID,
+      fieldIds: FIELD_IDS_BY_FORM[2],
+    });
+  }
+
+  return result;
 }
