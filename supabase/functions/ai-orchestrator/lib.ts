@@ -3177,6 +3177,22 @@ export function isOutOfScopeQuestion(userMessage: string): boolean {
 }
 
 /**
+ * Pergunta de conhecimento geral sem relação com a Câmara (presidente de país, capital de país, Copa do Mundo, etc.).
+ * Usado para retornar resposta padrão "fora do escopo" sem acionar a LLM (relatório M-TECH / controle de escopo).
+ */
+export function isGeneralKnowledgeOutOfScope(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  // Exclui perguntas sobre a própria Câmara (presidente da Câmara, vereador, etc.)
+  if (/câmara|camara|vereador|comissão|comissao|legislativ/i.test(m)) return false;
+  return (
+    // Presidente de qualquer país (Japão, EUA, França, Brasil, etc.) — exceto "presidente da Câmara" já excluído acima
+    /(quem\s+é\s+o\s+)?presidente\s+(do\s+|da\s+|dos\s+|das\s+)/i.test(m) ||
+    /(qual\s+é\s+a\s+)?capital\s+(da\s+)?(frança|franca|espanha|italia|argentina|brasil|méxico|mexico|inglaterra|japão|japao)/i.test(m) ||
+    /(quem\s+ganhou\s+)?(a\s+)?copa\s+(do\s+mundo|do\s+mundo\s+de\s+\d{4})/i.test(m)
+  );
+}
+
+/**
  * Perguntas informativas sobre vereador ou Câmara que não devem acionar coleta de relato (CEP).
  * Ex.: perfil da vereadora, frequência nas sessões, quem faltou, gastos da câmara, como falar com vereador.
  * Baseado na planilha "plano de teste executado" e relatório M-TECH (Pontos Críticos a Endereçar).

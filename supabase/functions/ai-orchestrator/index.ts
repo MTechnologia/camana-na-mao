@@ -1849,6 +1849,16 @@ ${empathyNote}
     const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
     const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
 
+    // Pergunta de conhecimento geral fora do escopo (presidente EUA, capital França, Copa do Mundo, etc.) → resposta padrão sem LLM (relatório M-TECH)
+    if (lib.isGeneralKnowledgeOutOfScope(lastUserMsg)) {
+      const outOfScopeMessage = 'Essa pergunta não está relacionada aos serviços da Câmara Municipal de São Paulo. Posso ajudar com informações sobre vereadores, projetos de lei, audiências públicas ou outros serviços da Câmara.\n\n[SHOW_SERVICES_CHIPS]';
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: outOfScopeMessage } }] });
+      console.log('[ai-orchestrator] Resposta fora do escopo (conhecimento geral):', lastUserMsg.slice(0, 60));
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     // Small talk: "tudo bem?", "como vai?" (reciprocal) vs papo realmente fora (céu azul, tempo, etc.)
     const reciprocalGreetingPatterns = [
       /tudo bem\??/i, /tudo bom\??/i, /como vai\??/i, /como (está|esta) (você|vc|voce)\??/i,
