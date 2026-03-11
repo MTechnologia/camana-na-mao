@@ -401,6 +401,19 @@ serve(async (req) => {
         console.log('[ai-orchestrator] Declined journeys in history:', Array.from(declinedJourneys));
       }
       
+      const journeyNames: Record<string, string> = {
+        urban_report: 'Relato Urbano',
+        transport_report: 'Diagnóstico de Transporte',
+        service_rating: 'Avaliação de Serviço',
+        services: 'Busca de Serviços',
+        audiencias: 'Audiências Públicas',
+        history: 'Meu Histórico',
+        general: 'Dúvidas Gerais',
+        vereadores: 'Vereadores da Região',
+        noticias: 'Notícias Legislativas',
+        chamber_feedback: 'Feedback sobre Vereador'
+      };
+      
       // ALWAYS detect intent first to check for journey switch
       const detectedIntent = lib.detectCollectionIntent(lastUserMsg, messages);
       
@@ -409,10 +422,22 @@ serve(async (req) => {
       const isDetectedStructured = detectedIntent && structuredTypes.includes(detectedIntent.type as typeof structuredTypes[number]);
       const wasRecentlyDeclined = detectedIntent && declinedJourneys.has(detectedIntent.type);
       
-      const isJourneyConflict = detectedIntent && 
+      let isJourneyConflict = detectedIntent && 
         isDetectedStructured &&
         detectedIntent.type !== frontendCollectionType &&
         !wasRecentlyDeclined; // Don't ask again if user already said no
+      
+      // Se o usuário já está confirmando ("Sim, quero iniciar X" / "Sim, iniciar X"), não mostrar a pergunta de novo
+      const confirmationPhrase = /^\s*sim\s*[,.]?\s*(quero\s+)?iniciar\s+/i.test(lastUserMsg.trim()) ||
+        /\[JOURNEY_SWITCHED:\w+\]/i.test(lastUserMsg);
+      if (isJourneyConflict && detectedIntent && confirmationPhrase) {
+        const nameForNew = journeyNames[detectedIntent.type];
+        if (nameForNew && lastUserMsg.toLowerCase().includes(nameForNew.toLowerCase())) {
+          isJourneyConflict = false;
+          collectionIntent = { type: detectedIntent.type as 'urban_report' | 'transport_report' | 'service_rating', fields: {} };
+          console.log('[ai-orchestrator] User already confirmed switch to', detectedIntent.type, '- skipping duplicate confirmation prompt');
+        }
+      }
       
       if (wasRecentlyDeclined) {
         console.log(`[ai-orchestrator] Journey ${detectedIntent?.type} was recently declined, skipping confirmation`);
@@ -421,19 +446,6 @@ serve(async (req) => {
       if (isJourneyConflict) {
         // ALWAYS ask for confirmation - never auto-switch
         console.log(`[ai-orchestrator] Journey conflict detected: ${frontendCollectionType} → ${detectedIntent.type}`);
-        
-        const journeyNames: Record<string, string> = {
-          urban_report: 'Relato Urbano',
-          transport_report: 'Diagnóstico de Transporte', 
-          service_rating: 'Avaliação de Serviço',
-          services: 'Busca de Serviços',
-          audiencias: 'Audiências Públicas',
-          history: 'Meu Histórico',
-          general: 'Dúvidas Gerais',
-          vereadores: 'Vereadores da Região',
-          noticias: 'Notícias Legislativas',
-          chamber_feedback: 'Feedback sobre Vereador'
-        };
         
         const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
         const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
@@ -1469,18 +1481,119 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
           } else if (collectionIntent.type === 'transport_report') {
-            const toolArgs = {
-              description: accumulatedFields.description,
-              report_type: accumulatedFields.report_type,
-              line_code: accumulatedFields.line_code,
-              occurrence_date: accumulatedFields.occurrence_date,
-              occurrence_time: accumulatedFields.occurrence_time,
-              location: accumulatedFields.location,
-              severity: accumulatedFields.severity,
-              impact_description: accumulatedFields.impact_description,
-              subcategory_label: accumulatedFields.subcategory_label
-            };
-            toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+            // Fluxo de fotos para transporte (conforme relato urbano): perguntar → anexar → preview → criar
+            const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
+            const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*registrar|envie\s+\*?registrar\*?/i.test(lastAssistantLower);
+            const showedPreview = /resumo\s+do\s+relato|se\s+estiver\s+tudo\s+certo|confirmar\s+e\s+registrar/i.test(lastAssistantLower);
+            const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
+            const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
+            const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
+
+            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema de transporte?**[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+              console.log('[ai-orchestrator] Transport report: asking photo choice');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (askedPhotoChoice && !userSaidNo) {
+              const attachMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para ver o resumo e finalizar o relato.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: attachMsg } }] });
+              console.log('[ai-orchestrator] Transport report: user said yes → showing attach instructions');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (askedPhotoChoice && userSaidNo) {
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
+• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}
+
+Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Transport report: user said no to photos, showing preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo Registrar criamos
+            const showedPreviewAfterAttach = /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*registrar\s+para\s+finalizar/i.test(lastAssistantLower || '');
+            if (askedToAttach && userConfirms && !showedPreviewAfterAttach) {
+              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
+• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
+
+Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Transport report: showing preview before create (first Registrar)');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if ((showedPreview || askedToAttach) && userConfirms && (showedPreview || showedPreviewAfterAttach)) {
+              let photosToSave = attachmentUrls;
+              if (photosToSave.length === 0 && conversationId) {
+                try {
+                  const { data: conv } = await supabase.from('ai_conversations').select('messages').eq('id', conversationId).single();
+                  const convMessages = (conv?.messages as Array<Record<string, unknown>>) || [];
+                  const lastWithPhotos = [...convMessages].filter((m: Record<string, unknown>) => m.role === 'user').reverse()
+                    .find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
+                  if (lastWithPhotos?.attachmentUrls) {
+                    photosToSave = lastWithPhotos.attachmentUrls as string[];
+                    console.log('[ai-orchestrator] Transport report: got attachmentUrls from conversation, count:', photosToSave.length);
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Fallback load conversation for transport photos failed:', e);
+                }
+              }
+              const toolArgs: Record<string, unknown> = {
+                description: accumulatedFields.description,
+                report_type: accumulatedFields.report_type,
+                line_code: accumulatedFields.line_code,
+                occurrence_date: accumulatedFields.occurrence_date,
+                occurrence_time: accumulatedFields.occurrence_time,
+                location: accumulatedFields.location,
+                severity: accumulatedFields.severity,
+                impact_description: accumulatedFields.impact_description,
+                subcategory_label: accumulatedFields.subcategory_label
+              };
+              if (photosToSave.length > 0) {
+                toolArgs.photos = photosToSave;
+              }
+              toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+            }
+            if (askedToAttach && !userConfirms && !toolResult) {
+              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
+• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
+
+Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Transport report: user sent Registrar (attach flow), showing preview, attachmentUrls:', attachmentUrls.length);
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (!toolResult) {
+              const toolArgs: Record<string, unknown> = {
+                description: accumulatedFields.description,
+                report_type: accumulatedFields.report_type,
+                line_code: accumulatedFields.line_code,
+                occurrence_date: accumulatedFields.occurrence_date,
+                occurrence_time: accumulatedFields.occurrence_time,
+                location: accumulatedFields.location,
+                severity: accumulatedFields.severity,
+                impact_description: accumulatedFields.impact_description,
+                subcategory_label: accumulatedFields.subcategory_label
+              };
+              toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+            }
           } else if (collectionIntent.type === 'service_rating') {
             const toolArgs: Record<string, unknown> = {
               service_type: accumulatedFields.service_type,
@@ -2211,6 +2324,41 @@ ${empathyNote}
           if (toolCallData.name === 'create_urban_report' && attachmentUrls.length > 0) {
             toolArgs.photos = attachmentUrls;
           }
+          if (toolCallData.name === 'create_transport_report' && attachmentUrls.length > 0) {
+            toolArgs.photos = attachmentUrls;
+          }
+
+          // Intercept create_transport_report: obrigar preview + pergunta de fotos antes de registrar
+          if (toolCallData.name === 'create_transport_report') {
+            const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
+            const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+            if (!alreadyAskedPhotos && !alreadyShowedPreview) {
+              const merged = {
+                ...accumulatedFields,
+                description: toolArgs.description ?? accumulatedFields.description,
+                report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+                line_code: toolArgs.line_code ?? accumulatedFields.line_code,
+                occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
+                occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+                location: toolArgs.location ?? accumulatedFields.location,
+                severity: toolArgs.severity ?? accumulatedFields.severity,
+                subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
+              };
+              const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
+
+• **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${merged.line_code || 'Não informada'}
+• **Quando:** ${merged.occurrence_date || ''}
+
+Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
+              console.log('[ai-orchestrator] Transport report: intercept – showing preview + photo choice before creating');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+          }
+
           console.log('[ai-orchestrator] Executing tool:', toolCallData.name, toolArgs);
           
           const result = await lib.executeTool(toolCallData.name, toolArgs, user.id, supabase, accumulatedFields);
@@ -2339,6 +2487,41 @@ ${empathyNote}
       if (toolName === 'create_urban_report' && attachmentUrls.length > 0) {
         toolArgs.photos = attachmentUrls;
       }
+      if (toolName === 'create_transport_report' && attachmentUrls.length > 0) {
+        toolArgs.photos = attachmentUrls;
+      }
+
+      // Intercept create_transport_report (non-stream): preview + pergunta de fotos antes de criar
+      if (toolName === 'create_transport_report') {
+        const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
+        const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+        if (!alreadyAskedPhotos && !alreadyShowedPreview) {
+          const merged = {
+            ...accumulatedFields,
+            description: toolArgs.description ?? accumulatedFields.description,
+            report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+            line_code: toolArgs.line_code ?? accumulatedFields.line_code,
+            occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
+            occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+            location: toolArgs.location ?? accumulatedFields.location,
+            severity: toolArgs.severity ?? accumulatedFields.severity,
+            subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
+          };
+          const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
+
+• **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${merged.line_code || 'Não informada'}
+• **Quando:** ${merged.occurrence_date || ''}
+
+Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
+          const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
+          console.log('[ai-orchestrator] Transport report (non-stream): intercept – preview + photo choice');
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+            headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+          });
+        }
+      }
+
       console.log('[ai-orchestrator] Tool call (non-stream):', toolName);
       
       const result = await lib.executeTool(toolName, toolArgs, user.id, supabase);

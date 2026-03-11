@@ -5671,6 +5671,10 @@ export async function executeTool(
           lineId
         });
         
+        const photosArray = Array.isArray(args.photos) && args.photos.length > 0
+          ? args.photos.slice(0, 3)
+          : null;
+
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
@@ -5685,7 +5689,8 @@ export async function executeTool(
             location: args.location || null,
             severity: inferredSeverity,
             impact_description: args.impact_description || null,
-            status: 'pending'
+            status: 'pending',
+            photos: photosArray
           })
           .select('id, protocol_code')
           .single();
@@ -5747,6 +5752,7 @@ export async function executeTool(
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
           args.location ? `📍 **Local:** ${args.location}` : '',
+          photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
           '',
           `📝 **Descrição:** ${args.description.substring(0, 100)}${args.description.length > 100 ? '...' : ''}`,

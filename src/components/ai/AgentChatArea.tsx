@@ -92,9 +92,9 @@ const AgentChatArea = () => {
     return undefined;
   }, [messages]);
 
-  // Mostrar botões de anexar fotos durante todo o fluxo de relato urbano (antes dependia do texto exato da última mensagem do assistente)
+  // Mostrar botões de anexar fotos durante relato urbano ou de transporte (conforme relato urbano)
   const showUrbanAttachmentUI = useMemo(() => {
-    return collectionType === "urban_report";
+    return collectionType === "urban_report" || collectionType === "transport_report";
   }, [collectionType]);
 
   // Força re-render após hydration completa
@@ -428,83 +428,92 @@ const AgentChatArea = () => {
       >
         <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-2">
           {collectionType === "urban_report" && (
-            <>
-              <p className="text-xs text-muted-foreground text-center">
-                <button
-                  type="button"
-                  onClick={() => navigate("/relato-urbano/manual")}
-                  className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
-                >
-                  Preferir formulário manual (com foto)
-                </button>
-              </p>
-              {/* Anexar fotos: só após "Deseja anexar imagens?" e usuário dizer sim */}
-              {showUrbanAttachmentUI && (
-                <div className="space-y-1.5">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    multiple
-                    onChange={handleChatPhotoCapture}
-                    className="hidden"
-                    id="chat-photo-camera"
-                  />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleChatPhotoCapture}
-                    className="hidden"
-                    id="chat-photo-gallery"
-                  />
-                  {chatPhotoPreviews.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {chatPhotoPreviews.map((preview, index) => (
-                        <div key={index} className="relative rounded-lg overflow-hidden border w-14 h-14 shrink-0">
-                          <img src={preview} alt="" className="w-full h-full object-cover" />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-0 right-0 h-5 w-5"
-                            onClick={() => removeChatPhoto(index)}
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {chatPhotoPreviews.length < MAX_CHAT_PHOTOS && (
-                    <div className="flex gap-2">
+            <p className="text-xs text-muted-foreground text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/relato-urbano/manual")}
+                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+              >
+                Preferir formulário manual (com foto)
+              </button>
+            </p>
+          )}
+          {collectionType === "transport_report" && (
+            <p className="text-xs text-muted-foreground text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/transporte/novo")}
+                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+              >
+                Preferir formulário manual (passo a passo)
+              </button>
+            </p>
+          )}
+          {/* Anexar fotos: relato urbano ou de transporte, após "Deseja anexar imagens?" e usuário dizer sim */}
+          {showUrbanAttachmentUI && (
+            <div className="space-y-1.5">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={handleChatPhotoCapture}
+                className="hidden"
+                id="chat-photo-camera"
+              />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleChatPhotoCapture}
+                className="hidden"
+                id="chat-photo-gallery"
+              />
+              {chatPhotoPreviews.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {chatPhotoPreviews.map((preview, index) => (
+                    <div key={index} className="relative rounded-lg overflow-hidden border w-14 h-14 shrink-0">
+                      <img src={preview} alt="" className="w-full h-full object-cover" />
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => document.getElementById("chat-photo-camera")?.click()}
-                        disabled={isLoading}
-                        className="text-xs"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-0 right-0 h-5 w-5"
+                        onClick={() => removeChatPhoto(index)}
                       >
-                        <Camera className="w-3.5 h-3.5 mr-1.5" />
-                        Câmera
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => document.getElementById("chat-photo-gallery")?.click()}
-                        disabled={isLoading}
-                        className="text-xs"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
-                        Galeria ({MAX_CHAT_PHOTOS - chatPhotoPreviews.length})
+                        <X className="w-2.5 h-2.5" />
                       </Button>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
-            </>
+              {chatPhotoPreviews.length < MAX_CHAT_PHOTOS && (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("chat-photo-camera")?.click()}
+                    disabled={isLoading}
+                    className="text-xs"
+                  >
+                    <Camera className="w-3.5 h-3.5 mr-1.5" />
+                    Câmera
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("chat-photo-gallery")?.click()}
+                    disabled={isLoading}
+                    className="text-xs"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
+                    Galeria ({MAX_CHAT_PHOTOS - chatPhotoPreviews.length})
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
           <ChatInput
             onSendMessage={handleSendMessage}
