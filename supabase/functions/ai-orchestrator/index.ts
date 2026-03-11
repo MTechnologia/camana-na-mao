@@ -1928,8 +1928,8 @@ ${empathyNote}
       } else if (msgLower.includes('olá') || msgLower.includes('oi')) {
         response = hasReciprocalGreeting ? 'Olá! Tudo bem? Como posso ajudar?' : 'Olá! Como posso ajudar?';
       } else if (isGenericReport) {
-        // Generic report - always be empathetic
-        response = 'Olá! Claro, vou te ajudar. Qual o problema e onde fica?';
+        // Generic report - always be empathetic (localização vem na próxima pergunta)
+        response = 'Olá! Claro, vou te ajudar. Descreva o problema, por favor.';
       } else {
         response = 'Olá! Como posso ajudar?';
       }
@@ -1948,7 +1948,7 @@ ${empathyNote}
       } else if (msgLower.includes('problema') || msgLower.includes('relatar')) {
         // Problem mentioned but not urgent
         if (response.includes('Como posso ajudar')) {
-          response = response.replace('Como posso ajudar?', 'Claro, vou te ajudar. Qual o problema e onde fica?');
+          response = response.replace('Como posso ajudar?', 'Claro, vou te ajudar. Descreva o problema, por favor.');
         }
       }
       
