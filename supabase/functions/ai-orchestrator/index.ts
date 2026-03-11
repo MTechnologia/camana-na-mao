@@ -1736,16 +1736,21 @@ ${empathyNote}
     const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
     const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
 
-    // Off-topic / "sem sentido": greeting + small talk (tudo bem, céu azul, etc.) without service intent
-    const smallTalkPatterns = [
+    // Small talk: "tudo bem?", "como vai?" (reciprocal) vs papo realmente fora (céu azul, tempo, etc.)
+    const reciprocalGreetingPatterns = [
       /tudo bem\??/i, /tudo bom\??/i, /como vai\??/i, /como (está|esta) (você|vc|voce)\??/i,
-      /céu (está|esta) azul/i, /(o )?que acha\??/i, /(que )?tal\??/i, /e (aí|ai)\??/i,
+      /(que )?tal\??/i, /e (aí|ai)\??/i,
+    ];
+    const realOffTopicPatterns = [
+      /céu (está|esta) azul/i, /(o )?que acha\??/i,
       /(o )?tempo (está|esta|hoje)/i, /(está|esta) (frio|calor|bonito)/i, /(bom|ótimo) dia (pra|para) (todos|você)/i,
     ];
-    const hasSmallTalk = smallTalkPatterns.some(p => p.test(msgLower));
+    const hasReciprocalGreeting = reciprocalGreetingPatterns.some(p => p.test(msgLower));
+    const hasRealOffTopic = realOffTopicPatterns.some(p => p.test(msgLower));
     const serviceKeywords = /relatar|problema|transporte|avaliar|serviço|servicos|dúvida|duvida|câmara|camara|audiência|audiencia|vereador|histórico|historico|denúncia|denuncia|reclamar|reportar|inscrever/i;
     const hasServiceIntent = serviceKeywords.test(msgLower);
-    const isOffTopic = isGreeting && hasSmallTalk && !hasServiceIntent;
+    // Só mostrar "Desculpe, o intuito deste canal..." para papo realmente fora (ex: céu azul). "Oi, bom dia, tudo bem?" = resposta amigável
+    const isOffTopic = isGreeting && hasRealOffTopic && !hasServiceIntent;
     
     // Check for generic urban report messages (always check, not just first message)
     const genericReportPatterns = [
@@ -1802,13 +1807,13 @@ ${empathyNote}
       if (isEmpathyRequest) {
         response = 'Claro! Desculpe. Boa tarde! Como posso ajudar?';
       } else if (msgLower.includes('bom dia')) {
-        response = 'Bom dia! Como posso ajudar hoje?';
+        response = hasReciprocalGreeting ? 'Bom dia! Tudo bem, e você? Como posso ajudar hoje?' : 'Bom dia! Como posso ajudar hoje?';
       } else if (msgLower.includes('boa tarde')) {
-        response = 'Boa tarde! Como posso ajudar?';
+        response = hasReciprocalGreeting ? 'Boa tarde! Tudo bem? Como posso ajudar?' : 'Boa tarde! Como posso ajudar?';
       } else if (msgLower.includes('boa noite')) {
-        response = 'Boa noite! Como posso ajudar?';
+        response = hasReciprocalGreeting ? 'Boa noite! Tudo bem? Como posso ajudar?' : 'Boa noite! Como posso ajudar?';
       } else if (msgLower.includes('olá') || msgLower.includes('oi')) {
-        response = 'Olá! Como posso ajudar?';
+        response = hasReciprocalGreeting ? 'Olá! Tudo bem? Como posso ajudar?' : 'Olá! Como posso ajudar?';
       } else if (isGenericReport) {
         // Generic report - always be empathetic
         response = 'Olá! Claro, vou te ajudar. Qual o problema e onde fica?';
@@ -1832,6 +1837,11 @@ ${empathyNote}
         if (response.includes('Como posso ajudar')) {
           response = response.replace('Como posso ajudar?', 'Claro, vou te ajudar. Qual o problema e onde fica?');
         }
+      }
+      
+      // Saudação simples (com ou sem "tudo bem?"): mostrar chips para o usuário escolher o serviço
+      if (isGreeting && !isOffTopic && !isGenericReport && !isEmpathyRequest) {
+        response = `${response}\n\n[SHOW_SERVICES_CHIPS]`;
       }
       
       console.log('[ai-orchestrator] Deterministic response:', response);
