@@ -3188,7 +3188,11 @@ export function isGeneralKnowledgeOutOfScope(userMessage: string): boolean {
     // Presidente de qualquer país (Japão, EUA, França, Brasil, etc.) — exceto "presidente da Câmara" já excluído acima
     /(quem\s+é\s+o\s+)?presidente\s+(do\s+|da\s+|dos\s+|das\s+)/i.test(m) ||
     /(qual\s+é\s+a\s+)?capital\s+(da\s+)?(frança|franca|espanha|italia|argentina|brasil|méxico|mexico|inglaterra|japão|japao)/i.test(m) ||
-    /(quem\s+ganhou\s+)?(a\s+)?copa\s+(do\s+mundo|do\s+mundo\s+de\s+\d{4})/i.test(m)
+    /(quem\s+ganhou\s+)?(a\s+)?copa\s+(do\s+mundo|do\s+mundo\s+de\s+\d{4})/i.test(m) ||
+    // Geografia: "São Paulo e de qual Estado?", "qual estado é São Paulo?" (planilha Mauro Lima – única reprovada)
+    /s[aã]o\s+paulo\s+(e|é)\s+de\s+qual\s+estado/i.test(m) ||
+    /qual\s+estado\s+(é|e)\s+s[aã]o\s+paulo/i.test(m) ||
+    /(a\s+)?cidade\s+(de\s+)?s[aã]o\s+paulo\s+(é|e)\s+(de\s+)?qual\s+estado/i.test(m)
   );
 }
 
