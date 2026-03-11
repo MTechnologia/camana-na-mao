@@ -92,13 +92,10 @@ const AgentChatArea = () => {
     return undefined;
   }, [messages]);
 
-  // Mostrar botões de anexar fotos só após o assistente perguntar "deseja anexar?" e o usuário dizer sim
+  // Mostrar botões de anexar fotos durante todo o fluxo de relato urbano (antes dependia do texto exato da última mensagem do assistente)
   const showUrbanAttachmentUI = useMemo(() => {
-    if (collectionType !== "urban_report") return false;
-    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-    const content = lastAssistant?.content ?? "";
-    return /pode\s+anexar\s+at[eé]\s*3\s+fotos|botões\s+\*\*câmera\*\*|galeria\s+abaixo/i.test(content);
-  }, [collectionType, messages]);
+    return collectionType === "urban_report";
+  }, [collectionType]);
 
   // Força re-render após hydration completa
   useEffect(() => {
