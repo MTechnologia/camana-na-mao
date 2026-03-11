@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Edit2, Check, Sparkles } from 'lucide-react';
+import { Edit2, Check, Sparkles, ImageIcon } from 'lucide-react';
 import { transportProblems } from '@/data/transportProblems';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,6 +14,7 @@ interface ReportSummaryCardProps {
     occurrence_time?: string;
     location?: string;
     description?: string;
+    photos?: string[];
   };
   onEdit: () => void;
   onConfirm: () => void;
@@ -60,6 +61,29 @@ export const ReportSummaryCard = ({ data, onEdit, onConfirm, loading }: ReportSu
             <div>
               <span className="text-sm text-muted-foreground">Descrição:</span>
               <p className="text-sm">{data.description}</p>
+            </div>
+          )}
+
+          {data.photos && data.photos.length > 0 && (
+            <div>
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <ImageIcon className="w-3.5 h-3.5" />
+                Fotos:
+              </span>
+              <p className="text-sm font-medium">{data.photos.length} imagem(ns) anexada(s)</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {data.photos.slice(0, 3).map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-14 h-14 rounded-lg overflow-hidden border bg-muted"
+                  >
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 

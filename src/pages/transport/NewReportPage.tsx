@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Camera, ImageIcon, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { LineSearchInput } from '@/components/transport/LineSearchInput';
@@ -14,13 +14,24 @@ import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_MB = 50;
+const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
 
 export default function NewReportPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { submitReport, submitting } = useTransportReport();
   const { patterns } = useReportPatterns();
+  const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [reportData, setReportData] = useState<Record<string, unknown>>({});
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
   const [reportId, setReportId] = useState('');
   const [relatedPattern, setRelatedPattern] = useState<{ id: string; [key: string]: unknown } | null>(null);
@@ -47,7 +58,12 @@ export default function NewReportPage() {
   };
 
   const handleSubmit = async () => {
+    if (!user) {
+      toast({ title: 'Você precisa estar autenticado', variant: 'destructive' });
+      return;
+    }
     try {
+      const photoUrls = photoFiles.length ? await uploadPhotos(user.id) : [];
       const result = await submitReport({
         line_id: reportData.line_id,
         line_code_custom: reportData.line_code,
@@ -57,6 +73,7 @@ export default function NewReportPage() {
         occurrence_time: reportData.occurrence_time,
         location: reportData.location,
         impact_description: reportData.impact_description,
+        photos: photoUrls.length ? photoUrls : null,
       });
       
       setReportId(result.id);
@@ -69,9 +86,57 @@ export default function NewReportPage() {
   const handleNewReport = () => {
     setStep(1);
     setReportData({});
+    setPhotoFiles([]);
+    setPhotoPreviews([]);
     setSuccess(false);
     setReportId('');
     setRelatedPattern(null);
+  };
+
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
+    const remaining = MAX_PHOTOS - photoFiles.length;
+    if (remaining <= 0) {
+      toast({ title: `Máximo de ${MAX_PHOTOS} fotos`, variant: 'destructive' });
+      e.target.value = '';
+      return;
+    }
+    const toAdd: File[] = [];
+    for (let i = 0; i < files.length && toAdd.length < remaining; i++) {
+      if (files[i].size > MAX_PHOTO_BYTES) {
+        toast({ title: `"${files[i].name}" é muito grande. Máximo ${MAX_PHOTO_MB}MB por imagem.`, variant: 'destructive' });
+        continue;
+      }
+      toAdd.push(files[i]);
+    }
+    setPhotoFiles((prev) => [...prev, ...toAdd].slice(0, MAX_PHOTOS));
+    setPhotoPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS));
+    e.target.value = '';
+  };
+
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadPhotos = async (userId: string): Promise<string[]> => {
+    if (!photoFiles.length) return [];
+    const urls: string[] = [];
+    for (let i = 0; i < photoFiles.length; i++) {
+      const file = photoFiles[i];
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${userId}/${Date.now()}-${i}.${ext}`;
+      const { error } = await supabase.storage.from('urban-reports').upload(fileName, file);
+      if (error) {
+        console.error('Erro ao fazer upload da foto:', error);
+        throw error;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('urban-reports').getPublicUrl(fileName);
+      urls.push(publicUrl);
+    }
+    return urls;
   };
 
   if (success) {
@@ -204,6 +269,67 @@ export default function NewReportPage() {
                 rows={3}
               />
             </div>
+            <div>
+              <Label>Fotos (opcional, até {MAX_PHOTOS})</Label>
+              <p className="text-xs text-muted-foreground mb-2">Máximo {MAX_PHOTO_MB}MB por imagem</p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={handlePhotoCapture}
+                className="hidden"
+                id="transport-photo-camera"
+              />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handlePhotoCapture}
+                className="hidden"
+                id="transport-photo-gallery"
+              />
+              {photoPreviews.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {photoPreviews.map((preview, index) => (
+                    <div key={index} className="relative rounded-lg overflow-hidden border w-16 h-16 shrink-0">
+                      <img src={preview} alt="" className="w-full h-full object-cover" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-0 right-0 h-6 w-6"
+                        onClick={() => removePhoto(index)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {photoPreviews.length < MAX_PHOTOS && (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('transport-photo-camera')?.click()}
+                  >
+                    <Camera className="w-4 h-4 mr-1.5" />
+                    Câmera
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('transport-photo-gallery')?.click()}
+                  >
+                    <ImageIcon className="w-4 h-4 mr-1.5" />
+                    Galeria ({MAX_PHOTOS - photoPreviews.length})
+                  </Button>
+                </div>
+              )}
+            </div>
             <Button onClick={handleNext} className="w-full">
               Continuar
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -214,11 +340,14 @@ export default function NewReportPage() {
         {step === 5 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-2xl font-bold mb-2">Confirmar envio</h2>
-              <p className="text-muted-foreground">Revise as informações antes de enviar</p>
+              <h2 className="text-2xl font-bold mb-2">Resumo do relato</h2>
+              <p className="text-muted-foreground">Revise as informações e as fotos antes de enviar</p>
             </div>
             <ReportSummaryCard
-              data={reportData}
+              data={{
+                ...reportData,
+                photos: photoPreviews.length > 0 ? photoPreviews : undefined,
+              }}
               onEdit={() => setStep(1)}
               onConfirm={handleSubmit}
               loading={submitting}

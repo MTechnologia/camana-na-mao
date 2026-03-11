@@ -180,7 +180,12 @@ export const tools = [
             enum: ["baixa", "media", "alta", "critica"],
             description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
           },
-          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" }
+          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" },
+          photos: {
+            type: "array",
+            items: { type: "string" },
+            description: "URLs das fotos anexadas pelo usuário (até 3). Preenchido pelo sistema quando o usuário anexa imagens no chat."
+          }
         },
         required: ["report_type", "description", "occurrence_date"]
       }

@@ -1683,6 +1683,7 @@ export type Database = {
           n8n_workflow_id: string | null
           occurrence_date: string
           occurrence_time: string | null
+          photos: string[] | null
           protocol_code: string | null
           report_type: string
           responded_at: string | null
@@ -1712,6 +1713,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date: string
           occurrence_time?: string | null
+          photos?: string[] | null
           protocol_code?: string | null
           report_type: string
           responded_at?: string | null
@@ -1741,6 +1743,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date?: string
           occurrence_time?: string | null
+          photos?: string[] | null
           protocol_code?: string | null
           report_type?: string
           responded_at?: string | null
