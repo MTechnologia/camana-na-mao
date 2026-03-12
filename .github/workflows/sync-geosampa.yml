@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Sync public_services from GeoSampa
         run: node scripts/sync-geosampa-public-services.mjs
         env:
