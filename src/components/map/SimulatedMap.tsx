@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Navigation } from "lucide-react";
-import { ServiceTypeIcon } from "@/components/icons";
+import { ServiceTypeIcon, getServiceTypeLabel, getServiceTypeMapColor } from "@/components/icons";
 import { formatDistance, formatDistanceStraightLine, getServiceDisplayName } from "@/lib/mapUtils";
 
 interface Service {
@@ -20,6 +20,8 @@ interface SimulatedMapProps {
   services: Service[];
   onServiceClick: (serviceId: string) => void;
   distanceLabel?: "walking" | "driving" | "straight";
+  /** Tipos de serviço ativos no filtro – a legenda lista estes (OS-05). */
+  activeServiceTypes?: string[];
 }
 
 /** Agrupa serviços por proximidade (grid ~200m) para reduzir sobreposição visual. */
@@ -46,7 +48,7 @@ function clusterServicesByProximity(services: Service[], maxItems: number): { ty
   return result;
 }
 
-export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceLabel = "straight" }: SimulatedMapProps) => {
+export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceLabel = "straight", activeServiceTypes = [] }: SimulatedMapProps) => {
   const displayItems = clusterServicesByProximity(services, 8);
 
   return (
@@ -59,6 +61,36 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
         `,
         backgroundSize: '30px 30px'
       }} />
+
+      {/* Legenda (alinhada ao GoogleMapView – OS-05) */}
+      <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+          <div className="w-3 h-3 bg-primary rounded-full shrink-0" />
+          <span>Você está aqui</span>
+        </div>
+        {activeServiceTypes.length > 0 ? (
+          <div className="space-y-1.5">
+            {activeServiceTypes.map((type) => {
+              const color = getServiceTypeMapColor(type);
+              return (
+                <div key={type} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: color ?? "hsl(var(--muted-foreground))" }}
+                    aria-hidden
+                  />
+                  <span className="truncate">{getServiceTypeLabel(type)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span>Serviços públicos</span>
+          </div>
+        )}
+      </Card>
 
       {/* Demo banner + instrução Google Maps */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-center px-4">

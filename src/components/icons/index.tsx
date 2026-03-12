@@ -34,8 +34,12 @@ import type { LucideIcon } from "lucide-react";
 
 export {
   SERVICE_TYPE_ICONS,
+  SERVICE_TYPE_LABELS,
+  SERVICE_TYPE_MAP_COLORS,
   getServiceTypeMarkerChar,
   getServiceTypeBalloonIconUrl,
+  getServiceTypeLabel,
+  getServiceTypeMapColor,
 } from "./serviceTypeIcons";
 export * from "./ui-icons";
 

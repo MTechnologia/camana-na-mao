@@ -22,6 +22,8 @@ interface MapViewProps {
   onServiceClick: (serviceId: string) => void;
   /** Quando true, a distância exibida é a pé (rota real); caso contrário mostra "(em linha reta)" */
   distanceLabel?: "walking" | "driving" | "straight";
+  /** Tipos de serviço ativos no filtro – a legenda do mapa lista estes (OS-05). */
+  activeServiceTypes?: string[];
 }
 
 const MapLoader = () => (
@@ -33,7 +35,7 @@ const MapLoader = () => (
   </div>
 );
 
-export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight" }: MapViewProps) => {
+export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight", activeServiceTypes = [] }: MapViewProps) => {
   const googleMapsKey = getGoogleMapsApiKey();
   const useGoogleMaps = !!googleMapsKey;
 
@@ -57,6 +59,7 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
             services={services}
             onServiceClick={onServiceClick}
             distanceLabel={distanceLabel}
+            activeServiceTypes={activeServiceTypes}
             overlayLayers={overlayLayers}
             wmsImageamentoEnabled={wmsImageamentoEnabled}
           />
@@ -71,6 +74,7 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
       services={services}
       onServiceClick={onServiceClick}
       distanceLabel={distanceLabel}
+      activeServiceTypes={activeServiceTypes}
     />
   );
 };
