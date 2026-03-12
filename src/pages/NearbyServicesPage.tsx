@@ -391,6 +391,7 @@ export default function NearbyServicesPage() {
                 services={filteredByName}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
                 distanceLabel={distanceLabelMode}
+                activeServiceTypes={selectedTypes}
               />
             ) : (
               <div className="text-center py-12">
