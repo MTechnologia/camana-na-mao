@@ -91,7 +91,6 @@ export default defineConfig(({ mode }) => ({
           
           // Feature chunks
           'charts': ['recharts'],
-          'maps': ['mapbox-gl'],
           'markdown': ['react-markdown', 'remark-gfm', 'mermaid'],
         },
       },

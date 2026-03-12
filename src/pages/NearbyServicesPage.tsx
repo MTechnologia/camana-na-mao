@@ -9,8 +9,7 @@ import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/Rati
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
-import { useWalkingDistancesMatrix } from "@/hooks/useWalkingDistancesMatrix";
-import { useMapboxToken } from "@/hooks/useMapboxToken";
+import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,8 +46,8 @@ export default function NearbyServicesPage() {
   const searchLat = cepCenter?.latitude ?? latitude;
   const searchLng = cepCenter?.longitude ?? longitude;
 
-  const mapboxToken = useMapboxToken();
-  const hasMapboxToken = !!(mapboxToken && mapboxToken.startsWith("pk."));
+  const googleMapsApiKey = getGoogleMapsApiKey();
+  const hasGoogleMapsKey = !!googleMapsApiKey;
 
   const { services, loading: servicesLoading } = useNearbyServices({
     latitude: searchLat,
@@ -75,11 +74,13 @@ export default function NearbyServicesPage() {
   );
 
   const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
-  const { walkingDistances, loading: walkingLoading } = useWalkingDistancesMatrix(
+  /** Raio 5km ou 10km: usa rota de carro; 500m/1km/2km: usa rota a pé, para sempre exibir distância por rota (evitar "em linha reta"). */
+  const matrixProfile = radiusMeters >= 5000 ? "driving" : "walking";
+  const { walkingDistances, loading: walkingLoading } = useGoogleDistanceMatrix(
     mapCenter,
     sortedServicesByHaversine,
-    hasMapboxToken ? mapboxToken : null,
-    "walking"
+    hasGoogleMapsKey ? googleMapsApiKey : undefined,
+    matrixProfile
   );
 
   const { sortedServices, routeFilterFallback } = useMemo(() => {
@@ -112,7 +113,7 @@ export default function NearbyServicesPage() {
   }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters]);
 
   const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
-  const distanceLabelMode = useRouteDistance && !routeFilterFallback ? "walking" : "straight";
+  const distanceLabelMode = useRouteDistance && !routeFilterFallback ? matrixProfile : "straight";
 
   const filteredByOpeningHours = useMemo(() => {
     if (!onlyWithOpeningHours) return sortedServices;
@@ -245,14 +246,14 @@ export default function NearbyServicesPage() {
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
               </p>
             )}
-            {hasMapboxToken && walkingLoading && sortedServices.length > 0 && (
+            {hasGoogleMapsKey && walkingLoading && sortedServices.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Atualizando distâncias a pé…
+                {matrixProfile === "driving" ? "Atualizando distâncias de carro…" : "Atualizando distâncias a pé…"}
               </p>
             )}
             {routeFilterFallback && (
               <p className="text-xs text-amber-600 dark:text-amber-500">
-                Exibindo distâncias em linha reta; rota a pé indisponível para todos neste raio.
+                Exibindo distâncias aproximadas; rota indisponível para todos neste raio.
               </p>
             )}
           </>
