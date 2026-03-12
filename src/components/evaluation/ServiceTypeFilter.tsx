@@ -38,28 +38,33 @@ interface ServiceTypeFilterProps {
   onTypesChange: (types: ServiceTypeFilterValue[]) => void;
 }
 
-const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string; icon: string }[] = [
-  { value: "ubs", label: "UBS", icon: "🏥" },
-  { value: "school", label: "Escolas", icon: "🏫" },
-  { value: "ceu", label: "CEUs", icon: "🎭" },
-  { value: "hospital", label: "Hospitais", icon: "🏥" },
-  { value: "library", label: "Bibliotecas", icon: "📚" },
-  { value: "sports_center", label: "Esportes", icon: "⚽" },
-  { value: "street_market", label: "Feiras", icon: "🛒" },
-  { value: "community_center", label: "Centros Comunitários", icon: "🏘️" },
-  { value: "daycare", label: "Creches", icon: "🍼" },
-  { value: "park", label: "Parques", icon: "🌳" },
-  { value: "market", label: "Mercados", icon: "🛒" },
-  { value: "city_market", label: "Mercados Municipais", icon: "🏪" },
-  { value: "theater", label: "Teatro/Cinema", icon: "🎬" },
-  { value: "museum", label: "Museus", icon: "🏛️" },
-  { value: "social_assistance", label: "Assistência Social", icon: "🤝" },
-  { value: "transit_station", label: "Transporte", icon: "🚌" },
-  { value: "police_station", label: "Delegacia/Polícia", icon: "🚔" },
-  { value: "cemetery", label: "Cemitério", icon: "🪦" },
-  { value: "accessibility", label: "Acessibilidade", icon: "♿" },
-  { value: "recycling_point", label: "Reciclagem/Limpeza", icon: "♻️" },
-  { value: "fire_station", label: "Bombeiros", icon: "🚒" },
+/** Nome do arquivo SVG no mapa (transit_station -> transit.svg). */
+function getServiceTypeIconFilename(value: ServiceTypeFilterValue): string {
+  return value === "transit_station" ? "transit.svg" : `${value}.svg`;
+}
+
+const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string }[] = [
+  { value: "ubs", label: "UBS" },
+  { value: "school", label: "Escolas" },
+  { value: "ceu", label: "CEUs" },
+  { value: "hospital", label: "Hospitais" },
+  { value: "library", label: "Bibliotecas" },
+  { value: "sports_center", label: "Esportes" },
+  { value: "street_market", label: "Feiras" },
+  { value: "community_center", label: "Centros Comunitários" },
+  { value: "daycare", label: "Creches" },
+  { value: "park", label: "Parques" },
+  { value: "market", label: "Mercados" },
+  { value: "city_market", label: "Mercados Municipais" },
+  { value: "theater", label: "Teatro/Cinema" },
+  { value: "museum", label: "Museus" },
+  { value: "social_assistance", label: "Assistência Social" },
+  { value: "transit_station", label: "Transporte" },
+  { value: "police_station", label: "Delegacia/Polícia" },
+  { value: "cemetery", label: "Cemitério" },
+  { value: "accessibility", label: "Acessibilidade" },
+  { value: "recycling_point", label: "Reciclagem/Limpeza" },
+  { value: "fire_station", label: "Bombeiros" },
 ];
 
 export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeFilterProps) => {
@@ -98,9 +103,12 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
               onCheckedChange={(checked) => toggle(type.value, !!checked)}
               onSelect={(e) => e.preventDefault()}
             >
-              <span className="mr-2" aria-hidden="true">
-                {type.icon}
-              </span>
+              <img
+                src={`${import.meta.env.BASE_URL}icons/map/${getServiceTypeIconFilename(type.value)}`}
+                alt=""
+                className="mr-2 size-5 shrink-0"
+                aria-hidden
+              />
               {type.label}
             </DropdownMenuCheckboxItem>
           ))}
