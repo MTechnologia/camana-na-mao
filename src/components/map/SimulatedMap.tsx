@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { ServiceTypeIcon, getServiceTypeLabel, getServiceTypeMapColor } from "@/components/icons";
 import { formatDistance, formatDistanceStraightLine, getServiceDisplayName } from "@/lib/mapUtils";
 
@@ -92,24 +92,9 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
         )}
       </Card>
 
-      {/* Demo banner + instrução Google Maps */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-center px-4">
-        <Badge variant="secondary" className="shadow-lg">
-          <Navigation className="w-3 h-3 mr-1" />
-          Mapa de Demonstração
-        </Badge>
-        <p className="text-xs text-muted-foreground max-w-xs">
-          Para ver o mapa com ruas: em <strong>desenvolvimento</strong>, configure{" "}
-          <code className="text-[10px] bg-muted px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no{" "}
-          <code className="text-[10px] bg-muted px-1 rounded">.env</code> e reinicie{" "}
-          <code className="text-[10px] bg-muted px-1 rounded">npm run dev</code>. Em{" "}
-          <strong>build/deploy</strong>, defina a variável no momento do build (ex.: variáveis de substituição do Cloud Build).
-        </p>
-      </div>
-
       {/* User location marker */}
       {userLocation && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20">
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
           <div className="relative">
             <div className="w-12 h-12 bg-primary rounded-full shadow-xl flex items-center justify-center animate-pulse">
               <MapPin className="w-6 h-6 text-primary-foreground" />
