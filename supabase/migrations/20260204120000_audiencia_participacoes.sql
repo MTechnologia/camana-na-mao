@@ -21,10 +21,12 @@ CREATE INDEX IF NOT EXISTS idx_audiencia_participacoes_email ON public.audiencia
 
 ALTER TABLE public.audiencia_participacoes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can insert participacoes" ON public.audiencia_participacoes;
 CREATE POLICY "Anyone can insert participacoes"
   ON public.audiencia_participacoes FOR INSERT
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Users can view own participacoes" ON public.audiencia_participacoes;
 CREATE POLICY "Users can view own participacoes"
   ON public.audiencia_participacoes FOR SELECT
   USING (auth.uid() = user_id);

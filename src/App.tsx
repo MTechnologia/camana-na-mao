@@ -12,6 +12,7 @@ import { MenuProvider } from "@/contexts/MenuContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { BackgroundAuthBridge } from "@/components/BackgroundAuthBridge";
 import AppLayout from "@/components/layout/AppLayout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { ProtectedAdminOnlyRoute } from "@/components/admin/ProtectedAdminOnlyRoute";
 import { usePrefetch } from "@/components/navigation/PrefetchLink";
@@ -206,125 +207,94 @@ const AppContent = () => {
       <RoutePrefetcher />
       <AppLayout>
         <Routes>
-          {/* Main route - Home */}
-          <Route path="/" element={<Home />} />
-          
-          {/* Auth routes - No layout header */}
+          {/* Rotas públicas - acessíveis sem login */}
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/nova-senha" element={<UpdatePassword />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          
-          {/* Profile routes - PT */}
-          <Route path="/perfil" element={<Profile />} />
-          <Route path="/perfil/:userId" element={<PublicProfilePage />} />
-          <Route path="/perfil/dados-pessoais" element={<PersonalInfoPage />} />
-          <Route path="/perfil/interesses" element={<InterestsPage />} />
-          <Route path="/perfil/dados-demograficos" element={<DemographicsPage />} />
-          <Route path="/perfil/endereco" element={<AddressPage />} />
-          <Route path="/perfil/preferencias" element={<PreferencesPage />} />
-          <Route path="/perfil/consentimentos" element={<ConsentsPage />} />
-          <Route path="/perfil/exportar-dados" element={<DataExportPage />} />
-          <Route path="/perfil/direitos" element={<UserRightsPage />} />
-          <Route path="/configuracoes/acessibilidade" element={<AccessibilityPage />} />
-          
-          {/* Profile routes - Redirects for backward compatibility */}
-          <Route path="/profile" element={<Navigate to="/perfil" replace />} />
-          <Route path="/profile/personal" element={<Navigate to="/perfil/dados-pessoais" replace />} />
-          <Route path="/profile/interests" element={<Navigate to="/perfil/interesses" replace />} />
-          <Route path="/profile/demographics" element={<Navigate to="/perfil/dados-demograficos" replace />} />
-          <Route path="/profile/address" element={<Navigate to="/perfil/endereco" replace />} />
-          <Route path="/profile/preferences" element={<Navigate to="/perfil/preferencias" replace />} />
-          <Route path="/settings/accessibility" element={<Navigate to="/configuracoes/acessibilidade" replace />} />
-          
-          {/* Notifications - PT */}
-          <Route path="/notificacoes" element={<Notifications />} />
-          <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
-          
-          {/* Search - PT */}
-          <Route path="/busca" element={<SearchPage />} />
-          <Route path="/search" element={<Navigate to="/busca" replace />} />
-
-          {/* Reports hub (citizen) */}
-          <Route path="/relatos" element={<ReportsHub />} />
-          
-          {/* Citizen routes */}
-          <Route path="/conversas" element={<ConversationsPage />} />
-          <Route path="/audiencias" element={<Audiencias />} />
-          <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
-          <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
-          <Route path="/audiencias/minhas-inscricoes" element={<MyAudienciaInscricoesPage />} />
-          
-          {/* Institutional routes */}
-          <Route path="/institucional/agenda" element={<AgendaCMSP />} />
-          <Route path="/institucional/vereadores" element={<Vereadores />} />
-          <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
-          <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
-          <Route path="/institucional/comissoes" element={<Comissoes />} />
-          <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
-          <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
-          <Route path="/institucional/noticias" element={<Noticias />} />
-          <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
-          
-          {/* Services routes */}
-          <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
-          <Route path="/servico/:id" element={<ServiceDetailPage />} />
-          <Route path="/avaliar" element={<EvaluationPage />} />
-          <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
-          <Route path="/avaliacoes/historico" element={<RatingsHistoryPage />} />
-          
-          {/* Transport routes */}
-          <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
-          <Route path="/transporte/novo" element={<NewReportPage />} />
-          <Route path="/transporte/padroes" element={<PatternsPage />} />
-          <Route path="/transporte/historico" element={<MyReportsPage />} />
-          
-          {/* Analytics routes - PT */}
-          <Route path="/paineis" element={<AnalyticsDashboard />} />
-          <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
-          <Route path="/paineis/criar" element={<CreateDashboard />} />
-          
-          {/* Analytics routes - Redirects for backward compatibility */}
-          <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
-          <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
-          <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
-          
-          {/* Urban report routes: hub (IA / Manual / Histórico) e formulário manual */}
-          <Route path="/relato-urbano" element={<UrbanReportPage />} />
-          <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
-          <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
-          <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
-          <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
-          <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
-          <Route path="/admin/audit-logs" element={<ProtectedAdminOnlyRoute><AuditLogs /></ProtectedAdminOnlyRoute>} />
-          <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
-          <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
-          <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
-          <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />
-          {/* Redirects for removed routes */}
-          <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
-          <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
-          
-          {/* Documentation */}
+          <Route path="/privacidade" element={<PrivacyPolicyPage />} />
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
-          
-          {/* Privacy and Legal */}
-          <Route path="/privacidade" element={<PrivacyPolicyPage />} />
 
-          {/* Debug */}
-          <Route path="/debug/rbac" element={<DebugRBAC />} />
-          
-          {/* Catch-all */}
+          {/* Rotas protegidas - redirecionam para /welcome se não logado */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/perfil" element={<Profile />} />
+            <Route path="/perfil/:userId" element={<PublicProfilePage />} />
+            <Route path="/perfil/dados-pessoais" element={<PersonalInfoPage />} />
+            <Route path="/perfil/interesses" element={<InterestsPage />} />
+            <Route path="/perfil/dados-demograficos" element={<DemographicsPage />} />
+            <Route path="/perfil/endereco" element={<AddressPage />} />
+            <Route path="/perfil/preferencias" element={<PreferencesPage />} />
+            <Route path="/perfil/consentimentos" element={<ConsentsPage />} />
+            <Route path="/perfil/exportar-dados" element={<DataExportPage />} />
+            <Route path="/perfil/direitos" element={<UserRightsPage />} />
+            <Route path="/configuracoes/acessibilidade" element={<AccessibilityPage />} />
+            <Route path="/profile" element={<Navigate to="/perfil" replace />} />
+            <Route path="/profile/personal" element={<Navigate to="/perfil/dados-pessoais" replace />} />
+            <Route path="/profile/interests" element={<Navigate to="/perfil/interesses" replace />} />
+            <Route path="/profile/demographics" element={<Navigate to="/perfil/dados-demograficos" replace />} />
+            <Route path="/profile/address" element={<Navigate to="/perfil/endereco" replace />} />
+            <Route path="/profile/preferences" element={<Navigate to="/perfil/preferencias" replace />} />
+            <Route path="/settings/accessibility" element={<Navigate to="/configuracoes/acessibilidade" replace />} />
+            <Route path="/notificacoes" element={<Notifications />} />
+            <Route path="/notifications" element={<Navigate to="/notificacoes" replace />} />
+            <Route path="/busca" element={<SearchPage />} />
+            <Route path="/search" element={<Navigate to="/busca" replace />} />
+            <Route path="/relatos" element={<ReportsHub />} />
+            <Route path="/conversas" element={<ConversationsPage />} />
+            <Route path="/audiencias" element={<Audiencias />} />
+            <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
+            <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
+            <Route path="/audiencias/minhas-inscricoes" element={<MyAudienciaInscricoesPage />} />
+            <Route path="/institucional/agenda" element={<AgendaCMSP />} />
+            <Route path="/institucional/vereadores" element={<Vereadores />} />
+            <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
+            <Route path="/institucional/conheca-camara" element={<ConhecaCamara />} />
+            <Route path="/institucional/comissoes" element={<Comissoes />} />
+            <Route path="/institucional/camara-explica" element={<CamaraExplica />} />
+            <Route path="/institucional/escola-parlamento" element={<EscolaParlamento />} />
+            <Route path="/institucional/noticias" element={<Noticias />} />
+            <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
+            <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
+            <Route path="/servico/:id" element={<ServiceDetailPage />} />
+            <Route path="/avaliar" element={<EvaluationPage />} />
+            <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
+            <Route path="/avaliacoes/historico" element={<RatingsHistoryPage />} />
+            <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
+            <Route path="/transporte/novo" element={<NewReportPage />} />
+            <Route path="/transporte/padroes" element={<PatternsPage />} />
+            <Route path="/transporte/historico" element={<MyReportsPage />} />
+            <Route path="/paineis" element={<AnalyticsDashboard />} />
+            <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
+            <Route path="/paineis/criar" element={<CreateDashboard />} />
+            <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
+            <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
+            <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
+            <Route path="/relato-urbano" element={<UrbanReportPage />} />
+            <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
+            <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
+            <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+            <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
+            <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
+            <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
+            <Route path="/admin/audit-logs" element={<ProtectedAdminOnlyRoute><AuditLogs /></ProtectedAdminOnlyRoute>} />
+            <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
+            <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
+            <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
+            <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
+            <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />
+            <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
+            <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
+            <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
+            <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
+            <Route path="/debug/rbac" element={<DebugRBAC />} />
+          </Route>
+
+          {/* Catch-all - 404 (sem proteção para exibir página de não encontrado) */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>

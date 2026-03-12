@@ -63,6 +63,8 @@ const ParticipacaoPage = () => {
   const [audienciaLoading, setAudienciaLoading] = useState(true);
   const [confirmProtocolo, setConfirmProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
+  const [participacaoIdVideoconferencia, setParticipacaoIdVideoconferencia] = useState<string | null>(null);
+  const [cancelandoInscricao, setCancelandoInscricao] = useState(false);
 
   const audienciaId = useMemo(() => (id ? String(id) : ""), [id]);
 
@@ -118,6 +120,7 @@ const ParticipacaoPage = () => {
         .eq("tipo", "videoconferencia")
         .maybeSingle();
       setInscritoVideoconferencia(!!data);
+      setParticipacaoIdVideoconferencia(data?.id ?? null);
     };
     check();
   }, [user?.id, audienciaId]);
@@ -189,6 +192,10 @@ const ParticipacaoPage = () => {
   }
 
   const submitVideoconferencia = async () => {
+    if (!user?.id) {
+      toast.error("Faça login para se inscrever em audiências.");
+      return;
+    }
     if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
     if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
     const phoneDigits = telefone.replace(/\D/g, "");
@@ -199,7 +206,7 @@ const ParticipacaoPage = () => {
       const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
         p_audiencia_id: audienciaId,
         p_tipo: "videoconferencia",
-        p_user_id: user?.id ?? null,
+        p_user_id: user!.id,
         p_nome: nome.trim(),
         p_email: email.trim(),
         p_telefone: telefone.trim(),
@@ -235,13 +242,21 @@ const ParticipacaoPage = () => {
       setStep(3);
     } catch (e: unknown) {
       console.error(e);
-      toast.error("Não foi possível enviar. Tente novamente.");
+      const msg = (e as { message?: string })?.message ?? "";
+      if (msg.includes("já está inscrito")) toast.error("Você já está inscrito nesta audiência.");
+      else if (msg.includes("Autenticação obrigatória")) toast.error("Faça login para se inscrever.");
+      else if (msg.includes("Inscrições não estão abertas")) toast.error("Inscrições não estão abertas para esta audiência.");
+      else toast.error("Não foi possível enviar. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const submitEscrito = async () => {
+    if (!user?.id) {
+      toast.error("Faça login para se inscrever em audiências.");
+      return;
+    }
     if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
     if (!email.trim() || !email.includes("@")) { toast.error("Preencha um e-mail válido."); return; }
     const phoneDigits = telefone.replace(/\D/g, "");
@@ -254,7 +269,7 @@ const ParticipacaoPage = () => {
       const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
         p_audiencia_id: audienciaId,
         p_tipo: "escrito",
-        p_user_id: user?.id ?? null,
+        p_user_id: user!.id,
         p_nome: nome.trim(),
         p_email: email.trim(),
         p_telefone: telefone.trim(),
@@ -290,7 +305,11 @@ const ParticipacaoPage = () => {
       setStep(3);
     } catch (e: unknown) {
       console.error(e);
-      toast.error("Não foi possível enviar. Tente novamente.");
+      const msg = (e as { message?: string })?.message ?? "";
+      if (msg.includes("já está inscrito")) toast.error("Você já está inscrito nesta audiência.");
+      else if (msg.includes("Autenticação obrigatória")) toast.error("Faça login para se inscrever.");
+      else if (msg.includes("Inscrições não estão abertas")) toast.error("Inscrições não estão abertas para esta audiência.");
+      else toast.error("Não foi possível enviar. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -372,6 +391,26 @@ const ParticipacaoPage = () => {
   // ——— Formulário VIDEOCONFERÊNCIA (formulário único, conforme CMSP) ———
   if (tipo === "videoconferencia") {
     if (inscritoVideoconferencia) {
+      const handleCancelarInscricao = async () => {
+        if (!participacaoIdVideoconferencia || !user?.id) return;
+        setCancelandoInscricao(true);
+        try {
+          const { error } = await supabase
+            .from("audiencia_participacoes")
+            .delete()
+            .eq("id", participacaoIdVideoconferencia)
+            .eq("user_id", user.id);
+          if (error) throw error;
+          setInscritoVideoconferencia(false);
+          setParticipacaoIdVideoconferencia(null);
+          toast.success("Inscrição cancelada.");
+        } catch (e) {
+          console.error(e);
+          toast.error("Não foi possível cancelar a inscrição.");
+        } finally {
+          setCancelandoInscricao(false);
+        }
+      };
       return (
         <div className="min-h-screen bg-background pb-20">
           <PageHeader title="Quero participar" backTo={backToDetail} />
@@ -381,7 +420,17 @@ const ParticipacaoPage = () => {
               <span>Já inscrito nesta audiência</span>
             </div>
             <p className="text-sm text-muted-foreground text-center">Você já realizou a inscrição para manifestar-se durante a videoconferência.</p>
-            <Button variant="outline" onClick={() => navigate(backToDetail)} className="w-full max-w-xs border-border text-foreground hover:bg-muted/50">Voltar aos detalhes da audiência</Button>
+            <div className="flex flex-col gap-2 w-full max-w-xs">
+              <Button variant="outline" onClick={() => navigate(backToDetail)} className="w-full border-border text-foreground hover:bg-muted/50">Voltar aos detalhes da audiência</Button>
+              <Button
+                variant="outline"
+                onClick={handleCancelarInscricao}
+                disabled={cancelandoInscricao}
+                className="w-full border-destructive text-destructive hover:bg-destructive/10"
+              >
+                {cancelandoInscricao ? "Cancelando..." : "Cancelar inscrição"}
+              </Button>
+            </div>
           </div>
         </div>
       );
