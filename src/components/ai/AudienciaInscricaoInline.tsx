@@ -294,9 +294,17 @@ export function AudienciaInscricaoInline() {
                 ? `Audiência pública: ${a.comissao.trim()}`
                 : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : "Audiência pública";
               const label = nomeAudiencia.length > 80 ? nomeAudiencia.slice(0, 80) + "…" : nomeAudiencia;
+              const dataPtBr =
+                /^\d{4}-\d{2}-\d{2}$/.test(a.data || "")
+                  ? new Date(a.data + "T12:00:00").toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })
+                  : a.data;
               return (
                 <SelectItem key={a.id} value={a.id} className="text-sm">
-                  {label} • {a.data}
+                  {label} • {dataPtBr}
                 </SelectItem>
               );
             })}
