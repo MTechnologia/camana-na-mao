@@ -288,7 +288,10 @@ export function AudienciaInscricaoInline() {
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Escolha a audiência" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            position="item-aligned"
+            className="max-w-[min(calc(100vw-2rem),28rem)]"
+          >
             {audiencias.map((a) => {
               const nomeAudiencia = (a.comissao && a.comissao.trim())
                 ? `Audiência pública: ${a.comissao.trim()}`
@@ -303,7 +306,11 @@ export function AudienciaInscricaoInline() {
                     })
                   : a.data;
               return (
-                <SelectItem key={a.id} value={a.id} className="text-sm">
+                <SelectItem
+                  key={a.id}
+                  value={a.id}
+                  className="text-sm whitespace-normal break-words py-2"
+                >
                   {label} • {dataPtBr}
                 </SelectItem>
               );
