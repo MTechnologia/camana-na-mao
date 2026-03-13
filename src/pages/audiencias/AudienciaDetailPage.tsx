@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloCardAudiencia, descricaoParaDetalhe, normalizarConvidadosParaExibicao, extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
+import { tituloCardAudiencia, descricaoParaDetalhe, parseConvidadosItens, extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
@@ -315,7 +315,7 @@ const AudienciaDetailPage = () => {
                   <div className="space-y-1">
                     <p className="font-medium text-foreground">Transmissão ao vivo</p>
                     <a
-                      href={audiencia.link_transmissao!}
+                      href={CMSP_YOUTUBE_URL}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary underline underline-offset-2 text-sm"
@@ -381,24 +381,18 @@ const AudienciaDetailPage = () => {
           );
         })()}
 
-        {/* Convidados (lista com marcadores, padrão do site oficial; hífens duplicados normalizados) */}
+        {/* Convidados: nome em uma linha, cargo na seguinte ( – cargo) */}
         {audiencia.convidados?.trim() && (() => {
-          const textoNorm = normalizarConvidadosParaExibicao(audiencia.convidados);
-          const itens = textoNorm
-            .split(/\s*;\s*/)
-            .map((s) => s.replace(/^\s*-\s*/, "").trim())
-            .filter(Boolean);
+          const itens = parseConvidadosItens(audiencia.convidados);
           if (itens.length === 0) return null;
           return (
             <div className="space-y-1 text-sm text-muted-foreground">
-              <p className="font-semibold text-foreground">Convidados:</p>
-              <ul className="list-none space-y-1 pl-0">
+              <p className="font-semibold text-foreground">Foram convidados para a Audiência Pública:</p>
+              <ul className="list-none space-y-1.5 pl-0">
                 {itens.map((item, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="shrink-0">–</span>
-                    <span>
-                      {item.endsWith(".") ? item : `${item};`}
-                    </span>
+                  <li key={i} className="space-y-0.5">
+                    <span className="block">- {item.nome}</span>
+                    {item.cargo ? <span className="block text-muted-foreground">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
                   </li>
                 ))}
               </ul>

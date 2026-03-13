@@ -3163,6 +3163,22 @@ export function isInformationalQuestionAboutBuscarAudiencia(userMessage: string)
   return /(como\s+posso\s+)?buscar\s+(uma\s+)?(audi[eê]ncia|audiencia)|buscar\s+(audi[eê]ncia|audiencia)\s+p[uú]blica/i.test(m);
 }
 
+/**
+ * Pergunta que pede listagem/agenda de audiências (próximas, quais, quando).
+ * Usado para short-circuit: chamar search_audiencias antes da IA e retornar só o texto da ferramenta,
+ * evitando que o modelo responda com RAG genérico em vez de chamar a ferramenta.
+ */
+export function isQuestionAboutProximasOuQuaisAudiencias(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  return (
+    /quais\s+(as\s+)?(pr[oó]ximas?\s+)?(audi[eê]ncias?|audiencias?)(\s+p[uú]blicas?)?/i.test(m) ||
+    /(quando\s+(s[aã]o|é)\s+)?(as\s+)?pr[oó]ximas?\s+(audi[eê]ncias?|audiencias?)(\s+p[uú]blicas?)?/i.test(m) ||
+    /(tem|ter|existe|existem)\s+(alguma\s+)?(audi[eê]ncia|audiencia)(\s+p[uú]blica)?\s+(pr[oó]xima|agendada)/i.test(m) ||
+    /(lista|agenda|calend[aá]rio)\s+(de\s+)?(audi[eê]ncias?|audiencias?)(\s+p[uú]blicas?)?/i.test(m) ||
+    /(audi[eê]ncias?|audiencias?)(\s+p[uú]blicas?)?\s+(pr[oó]ximas?|agendadas?)/i.test(m)
+  );
+}
+
 /** Pergunta claramente fora do escopo (shopping, restaurante, prefeito, multa, horário de comércio) → general para RAG responder "não temos essa informação", sem coletar CEP. */
 export function isOutOfScopeQuestion(userMessage: string): boolean {
   const m = userMessage.trim().toLowerCase();
@@ -4615,6 +4631,35 @@ function truncateDescricaoForContext(descricao: string | null | undefined, maxLe
   return oneLine.slice(0, maxLen) + '…';
 }
 
+/** Formata data ISO (YYYY-MM-DD) para pt-BR (DD/MM/AAAA). */
+function formatDatePtBr(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const s = iso.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const [y, m, d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Formata texto de convidados: cada nome em uma linha e cada cargo na linha seguinte ( – cargo), separador "; " entre itens. */
+function formatConvidadosBlock(convidados: string | null | undefined): string {
+  if (!convidados || !convidados.trim()) return '';
+  let text = convidados.replace(/\s+/g, ' ').trim();
+  text = text.replace(/^Foram\s+convidados?\s+para\s+a\s+Audi[eê]ncia\s+P[úu]blica:\s*/i, '');
+  const segmentos = text.split(/\s*;\s*/).map((s) => s.trim()).filter(Boolean);
+  if (!segmentos.length) return '';
+  const EN_DASH = '\u2013'; // –
+  const linhas = segmentos.map((seg) => {
+    const idx = seg.indexOf(' - ');
+    if (idx >= 0) {
+      const nome = seg.slice(0, idx).trim();
+      const cargo = seg.slice(idx + 3).trim();
+      return `   - ${nome}\n   ${EN_DASH} ${cargo}`;
+    }
+    return `   - ${seg}`;
+  });
+  return `\n\n   **Foram convidados para a Audiência Pública:**\n${linhas.join('; \n')}`;
+}
+
 /** Documentos e materiais de referência não são incluídos no texto da resposta; o chat exibe na listagem (transmissão, contato). */
 function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_transmissao?: string | null; mais_informacoes?: string | null }): string {
   return '';
@@ -4624,7 +4669,8 @@ function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_tra
 function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: string | null; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
   const br = '  \n';
   const nomeDaAudiencia = (a.comissao && a.comissao.trim()) ? a.comissao.trim() : (a.tema && a.tema.trim()) ? a.tema.trim() : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : 'Audiência';
-  const dataHora = `📅 ${a.data}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}`;
+  const dataLabel = formatDatePtBr(a.data || '');
+  const dataHora = `📅 ${dataLabel}${a.hora ? ` às ${a.hora.slice(0, 5)}` : ''}`;
   const localLine = a.local ? `${br}   **Local:** ${a.local}` : '';
   const inscricaoTrim = inscricao.trim();
   const statusInscricao = inscricaoTrim ? `${br}   ${statusText}${br}   ${inscricaoTrim}` : `${br}   ${statusText}`;
@@ -4708,11 +4754,14 @@ export async function searchAudiencias(
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
-        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+        const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
+        const ctxBlock = ctx
+          ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
+          : convidadosBlock;
         const docsBlock = formatDocumentosLine(a);
         return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
-      const periodo = dataMax ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`;
+      const periodo = dataMax ? `de ${formatDatePtBr(dataMin)} a ${formatDatePtBr(dataMax)}` : `a partir de ${formatDatePtBr(dataMin)}`;
       const intro = temaNorm
         ? `Audiências sobre **${temaNorm}** no período (${periodo}):\n\n`
         : `Audiências no período (${periodo}) — agendadas e realizadas:\n\n`;
@@ -4740,7 +4789,10 @@ export async function searchAudiencias(
         const formatted = ultimas5.map((a: Record<string, unknown>, i: number) => {
           const statusText = formatAudienciaStatus(a.status);
           const ctx = truncateDescricaoForContext(a.descricao);
-          const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que foi discutido:**\n\n   ${ctx}` : '';
+          const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
+          const ctxBlock = ctx
+            ? `\n\n   **Explicação simplificada do que foi discutido:**\n\n   ${ctx}${convidadosBlock}`
+            : convidadosBlock;
           const docsBlock = formatDocumentosLine(a);
           return formatAudienciaLine(a, i, statusText, '', ctxBlock, docsBlock);
         }).join('\n\n');
@@ -4753,13 +4805,14 @@ export async function searchAudiencias(
     }
   }
 
-  // 1) Sem tema: priorizar PRÓXIMAS (data >= dataMin, status agendada)
+  // 1) Sem tema: priorizar PRÓXIMAS (data >= dataMin, status agendada).
+  // Se não houver próximas, responder com a última audiência realizada.
   if (!temaNorm) {
     let q = supabase
       .from('audiencias')
       .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
       .in('status', AUDIENCIA_STATUS_AGENDADA)
-    .order('data', { ascending: true })
+      .order('data', { ascending: true })
       .limit(limitBase);
     q = applyDateFilters(q);
     const { data: rawProximas } = await q;
@@ -4770,13 +4823,37 @@ export async function searchAudiencias(
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
-        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+        const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
+        const ctxBlock = ctx
+          ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
+          : convidadosBlock;
         const docsBlock = formatDocumentosLine(a);
         return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
-      const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${dataMin} a ${dataMax}` : `a partir de ${dataMin}`)].filter(Boolean);
+      const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${formatDatePtBr(dataMin)} a ${formatDatePtBr(dataMax!)}`
+        : `a partir de ${formatDatePtBr(dataMin)}`)].filter(Boolean);
       const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';
       return `${intro}${formatted}\n\nQuer saber mais sobre alguma ou inscrever-se?`;
+    }
+
+    // Sem próximas agendadas: retornar a última audiência realizada (data <= hoje).
+    const { data: ultimas } = await supabase
+      .from('audiencias')
+      .select('titulo, tema, comissao, descricao, data, hora, local, status, inscricoes_abertas, vagas_disponiveis, convidados, projeto_referencia, link_transmissao, mais_informacoes')
+      .lte('data', today)
+      .order('data', { ascending: false })
+      .limit(1);
+    const ultima = filterByRegiao(ultimas || [], regiaoNorm)[0] as Record<string, unknown> | undefined;
+    if (ultima) {
+      const statusText = formatAudienciaStatus(ultima.status);
+      const ctx = truncateDescricaoForContext(ultima.descricao);
+      const convidadosBlock = formatConvidadosBlock((ultima as any).convidados as string | null | undefined);
+      const ctxBlock = ctx
+        ? `\n\n   **Resumo do que foi discutido:**\n\n   ${ctx}${convidadosBlock}`
+        : convidadosBlock;
+      const docsBlock = formatDocumentosLine(ultima);
+      const linha = formatAudienciaLine(ultima, 0, statusText, '', ctxBlock, docsBlock);
+      return `Não há audiências públicas futuras agendadas no momento.\n\nA última audiência pública foi:\n\n${linha}\n\nPosso buscar outras audiências por tema, período ou região, se você quiser.`;
     }
   }
 
@@ -4806,7 +4883,10 @@ export async function searchAudiencias(
       const statusText = formatAudienciaStatus(a.status);
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
       const ctx = truncateDescricaoForContext(a.descricao);
-      const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+      const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
+      const ctxBlock = ctx
+        ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
+        : convidadosBlock;
       const docsBlock = formatDocumentosLine(a);
       return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
     }).join('\n\n');
@@ -4829,7 +4909,10 @@ export async function searchAudiencias(
         const statusText = formatAudienciaStatus(a.status);
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
         const ctx = truncateDescricaoForContext(a.descricao);
-        const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
+        const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
+        const ctxBlock = ctx
+          ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
+          : convidadosBlock;
         const docsBlock = formatDocumentosLine(a);
         return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');

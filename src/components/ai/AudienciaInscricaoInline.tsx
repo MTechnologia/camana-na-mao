@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, Bell, Video, FileText, MapPin } from "lucide-react";
-import { normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
 
 const BAIRROS_SP = [
@@ -297,22 +297,18 @@ export function AudienciaInscricaoInline() {
         </Select>
       </div>
 
-      {/* Convidados da audiência selecionada */}
+      {/* Convidados da audiência selecionada: nome em uma linha, cargo na seguinte */}
       {selectedAudiencia?.convidados?.trim() && (() => {
-        const textoNorm = normalizarConvidadosParaExibicao(selectedAudiencia.convidados);
-        const itens = textoNorm
-          .split(/\s*;\s*/)
-          .map((s) => s.replace(/^\s*-\s*/, "").trim())
-          .filter(Boolean);
+        const itens = parseConvidadosItens(selectedAudiencia.convidados);
         if (itens.length === 0) return null;
         return (
           <div className="space-y-1 text-xs text-muted-foreground rounded-md border border-border/60 bg-muted/20 p-2">
-            <p className="font-semibold text-foreground">Convidados:</p>
+            <p className="font-semibold text-foreground">Foram convidados para a Audiência Pública:</p>
             <ul className="list-none space-y-0.5 pl-0">
               {itens.map((item, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="shrink-0">–</span>
-                  <span>{item.endsWith(".") ? item : `${item};`}</span>
+                <li key={i} className="space-y-0.5">
+                  <span className="block">- {item.nome}</span>
+                  {item.cargo ? <span className="block">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
                 </li>
               ))}
             </ul>

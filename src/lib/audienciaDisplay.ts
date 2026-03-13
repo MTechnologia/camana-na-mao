@@ -147,6 +147,21 @@ export function normalizarConvidadosParaExibicao(texto: string | null | undefine
     .trim();
 }
 
+/** Parses convidados into items with nome and cargo on separate lines (nome - cargo). */
+export function parseConvidadosItens(texto: string | null | undefined): Array<{ nome: string; cargo: string }> {
+  if (!texto || !texto.trim()) return [];
+  const norm = normalizarConvidadosParaExibicao(texto);
+  return norm
+    .split(/\s*;\s*/)
+    .map((s) => s.replace(/^\s*-\s*/, "").trim())
+    .filter(Boolean)
+    .map((seg) => {
+      const idx = seg.indexOf(" - ");
+      if (idx >= 0) return { nome: seg.slice(0, idx).trim(), cargo: seg.slice(idx + 3).trim() };
+      return { nome: seg, cargo: "" };
+    });
+}
+
 /** Extrai o primeiro e-mail de texto "Mais informações: ..." para usar em mailto:. */
 export function extrairEmailDeMaisInformacoes(texto: string | null | undefined): string | null {
   if (!texto || !texto.trim()) return null;
