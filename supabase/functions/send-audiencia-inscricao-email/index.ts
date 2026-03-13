@@ -2,13 +2,20 @@
  * Envia e-mail de confirmação de inscrição em audiência pública (videoconferência ou escrito).
  * Invocado por Database Webhook: tabela audiencia_participacoes, evento INSERT.
  *
+ * Além do usuário inscrito, envia cópia para: sgp1@saopaulo.sp.leg.br e testes.mtech.2025@gmail.com.
+ *
  * Remetente: AUDIENCIA_EMAIL_FROM (ex.: "Câmara Municipal de São Paulo <noreply@saopaulo.sp.leg.br>")
  *            ou fallback SENDGRID_FROM / RESEND_FROM.
- * Para usar noreply@saopaulo.sp.leg.br, a Câmara deve verificar o domínio no SendGrid/Resend.
  *
  * Secrets: SENDGRID_API_KEY + SENDGRID_FROM ou RESEND_API_KEY + RESEND_FROM;
  *          opcional: AUDIENCIA_EMAIL_FROM para remetente específico das audiências.
  */
+
+/** E-mails que recebem cópia de toda confirmação de inscrição via app (Câmara na Mão). */
+const CONFIRMATION_CC_EMAILS = [
+  "sgp1@saopaulo.sp.leg.br",
+  "testes.mtech.2025@gmail.com",
+];
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -193,8 +200,15 @@ serve(async (req) => {
 
     let emailSent = false;
 
+    const ccEmails = CONFIRMATION_CC_EMAILS.filter((e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+
     if (sendgridKey && (sendgridFrom || fromAudiencia)) {
       try {
+        const personalization: { to: { email: string }[]; subject: string; cc?: { email: string }[] } = {
+          to: [{ email: toEmail }],
+          subject,
+        };
+        if (ccEmails.length > 0) personalization.cc = ccEmails.map((email) => ({ email }));
         const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
           method: "POST",
           headers: {
@@ -202,7 +216,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            personalizations: [{ to: [{ email: toEmail }], subject }],
+            personalizations: [personalization],
             from: { email: fromEmail, name: fromName },
             content: [{ type: "text/html", value: html }],
           }),
@@ -216,6 +230,7 @@ serve(async (req) => {
 
     if (!emailSent && resendKey) {
       try {
+        const toList = [toEmail, ...ccEmails];
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -224,7 +239,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             from: fromFinal,
-            to: [toEmail],
+            to: toList,
             subject,
             html,
           }),

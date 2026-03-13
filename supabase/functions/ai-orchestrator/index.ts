@@ -1701,6 +1701,23 @@ ${empathyNote}
       }
     }
 
+    // Short-circuit: "quais as próximas audiências?" → chamar search_audiencias e retornar só o texto da ferramenta
+    // (evita que a IA responda com RAG genérico sem chamar a ferramenta)
+    if (lib.isQuestionAboutProximasOuQuaisAudiencias(lastUserMessage)) {
+      try {
+        const toolResult = await lib.executeTool('search_audiencias', {}, user.id, supabase, accumulatedFields || {});
+        const content = toolResult.message || '';
+        const payload = content + '\n\n[APP_ACTIONS:audiencias]';
+        console.log('[ai-orchestrator] Short-circuit: search_audiencias for "próximas/quais audiências", length:', content.length);
+        return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: payload } }] })}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+        });
+      } catch (e) {
+        console.error('[ai-orchestrator] Short-circuit search_audiencias error:', e);
+        // fall through: deixa a IA tentar com a ferramenta
+      }
+    }
+
     // === Opção B: RAG no Vertex para perguntas "gerais" ===
     // Se intenção é "general" e há data store ou corpus configurado, chama generateContent com retrieval
     // e injeta o contexto grounded no system prompt antes de chamar chat/completions.
@@ -1717,7 +1734,8 @@ ${empathyNote}
       finalAiApiKey &&
       lastUserMessage.trim().length > 3 &&
       !isZoneamentoQuery &&
-      !lib.isBusInformationalQuery(lastUserMessage)
+      !lib.isBusInformationalQuery(lastUserMessage) &&
+      !lib.isQuestionAboutProximasOuQuaisAudiencias(lastUserMessage)
     ) {
       try {
         const baseUrl = finalAiBaseUrl.replace(/\/$/, '');

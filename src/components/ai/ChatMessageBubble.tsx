@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
-import { extrairEmailDeMaisInformacoes, normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { extrairEmailDeMaisInformacoes, parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
@@ -183,14 +183,17 @@ const ChatMessageBubble = ({
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
-    const mentionsAudiencias = content.includes('audiên') || content.includes('audienc');
+    const mentionsAudiencias = content.includes("audiên") || content.includes("audienc");
     const isListingAudiencias =
-      content.includes('próximas audiências') ||
-      content.includes('proximas audiencias') ||
-      content.includes('audiências públicas agendadas') ||
-      content.includes('audiencias publicas agendadas') ||
-      content.includes('quer saber mais sobre alguma ou inscrever-se') ||
-      (content.includes('inscrever-se') && (content.includes('agendadas') || content.includes('próximas')));
+      content.includes("próximas audiências") ||
+      content.includes("proximas audiencias") ||
+      content.includes("audiências públicas agendadas") ||
+      content.includes("audiencias publicas agendadas") ||
+      content.includes("quer saber mais sobre alguma ou inscrever-se") ||
+      content.includes("este ano ainda não foram realizadas") ||
+      content.includes("últimas 5 realizadas") ||
+      content.includes("quer buscar outras audiências ou outro tema") ||
+      (content.includes("inscrever-se") && (content.includes("agendadas") || content.includes("próximas")));
     return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
 
@@ -198,13 +201,29 @@ const ChatMessageBubble = ({
   const { data: audienciasData = [] } = useQuery({
     queryKey: ["audiencias-chat"],
     queryFn: async () => {
-      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null; convidados: string | null; projeto_referencia: string | null; link_transmissao: string | null; mais_informacoes: string | null }[] = [];
+      const all: {
+        id: string;
+        titulo: string;
+        descricao: string | null;
+        data: string;
+        hora: string | null;
+        local: string;
+        tema: string;
+        status: string;
+        comissao: string | null;
+        convidados: string | null;
+        projeto_referencia: string | null;
+        link_transmissao: string | null;
+        mais_informacoes: string | null;
+        inscricoes_abertas: boolean | null;
+        vagas_disponiveis: number | null;
+      }[] = [];
       let offset = 0;
       const pageSize = 500;
       while (true) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados, projeto_referencia, link_transmissao, mais_informacoes")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados, projeto_referencia, link_transmissao, mais_informacoes, inscricoes_abertas, vagas_disponiveis")
           .order("data", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -218,6 +237,23 @@ const ChatMessageBubble = ({
     staleTime: 5 * 60 * 1000,
     enabled: shouldShowAudienciasCta,
   });
+
+  // Verifica se existe pelo menos uma audiência futura com inscrições abertas (dados estruturados).
+  const hasFutureOpenAudiencia = useMemo(() => {
+    if (!shouldShowAudienciasCta || !audienciasData.length) return false;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return audienciasData.some((a) => {
+      const dataStr = (a.data || "").slice(0, 10);
+      return (a.inscricoes_abertas ?? false) && dataStr >= todayStr;
+    });
+  }, [shouldShowAudienciasCta, audienciasData]);
+
+  // Inscrições abertas: se houver audiência futura aberta (preferência), ou se a resposta textual mencionar isso (fallback).
+  const hasInscricoesAbertas = useMemo(() => {
+    if (!shouldShowAudienciasCta) return false;
+    if (hasFutureOpenAudiencia) return true;
+    return message.content.includes("Inscrições abertas") || message.content.includes("🎫");
+  }, [shouldShowAudienciasCta, hasFutureOpenAudiencia, message.content]);
 
   const audienciasFiltradasNoChat = useMemo(() => {
     if (!audienciasData.length) return [];
@@ -613,20 +649,16 @@ const ChatMessageBubble = ({
                           </p>
                         )}
                         {a.convidados?.trim() && (() => {
-                          const textoNorm = normalizarConvidadosParaExibicao(a.convidados);
-                          const itens = textoNorm
-                            .split(/\s*;\s*/)
-                            .map((s) => s.replace(/^\s*-\s*/, "").trim())
-                            .filter(Boolean);
+                          const itens = parseConvidadosItens(a.convidados);
                           if (itens.length === 0) return null;
                           return (
                             <div className="space-y-1 text-muted-foreground">
-                              <p className="font-semibold text-foreground text-xs">Convidados:</p>
+                              <p className="font-semibold text-foreground text-xs">Foram convidados para a Audiência Pública:</p>
                               <ul className="list-none space-y-0.5 pl-0 text-xs">
                                 {itens.map((item, i) => (
-                                  <li key={i} className="flex gap-2">
-                                    <span className="shrink-0">–</span>
-                                    <span>{item.endsWith(".") ? item : `${item};`}</span>
+                                  <li key={i} className="space-y-0.5">
+                                    <span className="block">- {item.nome}</span>
+                                    {item.cargo ? <span className="block">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
                                   </li>
                                 ))}
                               </ul>
@@ -649,7 +681,7 @@ const ChatMessageBubble = ({
                                 <div className="space-y-0.5">
                                   <p className="font-medium text-foreground text-xs">Transmissão ao vivo</p>
                                   <a
-                                    href={a.link_transmissao}
+                                    href="https://www.youtube.com/user/camarasaopaulo"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-primary underline underline-offset-2 text-xs block"

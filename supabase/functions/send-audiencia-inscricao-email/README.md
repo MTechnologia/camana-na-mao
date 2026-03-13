@@ -2,6 +2,8 @@
 
 Envia **e-mail de confirmação** quando uma inscrição em audiência pública é feita pelo app (videoconferência ou manifestação por escrito). O conteúdo replica o estilo do e-mail oficial da CMSP (protocolo, aviso sobre direito à fala, link da videoconferência, dados da audiência e do inscrito).
 
+**Destinatários:** além do e-mail do usuário inscrito, é enviada cópia para `sgp1@saopaulo.sp.leg.br` e `testes.mtech.2025@gmail.com` (SendGrid: CC; Resend: mesmo e-mail em "to" para os três).
+
 ## Remetente: usar `noreply@saopaulo.sp.leg.br`
 
 Para que os e-mails saiam como **Câmara Municipal de São Paulo &lt;noreply@saopaulo.sp.leg.br&gt;**:
