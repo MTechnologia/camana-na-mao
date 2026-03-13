@@ -200,12 +200,6 @@ const ChatMessageBubble = ({
     return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
 
-  // Inscrições abertas: resposta contém "Inscrições abertas" ou emoji 🎫 → mostrar botão "Inscrever-se aqui no chat"; senão mostrar "Inscrições encerradas" (como no módulo).
-  const hasInscricoesAbertas = useMemo(() => {
-    if (!shouldShowAudienciasCta) return false;
-    return message.content.includes('Inscrições abertas') || message.content.includes('🎫');
-  }, [shouldShowAudienciasCta, message.content]);
-
   // Dados para listagem filtrada no chat (tema, data, região) — query dedicada, ordem ascendente para próximas primeiro.
   const { data: audienciasData = [] } = useQuery({
     queryKey: ["audiencias-chat"],
