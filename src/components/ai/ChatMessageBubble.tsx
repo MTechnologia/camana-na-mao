@@ -798,41 +798,6 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
-              {/* RAG sobre audiências: opção de trazer próximas audiências no chat ou ir ao módulo */}
-              {appActions.audiencias && (
-                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                  <p className="text-xs text-muted-foreground">Você também pode:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {onRequestAudienciasWithFilters && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() =>
-                          onRequestAudienciasWithFilters({
-                            tema: '',
-                            regiao: '',
-                            dateFrom: '',
-                            dateTo: '',
-                          })
-                        }
-                      >
-                        Ver próximas audiências no chat
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => navigate('/audiencias')}
-                    >
-                      Ver no módulo Audiências
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>

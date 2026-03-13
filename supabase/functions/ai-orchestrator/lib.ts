@@ -4640,24 +4640,25 @@ function formatDatePtBr(iso: string | null | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
-/** Formata texto de convidados: cada nome em uma linha e cada cargo na linha seguinte ( – cargo), separador "; " entre itens. */
+/** Formata texto de convidados: cada nome e cada cargo em linha própria (quebra no markdown com "  \n"). */
 function formatConvidadosBlock(convidados: string | null | undefined): string {
   if (!convidados || !convidados.trim()) return '';
   let text = convidados.replace(/\s+/g, ' ').trim();
   text = text.replace(/^Foram\s+convidados?\s+para\s+a\s+Audi[eê]ncia\s+P[úu]blica:\s*/i, '');
   const segmentos = text.split(/\s*;\s*/).map((s) => s.trim()).filter(Boolean);
   if (!segmentos.length) return '';
+  const br = '  \n'; // markdown: duas espaços + newline = <br>
   const EN_DASH = '\u2013'; // –
   const linhas = segmentos.map((seg) => {
     const idx = seg.indexOf(' - ');
     if (idx >= 0) {
       const nome = seg.slice(0, idx).trim();
       const cargo = seg.slice(idx + 3).trim();
-      return `   - ${nome}\n   ${EN_DASH} ${cargo}`;
+      return `   - ${nome}${br}   ${EN_DASH} ${cargo}`;
     }
     return `   - ${seg}`;
   });
-  return `\n\n   **Foram convidados para a Audiência Pública:**\n${linhas.join('; \n')}`;
+  return `\n\n   **Foram convidados para a Audiência Pública:**${br}${linhas.join(br)}`;
 }
 
 /** Documentos e materiais de referência não são incluídos no texto da resposta; o chat exibe na listagem (transmissão, contato). */
@@ -4665,7 +4666,7 @@ function formatDocumentosLine(_a: { projeto_referencia?: string | null; link_tra
   return '';
 }
 
-/** Formata uma linha de audiência para o chat: "Audiência pública: [nome]" (nome = comissão, ex. Comissão de Finanças e Orçamento), descrição abaixo. Quebras de linha, Local: em negrito. */
+/** Formata uma linha de audiência para o chat: título, tema (vindo da API), data/local/status. Sem duplicar rótulo "Tema:". */
 function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: string | null; data: string; hora?: string | null; local?: string | null; status?: string }, i: number, statusText: string, inscricao: string, ctxBlock: string, docsBlock: string): string {
   const br = '  \n';
   const nomeDaAudiencia = (a.comissao && a.comissao.trim()) ? a.comissao.trim() : (a.tema && a.tema.trim()) ? a.tema.trim() : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : 'Audiência';
@@ -4674,7 +4675,7 @@ function formatAudienciaLine(a: { titulo: string; tema: string; comissao?: strin
   const localLine = a.local ? `${br}   **Local:** ${a.local}` : '';
   const inscricaoTrim = inscricao.trim();
   const statusInscricao = inscricaoTrim ? `${br}   ${statusText}${br}   ${inscricaoTrim}` : `${br}   ${statusText}`;
-  return `${i + 1}. **Audiência pública:** ${nomeDaAudiencia}\n\n   📋 ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
+  return `${i + 1}. **Audiência pública:** ${nomeDaAudiencia}\n\n   ${a.tema}\n\n   ${dataHora}${localLine}${statusInscricao}${ctxBlock}${docsBlock}`;
 }
 
 /** Busca as N últimas notícias do cache (tabela news_cache) para injetar no contexto do chat. */
@@ -4829,7 +4830,7 @@ export async function searchAudiencias(
           : convidadosBlock;
         const docsBlock = formatDocumentosLine(a);
         return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
-      }).join('\n\n');
+      }).join('\n\n---\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${formatDatePtBr(dataMin)} a ${formatDatePtBr(dataMax!)}`
         : `a partir de ${formatDatePtBr(dataMin)}`)].filter(Boolean);
       const intro = filtros.length ? `Próximas audiências (${filtros.join(', ')}):\n\n` : 'Próximas audiências públicas agendadas:\n\n';

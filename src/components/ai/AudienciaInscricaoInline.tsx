@@ -47,6 +47,7 @@ interface AudienciaOption {
   titulo: string;
   data: string;
   local: string | null;
+  comissao: string | null;
   slug: string | null;
   ap_code: string | null;
   convidados: string | null;
@@ -76,7 +77,7 @@ export function AudienciaInscricaoInline() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, data, local, slug, ap_code, convidados")
+        .select("id, titulo, data, local, comissao, slug, ap_code, convidados")
         .eq("inscricoes_abertas", true)
         .gte("data", today)
         .order("data", { ascending: true })
@@ -288,11 +289,17 @@ export function AudienciaInscricaoInline() {
             <SelectValue placeholder="Escolha a audiência" />
           </SelectTrigger>
           <SelectContent>
-            {audiencias.map((a) => (
-              <SelectItem key={a.id} value={a.id} className="text-sm">
-                {a.titulo.length > 50 ? a.titulo.slice(0, 50) + "…" : a.titulo} • {a.data}
-              </SelectItem>
-            ))}
+            {audiencias.map((a) => {
+              const nomeAudiencia = (a.comissao && a.comissao.trim())
+                ? `Audiência pública: ${a.comissao.trim()}`
+                : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : "Audiência pública";
+              const label = nomeAudiencia.length > 80 ? nomeAudiencia.slice(0, 80) + "…" : nomeAudiencia;
+              return (
+                <SelectItem key={a.id} value={a.id} className="text-sm">
+                  {label} • {a.data}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
