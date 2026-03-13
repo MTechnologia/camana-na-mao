@@ -1105,6 +1105,108 @@ export async function lookupCEP(cep: string): Promise<{
   }
 }
 
+/** Geocode endereço (rua, bairro, CEP, cidade) para lat/lon via Nominatim (OSM). Usado para buscar serviços próximos quando não há GPS nem lat/lon no endereço cadastrado. */
+export async function geocodeAddressToCoord(addressParts: {
+  street?: string | null;
+  street_number?: string | null;
+  neighborhood?: string | null;
+  cep?: string | null;
+  city?: string | null;
+}): Promise<{ lat: number; lon: number } | null> {
+  const city = addressParts.city || 'São Paulo';
+  const runQuery = async (query: string): Promise<{ lat: number; lon: number } | null> => {
+    if (!query || query.length < 5) return null;
+    const url = `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
+      q: query,
+      format: 'json',
+      limit: '1',
+      countrycodes: 'br',
+    })}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const lat = Number(data[0].lat);
+    const lon = Number(data[0].lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  };
+
+  const parts: string[] = [];
+  if (addressParts.street) {
+    parts.push(addressParts.street_number ? `${addressParts.street}, ${addressParts.street_number}` : addressParts.street);
+  }
+  if (addressParts.neighborhood) parts.push(addressParts.neighborhood);
+  if (addressParts.cep) parts.push(addressParts.cep.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'));
+  parts.push(city, 'Brazil');
+  const fullQuery = parts.filter(Boolean).join(', ');
+  try {
+    let result = await runQuery(fullQuery);
+    if (result) return result;
+    // Fallback: sem número (rua + bairro + cidade) — Nominatim às vezes falha com número
+    if (addressParts.street_number && addressParts.street) {
+      const fallbackParts = [addressParts.street, addressParts.neighborhood, city, 'Brazil'].filter(Boolean);
+      result = await runQuery(fallbackParts.join(', '));
+    }
+    return result;
+  } catch (e) {
+    console.error('[geocodeAddressToCoord] Error:', e);
+    return null;
+  }
+}
+
+/** Geocode endereço usando Google Places (autocomplete + details), igual ao módulo e ao picker. Usado quando precisamos do mesmo ponto que o frontend (ex.: endereço cadastrado sem lat/lon). */
+export async function geocodeAddressWithGoogle(
+  supabase: SupabaseClient,
+  addressParts: {
+    street?: string | null;
+    street_number?: string | null;
+    neighborhood?: string | null;
+    cep?: string | null;
+    city?: string | null;
+  }
+): Promise<{ lat: number; lon: number } | null> {
+  const city = addressParts.city || 'São Paulo';
+  const parts: string[] = [];
+  if (addressParts.street) {
+    parts.push(addressParts.street_number ? `${addressParts.street}, ${addressParts.street_number}` : addressParts.street);
+  }
+  if (addressParts.neighborhood) parts.push(addressParts.neighborhood);
+  if (addressParts.cep) parts.push(String(addressParts.cep).replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2'));
+  parts.push(city, 'Brasil');
+  const query = parts.filter(Boolean).join(', ');
+  if (!query || query.length < 5) return null;
+  try {
+    const { data: autocompleteData, error: autocompleteError } = await supabase.functions.invoke<{
+      predictions?: Array<{ placeId?: string }>;
+      error?: string;
+    }>('google-places-autocomplete', { body: { query } });
+    if (autocompleteError || !autocompleteData?.predictions?.length) {
+      if (autocompleteError) console.warn('[geocodeAddressWithGoogle] Autocomplete error:', autocompleteError);
+      return null;
+    }
+    const placeId = autocompleteData.predictions[0].placeId;
+    if (!placeId) return null;
+    const { data: detailsData, error: detailsError } = await supabase.functions.invoke<{
+      address?: { latitude?: number; longitude?: number };
+      error?: string;
+    }>('google-places-details', { body: { placeId } });
+    if (detailsError || !detailsData?.address) {
+      if (detailsError) console.warn('[geocodeAddressWithGoogle] Details error:', detailsError);
+      return null;
+    }
+    const lat = Number(detailsData.address.latitude);
+    const lon = Number(detailsData.address.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  } catch (e) {
+    console.error('[geocodeAddressWithGoogle] Error:', e);
+    return null;
+  }
+}
+
 // Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
   'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
@@ -1987,10 +2089,23 @@ export function accumulateFieldsFromHistory(
           if (!acc.location_method) acc.location_method = 'gps';
         }
       }
-      // Tipo de serviço: chip/picker "Tipo de serviço: UBS"
-      if (!acc.service_type && /tipo de serviço:\s*(\w+)/i.test(c)) {
-        const m = c.match(/tipo de serviço:\s*(\w+)/i);
-        if (m) acc.service_type = m[1].toLowerCase();
+      // Tipo de serviço: chip/picker "Tipo de serviço: UBS" ou "Tipo de serviço: Parques"
+      if (!acc.service_type && /tipo de serviço:\s*(.+)/i.test(c)) {
+        const m = c.match(/tipo de serviço:\s*(.+?)(?:\s*\.\s*Especificação|$)/im);
+        const raw = m?.[1]?.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (raw) {
+          const labelToId: Record<string, string> = {
+            'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
+            'bibliotecas': 'library', 'esportes': 'sports_center', 'centros esportivos': 'sports_center',
+            'parques': 'park', 'feiras': 'street_market', 'centros comunitários': 'community_center',
+            'creches': 'daycare', 'mercados': 'market', 'mercados municipais': 'city_market',
+            'teatro/cinema': 'theater', 'teatros': 'theater', 'museus': 'museum',
+            'assistência social': 'social_assistance', 'transporte': 'transit_station',
+            'delegacia/polícia': 'police_station', 'cemitério': 'cemetery', 'acessibilidade': 'accessibility',
+            'reciclagem/limpeza': 'recycling_point', 'bombeiros': 'fire_station', 'outros': 'other'
+          };
+          acc.service_type = labelToId[raw] || raw;
+        }
       }
       // CEP em qualquer formato
       if (!acc.cep && /\b(\d{5}-?\d{3})\b/.test(c)) {
@@ -2005,6 +2120,20 @@ export function accumulateFieldsFromHistory(
         if (streetMatch?.[1]?.trim() && !acc.street) acc.street = streetMatch[1].trim();
         const neighborhoodMatch = c.match(/-\s*([^,\n]+?)(?:,|\s+-\s+CEP)/i);
         if (neighborhoodMatch?.[1]?.trim() && !acc.neighborhood) acc.neighborhood = neighborhoodMatch[1].trim();
+      }
+    }
+    // Número ou referência: se o assistente pediu e o usuário respondeu (services journey)
+    const lastAssistantContent = messages.filter((m) => m.role === 'assistant').map((m) => getContent(m)).pop() || '';
+    const lastUserContent = messages.filter((m) => m.role === 'user').map((m) => getContent(m)).pop()?.trim() || '';
+    if (lastUserContent && (lastAssistantContent.includes('número') || lastAssistantContent.includes('ponto de referência')) && !acc.street_number && !acc.reference_point) {
+      const skipPhrases = ['pular', 'não sei', 'nao sei', 'continuar', 'não tenho', 'nao tenho', 'opcional', 'próximo', 'proximo', 'sem número', 'sem numero'];
+      if (skipPhrases.some((p) => lastUserContent.toLowerCase().includes(p))) {
+        acc.reference_point = 'não informado';
+      } else {
+        const numberMatch = lastUserContent.match(/^(\d+)/);
+        if (numberMatch) acc.street_number = numberMatch[1];
+        else if (/altura|perto|frente|próximo|proximo/.test(lastUserContent.toLowerCase())) acc.reference_point = lastUserContent;
+        else if (lastUserContent.length < 50) acc.street_number = lastUserContent;
       }
     }
     // Inferir service_type por texto (UBS, hospital, CEU, etc.)
@@ -2027,7 +2156,9 @@ export function accumulateFieldsFromHistory(
       const userText = getContent(lastUser).trim();
       const labelToType: Record<string, string> = {
         'ubs': 'ubs', 'escolas': 'school', 'ceus': 'ceu', 'hospitais': 'hospital',
-        'bibliotecas': 'library', 'centros esportivos': 'sports_center', 'esportes': 'sports_center'
+        'bibliotecas': 'library', 'centros esportivos': 'sports_center', 'esportes': 'sports_center',
+        'parques': 'park', 'feiras': 'street_market', 'creches': 'daycare', 'museus': 'museum',
+        'teatros': 'theater', 'transporte': 'transit_station', 'bombeiros': 'fire_station'
       };
       let chosenType: string | null = null;
       const digitMatch = userText.match(/^(\d)\s*$/);
@@ -2118,10 +2249,17 @@ export function accumulateFieldsFromHistory(
       if (cepMatch?.[1] && !accumulated.cep) {
         accumulated.cep = cepMatch[1].replace('-', '');
       }
-      // Extract city (Bairro, Cidade - CEP) for abrangência São Paulo
-      const cityMatch = content.match(/,\s*([^-\n]+?)\s*-\s*CEP/i);
-      if (cityMatch?.[1]?.trim() && !accumulated.city) {
-        accumulated.city = cityMatch[1].trim();
+      // Extract city (Bairro, Cidade - CEP ou ... - Cidade - CEP) para validação relato só São Paulo
+      if (!accumulated.city) {
+        const cityComma = content.match(/,\s*([^-\n]+?)\s*-\s*CEP/i);
+        if (cityComma?.[1]?.trim()) {
+          accumulated.city = cityComma[1].trim();
+        } else {
+          const cityBeforeCep = content.match(/\s+-\s+([^-\n]+?)\s*-\s*CEP\s*:?/i);
+          if (cityBeforeCep?.[1]?.trim()) {
+            accumulated.city = cityBeforeCep[1].trim();
+          }
+        }
       }
       
       console.log('[accumulateFields] Parsed Google Places address:', {
@@ -2337,15 +2475,20 @@ export function accumulateFieldsFromHistory(
         // Extract number/reference from specific question (NOW MARKDOWN-RESISTANT)
         if ((question.includes('qual o número') || question.includes('qual é o número') ||
              question.includes('número ou ponto') || question.includes('ponto de referência')) && answer.length > 0) {
-          // Try to parse as number first
-          const numberMatch = answer.match(/^(\d+)/);
-          if (numberMatch) {
-            accumulated.street_number = numberMatch[1];
-          } else if (answer.toLowerCase().includes('altura') || answer.toLowerCase().includes('perto') || 
-                     answer.toLowerCase().includes('frente') || answer.toLowerCase().includes('próximo')) {
-            accumulated.reference_point = answer;
+          const answerLower = answer.toLowerCase().trim();
+          const skipPhrases = ['pular', 'não sei', 'nao sei', 'continuar', 'não tenho', 'nao tenho', 'opcional', 'próximo', 'proximo', 'sem número', 'sem numero'];
+          if (skipPhrases.some(p => answerLower.includes(p))) {
+            accumulated.reference_point = 'não informado';
           } else {
-            accumulated.street_number = answer;
+            const numberMatch = answer.match(/^(\d+)/);
+            if (numberMatch) {
+              accumulated.street_number = numberMatch[1];
+            } else if (answerLower.includes('altura') || answerLower.includes('perto') ||
+                       answerLower.includes('frente') || answerLower.includes('próximo')) {
+              accumulated.reference_point = answer;
+            } else {
+              accumulated.street_number = answer;
+            }
           }
         }
         
@@ -2428,10 +2571,14 @@ export function accumulateFieldsFromHistory(
   
   // ========== SERVICE_RATING SPECIFIC PARSING ==========
   if (collectionType === 'service_rating') {
-    // Service type mapping from display names to IDs
+    // Service type mapping from display names to IDs (alinhado ao InlineServiceTypePicker)
     const serviceTypeMap: Record<string, string> = {
-      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 
-      'ceu': 'ceu', 'biblioteca': 'library', 'centro esportivo': 'sports_center'
+      'ubs': 'ubs', 'hospital': 'hospital', 'escola': 'school', 'escolas': 'school',
+      'ceu': 'ceu', 'biblioteca': 'library', 'bibliotecas': 'library',
+      'centro esportivo': 'sports_center', 'esportes': 'sports_center',
+      'parques': 'park', 'park': 'park', 'feiras': 'street_market', 'creches': 'daycare',
+      'museus': 'museum', 'teatros': 'theater', 'teatro': 'theater', 'transporte': 'transit_station',
+      'mercados': 'market', 'mercados municipais': 'city_market', 'outros': 'other'
     };
     
     // === FLEXIBLE ADDRESS CONFIRMATION PATTERNS ===
@@ -3046,6 +3193,26 @@ export function isOutOfScopeQuestion(userMessage: string): boolean {
 }
 
 /**
+ * Pergunta de conhecimento geral sem relação com a Câmara (presidente de país, capital de país, Copa do Mundo, etc.).
+ * Usado para retornar resposta padrão "fora do escopo" sem acionar a LLM (relatório M-TECH / controle de escopo).
+ */
+export function isGeneralKnowledgeOutOfScope(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  // Exclui perguntas sobre a própria Câmara (presidente da Câmara, vereador, etc.)
+  if (/câmara|camara|vereador|comissão|comissao|legislativ/i.test(m)) return false;
+  return (
+    // Presidente de qualquer país (Japão, EUA, França, Brasil, etc.) — exceto "presidente da Câmara" já excluído acima
+    /(quem\s+é\s+o\s+)?presidente\s+(do\s+|da\s+|dos\s+|das\s+)/i.test(m) ||
+    /(qual\s+é\s+a\s+)?capital\s+(da\s+)?(frança|franca|espanha|italia|argentina|brasil|méxico|mexico|inglaterra|japão|japao)/i.test(m) ||
+    /(quem\s+ganhou\s+)?(a\s+)?copa\s+(do\s+mundo|do\s+mundo\s+de\s+\d{4})/i.test(m) ||
+    // Geografia: "São Paulo e de qual Estado?", "qual estado é São Paulo?" (planilha Mauro Lima – única reprovada)
+    /s[aã]o\s+paulo\s+(e|é)\s+de\s+qual\s+estado/i.test(m) ||
+    /qual\s+estado\s+(é|e)\s+s[aã]o\s+paulo/i.test(m) ||
+    /(a\s+)?cidade\s+(de\s+)?s[aã]o\s+paulo\s+(é|e)\s+(de\s+)?qual\s+estado/i.test(m)
+  );
+}
+
+/**
  * Perguntas informativas sobre vereador ou Câmara que não devem acionar coleta de relato (CEP).
  * Ex.: perfil da vereadora, frequência nas sessões, quem faltou, gastos da câmara, como falar com vereador.
  * Baseado na planilha "plano de teste executado" e relatório M-TECH (Pontos Críticos a Endereçar).
@@ -3169,8 +3336,20 @@ export function detectCollectionIntent(
   const explicitServicesPhrases = [
     'onde fica a ubs', 'onde fica o hospital', 'buscar serviço', 'buscar servico',
     'quero encontrar', 'preciso encontrar', 'procurar uma escola',
-    'qual ubs mais perto', 'como chegar na ubs', 'serviços perto de mim',
+    'qual ubs mais perto', 'qual a ubs perto de mim', 'quais ubs perto de mim',
+    'quais ubss perto de mim', 'quais as ubs perto de mim', 'quais as ubss perto de mim',
+    'quais as ubs\'s perto de mim', 'como chegar na ubs', 'serviços perto de mim',
     'servicos perto de mim', 'onde tem hospital', 'onde tem escola',
+    'qual hospital perto de mim', 'quais hospitais perto de mim', 'qual hospital mais perto de mim',
+    'quais hospitais mais perto de mim', 'qual escola perto de mim', 'quais escolas perto de mim',
+    'qual escola mais perto de mim', 'quais escolas mais perto de mim',
+    'qual ceu perto de mim', 'quais ceus perto de mim', 'qual ceu mais perto de mim', 'quais ceus mais perto de mim',
+    'qual biblioteca perto de mim', 'quais bibliotecas perto de mim', 'qual biblioteca mais perto de mim', 'quais bibliotecas mais perto de mim',
+    'qual a ubs mais perto', 'quais as ubs mais perto', 'qual o hospital mais perto', 'quais os hospitais mais perto',
+    'quais assistências sociais mais perto de mim', 'qual assistência social mais perto de mim',
+    'quais esportes mais perto de mim', 'qual esporte mais perto de mim',
+    'qual transporte mais perto de mim', 'quais transportes mais perto de mim',
+    'qual delegacia mais perto de mim', 'quais delegacias mais perto de mim',
     'quero falar sobre serviços', 'quero falar sobre servicos', 'quero falar de serviços',
     'serviços próximos', 'servicos próximos', 'serviços proximos', 'quero serviços próximos'
   ];
@@ -3970,7 +4149,7 @@ export async function olhoVivoPrevisaoParada(codigoParada: number): Promise<{
 }
 
 
-// Helper: Get friendly service type name
+// Helper: Get friendly service type name (alinhado ao InlineServiceTypePicker / Perto de você)
 export function getServiceTypeName(type: string): string {
   const names: Record<string, string> = {
     'ubs': 'UBS',
@@ -3980,21 +4159,50 @@ export function getServiceTypeName(type: string): string {
     'library': 'bibliotecas',
     'sports_center': 'centros esportivos',
     'transit_station': 'pontos de ônibus e transporte',
+    'park': 'parques',
+    'street_market': 'feiras',
+    'community_center': 'centros comunitários',
+    'daycare': 'creches',
+    'market': 'mercados',
+    'city_market': 'mercados municipais',
+    'theater': 'teatros e cinema',
+    'museum': 'museus',
+    'social_assistance': 'assistência social',
+    'police_station': 'delegacia e polícia',
+    'cemetery': 'cemitérios',
+    'accessibility': 'acessibilidade',
+    'recycling_point': 'reciclagem e limpeza',
+    'fire_station': 'bombeiros',
     'other': 'serviços'
   };
   return names[type] || 'serviços';
 }
 
-/** Infer service_type from user text (e.g. "UBS próximo a mim" → ubs). For deterministic find_nearby_services. */
+/** Infer service_type from user text (ex.: "parques mais perto", "UBS próximo a mim" → park, ubs). Reconhece todos os equipamentos do módulo Perto de você. */
 export function inferServiceTypeFromText(text: string): string | null {
-  const t = text.toLowerCase();
-  if (/\bubs\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
+  const t = text.toLowerCase().trim();
+  // UBS: singular, plural (UBSs, UBS's) e variações (aspas retas e curvas)
+  if (/\bubs[\u0027\u2019']?s?\b|unidade\s+b[aá]sica\s+de\s+sa[uú]de|posto\s+de\s+sa[uú]de|sa[uú]de\s+p[uú]blica/.test(t)) return 'ubs';
   if (/\bceu[s]?\b|centro\s+educacional/.test(t)) return 'ceu';
-  if (/\bhospital(is)?\b/.test(t)) return 'hospital';
+  if (/\bhospital(is)?\b|\bhospitais\b/.test(t)) return 'hospital';
   if (/\bescola[s]?\b|educa[cç][aã]o/.test(t)) return 'school';
   if (/\bbiblioteca[s]?\b/.test(t)) return 'library';
-  if (/\bcentro\s+esportivo|esportivo|quadra|academia\s+p[uú]blica/.test(t)) return 'sports_center';
-  if (/\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
+  if (/\bcentro\s+esportivo|esportivo[s]?\b|esporte[s]?\b|quadra[s]?|academia\s+p[uú]blica/.test(t)) return 'sports_center';
+  if (/\bparque[s]?\b|parques?\s+pr[oó]ximos?/.test(t)) return 'park';
+  if (/\bfeira[s]?\s+(livres?|de\s+rua)?|feira\s+livre/.test(t)) return 'street_market';
+  if (/\bcentro[s]?\s+comunit[aá]rio|comunit[aá]rio/.test(t)) return 'community_center';
+  if (/\bcreche[s]?\b|ber[cç][aá]rio/.test(t)) return 'daycare';
+  if (/\bmercado[s]?\s+municipal|mercados?\s+p[uú]blicos?/.test(t)) return 'city_market';
+  if (/\bmercado[s]?\b/.test(t)) return 'market';
+  if (/\bteatro[s]?\b|cinema[s]?\b/.test(t)) return 'theater';
+  if (/\bmuseu[s]?\b/.test(t)) return 'museum';
+  if (/\bassist[eê]n[cç]ia[s]?\s+social(is)?|\bassist[eê]n[cç]ia[s]?\s+sociais\b|cr[aá]s?\b|social/.test(t)) return 'social_assistance';
+  if (/\btransporte[s]?\b|\b(o[nú]nibus|ônibus|onibus|ponto[s]?\s+de\s+[oô]nibus|parada[s]?\s+de\s+[oô]nibus|paradas?\s+pr[oó]ximas?|pontos?\s+pr[oó]ximos?|terminais?\s+de\s+[oô]nibus|transporte\s+p[uú]blico|esta[cç][aã]o\s+de\s+[oô]nibus)\b/.test(t)) return 'transit_station';
+  if (/\bdelegacia[s]?\b|pol[ií]cia|pm\b|guardas?\s+municipal/.test(t)) return 'police_station';
+  if (/\bcemit[eé]rio[s]?\b/.test(t)) return 'cemetery';
+  if (/\bacessibilidade|acess[ií]vel/.test(t)) return 'accessibility';
+  if (/\breciclagem|ecoponto|limpeza\s+p[uú]blica/.test(t)) return 'recycling_point';
+  if (/\bbombeiro[s]?\b|corpo\s+de\s+bombeiros/.test(t)) return 'fire_station';
   return null;
 }
 
@@ -4514,7 +4722,11 @@ export async function searchAudiencias(
   const temaNorm = tema?.trim();
   const today = new Date().toISOString().split('T')[0];
   const dataMin = dataInicio?.trim() || today;
-  const dataMax = dataFim?.trim() || null;
+  let dataMax = dataFim?.trim() || null;
+  // Se só tem data_inicio (ex.: "este ano" sem data_fim), limitar ao fim desse ano para não incluir audiências de anos futuros
+  if (dataMin && !dataMax && /^\d{4}-\d{2}-\d{2}$/.test(dataMin)) {
+    dataMax = `${dataMin.slice(0, 4)}-12-31`;
+  }
   const regiaoNorm = regiao?.trim() || null;
   const limitBase = regiaoNorm ? 20 : 5; // fetch more when filtering by region in memory
   const hasExplicitDateRange = !!(dataInicio?.trim() || dataFim?.trim());
@@ -5121,11 +5333,12 @@ export async function executeTool(
       }
       
       case 'create_urban_report': {
-        // Validar abrangência: apenas município de São Paulo
-        if (args.city && !isCitySaoPaulo(args.city)) {
+        // Validar abrangência: apenas município de São Paulo (Guarulhos e demais cidades não aceitos)
+        const reportCity = (args.city ?? accumulatedFields?.city) as string | undefined;
+        if (reportCity && !isCitySaoPaulo(reportCity)) {
           return {
             success: false,
-            message: MESSAGE_OUTSIDE_SAO_PAULO(args.city),
+            message: MESSAGE_OUTSIDE_SAO_PAULO(reportCity),
           };
         }
         // Validate category is provided
@@ -5240,6 +5453,7 @@ export async function executeTool(
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
             neighborhood: args.neighborhood || null,
+            photos: Array.isArray(args.photos) && args.photos.length > 0 ? args.photos : null,
             ai_classification: {
               council_member_name: args.council_member_name || null,
               council_member_party: args.council_member_party || null
@@ -5370,6 +5584,10 @@ export async function executeTool(
           }
         }
         
+        const photosSection = Array.isArray(args.photos) && args.photos.length > 0
+          ? `\n\n📷 **Fotos anexadas:** ${args.photos.length} imagem(ns)\n`
+          : '';
+
         // Compose full message
         const successMessage = [
           `[REPORT_CREATED:${data.id}]`,
@@ -5388,6 +5606,7 @@ export async function executeTool(
           neighborhoodLine ? `- ${neighborhoodLine}` : '',
           cepLine ? `- ${cepLine}` : '',
           args.reference_point ? `- Referência: ${args.reference_point}` : '',
+          photosSection,
           impactSection,
           '',
           '---',
@@ -5555,6 +5774,10 @@ export async function executeTool(
           lineId
         });
         
+        const photosArray = Array.isArray(args.photos) && args.photos.length > 0
+          ? args.photos.slice(0, 3)
+          : null;
+
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
@@ -5569,7 +5792,8 @@ export async function executeTool(
             location: args.location || null,
             severity: inferredSeverity,
             impact_description: args.impact_description || null,
-            status: 'pending'
+            status: 'pending',
+            photos: photosArray
           })
           .select('id, protocol_code')
           .single();
@@ -5631,6 +5855,7 @@ export async function executeTool(
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
           args.location ? `📍 **Local:** ${args.location}` : '',
+          photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
           '',
           `📝 **Descrição:** ${args.description.substring(0, 100)}${args.description.length > 100 ? '...' : ''}`,
@@ -5881,13 +6106,34 @@ export async function executeTool(
         if (userLat == null || userLon == null) {
           const { data: addr } = await supabase
             .from('user_addresses')
-            .select('latitude, longitude')
+            .select('latitude, longitude, street, number, neighborhood, zip_code, city')
             .eq('user_id', userId)
             .eq('is_primary', true)
             .maybeSingle();
           if (addr?.latitude != null && addr?.longitude != null) {
             userLat = Number(addr.latitude);
             userLon = Number(addr.longitude);
+          } else if (addr?.street && addr?.neighborhood) {
+            let coords = await geocodeAddressWithGoogle(supabase, {
+              street: addr.street,
+              street_number: addr.number,
+              neighborhood: addr.neighborhood,
+              cep: addr.zip_code,
+              city: addr.city || 'São Paulo',
+            });
+            if (!coords) {
+              coords = await geocodeAddressToCoord({
+                street: addr.street,
+                street_number: addr.number,
+                neighborhood: addr.neighborhood,
+                cep: addr.zip_code,
+                city: addr.city || 'São Paulo',
+              });
+            }
+            if (coords) {
+              userLat = coords.lat;
+              userLon = coords.lon;
+            }
           }
         }
         const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
@@ -5908,6 +6154,35 @@ export async function executeTool(
           args.regiao
         );
         return { success: true, message: result };
+      }
+
+      case 'subscribe_audiencia_topic_alert': {
+        if (!userId) {
+          return { success: false, message: 'Para receber avisos quando houver audiências sobre um tema, faça login no app. Depois peça de novo: "avise quando tiver audiências sobre [tema]".' };
+        }
+        const temaRaw = typeof args.tema === 'string' ? args.tema.trim() : '';
+        if (!temaRaw) {
+          return { success: false, message: 'Informe o tema sobre o qual você quer receber avisos (ex.: Esportes, Saúde, Educação).' };
+        }
+        const tema = temaRaw.charAt(0).toUpperCase() + temaRaw.slice(1).toLowerCase();
+        // Service role evita RLS: o JWT do usuário nem sempre é repassado ao PostgREST no contexto da tool; userId já foi validado acima
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const client = (serviceKey && supabaseUrl) ? createClient(supabaseUrl, serviceKey) : supabase;
+        const { error } = await client
+          .from('audiencia_topic_alerts')
+          .upsert({ user_id: userId, tema }, { onConflict: 'user_id,tema' });
+        if (error) {
+          console.error('[subscribe_audiencia_topic_alert]', error.code, error.message, error.details);
+          if (error.code === '42P01' || error.message?.includes('does not exist')) {
+            return { success: false, message: 'O recurso de avisos por tema ainda não está disponível neste ambiente. Em breve você poderá ativar esse aviso.' };
+          }
+          return { success: false, message: 'Não foi possível registrar seu aviso. Tente novamente em instantes.' };
+        }
+        return {
+          success: true,
+          message: `Anotado! Você receberá uma notificação no app quando houver novas audiências públicas sobre **${tema}**. Quer que eu busque agora se já existe alguma agendada sobre esse tema?`
+        };
       }
       
       case 'suggest_council_member': {

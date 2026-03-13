@@ -9,6 +9,14 @@ const corsHeaders = {
 const SPLEGIS_BASE = "https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx";
 const SPLEGIS_WS_BASE = "https://splegisws.saopaulo.sp.leg.br/ws";
 const VEREADORES_JSON_URL = "https://saopaulo.sp.leg.br/vereadores-json/";
+/** Listagem CMSP (WordPress) para extrair slug/ap_code e preencher na tabela após o upsert SPLEGIS. */
+const CMSP_LIST_BASE = "https://www.saopaulo.sp.leg.br/audienciaspublicas/audiencias";
+/** Página individual da audiência (para verificar se inscrições foram encerradas). */
+const CMSP_AUDIENCIA_BASE = "https://www.saopaulo.sp.leg.br/audienciaspublicas/audiencia";
+const CMSP_LINK_REGEX = /audienciaspublicas\/audiencia\/([^/"'\s]+)/gi;
+
+/** Máximo de páginas de audiência a buscar por execução para atualizar inscricoes_abertas. */
+const MAX_CHECK_INSCRICOES_ENCERRADAS = 20;
 /** Fallback: vereadores que não constam no vereadores-json (ex.: André Souza, Dr. Nunes Peixeiro). */
 const VEREADORES_CMSP_JSON_URL = "https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx/VereadoresCMSPJSON";
 
@@ -573,6 +581,92 @@ async function fetchProjetoResumo(ano: number, tipo: string, numero: number): Pr
 
 const MAX_PROJETO_RESUMO = 80;
 
+/** Extrai data do slug CMSP (ex.: fin02-26-02-2026 ou fin02-26-02-2026-19h). Retorna YYYY-MM-DD ou null. */
+function dateFromSlug(slug: string): string | null {
+  const m = slug.match(/-(\d{2})-(\d{2})-(\d{4})(?:-\d+h)?$/);
+  if (!m) return null;
+  const [, day, month, year] = m;
+  return `${year}-${month}-${day}`;
+}
+
+/** Gera ap_code a partir do slug (formato Ninja: primeira parte em maiúsculas, ex: FIN02-26-02-2026). */
+function slugToApCode(slug: string): string {
+  const idx = slug.indexOf("-");
+  if (idx <= 0) return slug;
+  return slug.slice(0, idx).toUpperCase() + slug.slice(idx);
+}
+
+/** Verifica na página da audiência (CMSP) se as inscrições foram encerradas. */
+async function pageHasInscricoesEncerradas(slug: string): Promise<boolean> {
+  const pageUrl = `${CMSP_AUDIENCIA_BASE}/${encodeURIComponent(slug)}/`;
+  try {
+    const res = await fetch(pageUrl, {
+      headers: {
+        "User-Agent": "CamaraNaMao/1.0 (Integracao CMSP)",
+        Accept: "text/html",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return false;
+    const html = await res.text();
+    return (
+      /inscri[çc][oõ]es\s+encerradas?/i.test(html) ||
+      /inscri[çc][oõ]es\s+para\s+(?:participa[çc][aã]o|manifesta[çc][aã]o)[^.]*foram\s+encerradas/i.test(html)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Extrai slugs únicos e suas datas a partir do HTML da listagem CMSP. */
+function parseCmspListingHtml(html: string): Array<{ slug: string; data: string | null }> {
+  const entries: Array<{ slug: string; data: string | null }> = [];
+  let match: RegExpExecArray | null;
+  CMSP_LINK_REGEX.lastIndex = 0;
+  while ((match = CMSP_LINK_REGEX.exec(html)) !== null) {
+    const slug = match[1].replace(/\/$/, "");
+    entries.push({ slug, data: dateFromSlug(slug) });
+  }
+  const bySlug = new Map<string, { slug: string; data: string | null }>();
+  for (const e of entries) bySlug.set(e.slug, e);
+  return Array.from(bySlug.values());
+}
+
+/** Busca até numPages páginas da listagem CMSP e retorna mapa data -> slugs[]. */
+async function fetchCmspSlugsByData(numPages: number): Promise<Map<string, string[]>> {
+  const byData = new Map<string, string[]>();
+  for (let p = 1; p <= numPages; p++) {
+    const pageUrl = p === 1 ? `${CMSP_LIST_BASE}/` : `${CMSP_LIST_BASE}/page/${p}/`;
+    try {
+      const res = await fetch(pageUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; CamaraNaMao/1.0; +https://github.com/MTechnologia/camana-na-mao)",
+          Accept: "text/html",
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) {
+        console.warn("[fetch-audiencias] CMSP list page", p, "status", res.status);
+        continue;
+      }
+      const html = await res.text();
+      const entries = parseCmspListingHtml(html);
+      for (const { slug, data } of entries) {
+        if (!data) continue;
+        const list = byData.get(data) ?? [];
+        if (!list.includes(slug)) list.push(slug);
+        byData.set(data, list);
+      }
+      if (entries.length > 0) {
+        console.log("[fetch-audiencias] CMSP página", p, ":", entries.length, "slugs");
+      }
+    } catch (e) {
+      console.warn("[fetch-audiencias] CMSP página", p, "erro:", (e as Error).message);
+    }
+  }
+  return byData;
+}
+
 function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const titulo = getStr(item, "Titulo", "titulo") || "Audiência pública";
   const dataStr = getStr(item, "Data", "data");
@@ -1011,6 +1105,72 @@ serve(async (req) => {
       processed += chunk.length;
     }
 
+    // Preencher slug e ap_code a partir da listagem CMSP (formulário de inscrição) quando possível
+    let slugsUpdated = 0;
+    try {
+      const cmspSlugsByData = await fetchCmspSlugsByData(2);
+      const numDatas = cmspSlugsByData.size;
+      console.log("[fetch-audiencias] CMSP slugs por data:", numDatas, numDatas > 0 ? "datas" : "(nenhum – verifique se a listagem CMSP está acessível pela Edge Function)");
+      if (numDatas > 0) {
+        const datasComSlug = [...cmspSlugsByData.keys()];
+        const { data: semSlug, error: selectErr } = await supabase
+          .from("audiencias")
+          .select("id, data")
+          .is("slug", null)
+          .in("data", datasComSlug);
+        if (selectErr) {
+          console.warn("[fetch-audiencias] Select audiencias sem slug:", selectErr.message);
+        } else {
+          console.log("[fetch-audiencias] Audiências sem slug com data na CMSP:", (semSlug ?? []).length);
+        }
+        for (const row of semSlug ?? []) {
+          const dataStr = row.data as string;
+          const slugs = cmspSlugsByData.get(dataStr);
+          const slug = slugs?.[0];
+          if (!slug) continue;
+          const { error: upErr } = await supabase
+            .from("audiencias")
+            .update({ slug, ap_code: slugToApCode(slug) })
+            .eq("id", row.id);
+          if (!upErr) slugsUpdated++;
+        }
+        if (slugsUpdated > 0) {
+          console.log("[fetch-audiencias] Slug/ap_code preenchidos a partir da CMSP:", slugsUpdated);
+        }
+      }
+    } catch (slugErr) {
+      console.warn("[fetch-audiencias] Sync slug CMSP ignorado:", (slugErr as Error).message);
+    }
+
+    // Atualizar inscricoes_abertas = false quando a página da CMSP indicar "Inscrições encerradas"
+    let inscricoesEncerradasUpdated = 0;
+    try {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { data: comSlugFuturas } = await supabase
+        .from("audiencias")
+        .select("id, slug")
+        .not("slug", "is", null)
+        .gte("data", hoje)
+        .limit(MAX_CHECK_INSCRICOES_ENCERRADAS);
+      for (const row of comSlugFuturas ?? []) {
+        const slug = row.slug as string;
+        if (!slug?.trim()) continue;
+        const encerradas = await pageHasInscricoesEncerradas(slug);
+        if (encerradas) {
+          const { error: upErr } = await supabase
+            .from("audiencias")
+            .update({ inscricoes_abertas: false })
+            .eq("id", row.id);
+          if (!upErr) inscricoesEncerradasUpdated++;
+        }
+      }
+      if (inscricoesEncerradasUpdated > 0) {
+        console.log("[fetch-audiencias] inscricoes_abertas=false (CMSP encerrou):", inscricoesEncerradasUpdated);
+      }
+    } catch (err) {
+      console.warn("[fetch-audiencias] Verificação inscrições encerradas ignorada:", (err as Error).message);
+    }
+
     const atualizadas = jaExistiam;
     const inseridas = processed - jaExistiam;
     const result = {
@@ -1020,7 +1180,9 @@ serve(async (req) => {
       processed,
       inserted: inseridas,
       updated: atualizadas,
-      message: `Sincronizadas: ${inseridas} novas, ${atualizadas} atualizadas (${processed} no total, período ${dataInicial} a ${dataFinal}).`,
+      slugsUpdated,
+      inscricoesEncerradasUpdated,
+      message: `Sincronizadas: ${inseridas} novas, ${atualizadas} atualizadas (${processed} no total, período ${dataInicial} a ${dataFinal}).${slugsUpdated > 0 ? ` Slug/ap_code: ${slugsUpdated} preenchidos pela listagem CMSP.` : ""}${inscricoesEncerradasUpdated > 0 ? ` Inscrições encerradas (CMSP): ${inscricoesEncerradasUpdated} atualizadas.` : ""}`,
     };
 
     return new Response(JSON.stringify(result), {

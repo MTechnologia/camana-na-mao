@@ -12,6 +12,7 @@ interface ReportData {
   occurrence_time?: string;
   location?: string;
   impact_description?: string;
+  photos?: string[] | null;
 }
 
 export const useTransportReport = () => {
@@ -29,6 +30,7 @@ export const useTransportReport = () => {
         ...reportData,
         severity: reportData.severity || 'pending',
         user_id: user.id,
+        photos: Array.isArray(reportData.photos) && reportData.photos.length > 0 ? reportData.photos.slice(0, 3) : null,
       };
       if (insertData.line_id === '') {
         delete insertData.line_id;

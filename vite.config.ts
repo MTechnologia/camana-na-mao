@@ -36,11 +36,10 @@ export default defineConfig(({ mode }) => ({
     },
     hmr: process.env.VITE_HMR_CLIENT_PORT
       ? {
-          // Em Docker: host expõe 8080→5173, cliente deve conectar na 8080
           clientPort: parseInt(process.env.VITE_HMR_CLIENT_PORT, 10),
           protocol: "ws",
         }
-      : true, // Localmente: usa a mesma porta do servidor (5173)
+      : true,
     watch: {
       // Evitar problemas com volumes montados no Docker
       usePolling: false,
@@ -92,7 +91,6 @@ export default defineConfig(({ mode }) => ({
           
           // Feature chunks
           'charts': ['recharts'],
-          'maps': ['mapbox-gl'],
           'markdown': ['react-markdown', 'remark-gfm', 'mermaid'],
         },
       },

@@ -76,9 +76,13 @@ export default function ManualReportPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useProfile();
+  const MAX_PHOTOS = 3;
+  const MAX_PHOTO_MB = 50;
+  const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
+
   const [loading, setLoading] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isInApp = typeof window !== 'undefined' && !!(window as unknown as { __CAMARA_IN_APP__?: boolean }).__CAMARA_IN_APP__;
@@ -160,24 +164,36 @@ export default function ManualReportPage() {
   };
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Foto muito grande. Máximo 5MB.");
+    const remaining = MAX_PHOTOS - photoFiles.length;
+    if (remaining <= 0) {
+      toast.error(`Máximo de ${MAX_PHOTOS} fotos. Remova uma para adicionar outra.`);
+      e.target.value = "";
       return;
     }
 
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    const toAdd: File[] = [];
+    for (let i = 0; i < files.length && toAdd.length < remaining; i++) {
+      if (files[i].size > MAX_PHOTO_BYTES) {
+        toast.error(`"${files[i].name}" é muito grande. Máximo ${MAX_PHOTO_MB}MB por imagem.`);
+        continue;
+      }
+      toAdd.push(files[i]);
+    }
+
+    if (toAdd.length) {
+      setPhotoFiles((prev) => [...prev, ...toAdd].slice(0, MAX_PHOTOS));
+      setPhotoPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_PHOTOS));
+    }
+    e.target.value = "";
   };
 
-  const removePhoto = () => {
-    if (photoPreview) {
-      URL.revokeObjectURL(photoPreview);
-    }
-    setPhotoFile(null);
-    setPhotoPreview(null);
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const requestLocation = () => {
@@ -203,26 +219,30 @@ export default function ManualReportPage() {
     );
   };
 
-  const uploadPhoto = async (userId: string): Promise<string | null> => {
-    if (!photoFile) return null;
+  const uploadPhotos = async (userId: string): Promise<string[]> => {
+    if (!photoFiles.length) return [];
 
-    const fileExt = photoFile.name.split('.').pop();
-    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    const urls: string[] = [];
+    for (let i = 0; i < photoFiles.length; i++) {
+      const file = photoFiles[i];
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${userId}/${Date.now()}-${i}.${fileExt}`;
 
-    const { error } = await supabase.storage
-      .from('urban-reports')
-      .upload(fileName, photoFile);
+      const { error } = await supabase.storage
+        .from('urban-reports')
+        .upload(fileName, file);
 
-    if (error) {
-      console.error("Erro ao fazer upload da foto:", error);
-      throw error;
+      if (error) {
+        console.error("Erro ao fazer upload da foto:", error);
+        throw error;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('urban-reports')
+        .getPublicUrl(fileName);
+      urls.push(publicUrl);
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('urban-reports')
-      .getPublicUrl(fileName);
-
-    return publicUrl;
+    return urls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -242,12 +262,7 @@ export default function ManualReportPage() {
     setLoading(true);
 
     try {
-      let photoUrl: string | null = null;
-      
-      // Upload da foto se existir
-      if (photoFile) {
-        photoUrl = await uploadPhoto(user.id);
-      }
+      const photoUrls = photoFiles.length ? await uploadPhotos(user.id) : [];
 
       const reportPayload = {
         user_id: user.id,
@@ -258,7 +273,7 @@ export default function ManualReportPage() {
         location_address: formData.location || null,
         latitude: formData.latitude,
         longitude: formData.longitude,
-        photos: photoUrl ? [photoUrl] : null,
+        photos: photoUrls.length ? photoUrls : null,
         status: "pending"
       };
 
@@ -376,62 +391,67 @@ export default function ManualReportPage() {
                 )}
               </div>
 
-              {/* Upload de Foto */}
+              {/* Upload de Fotos (até 3, máx 50MB cada) */}
               <div className="space-y-2">
-                <Label>Foto</Label>
-                {!photoPreview ? (
-                  <div className="space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePhotoCapture}
-                      className="hidden"
-                      id="photo-camera"
-                    />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoCapture}
-                      className="hidden"
-                      id="photo-gallery"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('photo-camera')?.click()}
-                        className="flex-1"
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Tirar Foto
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('photo-gallery')?.click()}
-                        className="flex-1"
-                      >
-                        <ImageIcon className="w-4 h-4 mr-2" />
-                        Galeria
-                      </Button>
-                    </div>
+                <Label>Fotos (até {MAX_PHOTOS}, máx. {MAX_PHOTO_MB}MB cada)</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  onChange={handlePhotoCapture}
+                  className="hidden"
+                  id="photo-camera"
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoCapture}
+                  className="hidden"
+                  id="photo-gallery"
+                />
+                {photoPreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {photoPreviews.map((preview, index) => (
+                      <div key={index} className="relative rounded-lg overflow-hidden border aspect-square">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-7 w-7"
+                          onClick={() => removePhoto(index)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <div className="relative rounded-lg overflow-hidden border">
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="w-full h-48 object-cover"
-                    />
+                )}
+                {photoPreviews.length < MAX_PHOTOS && (
+                  <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={removePhoto}
+                      variant="outline"
+                      onClick={() => document.getElementById('photo-camera')?.click()}
+                      className="flex-1"
                     >
-                      <X className="w-4 h-4" />
+                      <Camera className="w-4 h-4 mr-2" />
+                      Tirar Foto {photoPreviews.length > 0 && `(${MAX_PHOTOS - photoPreviews.length} restante${MAX_PHOTOS - photoPreviews.length === 1 ? "" : "s"})`}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('photo-gallery')?.click()}
+                      className="flex-1"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Galeria {photoPreviews.length > 0 && `(${MAX_PHOTOS - photoPreviews.length})`}
                     </Button>
                   </div>
                 )}

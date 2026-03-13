@@ -11,7 +11,7 @@ import {
   GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
   buildWmsGetMapUrl,
 } from '@/config/geosampa-wms-imageamento';
-import { getServiceTypeBalloonIconUrl } from '@/components/icons';
+import { getServiceTypeBalloonIconUrl, getServiceTypeLabel, getServiceTypeMapColor } from '@/components/icons';
 
 interface Service {
   id: string;
@@ -29,6 +29,8 @@ interface GoogleMapViewProps {
   services: Service[];
   onServiceClick: (serviceId: string) => void;
   distanceLabel?: 'walking' | 'driving' | 'straight';
+  /** Tipos de serviço ativos no filtro – a legenda do mapa lista estes com ícone e cor (OS-05). */
+  activeServiceTypes?: string[];
   /** Camadas overlay GeoSampa (WFS GeoJSON) */
   overlayLayers?: Record<string, GeoSampaOverlayState>;
   /** Exibir camada WMS de imageamento (fotos aéreas GeoSampa) */
@@ -40,6 +42,7 @@ export const GoogleMapView = ({
   services,
   onServiceClick,
   distanceLabel = 'straight',
+  activeServiceTypes = [],
   overlayLayers = {},
   wmsImageamentoEnabled = false,
 }: GoogleMapViewProps) => {
@@ -320,15 +323,33 @@ export const GoogleMapView = ({
       <div className="relative w-full h-[500px] rounded-lg overflow-hidden">
         <div ref={mapRef} className="absolute inset-0 w-full h-full" />
 
-        <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10">
+        <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <div className="w-3 h-3 bg-primary rounded-full" />
+            <div className="w-3 h-3 bg-primary rounded-full shrink-0" />
             <span>Você está aqui</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <MapPin className="w-3 h-3" />
-            <span>Serviços públicos</span>
-          </div>
+          {activeServiceTypes.length > 0 ? (
+            <div className="space-y-1.5">
+              {activeServiceTypes.map((type) => {
+                const color = getServiceTypeMapColor(type);
+                return (
+                  <div key={type} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: color ?? 'hsl(var(--muted-foreground))' }}
+                      aria-hidden
+                    />
+                    <span className="truncate">{getServiceTypeLabel(type)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span>Serviços públicos</span>
+            </div>
+          )}
         </Card>
 
         {userLocation && (

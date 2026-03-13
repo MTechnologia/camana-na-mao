@@ -105,7 +105,7 @@ export const ServiceCard = ({
               {distance !== undefined && (
                 <span
                   className="text-xs font-medium text-primary whitespace-nowrap"
-                  title={distanceLabel === "walking" ? "Distância a pé (rota real)" : distanceLabel === "driving" ? "Distância de carro (rota real)" : "Distância em linha reta. A rota no mapa pode ser maior."}
+                  title={distanceLabel === "walking" ? "Distância a pé (rota real)" : distanceLabel === "driving" ? "Distância de carro (rota real)" : "Distância aproximada"}
                 >
                   {distanceLabel === "straight" ? formatDistanceStraightLine(distance) : formatDistance(distance)}
                 </span>

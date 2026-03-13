@@ -15,9 +15,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
+/** "Amanhã" em BRT (America/Sao_Paulo) para evitar bug quando cron roda à noite UTC. */
+function getAmanhaBRT(): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  return `${y}-${m}-${d}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (cronSecret && req.headers.get("x-cron-secret") !== cronSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -27,14 +50,37 @@ serve(async (req) => {
     if (forDateParam && /^\d{4}-\d{2}-\d{2}$/.test(forDateParam)) {
       targetDateStr = forDateParam;
     } else {
-      const amanha = new Date();
-      amanha.setDate(amanha.getDate() + 1);
-      targetDateStr = amanha.toISOString().slice(0, 10);
+      targetDateStr = getAmanhaBRT();
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: audienciasAmanha, error: errAud } = await supabase
+      .from("audiencias")
+      .select("id")
+      .eq("data", targetDateStr);
+    if (errAud) {
+      console.error("[audiencia-reminder-d1] Erro ao buscar audiências:", errAud);
+      return new Response(
+        JSON.stringify({ success: false, error: errAud.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const idsAmanha = (audienciasAmanha || []).map((a: { id: string }) => a.id);
+    if (idsAmanha.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          sent: 0,
+          message: forDateParam
+            ? `Nenhuma audiência em ${targetDateStr} com inscritos.`
+            : "Nenhuma audiência amanhã com inscritos.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { data: participacoes, error: errPart } = await supabase
       .from("audiencia_participacoes")
@@ -50,31 +96,14 @@ serve(async (req) => {
         )
       `)
       .eq("tipo", "videoconferencia")
-      .not("user_id", "is", null);
+      .not("user_id", "is", null)
+      .in("audiencia_id", idsAmanha);
 
     if (errPart) {
       console.error("[audiencia-reminder-d1] Erro ao buscar participações:", errPart);
       return new Response(
         JSON.stringify({ success: false, error: errPart.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const paraAmanha = (participacoes || []).filter((p: { audiencias: { data: string } }) => {
-      const d = p.audiencias?.data;
-      return d && d.slice(0, 10) === targetDateStr;
-    });
-
-    if (paraAmanha.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          sent: 0,
-          message: forDateParam
-            ? `Nenhuma audiência em ${targetDateStr} com inscritos.`
-            : "Nenhuma audiência amanhã com inscritos.",
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -101,7 +130,7 @@ serve(async (req) => {
       metadata: Record<string, unknown>;
     }> = [];
 
-    for (const p of paraAmanha) {
+    for (const p of participacoes || []) {
       const userId = p.user_id as string;
       const audienciaId = p.audiencia_id as string;
       if (jaEnviados.has(`${userId}:${audienciaId}`)) continue;

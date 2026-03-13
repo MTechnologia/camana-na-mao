@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import OfflineMode from "@/components/ai/OfflineMode";
@@ -14,17 +14,18 @@ const Home = () => {
   const navigate = useNavigate();
   const { isOnline, isChecking, checkConnection } = useNetworkStatus();
   const [authChecked, setAuthChecked] = useState(false);
+  const redirectDoneRef = useRef(false);
   const { showTutorial, completeTutorial, isLoading: onboardingLoading } = useOnboarding();
 
-  // Auth guard: sem sessão → welcome
+  // Auth guard - redireciona no máximo uma vez para evitar loop de refresh (Strict Mode / auth flicker)
   useEffect(() => {
     if (authLoading) return;
 
     setAuthChecked(true);
 
-    if (!user && !session) {
+    if (!user && !session && !redirectDoneRef.current) {
+      redirectDoneRef.current = true;
       navigate("/welcome", { replace: true });
-      return;
     }
   }, [user, session, authLoading, navigate]);
 

@@ -1683,6 +1683,7 @@ export type Database = {
           n8n_workflow_id: string | null
           occurrence_date: string
           occurrence_time: string | null
+          photos: string[] | null
           protocol_code: string | null
           report_type: string
           responded_at: string | null
@@ -1712,6 +1713,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date: string
           occurrence_time?: string | null
+          photos?: string[] | null
           protocol_code?: string | null
           report_type: string
           responded_at?: string | null
@@ -1741,6 +1743,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date?: string
           occurrence_time?: string | null
+          photos?: string[] | null
           protocol_code?: string | null
           report_type?: string
           responded_at?: string | null
@@ -2109,6 +2112,8 @@ export type Database = {
           font_size: string | null
           id: string
           newsletter: boolean
+          notify_new_reports: boolean
+          notify_new_users: boolean
           profile_visibility: string
           push_notifications: boolean
           reading_mode: boolean | null
@@ -2126,6 +2131,8 @@ export type Database = {
           font_size?: string | null
           id?: string
           newsletter?: boolean
+          notify_new_reports?: boolean
+          notify_new_users?: boolean
           profile_visibility?: string
           push_notifications?: boolean
           reading_mode?: boolean | null
@@ -2143,6 +2150,8 @@ export type Database = {
           font_size?: string | null
           id?: string
           newsletter?: boolean
+          notify_new_reports?: boolean
+          notify_new_users?: boolean
           profile_visibility?: string
           push_notifications?: boolean
           reading_mode?: boolean | null

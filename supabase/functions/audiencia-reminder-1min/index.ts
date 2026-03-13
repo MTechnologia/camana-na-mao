@@ -32,9 +32,34 @@ function parseEventAtBRT(dataStr: string, horaStr: string | null): Date | null {
 const WINDOW_MIN_MS = 30 * 1000;   // 30 segundos
 const WINDOW_MAX_MS = 2 * 60 * 1000; // 2 minutos
 
+/** Datas hoje e amanhã em BRT para filtrar audiências. */
+function getHojeAmanhaBRT(): [string, string] {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const today = new Date();
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const fmt = (d: Date) => {
+    const parts = formatter.formatToParts(d);
+    return `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}-${parts.find((p) => p.type === "day")!.value}`;
+  };
+  return [fmt(today), fmt(tomorrow)];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  if (cronSecret && req.headers.get("x-cron-secret") !== cronSecret) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -52,6 +77,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const [hoje, amanha] = getHojeAmanhaBRT();
+    const { data: audienciasIds, error: errAud } = await supabase
+      .from("audiencias")
+      .select("id")
+      .in("data", [hoje, amanha]);
+    if (errAud || !audienciasIds?.length) {
+      return new Response(
+        JSON.stringify({ success: true, sent: 0, message: "Nenhuma audiência hoje/amanhã." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const ids = audienciasIds.map((a: { id: string }) => a.id);
+
     const { data: participacoes, error: errPart } = await supabase
       .from("audiencia_participacoes")
       .select(`
@@ -66,7 +104,8 @@ serve(async (req) => {
         )
       `)
       .eq("tipo", "videoconferencia")
-      .not("user_id", "is", null);
+      .not("user_id", "is", null)
+      .in("audiencia_id", ids);
 
     if (errPart) {
       console.error("[audiencia-reminder-1min] Erro ao buscar participações:", errPart);

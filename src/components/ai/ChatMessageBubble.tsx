@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -113,6 +113,8 @@ interface ChatMessageBubbleProps {
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
   /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
   onSendMessage?: (message: string) => void;
+  /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
+  disableRegistrarUntilPhotosAttached?: boolean;
 }
 
 const ChatMessageBubble = ({ 
@@ -135,6 +137,7 @@ const ChatMessageBubble = ({
   onRequestAudienciasWithFilters,
   onApplyNearbyFilters,
   onSendMessage,
+  disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
   const navigate = useNavigate();
@@ -179,7 +182,7 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
+  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5".
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
@@ -196,6 +199,12 @@ const ChatMessageBubble = ({
       (content.includes("inscrever-se") && (content.includes("agendadas") || content.includes("próximas")));
     return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
+
+  // Inscrições abertas: resposta contém "Inscrições abertas" ou emoji 🎫 → mostrar botão "Inscrever-se aqui no chat"; senão mostrar "Inscrições encerradas" (como no módulo).
+  const hasInscricoesAbertas = useMemo(() => {
+    if (!shouldShowAudienciasCta) return false;
+    return message.content.includes('Inscrições abertas') || message.content.includes('🎫');
+  }, [shouldShowAudienciasCta, message.content]);
 
   // Dados para listagem filtrada no chat (tema, data, região) — query dedicada, ordem ascendente para próximas primeiro.
   const { data: audienciasData = [] } = useQuery({
@@ -434,6 +443,26 @@ const ChatMessageBubble = ({
 
   // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
   const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
+
+  // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
+  const quickReplyButtons = useMemo(() => {
+    if (isUser || !onSendMessage) return [];
+    const match = message.content.match(/\[QUICK_REPLY:([^\]]+)\]/);
+    if (!match) return [];
+    const values = match[1].split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const labels: Record<string, string> = {
+      sim: 'Sim',
+      não: 'Não',
+      nao: 'Não',
+      registrar: 'Registrar',
+      confirmar: 'Confirmar',
+      corrigir: 'Corrigir',
+    };
+    return values.map((value) => ({
+      value,
+      label: labels[value] || value.charAt(0).toUpperCase() + value.slice(1),
+    }));
+  }, [isUser, message.content, onSendMessage]);
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
@@ -894,6 +923,28 @@ const ChatMessageBubble = ({
           />
         )}
         
+        {/* Botões de resposta rápida (Sim/Não, Registrar, Confirmar/Corrigir) */}
+        {quickReplyButtons.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {quickReplyButtons.map((btn) => {
+              const isRegistrar = btn.value === "registrar";
+              const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
+              return (
+                <Button
+                  key={btn.value}
+                  variant="default"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => !disabled && onSendMessage?.(btn.value)}
+                  className="rounded-lg"
+                >
+                  {btn.label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Botão Encaminhar para vereador (após relato registrado) */}
         {hasEncaminharVereadorCta && onSendMessage && (
           <div className="mt-3 w-full max-w-[280px]">
@@ -933,18 +984,25 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Audiências: os 3 botões sempre visíveis (ordem: Inscrever-se, Abrir, Buscar outras); "Buscar outras" abre o bloco de filtros */}
+        {/* Audiências: Inscrever-se (ou Inscrições encerradas), Abrir Audiências, Buscar outras; "Buscar outras" abre o bloco de filtros */}
         {shouldShowAudienciasCta && (
           <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
             <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
-                className="w-full justify-center min-h-[40px]"
-              >
-                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
-              </Button>
+              {hasInscricoesAbertas ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
+                  className="w-full justify-center min-h-[40px]"
+                >
+                  {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
+                </Button>
+              ) : (
+                <Button disabled className="w-full bg-muted text-muted-foreground cursor-default min-h-[40px]">
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Inscrições encerradas
+                </Button>
+              )}
               <Button
                 variant="default"
                 size="sm"
@@ -972,7 +1030,7 @@ const ChatMessageBubble = ({
                 {showAudienciasFilters ? "Ocultar filtros" : "Buscar outras audiências públicas"}
               </Button>
             </div>
-            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+            {hasInscricoesAbertas && showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
 
             {showAudienciasFilters && (
               <>

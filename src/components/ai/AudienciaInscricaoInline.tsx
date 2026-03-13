@@ -67,6 +67,7 @@ export function AudienciaInscricaoInline() {
   const [receivePush, setReceivePush] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [protocolo, setProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
 
   useEffect(() => {
@@ -145,29 +146,55 @@ export function AudienciaInscricaoInline() {
       if (!audienciaId) { toast.error("Escolha uma audiência."); return; }
     }
 
+    if (!user?.id) {
+      toast.error("Faça login para se inscrever em audiências.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("audiencia_participacoes").insert({
-        audiencia_id: audienciaId,
-        tipo: tipoParticipacao,
-        user_id: user?.id ?? null,
-        nome: nome.trim(),
-        email: email.trim(),
-        telefone: telefone.trim(),
-        entidade: null,
-        funcao: null,
-        bairro: tipoParticipacao === "escrito" ? bairro : null,
-        sugestao: tipoParticipacao === "escrito" ? sugestao.trim() : null,
-        consent: true,
+      const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
+        p_audiencia_id: audienciaId,
+        p_tipo: tipoParticipacao,
+        p_user_id: user.id,
+        p_nome: nome.trim(),
+        p_email: email.trim(),
+        p_telefone: telefone.trim(),
+        p_entidade: null,
+        p_funcao: null,
+        p_bairro: tipoParticipacao === "escrito" ? bairro || null : null,
+        p_sugestao: tipoParticipacao === "escrito" ? sugestao.trim() || null : null,
+        p_consent: true,
       });
       if (error) throw error;
 
-      toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
+      const protocoloNum = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      setProtocolo(protocoloNum);
+
+      if (selectedAudiencia?.slug && selectedAudiencia?.ap_code) {
+        const cmspResult = await submitInscricaoToCmsp({
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim(),
+          apCode: selectedAudiencia.ap_code,
+          slug: selectedAudiencia.slug,
+        });
+        if (!cmspResult.ok) {
+          console.warn("[AudienciaInscricaoInline] Inscrição CMSP:", cmspResult.error);
+        }
+      }
+
+      if (protocoloNum != null) {
+        toast.success(`Inscrição realizada! Protocolo: ${protocoloNum}`);
+      } else {
+        toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
+      }
       setSuccess(true);
       if (tipoParticipacao === "videoconferencia") setInscritoVideoconferencia(true);
     } catch (e) {
       console.error(e);
-      toast.error("Não foi possível enviar. Tente novamente.");
+      const msg = (e as { message?: string })?.message;
+      toast.error(msg && msg.includes("já está inscrito") ? "Você já está inscrito nesta audiência." : "Não foi possível enviar. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -195,6 +222,11 @@ export function AudienciaInscricaoInline() {
           <span className="font-medium">{successTitle}</span>
         </div>
         <p className="text-sm text-green-600 dark:text-green-400">{successMsg}</p>
+        {protocolo != null && (
+          <p className="text-sm font-medium text-green-700 dark:text-green-300">
+            Protocolo: {protocolo}
+          </p>
+        )}
       </div>
     );
   }

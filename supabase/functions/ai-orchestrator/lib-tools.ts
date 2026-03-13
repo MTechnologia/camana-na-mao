@@ -180,7 +180,12 @@ export const tools = [
             enum: ["baixa", "media", "alta", "critica"],
             description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
           },
-          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" }
+          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" },
+          photos: {
+            type: "array",
+            items: { type: "string" },
+            description: "URLs das fotos anexadas pelo usuário (até 3). Preenchido pelo sistema quando o usuário anexa imagens no chat."
+          }
         },
         required: ["report_type", "description", "occurrence_date"]
       }
@@ -234,14 +239,14 @@ export const tools = [
     type: "function",
     function: {
       name: "find_nearby_services",
-      description: "Busca serviços públicos próximos ao cidadão (por coordenadas quando disponíveis). Usar para: UBS perto, escola próxima, hospital, CEU, biblioteca, e também PONTOS DE ÔNIBUS/paradas próximas (service_type=transit_station; dados GeoSampa).",
+      description: "Busca serviços públicos próximos ao cidadão (por coordenadas quando disponíveis). Usar para qualquer equipamento: UBS, escola, hospital, CEU, biblioteca, parques, feiras, creches, teatros, museus, centros esportivos, pontos de ônibus (transit_station), delegacia, bombeiros, etc. Quando o cidadão disser 'parques mais perto', 'qual UBS mais próxima', 'creches perto de mim', use o service_type correspondente.",
       parameters: {
         type: "object",
         properties: {
           service_type: {
             type: "string",
-            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "transit_station", "other"],
-            description: "Tipo: ubs, school, ceu, hospital, library, sports_center, transit_station (pontos de ônibus, terminais, estações), other"
+            enum: ["ubs", "school", "ceu", "hospital", "library", "sports_center", "park", "street_market", "community_center", "daycare", "market", "city_market", "theater", "museum", "social_assistance", "transit_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"],
+            description: "Tipo do equipamento: ubs, school, ceu, hospital, library, sports_center, park (parques), street_market (feiras), community_center, daycare (creches), market, city_market, theater, museum, social_assistance, transit_station (ônibus/transporte), police_station, cemetery, accessibility, recycling_point, fire_station, other"
           },
           district: { type: "string", description: "Bairro ou região (ex: Pinheiros, Centro, Zona Sul)" },
           limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
@@ -345,6 +350,20 @@ export const tools = [
           }
         },
         required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "subscribe_audiencia_topic_alert",
+      description: "Registra que o cidadão quer receber aviso quando houver novas audiências públicas sobre um tema. Usar quando o cidadão pedir para ser avisado, notificado ou lembrado sobre audiências de um tema (ex: 'avise quando tiver audiências sobre esporte', 'me notifique sobre audiências de saúde'). Requer que o cidadão esteja logado.",
+      parameters: {
+        type: "object",
+        properties: {
+          tema: { type: "string", description: "Tema para o qual o cidadão quer receber avisos (ex: Esportes, Saúde, Educação, Meio Ambiente, Cultura)." }
+        },
+        required: ["tema"]
       }
     }
   },

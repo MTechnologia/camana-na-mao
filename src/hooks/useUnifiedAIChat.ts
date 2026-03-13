@@ -15,6 +15,8 @@ interface Message {
   content: string;
   timestamp: string;
   source?: string;
+  /** URLs de fotos anexadas (apenas mensagens do usuário no fluxo de relato urbano) */
+  attachmentUrls?: string[];
 }
 
 interface CreatedReport {
@@ -337,7 +339,7 @@ export const useUnifiedAIChat = (
     setMessages([userMessage]);
   }, []);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, options?: { attachmentFiles?: File[] }) => {
     // Heurísticas de UI: quando o assistente faz perguntas estruturadas, atualizamos o tracker
     // imediatamente no envio do usuário (sem depender de marcadores do backend).
     if (collectionType === 'urban_report') {
@@ -758,6 +760,39 @@ export const useUnifiedAIChat = (
       msg => msg.role === "user" && msg.content === content
     );
 
+    // Upload de fotos anexadas (relato via chat): até 3, máx 50MB cada
+    const MAX_CHAT_PHOTOS = 3;
+    const MAX_CHAT_PHOTO_BYTES = 50 * 1024 * 1024;
+    let attachmentUrls: string[] = [];
+    if (options?.attachmentFiles?.length && user) {
+      const files = options.attachmentFiles.slice(0, MAX_CHAT_PHOTOS);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > MAX_CHAT_PHOTO_BYTES) {
+          toast({
+            title: "Foto muito grande",
+            description: `Máximo 50MB por imagem. "${file.name}" foi ignorada.`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        const ext = file.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/${Date.now()}-${i}.${ext}`;
+        const { error } = await supabase.storage.from('urban-reports').upload(fileName, file);
+        if (error) {
+          console.error('[useUnifiedAIChat] Upload attachment failed:', error);
+          toast({
+            title: "Erro ao enviar foto",
+            description: "Não foi possível enviar uma das imagens. Tente novamente.",
+            variant: "destructive",
+          });
+          continue;
+        }
+        const { data: { publicUrl } } = supabase.storage.from('urban-reports').getPublicUrl(fileName);
+        attachmentUrls.push(publicUrl);
+      }
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -766,6 +801,7 @@ export const useUnifiedAIChat = (
         hour: "2-digit",
         minute: "2-digit",
       }),
+      ...(attachmentUrls.length > 0 && { attachmentUrls }),
     };
 
     // Só adiciona se não houver mensagem otimista
@@ -904,6 +940,7 @@ export const useUnifiedAIChat = (
         messages: effectiveMessages.map((msg) => ({
           role: msg.role,
           content: msg.content,
+          ...(msg.attachmentUrls && msg.attachmentUrls.length > 0 && { attachmentUrls: msg.attachmentUrls }),
         })),
         conversationId: conversationIdRef.current,
         // Pass frontend context: structured type OR light journey type

@@ -7,9 +7,17 @@ import { cleanupLegacyPWA } from "./lib/cleanupLegacyPWA";
 // Limpeza passiva de PWA legado (não bloqueia renderização)
 cleanupLegacyPWA().catch(console.error);
 
-// Renderizar app imediatamente
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+// Em dev, use VITE_DISABLE_STRICT_MODE=true no .env para desativar Strict Mode
+// e evitar efeitos duplos / refreshs que atrapalham debugar no console
+const useStrict = !(import.meta.env.DEV && import.meta.env.VITE_DISABLE_STRICT_MODE === "true");
+const root = createRoot(document.getElementById("root")!);
+
+if (useStrict) {
+  root.render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  );
+} else {
+  root.render(<App />);
+}

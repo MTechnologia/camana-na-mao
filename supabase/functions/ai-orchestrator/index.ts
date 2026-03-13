@@ -207,6 +207,10 @@ serve(async (req) => {
     }
     
     const { messages, conversationId, collectionType: frontendCollectionType, evaluationContext } = requestBodyData;
+    // Fotos anexadas no chat (relato urbano): usar a última mensagem do usuário que tiver attachmentUrls
+    const userMessages = Array.isArray(messages) ? messages.filter((m: Record<string, unknown>) => m.role === 'user') : [];
+    const lastWithAttachments = [...userMessages].reverse().find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
+    const attachmentUrls = (lastWithAttachments?.attachmentUrls as string[] | undefined) ?? [];
     console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
     
     // Log frontend collection type for debugging
@@ -308,7 +312,20 @@ serve(async (req) => {
     }
 
     // === EARLY: Perguntas inapropriadas (ofensas/acusações a vereadores) — redirecionar com educação, NÃO entrar em fluxo de relato ===
-    const inappropriateAboutVereador = /(qual\s+vereador\s+[ée]\s+o\s+mais\s+ladr[aã]o|quem\s+[ée]\s+o\s+pior\s+vereador|vereador\s+corrupto|vereador\s+ladr[aã]o|mais\s+corrupto|mais\s+ladr[aã]o\s+vereador)/i.test(lastUserTextEarly);
+    const inappropriatePatterns = [
+      // "qual vereador mais ladrão?" / "qual o vereador é mais ladrão?" / "qual vereador é o mais ladrão?"
+      /\bqual\s+(o\s+)?vereador(\s+[ée]\s+o)?\s*mais\s+ladr[aã]o\b/i,
+      /\bqual\s+vereador\s+[ée]\s+ladr[aã]o\b/i,
+      /\bquem\s+[ée]\s+o\s+(mais\s+)?(ladr[aã]o|corrupto|pior)\s+(vereador|deles)\b/i,
+      /\b(vereador|vereadores)\s+(mais\s+)?(ladr[aã]o|corrupto)s?\b/i,
+      /\b(mais\s+)?(ladr[aã]o|corrupto)\s+(vereador|dos\s+vereadores)\b/i,
+      /\bpior\s+vereador\b/i,
+      /\bvereador\s+(corrupto|ladr[aã]o|bandido|rouba|safado|desonesto)\b/i,
+      /\b(qual|quem)\s+[ée]\s+o\s+vereador\s+(mais\s+)?(corrupto|ladr[aã]o)\b/i,
+      /\bvereador(es)?\s+que\s+(rouba|roubam|s[aã]o\s+corruptos)\b/i,
+      /\b(qual|quem)\s+vereador\s+(rouba|roubou|é\s+corrupto)\b/i,
+    ];
+    const inappropriateAboutVereador = inappropriatePatterns.some((p) => p.test(lastUserTextEarly));
     if (inappropriateAboutVereador) {
       const reply = `Não posso responder perguntas que envolvam ofensas ou acusações a pessoas. Posso ajudar com informações sobre vereadores da sua região, formas de participação na Câmara ou registro de problemas na cidade. Como posso ajudar?`;
       const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
@@ -384,6 +401,19 @@ serve(async (req) => {
         console.log('[ai-orchestrator] Declined journeys in history:', Array.from(declinedJourneys));
       }
       
+      const journeyNames: Record<string, string> = {
+        urban_report: 'Relato Urbano',
+        transport_report: 'Diagnóstico de Transporte',
+        service_rating: 'Avaliação de Serviço',
+        services: 'Busca de Serviços',
+        audiencias: 'Audiências Públicas',
+        history: 'Meu Histórico',
+        general: 'Dúvidas Gerais',
+        vereadores: 'Vereadores da Região',
+        noticias: 'Notícias Legislativas',
+        chamber_feedback: 'Feedback sobre Vereador'
+      };
+      
       // ALWAYS detect intent first to check for journey switch
       const detectedIntent = lib.detectCollectionIntent(lastUserMsg, messages);
       
@@ -392,10 +422,22 @@ serve(async (req) => {
       const isDetectedStructured = detectedIntent && structuredTypes.includes(detectedIntent.type as typeof structuredTypes[number]);
       const wasRecentlyDeclined = detectedIntent && declinedJourneys.has(detectedIntent.type);
       
-      const isJourneyConflict = detectedIntent && 
+      let isJourneyConflict = detectedIntent && 
         isDetectedStructured &&
         detectedIntent.type !== frontendCollectionType &&
         !wasRecentlyDeclined; // Don't ask again if user already said no
+      
+      // Se o usuário já está confirmando ("Sim, quero iniciar X" / "Sim, iniciar X"), não mostrar a pergunta de novo
+      const confirmationPhrase = /^\s*sim\s*[,.]?\s*(quero\s+)?iniciar\s+/i.test(lastUserMsg.trim()) ||
+        /\[JOURNEY_SWITCHED:\w+\]/i.test(lastUserMsg);
+      if (isJourneyConflict && detectedIntent && confirmationPhrase) {
+        const nameForNew = journeyNames[detectedIntent.type];
+        if (nameForNew && lastUserMsg.toLowerCase().includes(nameForNew.toLowerCase())) {
+          isJourneyConflict = false;
+          collectionIntent = { type: detectedIntent.type as 'urban_report' | 'transport_report' | 'service_rating', fields: {} };
+          console.log('[ai-orchestrator] User already confirmed switch to', detectedIntent.type, '- skipping duplicate confirmation prompt');
+        }
+      }
       
       if (wasRecentlyDeclined) {
         console.log(`[ai-orchestrator] Journey ${detectedIntent?.type} was recently declined, skipping confirmation`);
@@ -404,19 +446,6 @@ serve(async (req) => {
       if (isJourneyConflict) {
         // ALWAYS ask for confirmation - never auto-switch
         console.log(`[ai-orchestrator] Journey conflict detected: ${frontendCollectionType} → ${detectedIntent.type}`);
-        
-        const journeyNames: Record<string, string> = {
-          urban_report: 'Relato Urbano',
-          transport_report: 'Diagnóstico de Transporte', 
-          service_rating: 'Avaliação de Serviço',
-          services: 'Busca de Serviços',
-          audiencias: 'Audiências Públicas',
-          history: 'Meu Histórico',
-          general: 'Dúvidas Gerais',
-          vereadores: 'Vereadores da Região',
-          noticias: 'Notícias Legislativas',
-          chamber_feedback: 'Feedback sobre Vereador'
-        };
         
         const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
         const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
@@ -620,11 +649,16 @@ serve(async (req) => {
       }
       
       // ========== AUTO-LOOKUP CEP ==========
-      // If we have CEP but missing street/neighborhood, auto-resolve via ViaCEP
-      if (accumulatedFields.cep && (!accumulatedFields.street || !accumulatedFields.neighborhood)) {
+      // Se temos CEP, resolver via ViaCEP quando faltar rua/bairro OU cidade (para relato urbano validar Guarulhos/fora de SP)
+      const needsCepLookup = accumulatedFields.cep && (
+        !accumulatedFields.street ||
+        !accumulatedFields.neighborhood ||
+        (collectionIntent?.type === 'urban_report' && !accumulatedFields.city)
+      );
+      if (needsCepLookup) {
         const cepLookup = await lib.lookupCEP(accumulatedFields.cep);
         if (cepLookup.valid) {
-          console.log('[ai-orchestrator] Auto-resolved CEP:', accumulatedFields.cep, '→', cepLookup.street, cepLookup.neighborhood);
+          console.log('[ai-orchestrator] Auto-resolved CEP:', accumulatedFields.cep, '→', cepLookup.street, cepLookup.neighborhood, cepLookup.city);
           if (!accumulatedFields.street && cepLookup.street) {
             accumulatedFields.street = cepLookup.street;
           }
@@ -675,9 +709,10 @@ serve(async (req) => {
         if (!isValidDesc)
           return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
         
-        // 1b. Abrangência: se já temos endereço/CEP com cidade fora de São Paulo, informar antes de qualquer outra pergunta (categoria, número, etc.)
-        const hasLocationEarly = !!(fields.cep && String(fields.cep).replace(/\D/g, '').length === 8) || (!!fields.street && !!fields.neighborhood);
-        const cityEarly = typeof fields.city === 'string' ? fields.city : undefined;
+        // 1b. Abrangência: relatos só São Paulo — se já temos endereço/CEP com cidade (ex. Guarulhos), informar logo
+        const cepDigitsEarly = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+        const hasLocationEarly = cepDigitsEarly.length === 8 || (!!fields.street && !!fields.neighborhood);
+        const cityEarly = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocationEarly && cityEarly && !lib.isCitySaoPaulo(cityEarly)) {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(cityEarly) };
         }
@@ -767,12 +802,13 @@ serve(async (req) => {
         }
         
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
-        const hasLocationViaCep = !!fields.cep && fields.cep.length === 8;
+        const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+        const hasLocationViaCep = cepDigits.length === 8;
         const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
         const hasLocation = hasLocationViaCep || hasLocationViaAddress;
         
-        // Abrangência: se já temos cidade e não é São Paulo, informar de forma amigável antes de pedir número
-        const city = typeof fields.city === 'string' ? fields.city : undefined;
+        // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
+        const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(city) };
         }
@@ -997,6 +1033,10 @@ serve(async (req) => {
           const hasAddress = !!(fields.street && fields.neighborhood);
           if (!hasCep && !hasAddress) {
             return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual seu CEP ou endereço? (Digite o CEP ou a rua e o bairro.)' };
+          }
+          // Pedir número ou referência para geocodificar com mais precisão (evita resultados distantes)
+          if (!fields.street_number && !fields.reference_point) {
+            return { field: 'street_number', picker: null, prompt: '[FIELD_REQUEST:street_number]Qual o **número** ou **ponto de referência** próximo? (Ex.: 100, 1477, próximo ao mercado). _Opcional: responda "pular" para continuar._' };
           }
         }
         if (fields.location_method === 'gps' && (fields.user_lat == null || fields.user_lon == null)) {
@@ -1284,6 +1324,31 @@ serve(async (req) => {
       }
     }
     
+    // === SERVIÇOS PRÓXIMOS: quando o usuário já disse o tipo ("quais hospitais mais perto de mim", "qual UBS perto de mim", etc.) → pedir CEP direto ===
+    const isOnlyCepEarly = /^\d{5}-?\d{3}$/.test(lastUserMessage.trim());
+    const proximityPhrases = [
+      /mais\s+perto\s+de\s+mim/i,
+      /mais\s+pr[oó]ximo[s]?\s+(?:de\s+)?mim/i,
+      /perto\s+de\s+mim/i,
+      /pr[oó]ximo[s]?\s+a\s+mim/i,
+      /perto\s+aqui/i,
+      /na\s+minha\s+regi[aã]o/i,
+      /(?:mais\s+)?pr[oó]ximo[s]?\b/i,
+      /procurando|buscar|encontrar/i,
+    ];
+    const serviceSearchMatchEarly = !isOnlyCepEarly && proximityPhrases.some((p) => p.test(msgLower));
+    const inferredServiceTypeEarly = lib.inferServiceTypeFromText(lastUserMessage);
+    if (inferredServiceTypeEarly && serviceSearchMatchEarly && lastUserMessage.length < 120) {
+      const askCepMsg = `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceTypeEarly)} próximas a você. Qual é o CEP da sua região? (Se não souber, pode informar o bairro.)`;
+      const progressPayload = { service_type: inferredServiceTypeEarly };
+      const withMarker = (lightJourneyMarker ? lightJourneyMarker : '') + `[COLLECTION_PROGRESS:services:${JSON.stringify(progressPayload)}]${askCepMsg}`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: withMarker } }] });
+      console.log('[ai-orchestrator] Services: ask CEP first (tipo já na pergunta):', inferredServiceTypeEarly);
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
       nextFieldInfo = await getNextMissingField(collectionIntent.type, accumulatedFields, supabase);
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
@@ -1296,39 +1361,239 @@ serve(async (req) => {
         let toolResult;
         try {
           if (collectionIntent.type === 'urban_report') {
-            // Build args from accumulated fields
-            const toolArgs = {
-              category: accumulatedFields.category,
-              subcategory: accumulatedFields.subcategory,
-              description: accumulatedFields.description,
-              cep: accumulatedFields.cep,
-              street: accumulatedFields.street,
-              street_number: accumulatedFields.street_number,
-              reference_point: accumulatedFields.reference_point,
-              neighborhood: accumulatedFields.neighborhood,
-              risk_level: accumulatedFields.risk_level,
-              risk_types: accumulatedFields.risk_types,
-              affected_scope: accumulatedFields.affected_scope,
-              affected_estimate: accumulatedFields.affected_estimate,
-              active_consequences: accumulatedFields.active_consequences,
-              urgency_reason: accumulatedFields.urgency_reason,
-              council_member_name: accumulatedFields.council_member_name,
-              council_member_party: accumulatedFields.council_member_party
-            };
-            toolResult = await lib.executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
+            // --- Fluxo: perguntar "deseja anexar imagens?" → sim: mostrar anexos; não: mostrar preview → confirmar → criar ---
+            const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
+            const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*continuar|envie\s+\*?continuar\*?/i.test(lastAssistantLower);
+            const showedPreview = /resumo\s+do\s+relato|se\s+estiver\s+tudo\s+certo|confirmar\s+e\s+registrar/i.test(lastAssistantLower);
+            const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
+            const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
+            const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
+
+            // 1) Ainda não perguntamos se quer anexar → perguntar (botões Sim/Não no front)
+            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema relatado?**[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+              console.log('[ai-orchestrator] Urban report: asking photo choice');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 2) Perguntamos e usuário disse SIM (ou resposta ambígua) → instruir a anexar; só vamos ao preview com "não" explícito
+            if (askedPhotoChoice && !userSaidNo) {
+              const attachMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para finalizar o relato.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: attachMsg } }] });
+              console.log('[ai-orchestrator] Urban report: user said yes or unclear → showing attach instructions');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 3) Perguntamos e usuário disse NÃO → mostrar preview
+            if (askedPhotoChoice && userSaidNo) {
+              const catLabels: Record<string, string> = {
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
+                animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
+              };
+              const cat = String(accumulatedFields.category || '');
+              const catLabel = catLabels[cat] || cat;
+              const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
+                .filter(Boolean).join(', ');
+              const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
+              const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+
+• **Categoria:** ${catLabel}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Endereço:** ${addr}${neighborhood}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Urban report: user said no to photos, showing preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 4) Mostramos preview e usuário confirmou → criar relato (com fotos se tiver vindo na conversa)
+            if (showedPreview && userConfirms) {
+              let photosToSave = attachmentUrls;
+              if (photosToSave.length === 0 && conversationId) {
+                try {
+                  const { data: conv } = await supabase.from('ai_conversations').select('messages').eq('id', conversationId).single();
+                  const convMessages = (conv?.messages as Array<Record<string, unknown>>) || [];
+                  const lastWithPhotos = [...convMessages].filter((m: Record<string, unknown>) => m.role === 'user').reverse()
+                    .find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
+                  if (lastWithPhotos?.attachmentUrls) {
+                    photosToSave = lastWithPhotos.attachmentUrls as string[];
+                    console.log('[ai-orchestrator] Urban report: got attachmentUrls from conversation fallback, count:', photosToSave.length);
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Fallback load conversation for photos failed:', e);
+                }
+              }
+              const toolArgs: Record<string, unknown> = {
+                category: accumulatedFields.category,
+                subcategory: accumulatedFields.subcategory,
+                description: accumulatedFields.description,
+                cep: accumulatedFields.cep,
+                street: accumulatedFields.street,
+                street_number: accumulatedFields.street_number,
+                reference_point: accumulatedFields.reference_point,
+                neighborhood: accumulatedFields.neighborhood,
+                city: accumulatedFields.city,
+                risk_level: accumulatedFields.risk_level,
+                risk_types: accumulatedFields.risk_types,
+                affected_scope: accumulatedFields.affected_scope,
+                affected_estimate: accumulatedFields.affected_estimate,
+                active_consequences: accumulatedFields.active_consequences,
+                urgency_reason: accumulatedFields.urgency_reason,
+                council_member_name: accumulatedFields.council_member_name,
+                council_member_party: accumulatedFields.council_member_party
+              };
+              if (photosToSave.length > 0) {
+                toolArgs.photos = photosToSave;
+              }
+              toolResult = await lib.executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
+            }
+            // 5) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
+            if (askedToAttach && !toolResult) {
+              const catLabels: Record<string, string> = {
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
+                animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
+              };
+              const cat = String(accumulatedFields.category || '');
+              const catLabel = catLabels[cat] || cat;
+              const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
+                .filter(Boolean).join(', ');
+              const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
+              const photoLine = attachmentUrls.length > 0
+                ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n`
+                : '';
+              const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+• **Categoria:** ${catLabel}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Endereço:** ${addr}${neighborhood}${photoLine}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Urban report: user sent Continuar (attach flow), showing preview, attachmentUrls count:', attachmentUrls.length);
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
           } else if (collectionIntent.type === 'transport_report') {
-            const toolArgs = {
-              description: accumulatedFields.description,
-              report_type: accumulatedFields.report_type,
-              line_code: accumulatedFields.line_code,
-              occurrence_date: accumulatedFields.occurrence_date,
-              occurrence_time: accumulatedFields.occurrence_time,
-              location: accumulatedFields.location,
-              severity: accumulatedFields.severity,
-              impact_description: accumulatedFields.impact_description,
-              subcategory_label: accumulatedFields.subcategory_label
-            };
-            toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+            // Fluxo de fotos para transporte (conforme relato urbano): perguntar → anexar → preview → criar
+            const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
+            const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*registrar|envie\s+\*?registrar\*?/i.test(lastAssistantLower);
+            const showedPreview = /resumo\s+do\s+relato|se\s+estiver\s+tudo\s+certo|confirmar\s+e\s+registrar/i.test(lastAssistantLower);
+            const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
+            const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
+            const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
+
+            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema de transporte?**[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+              console.log('[ai-orchestrator] Transport report: asking photo choice');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (askedPhotoChoice && !userSaidNo) {
+              const attachMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Pode anexar até 3 fotos usando os botões **Câmera** ou **Galeria** abaixo. Quando terminar, clique em **Registrar** para ver o resumo e finalizar o relato.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: attachMsg } }] });
+              console.log('[ai-orchestrator] Transport report: user said yes → showing attach instructions');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (askedPhotoChoice && userSaidNo) {
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
+• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}
+
+Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Transport report: user said no to photos, showing preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo Registrar criamos
+            const showedPreviewAfterAttach = /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*registrar\s+para\s+finalizar/i.test(lastAssistantLower || '');
+            if (askedToAttach && userConfirms && !showedPreviewAfterAttach) {
+              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
+• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
+
+Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Transport report: showing preview before create (first Registrar)');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if ((showedPreview || askedToAttach) && userConfirms && (showedPreview || showedPreviewAfterAttach)) {
+              let photosToSave = attachmentUrls;
+              if (photosToSave.length === 0 && conversationId) {
+                try {
+                  const { data: conv } = await supabase.from('ai_conversations').select('messages').eq('id', conversationId).single();
+                  const convMessages = (conv?.messages as Array<Record<string, unknown>>) || [];
+                  const lastWithPhotos = [...convMessages].filter((m: Record<string, unknown>) => m.role === 'user').reverse()
+                    .find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
+                  if (lastWithPhotos?.attachmentUrls) {
+                    photosToSave = lastWithPhotos.attachmentUrls as string[];
+                    console.log('[ai-orchestrator] Transport report: got attachmentUrls from conversation, count:', photosToSave.length);
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Fallback load conversation for transport photos failed:', e);
+                }
+              }
+              const toolArgs: Record<string, unknown> = {
+                description: accumulatedFields.description,
+                report_type: accumulatedFields.report_type,
+                line_code: accumulatedFields.line_code,
+                occurrence_date: accumulatedFields.occurrence_date,
+                occurrence_time: accumulatedFields.occurrence_time,
+                location: accumulatedFields.location,
+                severity: accumulatedFields.severity,
+                impact_description: accumulatedFields.impact_description,
+                subcategory_label: accumulatedFields.subcategory_label
+              };
+              if (photosToSave.length > 0) {
+                toolArgs.photos = photosToSave;
+              }
+              toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+            }
+            if (askedToAttach && !userConfirms && !toolResult) {
+              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
+• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
+
+Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Transport report: user sent Registrar (attach flow), showing preview, attachmentUrls:', attachmentUrls.length);
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (!toolResult) {
+              const toolArgs: Record<string, unknown> = {
+                description: accumulatedFields.description,
+                report_type: accumulatedFields.report_type,
+                line_code: accumulatedFields.line_code,
+                occurrence_date: accumulatedFields.occurrence_date,
+                occurrence_time: accumulatedFields.occurrence_time,
+                location: accumulatedFields.location,
+                severity: accumulatedFields.severity,
+                impact_description: accumulatedFields.impact_description,
+                subcategory_label: accumulatedFields.subcategory_label
+              };
+              toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
+            }
           } else if (collectionIntent.type === 'service_rating') {
             const toolArgs: Record<string, unknown> = {
               service_type: accumulatedFields.service_type,
@@ -1404,8 +1669,9 @@ serve(async (req) => {
         const method = accumulatedFields.location_method;
         const hasCep = !!(accumulatedFields.cep && String(accumulatedFields.cep).replace(/\D/g, '').length === 8);
         const hasAddress = !!(accumulatedFields.street && accumulatedFields.neighborhood);
-        const hasGpsCoords = method === 'gps' && accumulatedFields.user_lat != null && accumulatedFields.user_lon != null;
-        const hasLocation = (method === 'manual' && (hasCep || hasAddress)) || method === 'registered_address' || hasGpsCoords;
+        const hasUserCoords = accumulatedFields.user_lat != null && accumulatedFields.user_lon != null;
+        const hasGpsCoords = method === 'gps' && hasUserCoords;
+        const hasLocation = (method === 'manual' && (hasCep || hasAddress)) || method === 'registered_address' || hasGpsCoords || (method === 'manual' && hasUserCoords);
         if (hasLocation) {
           const district = accumulatedFields.neighborhood || undefined;
           // Raio padrão 2 km para todos os serviços (CMSP: evita UBS longe, ex. Vila Arriete)
@@ -1418,9 +1684,57 @@ serve(async (req) => {
             min_rating: accumulatedFields.min_rating ?? 0,
             search_query: accumulatedFields.search_query || undefined
           };
-          if (hasGpsCoords) {
+          if (hasUserCoords) {
             toolArgs.user_lat = accumulatedFields.user_lat;
             toolArgs.user_lon = accumulatedFields.user_lon;
+          } else if (method === 'manual' && (hasCep || hasAddress)) {
+            // Geocodificar CEP/endereço quando o frontend não enviou coordenadas (ex.: seleção só por CEP ViaCEP)
+            const coords = await lib.geocodeAddressToCoord({
+              street: accumulatedFields.street,
+              street_number: accumulatedFields.street_number,
+              neighborhood: accumulatedFields.neighborhood,
+              cep: accumulatedFields.cep,
+              city: 'São Paulo',
+            });
+            if (coords) {
+              toolArgs.user_lat = coords.lat;
+              toolArgs.user_lon = coords.lon;
+              accumulatedFields.user_lat = coords.lat;
+              accumulatedFields.user_lon = coords.lon;
+            }
+          } else if (method === 'registered_address') {
+            // Usar endereço cadastrado: buscar lat/lon no banco ou geocodificar (Google primeiro, igual ao módulo; fallback Nominatim)
+            const { data: addr } = await supabase
+              .from('user_addresses')
+              .select('latitude, longitude, street, number, neighborhood, zip_code, city')
+              .eq('user_id', user.id)
+              .eq('is_primary', true)
+              .maybeSingle();
+            if (addr?.latitude != null && addr?.longitude != null) {
+              toolArgs.user_lat = Number(addr.latitude);
+              toolArgs.user_lon = Number(addr.longitude);
+            } else if (addr?.street && addr?.neighborhood) {
+              let coords = await lib.geocodeAddressWithGoogle(supabase, {
+                street: addr.street,
+                street_number: addr.number,
+                neighborhood: addr.neighborhood,
+                cep: addr.zip_code,
+                city: addr.city || 'São Paulo',
+              });
+              if (!coords) {
+                coords = await lib.geocodeAddressToCoord({
+                  street: addr.street,
+                  street_number: addr.number,
+                  neighborhood: addr.neighborhood,
+                  cep: addr.zip_code,
+                  city: addr.city || 'São Paulo',
+                });
+              }
+              if (coords) {
+                toolArgs.user_lat = coords.lat;
+                toolArgs.user_lon = coords.lon;
+              }
+            }
           }
           let toolResult: { success: boolean; message: string } | null = null;
           try {
@@ -1496,22 +1810,7 @@ ${empathyNote}
       }
     }
     
-    // === DETERMINISTIC FIND NEARBY SERVICES (substitui tool calling para garantir endereços do banco) ===
-    // 1) "UBS próximo a mim" / "estou procurando UBS" → pedir CEP (determinístico). Não disparar se a mensagem for só CEP.
-    const isOnlyCep = /^\d{5}-?\d{3}$/.test(lastUserMessage.trim());
-    const serviceSearchMatch = !isOnlyCep && msgLower.match(/(?:pr[oó]ximo[s]?\s+a\s+mim|perto\s+de\s+mim|perto\s+aqui|na\s+minha\s+regi[aã]o|pr[oó]ximo|procurando|buscar|encontrar)/);
-    const inferredServiceType = lib.inferServiceTypeFromText(lastUserMessage);
-    if (inferredServiceType && serviceSearchMatch && lastUserMessage.length < 120) {
-      const askCep = `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceType)} próximas a você. Qual é o CEP da sua região? (Se não souber, pode informar o bairro.)`;
-      console.log('[ai-orchestrator] Deterministic ask CEP for service search:', inferredServiceType);
-      const ssePayload = JSON.stringify({
-        choices: [{ delta: { content: askCep } }]
-      });
-      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
-        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
-      });
-    }
-    // 2) Usuário manda "05601-001" após ter pedido UBS/CEU/etc → buscamos no banco e retornamos lista real
+    // === DETERMINISTIC: usuário manda só CEP após ter pedido UBS/CEU/etc → buscamos no banco e retornamos lista ===
     const cepOnlyMatch = lastUserMessage.trim().match(/^(\d{5}-?\d{3})$/);
     if (cepOnlyMatch) {
       const cepRaw = cepOnlyMatch[1].replace(/\D/g, '');
@@ -1550,16 +1849,31 @@ ${empathyNote}
     const isGreeting = greetingPatterns.some(pattern => pattern.test(msgLower));
     const isEmpathyRequest = /(empática|simpático|simpática|empático)/i.test(msgLower);
 
-    // Off-topic / "sem sentido": greeting + small talk (tudo bem, céu azul, etc.) without service intent
-    const smallTalkPatterns = [
+    // Pergunta de conhecimento geral fora do escopo (presidente EUA, capital França, Copa do Mundo, etc.) → resposta padrão sem LLM (relatório M-TECH)
+    if (lib.isGeneralKnowledgeOutOfScope(lastUserMsg)) {
+      const outOfScopeMessage = 'Essa pergunta não está relacionada aos serviços da Câmara Municipal de São Paulo. Posso ajudar com informações sobre vereadores, projetos de lei, audiências públicas ou outros serviços da Câmara.\n\n[SHOW_SERVICES_CHIPS]';
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: outOfScopeMessage } }] });
+      console.log('[ai-orchestrator] Resposta fora do escopo (conhecimento geral):', lastUserMsg.slice(0, 60));
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
+    // Small talk: "tudo bem?", "como vai?" (reciprocal) vs papo realmente fora (céu azul, tempo, etc.)
+    const reciprocalGreetingPatterns = [
       /tudo bem\??/i, /tudo bom\??/i, /como vai\??/i, /como (está|esta) (você|vc|voce)\??/i,
-      /céu (está|esta) azul/i, /(o )?que acha\??/i, /(que )?tal\??/i, /e (aí|ai)\??/i,
+      /(que )?tal\??/i, /e (aí|ai)\??/i,
+    ];
+    const realOffTopicPatterns = [
+      /céu (está|esta) azul/i, /(o )?que acha\??/i,
       /(o )?tempo (está|esta|hoje)/i, /(está|esta) (frio|calor|bonito)/i, /(bom|ótimo) dia (pra|para) (todos|você)/i,
     ];
-    const hasSmallTalk = smallTalkPatterns.some(p => p.test(msgLower));
+    const hasReciprocalGreeting = reciprocalGreetingPatterns.some(p => p.test(msgLower));
+    const hasRealOffTopic = realOffTopicPatterns.some(p => p.test(msgLower));
     const serviceKeywords = /relatar|problema|transporte|avaliar|serviço|servicos|dúvida|duvida|câmara|camara|audiência|audiencia|vereador|histórico|historico|denúncia|denuncia|reclamar|reportar|inscrever/i;
     const hasServiceIntent = serviceKeywords.test(msgLower);
-    const isOffTopic = isGreeting && hasSmallTalk && !hasServiceIntent;
+    // Só mostrar "Desculpe, o intuito deste canal..." para papo realmente fora (ex: céu azul). "Oi, bom dia, tudo bem?" = resposta amigável
+    const isOffTopic = isGreeting && hasRealOffTopic && !hasServiceIntent;
     
     // Check for generic urban report messages (always check, not just first message)
     const genericReportPatterns = [
@@ -1616,16 +1930,16 @@ ${empathyNote}
       if (isEmpathyRequest) {
         response = 'Claro! Desculpe. Boa tarde! Como posso ajudar?';
       } else if (msgLower.includes('bom dia')) {
-        response = 'Bom dia! Como posso ajudar hoje?';
+        response = hasReciprocalGreeting ? 'Bom dia! Tudo bem, e você? Como posso ajudar hoje?' : 'Bom dia! Como posso ajudar hoje?';
       } else if (msgLower.includes('boa tarde')) {
-        response = 'Boa tarde! Como posso ajudar?';
+        response = hasReciprocalGreeting ? 'Boa tarde! Tudo bem? Como posso ajudar?' : 'Boa tarde! Como posso ajudar?';
       } else if (msgLower.includes('boa noite')) {
-        response = 'Boa noite! Como posso ajudar?';
+        response = hasReciprocalGreeting ? 'Boa noite! Tudo bem? Como posso ajudar?' : 'Boa noite! Como posso ajudar?';
       } else if (msgLower.includes('olá') || msgLower.includes('oi')) {
-        response = 'Olá! Como posso ajudar?';
+        response = hasReciprocalGreeting ? 'Olá! Tudo bem? Como posso ajudar?' : 'Olá! Como posso ajudar?';
       } else if (isGenericReport) {
-        // Generic report - always be empathetic
-        response = 'Olá! Claro, vou te ajudar. Qual o problema e onde fica?';
+        // Generic report - always be empathetic (localização vem na próxima pergunta)
+        response = 'Olá! Claro, vou te ajudar. Descreva o problema, por favor.';
       } else {
         response = 'Olá! Como posso ajudar?';
       }
@@ -1644,8 +1958,13 @@ ${empathyNote}
       } else if (msgLower.includes('problema') || msgLower.includes('relatar')) {
         // Problem mentioned but not urgent
         if (response.includes('Como posso ajudar')) {
-          response = response.replace('Como posso ajudar?', 'Claro, vou te ajudar. Qual o problema e onde fica?');
+          response = response.replace('Como posso ajudar?', 'Claro, vou te ajudar. Descreva o problema, por favor.');
         }
+      }
+      
+      // Saudação simples (com ou sem "tudo bem?"): mostrar chips para o usuário escolher o serviço
+      if (isGreeting && !isOffTopic && !isGenericReport && !isEmpathyRequest) {
+        response = `${response}\n\n[SHOW_SERVICES_CHIPS]`;
       }
       
       console.log('[ai-orchestrator] Deterministic response:', response);
@@ -1791,6 +2110,12 @@ ${empathyNote}
       dynamicSystemPrompt = dynamicSystemPrompt + '\n\n[CONTEXTO: Ônibus em São Paulo. Para PONTOS/PARADAS PRÓXIMOS A MIM com coordenadas: use find_nearby_services com service_type=transit_station (dados GeoSampa: pontos de ônibus, terminais). Para linhas/previsão: search_bus_lines, search_bus_stops (por nome/endereço), get_bus_line_itinerary, get_bus_arrival_forecast, get_bus_stop_forecast_all_lines.]';
       console.log('[ai-orchestrator] Bus informational query → injected Olho Vivo tool hint');
     }
+
+    // Data de hoje: evita que o modelo "alucine" respondendo como se estivesse em outro ano (ex.: 2025)
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentYear = now.getFullYear();
+    dynamicSystemPrompt = dynamicSystemPrompt + `\n\n[DATA E AUDIÊNCIAS] Data de hoje: ${todayStr} (ano civil ${currentYear}). Ao falar de "este ano" use sempre o ano ${currentYear}. Para audiências públicas: use APENAS o texto retornado pela ferramenta search_audiencias; não invente audiências, datas nem resuma com outro ano.`;
 
     // Se injetamos contexto do Vertex RAG, não expor search_knowledge_base para evitar que o modelo prefira a tool e "alucine"
     const vertexRagInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Vertex RAG)]');
@@ -2024,6 +2349,44 @@ ${empathyNote}
       if (toolCallData?.name) {
         try {
           const toolArgs = JSON.parse(toolCallArguments);
+          if (toolCallData.name === 'create_urban_report' && attachmentUrls.length > 0) {
+            toolArgs.photos = attachmentUrls;
+          }
+          if (toolCallData.name === 'create_transport_report' && attachmentUrls.length > 0) {
+            toolArgs.photos = attachmentUrls;
+          }
+
+          // Intercept create_transport_report: obrigar preview + pergunta de fotos antes de registrar
+          if (toolCallData.name === 'create_transport_report') {
+            const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
+            const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+            if (!alreadyAskedPhotos && !alreadyShowedPreview) {
+              const merged = {
+                ...accumulatedFields,
+                description: toolArgs.description ?? accumulatedFields.description,
+                report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+                line_code: toolArgs.line_code ?? accumulatedFields.line_code,
+                occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
+                occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+                location: toolArgs.location ?? accumulatedFields.location,
+                severity: toolArgs.severity ?? accumulatedFields.severity,
+                subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
+              };
+              const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
+
+• **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${merged.line_code || 'Não informada'}
+• **Quando:** ${merged.occurrence_date || ''}
+
+Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
+              console.log('[ai-orchestrator] Transport report: intercept – showing preview + photo choice before creating');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+          }
+
           console.log('[ai-orchestrator] Executing tool:', toolCallData.name, toolArgs);
           
           const result = await lib.executeTool(toolCallData.name, toolArgs, user.id, supabase, accumulatedFields);
@@ -2149,7 +2512,44 @@ ${empathyNote}
       const toolCall = choice.message.tool_calls[0];
       const toolName = toolCall.function.name;
       const toolArgs = JSON.parse(toolCall.function.arguments);
-      
+      if (toolName === 'create_urban_report' && attachmentUrls.length > 0) {
+        toolArgs.photos = attachmentUrls;
+      }
+      if (toolName === 'create_transport_report' && attachmentUrls.length > 0) {
+        toolArgs.photos = attachmentUrls;
+      }
+
+      // Intercept create_transport_report (non-stream): preview + pergunta de fotos antes de criar
+      if (toolName === 'create_transport_report') {
+        const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
+        const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+        if (!alreadyAskedPhotos && !alreadyShowedPreview) {
+          const merged = {
+            ...accumulatedFields,
+            description: toolArgs.description ?? accumulatedFields.description,
+            report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+            line_code: toolArgs.line_code ?? accumulatedFields.line_code,
+            occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
+            occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+            location: toolArgs.location ?? accumulatedFields.location,
+            severity: toolArgs.severity ?? accumulatedFields.severity,
+            subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
+          };
+          const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
+
+• **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Linha:** ${merged.line_code || 'Não informada'}
+• **Quando:** ${merged.occurrence_date || ''}
+
+Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
+          const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
+          console.log('[ai-orchestrator] Transport report (non-stream): intercept – preview + photo choice');
+          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+            headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+          });
+        }
+      }
+
       console.log('[ai-orchestrator] Tool call (non-stream):', toolName);
       
       const result = await lib.executeTool(toolName, toolArgs, user.id, supabase);

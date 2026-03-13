@@ -81,12 +81,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: CalendarCheck,
       route: "/audiencias/minhas-inscricoes"
     },
-    ...(canReferToCouncilMember ? [{
+    { 
       id: 2.5,
       label: "Relatos",
       icon: FileText,
       route: "/relatos",
-    }] : []),
+    },
     ...(canViewDashboards ? [{
       id: 3,
       label: "Painéis Analíticos",
