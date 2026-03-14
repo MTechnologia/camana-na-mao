@@ -2,7 +2,9 @@
  * Envia e-mail de confirmação de inscrição em audiência pública (videoconferência ou escrito).
  * Invocado por Database Webhook: tabela audiencia_participacoes, evento INSERT.
  *
- * Além do usuário inscrito, envia cópia para: sgp1@saopaulo.sp.leg.br e testes.mtech.2025@gmail.com.
+ * Usuário inscrito: recebe e-mail de confirmação ("Registramos sua inscrição", protocolo, link etc.).
+ * Admin (CC): recebe e-mail de notificação separado ("Nova inscrição recebida", audiência, data, protocolo, dados do inscrito).
+ * Endereços admin: sgp1@saopaulo.sp.leg.br, testes.mtech.2025@gmail.com.
  *
  * Remetente: AUDIENCIA_EMAIL_FROM (ex.: "Câmara Municipal de São Paulo <noreply@saopaulo.sp.leg.br>")
  *            ou fallback SENDGRID_FROM / RESEND_FROM.
@@ -11,8 +13,8 @@
  *          opcional: AUDIENCIA_EMAIL_FROM para remetente específico das audiências.
  */
 
-/** E-mails que recebem cópia de toda confirmação de inscrição via app (Câmara na Mão). */
-const CONFIRMATION_CC_EMAILS = [
+/** E-mails que recebem notificação de nova inscrição (e-mail específico para admin, não cópia do usuário). */
+const ADMIN_NOTIFICATION_EMAILS = [
   "sgp1@saopaulo.sp.leg.br",
   "testes.mtech.2025@gmail.com",
 ];
@@ -143,6 +145,68 @@ function buildHtmlEmail(
   return { subject, html };
 }
 
+/** E-mail de notificação para admin (CC): informa que um usuário se inscreveu, sem tom de confirmação ao usuário. */
+function buildAdminNotificationEmail(
+  record: ParticipacaoRecord,
+  audiencia: AudienciaRow | null,
+  appUrl: string
+): { subject: string; html: string } {
+  const tipo = record.tipo === "escrito" ? "escrito" : "videoconferencia";
+  const apCode = audiencia?.ap_code ?? "—";
+  const dataHora = audiencia ? formatDataHora(audiencia.data, audiencia.hora) : "";
+  const comissaoOuTitulo = audiencia?.comissao?.trim() || audiencia?.titulo?.trim() || "—";
+  const telefoneDigits = (record.telefone || "").replace(/\D/g, "");
+
+  const subject =
+    tipo === "escrito"
+      ? `CMSP | Audiências Públicas | Nova manifestação recebida ${apCode}`
+      : `CMSP | Audiências Públicas | Nova inscrição recebida ${apCode}`;
+
+  let body = "";
+  body += "<p><strong>Foi registrada uma nova " + (tipo === "escrito" ? "manifestação por escrito" : "inscrição") + " para audiência pública.</strong></p>";
+  body += "<p>Esta " + (tipo === "escrito" ? "manifestação" : "inscrição") + " foi realizada pelo aplicativo <strong>Câmara na Mão</strong>.</p>";
+  body += "<p><strong>Audiência:</strong> " + escapeHtml(comissaoOuTitulo) + (dataHora ? " — " + escapeHtml(dataHora) : "") + "</p>";
+  if (record.protocolo != null) {
+    body += "<p><strong>Protocolo:</strong> " + String(record.protocolo) + "</p>";
+  }
+  body +=
+    "<p><strong>Inscrito:</strong> " +
+    escapeHtml(record.nome) +
+    " — " +
+    escapeHtml(record.email) +
+    " — " +
+    escapeHtml(telefoneDigits) +
+    "</p>";
+  if (tipo === "videoconferencia" && audiencia?.link_transmissao?.trim()) {
+    body +=
+      "<p>Link para participação: <a href=\"" +
+      escapeHtml(audiencia.link_transmissao) +
+      "\">" +
+      escapeHtml(audiencia.link_transmissao) +
+      "</a></p>";
+  }
+  if (appUrl) {
+    body += '<p><a href="' + escapeHtml(appUrl) + '/audiencias">Abrir audiências no app</a></p>';
+  }
+  body += "<p style=\"color:#666;font-size:12px;\">Não responda este e-mail. Esta é uma mensagem gerada automaticamente.</p>";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head>
+<body style="font-family: sans-serif; line-height: 1.5; color: #333; max-width: 600px;">
+  <div style="background: #1e40af; color: #fff; text-align: center; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+    <p style="margin:0; font-weight: bold; font-size: 18px; text-transform: uppercase;">
+      Nova ${tipo === "escrito" ? "manifestação" : "inscrição"} em audiência pública
+    </p>
+  </div>
+  <div>${body}</div>
+</body>
+</html>`;
+
+  return { subject, html };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -178,6 +242,11 @@ serve(async (req) => {
 
     const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/$/, "");
     const { subject, html } = buildHtmlEmail(record, audiencia as AudienciaRow | null, appUrl);
+    const { subject: adminSubject, html: adminHtml } = buildAdminNotificationEmail(
+      record,
+      audiencia as AudienciaRow | null,
+      appUrl
+    );
 
     const fromAudiencia = Deno.env.get("AUDIENCIA_EMAIL_FROM");
     const sendgridKey = Deno.env.get("SENDGRID_API_KEY");
@@ -200,29 +269,40 @@ serve(async (req) => {
 
     let emailSent = false;
 
-    const ccEmails = CONFIRMATION_CC_EMAILS.filter((e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+    const adminEmails = ADMIN_NOTIFICATION_EMAILS.filter((e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
 
     if (sendgridKey && (sendgridFrom || fromAudiencia)) {
       try {
-        const personalization: { to: { email: string }[]; subject: string; cc?: { email: string }[] } = {
-          to: [{ email: toEmail }],
-          subject,
-        };
-        if (ccEmails.length > 0) personalization.cc = ccEmails.map((email) => ({ email }));
-        const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+        const resUser = await fetch("https://api.sendgrid.com/v3/mail/send", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${sendgridKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            personalizations: [personalization],
+            personalizations: [{ to: [{ email: toEmail }], subject }],
             from: { email: fromEmail, name: fromName },
             content: [{ type: "text/html", value: html }],
           }),
         });
-        if (res.ok) emailSent = true;
-        else console.warn("[send-audiencia-inscricao-email] SendGrid error:", res.status, await res.text());
+        if (resUser.ok) emailSent = true;
+        else console.warn("[send-audiencia-inscricao-email] SendGrid user email error:", resUser.status, await resUser.text());
+
+        if (adminEmails.length > 0) {
+          const resAdmin = await fetch("https://api.sendgrid.com/v3/mail/send", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${sendgridKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              personalizations: [{ to: adminEmails.map((email) => ({ email })), subject: adminSubject }],
+              from: { email: fromEmail, name: fromName },
+              content: [{ type: "text/html", value: adminHtml }],
+            }),
+          });
+          if (!resAdmin.ok) console.warn("[send-audiencia-inscricao-email] SendGrid admin email error:", resAdmin.status, await resAdmin.text());
+        }
       } catch (e) {
         console.warn("[send-audiencia-inscricao-email] SendGrid error:", e);
       }
@@ -230,8 +310,7 @@ serve(async (req) => {
 
     if (!emailSent && resendKey) {
       try {
-        const toList = [toEmail, ...ccEmails];
-        const res = await fetch("https://api.resend.com/emails", {
+        const resUser = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${resendKey}`,
@@ -239,13 +318,30 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             from: fromFinal,
-            to: toList,
+            to: toEmail,
             subject,
             html,
           }),
         });
-        if (res.ok) emailSent = true;
-        else console.warn("[send-audiencia-inscricao-email] Resend error:", await res.text());
+        if (resUser.ok) emailSent = true;
+        else console.warn("[send-audiencia-inscricao-email] Resend user email error:", await resUser.text());
+
+        if (adminEmails.length > 0) {
+          const resAdmin = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${resendKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: fromFinal,
+              to: adminEmails,
+              subject: adminSubject,
+              html: adminHtml,
+            }),
+          });
+          if (!resAdmin.ok) console.warn("[send-audiencia-inscricao-email] Resend admin email error:", await resAdmin.text());
+        }
       } catch (e) {
         console.warn("[send-audiencia-inscricao-email] Resend error:", e);
       }
