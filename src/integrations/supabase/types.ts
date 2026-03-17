@@ -1603,7 +1603,7 @@ export type Database = {
           ai_sentiment: string | null
           created_at: string | null
           description: string | null
-          first_response_time: unknown
+          first_response_time: string | null
           id: string
           impact_description: string | null
           line_code_custom: string | null
@@ -1632,7 +1632,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
-          first_response_time?: unknown
+          first_response_time?: string | null
           id?: string
           impact_description?: string | null
           line_code_custom?: string | null
@@ -1661,7 +1661,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
-          first_response_time?: unknown
+          first_response_time?: string | null
           id?: string
           impact_description?: string | null
           line_code_custom?: string | null
