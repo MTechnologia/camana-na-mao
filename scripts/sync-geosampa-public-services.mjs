@@ -22,7 +22,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
+const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "bicycle", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
 
 function loadEnv() {
   const envPath = resolve(ROOT, ".env");
@@ -214,6 +214,13 @@ function featureToRow(feature, layerConfig, index) {
 
   const serviceType = SERVICE_TYPES.includes(layerConfig.service_type) ? layerConfig.service_type : "other";
 
+  const capacityParts = [];
+  const qtyVaga = props.qt_vaga != null && Number(props.qt_vaga) >= 0 ? Number(props.qt_vaga) : null;
+  if (qtyVaga != null) capacityParts.push(`${qtyVaga} vagas`);
+  const areaM2 = props.area_metro != null && Number(props.area_metro) > 0 ? Number(props.area_metro) : (props.qt_area_metro != null && Number(props.qt_area_metro) > 0 ? Number(props.qt_area_metro) : null);
+  if (areaM2 != null) capacityParts.push(`${areaM2.toLocaleString("pt-BR")} m²`);
+  const capacityInfo = capacityParts.length > 0 ? capacityParts.join(" · ") : null;
+
   const row = {
     name: name.slice(0, 500),
     service_type: serviceType,
@@ -228,6 +235,7 @@ function featureToRow(feature, layerConfig, index) {
   };
   if (phone != null) row.phone = phone.slice(0, 50);
   if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
+  if (capacityInfo != null) row.capacity_info = capacityInfo.slice(0, 200);
   if (servicesOffered != null) {
     let text = String(servicesOffered).replace(/, encaminhamentos par\s*$/i, "").trim();
     if (text && !/[.!?]$/.test(text)) text += ".";

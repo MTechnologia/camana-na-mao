@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Filter, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ServiceTypeIcon } from "@/components/icons";
 
 export type ServiceTypeFilterValue =
   | "ubs"
@@ -27,6 +27,7 @@ export type ServiceTypeFilterValue =
   | "museum"
   | "social_assistance"
   | "transit_station"
+  | "bicycle"
   | "police_station"
   | "cemetery"
   | "accessibility"
@@ -36,11 +37,6 @@ export type ServiceTypeFilterValue =
 interface ServiceTypeFilterProps {
   selectedTypes: ServiceTypeFilterValue[];
   onTypesChange: (types: ServiceTypeFilterValue[]) => void;
-}
-
-/** Nome do arquivo SVG no mapa (transit_station -> transit.svg). */
-function getServiceTypeIconFilename(value: ServiceTypeFilterValue): string {
-  return value === "transit_station" ? "transit.svg" : `${value}.svg`;
 }
 
 const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string }[] = [
@@ -60,6 +56,7 @@ const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string }[] = [
   { value: "museum", label: "Museus" },
   { value: "social_assistance", label: "Assistência Social" },
   { value: "transit_station", label: "Transporte" },
+  { value: "bicycle", label: "Bicicletários" },
   { value: "police_station", label: "Delegacia/Polícia" },
   { value: "cemetery", label: "Cemitério" },
   { value: "accessibility", label: "Acessibilidade" },
@@ -103,12 +100,7 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
               onCheckedChange={(checked) => toggle(type.value, !!checked)}
               onSelect={(e) => e.preventDefault()}
             >
-              <img
-                src={`${import.meta.env.BASE_URL}icons/map/${getServiceTypeIconFilename(type.value)}`}
-                alt=""
-                className="mr-2 size-5 shrink-0"
-                aria-hidden
-              />
+              <ServiceTypeIcon serviceType={type.value} className="mr-2 text-foreground" size={20} />
               {type.label}
             </DropdownMenuCheckboxItem>
           ))}
