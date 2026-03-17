@@ -18,6 +18,7 @@ import {
   Handshake,
   Shield,
   Bus,
+  Bike,
   Flame,
   Recycle,
   MapPin,
@@ -38,6 +39,7 @@ export const SERVICE_TYPE_ICONS: Record<string, LucideIcon> = {
   social_assistance: Handshake,
   police_station: Shield,
   transit_station: Bus,
+  bicycle: Bike,
   market: ShoppingCart,
   city_market: ShoppingCart,
   theater: Film,
@@ -52,6 +54,7 @@ export const SERVICE_TYPE_ICONS: Record<string, LucideIcon> = {
 /** Cor por tipo no mapa (OS-05: identidade visual por categoria). Cor padrão para tipos não listados. */
 export const SERVICE_TYPE_MAP_COLORS: Record<string, string> = {
   transit_station: "#0D9488",
+  bicycle: "#16A34A",
   ubs: "#0EA5E9",
   school: "#2563EB",
   ceu: "#7C3AED",
@@ -77,6 +80,13 @@ export const SERVICE_TYPE_MAP_COLORS: Record<string, string> = {
 
 /** Paths SVG (path d) por tipo para ícone no balão do mapa (viewBox 0 0 24 24, stroke). */
 const BALLOON_ICON_PATHS: Record<string, string[]> = {
+  bicycle: [
+    "M18.5 18.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
+    "M5.5 18.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
+    "M12 5v6l4 2",
+    "m19 8-4 2 2 4",
+    "M5 10 9 8l2 4",
+  ],
   transit_station: [
     "M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10z",
     "M7.5 17a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
@@ -190,6 +200,7 @@ export const SERVICE_TYPE_LABELS: Record<string, string> = {
   museum: "Museus",
   social_assistance: "Assistência Social",
   transit_station: "Transporte",
+  bicycle: "Bicicletários",
   police_station: "Delegacia/Polícia",
   cemetery: "Cemitério",
   accessibility: "Acessibilidade",
@@ -248,6 +259,7 @@ export function getServiceTypeMarkerChar(serviceType: string): string {
     social_assistance: "🤝",
     police_station: "🚔",
     transit_station: "🚌",
+    bicycle: "🚲",
     market: "🛒",
     city_market: "🏪",
     theater: "🎬",

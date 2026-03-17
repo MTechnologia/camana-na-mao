@@ -48,7 +48,7 @@ export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown> } | null>(null);
+  const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown>; capacity_info?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
@@ -331,6 +331,19 @@ export default function ServiceDetailPage() {
                   "Horário não informado. Confirme na unidade."}
               </p>
             </div>
+
+            {/* Capacidade / indicador a partir de dados abertos (qt_vaga, área m², etc.) */}
+            {service.capacity_info && (
+              <div className="space-y-1">
+                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  Capacidade (dados abertos)
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {service.capacity_info}
+                </p>
+              </div>
+            )}
 
             {/* O que este serviço oferece — tipo, serviços e ambientes quando existirem */}
             <div className="space-y-1">

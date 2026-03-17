@@ -1058,6 +1058,7 @@ export type Database = {
         Row: {
           address: string
           average_rating: number | null
+          capacity_info: string | null
           city: string
           created_at: string | null
           district: string
@@ -1077,6 +1078,7 @@ export type Database = {
         Insert: {
           address: string
           average_rating?: number | null
+          capacity_info?: string | null
           city?: string
           created_at?: string | null
           district: string
@@ -1096,6 +1098,7 @@ export type Database = {
         Update: {
           address?: string
           average_rating?: number | null
+          capacity_info?: string | null
           city?: string
           created_at?: string | null
           district?: string
@@ -2299,6 +2302,7 @@ export type Database = {
         | "social_assistance"
         | "police_station"
         | "transit_station"
+        | "bicycle"
         | "market"
         | "city_market"
         | "theater"
@@ -2459,6 +2463,7 @@ export const Constants = {
         "social_assistance",
         "police_station",
         "transit_station",
+        "bicycle",
         "market",
         "city_market",
         "theater",
