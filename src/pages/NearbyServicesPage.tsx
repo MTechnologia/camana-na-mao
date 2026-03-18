@@ -10,6 +10,7 @@ import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluati
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
 import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
@@ -49,12 +50,17 @@ export default function NearbyServicesPage() {
   const googleMapsApiKey = getGoogleMapsApiKey();
   const hasGoogleMapsKey = !!googleMapsApiKey;
 
-  const { services, loading: servicesLoading } = useNearbyServices({
+  const { services, loading: servicesLoading, error: servicesError } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
     serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined
   });
+
+  const { isOnline } = useNetworkStatus();
+  const isCacheOrOfflineMessage = servicesError != null && (
+    servicesError.includes("cache") || servicesError.includes("Sem conexão")
+  );
 
   const filteredByRating = minRating === "all"
     ? services
@@ -225,6 +231,39 @@ export default function NearbyServicesPage() {
                 Tentar novamente
               </Button>
             </div>
+          </div>
+        )}
+
+        {!isOnline && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
+            <WifiOff className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Você está offline
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Os dados exibidos podem ser do último acesso. Ative a internet para atualizar a lista.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isOnline && isCacheOrOfflineMessage && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
+            <Database className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Dados em cache
+              </p>
+              <p className="text-xs text-muted-foreground">{servicesError}</p>
+            </div>
+          </div>
+        )}
+
+        {isOnline && servicesError != null && !isCacheOrOfflineMessage && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+            <p className="text-sm text-destructive">{servicesError}</p>
           </div>
         )}
 
