@@ -23,7 +23,7 @@ import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
 import type { CepCenter } from "@/components/map/CepSearchCard";
-import { getServiceDisplayName, getOpeningHoursText } from "@/lib/mapUtils";
+import { getServiceDisplayName, getOpeningHoursText, parseOpeningHoursToRange } from "@/lib/mapUtils";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -39,6 +39,8 @@ export default function NearbyServicesPage() {
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
   const [searchByName, setSearchByName] = useState("");
   const [onlyWithOpeningHours, setOnlyWithOpeningHours] = useState(false);
+  const [openingTimeFilter, setOpeningTimeFilter] = useState<string>("");
+  const [closingTimeFilter, setClosingTimeFilter] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const PAGE_SIZE = 20;
@@ -121,10 +123,43 @@ export default function NearbyServicesPage() {
   const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
   const distanceLabelMode = useRouteDistance && !routeFilterFallback ? matrixProfile : "straight";
 
+  // Filtro de horário é independente do tipo: aplicado a todos os serviços já listados (por tipo, raio, etc.).
+  // "Abertura a partir de X" = equipamentos que já estão abertos naquele horário (abrem ≤ X e fecham ≥ X).
   const filteredByOpeningHours = useMemo(() => {
-    if (!onlyWithOpeningHours) return sortedServices;
-    return sortedServices.filter((s) => getOpeningHoursText(s.opening_hours) != null);
-  }, [sortedServices, onlyWithOpeningHours]);
+    let list = sortedServices;
+    if (onlyWithOpeningHours) {
+      list = list.filter((s) => getOpeningHoursText(s.opening_hours) != null);
+    }
+    const openFilterMinutes = openingTimeFilter
+      ? (() => {
+          const [h, m] = openingTimeFilter.split(":").map(Number);
+          return h * 60 + (m ?? 0);
+        })()
+      : null;
+    const closeFilterMinutes =
+      closingTimeFilter && closingTimeFilter.trim() !== "" && closingTimeFilter !== "00:00"
+        ? (() => {
+            const [h, m] = closingTimeFilter.split(":").map(Number);
+            return h * 60 + (m ?? 0);
+          })()
+        : null;
+    if (openFilterMinutes == null && closeFilterMinutes == null) return list;
+    return list.filter((s) => {
+      const text = getOpeningHoursText(s.opening_hours);
+      const { openMinutes, closeMinutes } = parseOpeningHoursToRange(text);
+      if (openFilterMinutes != null) {
+        if (openMinutes == null || closeMinutes == null) return false;
+        if (openMinutes > openFilterMinutes) return false;
+        if (closeMinutes < openFilterMinutes) return false;
+      }
+      if (closeFilterMinutes != null) {
+        if (closeMinutes == null) return false;
+        if (closeMinutes < closeFilterMinutes) return false;
+        if (openMinutes != null && openMinutes > closeFilterMinutes) return false;
+      }
+      return true;
+    });
+  }, [sortedServices, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   const filteredByName = useMemo(() => {
     const q = searchByName.trim().toLowerCase();
@@ -147,7 +182,7 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, onlyWithOpeningHours]);
+  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
   const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
@@ -305,8 +340,8 @@ export default function NearbyServicesPage() {
 
         <RatingFilter value={minRating} onChange={setMinRating} />
 
-        <div className="overflow-x-auto pb-2 -mx-4 px-4">
-          <div className="flex items-center gap-2 min-w-max">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
             <span className="text-sm text-muted-foreground shrink-0">Horário:</span>
             <Badge
@@ -316,9 +351,54 @@ export default function NearbyServicesPage() {
                 onlyWithOpeningHours ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
               )}
               onClick={() => setOnlyWithOpeningHours((v) => !v)}
+              title={onlyWithOpeningHours ? "Exibir todos (remover filtro)" : "Mostrar apenas equipamentos com horário de funcionamento cadastrado"}
             >
               Com horário informado
             </Badge>
+            <span className="text-xs text-muted-foreground">
+              (não precisa selecionar tipo; vale para todos os equipamentos)
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label htmlFor="opening-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+                Abertura a partir de
+              </label>
+              <Input
+                id="opening-time-filter"
+                type="time"
+                value={openingTimeFilter}
+                onChange={(e) => setOpeningTimeFilter(e.target.value)}
+                className="w-[8rem]"
+                title="Mostrar equipamentos que abrem ou já estão abertos neste horário (vale para todos os tipos selecionados)"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="closing-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+                Fechamento até
+              </label>
+              <Input
+                id="closing-time-filter"
+                type="time"
+                value={closingTimeFilter}
+                onChange={(e) => setClosingTimeFilter(e.target.value)}
+                className="w-[8rem]"
+                title="Mostrar equipamentos que ainda estão abertos neste horário (vale para todos os tipos selecionados)"
+              />
+            </div>
+            {(openingTimeFilter || closingTimeFilter) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpeningTimeFilter("");
+                  setClosingTimeFilter("");
+                }}
+              >
+                Limpar horários
+              </Button>
+            )}
           </div>
         </div>
 
@@ -361,8 +441,8 @@ export default function NearbyServicesPage() {
                 <p className="text-sm text-muted-foreground">
                   {searchByName.trim()
                     ? "Tente outro termo de busca ou relaxe os filtros."
-                    : onlyWithOpeningHours
-                      ? "Nenhum serviço com horário informado neste raio. Tente aumentar o raio, desativar o filtro \"Com horário informado\" ou outro tipo de serviço."
+                    : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
+                      ? "Nenhum serviço atende aos filtros de horário neste raio. Tente aumentar o raio, ajustar ou limpar os horários de abertura/fechamento."
                       : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
                 </p>
               </div>
