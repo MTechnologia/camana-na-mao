@@ -422,7 +422,15 @@ export default function NearbyServicesPage() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-0">
-            {isLoading ? (
+            {!isOnline ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-8 text-center">
+                <WifiOff className="mx-auto h-12 w-12 text-amber-600 dark:text-amber-400 mb-3" aria-hidden />
+                <h3 className="font-semibold text-foreground mb-1">Mapa indisponível offline</h3>
+                <p className="text-sm text-muted-foreground">
+                  O mapa precisa de conexão para carregar. Use a aba <strong>Lista</strong> para ver os equipamentos em cache.
+                </p>
+              </div>
+            ) : isLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
               <MapView
