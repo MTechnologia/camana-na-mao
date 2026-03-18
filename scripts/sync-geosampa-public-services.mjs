@@ -22,7 +22,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "bicycle", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
+const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "bicycle", "subprefeitura", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
 
 function loadEnv() {
   const envPath = resolve(ROOT, ".env");
@@ -138,7 +138,7 @@ function featureToRow(feature, layerConfig, index) {
   const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip", "nm_area",
     "nm_estabelecimento", "nm_central_intermediacao_libra", "nm_local", "nm_ecoponto", "nm_ponto_onibus",
     "nm_estacao_transbordo", "nm_cooperativa", "nm_estacao_metro_trem", "nm_terminal", "nm_aterro_sanitario",
-    "nm_servico", "nm_entidade", "nm_shopping_center") ?? getExternalId(feature, index);
+    "nm_servico", "nm_entidade", "nm_shopping_center", "nm_sede", "nm_subprefeitura", "ds_subprefeitura") ?? getExternalId(feature, index);
   const address = getProp(
     props,
     "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c",
@@ -173,6 +173,9 @@ function featureToRow(feature, layerConfig, index) {
     const status = getProp(props, "tx_status_terminal");
     const parts = [tipo, status].filter(Boolean);
     if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && layerConfig.source_layer === "sede_subprefeitura") {
+    servicesOffered = "Sede administrativa da subprefeitura. Atendimento ao cidadão.";
   }
   if (!servicesOffered && layerConfig.source_layer === "bicicletario_paraciclo") {
     const tipo = getProp(props, "tx_tipo_equipamento");

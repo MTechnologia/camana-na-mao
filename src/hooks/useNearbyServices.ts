@@ -24,7 +24,7 @@ export interface NearbyService {
 
 type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
   | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum"
-  | "social_assistance" | "transit_station" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
+  | "social_assistance" | "transit_station" | "bicycle" | "subprefeitura" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
   | "fire_station" | "other" | "all";
 
 interface UseNearbyServicesProps {

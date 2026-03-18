@@ -28,6 +28,7 @@ export type ServiceTypeFilterValue =
   | "social_assistance"
   | "transit_station"
   | "bicycle"
+  | "subprefeitura"
   | "police_station"
   | "cemetery"
   | "accessibility"
@@ -57,6 +58,7 @@ const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string }[] = [
   { value: "social_assistance", label: "Assistência Social" },
   { value: "transit_station", label: "Transporte" },
   { value: "bicycle", label: "Bicicletários" },
+  { value: "subprefeitura", label: "Subprefeituras" },
   { value: "police_station", label: "Delegacia/Polícia" },
   { value: "cemetery", label: "Cemitério" },
   { value: "accessibility", label: "Acessibilidade" },

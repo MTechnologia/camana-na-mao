@@ -2303,6 +2303,7 @@ export type Database = {
         | "police_station"
         | "transit_station"
         | "bicycle"
+        | "subprefeitura"
         | "market"
         | "city_market"
         | "theater"
@@ -2464,6 +2465,7 @@ export const Constants = {
         "police_station",
         "transit_station",
         "bicycle",
+        "subprefeitura",
         "market",
         "city_market",
         "theater",
