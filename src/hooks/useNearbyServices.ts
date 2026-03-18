@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  getNearbyServicesCache,
+  saveNearbyServicesCache,
+  type CachedNearbyService,
+} from "@/lib/nearbyServicesCache";
 
-interface NearbyService {
+export interface NearbyService {
   id: string;
   name: string;
   service_type: string;
@@ -110,6 +115,16 @@ export const useNearbyServices = ({
     lastValidLocation.current = { lat: latitude, lng: longitude };
   }
 
+  const applyCacheWithDistance = useCallback(
+    (cached: CachedNearbyService[], userLat: number, userLng: number): NearbyService[] => {
+      return cached.map((s) => ({
+        ...s,
+        distance: calculateDistance(userLat, userLng, s.latitude, s.longitude),
+      }));
+    },
+    []
+  );
+
   const fetchServices = useCallback(async () => {
     const userLat = lastValidLocation.current.lat;
     const userLng = lastValidLocation.current.lng;
@@ -123,8 +138,29 @@ export const useNearbyServices = ({
     setLoading(true);
     setError(null);
 
+    const safeRadius = Math.max(radiusMeters, 100);
+
     try {
-      const safeRadius = Math.max(radiusMeters, 100);
+      const cached = await getNearbyServicesCache();
+      if (cached?.services?.length) {
+        // Offline/cache: usar o centro salvo no cache para as distâncias, assim o filtro
+        // por raio (2km, 10km) continua coerente com a região que foi buscada.
+        const centerLat = cached.centerLat;
+        const centerLng = cached.centerLng;
+        const withDistance = applyCacheWithDistance(cached.services, centerLat, centerLng);
+        setServices(withDistance);
+      }
+    } catch {
+      // Ignore cache read errors
+    }
+
+    if (!navigator.onLine) {
+      setLoading(false);
+      setError("Sem conexão. Exibindo equipamentos em cache quando disponível.");
+      return;
+    }
+
+    try {
       const { minLat, maxLat, minLng, maxLng } = getBoundingBox(
         userLat,
         userLng,
@@ -190,7 +226,6 @@ export const useNearbyServices = ({
         .filter((service) => (service.distance ?? 0) <= safeRadius)
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 
-      // Um serviço por localização (evita duplicados no mesmo ponto)
       const seen = new Set<string>();
       const deduped = withinRadius.filter((s) => {
         const key = locationKey(s.latitude, s.longitude);
@@ -200,14 +235,27 @@ export const useNearbyServices = ({
       });
 
       setServices(deduped);
+      await saveNearbyServicesCache(deduped, userLat, userLng, safeRadius);
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
-      setServices([]);
-      setError("Erro ao buscar serviços próximos.");
+      const cached = await getNearbyServicesCache();
+      if (cached?.services?.length) {
+        // Usar centro do cache para distâncias coerentes com o raio (2km, 10km, etc.)
+        const withDistance = applyCacheWithDistance(
+          cached.services,
+          cached.centerLat,
+          cached.centerLng
+        );
+        setServices(withDistance);
+        setError("Sem conexão. Exibindo equipamentos em cache.");
+      } else {
+        setServices([]);
+        setError("Erro ao buscar serviços próximos.");
+      }
     } finally {
       setLoading(false);
     }
-  }, [radiusMeters, serviceType, serviceTypes]);
+  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance]);
 
   useEffect(() => {
     fetchServices();
