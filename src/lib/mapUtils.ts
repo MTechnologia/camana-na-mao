@@ -39,6 +39,66 @@ export const getOpeningHoursText = (openingHours: unknown): string | null => {
   return typeof text === "string" && text.trim() ? text.trim() : null;
 };
 
+/**
+ * Interpreta um texto de opening_hours (ex.: "08:00 - 17:00", "08h às 17h")
+ * e retorna o intervalo em minutos desde 00:00.
+ *
+ * Retorna { openMinutes: null, closeMinutes: null } quando não for possível identificar.
+ *
+ * Obs.: esta função existe para manter compatibilidade com fluxos/filters que
+ * comparam horários em minutos (ex.: filtros de "abre a partir de"/"fecha até").
+ */
+export const parseOpeningHoursToRange = (
+  openingHoursText: string | null | undefined
+): { openMinutes: number | null; closeMinutes: number | null } => {
+  if (!openingHoursText) return { openMinutes: null, closeMinutes: null };
+
+  const text = openingHoursText.toString().replace(/\s+/g, " ").trim();
+
+  const toMinutes = (hRaw: string, mRaw: string) => {
+    const h = Number(hRaw);
+    const m = Number(mRaw);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    if (h < 0 || h > 23) return null;
+    if (m < 0 || m > 59) return null;
+    return h * 60 + m;
+  };
+
+  // Padrão com minutos: "08:00 - 17:00" / "08:00 às 17:00"
+  const rangeWithMinutes = text.match(
+    /(\d{1,2})\s*(?::|h)\s*(\d{2})\s*(?:-|–|—|a|às|to)\s*(\d{1,2})\s*(?::|h)\s*(\d{2})/i
+  );
+  if (rangeWithMinutes) {
+    const open = toMinutes(rangeWithMinutes[1], rangeWithMinutes[2]);
+    const close = toMinutes(rangeWithMinutes[3], rangeWithMinutes[4]);
+    return { openMinutes: open, closeMinutes: close };
+  }
+
+  // Padrão apenas horas com "h": "08h - 17h" -> assume minutos=00
+  const rangeWithHoursOnly = text.match(
+    /(\d{1,2})\s*h\b\s*(?:-|–|—|a|às|to)\s*(\d{1,2})\s*h\b/i
+  );
+  if (rangeWithHoursOnly) {
+    const open = toMinutes(rangeWithHoursOnly[1], "00");
+    const close = toMinutes(rangeWithHoursOnly[2], "00");
+    return { openMinutes: open, closeMinutes: close };
+  }
+
+  // Fallback: pega a 1a e a 2a ocorrência de HH:MM e usa como range (quando existe)
+  const times = Array.from(text.matchAll(/(\d{1,2})\s*(?::)\s*(\d{2})/g))
+    .map((m) => toMinutes(m[1], m[2]))
+    .filter((v): v is number => v != null);
+
+  if (times.length >= 2) {
+    return { openMinutes: times[0], closeMinutes: times[1] };
+  }
+  if (times.length === 1) {
+    return { openMinutes: times[0], closeMinutes: null };
+  }
+
+  return { openMinutes: null, closeMinutes: null };
+};
+
 /** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */
 export const getAddressDisplay = (address: string | undefined | null, district?: string | undefined | null): string => {
   const addr = (address ?? "").trim();
