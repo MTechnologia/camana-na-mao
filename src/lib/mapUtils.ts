@@ -40,6 +40,33 @@ export const getOpeningHoursText = (openingHours: unknown): string | null => {
 };
 
 /**
+ * Horário padrão quando a fonte (GeoSampa) não fornece `opening_hours.text`.
+ * Mantém compatibilidade com o que já é exibido em `ServiceDetailPage`.
+ */
+export const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
+  ubs: "Segunda a sexta, 7h às 19h (horário padrão das UBS em SP). Confirme na unidade.",
+  hospital: "Atendimento 24h ou conforme unidade. Confirme pelo telefone.",
+  library: "Segunda a sexta, em geral 9h às 18h. Confirme na unidade.",
+  school: "Conforme calendário escolar. Confirme na unidade.",
+  ceu: "Conforme programação. Confirme na unidade.",
+  sports_center: "Varía por unidade. Confirme no local.",
+};
+
+/**
+ * Retorna o texto de opening_hours se existir; caso contrário retorna um fallback
+ * baseado no `serviceType` (para filtros de horário no NearbyServicesPage).
+ */
+export const getOpeningHoursTextWithDefault = (
+  openingHours: unknown,
+  serviceType?: string | null
+): string | null => {
+  const extracted = getOpeningHoursText(openingHours);
+  if (extracted) return extracted;
+  if (!serviceType) return null;
+  return DEFAULT_OPENING_HOURS_BY_TYPE[serviceType] ?? null;
+};
+
+/**
  * Interpreta um texto de opening_hours (ex.: "08:00 - 17:00", "08h às 17h")
  * e retorna o intervalo em minutos desde 00:00.
  *
@@ -64,30 +91,35 @@ export const parseOpeningHoursToRange = (
     return h * 60 + m;
   };
 
-  // Padrão com minutos: "08:00 - 17:00" / "08:00 às 17:00"
-  const rangeWithMinutes = text.match(
-    /(\d{1,2})\s*(?::|h)\s*(\d{2})\s*(?:-|–|—|a|às|to)\s*(\d{1,2})\s*(?::|h)\s*(\d{2})/i
-  );
-  if (rangeWithMinutes) {
-    const open = toMinutes(rangeWithMinutes[1], rangeWithMinutes[2]);
-    const close = toMinutes(rangeWithMinutes[3], rangeWithMinutes[4]);
-    return { openMinutes: open, closeMinutes: close };
-  }
+  // Extração robusta de horários em diferentes formatos:
+  // - HH:MM (ex.: 07:00)
+  // - HhMM (ex.: 07h00)
+  // - Hh (ex.: 07h)  => assume minutos=00
+  //
+  // Depois pegamos as 2 primeiras ocorrências como (abertura, fechamento).
+  const times: number[] = [];
+  const timeRegex =
+    /(\d{1,2})\s*:\s*(\d{2})\b|(\d{1,2})\s*h\s*(\d{2})\b|(\d{1,2})\s*h\b/gi;
 
-  // Padrão apenas horas com "h": "08h - 17h" -> assume minutos=00
-  const rangeWithHoursOnly = text.match(
-    /(\d{1,2})\s*h\b\s*(?:-|–|—|a|às|to)\s*(\d{1,2})\s*h\b/i
-  );
-  if (rangeWithHoursOnly) {
-    const open = toMinutes(rangeWithHoursOnly[1], "00");
-    const close = toMinutes(rangeWithHoursOnly[2], "00");
-    return { openMinutes: open, closeMinutes: close };
+  for (const match of text.matchAll(timeRegex)) {
+    // match[1], match[2] => HH:MM
+    if (match[1] != null && match[2] != null) {
+      const v = toMinutes(match[1], match[2]);
+      if (v != null) times.push(v);
+      continue;
+    }
+    // match[3], match[4] => HhMM
+    if (match[3] != null && match[4] != null) {
+      const v = toMinutes(match[3], match[4]);
+      if (v != null) times.push(v);
+      continue;
+    }
+    // match[5] => Hh
+    if (match[5] != null) {
+      const v = toMinutes(match[5], "00");
+      if (v != null) times.push(v);
+    }
   }
-
-  // Fallback: pega a 1a e a 2a ocorrência de HH:MM e usa como range (quando existe)
-  const times = Array.from(text.matchAll(/(\d{1,2})\s*(?::)\s*(\d{2})/g))
-    .map((m) => toMinutes(m[1], m[2]))
-    .filter((v): v is number => v != null);
 
   if (times.length >= 2) {
     return { openMinutes: times[0], closeMinutes: times[1] };
