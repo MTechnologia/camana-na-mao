@@ -2926,12 +2926,202 @@ export function accumulateFieldsFromHistory(
       }
     }
   }
-  
+
+  if (collectionType === "service_rating" && accumulated.service_neighborhood != null) {
+    accumulated.service_neighborhood = normalizeServiceRatingNeighborhood(accumulated.service_neighborhood);
+  }
+
   return accumulated;
 }
 
 function capitalizeWords(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Remove tokens consecutivos duplicados (ex.: "Butantã Butantã") — bug de acúmulo / cópia do bairro */
+export function normalizeServiceRatingNeighborhood(raw: unknown): string {
+  const s = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!s) return "";
+  const parts = s.split(/\s+/);
+  const out: string[] = [];
+  for (const p of parts) {
+    if (out.length && out[out.length - 1].toLowerCase() === p.toLowerCase()) continue;
+    out.push(p);
+  }
+  return out.join(" ");
+}
+
+/** Nome do equipamento em PT para fluxo de avaliação (evita "Library", "library" no prompt) */
+export function getServiceRatingNounPt(serviceType: string | undefined): string {
+  const SERVICE_RATING_NOUN_PT: Record<string, string> = {
+    ubs: "UBS",
+    school: "escola",
+    hospital: "hospital",
+    ceu: "CEU",
+    library: "biblioteca",
+    sports_center: "centro esportivo",
+    street_market: "feira",
+    community_center: "centro comunitário",
+    daycare: "creche",
+    park: "parque",
+    market: "mercado",
+    city_market: "mercado municipal",
+    theater: "teatro",
+    museum: "museu",
+    social_assistance: "assistência social",
+    transit_station: "terminal/estação de transporte",
+    police_station: "delegacia",
+    cemetery: "cemitério",
+    accessibility: "serviço de acessibilidade",
+    recycling_point: "ponto de reciclagem",
+    fire_station: "Corpo de Bombeiros",
+    other: "serviço",
+  };
+  if (!serviceType) return "serviço";
+  return SERVICE_RATING_NOUN_PT[serviceType] || serviceType;
+}
+
+/** Remove acentos para comparar bairro digitado (Butantã) com cadastro (BUTANTA). */
+function foldAccentsForCompare(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Normaliza para comparar "Bibliotecas - X" com "biblioteca - X" (nome genérico vs chip) */
+export function normalizeGenericServiceRatingName(s: string): string {
+  return foldAccentsForCompare(
+    s
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/\bhospitais\b/g, "hospital")
+      .replace(/\bbibliotecas\b/g, "biblioteca")
+      .replace(/\bescolas\b/g, "escola")
+      .replace(/\bceus\b/g, "ceu")
+      .replace(/\bfeiras\b/g, "feira")
+      .replace(/\bparques\b/g, "parque")
+      .replace(/\bmercados\b/g, "mercado"),
+  );
+}
+
+/**
+ * Quando só existe `service_name` como "UBS - Butantã" (LLM/COLLECTION_PROGRESS) sem `service_neighborhood`,
+ * inferimos o trecho após "Tipo - " para comparar com o genérico e exibir SERVICE_PICKER.
+ */
+export function inferServiceRatingNeighborhoodFromCompositeName(
+  serviceName: unknown,
+  serviceType: string | undefined,
+): string | undefined {
+  const sn = String(serviceName ?? "").trim();
+  if (sn.length < 3) return undefined;
+  const noun = getServiceRatingNounPt(serviceType);
+  const escaped = noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^\\s*${escaped}\\s*-\\s*(.+)$`, "i");
+  const m = sn.match(re);
+  if (!m) return undefined;
+  const rest = m[1].trim();
+  return rest.length >= 2 ? rest : undefined;
+}
+
+/**
+ * true = ainda não há um equipamento concreto (só categoria, chip "Bibliotecas", etc.).
+ * Nesse caso devemos mostrar SERVICE_PICKER após o bairro, antes de confirmar endereço.
+ */
+export function isServiceRatingTypeOnlyEquipmentName(
+  serviceName: unknown,
+  serviceType: string | undefined,
+): boolean {
+  const raw = String(serviceName ?? "").trim();
+  if (raw.length < 2) return true;
+
+  const s = normalizeGenericServiceRatingName(raw);
+  const noun = normalizeGenericServiceRatingName(getServiceRatingNounPt(serviceType));
+  if (!s || s === noun) return true;
+
+  const TYPE_ONLY = new Set<string>([
+    "ubs",
+    "ceu",
+    "ceus",
+    "hospital",
+    "hospitais",
+    "escola",
+    "escolas",
+    "biblioteca",
+    "bibliotecas",
+    "feira",
+    "feiras",
+    "parque",
+    "parques",
+    "mercado",
+    "mercados",
+    "mercado municipal",
+    "creche",
+    "creches",
+    "teatro",
+    "teatros",
+    "museu",
+    "museus",
+    "centro esportivo",
+    "centro comunitário",
+    "delegacia",
+    "cemitério",
+    "esportes",
+    "outros",
+    "serviço",
+    "posto de saude",
+    "posto de saúde",
+    "assistência social",
+    "terminal/estação de transporte",
+    "corpo de bombeiros",
+    "ponto de reciclagem",
+    "acessibilidade",
+  ]);
+
+  if (TYPE_ONLY.has(s)) return true;
+
+  const eng = raw.toLowerCase();
+  if (
+    ["library", "school", "hospital", "park", "museum", "theater", "other", "daycare", "cemetery"].includes(
+      eng,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Pergunta "Em qual bairro fica …?" com artigo correto em PT */
+export function buildServiceRatingBairroPrompt(serviceType: string | undefined): string {
+  const t = serviceType || "";
+  if (t === "ubs") {
+    return "Em qual **bairro** fica a **UBS** que você visitou?";
+  }
+  if (t === "ceu") {
+    return "Em qual **bairro** fica o **CEU** que você visitou?";
+  }
+  const noun = getServiceRatingNounPt(t);
+  const masculineArticleTypes = new Set([
+    "hospital",
+    "sports_center",
+    "community_center",
+    "park",
+    "market",
+    "city_market",
+    "theater",
+    "museum",
+    "cemetery",
+    "transit_station",
+    "police_station",
+    "fire_station",
+    "street_market",
+    "other",
+    "accessibility",
+    "recycling_point",
+  ]);
+  const art = masculineArticleTypes.has(t) ? "o" : "a";
+  return `Em qual **bairro** fica ${art} **${noun}** que você visitou?`;
 }
 
 // Extract service rating-specific fields
@@ -2956,15 +3146,9 @@ export function extractServiceFields(context: string): Record<string, unknown> {
   // Extract name/neighborhood from "UBS Butantã", "quero avaliar a UBS Butantã", etc.
   const typeNameMatch = context.match(/\b(ubs|hospital|escola|ceu|biblioteca|centro\s+esportivo)\s+([a-záàâãéèêíìóòôõúùç]+(?:\s+[a-záàâãéèêíìóòôõúùç]+)*?)(?=\s+que|\s*[.,!?]|$)/i);
   if (typeNameMatch) {
-    const typeKey = typeNameMatch[1].toLowerCase().replace(/\s+/, ' ');
     const namePart = typeNameMatch[2].trim();
     if (namePart.length >= 2 && namePart.length <= 50) {
-      const typeDisplay: Record<string, string> = {
-        ubs: 'UBS', hospital: 'Hospital', escola: 'Escola', ceu: 'CEU',
-        biblioteca: 'Biblioteca', 'centro esportivo': 'Centro esportivo',
-      };
-      const typeLabel = typeDisplay[typeKey] || capitalizeWords(typeKey);
-      fields.service_name = `${typeLabel} - ${capitalizeWords(namePart)}`;
+      // Só bairro/local — não preencher service_name com "UBS - X" (evita pular SERVICE_PICKER)
       fields.service_neighborhood = capitalizeWords(namePart);
     }
   }

@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
+import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2 } from "lucide-react";
@@ -542,29 +543,26 @@ const ChatMessageBubble = ({
     return match ? match[1] : null;
   }, [hasServiceAddressConfirm, message.content]);
 
-  // Extract serviceType e district para InlineServicePicker (dropdown pré-preenchido por bairro)
+  // Extract serviceType e district para InlineServicePicker (lista filtrada por bairro + tipo)
   const servicePickerContext = useMemo(() => {
-    if (!hasServicePicker) return { serviceType: undefined, district: undefined };
     let serviceType: string | undefined;
     let district: string | undefined;
-    const typeInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:type=([^:\]]+)/);
-    if (typeInMarker) {
-      try { serviceType = decodeURIComponent(typeInMarker[1]); } catch { serviceType = typeInMarker[1]; }
+
+    if (message.content.includes("[SERVICE_PICKER")) {
+      const parsed = parseServicePickerMarker(message.content);
+      serviceType = parsed.serviceType;
+      district = parsed.district;
     }
     if (!serviceType) {
       const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
       if (typeMatch) serviceType = typeMatch[1];
-    }
-    const districtInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:district=([^:\]]+)/);
-    if (districtInMarker) {
-      try { district = decodeURIComponent(districtInMarker[1]); } catch { district = districtInMarker[1]; }
     }
     if (!district) {
       const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
       if (neighMatch) district = neighMatch[1];
     }
     return { serviceType, district };
-  }, [hasServicePicker, message.content]);
+  }, [message.content]);
   
   return (
     <div
