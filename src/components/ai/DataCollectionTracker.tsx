@@ -242,7 +242,8 @@ const DataCollectionTracker = ({
     
     if (collectionType === 'urban_report') {
       const category = collectedFields.category;
-      const isRiskCategory = category && RISK_CATEGORIES.includes(category);
+      // `collectedFields` é `unknown`, então tipamos com segurança antes do `includes`.
+      const isRiskCategory = typeof category === 'string' && RISK_CATEGORIES.includes(category);
       
       if (!isRiskCategory) {
         return {
@@ -318,7 +319,9 @@ const DataCollectionTracker = ({
     }
 
     return [];
-  }, [collectionType, collectedFields.description, collectedFields.street, collectedFields.neighborhood, collectedFields.occurrence_date, collectedFields.line_code, collectedFields.location, collectedFields.rating_stars, collectedFields.rating_text, collectedFields.service_address_confirmed]);
+  }, [collectionType, collectedFields.description, collectedFields.street, collectedFields.neighborhood,
+     collectedFields.occurrence_date, collectedFields.line_code, collectedFields.location,
+      collectedFields.rating_stars, collectedFields.rating_text, collectedFields.service_address_confirmed]);
 
   // Collapsed (Minimal) Mode
   if (!isExpanded) {
