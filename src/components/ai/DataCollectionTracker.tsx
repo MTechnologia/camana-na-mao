@@ -283,7 +283,7 @@ const DataCollectionTracker = ({
 
   const Icon = config.icon;
 
-  const requirementSummary = useMemo(() => {
+  const requirementSummary = (() => {
     if (!collectionType) return [];
 
     if (collectionType === 'urban_report') {
@@ -319,9 +319,7 @@ const DataCollectionTracker = ({
     }
 
     return [];
-  }, [collectionType, collectedFields.description, collectedFields.street, collectedFields.neighborhood,
-     collectedFields.occurrence_date, collectedFields.line_code, collectedFields.location,
-      collectedFields.rating_stars, collectedFields.rating_text, collectedFields.service_address_confirmed]);
+  })();
 
   // Collapsed (Minimal) Mode
   if (!isExpanded) {
