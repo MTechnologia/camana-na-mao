@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
+import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -1064,14 +1065,24 @@ export const useUnifiedAIChat = (
                 // === PHASE 2: Only update collectionType if it's a valid structured type ===
                 // This prevents light intents (services, audiencias, general, history) from
                 // replacing an ongoing structured journey
+                const mergeFields = (raw: Record<string, unknown>) => {
+                  const next = { ...raw };
+                  if (typeof next.service_type === "string") {
+                    const n = normalizeServiceTypeToDbEnum(next.service_type);
+                    if (n) next.service_type = n;
+                  }
+                  return next;
+                };
+                const fieldsNorm = mergeFields(fields);
+
                 if (VALID_TRACKER_TYPES.includes(type)) {
                   setCollectionType(type);
-                  setCollectedFields(prev => ({ ...prev, ...fields }));
+                  setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
                 } else {
                   console.log('[useUnifiedAIChat] Ignoring non-structured type:', type, '- keeping current journey');
                   // Only update fields if we already have a structured type set
                   if (collectionType && VALID_TRACKER_TYPES.includes(collectionType)) {
-                    setCollectedFields(prev => ({ ...prev, ...fields }));
+                    setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
                   }
                 }
               } catch (e) {

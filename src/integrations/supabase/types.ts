@@ -2222,6 +2222,10 @@ export type Database = {
         Returns: { protocolo: number; id: string }[]
       }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
+      get_user_service_ratings_stats: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       get_reports_with_demographics: {
         Args: {
           p_age_group?: string
