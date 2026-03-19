@@ -140,6 +140,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'service_type', label: 'Tipo', required: true },
       { key: 'service_name', label: 'Serviço', required: true },
       { key: 'service_neighborhood', label: 'Bairro', required: false },
+      { key: 'service_address_confirmed', label: 'Endereço confirmado', required: true },
       { key: 'rating_stars', label: 'Nota', required: true },
       { key: 'rating_text', label: 'Comentário', required: true },
     ]
@@ -273,7 +274,51 @@ const DataCollectionTracker = ({
   const hasOptional = optionalFields.length > 0;
   const collectedOptionalCount = optionalFields.filter(f => !!collectedFields[f.key]).length;
 
+  const totalRequiredCount = requiredFields.length;
+  const completedRequiredCount = requiredFields.filter(f => !!collectedFields[f.key]).length;
+  const currentStep = totalRequiredCount > 0
+    ? Math.min(completedRequiredCount + (allRequiredCollected ? 0 : 1), totalRequiredCount)
+    : 0;
+
   const Icon = config.icon;
+
+  const requirementSummary = useMemo(() => {
+    if (!collectionType) return [];
+
+    if (collectionType === 'urban_report') {
+      const hasText = !!collectedFields.description;
+      const hasLocation = !!collectedFields.street && !!collectedFields.neighborhood;
+      return [
+        { key: 'text', label: 'Texto', required: true, fulfilled: hasText },
+        { key: 'location', label: 'Localização', required: true, fulfilled: hasLocation },
+        { key: 'photo', label: 'Foto', required: false, fulfilled: false },
+      ];
+    }
+
+    if (collectionType === 'transport_report') {
+      const hasText = !!collectedFields.description;
+      const hasWhen = !!collectedFields.occurrence_date;
+      const hasLineOrPlace = !!collectedFields.line_code || !!collectedFields.location;
+      return [
+        { key: 'text', label: 'Texto', required: true, fulfilled: hasText },
+        { key: 'when', label: 'Quando', required: true, fulfilled: hasWhen },
+        { key: 'where', label: 'Onde', required: false, fulfilled: hasLineOrPlace },
+      ];
+    }
+
+    if (collectionType === 'service_rating') {
+      const hasRating = !!collectedFields.rating_stars;
+      const hasText = !!collectedFields.rating_text;
+      const hasLocation = !!collectedFields.service_address_confirmed;
+      return [
+        { key: 'rating', label: 'Nota', required: true, fulfilled: hasRating },
+        { key: 'text', label: 'Comentário', required: true, fulfilled: hasText },
+        { key: 'location', label: 'Localização', required: true, fulfilled: hasLocation },
+      ];
+    }
+
+    return [];
+  }, [collectionType, collectedFields.description, collectedFields.street, collectedFields.neighborhood, collectedFields.occurrence_date, collectedFields.line_code, collectedFields.location, collectedFields.rating_stars, collectedFields.rating_text, collectedFields.service_address_confirmed]);
 
   // Collapsed (Minimal) Mode
   if (!isExpanded) {
@@ -306,6 +351,12 @@ const DataCollectionTracker = ({
             )}>
               {progress}%
             </span>
+
+            {totalRequiredCount > 0 && (
+              <span className="text-[10px] text-muted-foreground ml-1">
+                Etapa {currentStep} de {totalRequiredCount}
+              </span>
+            )}
           </div>
 
           {/* Separator dot */}
@@ -375,6 +426,12 @@ const DataCollectionTracker = ({
               )}>
                 {progress}%
               </span>
+
+              {totalRequiredCount > 0 && (
+                <span className="text-[10px] text-muted-foreground ml-1 whitespace-nowrap">
+                  Etapa {currentStep} de {totalRequiredCount}
+                </span>
+              )}
             </div>
 
             <span className="text-muted-foreground/50">•</span>
@@ -417,6 +474,35 @@ const DataCollectionTracker = ({
               />
             ))}
           </div>
+
+          {/* High-level requirement summary (texto, foto, localização, etc.) */}
+          {requirementSummary.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 text-[10px]">
+              {requirementSummary.map(req => (
+                <span
+                  key={req.key}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border",
+                    req.fulfilled
+                      ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
+                      : req.required
+                        ? "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+                        : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                  )}
+                >
+                  {req.fulfilled ? (
+                    <Check className="h-3 w-3" />
+                  ) : (
+                    <Circle className="h-3 w-3" />
+                  )}
+                  <span>
+                    {req.label}
+                    {!req.required && " (opcional)"}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Optional Fields */}
           {hasOptional && (
