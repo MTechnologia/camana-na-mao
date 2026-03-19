@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
 
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGeolocation } from "@/hooks/useGeolocation";
 import { Phone, Clock, Star, Bell, Info, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -70,7 +71,9 @@ function getOperationalStatusMeta(status: unknown): { label: string; className: 
 export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const { latitude: userLatitude, longitude: userLongitude } = useGeolocation();
   const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown>; capacity_info?: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -339,7 +342,23 @@ export default function ServiceDetailPage() {
                 const lng = Number((service as { longitude?: unknown }).longitude);
                 const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
                 if (!hasCoords) return null;
-                const mapsUrl = buildGoogleMapsUrl(undefined, undefined, lat, lng);
+                const stateOrigin = (location.state as { originLat?: unknown; originLng?: unknown } | null) ?? null;
+                const originLat =
+                  typeof stateOrigin?.originLat === "number" && !Number.isNaN(stateOrigin.originLat)
+                    ? stateOrigin.originLat
+                    : userLatitude;
+                const originLng =
+                  typeof stateOrigin?.originLng === "number" && !Number.isNaN(stateOrigin.originLng)
+                    ? stateOrigin.originLng
+                    : userLongitude;
+                const hasUserCoords =
+                  typeof originLat === "number" &&
+                  typeof originLng === "number" &&
+                  !Number.isNaN(originLat) &&
+                  !Number.isNaN(originLng);
+                const mapsUrl = hasUserCoords
+                  ? buildGoogleMapsUrl(originLat, originLng, lat, lng)
+                  : `https://www.google.com/maps?q=${lat},${lng}`;
                 return (
                   <a
                     href={mapsUrl}

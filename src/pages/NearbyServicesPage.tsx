@@ -489,7 +489,14 @@ export default function NearbyServicesPage() {
                     openingHours={service.opening_hours}
                     servicesOffered={service.services_offered}
                     operationalStatus={service.operational_status}
-                    onClick={() => navigate(`/servico/${service.id}`)}
+                    onClick={() =>
+                      navigate(`/servico/${service.id}`, {
+                        state: {
+                          originLat: searchLat ?? null,
+                          originLng: searchLng ?? null,
+                        },
+                      })
+                    }
                   />
                 ))}
               </div>
