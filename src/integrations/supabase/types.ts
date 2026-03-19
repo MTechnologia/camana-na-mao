@@ -1067,6 +1067,7 @@ export type Database = {
           longitude: number
           name: string
           opening_hours: Json | null
+          operational_status: Database["public"]["Enums"]["operational_status"] | null
           phone: string | null
           service_type: Database["public"]["Enums"]["service_type"]
           services_offered: string | null
@@ -1087,6 +1088,7 @@ export type Database = {
           longitude: number
           name: string
           opening_hours?: Json | null
+          operational_status?: Database["public"]["Enums"]["operational_status"] | null
           phone?: string | null
           service_type: Database["public"]["Enums"]["service_type"]
           services_offered?: string | null
@@ -1107,6 +1109,7 @@ export type Database = {
           longitude?: number
           name?: string
           opening_hours?: Json | null
+          operational_status?: Database["public"]["Enums"]["operational_status"] | null
           phone?: string | null
           service_type?: Database["public"]["Enums"]["service_type"]
           services_offered?: string | null
@@ -2287,6 +2290,7 @@ export type Database = {
         | "assessor"
         | "cidadao"
         | "cidadao_engajado"
+      operational_status: "open" | "closed" | "maintenance"
       referral_status: "pending" | "sent" | "acknowledged" | "resolved"
       service_type:
         | "ubs"

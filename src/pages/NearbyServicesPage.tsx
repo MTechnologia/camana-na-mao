@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
 import { ServiceTypeFilter, type ServiceTypeFilterValue } from "@/components/evaluation/ServiceTypeFilter";
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
+import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useNearbyServices } from "@/hooks/useNearbyServices";
@@ -23,7 +24,7 @@ import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
 import type { CepCenter } from "@/components/map/CepSearchCard";
-import { getServiceDisplayName, getOpeningHoursText, parseOpeningHoursToRange } from "@/lib/mapUtils";
+import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -31,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
   const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
   const [radiusMeters, setRadiusMeters] = useState(2000);
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
@@ -123,12 +125,17 @@ export default function NearbyServicesPage() {
   const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
   const distanceLabelMode = useRouteDistance && !routeFilterFallback ? matrixProfile : "straight";
 
+  const filteredByOperationalStatus = useMemo(() => {
+    if (operationalStatusFilter === "all") return sortedServices;
+    return sortedServices.filter((s) => s.operational_status === operationalStatusFilter);
+  }, [sortedServices, operationalStatusFilter]);
+
   // Filtro de horário é independente do tipo: aplicado a todos os serviços já listados (por tipo, raio, etc.).
   // "Abertura a partir de X" = equipamentos que já estão abertos naquele horário (abrem ≤ X e fecham ≥ X).
   const filteredByOpeningHours = useMemo(() => {
-    let list = sortedServices;
+    let list = filteredByOperationalStatus;
     if (onlyWithOpeningHours) {
-      list = list.filter((s) => getOpeningHoursText(s.opening_hours) != null);
+      list = list.filter((s) => getOpeningHoursTextWithDefault(s.opening_hours, s.service_type) != null);
     }
     const openFilterMinutes = openingTimeFilter
       ? (() => {
@@ -145,7 +152,7 @@ export default function NearbyServicesPage() {
         : null;
     if (openFilterMinutes == null && closeFilterMinutes == null) return list;
     return list.filter((s) => {
-      const text = getOpeningHoursText(s.opening_hours);
+      const text = getOpeningHoursTextWithDefault(s.opening_hours, s.service_type);
       const { openMinutes, closeMinutes } = parseOpeningHoursToRange(text);
       if (openFilterMinutes != null) {
         if (openMinutes == null || closeMinutes == null) return false;
@@ -159,7 +166,7 @@ export default function NearbyServicesPage() {
       }
       return true;
     });
-  }, [sortedServices, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
+  }, [filteredByOperationalStatus, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   const filteredByName = useMemo(() => {
     const q = searchByName.trim().toLowerCase();
@@ -182,7 +189,7 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
+  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, operationalStatusFilter, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
   const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
@@ -340,6 +347,17 @@ export default function NearbyServicesPage() {
 
         <RatingFilter value={minRating} onChange={setMinRating} />
 
+        <div className="space-y-2">
+          <OperationalStatusFilterChips
+            value={operationalStatusFilter}
+            onChange={setOperationalStatusFilter}
+            label="Status operacional:"
+          />
+          <p className="text-xs text-muted-foreground">
+            Exibe apenas serviços com status operacional identificado no GeoSampa.
+          </p>
+        </div>
+
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
@@ -441,7 +459,9 @@ export default function NearbyServicesPage() {
                 <p className="text-sm text-muted-foreground">
                   {searchByName.trim()
                     ? "Tente outro termo de busca ou relaxe os filtros."
-                    : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
+                    : operationalStatusFilter !== "all"
+                      ? "Nenhum serviço com esse status operacional neste raio. Tente outro status ou aumente o raio."
+                      : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
                       ? "Nenhum serviço atende aos filtros de horário neste raio. Tente aumentar o raio, ajustar ou limpar os horários de abertura/fechamento."
                       : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
                 </p>
@@ -468,6 +488,7 @@ export default function NearbyServicesPage() {
                     userLongitude={searchLng ?? undefined}
                     openingHours={service.opening_hours}
                     servicesOffered={service.services_offered}
+                    operationalStatus={service.operational_status}
                     onClick={() => navigate(`/servico/${service.id}`)}
                   />
                 ))}
@@ -502,6 +523,16 @@ export default function NearbyServicesPage() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-0">
+            <div className="sticky top-[64px] z-20 mb-3">
+              <div className="rounded-lg border bg-background/95 backdrop-blur p-2">
+                <OperationalStatusFilterChips
+                  value={operationalStatusFilter}
+                  onChange={setOperationalStatusFilter}
+                  label="Status:"
+                  compact
+                />
+              </div>
+            </div>
             {!isOnline ? (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-8 text-center">
                 <WifiOff className="mx-auto h-12 w-12 text-amber-600 dark:text-amber-400 mb-3" aria-hidden />

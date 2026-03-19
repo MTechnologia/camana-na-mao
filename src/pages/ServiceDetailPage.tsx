@@ -4,14 +4,15 @@ import PageHeader from "@/components/ui/page-header";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Clock, Star, Bell, MapPin, Info } from "lucide-react";
+import { Phone, Clock, Star, Bell, Info, ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
-import { getAddressDisplay } from "@/lib/mapUtils";
+import { buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
 function sanitizeServicesOfferedHtml(html: string): string {
@@ -42,6 +43,28 @@ function getOpeningHoursDisplay(
   if (text?.trim()) return text.trim();
   const type = serviceType ?? "other";
   return DEFAULT_OPENING_HOURS_BY_TYPE[type] ?? null;
+}
+
+function getOperationalStatusMeta(status: unknown): { label: string; className: string } | null {
+  if (status === "open") {
+    return {
+      label: "Aberto",
+      className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    };
+  }
+  if (status === "closed") {
+    return {
+      label: "Fechado",
+      className: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+    };
+  }
+  if (status === "maintenance") {
+    return {
+      label: "Em manutenção",
+      className: "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    };
+  }
+  return null;
 }
 
 export default function ServiceDetailPage() {
@@ -311,6 +334,24 @@ export default function ServiceDetailPage() {
               <p className="text-sm text-muted-foreground">
                 {service.city} - {service.state}
               </p>
+              {(() => {
+                const lat = Number((service as { latitude?: unknown }).latitude);
+                const lng = Number((service as { longitude?: unknown }).longitude);
+                const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+                if (!hasCoords) return null;
+                const mapsUrl = buildGoogleMapsUrl(undefined, undefined, lat, lng);
+                return (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Como chegar
+                  </a>
+                );
+              })()}
             </div>
 
             {service.phone && (
@@ -319,6 +360,19 @@ export default function ServiceDetailPage() {
                 <span className="text-sm text-muted-foreground">{service.phone}</span>
               </div>
             )}
+
+            {(() => {
+              const meta = getOperationalStatusMeta((service as { operational_status?: unknown }).operational_status);
+              if (!meta) return null;
+              return (
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-foreground text-sm">Status operacional</h3>
+                  <Badge variant="outline" className={meta.className}>
+                    {meta.label}
+                  </Badge>
+                </div>
+              );
+            })()}
 
             {/* Horário de funcionamento — sempre exibido (dado real ou orientação por tipo) */}
             <div className="space-y-1">
