@@ -12,6 +12,7 @@ import {
   buildWmsGetMapUrl,
 } from '@/config/geosampa-wms-imageamento';
 import { getServiceTypeBalloonIconUrl, getServiceTypeLabel, getServiceTypeMapColor } from '@/components/icons';
+import { needsVerificationForLowAverageRating } from '@/lib/serviceRatingVerification';
 
 interface Service {
   id: string;
@@ -22,6 +23,8 @@ interface Service {
   distance?: number;
   address?: string;
   district?: string;
+  average_rating?: number;
+  total_ratings?: number;
 }
 
 interface GoogleMapViewProps {
@@ -196,10 +199,16 @@ export const GoogleMapView = ({
       const distanceText = service.distance != null
         ? (distanceLabel === 'straight' ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance))
         : '';
+      const lowRatingFlag = needsVerificationForLowAverageRating(service.average_rating, service.total_ratings);
       const infoContent = `
         <div style="padding:8px;min-width:180px;">
           <p style="font-weight:600;margin:0 0 4px;">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
           ${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : ''}
+          ${
+            lowRatingFlag
+              ? `<p style="font-size:11px;color:#b45309;margin:8px 0 0;line-height:1.35;font-weight:500;">⚠ Média abaixo de 2★ — sinalizado para verificação</p>`
+              : ''
+          }
           <a href="${mapsUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1976d2;margin-top:6px;display:inline-block;">Como chegar</a>
         </div>
       `;

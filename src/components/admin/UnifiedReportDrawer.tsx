@@ -44,6 +44,8 @@ interface UnifiedReportDrawerProps {
   onCategoryCorrected?: (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => Promise<void>;
   onDelete: (manifest: UnifiedManifest) => void;
   onReferral: () => void;
+  /** Após aprovar publicação de avaliação (moderação) */
+  onEvaluationModerated?: () => void;
 }
 
 interface Response {
@@ -102,6 +104,7 @@ export const UnifiedReportDrawer = ({
   onCategoryCorrected,
   onDelete,
   onReferral,
+  onEvaluationModerated,
 }: UnifiedReportDrawerProps) => {
   const [responses, setResponses] = useState<Response[]>([]);
   const [loadingResponses, setLoadingResponses] = useState(false);
@@ -110,6 +113,7 @@ export const UnifiedReportDrawer = ({
   const [editCategory, setEditCategory] = useState('');
   const [editSubcategory, setEditSubcategory] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
+  const [publishingEvaluation, setPublishingEvaluation] = useState(false);
 
   const fetchResponses = useCallback(async () => {
     if (!manifest) return;
@@ -481,6 +485,21 @@ export const UnifiedReportDrawer = ({
 
               {manifest.type === 'evaluation' && manifest.evaluation_data && (
                 <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(manifest.evaluation_data.publication_status || 'published') === 'pending_review' && (
+                      <Badge className="bg-amber-500/15 text-amber-800 border-amber-500/30">
+                        Comentário em revisão (não público)
+                      </Badge>
+                    )}
+                    {(manifest.evaluation_data.publication_status || 'published') === 'rejected' && (
+                      <Badge variant="destructive">Comentário não publicável</Badge>
+                    )}
+                    {(manifest.evaluation_data.publication_status || 'published') === 'published' && (
+                      <Badge variant="outline" className="text-green-700 border-green-600/30 bg-green-500/10">
+                        Comentário publicado
+                      </Badge>
+                    )}
+                  </div>
                   <div className="p-4 rounded-lg border bg-muted/30">
                     <div className="flex items-center gap-2 mb-2">
                       <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
@@ -496,6 +515,30 @@ export const UnifiedReportDrawer = ({
                       <h4 className="text-sm font-medium text-muted-foreground mb-1">Sentimento</h4>
                       <Badge variant="outline">{manifest.evaluation_data.sentiment}</Badge>
                     </div>
+                  )}
+                  {manifest.evaluation_data.publication_status === 'pending_review' && (
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      disabled={publishingEvaluation}
+                      onClick={async () => {
+                        setPublishingEvaluation(true);
+                        const { error } = await supabase
+                          .from('service_ratings')
+                          .update({ publication_status: 'published' })
+                          .eq('id', manifest.id);
+                        setPublishingEvaluation(false);
+                        if (error) {
+                          toast.error(error.message);
+                          return;
+                        }
+                        toast.success('Comentário aprovado e publicado.');
+                        onEvaluationModerated?.();
+                      }}
+                    >
+                      Aprovar publicação do comentário
+                    </Button>
                   )}
                 </>
               )}

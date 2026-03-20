@@ -9,11 +9,13 @@ import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { Phone, Clock, Star, Bell, Info, ExternalLink } from "lucide-react";
+import { Phone, Clock, Star, Bell, Info, ExternalLink, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
 import { buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
+import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
 function sanitizeServicesOfferedHtml(html: string): string {
@@ -74,7 +76,14 @@ export default function ServiceDetailPage() {
   const location = useLocation();
   const { user } = useAuth();
   const { latitude: userLatitude, longitude: userLongitude } = useGeolocation();
-  const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown>; capacity_info?: string | null } | null>(null);
+  const [service, setService] = useState<{
+    id: string;
+    name?: string;
+    metadata?: Record<string, unknown>;
+    capacity_info?: string | null;
+    average_rating?: number | null;
+    total_ratings?: number | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
@@ -473,15 +482,28 @@ export default function ServiceDetailPage() {
               })()}
             </div>
 
-            <div className="pt-2 border-t border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <RatingStars rating={service.average_rating} readonly />
+            <div className="pt-2 border-t border-border space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <RatingStars rating={service.average_rating ?? 0} readonly />
                   <span className="text-sm text-muted-foreground">
-                    ({service.total_ratings} avaliações)
+                    ({service.total_ratings ?? 0} avaliações)
                   </span>
                 </div>
               </div>
+              {needsVerificationForLowAverageRating(service.average_rating, service.total_ratings) && (
+                <Alert
+                  className="border-amber-600/40 bg-amber-500/10 text-amber-950 dark:text-amber-100 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-300"
+                  role="status"
+                >
+                  <AlertTriangle className="h-4 w-4" aria-hidden />
+                  <AlertTitle>Média de avaliações abaixo de 2 estrelas</AlertTitle>
+                  <AlertDescription>
+                    Este equipamento está <strong>sinalizado para verificação</strong>. A média considera apenas
+                    avaliações publicadas.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </CardContent>
         </Card>

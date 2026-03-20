@@ -70,6 +70,8 @@ export interface UnifiedManifest {
     sentiment: string | null;
     visit_id: string;
     is_anonymous: boolean;
+    /** published | pending_review | rejected */
+    publication_status?: string;
   };
   // N8N fields (common for urban/transport)
   n8n_processed?: boolean | null;
@@ -141,7 +143,8 @@ interface UseReportsAdminReturn {
 // Projeção mínima para lista (campos necessários para ManifestCard)
 const URBAN_LIST_FIELDS = 'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,user_id,protocol_code';
 const TRANSPORT_LIST_FIELDS = 'id,report_type,description,severity,status,created_at,updated_at,location,user_id,line_id,occurrence_date,occurrence_time,protocol_code,responded_at';
-const EVALUATION_LIST_FIELDS = 'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous';
+const EVALUATION_LIST_FIELDS =
+  'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous,publication_status';
 
 export const useReportsAdmin = (): UseReportsAdminReturn => {
   const [manifests, setManifests] = useState<UnifiedManifest[]>([]);
@@ -449,6 +452,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               sentiment: r.sentiment,
               visit_id: '',
               is_anonymous: r.is_anonymous || false,
+              publication_status: (r.publication_status as string) || 'published',
             },
           })));
         }

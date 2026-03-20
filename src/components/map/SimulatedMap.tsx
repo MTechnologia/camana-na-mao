@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
 import { ServiceTypeIcon, getServiceTypeLabel, getServiceTypeMapColor } from "@/components/icons";
 import { formatDistance, formatDistanceStraightLine, getServiceDisplayName } from "@/lib/mapUtils";
+import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 
 interface Service {
   id: string;
@@ -111,6 +112,7 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
         {displayItems.map((item, index) => {
           if (item.type === "single") {
             const service = item.service;
+            const lowRating = needsVerificationForLowAverageRating(service.average_rating, service.total_ratings);
             return (
               <Card
                 key={service.id}
@@ -129,6 +131,11 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                     {service.distance != null && (
                       <p className="text-xs text-muted-foreground">
                         {distanceLabel === "straight" ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance)}
+                      </p>
+                    )}
+                    {lowRating && (
+                      <p className="text-[11px] text-amber-800 dark:text-amber-200 mt-1 font-medium line-clamp-2">
+                        ⚠ Média abaixo de 2★ — verificação
                       </p>
                     )}
                   </div>

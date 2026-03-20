@@ -1445,6 +1445,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_anonymous: boolean | null
+          publication_status: string
           rating_stars: number
           rating_text: string | null
           sentiment: string | null
@@ -1458,6 +1459,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_anonymous?: boolean | null
+          publication_status?: string
           rating_stars: number
           rating_text?: string | null
           sentiment?: string | null
@@ -1471,6 +1473,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_anonymous?: boolean | null
+          publication_status?: string
           rating_stars?: number
           rating_text?: string | null
           sentiment?: string | null
@@ -2222,6 +2225,10 @@ export type Database = {
         Returns: { protocolo: number; id: string }[]
       }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
+      compute_service_rating_publication_status: {
+        Args: { p_text: string }
+        Returns: string
+      }
       get_user_service_ratings_stats: {
         Args: Record<string, never>
         Returns: Json

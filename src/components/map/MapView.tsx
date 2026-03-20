@@ -14,6 +14,11 @@ interface Service {
   latitude: number;
   longitude: number;
   distance?: number;
+  /** Agregados public_services (avaliações publicadas) — mapa pode sinalizar média baixa */
+  average_rating?: number;
+  total_ratings?: number;
+  address?: string;
+  district?: string;
 }
 
 interface MapViewProps {
