@@ -16,6 +16,7 @@ import { servicosProximos } from "@/data/searchData";
 import { buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
 import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
 function sanitizeServicesOfferedHtml(html: string): string {
@@ -484,11 +485,21 @@ export default function ServiceDetailPage() {
 
             <div className="pt-2 border-t border-border space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <RatingStars rating={service.average_rating ?? 0} readonly />
-                  <span className="text-sm text-muted-foreground">
-                    ({service.total_ratings ?? 0} avaliações)
-                  </span>
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <RatingStars rating={service.average_rating ?? 0} readonly />
+                    <span className="text-sm text-muted-foreground">
+                      ({service.total_ratings ?? 0} avaliações)
+                    </span>
+                  </div>
+                  {(service.total_ratings ?? 0) > 0 && realServiceId ? (
+                    <a
+                      href="#historico-avaliacoes"
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                    >
+                      Ver histórico de avaliações individuais
+                    </a>
+                  ) : null}
                 </div>
               </div>
               {needsVerificationForLowAverageRating(service.average_rating, service.total_ratings) && (
@@ -507,6 +518,12 @@ export default function ServiceDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        <ServiceRatingsHistorySection
+          serviceId={realServiceId}
+          currentUserId={user?.id ?? null}
+          id="historico-avaliacoes"
+        />
 
         {/* Actions */}
         <div className="space-y-2">
