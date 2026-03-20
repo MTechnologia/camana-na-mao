@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { correctionDisplayLabel, correctionTypeLabel } from "@/lib/serviceCorrectionFields";
+import {
+  correctionDisplayLabel,
+  correctionTypeLabel,
+  isServiceCorrectionSlaOverdue,
+  serviceCorrectionSlaDeadline,
+  SERVICE_CORRECTION_REVIEW_SLA_HOURS,
+} from "@/lib/serviceCorrectionFields";
 
 export type ServiceCorrectionRow = Database["public"]["Tables"]["service_corrections"]["Row"] & {
   public_services?: {
@@ -33,8 +39,14 @@ const emptyCounts: ServiceCorrectionStatusCounts = {
 };
 
 async function fetchStatusCounts(): Promise<ServiceCorrectionStatusCounts> {
-  const [pending, approved, rejected, applied, all] = await Promise.all([
+  const slaCutoff = new Date(Date.now() - SLA_MS).toISOString();
+  const [pending, pendingOverSla, approved, rejected, applied, all] = await Promise.all([
     supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    supabase
+      .from("service_corrections")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lt("created_at", slaCutoff),
     supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "approved"),
     supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "rejected"),
     supabase.from("service_corrections").select("*", { count: "exact", head: true }).eq("status", "applied"),
@@ -42,6 +54,7 @@ async function fetchStatusCounts(): Promise<ServiceCorrectionStatusCounts> {
   ]);
   return {
     pending: pending.count ?? 0,
+    pendingOverSla: pendingOverSla.count ?? 0,
     approved: approved.count ?? 0,
     rejected: rejected.count ?? 0,
     applied: applied.count ?? 0,
@@ -110,7 +123,24 @@ export function useServiceCorrectionsAdmin() {
           : null,
       }));
 
-      setRows(enriched);
+      const ordered =
+        statusFilter === "pending"
+          ? [...enriched].sort((a, b) => {
+              const aOver = isServiceCorrectionSlaOverdue(a.created_at, a.status);
+              const bOver = isServiceCorrectionSlaOverdue(b.created_at, b.status);
+              if (aOver !== bOver) return aOver ? -1 : 1;
+              if (!a.created_at || !b.created_at) return 0;
+              if (aOver) {
+                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+              }
+              return (
+                serviceCorrectionSlaDeadline(a.created_at).getTime() -
+                serviceCorrectionSlaDeadline(b.created_at).getTime()
+              );
+            })
+          : enriched;
+
+      setRows(ordered);
     } catch (e) {
       console.error("[useServiceCorrectionsAdmin]", e);
       setRows([]);

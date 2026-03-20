@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Camera, PencilLine, X } from "lucide-react";
 import {
   SERVICE_CORRECTION_TYPES,
+  SERVICE_CORRECTION_REVIEW_SLA_HOURS,
   type ServiceCorrectionTypeValue,
   type ServiceLike,
   getServiceContextSummary,
@@ -41,7 +42,7 @@ export function ServiceCorrectionSuggestSection({
   onRequestLogin,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [correctionType, setCorrectionType] = useState<ServiceCorrectionTypeValue>("localizacao");
+  const [correctionType, setCorrectionType] = useState<ServiceCorrectionTypeValue>("localizacao_incorreta");
   const [description, setDescription] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function ServiceCorrectionSuggestSection({
   }, [photoFile]);
 
   const resetForm = () => {
-    setCorrectionType("localizacao");
+    setCorrectionType("localizacao_incorreta");
     setDescription("");
     setPhotoFile(null);
     setPhotoPreview(null);
@@ -151,7 +152,9 @@ export function ServiceCorrectionSuggestSection({
         status: "pending",
       });
       if (error) throw error;
-      toast.success("Sugestão enviada. Obrigado por ajudar a manter o cadastro atualizado!");
+      toast.success(
+        `Sugestão enviada. Nossa equipe tende a validar em até ${SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas. Obrigado por ajudar!`,
+      );
       setOpen(false);
       resetForm();
     } catch (e: unknown) {
@@ -181,7 +184,8 @@ export function ServiceCorrectionSuggestSection({
           <SheetTitle>Correção de cadastro</SheetTitle>
           <SheetDescription>
             Indique o tipo de informação incorreta, descreva o que deveria constar e, se quiser, anexe uma foto como
-            evidência.
+            evidência. Um administrador analisa em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas e você é notificado.
+            O cadastro oficial só muda após aprovação e atualização pela equipe — o envio não altera o registro sozinho.
           </SheetDescription>
         </SheetHeader>
         <div className="grid gap-5 py-4 px-1">
