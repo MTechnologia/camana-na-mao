@@ -1256,6 +1256,66 @@ export type Database = {
           },
         ]
       }
+      report_severity_audit_log: {
+        Row: {
+          id: string
+          urban_report_id: string | null
+          transport_report_id: string | null
+          metric: string
+          previous_value: string | null
+          new_value: string
+          justification: string
+          source_snippet: string | null
+          confidence: number | null
+          engine: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          urban_report_id?: string | null
+          transport_report_id?: string | null
+          metric: string
+          previous_value?: string | null
+          new_value: string
+          justification: string
+          source_snippet?: string | null
+          confidence?: number | null
+          engine?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          urban_report_id?: string | null
+          transport_report_id?: string | null
+          metric?: string
+          previous_value?: string | null
+          new_value?: string
+          justification?: string
+          source_snippet?: string | null
+          confidence?: number | null
+          engine?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_severity_audit_log_transport_report_id_fkey"
+            columns: ["transport_report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_severity_audit_log_urban_report_id_fkey"
+            columns: ["urban_report_id"]
+            isOneToOne: false
+            referencedRelation: "urban_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       search_history: {
         Row: {
           created_at: string
@@ -1333,7 +1393,10 @@ export type Database = {
           current_value: string | null
           field_name: string
           id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           service_id: string
+          staff_notes: string | null
           status: string | null
           suggested_value: string
           user_id: string
@@ -1343,7 +1406,10 @@ export type Database = {
           current_value?: string | null
           field_name: string
           id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           service_id: string
+          staff_notes?: string | null
           status?: string | null
           suggested_value: string
           user_id: string
@@ -1353,7 +1419,10 @@ export type Database = {
           current_value?: string | null
           field_name?: string
           id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           service_id?: string
+          staff_notes?: string | null
           status?: string | null
           suggested_value?: string
           user_id?: string

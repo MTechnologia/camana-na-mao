@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -53,6 +53,12 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
+        {
+          title: 'Correções de cadastro',
+          icon: ClipboardList,
+          href: '/admin/service-corrections',
+          badge: stats.pendingServiceCorrections > 0 ? stats.pendingServiceCorrections : null,
+        },
         ...(canManageUsers ? [{ title: 'Gestão de Usuários', icon: Users, href: '/admin/users' }] : []),
       ],
     },
