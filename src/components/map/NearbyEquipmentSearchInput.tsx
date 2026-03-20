@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, Loader2, Building2 } from "lucide-react";
+import { Search, MapPin, Loader2, Building2, History, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
@@ -8,11 +8,20 @@ import { lookupCepAddress } from "@/lib/cepLookup";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import type { NearbyService } from "@/hooks/useNearbyServices";
 import type { CepCenter } from "@/components/map/CepSearchCard";
+import {
+  filterRecentEntriesForQuery,
+  useNearbySearchRecent,
+  type NearbyRecentSearchEntry,
+} from "@/hooks/useNearbySearchRecent";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 const MAX_PLACE_SUGGESTIONS = 5;
 const MAX_EQUIPMENT_SUGGESTIONS = 8;
-const PLACES_DEBOUNCE_MS = 300;
+const MAX_RECENT_WHEN_TYPING = 5;
+/** Autocomplete de endereços: debounce curto para sensação “em tempo real”. */
+const PLACES_DEBOUNCE_MS = 200;
+const MIN_TEXT_QUERY_TO_SAVE = 2;
 
 type PlacePrediction = {
   placeId: string;
@@ -42,6 +51,27 @@ function matchesEquipmentQuery(
 
 function isCepDigits(value: string): boolean {
   return value.replace(/\D/g, "").length === 8;
+}
+
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  const q = query.trim().toLowerCase();
+  if (!q) return <>{text}</>;
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(q);
+  if (idx < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-primary/20 text-inherit rounded px-0.5">{text.slice(idx, idx + q.length)}</mark>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
+
+function recentKindLabel(kind: NearbyRecentSearchEntry["kind"]): string {
+  if (kind === "text") return "Busca";
+  if (kind === "place") return "Endereço";
+  return "Equipamento";
 }
 
 type NearbyEquipmentSearchInputProps = {
@@ -81,7 +111,16 @@ export function NearbyEquipmentSearchInput({
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { entries: recentEntries, addTextQuery, addPlace, addEquipment, removeEntry, clearAll } =
+    useNearbySearchRecent();
+
   const apiKey = getGoogleMapsApiKey();
+
+  const filteredRecentRows = useMemo(() => {
+    const t = value.trim();
+    if (!t) return recentEntries;
+    return filterRecentEntriesForQuery(recentEntries, t, MAX_RECENT_WHEN_TYPING);
+  }, [recentEntries, value]);
 
   const equipmentMatches = useMemo(() => {
     const q = value.trim();
@@ -93,9 +132,10 @@ export function NearbyEquipmentSearchInput({
 
   const placeRows = useMemo(() => placePredictions.slice(0, MAX_PLACE_SUGGESTIONS), [placePredictions]);
 
+  const flatRecentCount = filteredRecentRows.length;
   const flatPlaceCount = placeRows.length;
   const flatEquipmentCount = equipmentMatches.length;
-  const flatTotal = flatPlaceCount + flatEquipmentCount;
+  const flatTotal = flatRecentCount + flatPlaceCount + flatEquipmentCount;
 
   const fetchPlaces = useCallback(
     async (raw: string) => {
@@ -222,6 +262,11 @@ export function NearbyEquipmentSearchInput({
         const center = await resolveCepToCenter(cep);
         if (center) {
           onChange("");
+          addPlace({
+            latitude: center.latitude,
+            longitude: center.longitude,
+            label: center.label ?? `CEP ${cep}`,
+          });
           onPlaceCenterSelected(center);
           toast.success("Mostrando serviços próximos a este endereço");
         }
@@ -249,6 +294,11 @@ export function NearbyEquipmentSearchInput({
           formattedAddress: string;
         };
         onChange("");
+        addPlace({
+          latitude: addr.latitude,
+          longitude: addr.longitude,
+          label: addr.formattedAddress ?? prediction.description,
+        });
         onPlaceCenterSelected({
           latitude: addr.latitude,
           longitude: addr.longitude,
@@ -261,7 +311,7 @@ export function NearbyEquipmentSearchInput({
         setDetailsLoading(false);
       }
     },
-    [onChange, onPlaceCenterSelected, resolveCepToCenter],
+    [onChange, onPlaceCenterSelected, resolveCepToCenter, addPlace],
   );
 
   const handleSelectEquipment = useCallback(
@@ -273,22 +323,71 @@ export function NearbyEquipmentSearchInput({
         service_type: s.service_type,
       });
       onChange(display);
+      addEquipment({
+        serviceId: s.id,
+        label: display,
+        latitude: s.latitude,
+        longitude: s.longitude,
+      });
       onEquipmentMapFocus?.(s);
       setShowDropdown(false);
       setSelectedFlatIndex(-1);
       inputRef.current?.blur();
     },
-    [onChange, onEquipmentMapFocus],
+    [onChange, onEquipmentMapFocus, addEquipment],
   );
 
+  const handleSelectRecent = useCallback(
+    (entry: NearbyRecentSearchEntry) => {
+      setShowDropdown(false);
+      setSelectedFlatIndex(-1);
+      if (entry.kind === "text" && entry.text) {
+        onChange(entry.text);
+        return;
+      }
+      if (entry.kind === "place" && entry.place) {
+        onChange("");
+        onPlaceCenterSelected({
+          latitude: entry.place.latitude,
+          longitude: entry.place.longitude,
+          label: entry.place.label,
+        });
+        return;
+      }
+      if (entry.kind === "equipment" && entry.equipment) {
+        const found = servicesInArea.find((s) => s.id === entry.equipment.serviceId);
+        if (found) {
+          handleSelectEquipment(found);
+          return;
+        }
+        onChange(entry.equipment.label);
+        toast.info("Equipamento pode não estar mais nesta área — ajuste o mapa ou o raio.");
+      }
+    },
+    [onChange, onPlaceCenterSelected, handleSelectEquipment, servicesInArea],
+  );
+
+  const hasTypedQuery = value.trim().length >= 1;
   const dropdownVisible =
     showDropdown &&
-    value.trim().length >= 1 &&
-    (placesLoading || flatPlaceCount > 0 || flatEquipmentCount > 0);
+    (flatRecentCount > 0 ||
+      (hasTypedQuery && (placesLoading || flatPlaceCount > 0 || flatEquipmentCount > 0)));
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setShowDropdown(false);
+      setSelectedFlatIndex(-1);
+      return;
+    }
+
+    if (e.key === "Enter" && selectedFlatIndex < 0 && value.trim().length >= MIN_TEXT_QUERY_TO_SAVE) {
+      e.preventDefault();
+      addTextQuery(value.trim());
+      setShowDropdown(false);
+      return;
+    }
+
     if (!dropdownVisible || flatTotal === 0) {
-      if (e.key === "Escape") setShowDropdown(false);
       return;
     }
 
@@ -304,15 +403,15 @@ export function NearbyEquipmentSearchInput({
       case "Enter":
         e.preventDefault();
         if (selectedFlatIndex < 0) return;
-        if (selectedFlatIndex < flatPlaceCount) {
-          void handleSelectPlacePrediction(placeRows[selectedFlatIndex]);
+        if (selectedFlatIndex < flatRecentCount) {
+          handleSelectRecent(filteredRecentRows[selectedFlatIndex]);
+        } else if (selectedFlatIndex < flatRecentCount + flatPlaceCount) {
+          void handleSelectPlacePrediction(placeRows[selectedFlatIndex - flatRecentCount]);
         } else {
-          handleSelectEquipment(equipmentMatches[selectedFlatIndex - flatPlaceCount]);
+          handleSelectEquipment(
+            equipmentMatches[selectedFlatIndex - flatRecentCount - flatPlaceCount],
+          );
         }
-        break;
-      case "Escape":
-        setShowDropdown(false);
-        setSelectedFlatIndex(-1);
         break;
       default:
         break;
@@ -331,7 +430,7 @@ export function NearbyEquipmentSearchInput({
 
   useEffect(() => {
     setSelectedFlatIndex(-1);
-  }, [value, flatPlaceCount, flatEquipmentCount]);
+  }, [value, flatRecentCount, flatPlaceCount, flatEquipmentCount]);
 
   return (
     <div className={cn("relative", className)}>
@@ -347,15 +446,36 @@ export function NearbyEquipmentSearchInput({
             onChange(e.target.value);
             setShowDropdown(true);
           }}
-          onFocus={() => {
-            if (value.trim().length >= 1) setShowDropdown(true);
-          }}
+          onFocus={() => setShowDropdown(true)}
           onKeyDown={handleKeyDown}
-          className={cn("pl-9", inputClassName)}
+          className={cn(
+            "pl-9",
+            value.trim().length > 0 && !disabled && !detailsLoading ? "pr-16" : "pr-9",
+            inputClassName,
+          )}
           autoComplete="off"
           aria-autocomplete="list"
           aria-expanded={dropdownVisible}
+          aria-controls="nearby-search-suggestions"
         />
+        {value.trim().length > 0 && !disabled && !detailsLoading && (
+          <button
+            type="button"
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/80",
+              placesLoading ? "right-10" : "right-3",
+            )}
+            aria-label="Limpar busca"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              onChange("");
+              setShowDropdown(recentEntries.length > 0);
+              inputRef.current?.focus();
+            }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
         {(placesLoading || detailsLoading) && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
         )}
@@ -363,17 +483,86 @@ export function NearbyEquipmentSearchInput({
 
       {dropdownVisible && (
         <div
+          id="nearby-search-suggestions"
           ref={dropdownRef}
           className="absolute z-50 left-0 right-0 top-full mt-1 bg-popover text-popover-foreground border rounded-md shadow-md max-h-[min(70vh,22rem)] overflow-y-auto"
           role="listbox"
         >
+          {flatRecentCount > 0 && (
+            <div className="border-b border-border/80">
+              <div className="sticky top-0 z-[1] flex items-center justify-between gap-2 bg-muted/90 backdrop-blur-sm px-3 py-1.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5" aria-hidden />
+                  Buscas recentes
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px] text-muted-foreground"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => clearAll()}
+                >
+                  Limpar
+                </Button>
+              </div>
+              {filteredRecentRows.map((entry, i) => {
+                const flatIdx = i;
+                const label =
+                  entry.kind === "text" && entry.text
+                    ? entry.text
+                    : entry.kind === "place" && entry.place
+                      ? entry.place.label
+                      : entry.kind === "equipment" && entry.equipment
+                        ? entry.equipment.label
+                        : "";
+                return (
+                  <div
+                    key={entry.id}
+                    className={cn(
+                      "flex items-stretch border-b border-border/40 last:border-b-0",
+                      selectedFlatIndex === flatIdx && "bg-muted",
+                    )}
+                  >
+                    <button
+                      type="button"
+                      role="option"
+                      className="min-w-0 flex-1 px-3 py-2.5 text-left flex items-start gap-2 hover:bg-muted/80 transition-colors"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSelectRecent(entry)}
+                    >
+                      <History className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium leading-tight line-clamp-2">
+                          <HighlightMatch text={label} query={value} />
+                        </p>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                          {recentKindLabel(entry.kind)}
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="shrink-0 px-2 text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                      aria-label={`Remover "${label}" do histórico`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => removeEntry(entry.id)}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {flatPlaceCount > 0 && (
             <div className="border-b border-border/80">
               <div className="sticky top-0 z-[1] bg-muted/90 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Endereços e lugares
               </div>
               {placeRows.map((p, i) => {
-                const flatIdx = i;
+                const flatIdx = flatRecentCount + i;
                 return (
                   <button
                     key={p.placeId}
@@ -388,7 +577,9 @@ export function NearbyEquipmentSearchInput({
                   >
                     <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium leading-tight line-clamp-2">{p.mainText}</p>
+                      <p className="text-sm font-medium leading-tight line-clamp-2">
+                        <HighlightMatch text={p.mainText} query={value} />
+                      </p>
                       {p.secondaryText ? (
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{p.secondaryText}</p>
                       ) : null}
@@ -405,7 +596,7 @@ export function NearbyEquipmentSearchInput({
                 Equipamentos nesta área
               </div>
               {equipmentMatches.map((s, i) => {
-                const flatIdx = flatPlaceCount + i;
+                const flatIdx = flatRecentCount + flatPlaceCount + i;
                 const display = getServiceDisplayName({
                   name: s.name,
                   address: s.address,
@@ -427,7 +618,9 @@ export function NearbyEquipmentSearchInput({
                   >
                     <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium leading-tight line-clamp-2">{display}</p>
+                      <p className="text-sm font-medium leading-tight line-clamp-2">
+                        <HighlightMatch text={display} query={value} />
+                      </p>
                       {sub ? <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{sub}</p> : null}
                     </div>
                   </button>
