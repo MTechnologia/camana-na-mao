@@ -2045,6 +2045,50 @@ export type Database = {
           },
         ]
       }
+      user_app_suggestions: {
+        Row: {
+          context: string
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          last_touched_at: string
+          payload: Json
+          stable_id: string
+          user_id: string
+        }
+        Insert: {
+          context?: string
+          created_at?: string
+          id?: string
+          kind: string
+          label: string
+          last_touched_at?: string
+          payload?: Json
+          stable_id: string
+          user_id: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          last_touched_at?: string
+          payload?: Json
+          stable_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_app_suggestions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_demographics: {
         Row: {
           birth_date: string | null
@@ -2306,6 +2350,10 @@ export type Database = {
           p_title: string
           p_type: string
         }
+        Returns: undefined
+      }
+      replace_user_app_suggestions_for_user: {
+        Args: { p_context: string; p_items: Json; p_user_id: string }
         Returns: undefined
       }
     }
