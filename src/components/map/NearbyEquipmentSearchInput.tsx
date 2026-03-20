@@ -111,8 +111,15 @@ export function NearbyEquipmentSearchInput({
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { entries: recentEntries, addTextQuery, addPlace, addEquipment, removeEntry, clearAll } =
-    useNearbySearchRecent();
+  const {
+    entries: recentEntries,
+    addTextQuery,
+    addPlace,
+    addEquipment,
+    removeEntry,
+    clearAll,
+    cloudHydrated,
+  } = useNearbySearchRecent();
 
   const apiKey = getGoogleMapsApiKey();
 
@@ -457,6 +464,7 @@ export function NearbyEquipmentSearchInput({
           aria-autocomplete="list"
           aria-expanded={dropdownVisible}
           aria-controls="nearby-search-suggestions"
+          aria-busy={!cloudHydrated}
         />
         {value.trim().length > 0 && !disabled && !detailsLoading && (
           <button

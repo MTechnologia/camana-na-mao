@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { NearbyRecentSearchEntry } from "@/hooks/useNearbySearchRecent";
+import type { NearbyRecentSearchEntry } from "@/types/nearbySearchRecent";
 
 /** Deve coincidir com o default no backend (`user_app_suggestions.context`). */
 export const APP_SUGGESTIONS_CONTEXT_NEARBY = "nearby_search";
