@@ -70,6 +70,14 @@ export default function NearbyServicesPage() {
     ? services
     : services.filter((s) => (s.average_rating ?? 0) >= minRating);
 
+  // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco;
+  // o card mostra endereço do reverse geocode — a busca precisa usar o mesmo texto.
+  const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
+    apiKey: getGoogleMapsApiKey(),
+    throttleMs: 200,
+    maxConcurrent: 2,
+  });
+
   const sortedServicesByHaversine = useMemo(
     () =>
       [...filteredByRating].sort((a, b) => {
@@ -176,9 +184,15 @@ export default function NearbyServicesPage() {
       const name = (s.name ?? "").toLowerCase();
       const address = (s.address ?? "").toLowerCase();
       const district = (s.district ?? "").toLowerCase();
-      return name.includes(q) || address.includes(q) || district.includes(q);
+      const resolved = (resolvedAddresses[s.id] ?? "").toLowerCase();
+      return (
+        name.includes(q) ||
+        address.includes(q) ||
+        district.includes(q) ||
+        resolved.includes(q)
+      );
     });
-  }, [filteredByOpeningHours, searchByName]);
+  }, [filteredByOpeningHours, searchByName, resolvedAddresses]);
 
   const totalFiltered = filteredByName.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
@@ -190,13 +204,6 @@ export default function NearbyServicesPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, operationalStatusFilter, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
-
-  // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
-  const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
-    apiKey: getGoogleMapsApiKey(),
-    throttleMs: 200,
-    maxConcurrent: 2,
-  });
 
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
