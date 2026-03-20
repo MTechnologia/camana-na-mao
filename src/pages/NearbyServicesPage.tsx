@@ -19,10 +19,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
+import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSearchInput";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
 import { cn } from "@/lib/utils";
@@ -427,16 +428,17 @@ export default function NearbyServicesPage() {
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar por nome, endereço ou bairro"
-            value={searchByName}
-            onChange={(e) => setSearchByName(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <NearbyEquipmentSearchInput
+          value={searchByName}
+          onChange={setSearchByName}
+          servicesInArea={filteredByOpeningHours}
+          resolvedAddresses={resolvedAddresses}
+          onPlaceCenterSelected={(center) => {
+            setCepCenter(center);
+            setSearchByName("");
+          }}
+          disabled={!!geoError}
+        />
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
