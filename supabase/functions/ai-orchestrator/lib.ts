@@ -1775,6 +1775,58 @@ export function autoInferRisk(description: string): {
   return { risk_level: null, confidence: 0 };
 }
 
+/** Alinha severidade do relato urbano ao nível de risco (filtros da gestão: critical/high/medium/low). */
+export function mapUrbanRiskLevelToSeverity(riskLevel: string | null | undefined): string | null {
+  if (!riskLevel) return null;
+  switch (riskLevel) {
+    case "critical":
+      return "critical";
+    case "moderate":
+      return "high";
+    case "low":
+      return "medium";
+    case "none":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+
+/**
+ * OS-05: persiste linha de auditoria para revisão humana (moderação).
+ * Falha silenciosa no log para não quebrar criação do relato.
+ */
+export async function insertReportSeverityAuditLog(
+  supabase: SupabaseClient,
+  entry: {
+    urban_report_id?: string;
+    transport_report_id?: string;
+    metric: string;
+    previous_value?: string | null;
+    new_value: string;
+    justification: string;
+    source_snippet?: string | null;
+    confidence?: number | null;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const row = {
+    urban_report_id: entry.urban_report_id ?? null,
+    transport_report_id: entry.transport_report_id ?? null,
+    metric: entry.metric,
+    previous_value: entry.previous_value ?? null,
+    new_value: entry.new_value,
+    justification: entry.justification,
+    source_snippet: entry.source_snippet ? String(entry.source_snippet).slice(0, 500) : null,
+    confidence: entry.confidence ?? null,
+    metadata: entry.metadata ?? {},
+  };
+  const { error } = await supabase.from("report_severity_audit_log").insert(row);
+  if (error) {
+    console.error("[insertReportSeverityAuditLog]", error);
+  }
+}
+
 // Parse user response for specific field types
 export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, unknown> {
   const response = userResponse.trim();
@@ -5615,13 +5667,16 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        const derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+
         console.log('[create_urban_report] Attempting to insert report:', {
           userId,
           category: args.category,
           hasDescription: !!args.description,
           hasStreet: !!args.street,
           hasNeighborhood: !!args.neighborhood,
-          location_address
+          location_address,
+          derivedSeverity,
         });
         
         const { data, error } = await supabase
@@ -5650,6 +5705,7 @@ export async function executeTool(
             affected_estimate: args.affected_estimate || null,
             active_consequences: args.active_consequences || [],
             urgency_reason: args.urgency_reason || null,
+            severity: derivedSeverity,
             status: 'pending'
           })
           .select('id, protocol_code')
@@ -5664,6 +5720,31 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        if (args.risk_level) {
+          const desc = String(args.description || "").trim();
+          const snippet = desc.slice(0, 240);
+          const autoAgain = desc ? autoInferRisk(desc) : null;
+          const isAuto = String(args.urgency_reason || "").startsWith("Auto-inferido");
+          const justification =
+            (args.urgency_reason && String(args.urgency_reason).trim()) ||
+            `Nível de risco registrado na coleta estruturada: ${args.risk_level}.`;
+          await insertReportSeverityAuditLog(supabase, {
+            urban_report_id: data.id,
+            metric: "risk_level",
+            previous_value: null,
+            new_value: args.risk_level,
+            justification,
+            source_snippet: snippet || null,
+            confidence: isAuto && autoAgain?.confidence != null ? autoAgain.confidence : null,
+            metadata: {
+              risk_types: args.risk_types ?? [],
+              derived_severity: derivedSeverity,
+              category: args.category,
+              auto_inferred: isAuto,
+            },
+          });
+        }
         
         // Notify n8n
         try {
@@ -5991,6 +6072,26 @@ export async function executeTool(
         console.log('[create_transport_report] Report saved successfully:', {
           id: data.id,
           protocol_code: data.protocol_code
+        });
+
+        const transportSeverityJustification =
+          validReportType === "seguranca"
+            ? "Política: relato classificado como 'seguranca' → severidade 'alta'."
+            : args.severity
+              ? `Severidade informada na coleta: ${args.severity}.`
+              : "Severidade padrão 'media' (sem valor explícito na coleta).";
+
+        await insertReportSeverityAuditLog(supabase, {
+          transport_report_id: data.id,
+          metric: "severity",
+          previous_value: null,
+          new_value: inferredSeverity,
+          justification: transportSeverityJustification,
+          source_snippet: String(args.description || "").trim().slice(0, 240) || null,
+          metadata: {
+            report_type: validReportType,
+            user_provided_severity: args.severity ?? null,
+          },
         });
         
         // Notify n8n

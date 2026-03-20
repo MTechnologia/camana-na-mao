@@ -17,6 +17,8 @@ import { buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
 import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
+import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
+import type { ServiceLike } from "@/lib/serviceCorrectionFields";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
 function sanitizeServicesOfferedHtml(html: string): string {
@@ -545,6 +547,13 @@ export default function ServiceDetailPage() {
             <Bell className="w-4 h-4 mr-2" />
             {isSubscribed ? "Deixar de acompanhar" : "Acompanhar atualizações"}
           </Button>
+
+          <ServiceCorrectionSuggestSection
+            service={service as ServiceLike}
+            realServiceId={realServiceId}
+            userId={user?.id ?? null}
+            onRequestLogin={() => toast.error("Faça login para sugerir uma correção.")}
+          />
         </div>
       </div>
 
