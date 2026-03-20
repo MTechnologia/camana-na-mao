@@ -18,6 +18,7 @@ import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerific
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
 import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
+import { ServiceFavoriteButton } from "@/components/services/ServiceFavoriteButton";
 import { SERVICE_CORRECTION_REVIEW_SLA_HOURS } from "@/lib/serviceCorrectionFields";
 import type { ServiceLike } from "@/lib/serviceCorrectionFields";
 
@@ -548,6 +549,11 @@ export default function ServiceDetailPage() {
             <Bell className="w-4 h-4 mr-2" />
             {isSubscribed ? "Deixar de acompanhar" : "Acompanhar atualizações"}
           </Button>
+
+          <ServiceFavoriteButton
+            serviceId={realServiceId}
+            onRequestLogin={() => toast.error("Faça login para favoritar equipamentos.")}
+          />
 
           <Card
             id="sugerir-correcao-cadastro"

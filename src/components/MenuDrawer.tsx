@@ -18,6 +18,7 @@ import {
   MessageSquare,
   MapPin,
   CalendarCheck,
+  Bookmark,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -74,6 +75,12 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       label: "Perto de Você", 
       icon: MapPin,
       route: "/servicos-proximos"
+    },
+    {
+      id: 2.25,
+      label: "Meus Favoritos",
+      icon: Bookmark,
+      route: "/servicos/favoritos",
     },
     { 
       id: 2.3, 
