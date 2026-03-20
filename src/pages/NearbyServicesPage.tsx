@@ -9,7 +9,11 @@ import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/Rati
 import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { useNearbyServices, type NearbyService } from "@/hooks/useNearbyServices";
+import {
+  useNearbyServices,
+  NEARBY_FULLTEXT_MIN_LENGTH,
+  type NearbyService,
+} from "@/hooks/useNearbyServices";
 import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
@@ -55,14 +59,15 @@ export default function NearbyServicesPage() {
   const googleMapsApiKey = getGoogleMapsApiKey();
   const hasGoogleMapsKey = !!googleMapsApiKey;
 
+  const { isOnline } = useNetworkStatus();
+
   const { services, loading: servicesLoading, error: servicesError } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
-    serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined
+    serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
+    fullTextQuery: searchByName,
   });
-
-  const { isOnline } = useNetworkStatus();
   const isCacheOrOfflineMessage = servicesError != null && (
     servicesError.includes("cache") || servicesError.includes("Sem conexão")
   );
@@ -190,9 +195,12 @@ export default function NearbyServicesPage() {
   }, [filteredByOperationalStatus, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   const filteredByName = useMemo(() => {
-    const q = searchByName.trim().toLowerCase();
+    const qRaw = searchByName.trim();
+    const q = qRaw.toLowerCase();
     const base = filteredByOpeningHours;
-    if (!q) return base;
+    if (!qRaw) return base;
+    // Online + 2+ caracteres: lista já veio filtrada por FTS no banco (search_tsv).
+    if (qRaw.length >= NEARBY_FULLTEXT_MIN_LENGTH && isOnline) return base;
     return base.filter((s) => {
       const name = (s.name ?? "").toLowerCase();
       const address = (s.address ?? "").toLowerCase();
@@ -205,7 +213,7 @@ export default function NearbyServicesPage() {
         resolved.includes(q)
       );
     });
-  }, [filteredByOpeningHours, searchByName, resolvedAddresses]);
+  }, [filteredByOpeningHours, searchByName, resolvedAddresses, isOnline]);
 
   const focusMapOnEquipment = useCallback((s: NearbyService) => {
     setEquipmentMapFocusCoords({ lat: s.latitude, lng: s.longitude });

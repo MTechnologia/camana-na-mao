@@ -28,6 +28,13 @@ type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_c
   | "social_assistance" | "transit_station" | "bicycle" | "subprefeitura" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
   | "fire_station" | "other" | "all";
 
+/**
+ * Mínimo de caracteres para usar RPC full-text (`search_tsv`).
+ * Abaixo disso: bbox + filtro no cliente (substring / endereço resolvido).
+ * Com 2–3 letras o FTS em português não cobre prefixo ("Con" ≠ "Condomínio") e zerava a lista.
+ */
+export const NEARBY_FULLTEXT_MIN_LENGTH = 4;
+
 interface UseNearbyServicesProps {
   latitude: number | null;
   longitude: number | null;
@@ -36,6 +43,11 @@ interface UseNearbyServicesProps {
   serviceType?: ServiceType;
   /** Múltiplos tipos (multiseleção). Vazio = todos. Tem precedência sobre serviceType */
   serviceTypes?: ServiceType[];
+  /**
+   * Comprimento >= NEARBY_FULLTEXT_MIN_LENGTH: usa RPC `search_public_services_fulltext` (FTS + bbox + raio).
+   * Abaixo disso mantém a query por bounding box e filtro no cliente.
+   */
+  fullTextQuery?: string;
 }
 
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
@@ -103,6 +115,7 @@ export const useNearbyServices = ({
   radiusMeters = 5000,
   serviceType,
   serviceTypes,
+  fullTextQuery = "",
 }: UseNearbyServicesProps) => {
   // useRef para manter última localização válida e evitar recálculos desnecessários
   const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
@@ -110,6 +123,8 @@ export const useNearbyServices = ({
   const [services, setServices] = useState<NearbyService[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Evita que uma resposta antiga sobrescreva uma busca mais recente (digitação rápida). */
+  const fetchRequestIdRef = useRef(0);
 
   // Atualizar ref apenas se receber localização válida
   if (isValidCoordinate(latitude) && isValidCoordinate(longitude)) {
@@ -161,6 +176,8 @@ export const useNearbyServices = ({
       return;
     }
 
+    const requestId = ++fetchRequestIdRef.current;
+
     try {
       const { minLat, maxLat, minLng, maxLng } = getBoundingBox(
         userLat,
@@ -175,29 +192,58 @@ export const useNearbyServices = ({
       const isAllTypes = effectiveTypes.length === 0;
       const limit = isAllTypes ? 5000 : 800;
 
-      let query = supabase
-        .from("public_services")
-        .select(
-          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status"
-        )
-        .gte("latitude", minLat)
-        .lte("latitude", maxLat)
-        .gte("longitude", minLng)
-        .lte("longitude", maxLng)
-        .limit(limit);
+      const ftsTrimmed = (fullTextQuery ?? "").trim();
+      const useFullTextRpc = ftsTrimmed.length >= NEARBY_FULLTEXT_MIN_LENGTH;
 
-      if (effectiveTypes.length > 0) {
-        query = query.in("service_type", effectiveTypes as any);
+      let data: unknown[] | null = null;
+      let fetchError: { message?: string } | null = null;
+
+      if (useFullTextRpc) {
+        const { data: rpcData, error: rpcError } = await supabase.rpc("search_public_services_fulltext", {
+          min_lat: minLat,
+          max_lat: maxLat,
+          min_lng: minLng,
+          max_lng: maxLng,
+          center_lat: userLat,
+          center_lng: userLng,
+          radius_meters: safeRadius,
+          search_query: ftsTrimmed,
+          service_types: effectiveTypes.length > 0 ? effectiveTypes : null,
+          result_limit: limit,
+        });
+        fetchError = rpcError;
+        data = (rpcData ?? null) as unknown[] | null;
+      } else {
+        let query = supabase
+          .from("public_services")
+          .select(
+            "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status"
+          )
+          .gte("latitude", minLat)
+          .lte("latitude", maxLat)
+          .gte("longitude", minLng)
+          .lte("longitude", maxLng)
+          .limit(limit);
+
+        if (effectiveTypes.length > 0) {
+          query = query.in("service_type", effectiveTypes as string[]);
+        }
+
+        const res = await query;
+        fetchError = res.error;
+        data = res.data as unknown[] | null;
       }
-
-      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         throw fetchError;
       }
 
       const formatted = (data || [])
-        .map((service) => {
+        .map((raw) => {
+          const service = raw as Record<string, unknown>;
+          const id = String(service.id ?? "").trim();
+          if (!id) return null;
+
           const lat = parseNumber(service.latitude);
           const lng = parseNumber(service.longitude);
 
@@ -206,20 +252,20 @@ export const useNearbyServices = ({
           }
 
           return {
-            id: service.id,
-            name: service.name,
-            service_type: service.service_type,
-            address: service.address,
-            district: service.district,
+            id,
+            name: String(service.name ?? ""),
+            service_type: String(service.service_type ?? "other"),
+            address: String(service.address ?? ""),
+            district: String(service.district ?? ""),
             latitude: lat,
             longitude: lng,
-            phone: service.phone ?? null,
-            average_rating: service.average_rating ?? 0,
-            total_ratings: service.total_ratings ?? 0,
+            phone: (service.phone as string | null) ?? null,
+            average_rating: parseNumber(service.average_rating) ?? 0,
+            total_ratings: parseNumber(service.total_ratings) ?? 0,
             distance: calculateDistance(userLat, userLng, lat, lng),
-            opening_hours: service.opening_hours ?? null,
-            services_offered: service.services_offered ?? null,
-            operational_status: service.operational_status ?? null,
+            opening_hours: (service.opening_hours as NearbyService["opening_hours"]) ?? null,
+            services_offered: (service.services_offered as string | null) ?? null,
+            operational_status: (service.operational_status as NearbyService["operational_status"]) ?? null,
           } as NearbyService;
         })
         .filter((service): service is NearbyService => service !== null);
@@ -237,9 +283,14 @@ export const useNearbyServices = ({
       });
 
       setServices(deduped);
-      await saveNearbyServicesCache(deduped, userLat, userLng, safeRadius);
+      if (!useFullTextRpc) {
+        await saveNearbyServicesCache(deduped, userLat, userLng, safeRadius);
+      }
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
       const cached = await getNearbyServicesCache();
       if (cached?.services?.length) {
         // Usar centro do cache para distâncias coerentes com o raio (2km, 10km, etc.)
@@ -255,9 +306,11 @@ export const useNearbyServices = ({
         setError("Erro ao buscar serviços próximos.");
       }
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance]);
+  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, fullTextQuery]);
 
   useEffect(() => {
     fetchServices();
