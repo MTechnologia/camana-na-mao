@@ -1,29 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  fetchAppSuggestions,
+  recentEntriesToSyncPayload,
+  remoteItemsToRecentEntries,
+  syncAppSuggestions,
+} from "@/lib/api/appSuggestionsApi";
+import type {
+  NearbyRecentEquipmentPayload,
+  NearbyRecentPlacePayload,
+  NearbyRecentSearchEntry,
+} from "@/types/nearbySearchRecent";
+
+export type {
+  NearbyRecentEquipmentPayload,
+  NearbyRecentPlacePayload,
+  NearbyRecentSearchEntry,
+} from "@/types/nearbySearchRecent";
 
 const STORAGE_KEY = "camana-nearby-search-recent-v1";
 const MAX_ENTRIES = 12;
+const CLOUD_SYNC_DEBOUNCE_MS = 900;
 
-export type NearbyRecentPlacePayload = {
-  latitude: number;
-  longitude: number;
-  label: string;
-};
-
-export type NearbyRecentEquipmentPayload = {
-  serviceId: string;
-  label: string;
-  latitude: number;
-  longitude: number;
-};
-
-export type NearbyRecentSearchEntry = {
-  id: string;
-  kind: "text" | "place" | "equipment";
-  createdAt: number;
-  text?: string;
-  place?: NearbyRecentPlacePayload;
-  equipment?: NearbyRecentEquipmentPayload;
-};
+function mergeRecentLists(
+  local: NearbyRecentSearchEntry[],
+  remote: NearbyRecentSearchEntry[],
+): NearbyRecentSearchEntry[] {
+  const map = new Map<string, NearbyRecentSearchEntry>();
+  const put = (e: NearbyRecentSearchEntry) => {
+    const ex = map.get(e.id);
+    if (!ex || e.createdAt >= ex.createdAt) map.set(e.id, e);
+  };
+  for (const e of remote) put(e);
+  for (const e of local) put(e);
+  return [...map.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, MAX_ENTRIES);
+}
 
 function stableEntryId(entry: Omit<NearbyRecentSearchEntry, "id" | "createdAt">): string {
   if (entry.kind === "text" && entry.text?.trim()) {
@@ -90,17 +101,66 @@ export function filterRecentEntriesForQuery(
 }
 
 /**
- * Histórico local (localStorage) de buscas na tela Perto de você: texto livre, lugares/CEP e equipamentos.
+ * Histórico de buscas na tela Perto de você (localStorage).
+ * Com usuário autenticado: mescla com a nuvem ao carregar e reenvia alterações (debounce).
  */
 export function useNearbySearchRecent() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   const [entries, setEntries] = useState<NearbyRecentSearchEntry[]>(() => {
     if (typeof window === "undefined") return [];
     return parseStored(localStorage.getItem(STORAGE_KEY));
   });
 
+  /** Após buscar na API, permite disparar sync ao nuvem sem sobrescrever com estado antigo. */
+  const [cloudHydrated, setCloudHydrated] = useState(() => userId == null);
+
   useEffect(() => {
     persist(entries);
   }, [entries]);
+
+  /** Hidratação / re-fetch quando o usuário muda. */
+  useEffect(() => {
+    if (!userId) {
+      setCloudHydrated(true);
+      return;
+    }
+
+    setCloudHydrated(false);
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const remoteRaw = await fetchAppSuggestions();
+        if (cancelled) return;
+        const remoteEntries = remoteItemsToRecentEntries(remoteRaw);
+        setEntries((prev) => mergeRecentLists(prev, remoteEntries));
+      } catch (e) {
+        console.warn("[useNearbySearchRecent] Falha ao carregar histórico na nuvem:", e);
+      } finally {
+        if (!cancelled) setCloudHydrated(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  /** Envia lista atual para o servidor (substitui o contexto no backend). */
+  useEffect(() => {
+    if (!userId || !cloudHydrated) return;
+
+    const handle = window.setTimeout(() => {
+      const payload = recentEntriesToSyncPayload(entries);
+      void syncAppSuggestions(payload).catch((e) =>
+        console.warn("[useNearbySearchRecent] Falha ao sincronizar na nuvem:", e),
+      );
+    }, CLOUD_SYNC_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(handle);
+  }, [entries, userId, cloudHydrated]);
 
   const pushEntry = useCallback((next: Omit<NearbyRecentSearchEntry, "id" | "createdAt">) => {
     const id = stableEntryId(next);
@@ -163,5 +223,7 @@ export function useNearbySearchRecent() {
     addEquipment,
     removeEntry,
     clearAll,
+    /** false só brevemente após login, enquanto busca o histórico remoto */
+    cloudHydrated,
   };
 }
