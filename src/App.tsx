@@ -83,6 +83,7 @@ const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
 const RatingsHistoryPage = lazy(() => import("./pages/ratings/RatingsHistoryPage"));
+const MyFavoritesPage = lazy(() => import("./pages/services/MyFavoritesPage"));
 
 // ============================================
 // LEGAL PAGES - Lazy loaded
@@ -260,6 +261,7 @@ const AppContent = () => {
             <Route path="/institucional/noticias" element={<Noticias />} />
             <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
             <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
+            <Route path="/servicos/favoritos" element={<MyFavoritesPage />} />
             <Route path="/servico/:id" element={<ServiceDetailPage />} />
             <Route path="/avaliar" element={<EvaluationPage />} />
             <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
