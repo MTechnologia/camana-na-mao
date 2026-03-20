@@ -27,6 +27,13 @@ interface Service {
   total_ratings?: number;
 }
 
+/** Centralizar câmera no equipamento (busca / seleção). `focusKey` incrementa a cada novo foco. */
+export type MapFocusOnService = {
+  latitude: number;
+  longitude: number;
+  focusKey: number;
+};
+
 interface GoogleMapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
@@ -38,6 +45,8 @@ interface GoogleMapViewProps {
   overlayLayers?: Record<string, GeoSampaOverlayState>;
   /** Exibir camada WMS de imageamento (fotos aéreas GeoSampa) */
   wmsImageamentoEnabled?: boolean;
+  /** Ao buscar/selecionar equipamento: aproximar o mapa neste ponto (não move o marcador "você está aqui"). */
+  focusOnService?: MapFocusOnService | null;
 }
 
 export const GoogleMapView = ({
@@ -48,6 +57,7 @@ export const GoogleMapView = ({
   activeServiceTypes = [],
   overlayLayers = {},
   wmsImageamentoEnabled = false,
+  focusOnService = null,
 }: GoogleMapViewProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -161,10 +171,19 @@ export const GoogleMapView = ({
       },
     });
 
-    mapInstanceRef.current.setCenter({ lat: userLocation.latitude, lng: userLocation.longitude });
-
     return () => marker.setMap(null);
-  }, [isLoaded, userLocation]);
+  }, [isLoaded, userLocation?.latitude, userLocation?.longitude]);
+
+  // Centralizar no equipamento encontrado (busca com um resultado ou seleção no dropdown)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !focusOnService || !window.google?.maps) return;
+    const { latitude: lat, longitude: lng } = focusOnService;
+    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) return;
+    map.panTo({ lat, lng });
+    const z = map.getZoom() ?? 14;
+    if (z < 15) map.setZoom(15);
+  }, [focusOnService]);
 
   // Service markers com clustering (evita sobreposição quando há muitos equipamentos)
   useEffect(() => {
@@ -230,7 +249,13 @@ export const GoogleMapView = ({
         // Renderer padrão: círculos com contagem; ao dar zoom os clusters se separam em marcadores individuais
       });
     }
-  }, [isLoaded, services, onServiceClick, userLocation]);
+  }, [
+    isLoaded,
+    services,
+    onServiceClick,
+    userLocation?.latitude,
+    userLocation?.longitude,
+  ]);
 
   // Overlay layers (GeoSampa WFS GeoJSON)
   const overlayLayersKey = JSON.stringify(

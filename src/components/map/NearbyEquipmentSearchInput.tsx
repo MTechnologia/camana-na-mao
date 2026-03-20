@@ -52,6 +52,8 @@ type NearbyEquipmentSearchInputProps = {
   resolvedAddresses: Record<string, string>;
   /** Ao escolher um lugar/CEP: recentrar a busca neste ponto */
   onPlaceCenterSelected: (center: CepCenter) => void;
+  /** Ao escolher um equipamento na lista: centralizar o mapa neste ponto (ex.: abre aba Mapa) */
+  onEquipmentMapFocus?: (service: NearbyService) => void;
   disabled?: boolean;
   className?: string;
   inputClassName?: string;
@@ -63,6 +65,7 @@ export function NearbyEquipmentSearchInput({
   servicesInArea,
   resolvedAddresses,
   onPlaceCenterSelected,
+  onEquipmentMapFocus,
   disabled,
   className,
   inputClassName,
@@ -270,11 +273,12 @@ export function NearbyEquipmentSearchInput({
         service_type: s.service_type,
       });
       onChange(display);
+      onEquipmentMapFocus?.(s);
       setShowDropdown(false);
       setSelectedFlatIndex(-1);
       inputRef.current?.blur();
     },
-    [onChange],
+    [onChange, onEquipmentMapFocus],
   );
 
   const dropdownVisible =
