@@ -9,7 +9,7 @@ import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/Rati
 import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { useNearbyServices } from "@/hooks/useNearbyServices";
+import { useNearbyServices, type NearbyService } from "@/hooks/useNearbyServices";
 import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
@@ -93,6 +93,18 @@ export default function NearbyServicesPage() {
   );
 
   const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
+  /** Referência estável para o mapa (evita reexecução desnecessária de efeitos no GoogleMap). */
+  const stableMapUserLocation = useMemo(
+    () =>
+      searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null,
+    [searchLat, searchLng],
+  );
+
+  const [equipmentMapFocusKey, setEquipmentMapFocusKey] = useState(0);
+  const [equipmentMapFocusCoords, setEquipmentMapFocusCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+
   /** Raio 5km ou 10km: usa rota de carro; 500m/1km/2km: usa rota a pé, para sempre exibir distância por rota (evitar "em linha reta"). */
   const matrixProfile = radiusMeters >= 5000 ? "driving" : "walking";
   const { walkingDistances, loading: walkingLoading } = useGoogleDistanceMatrix(
@@ -194,6 +206,48 @@ export default function NearbyServicesPage() {
       );
     });
   }, [filteredByOpeningHours, searchByName, resolvedAddresses]);
+
+  const focusMapOnEquipment = useCallback((s: NearbyService) => {
+    setEquipmentMapFocusCoords({ lat: s.latitude, lng: s.longitude });
+    setEquipmentMapFocusKey((k) => k + 1);
+    setViewMode("map");
+  }, []);
+
+  /** Um único equipamento após filtro textual: centralizar mapa após debounce (usuário ainda digitando). */
+  const loneTextFilterMatch = useMemo(() => {
+    const q = searchByName.trim();
+    if (q.length < 3 || filteredByName.length !== 1) return null;
+    return filteredByName[0];
+  }, [searchByName, filteredByName]);
+
+  useEffect(() => {
+    if (!searchByName.trim()) {
+      setEquipmentMapFocusCoords(null);
+    }
+  }, [searchByName]);
+
+  useEffect(() => {
+    if (!loneTextFilterMatch) return;
+    const t = window.setTimeout(() => {
+      setEquipmentMapFocusCoords({ lat: loneTextFilterMatch.latitude, lng: loneTextFilterMatch.longitude });
+      setEquipmentMapFocusKey((k) => k + 1);
+    }, 450);
+    return () => clearTimeout(t);
+    // Só reagir quando o único resultado possível mudar (id), não a cada novo array filteredByName
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loneTextFilterMatch.id é o gatilho desejado
+  }, [loneTextFilterMatch?.id]);
+
+  const mapFocusPayload = useMemo(
+    () =>
+      equipmentMapFocusCoords
+        ? {
+            latitude: equipmentMapFocusCoords.lat,
+            longitude: equipmentMapFocusCoords.lng,
+            focusKey: equipmentMapFocusKey,
+          }
+        : null,
+    [equipmentMapFocusCoords, equipmentMapFocusKey],
+  );
 
   const totalFiltered = filteredByName.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
@@ -437,6 +491,7 @@ export default function NearbyServicesPage() {
             setCepCenter(center);
             setSearchByName("");
           }}
+          onEquipmentMapFocus={focusMapOnEquipment}
           disabled={!!geoError}
         />
 
@@ -561,11 +616,12 @@ export default function NearbyServicesPage() {
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
               <MapView
-                userLocation={mapCenter}
+                userLocation={stableMapUserLocation}
                 services={filteredByName}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
                 distanceLabel={distanceLabelMode}
                 activeServiceTypes={selectedTypes}
+                focusOnService={mapFocusPayload}
               />
             ) : (
               <div className="text-center py-12">
