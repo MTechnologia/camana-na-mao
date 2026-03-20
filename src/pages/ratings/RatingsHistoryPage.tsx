@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, Info, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, Info, MapPin, ChevronLeft, ChevronRight, MessageSquareText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatShortDate } from '@/lib/dateUtils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
@@ -65,6 +66,65 @@ const sentimentLabels: Record<string, string> = {
   negative: 'Negativo',
 };
 
+const publicationStatusUi: Record<
+  string,
+  { label: string; className: string }
+> = {
+  published: {
+    label: 'Comentário público',
+    className: 'bg-green-500/10 text-green-800 border-green-500/25 dark:text-green-300',
+  },
+  pending_review: {
+    label: 'Comentário em revisão',
+    className: 'bg-amber-500/10 text-amber-900 border-amber-500/25 dark:text-amber-200',
+  },
+  rejected: {
+    label: 'Comentário não publicado',
+    className: 'bg-destructive/10 text-destructive border-destructive/30',
+  },
+};
+
+/** Comentário sempre visível no histórico; texto longo com expandir/recolher. */
+const COMMENT_PREVIEW_CHARS = 280;
+
+function RatingCommentBlock({ ratingId, text }: { ratingId: string; text: string | null }) {
+  const [expanded, setExpanded] = useState(false);
+  const trimmed = text?.trim() ?? '';
+  const isLong = trimmed.length > COMMENT_PREVIEW_CHARS;
+  const displayText =
+    !trimmed || !isLong || expanded ? trimmed : `${trimmed.slice(0, COMMENT_PREVIEW_CHARS).trimEnd()}…`;
+
+  return (
+    <div
+      className="rounded-md border border-border/70 bg-muted/25 px-3 py-2.5"
+      data-testid={`rating-comment-${ratingId}`}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <MessageSquareText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="text-xs font-semibold text-foreground">Comentário</span>
+      </div>
+      {!trimmed ? (
+        <p className="text-sm text-muted-foreground italic">Sem comentário nesta avaliação.</p>
+      ) : (
+        <>
+          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{displayText}</p>
+          {isLong && (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 mt-1.5 text-xs"
+              onClick={() => setExpanded((e) => !e)}
+            >
+              {expanded ? 'Ver menos' : 'Ver mais'}
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function parseStatsRpc(data: unknown): RatingsStats | null {
   if (data == null || typeof data !== 'object') return null;
   const o = data as { avg_stars?: unknown; total_count?: unknown };
@@ -117,6 +177,7 @@ export default function RatingsHistoryPage() {
           rating_stars,
           rating_text,
           sentiment,
+          publication_status,
           created_at,
           service_id,
           service:public_services (
@@ -255,8 +316,9 @@ export default function RatingsHistoryPage() {
               <div>
                 <h2 className="text-lg font-semibold text-foreground mb-1">Avaliações individuais</h2>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Cada item abaixo é uma avaliação que você enviou (com data, nota e comentário quando
-                  houver).
+                  Cada item mostra o serviço, data, nota, sentimento (quando houver), o status de{' '}
+                  <strong className="text-foreground font-medium">publicação do comentário</strong> e o
+                  texto que você escreveu — ou a indicação de que não houve texto naquela avaliação.
                 </p>
                 {rangeLabel && (
                   <p className="text-xs text-muted-foreground mb-3">{rangeLabel}</p>
@@ -301,13 +363,18 @@ export default function RatingsHistoryPage() {
                               ({sentimentLabels[rating.sentiment] || rating.sentiment})
                             </span>
                           )}
+                          {(() => {
+                            const ps = rating.publication_status || 'published';
+                            const cfg = publicationStatusUi[ps] ?? publicationStatusUi.published;
+                            return (
+                              <Badge variant="outline" className={`text-xs font-normal ${cfg.className}`}>
+                                {cfg.label}
+                              </Badge>
+                            );
+                          })()}
                         </div>
 
-                        {rating.rating_text && (
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                            {rating.rating_text}
-                          </p>
-                        )}
+                        <RatingCommentBlock ratingId={rating.id} text={rating.rating_text} />
 
                         {rating.service?.address && (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">

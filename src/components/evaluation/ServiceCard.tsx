@@ -5,6 +5,7 @@ import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
 import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay, getOpeningHoursText } from "@/lib/mapUtils";
 import { Badge } from "@/components/ui/badge";
+import { LowRatingVerificationBadge } from "@/components/services/LowRatingVerificationBadge";
 
 interface ServiceCardProps {
   id: string;
@@ -174,12 +175,17 @@ export const ServiceCard = ({
               </a>
             )}
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <RatingStars rating={averageRating} readonly size="sm" />
                 <span className="text-xs text-muted-foreground">
                   ({totalRatings})
                 </span>
+                <LowRatingVerificationBadge
+                  averageRating={averageRating}
+                  totalRatings={totalRatings}
+                  compact
+                />
               </div>
               
               {phone && (

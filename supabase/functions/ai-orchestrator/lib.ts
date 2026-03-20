@@ -6222,13 +6222,34 @@ export async function executeTool(
           return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
         }
         
+        const trimmedComment = args.rating_text.trim();
+        const { data: modStatus, error: modRpcError } = await supabase.rpc(
+          'compute_service_rating_publication_status',
+          { p_text: trimmedComment },
+        );
+        if (modRpcError) {
+          console.warn('[create_service_rating] moderation RPC error:', modRpcError.message);
+        }
+        const preModeration =
+          typeof modStatus === 'string' && ['published', 'pending_review', 'rejected'].includes(modStatus)
+            ? modStatus
+            : null;
+        if (preModeration === 'rejected') {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Remova links (http/https), evite palavrões ou insultos graves e tente de novo com um texto respeitoso sobre o atendimento.',
+          };
+        }
+
         console.log('[create_service_rating] Attempting to insert rating:', {
           userId,
           serviceId,
           visitId,
-          rating_stars: stars
+          rating_stars: stars,
+          moderation_preview: preModeration,
         });
-        
+
         const { data, error } = await supabase
           .from('service_ratings')
           .insert({
@@ -6236,17 +6257,28 @@ export async function executeTool(
             service_id: serviceId,
             visit_id: visitId,
             rating_stars: stars,
-            rating_text: args.rating_text.trim(),
-            sentiment: args.sentiment || 'neutral'
+            rating_text: trimmedComment,
+            sentiment: args.sentiment || 'neutral',
           })
-          .select('id')
+          .select('id, publication_status')
           .single();
-        
+
         if (error) {
           console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
           return {
             success: false,
             message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'
+          };
+        }
+
+        const publicationStatus = (data?.publication_status as string) || 'published';
+        if (publicationStatus === 'rejected') {
+          const { error: delErr } = await supabase.from('service_ratings').delete().eq('id', data.id);
+          if (delErr) console.warn('[create_service_rating] cleanup rejected row:', delErr.message);
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Ajuste o texto (sem links, linguagem adequada) e envie novamente.',
           };
         }
         
@@ -6258,13 +6290,20 @@ export async function executeTool(
         }
         
         console.log('[create_service_rating] Rating saved successfully:', {
-          id: data.id
+          id: data.id,
+          publication_status: publicationStatus,
         });
-        
-        return { 
-          success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
-          data: { id: data.id, type: 'rating' }
+
+        const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
+        const moderationNote =
+          publicationStatus === 'pending_review'
+            ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
+            : '';
+
+        return {
+          success: true,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }
       

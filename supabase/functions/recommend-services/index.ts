@@ -52,6 +52,7 @@ serve(async (req) => {
       .from('service_ratings')
       .select('service_id, rating_stars, service:public_services(service_type)')
       .eq('user_id', userId)
+      .eq('publication_status', 'published')
       .order('created_at', { ascending: false })
       .limit(10);
 
