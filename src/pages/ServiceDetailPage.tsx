@@ -18,6 +18,7 @@ import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerific
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
 import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
+import { SERVICE_CORRECTION_REVIEW_SLA_HOURS } from "@/lib/serviceCorrectionFields";
 import type { ServiceLike } from "@/lib/serviceCorrectionFields";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
@@ -561,7 +562,9 @@ export default function ServiceDetailPage() {
                 </h2>
                 <p className="text-sm text-muted-foreground leading-snug">
                   Se alguma informação deste equipamento estiver errada no app, você pode sugerir a correção.
-                  Nossa equipe analisa e atualiza o cadastro quando for o caso.
+                  Um administrador valida em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas e você é notificado; o
+                  cadastro oficial só muda depois da aprovação e da atualização feita pela equipe (não automático pelo
+                  formulário).
                 </p>
               </div>
               <ServiceCorrectionSuggestSection

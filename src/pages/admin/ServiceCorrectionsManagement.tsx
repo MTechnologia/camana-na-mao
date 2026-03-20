@@ -34,7 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResponsiveTable } from "@/components/admin/ResponsiveTable";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import {
@@ -47,6 +47,7 @@ import {
   Circle,
   ListChecks,
   Inbox,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServiceCorrectionsAdmin, type ServiceCorrectionRow } from "@/hooks/useServiceCorrectionsAdmin";
@@ -54,10 +55,37 @@ import {
   correctionDisplayLabel,
   correctionFieldLabel,
   correctionTypeLabel,
+  isServiceCorrectionSlaOverdue,
+  serviceCorrectionSlaDeadline,
+  SERVICE_CORRECTION_REVIEW_SLA_HOURS,
 } from "@/lib/serviceCorrectionFields";
 import { KPICard } from "@/components/analytics/KPICard";
 
 const MIN_NOTES_ON_REJECT = 10;
+
+function ServiceCorrectionSlaBadge({ row }: { row: ServiceCorrectionRow }) {
+  if (row.status !== "pending" || !row.created_at) {
+    return <span className="text-muted-foreground text-xs">—</span>;
+  }
+  const deadline = serviceCorrectionSlaDeadline(row.created_at);
+  const overdue = isServiceCorrectionSlaOverdue(row.created_at, row.status);
+  if (overdue) {
+    return (
+      <Badge variant="destructive" className="whitespace-nowrap font-normal gap-1">
+        <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+        Acima de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h
+      </Badge>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground whitespace-nowrap block max-w-[140px]">
+      Até {format(deadline, "dd/MM HH:mm", { locale: ptBR })}
+      <span className="block text-[10px] mt-0.5 opacity-90">
+        {formatDistanceToNow(deadline, { locale: ptBR, addSuffix: true })}
+      </span>
+    </span>
+  );
+}
 
 function statusBadge(status: string | null) {
   switch (status) {
@@ -76,7 +104,17 @@ function statusBadge(status: string | null) {
 
 function ModerationStepper({ status }: { status: string | null }) {
   const pending = status === "pending";
-  const settled = Boolean(status && status !== "pending");
+  const approved = status === "approved";
+  const applied = status === "applied";
+  const rejected = status === "rejected";
+
+  const approvalDone = approved || applied || rejected;
+  const approvalActive = pending;
+
+  const cadastroLabel = rejected ? "Sem alteração no cadastro" : "Cadastro oficial";
+  let cadastroVariant: "done" | "active" | "todo" = "todo";
+  if (applied) cadastroVariant = "done";
+  else if (approved) cadastroVariant = "active";
 
   const Step = ({
     label,
@@ -111,9 +149,9 @@ function ModerationStepper({ status }: { status: string | null }) {
     >
       <Step label="Recebida" variant="done" />
       <div className="self-center h-px flex-1 bg-border min-w-[8px] mx-0.5 mt-[-20px]" aria-hidden />
-      <Step label="Validação admin" variant={settled ? "done" : pending ? "active" : "todo"} />
+      <Step label="Aprovação" variant={approvalDone ? "done" : approvalActive ? "active" : "todo"} />
       <div className="self-center h-px flex-1 bg-border min-w-[8px] mx-0.5 mt-[-20px]" aria-hidden />
-      <Step label="Concluída" variant={settled ? "done" : "todo"} />
+      <Step label={cadastroLabel} variant={cadastroVariant} />
     </div>
   );
 }
@@ -179,6 +217,11 @@ function PendingQueueTable({
           hideOnMobile: true,
         },
         {
+          header: `Prazo (${SERVICE_CORRECTION_REVIEW_SLA_HOURS}h)`,
+          accessor: (row) => <ServiceCorrectionSlaBadge row={row} />,
+          hideOnMobile: true,
+        },
+        {
           header: "Resumo",
           accessor: (row) => (
             <span className="text-sm text-muted-foreground line-clamp-2 max-w-[240px]">{row.suggested_value}</span>
@@ -211,6 +254,14 @@ function PendingQueueTable({
             <p className="text-xs text-muted-foreground">Munícipe</p>
             <p className="text-sm">{row.submitter?.full_name ?? "—"}</p>
           </div>
+          {row.created_at ? (
+            <div>
+              <p className="text-xs text-muted-foreground">Prazo de validação</p>
+              <div className="mt-0.5">
+                <ServiceCorrectionSlaBadge row={row} />
+              </div>
+            </div>
+          ) : null}
           <div>
             <p className="text-xs text-muted-foreground">Descrição</p>
             <p className="text-sm text-muted-foreground line-clamp-4">{row.suggested_value}</p>
@@ -273,15 +324,22 @@ export default function ServiceCorrectionsManagement() {
       await updateModeration(detail.id, { status, staff_notes: staffNotes });
       toast.success(
         status === "approved"
-          ? "Sugestão aceita."
+          ? 'Aprovação registrada. Atualize o cadastro oficial e depois use o botão "Cadastro oficial atualizado" nesta sugestão.'
           : status === "rejected"
             ? "Sugestão recusada."
-            : "Marcada como aplicada no cadastro.",
+            : "Cadastro marcado como atualizado; o munícipe foi notificado.",
       );
       setDetail(null);
       setRejectDialogOpen(false);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Falha ao atualizar.");
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("applied") && msg.includes("approved")) {
+        toast.error(
+          "Fluxo incorreto: aceite a sugestão antes de marcar o cadastro como atualizado. Se o erro persistir, recarregue a página.",
+        );
+      } else {
+        toast.error(msg || "Falha ao atualizar.");
+      }
     } finally {
       setActing(false);
     }
@@ -305,8 +363,10 @@ export default function ServiceCorrectionsManagement() {
               Painel — sugestões de correção de cadastro
             </h1>
             <p className="text-muted-foreground mt-1 max-w-2xl">
-              <strong>Fila de pendentes:</strong> validação rápida em tabela. <strong>Histórico:</strong> consulta por
-              status e decisões anteriores. Apenas administradores moderam; o munícipe é notificado após a decisão.
+              <strong>Fluxo:</strong> primeiro <strong>aceitar</strong> a sugestão (aprovação); só então atualize o
+              cadastro oficial (ex.: GeoSampa/backoffice) e marque <strong>cadastro atualizado</strong>. O munícipe é
+              notificado na aprovação e de novo quando a correção estiver refletida.{" "}
+              <strong>Meta:</strong> fila pendente em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
@@ -359,8 +419,15 @@ export default function ServiceCorrectionsManagement() {
                       {statusCounts.pending} sugestão(ões) aguardando validação
                     </p>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Ordem: mais recentes primeiro. Clique em <strong>Validar</strong> para abrir o fluxo de decisão.
+                      Ordem: fora do prazo de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h primeiro; depois as mais próximas do
+                      limite. Clique em <strong>Validar</strong> para decidir.
                     </p>
+                    {statusCounts.pendingOverSla > 0 ? (
+                      <p className="text-sm font-medium text-destructive mt-2 flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                        {statusCounts.pendingOverSla} fora do prazo — priorize a validação.
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <PendingQueueTable rows={rows} loading={loading} openDetail={openDetail} />
@@ -381,7 +448,7 @@ export default function ServiceCorrectionsManagement() {
                 title="Aceitas"
                 value={statusCounts.approved}
                 icon={CheckCircle2}
-                subtitle="Equipe concordou"
+                subtitle="Aguardando refletir no cadastro"
                 onClick={() => goHistory("approved")}
                 className={historyFilter === "approved" ? "ring-2 ring-primary/40" : ""}
               />
@@ -515,6 +582,39 @@ export default function ServiceCorrectionsManagement() {
 
                 <div>{statusBadge(detail.status)}</div>
 
+                {detail.status === "pending" && detail.created_at ? (
+                  <div
+                    className={
+                      isServiceCorrectionSlaOverdue(detail.created_at, detail.status)
+                        ? "rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+                        : "rounded-md border bg-muted/30 p-3 text-sm"
+                    }
+                  >
+                    <p className="font-medium text-foreground">
+                      Prazo de {SERVICE_CORRECTION_REVIEW_SLA_HOURS}h (desde o envio)
+                    </p>
+                    <p className="text-muted-foreground mt-1">
+                      Validar até{" "}
+                      <strong className="text-foreground">
+                        {format(serviceCorrectionSlaDeadline(detail.created_at), "dd/MM/yyyy 'às' HH:mm", {
+                          locale: ptBR,
+                        })}
+                      </strong>
+                      {" — "}
+                      {formatDistanceToNow(serviceCorrectionSlaDeadline(detail.created_at), {
+                        locale: ptBR,
+                        addSuffix: true,
+                      })}
+                    </p>
+                    {isServiceCorrectionSlaOverdue(detail.created_at, detail.status) ? (
+                      <p className="text-destructive font-medium mt-2 flex items-center gap-1.5">
+                        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                        Prazo ultrapassado; priorize esta sugestão.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {detail.status !== "pending" && (
                   <div className="rounded-md border bg-muted/20 p-3 space-y-2 text-xs">
                     <p>
@@ -582,24 +682,42 @@ export default function ServiceCorrectionsManagement() {
                   {detail.submitter?.full_name} ({detail.user_id.slice(0, 8)}…)
                 </div>
 
-                {detail.status === "pending" && (
+                {(detail.status === "pending" || detail.status === "approved") && (
                   <div className="space-y-2">
                     <Label htmlFor="staff-notes">
                       Notas internas
-                      <span className="text-destructive font-normal"> (obrigatório ao recusar, mín. {MIN_NOTES_ON_REJECT} caracteres)</span>
+                      {detail.status === "pending" ? (
+                        <span className="text-destructive font-normal">
+                          {" "}
+                          (obrigatório ao recusar, mín. {MIN_NOTES_ON_REJECT} caracteres)
+                        </span>
+                      ) : null}
                     </Label>
                     <Textarea
                       id="staff-notes"
                       value={staffNotes}
                       onChange={(e) => setStaffNotes(e.target.value)}
                       rows={4}
-                      placeholder="Motivo da recusa, protocolo interno, ou observações ao aceitar/aplicar."
+                      placeholder="Motivo da recusa, protocolo interno, ou observações ao aceitar ou ao atualizar o cadastro."
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                      <strong>Aceitar:</strong> concordância com a sugestão (o cadastro pode ser atualizado depois).{" "}
-                      <strong>Aplicada:</strong> use quando a correção já foi refletida no cadastro oficial.{" "}
-                      <strong>Recusar:</strong> exige motivo nas notas — o munícipe recebe notificação genérica.
-                    </p>
+                    {detail.status === "pending" ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        <strong>Aceitar:</strong> aprova a sugestão — o cadastro oficial{" "}
+                        <strong>não</strong> muda neste passo; atualize-o no processo interno e depois marque &quot;Cadastro
+                        atualizado&quot; no histórico. <strong>Recusar:</strong> exige motivo nas notas — o munícipe é
+                        notificado.
+                      </p>
+                    ) : (
+                      <div className="rounded-md border border-blue-500/25 bg-blue-500/5 p-3 text-[11px] text-muted-foreground space-y-1">
+                        <p className="font-medium text-foreground">Próximo passo obrigatório</p>
+                        <p>
+                          Atualize o registro oficial (fonte de verdade). Somente depois use{" "}
+                          <strong>Cadastro oficial atualizado</strong> — o sistema não altera{" "}
+                          <code className="text-xs bg-muted px-1 rounded">public_services</code> automaticamente a partir
+                          desta tela.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -611,14 +729,21 @@ export default function ServiceCorrectionsManagement() {
                     Recusar…
                   </Button>
                   <Button variant="secondary" disabled={acting} onClick={() => runAction("approved")} type="button">
-                    Aceitar
-                  </Button>
-                  <Button disabled={acting} onClick={() => runAction("applied")} type="button">
-                    Registrar como aplicada
+                    Aceitar (aprovar)
                   </Button>
                 </>
               )}
-              {detail && detail.status !== "pending" && (
+              {detail?.status === "approved" && (
+                <>
+                  <Button variant="outline" disabled={acting} onClick={() => setDetail(null)} type="button">
+                    Fechar
+                  </Button>
+                  <Button disabled={acting} onClick={() => runAction("applied")} type="button">
+                    Cadastro oficial atualizado
+                  </Button>
+                </>
+              )}
+              {detail && detail.status !== "pending" && detail.status !== "approved" && (
                 <Button variant="outline" onClick={() => setDetail(null)} type="button">
                   Fechar
                 </Button>
