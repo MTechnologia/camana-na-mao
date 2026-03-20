@@ -1389,9 +1389,11 @@ export type Database = {
       }
       service_corrections: {
         Row: {
+          correction_type: string
           created_at: string | null
           current_value: string | null
-          field_name: string
+          evidence_photo_url: string | null
+          field_name: string | null
           id: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -1402,9 +1404,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          correction_type?: string
           created_at?: string | null
           current_value?: string | null
-          field_name: string
+          evidence_photo_url?: string | null
+          field_name?: string | null
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1415,9 +1419,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          correction_type?: string
           created_at?: string | null
           current_value?: string | null
-          field_name?: string
+          evidence_photo_url?: string | null
+          field_name?: string | null
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
