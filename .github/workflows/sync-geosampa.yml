@@ -6,7 +6,7 @@ name: Sync GeoSampa -> public_services
 
 on:
   schedule:
-    - cron: '0 6 * * *'   # Todo dia 6h UTC (3h BRT)
+    - cron: '0 */6 * * *'   # A cada 6h (UTC)
   workflow_dispatch:
 
 jobs:

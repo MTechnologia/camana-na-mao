@@ -4,6 +4,8 @@ import { ServiceTypeIcon } from "@/components/icons";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
 import { formatDistance, formatDistanceStraightLine, buildGoogleMapsUrl, getAddressDisplay, getOpeningHoursText } from "@/lib/mapUtils";
+import { Badge } from "@/components/ui/badge";
+import { LowRatingVerificationBadge } from "@/components/services/LowRatingVerificationBadge";
 
 interface ServiceCardProps {
   id: string;
@@ -27,8 +29,22 @@ interface ServiceCardProps {
   openingHours?: unknown;
   /** O que o serviço oferece (descrição) */
   servicesOffered?: string | null;
+  /** Status operacional vindo do banco */
+  operationalStatus?: "open" | "closed" | "maintenance" | null;
   onClick?: () => void;
 }
+
+const operationalStatusLabels: Record<"open" | "closed" | "maintenance", string> = {
+  open: "Aberto",
+  closed: "Fechado",
+  maintenance: "Em manutenção",
+};
+
+const operationalStatusStyles: Record<"open" | "closed" | "maintenance", string> = {
+  open: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  closed: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  maintenance: "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+};
 
 const serviceLabels: Record<string, string> = {
   ubs: "UBS",
@@ -71,6 +87,7 @@ export const ServiceCard = ({
   userLongitude,
   openingHours,
   servicesOffered,
+  operationalStatus,
   onClick
 }: ServiceCardProps) => {
   const openingHoursText = getOpeningHoursText(openingHours);
@@ -115,6 +132,17 @@ export const ServiceCard = ({
             <p className="text-xs text-muted-foreground mb-1">
               {serviceLabels[serviceType] || "Serviço Público"}
             </p>
+
+            {operationalStatus && (
+              <div className="mb-2">
+                <Badge
+                  variant="outline"
+                  className={cn("text-[11px]", operationalStatusStyles[operationalStatus])}
+                >
+                  {operationalStatusLabels[operationalStatus]}
+                </Badge>
+              </div>
+            )}
             
             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
               <MapPin className="w-3 h-3 shrink-0" />
@@ -147,12 +175,17 @@ export const ServiceCard = ({
               </a>
             )}
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
                 <RatingStars rating={averageRating} readonly size="sm" />
                 <span className="text-xs text-muted-foreground">
                   ({totalRatings})
                 </span>
+                <LowRatingVerificationBadge
+                  averageRating={averageRating}
+                  totalRatings={totalRatings}
+                  compact
+                />
               </div>
               
               {phone && (

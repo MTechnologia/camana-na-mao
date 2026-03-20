@@ -911,6 +911,11 @@ serve(async (req) => {
       }
       
       if (collectionType === 'service_rating') {
+        // Evita "Butantã Butantã" no texto e nos parâmetros do picker (acúmulo / parsing duplicado)
+        if (fields.service_neighborhood != null && String(fields.service_neighborhood).trim() !== '') {
+          fields.service_neighborhood = lib.normalizeServiceRatingNeighborhood(fields.service_neighborhood);
+        }
+
         // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
         if (fields.visit_id) {
           if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
@@ -922,41 +927,71 @@ serve(async (req) => {
         }
         
         // MODO LIVRE: coleta service_type, service_name, confirmação de endereço
+        // Bairro efetivo: campo explícito OU inferido de "UBS - Butantã" em service_name (LLM/COLLECTION_PROGRESS)
+        let effectiveNeighborhood = String(fields.service_neighborhood || '').trim();
+        if (!effectiveNeighborhood && fields.service_name) {
+          const inferred = lib.inferServiceRatingNeighborhoodFromCompositeName(
+            fields.service_name,
+            String(fields.service_type),
+          );
+          if (inferred) effectiveNeighborhood = inferred;
+        }
+
         // 1. Service type
         if (!fields.service_type) {
           return { field: 'service_type', picker: '[SERVICE_TYPE_PICKER]', prompt: 'Qual **tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU...)' };
         }
         
         // 2. Neighborhood first (para depois mostrar dropdown de serviços no bairro)
-        if (!fields.service_neighborhood && !fields.service_address) {
-          const serviceTypeLabel: Record<string, string> = {
-            ubs: 'UBS', school: 'escola', hospital: 'hospital',
-            ceu: 'CEU', library: 'biblioteca', sports_center: 'centro esportivo'
-          };
-          const typeLabel = serviceTypeLabel[fields.service_type] || fields.service_type;
+        if (!effectiveNeighborhood && !fields.service_address) {
           return {
             field: 'service_neighborhood',
             picker: null,
-            prompt: `Em qual **bairro** fica a ${typeLabel} que você visitou?`
+            prompt: lib.buildServiceRatingBairroPrompt(String(fields.service_type)),
           };
         }
 
         // 3. Service name com dropdown (SERVICE_PICKER) — mostra CEUs/serviços daquele bairro
         // Forçar picker se: vazio, muito curto, só o tipo ("CEU"/"UBS"), ou genérico "TIPO - Bairro"
-        const tl = fields.service_type === 'ceu' ? 'CEU' : fields.service_type === 'ubs' ? 'UBS' : String(fields.service_type || '').charAt(0).toUpperCase() + String(fields.service_type || '').slice(1);
+        const nounPt = lib.getServiceRatingNounPt(String(fields.service_type));
         const sn = String(fields.service_name || '').trim();
-        const genericAddr = fields.service_neighborhood ? `${tl} - ${fields.service_neighborhood}` : '';
-        const isGenericName = genericAddr && sn && sn.toLowerCase() === genericAddr.toLowerCase();
-        const isJustTypeLabel = sn && (sn.toLowerCase() === 'ceu' || sn.toLowerCase() === 'ubs' || sn.toLowerCase() === tl.toLowerCase());
-        if (!fields.service_name || fields.service_name.length < 3 || isGenericName || isJustTypeLabel) {
-          const typeLabel = (fields.service_type === 'ceu' ? 'CEU' : fields.service_type === 'ubs' ? 'UBS' : fields.service_type);
-          const districtHint = fields.service_neighborhood ? ` em **${fields.service_neighborhood}**` : '';
+        const neighStr = effectiveNeighborhood;
+        const genericAddr = neighStr ? `${nounPt} - ${neighStr}` : '';
+        const isGenericName =
+          !!genericAddr &&
+          !!sn &&
+          lib.normalizeGenericServiceRatingName(sn) === lib.normalizeGenericServiceRatingName(genericAddr);
+        const snLower = sn.toLowerCase();
+        const isJustTypeLabel =
+          !!sn &&
+          (snLower === 'ceu' ||
+            snLower === 'ubs' ||
+            snLower === nounPt.toLowerCase() ||
+            snLower === 'hospital' ||
+            snLower === 'biblioteca' ||
+            snLower === 'escola');
+        // Chip "Bibliotecas"/"Hospitais" ou só categoria acumulada no service_name — ainda não é equipamento
+        const isTypeOnlyEquipment = lib.isServiceRatingTypeOnlyEquipmentName(fields.service_name, String(fields.service_type));
+        if (
+          !fields.service_name ||
+          fields.service_name.length < 3 ||
+          isGenericName ||
+          isJustTypeLabel ||
+          isTypeOnlyEquipment
+        ) {
+          const labelQual =
+            fields.service_type === 'ceu'
+              ? 'CEU'
+              : fields.service_type === 'ubs'
+                ? 'UBS'
+                : nounPt;
+          const districtHint = neighStr ? ` em **${neighStr}**` : '';
           const typeParam = fields.service_type ? ':type=' + encodeURIComponent(String(fields.service_type)) : '';
-          const districtParam = fields.service_neighborhood ? ':district=' + encodeURIComponent(String(fields.service_neighborhood)) : '';
+          const districtParam = neighStr ? ':district=' + encodeURIComponent(neighStr) : '';
           return {
             field: 'service_name',
             picker: `[SERVICE_PICKER${districtParam}${typeParam}]`,
-            prompt: `Qual **${typeLabel}** você visitou${districtHint}? Selecione na lista abaixo.`
+            prompt: `Qual **${labelQual}** você visitou${districtHint}? Selecione na lista abaixo.`,
           };
         }
         
@@ -971,10 +1006,10 @@ serve(async (req) => {
           
           // Build address - avoid duplication when service_name already contains neighborhood (e.g. "UBS - Butantã")
           const nameStr = fields.service_name || '';
-          const neighStr = fields.service_neighborhood || '';
-          const nameHasNeigh = neighStr && nameStr.toLowerCase().includes(neighStr.toLowerCase());
+          const neighForAddr = String(fields.service_neighborhood || '').trim() || effectiveNeighborhood;
+          const nameHasNeigh = neighForAddr && nameStr.toLowerCase().includes(neighForAddr.toLowerCase());
           const address = fields.service_address ||
-                          (nameStr ? (nameHasNeigh ? nameStr : neighStr ? `${nameStr} - ${neighStr}` : nameStr) : null);
+                          (nameStr ? (nameHasNeigh ? nameStr : neighForAddr ? `${nameStr} - ${neighForAddr}` : nameStr) : null);
           
           if (address) {
             return { 

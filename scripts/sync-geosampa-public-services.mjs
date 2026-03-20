@@ -22,7 +22,7 @@ import { dirname, resolve } from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
+const SERVICE_TYPES = ["ubs", "school", "ceu", "hospital", "library", "sports_center", "theater", "museum", "community_center", "park", "street_market", "market", "city_market", "social_assistance", "transit_station", "bicycle", "subprefeitura", "police_station", "cemetery", "accessibility", "recycling_point", "fire_station", "other"];
 
 function loadEnv() {
   const envPath = resolve(ROOT, ".env");
@@ -76,6 +76,58 @@ function getProp(obj, ...keys) {
     const v = obj[k];
     if (v != null && typeof v === "string" && v.trim() !== "") return v.trim();
   }
+  return null;
+}
+
+/**
+ * Converte um texto de "status" vindo do GeoSampa para os valores do app.
+ * Retorna null quando não for possível inferir.
+ *
+ * Valores esperados no banco: 'open' | 'closed' | 'maintenance'
+ */
+function inferOperationalStatus(rawStatus) {
+  const raw = typeof rawStatus === "string" ? rawStatus.trim() : "";
+  const s = raw.toLowerCase();
+  if (!s) return null;
+
+  // Manutenção (inclui variações de escrita e sinais de indisponibilidade)
+  if (
+    /manuten[cç][aã]o/.test(s) ||
+    /manutenc/.test(s) ||
+    /paralisad[oa]/.test(s) ||
+    /paralis/.test(s) ||
+    /parad[oa]/.test(s) ||
+    /interromp/.test(s) ||
+    /indispon[ií]vel/.test(s) ||
+    /fora\s+de\s+opera[cç][aã]o/.test(s)
+  ) {
+    return "maintenance";
+  }
+
+  // Fechado/encerrado/inativo
+  if (
+    /fechad[oa]/.test(s) ||
+    /encerrad[oa]/.test(s) ||
+    /inativad[oa]/.test(s) ||
+    /desativad[oa]/.test(s) ||
+    /fora\s+de\s+opera[cç][aã]o/.test(s) ||
+    /sem\s+funcionamento/.test(s)
+  ) {
+    return "closed";
+  }
+
+  // Aberto/em operação/em funcionamento
+  if (
+    /abert[oa]/.test(s) ||
+    /em\s+opera[cç][aã]o/.test(s) ||
+    /em\s+funcionamento/.test(s) ||
+    /operand[oa]/.test(s) ||
+    /operacional/.test(s) ||
+    /funcionando/.test(s)
+  ) {
+    return "open";
+  }
+
   return null;
 }
 
@@ -138,7 +190,7 @@ function featureToRow(feature, layerConfig, index) {
   const name = getProp(props, "nome", "name", "NOME", "NAME", "nm_equipamento", "nome_equip", "nm_area",
     "nm_estabelecimento", "nm_central_intermediacao_libra", "nm_local", "nm_ecoponto", "nm_ponto_onibus",
     "nm_estacao_transbordo", "nm_cooperativa", "nm_estacao_metro_trem", "nm_terminal", "nm_aterro_sanitario",
-    "nm_servico", "nm_entidade", "nm_shopping_center") ?? getExternalId(feature, index);
+    "nm_servico", "nm_entidade", "nm_shopping_center", "nm_sede", "nm_subprefeitura", "ds_subprefeitura") ?? getExternalId(feature, index);
   const address = getProp(
     props,
     "endereco", "endereço", "address", "ENDERECO", "tx_endereco_equipamento", "endereco_c",
@@ -152,6 +204,19 @@ function featureToRow(feature, layerConfig, index) {
     "tx_horario_funcionamento", "horario_funcionamento", "opening_hours", "horario",
     "tx_horario", "horario_abertura", "ds_horario", "horario_funcionamento", "tx_atendimento"
   );
+
+  // Inferir status operacional (aberto/fechado/manutenção) a partir de campos do GeoSampa.
+  // Fazemos isso independentemente do texto "services_offered" para não depender de fallback.
+  let operationalStatus = null;
+  if (layerConfig.source_layer === "estacao_metro" || layerConfig.source_layer === "estacao_trem") {
+    operationalStatus = inferOperationalStatus(getProp(props, "tx_situacao_metro_trem"));
+  }
+  if (layerConfig.source_layer === "terminal_onibus") {
+    operationalStatus = inferOperationalStatus(getProp(props, "tx_status_terminal"));
+  }
+  if (layerConfig.source_layer === "aterro_sanitario") {
+    operationalStatus = inferOperationalStatus(getProp(props, "tx_status_aterro_sanitario"));
+  }
 
   let servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description", "tx_descricao");
   if (!servicesOffered && layerConfig.source_layer === "ecoponto") {
@@ -173,6 +238,9 @@ function featureToRow(feature, layerConfig, index) {
     const status = getProp(props, "tx_status_terminal");
     const parts = [tipo, status].filter(Boolean);
     if (parts.length > 0) servicesOffered = parts.join(". ");
+  }
+  if (!servicesOffered && layerConfig.source_layer === "sede_subprefeitura") {
+    servicesOffered = "Sede administrativa da subprefeitura. Atendimento ao cidadão.";
   }
   if (!servicesOffered && layerConfig.source_layer === "bicicletario_paraciclo") {
     const tipo = getProp(props, "tx_tipo_equipamento");
@@ -214,6 +282,13 @@ function featureToRow(feature, layerConfig, index) {
 
   const serviceType = SERVICE_TYPES.includes(layerConfig.service_type) ? layerConfig.service_type : "other";
 
+  const capacityParts = [];
+  const qtyVaga = props.qt_vaga != null && Number(props.qt_vaga) >= 0 ? Number(props.qt_vaga) : null;
+  if (qtyVaga != null) capacityParts.push(`${qtyVaga} vagas`);
+  const areaM2 = props.area_metro != null && Number(props.area_metro) > 0 ? Number(props.area_metro) : (props.qt_area_metro != null && Number(props.qt_area_metro) > 0 ? Number(props.qt_area_metro) : null);
+  if (areaM2 != null) capacityParts.push(`${areaM2.toLocaleString("pt-BR")} m²`);
+  const capacityInfo = capacityParts.length > 0 ? capacityParts.join(" · ") : null;
+
   const row = {
     name: name.slice(0, 500),
     service_type: serviceType,
@@ -228,6 +303,8 @@ function featureToRow(feature, layerConfig, index) {
   };
   if (phone != null) row.phone = phone.slice(0, 50);
   if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
+  if (capacityInfo != null) row.capacity_info = capacityInfo.slice(0, 200);
+  if (operationalStatus != null) row.operational_status = operationalStatus;
   if (servicesOffered != null) {
     let text = String(servicesOffered).replace(/, encaminhamentos par\s*$/i, "").trim();
     if (text && !/[.!?]$/.test(text)) text += ".";

@@ -1058,6 +1058,7 @@ export type Database = {
         Row: {
           address: string
           average_rating: number | null
+          capacity_info: string | null
           city: string
           created_at: string | null
           district: string
@@ -1066,7 +1067,9 @@ export type Database = {
           longitude: number
           name: string
           opening_hours: Json | null
+          operational_status: Database["public"]["Enums"]["operational_status"] | null
           phone: string | null
+          search_tsv: unknown | null
           service_type: Database["public"]["Enums"]["service_type"]
           services_offered: string | null
           state: string
@@ -1077,6 +1080,7 @@ export type Database = {
         Insert: {
           address: string
           average_rating?: number | null
+          capacity_info?: string | null
           city?: string
           created_at?: string | null
           district: string
@@ -1085,6 +1089,7 @@ export type Database = {
           longitude: number
           name: string
           opening_hours?: Json | null
+          operational_status?: Database["public"]["Enums"]["operational_status"] | null
           phone?: string | null
           service_type: Database["public"]["Enums"]["service_type"]
           services_offered?: string | null
@@ -1096,6 +1101,7 @@ export type Database = {
         Update: {
           address?: string
           average_rating?: number | null
+          capacity_info?: string | null
           city?: string
           created_at?: string | null
           district?: string
@@ -1104,6 +1110,7 @@ export type Database = {
           longitude?: number
           name?: string
           opening_hours?: Json | null
+          operational_status?: Database["public"]["Enums"]["operational_status"] | null
           phone?: string | null
           service_type?: Database["public"]["Enums"]["service_type"]
           services_offered?: string | null
@@ -1249,6 +1256,66 @@ export type Database = {
           },
         ]
       }
+      report_severity_audit_log: {
+        Row: {
+          id: string
+          urban_report_id: string | null
+          transport_report_id: string | null
+          metric: string
+          previous_value: string | null
+          new_value: string
+          justification: string
+          source_snippet: string | null
+          confidence: number | null
+          engine: string
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          urban_report_id?: string | null
+          transport_report_id?: string | null
+          metric: string
+          previous_value?: string | null
+          new_value: string
+          justification: string
+          source_snippet?: string | null
+          confidence?: number | null
+          engine?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          urban_report_id?: string | null
+          transport_report_id?: string | null
+          metric?: string
+          previous_value?: string | null
+          new_value?: string
+          justification?: string
+          source_snippet?: string | null
+          confidence?: number | null
+          engine?: string
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_severity_audit_log_transport_report_id_fkey"
+            columns: ["transport_report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_severity_audit_log_urban_report_id_fkey"
+            columns: ["urban_report_id"]
+            isOneToOne: false
+            referencedRelation: "urban_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       search_history: {
         Row: {
           created_at: string
@@ -1326,7 +1393,10 @@ export type Database = {
           current_value: string | null
           field_name: string
           id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           service_id: string
+          staff_notes: string | null
           status: string | null
           suggested_value: string
           user_id: string
@@ -1336,7 +1406,10 @@ export type Database = {
           current_value?: string | null
           field_name: string
           id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           service_id: string
+          staff_notes?: string | null
           status?: string | null
           suggested_value: string
           user_id: string
@@ -1346,7 +1419,10 @@ export type Database = {
           current_value?: string | null
           field_name?: string
           id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           service_id?: string
+          staff_notes?: string | null
           status?: string | null
           suggested_value?: string
           user_id?: string
@@ -1439,6 +1515,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_anonymous: boolean | null
+          publication_status: string
           rating_stars: number
           rating_text: string | null
           sentiment: string | null
@@ -1452,6 +1529,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_anonymous?: boolean | null
+          publication_status?: string
           rating_stars: number
           rating_text?: string | null
           sentiment?: string | null
@@ -1465,6 +1543,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_anonymous?: boolean | null
+          publication_status?: string
           rating_stars?: number
           rating_text?: string | null
           sentiment?: string | null
@@ -2035,6 +2114,50 @@ export type Database = {
           },
         ]
       }
+      user_app_suggestions: {
+        Row: {
+          context: string
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          last_touched_at: string
+          payload: Json
+          stable_id: string
+          user_id: string
+        }
+        Insert: {
+          context?: string
+          created_at?: string
+          id?: string
+          kind: string
+          label: string
+          last_touched_at?: string
+          payload?: Json
+          stable_id: string
+          user_id: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          last_touched_at?: string
+          payload?: Json
+          stable_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_app_suggestions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_demographics: {
         Row: {
           birth_date: string | null
@@ -2216,6 +2339,29 @@ export type Database = {
         Returns: { protocolo: number; id: string }[]
       }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
+      compute_service_rating_publication_status: {
+        Args: { p_text: string }
+        Returns: string
+      }
+      search_public_services_fulltext: {
+        Args: {
+          center_lat: number
+          center_lng: number
+          max_lat: number
+          max_lng: number
+          min_lat: number
+          min_lng: number
+          radius_meters: number
+          result_limit?: number
+          search_query: string
+          service_types?: string[] | null
+        }
+        Returns: Database["public"]["Tables"]["public_services"]["Row"][]
+      }
+      get_user_service_ratings_stats: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       get_reports_with_demographics: {
         Args: {
           p_age_group?: string
@@ -2275,6 +2421,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      replace_user_app_suggestions_for_user: {
+        Args: { p_context: string; p_items: Json; p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
@@ -2284,6 +2434,7 @@ export type Database = {
         | "assessor"
         | "cidadao"
         | "cidadao_engajado"
+      operational_status: "open" | "closed" | "maintenance"
       referral_status: "pending" | "sent" | "acknowledged" | "resolved"
       service_type:
         | "ubs"
@@ -2299,6 +2450,8 @@ export type Database = {
         | "social_assistance"
         | "police_station"
         | "transit_station"
+        | "bicycle"
+        | "subprefeitura"
         | "market"
         | "city_market"
         | "theater"
@@ -2459,6 +2612,8 @@ export const Constants = {
         "social_assistance",
         "police_station",
         "transit_station",
+        "bicycle",
+        "subprefeitura",
         "market",
         "city_market",
         "theater",

@@ -66,6 +66,7 @@ export default function ReportsManagement() {
     deleteManifest,
     deleteBulkManifests,
     exportToCSV,
+    refetch,
   } = useReportsAdmin();
 
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
@@ -448,6 +449,7 @@ export default function ReportsManagement() {
         }}
         onDelete={handleDeleteClick}
         onReferral={() => setReferralDialogOpen(true)}
+        onEvaluationModerated={() => void refetch()}
       />
 
       {/* Delete Dialog */}

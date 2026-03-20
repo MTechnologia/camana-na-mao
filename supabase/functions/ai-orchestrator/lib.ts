@@ -1775,6 +1775,58 @@ export function autoInferRisk(description: string): {
   return { risk_level: null, confidence: 0 };
 }
 
+/** Alinha severidade do relato urbano ao nível de risco (filtros da gestão: critical/high/medium/low). */
+export function mapUrbanRiskLevelToSeverity(riskLevel: string | null | undefined): string | null {
+  if (!riskLevel) return null;
+  switch (riskLevel) {
+    case "critical":
+      return "critical";
+    case "moderate":
+      return "high";
+    case "low":
+      return "medium";
+    case "none":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+
+/**
+ * OS-05: persiste linha de auditoria para revisão humana (moderação).
+ * Falha silenciosa no log para não quebrar criação do relato.
+ */
+export async function insertReportSeverityAuditLog(
+  supabase: SupabaseClient,
+  entry: {
+    urban_report_id?: string;
+    transport_report_id?: string;
+    metric: string;
+    previous_value?: string | null;
+    new_value: string;
+    justification: string;
+    source_snippet?: string | null;
+    confidence?: number | null;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const row = {
+    urban_report_id: entry.urban_report_id ?? null,
+    transport_report_id: entry.transport_report_id ?? null,
+    metric: entry.metric,
+    previous_value: entry.previous_value ?? null,
+    new_value: entry.new_value,
+    justification: entry.justification,
+    source_snippet: entry.source_snippet ? String(entry.source_snippet).slice(0, 500) : null,
+    confidence: entry.confidence ?? null,
+    metadata: entry.metadata ?? {},
+  };
+  const { error } = await supabase.from("report_severity_audit_log").insert(row);
+  if (error) {
+    console.error("[insertReportSeverityAuditLog]", error);
+  }
+}
+
 // Parse user response for specific field types
 export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, unknown> {
   const response = userResponse.trim();
@@ -2926,12 +2978,202 @@ export function accumulateFieldsFromHistory(
       }
     }
   }
-  
+
+  if (collectionType === "service_rating" && accumulated.service_neighborhood != null) {
+    accumulated.service_neighborhood = normalizeServiceRatingNeighborhood(accumulated.service_neighborhood);
+  }
+
   return accumulated;
 }
 
 function capitalizeWords(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Remove tokens consecutivos duplicados (ex.: "Butantã Butantã") — bug de acúmulo / cópia do bairro */
+export function normalizeServiceRatingNeighborhood(raw: unknown): string {
+  const s = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!s) return "";
+  const parts = s.split(/\s+/);
+  const out: string[] = [];
+  for (const p of parts) {
+    if (out.length && out[out.length - 1].toLowerCase() === p.toLowerCase()) continue;
+    out.push(p);
+  }
+  return out.join(" ");
+}
+
+/** Nome do equipamento em PT para fluxo de avaliação (evita "Library", "library" no prompt) */
+export function getServiceRatingNounPt(serviceType: string | undefined): string {
+  const SERVICE_RATING_NOUN_PT: Record<string, string> = {
+    ubs: "UBS",
+    school: "escola",
+    hospital: "hospital",
+    ceu: "CEU",
+    library: "biblioteca",
+    sports_center: "centro esportivo",
+    street_market: "feira",
+    community_center: "centro comunitário",
+    daycare: "creche",
+    park: "parque",
+    market: "mercado",
+    city_market: "mercado municipal",
+    theater: "teatro",
+    museum: "museu",
+    social_assistance: "assistência social",
+    transit_station: "terminal/estação de transporte",
+    police_station: "delegacia",
+    cemetery: "cemitério",
+    accessibility: "serviço de acessibilidade",
+    recycling_point: "ponto de reciclagem",
+    fire_station: "Corpo de Bombeiros",
+    other: "serviço",
+  };
+  if (!serviceType) return "serviço";
+  return SERVICE_RATING_NOUN_PT[serviceType] || serviceType;
+}
+
+/** Remove acentos para comparar bairro digitado (Butantã) com cadastro (BUTANTA). */
+function foldAccentsForCompare(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Normaliza para comparar "Bibliotecas - X" com "biblioteca - X" (nome genérico vs chip) */
+export function normalizeGenericServiceRatingName(s: string): string {
+  return foldAccentsForCompare(
+    s
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/\bhospitais\b/g, "hospital")
+      .replace(/\bbibliotecas\b/g, "biblioteca")
+      .replace(/\bescolas\b/g, "escola")
+      .replace(/\bceus\b/g, "ceu")
+      .replace(/\bfeiras\b/g, "feira")
+      .replace(/\bparques\b/g, "parque")
+      .replace(/\bmercados\b/g, "mercado"),
+  );
+}
+
+/**
+ * Quando só existe `service_name` como "UBS - Butantã" (LLM/COLLECTION_PROGRESS) sem `service_neighborhood`,
+ * inferimos o trecho após "Tipo - " para comparar com o genérico e exibir SERVICE_PICKER.
+ */
+export function inferServiceRatingNeighborhoodFromCompositeName(
+  serviceName: unknown,
+  serviceType: string | undefined,
+): string | undefined {
+  const sn = String(serviceName ?? "").trim();
+  if (sn.length < 3) return undefined;
+  const noun = getServiceRatingNounPt(serviceType);
+  const escaped = noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^\\s*${escaped}\\s*-\\s*(.+)$`, "i");
+  const m = sn.match(re);
+  if (!m) return undefined;
+  const rest = m[1].trim();
+  return rest.length >= 2 ? rest : undefined;
+}
+
+/**
+ * true = ainda não há um equipamento concreto (só categoria, chip "Bibliotecas", etc.).
+ * Nesse caso devemos mostrar SERVICE_PICKER após o bairro, antes de confirmar endereço.
+ */
+export function isServiceRatingTypeOnlyEquipmentName(
+  serviceName: unknown,
+  serviceType: string | undefined,
+): boolean {
+  const raw = String(serviceName ?? "").trim();
+  if (raw.length < 2) return true;
+
+  const s = normalizeGenericServiceRatingName(raw);
+  const noun = normalizeGenericServiceRatingName(getServiceRatingNounPt(serviceType));
+  if (!s || s === noun) return true;
+
+  const TYPE_ONLY = new Set<string>([
+    "ubs",
+    "ceu",
+    "ceus",
+    "hospital",
+    "hospitais",
+    "escola",
+    "escolas",
+    "biblioteca",
+    "bibliotecas",
+    "feira",
+    "feiras",
+    "parque",
+    "parques",
+    "mercado",
+    "mercados",
+    "mercado municipal",
+    "creche",
+    "creches",
+    "teatro",
+    "teatros",
+    "museu",
+    "museus",
+    "centro esportivo",
+    "centro comunitário",
+    "delegacia",
+    "cemitério",
+    "esportes",
+    "outros",
+    "serviço",
+    "posto de saude",
+    "posto de saúde",
+    "assistência social",
+    "terminal/estação de transporte",
+    "corpo de bombeiros",
+    "ponto de reciclagem",
+    "acessibilidade",
+  ]);
+
+  if (TYPE_ONLY.has(s)) return true;
+
+  const eng = raw.toLowerCase();
+  if (
+    ["library", "school", "hospital", "park", "museum", "theater", "other", "daycare", "cemetery"].includes(
+      eng,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Pergunta "Em qual bairro fica …?" com artigo correto em PT */
+export function buildServiceRatingBairroPrompt(serviceType: string | undefined): string {
+  const t = serviceType || "";
+  if (t === "ubs") {
+    return "Em qual **bairro** fica a **UBS** que você visitou?";
+  }
+  if (t === "ceu") {
+    return "Em qual **bairro** fica o **CEU** que você visitou?";
+  }
+  const noun = getServiceRatingNounPt(t);
+  const masculineArticleTypes = new Set([
+    "hospital",
+    "sports_center",
+    "community_center",
+    "park",
+    "market",
+    "city_market",
+    "theater",
+    "museum",
+    "cemetery",
+    "transit_station",
+    "police_station",
+    "fire_station",
+    "street_market",
+    "other",
+    "accessibility",
+    "recycling_point",
+  ]);
+  const art = masculineArticleTypes.has(t) ? "o" : "a";
+  return `Em qual **bairro** fica ${art} **${noun}** que você visitou?`;
 }
 
 // Extract service rating-specific fields
@@ -2956,15 +3198,9 @@ export function extractServiceFields(context: string): Record<string, unknown> {
   // Extract name/neighborhood from "UBS Butantã", "quero avaliar a UBS Butantã", etc.
   const typeNameMatch = context.match(/\b(ubs|hospital|escola|ceu|biblioteca|centro\s+esportivo)\s+([a-záàâãéèêíìóòôõúùç]+(?:\s+[a-záàâãéèêíìóòôõúùç]+)*?)(?=\s+que|\s*[.,!?]|$)/i);
   if (typeNameMatch) {
-    const typeKey = typeNameMatch[1].toLowerCase().replace(/\s+/, ' ');
     const namePart = typeNameMatch[2].trim();
     if (namePart.length >= 2 && namePart.length <= 50) {
-      const typeDisplay: Record<string, string> = {
-        ubs: 'UBS', hospital: 'Hospital', escola: 'Escola', ceu: 'CEU',
-        biblioteca: 'Biblioteca', 'centro esportivo': 'Centro esportivo',
-      };
-      const typeLabel = typeDisplay[typeKey] || capitalizeWords(typeKey);
-      fields.service_name = `${typeLabel} - ${capitalizeWords(namePart)}`;
+      // Só bairro/local — não preencher service_name com "UBS - X" (evita pular SERVICE_PICKER)
       fields.service_neighborhood = capitalizeWords(namePart);
     }
   }
@@ -5431,13 +5667,16 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        const derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+
         console.log('[create_urban_report] Attempting to insert report:', {
           userId,
           category: args.category,
           hasDescription: !!args.description,
           hasStreet: !!args.street,
           hasNeighborhood: !!args.neighborhood,
-          location_address
+          location_address,
+          derivedSeverity,
         });
         
         const { data, error } = await supabase
@@ -5466,6 +5705,7 @@ export async function executeTool(
             affected_estimate: args.affected_estimate || null,
             active_consequences: args.active_consequences || [],
             urgency_reason: args.urgency_reason || null,
+            severity: derivedSeverity,
             status: 'pending'
           })
           .select('id, protocol_code')
@@ -5480,6 +5720,31 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        if (args.risk_level) {
+          const desc = String(args.description || "").trim();
+          const snippet = desc.slice(0, 240);
+          const autoAgain = desc ? autoInferRisk(desc) : null;
+          const isAuto = String(args.urgency_reason || "").startsWith("Auto-inferido");
+          const justification =
+            (args.urgency_reason && String(args.urgency_reason).trim()) ||
+            `Nível de risco registrado na coleta estruturada: ${args.risk_level}.`;
+          await insertReportSeverityAuditLog(supabase, {
+            urban_report_id: data.id,
+            metric: "risk_level",
+            previous_value: null,
+            new_value: args.risk_level,
+            justification,
+            source_snippet: snippet || null,
+            confidence: isAuto && autoAgain?.confidence != null ? autoAgain.confidence : null,
+            metadata: {
+              risk_types: args.risk_types ?? [],
+              derived_severity: derivedSeverity,
+              category: args.category,
+              auto_inferred: isAuto,
+            },
+          });
+        }
         
         // Notify n8n
         try {
@@ -5808,6 +6073,26 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        const transportSeverityJustification =
+          validReportType === "seguranca"
+            ? "Política: relato classificado como 'seguranca' → severidade 'alta'."
+            : args.severity
+              ? `Severidade informada na coleta: ${args.severity}.`
+              : "Severidade padrão 'media' (sem valor explícito na coleta).";
+
+        await insertReportSeverityAuditLog(supabase, {
+          transport_report_id: data.id,
+          metric: "severity",
+          previous_value: null,
+          new_value: inferredSeverity,
+          justification: transportSeverityJustification,
+          source_snippet: String(args.description || "").trim().slice(0, 240) || null,
+          metadata: {
+            report_type: validReportType,
+            user_provided_severity: args.severity ?? null,
+          },
+        });
         
         // Notify n8n
         try {
@@ -6038,13 +6323,34 @@ export async function executeTool(
           return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
         }
         
+        const trimmedComment = args.rating_text.trim();
+        const { data: modStatus, error: modRpcError } = await supabase.rpc(
+          'compute_service_rating_publication_status',
+          { p_text: trimmedComment },
+        );
+        if (modRpcError) {
+          console.warn('[create_service_rating] moderation RPC error:', modRpcError.message);
+        }
+        const preModeration =
+          typeof modStatus === 'string' && ['published', 'pending_review', 'rejected'].includes(modStatus)
+            ? modStatus
+            : null;
+        if (preModeration === 'rejected') {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Remova links (http/https), evite palavrões ou insultos graves e tente de novo com um texto respeitoso sobre o atendimento.',
+          };
+        }
+
         console.log('[create_service_rating] Attempting to insert rating:', {
           userId,
           serviceId,
           visitId,
-          rating_stars: stars
+          rating_stars: stars,
+          moderation_preview: preModeration,
         });
-        
+
         const { data, error } = await supabase
           .from('service_ratings')
           .insert({
@@ -6052,17 +6358,28 @@ export async function executeTool(
             service_id: serviceId,
             visit_id: visitId,
             rating_stars: stars,
-            rating_text: args.rating_text.trim(),
-            sentiment: args.sentiment || 'neutral'
+            rating_text: trimmedComment,
+            sentiment: args.sentiment || 'neutral',
           })
-          .select('id')
+          .select('id, publication_status')
           .single();
-        
+
         if (error) {
           console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
           return {
             success: false,
             message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'
+          };
+        }
+
+        const publicationStatus = (data?.publication_status as string) || 'published';
+        if (publicationStatus === 'rejected') {
+          const { error: delErr } = await supabase.from('service_ratings').delete().eq('id', data.id);
+          if (delErr) console.warn('[create_service_rating] cleanup rejected row:', delErr.message);
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Ajuste o texto (sem links, linguagem adequada) e envie novamente.',
           };
         }
         
@@ -6074,13 +6391,20 @@ export async function executeTool(
         }
         
         console.log('[create_service_rating] Rating saved successfully:', {
-          id: data.id
+          id: data.id,
+          publication_status: publicationStatus,
         });
-        
-        return { 
-          success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
-          data: { id: data.id, type: 'rating' }
+
+        const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
+        const moderationNote =
+          publicationStatus === 'pending_review'
+            ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
+            : '';
+
+        return {
+          success: true,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }
       

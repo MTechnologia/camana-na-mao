@@ -1,17 +1,24 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Clock, Star, Bell, MapPin, Info } from "lucide-react";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { Phone, Clock, Star, Bell, Info, ExternalLink, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
-import { getAddressDisplay } from "@/lib/mapUtils";
+import { buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
+import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
+import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
+import type { ServiceLike } from "@/lib/serviceCorrectionFields";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
 function sanitizeServicesOfferedHtml(html: string): string {
@@ -44,11 +51,42 @@ function getOpeningHoursDisplay(
   return DEFAULT_OPENING_HOURS_BY_TYPE[type] ?? null;
 }
 
+function getOperationalStatusMeta(status: unknown): { label: string; className: string } | null {
+  if (status === "open") {
+    return {
+      label: "Aberto",
+      className: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    };
+  }
+  if (status === "closed") {
+    return {
+      label: "Fechado",
+      className: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+    };
+  }
+  if (status === "maintenance") {
+    return {
+      label: "Em manutenção",
+      className: "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    };
+  }
+  return null;
+}
+
 export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const [service, setService] = useState<{ id: string; name?: string; metadata?: Record<string, unknown> } | null>(null);
+  const { latitude: userLatitude, longitude: userLongitude } = useGeolocation();
+  const [service, setService] = useState<{
+    id: string;
+    name?: string;
+    metadata?: Record<string, unknown>;
+    capacity_info?: string | null;
+    average_rating?: number | null;
+    total_ratings?: number | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
@@ -311,6 +349,40 @@ export default function ServiceDetailPage() {
               <p className="text-sm text-muted-foreground">
                 {service.city} - {service.state}
               </p>
+              {(() => {
+                const lat = Number((service as { latitude?: unknown }).latitude);
+                const lng = Number((service as { longitude?: unknown }).longitude);
+                const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+                if (!hasCoords) return null;
+                const stateOrigin = (location.state as { originLat?: unknown; originLng?: unknown } | null) ?? null;
+                const originLat =
+                  typeof stateOrigin?.originLat === "number" && !Number.isNaN(stateOrigin.originLat)
+                    ? stateOrigin.originLat
+                    : userLatitude;
+                const originLng =
+                  typeof stateOrigin?.originLng === "number" && !Number.isNaN(stateOrigin.originLng)
+                    ? stateOrigin.originLng
+                    : userLongitude;
+                const hasUserCoords =
+                  typeof originLat === "number" &&
+                  typeof originLng === "number" &&
+                  !Number.isNaN(originLat) &&
+                  !Number.isNaN(originLng);
+                const mapsUrl = hasUserCoords
+                  ? buildGoogleMapsUrl(originLat, originLng, lat, lng)
+                  : `https://www.google.com/maps?q=${lat},${lng}`;
+                return (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Como chegar
+                  </a>
+                );
+              })()}
             </div>
 
             {service.phone && (
@@ -319,6 +391,19 @@ export default function ServiceDetailPage() {
                 <span className="text-sm text-muted-foreground">{service.phone}</span>
               </div>
             )}
+
+            {(() => {
+              const meta = getOperationalStatusMeta((service as { operational_status?: unknown }).operational_status);
+              if (!meta) return null;
+              return (
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-foreground text-sm">Status operacional</h3>
+                  <Badge variant="outline" className={meta.className}>
+                    {meta.label}
+                  </Badge>
+                </div>
+              );
+            })()}
 
             {/* Horário de funcionamento — sempre exibido (dado real ou orientação por tipo) */}
             <div className="space-y-1">
@@ -331,6 +416,19 @@ export default function ServiceDetailPage() {
                   "Horário não informado. Confirme na unidade."}
               </p>
             </div>
+
+            {/* Capacidade / indicador a partir de dados abertos (qt_vaga, área m², etc.) */}
+            {service.capacity_info && (
+              <div className="space-y-1">
+                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  Capacidade (dados abertos)
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {service.capacity_info}
+                </p>
+              </div>
+            )}
 
             {/* O que este serviço oferece — tipo, serviços e ambientes quando existirem */}
             <div className="space-y-1">
@@ -387,18 +485,47 @@ export default function ServiceDetailPage() {
               })()}
             </div>
 
-            <div className="pt-2 border-t border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <RatingStars rating={service.average_rating} readonly />
-                  <span className="text-sm text-muted-foreground">
-                    ({service.total_ratings} avaliações)
-                  </span>
+            <div className="pt-2 border-t border-border space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <RatingStars rating={service.average_rating ?? 0} readonly />
+                    <span className="text-sm text-muted-foreground">
+                      ({service.total_ratings ?? 0} avaliações)
+                    </span>
+                  </div>
+                  {(service.total_ratings ?? 0) > 0 && realServiceId ? (
+                    <a
+                      href="#historico-avaliacoes"
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                    >
+                      Ver histórico de avaliações individuais
+                    </a>
+                  ) : null}
                 </div>
               </div>
+              {needsVerificationForLowAverageRating(service.average_rating, service.total_ratings) && (
+                <Alert
+                  className="border-amber-600/40 bg-amber-500/10 text-amber-950 dark:text-amber-100 [&>svg]:text-amber-700 dark:[&>svg]:text-amber-300"
+                  role="status"
+                >
+                  <AlertTriangle className="h-4 w-4" aria-hidden />
+                  <AlertTitle>Média de avaliações abaixo de 2 estrelas</AlertTitle>
+                  <AlertDescription>
+                    Este equipamento está <strong>sinalizado para verificação</strong>. A média considera apenas
+                    avaliações publicadas.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        <ServiceRatingsHistorySection
+          serviceId={realServiceId}
+          currentUserId={user?.id ?? null}
+          id="historico-avaliacoes"
+        />
 
         {/* Actions */}
         <div className="space-y-2">
@@ -420,6 +547,13 @@ export default function ServiceDetailPage() {
             <Bell className="w-4 h-4 mr-2" />
             {isSubscribed ? "Deixar de acompanhar" : "Acompanhar atualizações"}
           </Button>
+
+          <ServiceCorrectionSuggestSection
+            service={service as ServiceLike}
+            realServiceId={realServiceId}
+            userId={user?.id ?? null}
+            onRequestLogin={() => toast.error("Faça login para sugerir uma correção.")}
+          />
         </div>
       </div>
 

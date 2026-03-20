@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { SimulatedMap } from './SimulatedMap';
+import type { MapFocusOnService } from './GoogleMapView';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MapOverlayLayersPanel } from './MapOverlayLayersPanel';
 import { useGeoSampaOverlay } from '@/hooks/useGeoSampaOverlay';
@@ -14,6 +15,11 @@ interface Service {
   latitude: number;
   longitude: number;
   distance?: number;
+  /** Agregados public_services (avaliações publicadas) — mapa pode sinalizar média baixa */
+  average_rating?: number;
+  total_ratings?: number;
+  address?: string;
+  district?: string;
 }
 
 interface MapViewProps {
@@ -24,6 +30,8 @@ interface MapViewProps {
   distanceLabel?: "walking" | "driving" | "straight";
   /** Tipos de serviço ativos no filtro – a legenda do mapa lista estes (OS-05). */
   activeServiceTypes?: string[];
+  /** Google Maps: centralizar no equipamento após busca/seleção (ignorado no mapa simulado). */
+  focusOnService?: MapFocusOnService | null;
 }
 
 const MapLoader = () => (
@@ -35,7 +43,14 @@ const MapLoader = () => (
   </div>
 );
 
-export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight", activeServiceTypes = [] }: MapViewProps) => {
+export const MapView = ({
+  userLocation,
+  services,
+  onServiceClick,
+  distanceLabel = "straight",
+  activeServiceTypes = [],
+  focusOnService = null,
+}: MapViewProps) => {
   const googleMapsKey = getGoogleMapsApiKey();
   const useGoogleMaps = !!googleMapsKey;
 
@@ -62,6 +77,7 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
             activeServiceTypes={activeServiceTypes}
             overlayLayers={overlayLayers}
             wmsImageamentoEnabled={wmsImageamentoEnabled}
+            focusOnService={focusOnService}
           />
         </div>
       </Suspense>
