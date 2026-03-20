@@ -1069,6 +1069,7 @@ export type Database = {
           opening_hours: Json | null
           operational_status: Database["public"]["Enums"]["operational_status"] | null
           phone: string | null
+          search_tsv: unknown | null
           service_type: Database["public"]["Enums"]["service_type"]
           services_offered: string | null
           state: string
@@ -2228,6 +2229,21 @@ export type Database = {
       compute_service_rating_publication_status: {
         Args: { p_text: string }
         Returns: string
+      }
+      search_public_services_fulltext: {
+        Args: {
+          center_lat: number
+          center_lng: number
+          max_lat: number
+          max_lng: number
+          min_lat: number
+          min_lng: number
+          radius_meters: number
+          result_limit?: number
+          search_query: string
+          service_types?: string[] | null
+        }
+        Returns: Database["public"]["Tables"]["public_services"]["Row"][]
       }
       get_user_service_ratings_stats: {
         Args: Record<string, never>
