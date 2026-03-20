@@ -28,7 +28,11 @@ import { Link } from "react-router-dom";
 import { ClipboardList, RefreshCw, Search, Building2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useServiceCorrectionsAdmin, type ServiceCorrectionRow } from "@/hooks/useServiceCorrectionsAdmin";
-import { correctionFieldLabel } from "@/lib/serviceCorrectionFields";
+import {
+  correctionDisplayLabel,
+  correctionFieldLabel,
+  correctionTypeLabel,
+} from "@/lib/serviceCorrectionFields";
 
 function statusBadge(status: string | null) {
   switch (status) {
@@ -155,7 +159,7 @@ export default function ServiceCorrectionsManagement() {
                             <div className="flex items-center gap-2 flex-wrap">
                               {statusBadge(row.status)}
                               <span className="font-medium truncate">
-                                {correctionFieldLabel(row.field_name)}
+                                {correctionDisplayLabel(row.correction_type, row.field_name)}
                               </span>
                             </div>
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -205,8 +209,14 @@ export default function ServiceCorrectionsManagement() {
               <div className="space-y-4 text-sm">
                 <div>{statusBadge(detail.status)}</div>
                 <div>
-                  <span className="text-muted-foreground">Campo:</span>{" "}
-                  {correctionFieldLabel(detail.field_name)}
+                  <span className="text-muted-foreground">Tipo:</span>{" "}
+                  {correctionTypeLabel(detail.correction_type)}
+                  {detail.field_name ? (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · detalhe: {correctionFieldLabel(detail.field_name)}
+                    </span>
+                  ) : null}
                 </div>
                 <div>
                   <span className="text-muted-foreground">Valor de referência (no app):</span>
@@ -215,11 +225,28 @@ export default function ServiceCorrectionsManagement() {
                   </p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Sugestão do munícipe:</span>
+                  <span className="text-muted-foreground">Descrição / sugestão:</span>
                   <p className="mt-1 rounded-md border p-2 whitespace-pre-wrap break-words">
                     {detail.suggested_value}
                   </p>
                 </div>
+                {detail.evidence_photo_url ? (
+                  <div className="space-y-2">
+                    <span className="text-muted-foreground">Evidência (foto):</span>
+                    <a
+                      href={detail.evidence_photo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-md border overflow-hidden max-w-sm"
+                    >
+                      <img
+                        src={detail.evidence_photo_url}
+                        alt="Evidência enviada pelo munícipe"
+                        className="w-full h-auto max-h-64 object-contain bg-muted/30"
+                      />
+                    </a>
+                  </div>
+                ) : null}
                 <div>
                   <span className="text-muted-foreground">Munícipe:</span>{" "}
                   {detail.submitter?.full_name} ({detail.user_id.slice(0, 8)}…)

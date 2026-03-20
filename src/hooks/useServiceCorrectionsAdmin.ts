@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { correctionFieldLabel } from "@/lib/serviceCorrectionFields";
+import { correctionDisplayLabel, correctionTypeLabel } from "@/lib/serviceCorrectionFields";
 
 export type ServiceCorrectionRow = Database["public"]["Tables"]["service_corrections"]["Row"] & {
   public_services?: {
@@ -103,10 +103,12 @@ export function useServiceCorrectionsAdmin() {
     if (!searchTerm.trim()) return true;
     const t = searchTerm.toLowerCase();
     const svc = r.public_services;
+    const typeLbl = correctionTypeLabel(r.correction_type).toLowerCase();
     return (
       r.suggested_value.toLowerCase().includes(t) ||
       (r.current_value ?? "").toLowerCase().includes(t) ||
-      correctionFieldLabel(r.field_name).toLowerCase().includes(t) ||
+      typeLbl.includes(t) ||
+      correctionDisplayLabel(r.correction_type, r.field_name).toLowerCase().includes(t) ||
       (svc?.name ?? "").toLowerCase().includes(t) ||
       (r.submitter?.full_name ?? "").toLowerCase().includes(t)
     );

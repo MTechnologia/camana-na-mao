@@ -1,6 +1,39 @@
 import type { Json } from "@/integrations/supabase/types";
 
-/** Chaves persistidas em service_corrections.field_name */
+/** Tipos do formulário de sugestão (coluna correction_type). */
+export const SERVICE_CORRECTION_TYPES = [
+  {
+    value: "horario" as const,
+    label: "Horário de funcionamento",
+    hint: "Horários incorretos ou desatualizados.",
+  },
+  {
+    value: "servico" as const,
+    label: "Serviço / informações do local",
+    hint: "O que o equipamento oferece, telefone, status, capacidade etc.",
+  },
+  {
+    value: "localizacao" as const,
+    label: "Localização",
+    hint: "Endereço, bairro, CEP ou ponto no mapa.",
+  },
+  {
+    value: "outro" as const,
+    label: "Outro",
+    hint: "Qualquer outra correção relacionada a este equipamento.",
+  },
+] as const;
+
+export type ServiceCorrectionTypeValue = (typeof SERVICE_CORRECTION_TYPES)[number]["value"];
+
+const CORRECTION_TYPE_LABELS: Record<ServiceCorrectionTypeValue, string> = {
+  horario: "Horário de funcionamento",
+  servico: "Serviço / informações do local",
+  localizacao: "Localização",
+  outro: "Outro",
+};
+
+/** Chaves legadas em service_corrections.field_name (formulário antigo). */
 export const SERVICE_CORRECTION_FIELDS = [
   { key: "name", label: "Nome do equipamento" },
   { key: "address", label: "Endereço (logradouro)" },
@@ -80,4 +113,30 @@ export function getCorrectionCurrentValue(
 export function correctionFieldLabel(fieldKey: string): string {
   const f = SERVICE_CORRECTION_FIELDS.find((x) => x.key === fieldKey);
   return f?.label ?? fieldKey;
+}
+
+export function correctionTypeLabel(type: string | null | undefined): string {
+  if (!type) return "—";
+  return CORRECTION_TYPE_LABELS[type as ServiceCorrectionTypeValue] ?? type;
+}
+
+/** Rótulo para lista admin: tipo atual + detalhe legado opcional. */
+export function correctionDisplayLabel(
+  correctionType: string | null | undefined,
+  fieldName: string | null | undefined,
+): string {
+  const main = correctionTypeLabel(correctionType);
+  if (fieldName?.trim()) {
+    return `${main} · ${correctionFieldLabel(fieldName)}`;
+  }
+  return main;
+}
+
+/** Resumo do equipamento para current_value (contexto na moderação). */
+export function getServiceContextSummary(service: ServiceLike): string {
+  const parts = [
+    service.name?.trim(),
+    [service.address, service.district].filter(Boolean).join(", "),
+  ].filter(Boolean);
+  return parts.join(" — ") || "(sem resumo)";
 }

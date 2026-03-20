@@ -548,12 +548,30 @@ export default function ServiceDetailPage() {
             {isSubscribed ? "Deixar de acompanhar" : "Acompanhar atualizações"}
           </Button>
 
-          <ServiceCorrectionSuggestSection
-            service={service as ServiceLike}
-            realServiceId={realServiceId}
-            userId={user?.id ?? null}
-            onRequestLogin={() => toast.error("Faça login para sugerir uma correção.")}
-          />
+          <Card
+            id="sugerir-correcao-cadastro"
+            className="border-primary/20 bg-primary/[0.03]"
+            role="region"
+            aria-label="Sugestão de correção de dados do equipamento"
+          >
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1">
+                <h2 className="text-base font-semibold text-foreground">
+                  Dados incorretos ou desatualizados?
+                </h2>
+                <p className="text-sm text-muted-foreground leading-snug">
+                  Se alguma informação deste equipamento estiver errada no app, você pode sugerir a correção.
+                  Nossa equipe analisa e atualiza o cadastro quando for o caso.
+                </p>
+              </div>
+              <ServiceCorrectionSuggestSection
+                service={service as ServiceLike}
+                realServiceId={realServiceId}
+                userId={user?.id ?? null}
+                onRequestLogin={() => toast.error("Faça login para sugerir uma correção.")}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
 
