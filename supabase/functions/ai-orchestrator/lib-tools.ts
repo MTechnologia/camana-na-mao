@@ -6,7 +6,7 @@ export const tools = [
     type: "function",
     function: {
       name: "classify_report_category",
-      description: "Classifica a categoria do relato urbano. CHAMAR APENAS quando o cidadão DESCREVER um problema específico (ex: 'poste apagado', 'buraco na rua', 'bueiro entupido'). NÃO CHAMAR para mensagens genéricas como 'quero relatar um problema' ou 'problema na cidade'. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
+      description: "Classifica a categoria do relato urbano (eixo técnico: iluminação, via, esgoto, etc.). CHAMAR quando o cidadão DESCREVER algo específico — inclui reclamações, mas também sugestões ou elogios sobre infraestrutura (ex.: 'parabéns pela limpeza da praça' → area_verde ou outro com label positivo). NÃO CHAMAR para mensagens genéricas sem conteúdo. Se confiança >= 80%, classificar automaticamente. Se < 80%, perguntar entre 2-3 opções. SEMPRE gerar subcategory_label intuitivo.",
       parameters: {
         type: "object",
         properties: {
@@ -102,10 +102,15 @@ export const tools = [
     type: "function",
     function: {
       name: "create_urban_report",
-      description: "Registra problema urbano ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Para categorias de risco (via_publica, iluminacao, esgoto, area_verde), coletar também dados de impacto.",
+      description: "Registra relato urbano (reclamação, dúvida, sugestão ou elogio) ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Preencher report_nature quando o cidadão deixou claro. Para categorias de risco (via_publica, iluminacao, esgoto, area_verde), coletar também dados de impacto.",
       parameters: {
         type: "object",
         properties: {
+          report_nature: {
+            type: "string",
+            enum: ["reclamacao", "duvida", "sugestao", "elogio"],
+            description: "Natureza conversacional: reclamacao (problema), duvida, sugestao (melhoria), elogio (reconhecimento positivo). Se não souber, usar reclamacao."
+          },
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],

@@ -11,7 +11,7 @@ export default function UrbanReportPage() {
     {
       id: 1,
       title: "Conversar com IA",
-      description: "Relate problemas urbanos com ajuda inteligente da IA",
+      description: "Reclamações, dúvidas, sugestões ou elogios sobre a cidade, com ajuda da IA",
       icon: MessageSquare,
       color: "text-purple-500",
       bgColor: "bg-purple-50",

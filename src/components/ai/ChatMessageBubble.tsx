@@ -454,6 +454,10 @@ const ChatMessageBubble = ({
       registrar: 'Registrar',
       confirmar: 'Confirmar',
       corrigir: 'Corrigir',
+      reclamacao: 'Reclamação',
+      duvida: 'Dúvida',
+      sugestao: 'Sugestão',
+      elogio: 'Elogio',
     };
     return values.map((value) => ({
       value,

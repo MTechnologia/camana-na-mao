@@ -4,6 +4,8 @@
  */
 
 export type ParsedUrbanReportPreview = {
+  /** Natureza: reclamação, dúvida, sugestão, elogio (quando presente no resumo). */
+  nature?: string;
   category: string;
   description: string;
   address: string;
@@ -23,6 +25,7 @@ export function parseUrbanReportPreview(text: string): ParsedUrbanReportPreview 
     .replace(/\*\*/g, "")
     .trim();
 
+  const natureM = mainPart.match(/•\s*\*\*Natureza:\*\*\s*(.+)/i);
   const catM = mainPart.match(/•\s*\*\*Categoria:\*\*\s*(.+)/i);
   const descM = mainPart.match(/•\s*\*\*Descrição:\*\*\s*(.+)/i);
   const addrM = mainPart.match(/•\s*\*\*Endereço:\*\*\s*(.+)/i);
@@ -31,6 +34,7 @@ export function parseUrbanReportPreview(text: string): ParsedUrbanReportPreview 
   if (!catM?.[1]?.trim()) return null;
 
   return {
+    nature: natureM?.[1]?.trim(),
     category: catM[1].trim(),
     description: descM?.[1]?.trim() || "—",
     address: addrM?.[1]?.trim() || "—",

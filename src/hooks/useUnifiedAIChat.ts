@@ -349,6 +349,25 @@ export const useUnifiedAIChat = (
       const raw = content.trim();
       const rawLower = raw.toLowerCase();
 
+      // Natureza (reclamação, dúvida, sugestão, elogio) — resposta rápida ou texto curto
+      if (!collectedFields.report_nature) {
+        const askedNature =
+          lastAssistantLower.includes('[field_request:report_nature]') ||
+          lastAssistantLower.includes('tipo do seu relato');
+        if (askedNature && raw.length <= 32) {
+          const nk = rawLower.normalize('NFD').replace(/\p{M}/gu, '');
+          const map: Record<string, string> = {
+            reclamacao: 'reclamacao',
+            duvida: 'duvida',
+            sugestao: 'sugestao',
+            elogio: 'elogio',
+          };
+          if (map[nk]) {
+            setCollectedFields((prev) => ({ ...prev, report_nature: map[nk] }));
+          }
+        }
+      }
+
       // ========== CEP DETECTION (typed manually) ==========
       // If assistant asked for CEP and user provides 8 digits, capture immediately
       const cepPattern = /\b(\d{5})-?(\d{3})\b/;
@@ -541,6 +560,13 @@ export const useUnifiedAIChat = (
           lastAssistantLower.includes('mais detalhes') ||
           lastAssistantLower.includes('o que está acontecendo') ||
           lastAssistantLower.includes('qual o problema') ||
+          lastAssistantLower.includes('sua dúvida') ||
+          lastAssistantLower.includes('sua duvida') ||
+          lastAssistantLower.includes('sua sugestão') ||
+          lastAssistantLower.includes('sua sugestao') ||
+          lastAssistantLower.includes('quer elogiar') ||
+          lastAssistantLower.includes('funcionando bem') ||
+          lastAssistantLower.includes('ideia de melhoria') ||
           lastAssistantLower.includes('[field_request:description]');
         
         // Helper to detect generic intent phrases (same logic as backend)
@@ -550,6 +576,7 @@ export const useUnifiedAIChat = (
             /^quero\s*(relatar|reportar|fazer|registrar)/i,
             /^preciso\s*(relatar|reportar|fazer|registrar)/i,
             /^tenho\s*um\s*(problema|relato)/i,
+            /quero\s*falar\s+sobre\s+a\s+cidade/i,
             /^(sim|não|nao|ok|pode|quero|desejo|aceito)$/i,
             /^quero\s*avaliar/i,
             // Journey switch phrases (must NOT be treated as descriptions)
@@ -1410,6 +1437,7 @@ export const useUnifiedAIChat = (
     
     const configs: Record<string, { key: string; required: boolean; requiredFor?: string[]; requiredWhen?: { field: string; values: string[] } }[]> = {
       urban_report: [
+        { key: 'report_nature', required: true },
         { key: 'category', required: true },
         { key: 'description', required: true },
         { key: 'street', required: true },
