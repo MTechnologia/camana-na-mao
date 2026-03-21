@@ -231,7 +231,7 @@ serve(async (req) => {
     const lastAssistantContent = messages?.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
     const lastUserTextEarly = getContentText(lastUserContent).trim();
     const lastAssistantTextEarly = getContentText(lastAssistantContent).toLowerCase();
-    const botJustRegisteredReport = /relato\s+registrado|URB-2026-\d+/.test(lastAssistantTextEarly);
+    const botJustRegisteredReport = /relato\s+registrado|(?:URB|REL)-20\d{2}-\d+/.test(lastAssistantTextEarly);
     const userAsksForwardToCouncil = /(encaminhar|enviar|mandar)\s+(meu\s+)?relato\s+para\s+(um\s+)?vereador|poderia\s+encaminhar\s+meu\s+relato|enviar\s+meu\s+relato\s+para\s+vereador/i.test(lastUserTextEarly);
     if (botJustRegisteredReport && userAsksForwardToCouncil && Array.isArray(messages) && messages.length >= 2) {
       const catMatch = getContentText(lastAssistantContent).match(/Categoria:\s*\*?\*?\s*([^\n]+)/i);
@@ -691,13 +691,27 @@ serve(async (req) => {
     ): Promise<{ field: string | null; picker: string | null; prompt: string | null }> {
       
       if (collectionType === 'urban_report') {
+        // 0. Natureza do relato (reclamação, dúvida, sugestão, elogio) — jornada explícita (PO)
+        const natureRaw = fields.report_nature;
+        const natureStr = natureRaw != null ? String(natureRaw).trim() : '';
+        const natureOk = (lib.URBAN_REPORT_NATURE_VALUES as readonly string[]).includes(natureStr);
+        if (!natureOk) {
+          return {
+            field: 'report_nature',
+            picker: null,
+            prompt:
+              '[FIELD_REQUEST:report_nature]Antes de começarmos, qual é o **tipo do seu relato** sobre a cidade?\n\n[QUICK_REPLY:reclamacao,duvida,sugestao,elogio]',
+          };
+        }
+
         // === NEW FLOW: Description FIRST, then category, then location ===
         
         // 1. DESCRIPTION first - let user tell us what's happening
         // CRITICAL: Use centralized NLP validation (isValidDomainDescription)
         const description = fields.description || '';
         const isGeneric = lib.isGenericIntentText(description);
-        const descToCheck = isGeneric ? '' : description;
+        const isBareNature = lib.isBareUrbanReportNatureReply(String(description));
+        const descToCheck = isGeneric || isBareNature ? '' : description;
         const isValidDesc = lib.isValidDomainDescription(descToCheck, 'urban');
         
         console.log('[getNextMissingField] Urban description check:', {
@@ -706,8 +720,18 @@ serve(async (req) => {
           isValidDesc
         });
         
-        if (!isValidDesc)
-          return { field: 'description', picker: null, prompt: '**O que está acontecendo?** Me conta o problema.' };
+        if (!isValidDesc) {
+          const nk = natureStr || 'reclamacao';
+          const descPrompts: Record<string, string> = {
+            reclamacao: '**O que está acontecendo?** Me conta o problema.',
+            duvida: '**Qual é sua dúvida** sobre a cidade, um serviço ou a infraestrutura? Descreva com o máximo de detalhes.',
+            sugestao: '**Qual é sua sugestão ou ideia de melhoria?** Conte o que você imagina e, se souber, onde se aplica.',
+            elogio: '**O que você quer elogiar?** Conte o que está funcionando bem e quem ou o quê fez diferença.',
+          };
+          const descPrompt =
+            descPrompts[nk] || '**Conte mais:** o que você gostaria de registrar sobre a cidade?';
+          return { field: 'description', picker: null, prompt: descPrompt };
+        }
         
         // 1b. Abrangência: relatos só São Paulo — se já temos endereço/CEP com cidade (ex. Guarulhos), informar logo
         const cepDigitsEarly = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
@@ -782,7 +806,7 @@ serve(async (req) => {
             } else {
               // First time - ask with expanded options including "outro"
               fields._asked_category = true;
-              return { field: 'category', picker: null, prompt: 'Qual **tipo de problema** é esse? (iluminação, buraco, esgoto, lixo, barulho, ou descreva o problema)' };
+              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
             }
             }
           }
@@ -1114,7 +1138,7 @@ serve(async (req) => {
     const userMessagesOrdered = messages.filter((m: Record<string, unknown>) => m.role === 'user');
 
     // Encaminhar relato para vereador: se a última resposta do bot foi "Relato registrado com sucesso" e o usuário pede para encaminhar para vereador, NÃO criar novo relato — chamar suggest_council_member
-    const lastBotWasReportSuccess = /relato\s+registrado\s+com\s+sucesso|URB-2026-\d+/.test(lastAssistantLower);
+    const lastBotWasReportSuccess = /relato\s+registrado\s+com\s+sucesso|(?:URB|REL)-20\d{2}-\d+/.test(lastAssistantLower);
     const userWantsForwardToCouncil = /(encaminhar|enviar)\s+(meu\s+)?relato\s+para\s+(um\s+)?vereador|(poderia\s+)?encaminhar\s+meu\s+relato\s+para\s+um\s+vereador|enviar\s+meu\s+relato\s+para\s+vereador/i.test(lastUserMessage.trim());
     if (lastBotWasReportSuccess && userWantsForwardToCouncil) {
       const catMatch = lastAssistantMessage.match(/Categoria:\s*\*?\*?\s*([^\n]+)/i);
@@ -1406,7 +1430,7 @@ serve(async (req) => {
 
             // 1) Ainda não perguntamos se quer anexar → perguntar (botões Sim/Não no front)
             if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
-              const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema relatado?**[QUICK_REPLY:sim,não]`;
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
               console.log('[ai-orchestrator] Urban report: asking photo choice');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -1431,11 +1455,15 @@ serve(async (req) => {
               };
               const cat = String(accumulatedFields.category || '');
               const catLabel = catLabels[cat] || cat;
+              const natureK = String(accumulatedFields.report_nature || 'reclamacao');
+              const natureLabel =
+                lib.REPORT_NATURE_LABELS[natureK as keyof typeof lib.REPORT_NATURE_LABELS] || natureK;
               const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
                 .filter(Boolean).join(', ');
               const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
               const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
 
+• **Natureza:** ${natureLabel}
 • **Categoria:** ${catLabel}
 • **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
 • **Endereço:** ${addr}${neighborhood}
@@ -1467,6 +1495,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const toolArgs: Record<string, unknown> = {
                 category: accumulatedFields.category,
                 subcategory: accumulatedFields.subcategory,
+                report_nature: accumulatedFields.report_nature,
                 description: accumulatedFields.description,
                 cep: accumulatedFields.cep,
                 street: accumulatedFields.street,
@@ -1497,6 +1526,9 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               };
               const cat = String(accumulatedFields.category || '');
               const catLabel = catLabels[cat] || cat;
+              const natureK2 = String(accumulatedFields.report_nature || 'reclamacao');
+              const natureLabel2 =
+                lib.REPORT_NATURE_LABELS[natureK2 as keyof typeof lib.REPORT_NATURE_LABELS] || natureK2;
               const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
                 .filter(Boolean).join(', ');
               const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
@@ -1504,6 +1536,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n`
                 : '';
               const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+• **Natureza:** ${natureLabel2}
 • **Categoria:** ${catLabel}
 • **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
 • **Endereço:** ${addr}${neighborhood}${photoLine}
@@ -1941,7 +1974,12 @@ ${empathyNote}
     const accumulatedDesc = accumulatedFields?.description || '';
     const hasUrgentInDescription = accumulatedDesc && urgentPatterns.some(pattern => pattern.test(accumulatedDesc.toLowerCase()));
     
-    if (isGreeting || isEmpathyRequest || isGenericReport || isOffTopic) {
+    // Não responder com saudação/"descreva o problema" se a jornada urbana exige escolher natureza do relato primeiro
+    const skipDeterministicForUrbanNature =
+      collectionIntent?.type === 'urban_report' &&
+      nextFieldInfo.field === 'report_nature';
+
+    if (!skipDeterministicForUrbanNature && (isGreeting || isEmpathyRequest || isGenericReport || isOffTopic)) {
       console.log('[ai-orchestrator] Deterministic response detected:', { isGreeting, isEmpathyRequest, isGenericReport, isOffTopic, isUrgent, msgLower });
 
       // Mensagem sem relação com os serviços: saudação + desculpa + lista de serviços

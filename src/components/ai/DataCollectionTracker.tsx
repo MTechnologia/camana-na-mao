@@ -12,6 +12,12 @@ export interface CollectedFields {
 
 // Human-readable labels for field values
 const VALUE_LABELS: Record<string, Record<string, string>> = {
+  report_nature: {
+    reclamacao: 'Reclamação',
+    duvida: 'Dúvida',
+    sugestao: 'Sugestão',
+    elogio: 'Elogio',
+  },
   risk_level: {
     critical: 'Crítico',
     moderate: 'Moderado',
@@ -107,6 +113,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     title: "Experiência Urbana",
     icon: FileText,
     fields: [
+      { key: 'report_nature', label: 'Natureza', required: true },
       { key: 'category', label: 'Categoria', required: true },
       { key: 'subcategory', label: 'Tipo', required: false },
       { key: 'description', label: 'Descrição', required: true },

@@ -1,4 +1,8 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import {
+  TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
+  URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
+} from "./lib-urban-tramite.ts";
 
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
@@ -908,6 +912,10 @@ export const INTENT_KEYWORDS = [
   'relatar um problema', 'problema na cidade', 'problema no transporte',
   'avaliar um serviço', 'me diz o que está acontecendo', 'qual linha e o que aconteceu',
   'quero relatar um problema', 'problema urbano',
+  // Entrada manual ampla (sem "quero fazer") — sem isso detectCollectionIntent retorna null e cai na LLM genérica
+  'falar sobre a cidade',
+  'abrir um relato',
+  'relato na cidade',
   
   // === Verbos de ação explícitos ===
   'quero reclamar', 'preciso relatar', 'quero reportar', 'aconteceu',
@@ -1207,11 +1215,103 @@ export async function geocodeAddressWithGoogle(
   }
 }
 
+/** Monta linha curta a partir do objeto address do Nominatim (reverse). */
+function formatNominatimReverseAddress(addr: Record<string, string | undefined> | undefined): string | null {
+  if (!addr) return null;
+  const road = addr.road || addr.pedestrian || addr.path || addr.residential;
+  const num = addr.house_number;
+  const suburb = addr.suburb || addr.neighbourhood || addr.city_district || addr.quarter;
+  if (road && suburb) {
+    return num ? `${road}, ${num} - ${suburb}` : `${road} - ${suburb}`;
+  }
+  if (road) return num ? `${road}, ${num}` : road;
+  return null;
+}
+
+/**
+ * GPS → endereço legível para o cidadão no chat (ex.: "Rua Augusta, 1200 - Consolação").
+ * Tenta Google Geocoding API se GOOGLE_MAPS_API_KEY existir; senão Nominatim (OSM).
+ */
+export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const key = Deno.env.get('GOOGLE_MAPS_API_KEY')?.trim();
+  if (key) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${key}&language=pt-BR`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status === 'OK' && data.results?.[0]?.formatted_address) {
+        return String(data.results[0].formatted_address).trim();
+      }
+      if (data.status && data.status !== 'ZERO_RESULTS') {
+        console.warn('[reverseGeocodeLatLon] Google:', data.status, data.error_message ?? '');
+      }
+    } catch (e) {
+      console.warn('[reverseGeocodeLatLon] Google request failed:', e);
+    }
+  }
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      format: 'json',
+      'accept-language': 'pt-BR',
+    })}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fromAddr = formatNominatimReverseAddress(data.address);
+    if (fromAddr) return fromAddr;
+    const dn = typeof data.display_name === 'string' ? data.display_name.trim() : '';
+    if (dn) {
+      const parts = dn.split(',').map((p: string) => p.trim()).filter(Boolean);
+      return parts.slice(0, 4).join(', ') || dn;
+    }
+  } catch (e) {
+    console.warn('[reverseGeocodeLatLon] Nominatim failed:', e);
+  }
+  return null;
+}
+
 // Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
   'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
   'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
 ] as const;
+
+/** Natureza conversacional do relato (PO: elogio e sugestão explícitos, além de reclamação e dúvida). */
+export const URBAN_REPORT_NATURE_VALUES = ['reclamacao', 'duvida', 'sugestao', 'elogio'] as const;
+export type UrbanReportNature = (typeof URBAN_REPORT_NATURE_VALUES)[number];
+
+export const REPORT_NATURE_LABELS: Record<UrbanReportNature, string> = {
+  reclamacao: 'Reclamação',
+  duvida: 'Dúvida',
+  sugestao: 'Sugestão',
+  elogio: 'Elogio',
+};
+
+export function normalizeReportNature(raw: string | undefined | null): UrbanReportNature | null {
+  if (raw == null || String(raw).trim() === '') return null;
+  const s = String(raw).trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  if (/^reclam/.test(s) || s === 'reclamacao') return 'reclamacao';
+  if (/^duvid/.test(s) || s === 'duvida') return 'duvida';
+  if (/^sugest/.test(s) || s === 'sugestao') return 'sugestao';
+  if (/^elog/.test(s) || s === 'elogio') return 'elogio';
+  return null;
+}
+
+/**
+ * Resposta só com a natureza (chip/botão: reclamação, dúvida…), sem narrar o fato.
+ * Não pode ser tratada como `description` — senão o fluxo pula "o que aconteceu".
+ */
+export function isBareUrbanReportNatureReply(text: string): boolean {
+  const t = text.trim().replace(/\.+$/g, '').trim();
+  if (!t || t.length > 28) return false;
+  if (/\s/.test(t)) return false;
+  return normalizeReportNature(t) !== null;
+}
 
 // State to track if category has been classified via AI for current conversation
 export const classifiedCategories = new Map<string, { category: string; confidence: number; user_confirmed: boolean }>();
@@ -1266,6 +1366,12 @@ export function isGenericIntentText(text: string): boolean {
     // === JOURNEY SWITCH PHRASES (must NOT be treated as descriptions) ===
     // These trigger journey switching via detect_user_intent
     /quero\s*falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
+    // "sobre a cidade" (artigo) — chip/manual; sem isso vira description falsa e pula o relato
+    /^quero\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^preciso\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^quero\s+falar\s+da\s+cidade\b/i,
+    /^preciso\s+falar\s+da\s+cidade\b/i,
+    /\bquero\s+falar\s+sobre\s+a\s+cidade\s*[—–-]\s*pode\s+ser\b/i,
     /falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
     /mudar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
     /trocar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
@@ -1834,6 +1940,15 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
   const result: Record<string, unknown> = {};
   
   switch (fieldType) {
+    case 'report_nature': {
+      const n = normalizeReportNature(response);
+      if (n) {
+        result.report_nature = n;
+        console.log('[parseFieldResponse] report_nature:', n);
+      }
+      break;
+    }
+
     case 'cep': {
       // CEP numérico (8 dígitos)
       const cepMatch = response.match(/\b(\d{5}[-]?\d{3})\b/);
@@ -2348,7 +2463,8 @@ export function accumulateFieldsFromHistory(
         const isGeneric = isGenericIntentText(msg.content);
         
         // USE CENTRALIZED NLP: accepts 8+ chars with keyword OR 20+ chars OR 15+ with keyword
-        if (!isStructured && !isGeneric && isValidDomainDescription(msg.content, domain)) {
+        const bareNature = collectionType === 'urban_report' && isBareUrbanReportNatureReply(msg.content);
+        if (!isStructured && !isGeneric && !bareNature && isValidDomainDescription(msg.content, domain)) {
           accumulated.description = msg.content.trim();
           console.log('[accumulateFields] Auto-detected description via isValidDomainDescription:', { 
             length: msg.content.length, 
@@ -2573,10 +2689,16 @@ export function accumulateFieldsFromHistory(
         }
         
         // === DESCRIPTION detection from detailed questions (NLP-based) ===
-        if ((question.includes('me conte mais') || question.includes('descreva') || 
+        if ((question.includes('me conte mais') || question.includes('descreva') ||
              question.includes('mais detalhes') || question.includes('o que está acontecendo') ||
-             question.includes('qual o problema') || question.includes('qual é o problema')) && 
-            isValidDomainDescription(answer, 'urban') && !accumulated.description) {
+             question.includes('qual o problema') || question.includes('qual é o problema') ||
+             question.includes('sua dúvida') || question.includes('sua duvida') ||
+             question.includes('sua sugestão') || question.includes('sua sugestao') ||
+             question.includes('quer elogiar') || question.includes('funcionando bem') ||
+             question.includes('ideia de melhoria') || question.includes('conta o que')) &&
+            isValidDomainDescription(answer, 'urban') &&
+            !isBareUrbanReportNatureReply(answer) &&
+            !accumulated.description) {
           accumulated.description = answer;
         }
       }
@@ -2616,6 +2738,20 @@ export function accumulateFieldsFromHistory(
           } else {
             Object.assign(accumulated, parsedFields);
           }
+        }
+      }
+    }
+
+    // Botões rápidos / resposta curta: reclamacao, elogio, sugestao, duvida
+    if (!accumulated.report_nature) {
+      for (const msg of messages) {
+        if (msg.role !== 'user') continue;
+        const t = msg.content.trim();
+        if (t.length > 48) continue;
+        const n = normalizeReportNature(t);
+        if (n) {
+          accumulated.report_nature = n;
+          break;
         }
       }
     }
@@ -3539,7 +3675,20 @@ export function detectCollectionIntent(
     'tem um buraco', 'poste apagado', 'lixo acumulado', 'quero abrir um chamado',
     'quero registrar um problema urbano', 'relatar problema urbano', 'fazer um relato urbano',
     'problema na rua', 'problema no bairro', 'problema de infraestrutura',
-    'quero falar de problema', 'quero falar sobre cidade', 'quero falar sobre problema'
+    'quero falar de problema', 'quero falar sobre cidade', 'quero falar sobre problema',
+    'quero fazer um elogio', 'quero elogiar', 'fazer um elogio', 'tenho um elogio',
+    'quero dar um elogio', 'elogio à cidade', 'elogio a cidade', 'elogio sobre a cidade',
+    'tenho uma sugestão', 'tenho uma sugestao', 'quero sugerir', 'sugestão para a cidade',
+    'sugestao para a cidade', 'ideia de melhoria', 'sugestão de melhoria', 'sugestao de melhoria',
+    'quero falar sobre a cidade',
+    'preciso falar sobre a cidade',
+    'preciso falar da cidade',
+    'quero falar da cidade',
+    'relato na cidade',
+    'falar com a cidade',
+    'quero abrir um relato',
+    'abrir um relato',
+    'quero registrar um relato',
     // REMOVED: 'quero relatar um problema' - too generic, matches transport!
   ];
   
@@ -3651,7 +3800,10 @@ export function detectCollectionIntent(
   
   // === GENERIC "quero falar de X" PATTERN DETECTION ===
   type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
-  const queroFalarMatch = msgLower.match(/(?:quero|vou|vamos)\s+falar\s+(?:de|do|da|sobre)\s+(\w+)/);
+  // Inclui preciso/gostaria e "sobre a cidade" → tópico "cidade" (antes capturava só "a")
+  const queroFalarMatch = msgLower.match(
+    /(?:quero|vou|vamos|preciso|gostaria(?:\s+de)?)\s+falar\s+(?:de|do|da|sobre)\s+(?:a\s+)?(\w+)/i
+  );
   let genericTopicIntent: { type: ExplicitIntentType; boost: number } | null = null;
   if (queroFalarMatch) {
     const topic = queroFalarMatch[1].toLowerCase();
@@ -3669,6 +3821,9 @@ export function detectCollectionIntent(
       'serviço': 'service_rating',
       'servico': 'service_rating',
       'cidade': 'urban_report',
+      'elogio': 'urban_report',
+      'sugestão': 'urban_report',
+      'sugestao': 'urban_report',
       'problema': 'urban_report',
       'problemas': 'urban_report',
       'rua': 'urban_report',
@@ -3787,7 +3942,7 @@ export function detectCollectionIntent(
   }
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro'];
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
   const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
@@ -4455,16 +4610,23 @@ export function formatServicesWithContext(
   services: Record<string, unknown>[], 
   serviceType: string, 
   originalDistrict: string | null,
-  isExpanded: boolean
+  isExpanded: boolean,
+  /** Endereço ou referência legível da posição do cidadão (ex.: reverse geocode do GPS). */
+  referenceLocationText?: string | null,
 ): string {
   const withAddress = services.filter(hasValidAddress);
   if (withAddress.length === 0) {
     return ''; // caller will fallback
   }
   const typeName = getServiceTypeName(serviceType);
-  const header = isExpanded 
-    ? `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
-    : `Encontrei ${withAddress.length} ${typeName}:`;
+  const ref = (referenceLocationText || '').trim();
+  const header = isExpanded
+    ? ref
+      ? `Aqui estão as opções mais próximas de ${typeName} perto de ${ref}:`
+      : `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
+    : ref
+      ? `Encontrei ${withAddress.length} ${typeName} perto de ${ref}:`
+      : `Encontrei ${withAddress.length} ${typeName}:`;
   
   const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : '';
@@ -4657,7 +4819,8 @@ export async function findNearbyServices(
   userLon?: number | null,
   radiusMeters: number = 2000,
   minRating: number = 0,
-  searchQuery?: string | null
+  searchQuery?: string | null,
+  referenceLocationText?: string | null,
 ): Promise<string> {
   const typeName = getServiceTypeName(serviceType);
   const limitWithBuffer = Math.max(limit * 3, 15);
@@ -4703,7 +4866,7 @@ export async function findNearbyServices(
         .slice(0, limit);
     }
     if (ordered.length === 0) return '';
-    return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded) || '';
+    return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded, referenceLocationText) || '';
   };
 
   const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
@@ -5239,7 +5402,7 @@ export async function getCitizenHistory(
   if (historyType === 'all' || historyType === 'urban_reports') {
     let query = supabase
       .from('urban_reports')
-      .select('id, category, subcategory, status, created_at, location_address, street, neighborhood')
+      .select('id, protocol_code, category, subcategory, status, created_at, location_address, street, neighborhood')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -5254,7 +5417,8 @@ export async function getCitizenHistory(
       data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         const location = r.street ? `${r.street}, ${r.neighborhood}` : r.location_address || 'Local não informado';
-        results.push(`${i+1}. ${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        const proto = r.protocol_code ? `**${r.protocol_code}** — ` : '';
+        results.push(`${i+1}. ${proto}${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -5278,7 +5442,8 @@ export async function getCitizenHistory(
       results.push('🚌 **Relatos de Transporte:**');
       data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
-        results.push(`${i+1}. ${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        const proto = r.protocol_code ? `**${r.protocol_code}** — ` : '';
+        results.push(`${i+1}. ${proto}${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -5582,7 +5747,7 @@ export async function executeTool(
         if (!args.category) {
           return {
             success: false,
-            message: 'Preciso saber a categoria do problema. É um problema de iluminação, buraco, esgoto, lixo...?'
+            message: 'Preciso saber a categoria do relato (iluminação, buraco, esgoto, lixo, área verde, etc.). Pode descrever melhor o local ou o tema?'
           };
         }
         
@@ -5669,9 +5834,14 @@ export async function executeTool(
         
         const derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
 
+        const reportNatureResolved =
+          normalizeReportNature((args.report_nature as string) ?? (accumulatedFields?.report_nature as string)) ??
+          'reclamacao';
+
         console.log('[create_urban_report] Attempting to insert report:', {
           userId,
           category: args.category,
+          report_nature: reportNatureResolved,
           hasDescription: !!args.description,
           hasStreet: !!args.street,
           hasNeighborhood: !!args.neighborhood,
@@ -5686,6 +5856,7 @@ export async function executeTool(
             protocol_code: protocolCode,
             category: args.category, // Use AI-classified category directly
             subcategory: args.subcategory || null,
+            report_nature: reportNatureResolved,
             description: args.description,
             location_address: location_address,
             cep: args.cep || null,
@@ -5874,6 +6045,10 @@ export async function executeTool(
           args.reference_point ? `- Referência: ${args.reference_point}` : '',
           photosSection,
           impactSection,
+          '',
+          '---',
+          '',
+          URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
           '',
           '---',
           '',
@@ -6145,6 +6320,10 @@ export async function executeTool(
           `⚠️ **Gravidade:** ${severityLabel}`,
           '',
           `📝 **Descrição:** ${args.description.substring(0, 100)}${args.description.length > 100 ? '...' : ''}`,
+          '',
+          '---',
+          '',
+          TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
           '',
           '---',
           '',
@@ -6461,10 +6640,54 @@ export async function executeTool(
             }
           }
         }
+
+        /** Texto legível para "perto de …" (GPS → reverse geocoding; cadastrado/manual → endereço conhecido). */
+        let referenceLocationText: string | null = null;
+        if (userLat != null && userLon != null && Number.isFinite(userLat) && Number.isFinite(userLon)) {
+          const method = typeof accumulatedFields?.location_method === 'string' ? accumulatedFields.location_method : '';
+          const street = typeof accumulatedFields?.street === 'string' ? accumulatedFields.street.trim() : '';
+          const neighborhood = typeof accumulatedFields?.neighborhood === 'string' ? accumulatedFields.neighborhood.trim() : '';
+          const streetNumber = typeof accumulatedFields?.street_number === 'string' ? accumulatedFields.street_number.trim() : '';
+
+          if (street && neighborhood) {
+            referenceLocationText = streetNumber
+              ? `${street}, ${streetNumber} - ${neighborhood}`
+              : `${street} - ${neighborhood}`;
+          } else if (method === 'registered_address' && userId) {
+            const { data: addrRow } = await supabase
+              .from('user_addresses')
+              .select('street, number, neighborhood')
+              .eq('user_id', userId)
+              .eq('is_primary', true)
+              .maybeSingle();
+            const s = addrRow?.street?.trim();
+            const n = addrRow?.neighborhood?.trim();
+            const num = addrRow?.number?.trim();
+            if (s && n) {
+              referenceLocationText = num ? `${s}, ${num} - ${n}` : `${s} - ${n}`;
+            }
+          }
+          // GPS e demais casos só com lat/lon: converter coordenadas em endereço legível
+          if (!referenceLocationText) {
+            referenceLocationText = await reverseGeocodeLatLon(userLat, userLon);
+          }
+        }
+
         const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
         const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
         const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
-        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);
+        const result = await findNearbyServices(
+          supabase,
+          args.service_type,
+          args.district,
+          args.limit || 10,
+          userLat,
+          userLon,
+          radiusMeters,
+          minRating,
+          searchQuery,
+          referenceLocationText,
+        );
         return { success: true, message: result };
       }
       

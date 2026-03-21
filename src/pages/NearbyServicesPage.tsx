@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 
@@ -19,11 +19,12 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFavoriteServiceIds } from "@/hooks/useServiceFavorites";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Bookmark } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
@@ -37,6 +38,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
+  const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
   const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
   const [radiusMeters, setRadiusMeters] = useState(2000);
@@ -561,6 +564,20 @@ export default function NearbyServicesPage() {
                     openingHours={service.opening_hours}
                     servicesOffered={service.services_offered}
                     operationalStatus={service.operational_status}
+                    isFavorite={user ? favoriteIds.has(service.id) : false}
+                    favoriteDisabled={favoriteBusyId === service.id}
+                    onFavoriteClick={async () => {
+                      if (!user) {
+                        toast.error("Faça login para usar favoritos.");
+                        return;
+                      }
+                      setFavoriteBusyId(service.id);
+                      try {
+                        await toggleFavorite(service.id);
+                      } finally {
+                        setFavoriteBusyId(null);
+                      }
+                    }}
                     onClick={() =>
                       navigate(`/servico/${service.id}`, {
                         state: {
@@ -623,14 +640,24 @@ export default function NearbyServicesPage() {
             ) : isLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
-              <MapView
-                userLocation={stableMapUserLocation}
-                services={filteredByName}
-                onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
-                distanceLabel={distanceLabelMode}
-                activeServiceTypes={selectedTypes}
-                focusOnService={mapFocusPayload}
-              />
+              <div className="relative">
+                <MapView
+                  userLocation={stableMapUserLocation}
+                  services={filteredByName}
+                  onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
+                  distanceLabel={distanceLabelMode}
+                  activeServiceTypes={selectedTypes}
+                  focusOnService={mapFocusPayload}
+                />
+                <Link
+                  to="/servicos/favoritos"
+                  className="absolute bottom-4 right-4 z-30 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-2.5 text-sm font-medium hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  aria-label="Ir para Meus Favoritos"
+                >
+                  <Bookmark className="h-4 w-4 shrink-0" aria-hidden />
+                  Meus Favoritos
+                </Link>
+              </div>
             ) : (
               <div className="text-center py-12">
                 <div className="mb-3 flex justify-center" aria-hidden>

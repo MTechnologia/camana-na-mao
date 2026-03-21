@@ -18,6 +18,8 @@ import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerific
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
 import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
+import { ServiceFavoriteButton } from "@/components/services/ServiceFavoriteButton";
+import { SERVICE_CORRECTION_REVIEW_SLA_HOURS } from "@/lib/serviceCorrectionFields";
 import type { ServiceLike } from "@/lib/serviceCorrectionFields";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
@@ -548,12 +550,37 @@ export default function ServiceDetailPage() {
             {isSubscribed ? "Deixar de acompanhar" : "Acompanhar atualizações"}
           </Button>
 
-          <ServiceCorrectionSuggestSection
-            service={service as ServiceLike}
-            realServiceId={realServiceId}
-            userId={user?.id ?? null}
-            onRequestLogin={() => toast.error("Faça login para sugerir uma correção.")}
+          <ServiceFavoriteButton
+            serviceId={realServiceId}
+            onRequestLogin={() => toast.error("Faça login para favoritar equipamentos.")}
           />
+
+          <Card
+            id="sugerir-correcao-cadastro"
+            className="border-primary/20 bg-primary/[0.03]"
+            role="region"
+            aria-label="Sugestão de correção de dados do equipamento"
+          >
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1">
+                <h2 className="text-base font-semibold text-foreground">
+                  Dados incorretos ou desatualizados?
+                </h2>
+                <p className="text-sm text-muted-foreground leading-snug">
+                  Se alguma informação deste equipamento estiver errada no app, você pode sugerir a correção.
+                  Um administrador valida em até {SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas e você é notificado; o
+                  cadastro oficial só muda depois da aprovação e da atualização feita pela equipe (não automático pelo
+                  formulário).
+                </p>
+              </div>
+              <ServiceCorrectionSuggestSection
+                service={service as ServiceLike}
+                realServiceId={realServiceId}
+                userId={user?.id ?? null}
+                onRequestLogin={() => toast.error("Faça login para sugerir uma correção.")}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
 

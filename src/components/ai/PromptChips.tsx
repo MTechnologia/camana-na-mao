@@ -39,8 +39,9 @@ interface PromptChipsProps {
 const chips: PromptChip[] = [
   {
     id: "urban",
-    label: "Problema na cidade",
-    message: "Quero relatar um problema na cidade",
+    label: "Relato na cidade",
+    message:
+      "Quero falar sobre a cidade — pode ser reclamação, dúvida, sugestão ou elogio",
     icon: Building2,
     collectionType: "urban_report",
   },

@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Phone, ExternalLink, Clock, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, Phone, ExternalLink, Clock, Info, Heart } from "lucide-react";
 import { ServiceTypeIcon } from "@/components/icons";
 import { RatingStars } from "./RatingStars";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,11 @@ interface ServiceCardProps {
   /** Status operacional vindo do banco */
   operationalStatus?: "open" | "closed" | "maintenance" | null;
   onClick?: () => void;
+  /** Favorito (lista Perto de você) */
+  isFavorite?: boolean;
+  /** Clique no coração — use stopPropagation no handler */
+  onFavoriteClick?: (e: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+  favoriteDisabled?: boolean;
 }
 
 const operationalStatusLabels: Record<"open" | "closed" | "maintenance", string> = {
@@ -88,7 +94,10 @@ export const ServiceCard = ({
   openingHours,
   servicesOffered,
   operationalStatus,
-  onClick
+  onClick,
+  isFavorite = false,
+  onFavoriteClick,
+  favoriteDisabled = false,
 }: ServiceCardProps) => {
   const openingHoursText = getOpeningHoursText(openingHours);
   const hasCoords = typeof latitude === "number" && typeof longitude === "number" && !Number.isNaN(latitude) && !Number.isNaN(longitude);
@@ -116,17 +125,39 @@ export const ServiceCard = ({
           
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-1">
-              <h3 className="font-semibold text-foreground line-clamp-2">
+              <h3 className="font-semibold text-foreground line-clamp-2 min-w-0 pr-1">
                 {name}
               </h3>
-              {distance !== undefined && (
-                <span
-                  className="text-xs font-medium text-primary whitespace-nowrap"
-                  title={distanceLabel === "walking" ? "Distância a pé (rota real)" : distanceLabel === "driving" ? "Distância de carro (rota real)" : "Distância aproximada"}
-                >
-                  {distanceLabel === "straight" ? formatDistanceStraightLine(distance) : formatDistance(distance)}
-                </span>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {onFavoriteClick && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full text-muted-foreground hover:text-primary"
+                    disabled={favoriteDisabled}
+                    aria-label={isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                    aria-pressed={isFavorite}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onFavoriteClick(e);
+                    }}
+                  >
+                    <Heart
+                      className={cn("h-4 w-4", isFavorite && "fill-primary text-primary")}
+                      aria-hidden
+                    />
+                  </Button>
+                )}
+                {distance !== undefined && (
+                  <span
+                    className="text-xs font-medium text-primary whitespace-nowrap"
+                    title={distanceLabel === "walking" ? "Distância a pé (rota real)" : distanceLabel === "driving" ? "Distância de carro (rota real)" : "Distância aproximada"}
+                  >
+                    {distanceLabel === "straight" ? formatDistanceStraightLine(distance) : formatDistance(distance)}
+                  </span>
+                )}
+              </div>
             </div>
             
             <p className="text-xs text-muted-foreground mb-1">

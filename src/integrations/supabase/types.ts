@@ -1389,9 +1389,11 @@ export type Database = {
       }
       service_corrections: {
         Row: {
+          correction_type: string
           created_at: string | null
           current_value: string | null
-          field_name: string
+          evidence_photo_url: string | null
+          field_name: string | null
           id: string
           reviewed_at: string | null
           reviewed_by: string | null
@@ -1402,9 +1404,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          correction_type?: string
           created_at?: string | null
           current_value?: string | null
-          field_name: string
+          evidence_photo_url?: string | null
+          field_name?: string | null
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1415,9 +1419,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          correction_type?: string
           created_at?: string | null
           current_value?: string | null
-          field_name?: string
+          evidence_photo_url?: string | null
+          field_name?: string | null
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1430,6 +1436,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "service_corrections_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "public_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          service_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          service_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          service_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_favorites_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "public_services"
@@ -1972,6 +2007,7 @@ export type Database = {
           photos: string[] | null
           protocol_code: string | null
           reference_point: string | null
+          report_nature: string | null
           risk_level: string | null
           risk_types: string[] | null
           severity: string | null
@@ -2007,6 +2043,7 @@ export type Database = {
           photos?: string[] | null
           protocol_code?: string | null
           reference_point?: string | null
+          report_nature?: string | null
           risk_level?: string | null
           risk_types?: string[] | null
           severity?: string | null
@@ -2042,6 +2079,7 @@ export type Database = {
           photos?: string[] | null
           protocol_code?: string | null
           reference_point?: string | null
+          report_nature?: string | null
           risk_level?: string | null
           risk_types?: string[] | null
           severity?: string | null

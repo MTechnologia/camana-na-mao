@@ -83,6 +83,7 @@ const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
 const RatingsHistoryPage = lazy(() => import("./pages/ratings/RatingsHistoryPage"));
+const MyFavoritesPage = lazy(() => import("./pages/services/MyFavoritesPage"));
 
 // ============================================
 // LEGAL PAGES - Lazy loaded
@@ -260,6 +261,7 @@ const AppContent = () => {
             <Route path="/institucional/noticias" element={<Noticias />} />
             <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
             <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
+            <Route path="/servicos/favoritos" element={<MyFavoritesPage />} />
             <Route path="/servico/:id" element={<ServiceDetailPage />} />
             <Route path="/avaliar" element={<EvaluationPage />} />
             <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
@@ -285,7 +287,7 @@ const AppContent = () => {
             <Route path="/admin/audit-logs" element={<ProtectedAdminOnlyRoute><AuditLogs /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
-            <Route path="/admin/service-corrections" element={<ProtectedAdminRoute><ServiceCorrectionsManagement /></ProtectedAdminRoute>} />
+            <Route path="/admin/service-corrections" element={<ProtectedAdminOnlyRoute><ServiceCorrectionsManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />

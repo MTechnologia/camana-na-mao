@@ -38,7 +38,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(['gestão', 'relatos', 'configuracoes']);
   const stats = useAdminStats();
   const { unreadCount } = useNotifications();
-  const { canManageUsers, canConfigureSystem, canViewAuditLogs } = useUserRole();
+  const { canManageUsers, canConfigureSystem, canViewAuditLogs, canModerateServiceCorrections } = useUserRole();
 
   const menuSections: MenuSection[] = [
     {
@@ -53,12 +53,16 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
-        {
-          title: 'Correções de cadastro',
-          icon: ClipboardList,
-          href: '/admin/service-corrections',
-          badge: stats.pendingServiceCorrections > 0 ? stats.pendingServiceCorrections : null,
-        },
+        ...(canModerateServiceCorrections
+          ? [
+              {
+                title: 'Correções de cadastro',
+                icon: ClipboardList,
+                href: '/admin/service-corrections',
+                badge: stats.pendingServiceCorrections > 0 ? stats.pendingServiceCorrections : null,
+              },
+            ]
+          : []),
         ...(canManageUsers ? [{ title: 'Gestão de Usuários', icon: Users, href: '/admin/users' }] : []),
       ],
     },

@@ -32,7 +32,7 @@ test.describe('Relatos Urbanos', () => {
 
     // Respostas adicionais até o relato ser registrado (número/referência, risco imediato, etc.)
     const chatMessages = page.locator('[data-testid="chat-messages"]');
-    const successRegex = /Relato registrado|sucesso|protocolo|Obrigado|seu relato foi|número do protocolo|enviado e está sendo analisado|contribuição enviada|cadastrado|graças à sua contribuição|informações foram recebidas|processando seu relato/i;
+    const successRegex = /Relato registrado|sucesso|protocolo|REL-\d{4}-\d+|Obrigado|seu relato foi|número do protocolo|enviado e está sendo analisado|contribuição enviada|cadastrado|graças à sua contribuição|informações foram recebidas|processando seu relato/i;
     let answeredNumber = false;
     let answeredRisk = false;
     for (let step = 0; step < 6; step++) {

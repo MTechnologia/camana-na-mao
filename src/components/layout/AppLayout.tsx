@@ -46,6 +46,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/audiencias": "Audiências Públicas",
   "/audiencias/minhas-inscricoes": "Minhas inscrições em audiências",
   "/servicos-proximos": "Serviços Próximos",
+  "/servicos/favoritos": "Meus Favoritos",
   "/avaliar": "Avaliar Serviço",
   "/transporte": "Transporte",
   "/transporte/novo": "Novo Relato",

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Clock, Bus, Info } from 'lucide-react';
+import { Clock, Bus, Info, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
@@ -11,6 +11,7 @@ import { transportProblems } from '@/data/transportProblems';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
 import { useUserRole } from '@/hooks/useUserRole';
+import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from '@/lib/citizenProtocol';
 
 export default function MyReportsPage() {
   const navigate = useNavigate();
@@ -77,6 +78,9 @@ export default function MyReportsPage() {
           ) : (
             reports.map((report) => {
               const problem = transportProblems.find(p => p.id === report.report_type);
+              const citizenProtocol = formatCitizenProtocolForDisplay(
+                report.protocol_code as string | null | undefined
+              );
               
               return (
                 <Card key={report.id} className="hover:shadow-md transition-shadow border-border" data-testid="report-card">
@@ -92,6 +96,13 @@ export default function MyReportsPage() {
                         {formatShortDate(report.created_at)}
                       </span>
                     </div>
+
+                    {citizenProtocol && (
+                      <p className="text-xs font-mono font-medium text-primary mb-3 flex items-center gap-1.5">
+                        <Hash className="w-3 h-3 shrink-0" aria-hidden />
+                        {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
+                      </p>
+                    )}
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">

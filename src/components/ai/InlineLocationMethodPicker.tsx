@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Home, Pencil, Loader2 } from "lucide-react";
+import { reverseGeocodeLatLngClient } from "@/lib/reverseGeocodeLatLngClient";
 
 export type LocationMethod = "gps" | "registered_address" | "manual";
 
@@ -42,12 +43,18 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
     setLoading(true);
     setError(null);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
-        setSelected(true);
-        setLoading(false);
-        onSelect("gps", `Localização GPS: ${lat},${lon}`);
+        try {
+          const friendly = await reverseGeocodeLatLngClient(lat, lon);
+          const humanLine = friendly ? `📍 ${friendly}` : "📍 Sua posição atual (GPS)";
+          // Linha técnica permanece para o backend (accumulateFieldsFromHistory); na UI ela é ocultada.
+          onSelect("gps", `${humanLine}\nLocalização GPS: ${lat},${lon}`);
+        } finally {
+          setSelected(true);
+          setLoading(false);
+        }
       },
       (err) => {
         setLoading(false);
