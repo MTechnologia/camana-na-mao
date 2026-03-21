@@ -1,5 +1,8 @@
 import { cn } from "@/lib/utils";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
+import { UserChatBubbleText } from "./UserChatBubbleText";
+import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/parseUrbanReportPreview";
+import { UrbanReportPreviewInChat } from "./UrbanReportPreviewInChat";
 import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -406,7 +409,6 @@ const ChatMessageBubble = ({
   }, [message.content]);
 
   const isLongContent = cleanContent.length > 450;
-  const showVerMais = !isUser && isLongContent;
 
   // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
   const appActions = useMemo(
@@ -458,6 +460,17 @@ const ChatMessageBubble = ({
       label: labels[value] || value.charAt(0).toUpperCase() + value.slice(1),
     }));
   }, [isUser, message.content, onSendMessage]);
+
+  /** Preview estruturado do relato urbano (PO: melhor UX que parágrafo denso em markdown). */
+  const urbanReportPreviewParsed = useMemo(() => parseUrbanReportPreview(cleanContent), [cleanContent]);
+  const showUrbanPreviewCard =
+    !isUser &&
+    !!urbanReportPreviewParsed &&
+    isUrbanConfirmCorrectQuickReply(message.content) &&
+    audienciaContentSplit.contentAfter === null;
+
+  /** Card urbano já é legível; evita "Ver mais" sem sentido se o texto bruto for longo. */
+  const showVerMais = !isUser && isLongContent && !showUrbanPreviewCard;
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
@@ -601,9 +614,12 @@ const ChatMessageBubble = ({
           )}
         >
           {isUser ? (
-            <p className="text-sm whitespace-pre-wrap">{sanitizeMessageContent(message.content)}</p>
+            <UserChatBubbleText content={message.content} />
           ) : (
             <div className="w-full">
+              {showUrbanPreviewCard && urbanReportPreviewParsed ? (
+                <UrbanReportPreviewInChat preview={urbanReportPreviewParsed} />
+              ) : (
               <div
                 className={cn(
                   "prose prose-sm dark:prose-invert max-w-none",
@@ -657,6 +673,7 @@ const ChatMessageBubble = ({
                     : withStepLineBreaks(audienciaContentSplit.contentBefore)}
                 </ReactMarkdown>
               </div>
+              )}
               {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
               {audienciaContentSplit.contentAfter !== null && !isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
@@ -886,14 +903,20 @@ const ChatMessageBubble = ({
             {quickReplyButtons.map((btn) => {
               const isRegistrar = btn.value === "registrar";
               const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
+              const isCorrigir = btn.value === "corrigir";
+              const isConfirmar = btn.value === "confirmar";
               return (
                 <Button
                   key={btn.value}
-                  variant="default"
-                  size="sm"
+                  variant={isCorrigir ? "outline" : "default"}
+                  size={showUrbanPreviewCard ? "default" : "sm"}
                   disabled={disabled}
                   onClick={() => !disabled && onSendMessage?.(btn.value)}
-                  className="rounded-lg"
+                  className={cn(
+                    "rounded-lg",
+                    showUrbanPreviewCard && isConfirmar && "min-h-11 px-5",
+                    showUrbanPreviewCard && isCorrigir && "min-h-11 px-5",
+                  )}
                 >
                   {btn.label}
                 </Button>

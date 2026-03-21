@@ -1207,6 +1207,66 @@ export async function geocodeAddressWithGoogle(
   }
 }
 
+/** Monta linha curta a partir do objeto address do Nominatim (reverse). */
+function formatNominatimReverseAddress(addr: Record<string, string | undefined> | undefined): string | null {
+  if (!addr) return null;
+  const road = addr.road || addr.pedestrian || addr.path || addr.residential;
+  const num = addr.house_number;
+  const suburb = addr.suburb || addr.neighbourhood || addr.city_district || addr.quarter;
+  if (road && suburb) {
+    return num ? `${road}, ${num} - ${suburb}` : `${road} - ${suburb}`;
+  }
+  if (road) return num ? `${road}, ${num}` : road;
+  return null;
+}
+
+/**
+ * GPS → endereço legível para o cidadão no chat (ex.: "Rua Augusta, 1200 - Consolação").
+ * Tenta Google Geocoding API se GOOGLE_MAPS_API_KEY existir; senão Nominatim (OSM).
+ */
+export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const key = Deno.env.get('GOOGLE_MAPS_API_KEY')?.trim();
+  if (key) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${key}&language=pt-BR`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status === 'OK' && data.results?.[0]?.formatted_address) {
+        return String(data.results[0].formatted_address).trim();
+      }
+      if (data.status && data.status !== 'ZERO_RESULTS') {
+        console.warn('[reverseGeocodeLatLon] Google:', data.status, data.error_message ?? '');
+      }
+    } catch (e) {
+      console.warn('[reverseGeocodeLatLon] Google request failed:', e);
+    }
+  }
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      format: 'json',
+      'accept-language': 'pt-BR',
+    })}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fromAddr = formatNominatimReverseAddress(data.address);
+    if (fromAddr) return fromAddr;
+    const dn = typeof data.display_name === 'string' ? data.display_name.trim() : '';
+    if (dn) {
+      const parts = dn.split(',').map((p: string) => p.trim()).filter(Boolean);
+      return parts.slice(0, 4).join(', ') || dn;
+    }
+  } catch (e) {
+    console.warn('[reverseGeocodeLatLon] Nominatim failed:', e);
+  }
+  return null;
+}
+
 // Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
   'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
@@ -4455,16 +4515,23 @@ export function formatServicesWithContext(
   services: Record<string, unknown>[], 
   serviceType: string, 
   originalDistrict: string | null,
-  isExpanded: boolean
+  isExpanded: boolean,
+  /** Endereço ou referência legível da posição do cidadão (ex.: reverse geocode do GPS). */
+  referenceLocationText?: string | null,
 ): string {
   const withAddress = services.filter(hasValidAddress);
   if (withAddress.length === 0) {
     return ''; // caller will fallback
   }
   const typeName = getServiceTypeName(serviceType);
-  const header = isExpanded 
-    ? `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
-    : `Encontrei ${withAddress.length} ${typeName}:`;
+  const ref = (referenceLocationText || '').trim();
+  const header = isExpanded
+    ? ref
+      ? `Aqui estão as opções mais próximas de ${typeName} perto de ${ref}:`
+      : `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
+    : ref
+      ? `Encontrei ${withAddress.length} ${typeName} perto de ${ref}:`
+      : `Encontrei ${withAddress.length} ${typeName}:`;
   
   const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : '';
@@ -4657,7 +4724,8 @@ export async function findNearbyServices(
   userLon?: number | null,
   radiusMeters: number = 2000,
   minRating: number = 0,
-  searchQuery?: string | null
+  searchQuery?: string | null,
+  referenceLocationText?: string | null,
 ): Promise<string> {
   const typeName = getServiceTypeName(serviceType);
   const limitWithBuffer = Math.max(limit * 3, 15);
@@ -4703,7 +4771,7 @@ export async function findNearbyServices(
         .slice(0, limit);
     }
     if (ordered.length === 0) return '';
-    return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded) || '';
+    return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded, referenceLocationText) || '';
   };
 
   const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
@@ -6461,10 +6529,54 @@ export async function executeTool(
             }
           }
         }
+
+        /** Texto legível para "perto de …" (GPS → reverse geocoding; cadastrado/manual → endereço conhecido). */
+        let referenceLocationText: string | null = null;
+        if (userLat != null && userLon != null && Number.isFinite(userLat) && Number.isFinite(userLon)) {
+          const method = typeof accumulatedFields?.location_method === 'string' ? accumulatedFields.location_method : '';
+          const street = typeof accumulatedFields?.street === 'string' ? accumulatedFields.street.trim() : '';
+          const neighborhood = typeof accumulatedFields?.neighborhood === 'string' ? accumulatedFields.neighborhood.trim() : '';
+          const streetNumber = typeof accumulatedFields?.street_number === 'string' ? accumulatedFields.street_number.trim() : '';
+
+          if (street && neighborhood) {
+            referenceLocationText = streetNumber
+              ? `${street}, ${streetNumber} - ${neighborhood}`
+              : `${street} - ${neighborhood}`;
+          } else if (method === 'registered_address' && userId) {
+            const { data: addrRow } = await supabase
+              .from('user_addresses')
+              .select('street, number, neighborhood')
+              .eq('user_id', userId)
+              .eq('is_primary', true)
+              .maybeSingle();
+            const s = addrRow?.street?.trim();
+            const n = addrRow?.neighborhood?.trim();
+            const num = addrRow?.number?.trim();
+            if (s && n) {
+              referenceLocationText = num ? `${s}, ${num} - ${n}` : `${s} - ${n}`;
+            }
+          }
+          // GPS e demais casos só com lat/lon: converter coordenadas em endereço legível
+          if (!referenceLocationText) {
+            referenceLocationText = await reverseGeocodeLatLon(userLat, userLon);
+          }
+        }
+
         const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
         const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
         const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
-        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);
+        const result = await findNearbyServices(
+          supabase,
+          args.service_type,
+          args.district,
+          args.limit || 10,
+          userLat,
+          userLon,
+          radiusMeters,
+          minRating,
+          searchQuery,
+          referenceLocationText,
+        );
         return { success: true, message: result };
       }
       
