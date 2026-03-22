@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, MapPin, Tag, ImageIcon, ClipboardList } from "lucide-react";
+import { FileText, MapPin, Tag, ImageIcon, ClipboardList, Sparkles } from "lucide-react";
 import type { ParsedUrbanReportPreview } from "@/lib/parseUrbanReportPreview";
 
 type Props = {
@@ -23,6 +23,19 @@ export function UrbanReportPreviewInChat({ preview }: Props) {
       </CardHeader>
       <CardContent className="px-4 pb-4 pt-0 space-y-3">
         <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+          {preview.nature ? (
+            <>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                  Natureza do relato
+                </div>
+                <p className="text-sm font-medium text-foreground pl-5">{preview.nature}</p>
+              </div>
+              <div className="h-px bg-border" aria-hidden />
+            </>
+          ) : null}
+
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
               <Tag className="h-3.5 w-3.5" aria-hidden />

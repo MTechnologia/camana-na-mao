@@ -2007,6 +2007,7 @@ export type Database = {
           photos: string[] | null
           protocol_code: string | null
           reference_point: string | null
+          report_nature: string | null
           risk_level: string | null
           risk_types: string[] | null
           severity: string | null
@@ -2042,6 +2043,7 @@ export type Database = {
           photos?: string[] | null
           protocol_code?: string | null
           reference_point?: string | null
+          report_nature?: string | null
           risk_level?: string | null
           risk_types?: string[] | null
           severity?: string | null
@@ -2077,6 +2079,7 @@ export type Database = {
           photos?: string[] | null
           protocol_code?: string | null
           reference_point?: string | null
+          report_nature?: string | null
           risk_level?: string | null
           risk_types?: string[] | null
           severity?: string | null

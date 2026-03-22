@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, Plus, Trash2, Info, FileText, Search } from "lucide-react";
+import { Calendar, Hash, MapPin, Plus, Trash2, Info, FileText, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -21,9 +21,11 @@ import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
 import { toast } from "@/hooks/use-toast";
+import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
 
 interface Report {
   id: string;
+  protocol_code?: string | null;
   category: string;
   subcategory: string | null;
   description: string | null;
@@ -108,7 +110,7 @@ export default function ReportHistoryPage() {
     try {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("id, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -226,6 +228,7 @@ export default function ReportHistoryPage() {
   ) => {
     const canShowReferralAction =
       canReferToCouncilMember && !!user && report.user_id === user.id;
+    const citizenProtocol = formatCitizenProtocolForDisplay(report.protocol_code);
 
     return (
       <Card key={report.id} className="hover:shadow-md transition-shadow" data-testid="report-card">
@@ -247,6 +250,14 @@ export default function ReportHistoryPage() {
               {report.severity && (
                 <p className="text-xs text-muted-foreground">
                   Gravidade: {severityLabels[report.severity]}
+                </p>
+              )}
+              {citizenProtocol && (
+                <p className="text-xs font-mono font-medium text-primary mt-1 flex items-center gap-1.5">
+                  <Hash className="w-3 h-3 shrink-0" aria-hidden />
+                  <span>
+                    {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
+                  </span>
                 </p>
               )}
             </div>
@@ -440,6 +451,11 @@ export default function ReportHistoryPage() {
                 <h4 className="font-semibold mb-1">
                   {categoryLabels[selectedReport.category] || selectedReport.category}
                 </h4>
+                {formatCitizenProtocolForDisplay(selectedReport.protocol_code) && (
+                  <p className="text-xs font-mono text-primary mb-2">
+                    {CITIZEN_PROTOCOL_LABEL}: {formatCitizenProtocolForDisplay(selectedReport.protocol_code)}
+                  </p>
+                )}
                 {selectedReport.description && (
                   <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
                 )}
