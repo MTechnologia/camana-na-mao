@@ -13,7 +13,8 @@ const OPTIONS: { id: LocationMethod; label: string; description: string; icon: t
   {
     id: "gps",
     label: "Usar minha localização (GPS)",
-    description: "O navegador vai pedir permissão para acessar sua localização",
+    description:
+      "Obtém coordenadas e, com a chave do Google Maps configurada, envia também o endereço aproximado ao assistente.",
     icon: MapPin,
   },
   {
@@ -47,9 +48,10 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
         try {
+          // Reverse geocoding (GPS → endereço) para o modelo e ferramentas; cache compartilhado com Perto de você.
           const friendly = await reverseGeocodeLatLngClient(lat, lon);
           const humanLine = friendly ? `📍 ${friendly}` : "📍 Sua posição atual (GPS)";
-          // Linha técnica permanece para o backend (accumulateFieldsFromHistory); na UI ela é ocultada.
+          // Linha "Localização GPS:" permanece para o orquestrador; na UI a linha técnica pode ser ocultada (UserChatBubbleText).
           onSelect("gps", `${humanLine}\nLocalização GPS: ${lat},${lon}`);
         } finally {
           setSelected(true);
