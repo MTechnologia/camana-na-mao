@@ -825,12 +825,80 @@ serve(async (req) => {
           console.log('[getNextMissingField] Set subcategory:', fields.subcategory);
         }
         
+        // 2c. Como informar o local (GPS / endereço cadastrado / digitar CEP) — antes de pedir CEP direto
+        if (!fields.location_method) {
+          return {
+            field: 'location_method',
+            picker: '[LOCATION_METHOD_PICKER]',
+            prompt: 'Como você quer informar **onde fica** o problema?',
+          };
+        }
+
+        // GPS escolhido mas ainda sem coordenadas na conversa
+        if (fields.location_method === 'gps') {
+          const ulat = fields.user_lat != null ? Number(fields.user_lat) : NaN;
+          const ulon = fields.user_lon != null ? Number(fields.user_lon) : NaN;
+          if (!Number.isFinite(ulat) || !Number.isFinite(ulon)) {
+            return {
+              field: 'gps_coords',
+              picker: '[LOCATION_METHOD_PICKER]',
+              prompt: 'Toque em **Usar minha localização (GPS)** abaixo, ou escolha **endereço cadastrado** / **digitar CEP**.',
+            };
+          }
+        }
+
+        // Endereço cadastrado: preencher a partir do perfil (quando ainda falta local)
+        let cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+        let hasLocationViaCep = cepDigits.length === 8;
+        let hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
+        let hasLocation = hasLocationViaCep || hasLocationViaAddress;
+
+        if (fields.location_method === 'registered_address' && !hasLocation && user?.id) {
+          const { data: addrRow } = await supabaseClient
+            .from('user_addresses')
+            .select('street, number, neighborhood, zip_code, city')
+            .eq('user_id', user.id)
+            .eq('is_primary', true)
+            .maybeSingle();
+          if (addrRow?.street && addrRow?.neighborhood) {
+            fields.street = String(addrRow.street).trim();
+            fields.neighborhood = String(addrRow.neighborhood).trim();
+            if (addrRow.number) fields.street_number = String(addrRow.number).trim();
+            if (addrRow.zip_code) fields.cep = String(addrRow.zip_code).replace(/\D/g, '');
+            if (addrRow.city) fields.city = String(addrRow.city).trim();
+            console.log('[getNextMissingField] Urban: localização do endereço cadastrado');
+          }
+          cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+          hasLocationViaCep = cepDigits.length === 8;
+          hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
+          hasLocation = hasLocationViaCep || hasLocationViaAddress;
+        }
+
+        // GPS com coordenadas: reverse geocode no servidor para preencher rua/bairro (obrigatório no create_urban_report)
+        if (fields.location_method === 'gps' && !hasLocation) {
+          const ulat = Number(fields.user_lat);
+          const ulon = Number(fields.user_lon);
+          if (Number.isFinite(ulat) && Number.isFinite(ulon)) {
+            const rev = await lib.reverseGeocodeLatLon(ulat, ulon);
+            if (rev) {
+              fields.street = rev.length > 280 ? rev.slice(0, 280) + '…' : rev;
+              fields.neighborhood = '(referência GPS)';
+              if (!fields.reference_point) fields.reference_point = 'Local informado por GPS';
+            } else {
+              fields.street = `Lat ${ulat.toFixed(5)}, Lon ${ulon.toFixed(5)}`;
+              fields.neighborhood = '(coordenadas GPS)';
+              if (!fields.reference_point) fields.reference_point = 'Coordenadas do usuário';
+            }
+            if (!fields.city) fields.city = 'São Paulo';
+            cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+            hasLocationViaCep = cepDigits.length === 8;
+            hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
+            hasLocation = hasLocationViaCep || hasLocationViaAddress;
+            console.log('[getNextMissingField] Urban: localização derivada do GPS');
+          }
+        }
+
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
-        const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
-        const hasLocationViaCep = cepDigits.length === 8;
-        const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
-        const hasLocation = hasLocationViaCep || hasLocationViaAddress;
-        
         // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
         const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
@@ -845,8 +913,12 @@ serve(async (req) => {
           if (fields.neighborhood && !fields.street) {
             return { field: 'street', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **nome da rua**?' };
           }
-          // Default: ask for CEP with address picker fallback
-          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
+          // manual, ou cadastro vazio: pedir CEP / busca de endereço
+          const cepPrompt =
+            fields.location_method === 'registered_address'
+              ? 'Não encontrei endereço no seu **perfil**. Informe o **CEP** ou a rua e o bairro do local.\n\n_Se não souber o CEP, me diz a rua e bairro._'
+              : 'Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._';
+          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: `[FIELD_REQUEST:cep]${cepPrompt}` };
         }
         
         // 4. Street number / reference (optional but helpful)
