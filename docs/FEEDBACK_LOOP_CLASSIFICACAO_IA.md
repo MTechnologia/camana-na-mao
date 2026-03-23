@@ -15,6 +15,10 @@ Correções humanas (admin, N8N) e, no futuro, do cidadão alimentam a tabela `r
 | `n8n-callback` | Quando a categoria validada difere da salva, insere com `source: 'n8n'`. |
 | `detectEmergingCategory` | Padrões fixos (`EMERGING_PATTERNS`) + tabela `dynamic_categories` — **outro** eixo (novos temas), não o mesmo que `report_classification_feedback`. |
 
+## Orquestrador e RLS
+
+A tabela tem RLS: só **admin/gestor** fazem `SELECT`. O chat do cidadão usa JWT no `ai-orchestrator`, então a leitura para `getClassificationFromFeedback` usa um cliente **`SUPABASE_SERVICE_ROLE_KEY`** (só na Edge Function), mantendo o restante das queries com o usuário autenticado. Sem a service key configurada no deploy, o fallback é o cliente com JWT (feedback pode ficar vazio).
+
 ## Limitações atuais
 
 - **Transporte no admin:** o drawer permite corrigir `report_type` e opcionalmente um rótulo (vai para `corrected_subcategory` no feedback).
@@ -24,6 +28,10 @@ Correções humanas (admin, N8N) e, no futuro, do cidadão alimentam a tabela `r
 ## Deploy
 
 Alterações no match e no transporte exigem `supabase functions deploy ai-orchestrator`.
+
+## Métricas de acurácia
+
+Predições no registro (chat) e views SQL para acertos/erros por fonte: [CLASSIFICACAO_METRICAS.md](./CLASSIFICACAO_METRICAS.md).
 
 ## Teste manual sugerido
 
