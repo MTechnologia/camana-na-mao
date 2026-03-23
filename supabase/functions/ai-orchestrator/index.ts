@@ -783,6 +783,7 @@ serve(async (req) => {
             const intuitiveName = autoClass.suggestedLabel || (() => {
               const categoryLabels: Record<string, string> = {
                 iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
+                sinalizacao: 'sinalização', drenagem: 'drenagem',
                 lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
                 higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'barulho/poluição', outro: 'outro'
               };
@@ -806,7 +807,7 @@ serve(async (req) => {
             } else {
               // First time - ask with expanded options including "outro"
               fields._asked_category = true;
-              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
+              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco, sinalização, drenagem/água pluvial, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
             }
             }
           }
@@ -855,7 +856,7 @@ serve(async (req) => {
         }
         
         // 5. Risk assessment for risk categories - WITH AUTO-INFERENCE
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
+        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
         if (RISK_CATEGORIES.includes(fields.category)) {
           if (!fields.risk_level) {
             // TRY AUTO-INFERENCE from description before asking
@@ -1450,6 +1451,7 @@ serve(async (req) => {
             if (askedPhotoChoice && userSaidNo) {
               const catLabels: Record<string, string> = {
                 iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                sinalizacao: 'Sinalização', drenagem: 'Drenagem',
                 esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
                 animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
               };
@@ -1521,6 +1523,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             if (askedToAttach && !toolResult) {
               const catLabels: Record<string, string> = {
                 iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                sinalizacao: 'Sinalização', drenagem: 'Drenagem',
                 esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
                 animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
               };

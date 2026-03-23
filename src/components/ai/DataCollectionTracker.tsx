@@ -41,6 +41,8 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
   category: {
     via_publica: 'Via Pública',
     iluminacao: 'Iluminação',
+    sinalizacao: 'Sinalização',
+    drenagem: 'Drenagem',
     esgoto: 'Esgoto/Saneamento',
     area_verde: 'Área Verde',
     lixo: 'Lixo/Entulho',
@@ -106,7 +108,7 @@ interface CollectionConfig {
   fields: FieldConfig[];
 }
 
-const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
 
 const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {

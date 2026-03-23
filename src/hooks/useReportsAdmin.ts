@@ -184,6 +184,8 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     { value: 'iluminacao', label: 'Iluminação' },
     { value: 'calcada', label: 'Calçada' },
     { value: 'via_publica', label: 'Via Pública' },
+    { value: 'sinalizacao', label: 'Sinalização' },
+    { value: 'drenagem', label: 'Drenagem' },
     { value: 'lixo', label: 'Lixo e Limpeza' },
     { value: 'area_verde', label: 'Área Verde' },
     { value: 'poluicao', label: 'Poluição' },
