@@ -2662,6 +2662,36 @@ export function accumulateFieldsFromHistory(
         }
       }
     }
+
+    // Relato urbano: método de localização + linha "Localização GPS:" (mesmo padrão do fluxo de serviços)
+    for (const msg of messages) {
+      if (msg.role !== 'user' || typeof msg.content !== 'string') continue;
+      const c = msg.content;
+      const cLower = c.toLowerCase();
+      if (!accumulated.location_method) {
+        if (/localiza[cç][aã]o\s*gps\s*[-:0-9]/i.test(c) || /^📍/u.test(c.trim())) {
+          accumulated.location_method = 'gps';
+        } else if (/usar\s+endere[cç]o\s+cadastrado/i.test(cLower)) {
+          accumulated.location_method = 'registered_address';
+        } else if (/digitar\s+(cep|endere[cç]o)|digitar\s+cep\s+ou\s+endere[cç]o/i.test(cLower)) {
+          accumulated.location_method = 'manual';
+        }
+      }
+      const gpsM =
+        c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps')
+          ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/)
+          : null);
+      if (gpsM && accumulated.user_lat == null) {
+        const la = parseFloat(gpsM[1].trim());
+        const lo = parseFloat(gpsM[2].trim());
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          accumulated.user_lat = la;
+          accumulated.user_lon = lo;
+          if (!accumulated.location_method) accumulated.location_method = 'gps';
+        }
+      }
+    }
     
     // THEN: Parse assistant questions and user responses for structured fields
     for (let i = 0; i < messages.length; i++) {

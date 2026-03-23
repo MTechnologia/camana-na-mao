@@ -1,15 +1,15 @@
 import { useEffect, useState, useMemo } from "react";
+import {
+  reverseGeocodeLatLngClient,
+  reverseGeocodeClientCacheKey,
+  getCachedReverseGeocodeClient,
+} from "@/lib/reverseGeocodeLatLngClient";
 
-/** Cache global por coordenadas (lat,lng arredondados) para não repetir requests. */
-const geocodeCache = new Map<string, string>();
-
-const roundCoord = (v: number, decimals = 5) => Number(v.toFixed(decimals));
-const cacheKey = (lat: number, lng: number) => `${roundCoord(lat)},${roundCoord(lng)}`;
+const cacheKey = reverseGeocodeClientCacheKey;
 
 const isAddressMissing = (address: string | undefined | null): boolean => {
   const a = (address ?? "").trim();
   if (!a) return true;
-  // "Endereço não informado" ou "Endereço nao informado" (com ou sem acento)
   return /endere[cç]o\s*n[aã]o\s*informado/i.test(a);
 };
 
@@ -23,7 +23,7 @@ export interface ServiceForGeocode {
 /**
  * Para cada serviço com coordenadas mas sem endereço válido, faz reverse geocode
  * (Google Geocoding API) e retorna um mapa id -> endereço formatado.
- * Usa cache e throttle para evitar estourar cota.
+ * Usa o mesmo cache que o chat (GPS → endereço) e throttle para não estourar cota.
  */
 export function useReverseGeocodeForServices(
   services: ServiceForGeocode[],
@@ -43,7 +43,7 @@ export function useReverseGeocodeForServices(
             typeof s.longitude === "number" &&
             isAddressMissing(s.address)
         )
-        .map((s) => `${s.id}:${roundCoord(s.latitude)}:${roundCoord(s.longitude)}`)
+        .map((s) => `${s.id}:${cacheKey(s.latitude, s.longitude)}`)
         .sort()
         .join("|"),
     [services]
@@ -81,11 +81,15 @@ export function useReverseGeocodeForServices(
       keyToIds.get(key)!.push(s.id);
     });
 
-    const keysToResolve = Array.from(keyToIds.keys()).filter((k) => !geocodeCache.has(k));
+    const keysToResolve = Array.from(keyToIds.keys()).filter((k) => {
+      const [lat, lng] = k.split(",").map(Number);
+      return !getCachedReverseGeocodeClient(lat, lng);
+    });
+
     if (keysToResolve.length === 0) {
       const initial: Record<string, string> = {};
       toFetch.forEach((s) => {
-        const addr = geocodeCache.get(cacheKey(s.latitude, s.longitude));
+        const addr = getCachedReverseGeocodeClient(s.latitude, s.longitude);
         if (addr) initial[s.id] = addr;
       });
       if (!cancelled) setResolved(initial);
@@ -97,26 +101,10 @@ export function useReverseGeocodeForServices(
 
     const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-    const fetchOne = async (lat: number, lng: number): Promise<string | null> => {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}&language=pt-BR`;
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (data.status === "OK" && data.results?.[0])
-          return data.results[0].formatted_address ?? null;
-        if (import.meta.env.DEV && data.status !== "ZERO_RESULTS")
-          console.warn("[Geocoding]", data.status, data.error_message ?? "");
-        return null;
-      } catch (err) {
-        if (import.meta.env.DEV) console.warn("[Geocoding] request failed", err);
-        return null;
-      }
-    };
-
     (async () => {
       const next: Record<string, string> = {};
       toFetch.forEach((s) => {
-        const addr = geocodeCache.get(cacheKey(s.latitude, s.longitude));
+        const addr = getCachedReverseGeocodeClient(s.latitude, s.longitude);
         if (addr) next[s.id] = addr;
       });
       if (Object.keys(next).length > 0 && !cancelled) setResolved((prev) => ({ ...prev, ...next }));
@@ -126,14 +114,13 @@ export function useReverseGeocodeForServices(
         const results = await Promise.all(
           batch.map((key) => {
             const [lat, lng] = key.split(",").map(Number);
-            return fetchOne(lat, lng);
+            return reverseGeocodeLatLngClient(lat, lng, apiKey);
           })
         );
 
         batch.forEach((key, idx) => {
           const addr = results[idx];
           if (addr) {
-            geocodeCache.set(key, addr);
             keyToIds.get(key)?.forEach((id) => (next[id] = addr));
           }
         });

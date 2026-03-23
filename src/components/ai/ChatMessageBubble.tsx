@@ -392,8 +392,13 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       (content.includes('como você quer informar sua localização') ||
-       content.includes('como quer informar sua localização') ||
-       content.includes('informar sua localização para buscar')) &&
+        content.includes('como quer informar sua localização') ||
+        content.includes('informar sua localização para buscar') ||
+        content.includes('onde fica** o problema') ||
+        content.includes('onde fica o problema') ||
+        content.includes('como você quer informar **onde fica**') ||
+        (content.includes('toque em') && content.includes('usar minha localização')) ||
+        (content.includes('endereço cadastrado') && content.includes('digitar cep'))) &&
       isLastAssistantMessage
     );
   }, [isUser, message.content, locationMethodSelected, hasLocationMethodPicker, isLastAssistantMessage]);

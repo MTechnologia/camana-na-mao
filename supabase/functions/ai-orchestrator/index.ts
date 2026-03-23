@@ -904,11 +904,6 @@ serve(async (req) => {
         }
         
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
-        const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
-        const hasLocationViaCep = cepDigits.length === 8;
-        const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
-        const hasLocation = hasLocationViaCep || hasLocationViaAddress;
-        
         // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
         const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
@@ -923,8 +918,12 @@ serve(async (req) => {
           if (fields.neighborhood && !fields.street) {
             return { field: 'street', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **nome da rua**?' };
           }
-          // Default: ask for CEP with address picker fallback
-          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
+          // manual, ou cadastro vazio: pedir CEP / busca de endereço
+          const cepPrompt =
+            fields.location_method === 'registered_address'
+              ? 'Não encontrei endereço no seu **perfil**. Informe o **CEP** ou a rua e o bairro do local.\n\n_Se não souber o CEP, me diz a rua e bairro._'
+              : 'Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._';
+          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: `[FIELD_REQUEST:cep]${cepPrompt}` };
         }
         
         // 3b. Endereço cadastrado: mostrar o que veio do perfil e pedir confirmação antes de número/risco
