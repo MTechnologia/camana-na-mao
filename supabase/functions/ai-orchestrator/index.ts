@@ -687,7 +687,8 @@ serve(async (req) => {
     async function getNextMissingField(
       collectionType: string,
       fields: Record<string, unknown>,
-      supabaseClient: SupabaseClient
+      supabaseClient: SupabaseClient,
+      userIdForAddress: string
     ): Promise<{ field: string | null; picker: string | null; prompt: string | null }> {
       
       if (collectionType === 'urban_report') {
@@ -826,6 +827,82 @@ serve(async (req) => {
           console.log('[getNextMissingField] Set subcategory:', fields.subcategory);
         }
         
+        // 2c. Como informar o local (GPS / cadastrado / CEP) — antes de pedir só o CEP
+        if (!fields.location_method) {
+          return {
+            field: 'location_method',
+            picker: '[LOCATION_METHOD_PICKER]',
+            prompt:
+              'Como você quer informar **onde fica** o problema?\n\nToque em **Usar minha localização (GPS)** abaixo, ou escolha **endereço cadastrado** / **digitar CEP ou endereço**.',
+          };
+        }
+        if (fields.location_method === 'gps' && (fields.user_lat == null || fields.user_lon == null)) {
+          return {
+            field: 'gps_coords',
+            picker: '[LOCATION_METHOD_PICKER]',
+            prompt:
+              'Preciso da sua posição: use **Usar minha localização (GPS)** abaixo e permita o acesso no navegador (e no celular, se pedir).',
+          };
+        }
+        if (fields.location_method === 'registered_address' && userIdForAddress) {
+          const cepDigitsPre = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+          const hasLocPre = cepDigitsPre.length === 8 || (!!fields.street && !!fields.neighborhood);
+          if (!hasLocPre) {
+            const { data: addrRows } = await supabaseClient
+              .from('user_addresses')
+              .select('street, number, neighborhood, city, zip_code, is_primary')
+              .eq('user_id', userIdForAddress)
+              .order('is_primary', { ascending: false })
+              .limit(1);
+            const addr = addrRows?.[0] as
+              | { street?: string; number?: string; neighborhood?: string; city?: string; zip_code?: string }
+              | undefined;
+            if (addr?.street && addr.neighborhood) {
+              fields.street = addr.street;
+              fields.street_number = addr.number || '';
+              fields.neighborhood = addr.neighborhood;
+              fields.city = addr.city || fields.city;
+              const z = String(addr.zip_code || '').replace(/\D/g, '');
+              if (z.length === 8) fields.cep = z;
+              fields._location_from_user_profile = true;
+              console.log('[getNextMissingField] Urban: filled location from user_addresses');
+            } else {
+              return {
+                field: 'cep',
+                picker: '[ADDRESS_PICKER]',
+                prompt:
+                  'Não há **endereço cadastrado** no seu perfil (ou está incompleto). Qual o **CEP** do local do problema?\n\n_Se não souber, me diz a rua e bairro._',
+              };
+            }
+          }
+        }
+        if (fields.location_method === 'gps') {
+          const ulat = fields.user_lat != null ? Number(fields.user_lat) : NaN;
+          const ulon = fields.user_lon != null ? Number(fields.user_lon) : NaN;
+          if (Number.isFinite(ulat) && Number.isFinite(ulon)) {
+            const cepDigitsG = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+            const hasLocG = cepDigitsG.length === 8 || (!!fields.street && !!fields.neighborhood);
+            if (!hasLocG) {
+              const rev = await lib.reverseGeocodeLatLon(ulat, ulon);
+              if (rev) {
+                const parts = rev.split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (parts.length >= 2) {
+                  fields.street = parts[0].slice(0, 200);
+                  fields.neighborhood = parts[1].slice(0, 120);
+                } else {
+                  fields.street = rev.slice(0, 200);
+                  fields.neighborhood = 'Referência GPS';
+                }
+              } else {
+                fields.street = 'Local informado por GPS';
+                fields.neighborhood = 'Aproximação por coordenadas';
+              }
+              if (!fields.city) fields.city = 'São Paulo';
+              console.log('[getNextMissingField] Urban: reverse geocode GPS →', fields.street, '|', fields.neighborhood);
+            }
+          }
+        }
+        
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
         const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
         const hasLocationViaCep = cepDigits.length === 8;
@@ -848,6 +925,29 @@ serve(async (req) => {
           }
           // Default: ask for CEP with address picker fallback
           return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
+        }
+        
+        // 3b. Endereço cadastrado: mostrar o que veio do perfil e pedir confirmação antes de número/risco
+        if (
+          fields.location_method === 'registered_address' &&
+          fields._location_from_user_profile === true &&
+          !fields.urban_registered_address_ack &&
+          hasLocationViaAddress
+        ) {
+          const st = String(fields.street || '').trim();
+          const nb = String(fields.neighborhood || '').trim();
+          const numRaw = fields.street_number != null ? String(fields.street_number).trim() : '';
+          const num = numRaw ? `, ${numRaw}` : '';
+          const cityPart = fields.city ? `, ${String(fields.city).trim()}` : '';
+          const cepRaw = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+          const cepFmt = cepRaw.length === 8 ? `${cepRaw.slice(0, 5)}-${cepRaw.slice(5)}` : '';
+          const cepPart = cepFmt ? ` — CEP ${cepFmt}` : '';
+          const line = `**${st}${num}**, ${nb}${cityPart}${cepPart}`;
+          return {
+            field: 'urban_registered_address_ack',
+            picker: null,
+            prompt: `Encontrei este **endereço no seu perfil**:\n\n📍 ${line}\n\n**O problema é neste local?** Responda **sim** para continuar ou **não** para informar outro CEP ou endereço.`,
+          };
         }
         
         // 4. Street number / reference (optional but helpful)
@@ -1433,7 +1533,7 @@ serve(async (req) => {
     }
 
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
-      nextFieldInfo = await getNextMissingField(collectionIntent.type, accumulatedFields, supabase);
+      nextFieldInfo = await getNextMissingField(collectionIntent.type, accumulatedFields, supabase, user.id);
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
       
       // === CRITICAL FIX: Auto-call create function when all fields are ready ===
