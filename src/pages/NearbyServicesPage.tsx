@@ -405,11 +405,6 @@ export default function NearbyServicesPage() {
                 {matrixProfile === "driving" ? "Atualizando distâncias de carro…" : "Atualizando distâncias a pé…"}
               </p>
             )}
-            {routeFilterFallback && (
-              <p className="text-xs text-amber-600 dark:text-amber-500">
-                Exibindo distâncias aproximadas; rota indisponível para todos neste raio.
-              </p>
-            )}
           </>
         )}
 
