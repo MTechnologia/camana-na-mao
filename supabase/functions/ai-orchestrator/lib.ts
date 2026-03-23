@@ -342,6 +342,10 @@ export function tryPatternBasedLabel(description: string, category: string): str
       { pattern: /asfalto\s*(danificad|quebrad)/i, label: 'Asfalto Danificado' },
       { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' }
     ],
+    pavimentacao: [
+      { pattern: /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem/i, label: 'Pavimentação / Recape' },
+      { pattern: /obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|cbuq|restaura[çc][ãa]o\s*asf[áa]ltica/i, label: 'Obra de Pavimentação' },
+    ],
     sinalizacao: [
       { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' },
       { pattern: /faixa\s*(de\s*pedestre|apagad)/i, label: 'Faixa de Pedestre' },
@@ -1316,7 +1320,7 @@ export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<st
 
 // Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
-  'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
+  'iluminacao', 'calcada', 'via_publica', 'pavimentacao', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
   'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
 ] as const;
 
@@ -1578,12 +1582,29 @@ export function autoClassifyCategory(description: string): {
     // === POLUIÇÃO SONORA (weight 9) ===
     { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
     
-    // === SINALIZAÇÃO (weight 8.5 — escopo OS) ===
-    { keywords: /sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?/i, category: 'sinalizacao', weight: 8.5 },
-    // === DRENAGEM (weight 8.5 — escopo OS, águas pluviais) ===
-    { keywords: /drenagem|água\s*pluvial|pluvial|galeria\s*(de\s*águas)?|sarjeta|bueiro\s*pluvial|água\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente/i, category: 'drenagem', weight: 8.5 },
-    // === VIA PÚBLICA (weight 8 — buraco, asfalto, pavimentação; semáforo/faixa em sinalizacao) ===
-    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    // === PAVIMENTAÇÃO (weight 8.6 — OS: recape, capeamento, obras de pavimento; não confundir com só “buraco”) ===
+    {
+      keywords:
+        /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem|cbuq|obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|restaura[çc][ãa]o\s*asf[áa]ltica|revestimento\s*asf[áa]ltico/i,
+      category: 'pavimentacao',
+      weight: 8.6,
+    },
+    // === SINALIZAÇÃO (weight 8.5 — OS: vertical/horizontal, semáforo, placa, faixa) ===
+    {
+      keywords:
+        /sem[áa]foro|sinaliza[çc][ãa]o\s*(vertical|horizontal)?|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?|demarca[çc][ãa]o|repintura|zebr(?:a)?/i,
+      category: 'sinalizacao',
+      weight: 8.5,
+    },
+    // === DRENAGEM (weight 8.5 — OS: águas pluviais, sarjeta, galeria, bueiro de chuva) ===
+    {
+      keywords:
+        /drenagem|água\s*pluvial|agua\s*pluvial|pluvial|galeria\s*(de\s*águas|pluvial)?|sarjeta|bueiro\s*pluvial|bueiro\s*de\s*chuva|água\s*da\s*chuva|agua\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente|encharcad[oa]\s*pela\s*chuva/i,
+      category: 'drenagem',
+      weight: 8.5,
+    },
+    // === VIA PÚBLICA (weight 8 — buraco, erosão, lombada; pavimentação explícita → pavimentacao) ===
+    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
     
     // === ÁREA VERDE (EXPANDED - weight 8) ===
     { keywords: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)?|galho\s*(ca[íi]d|quebrad|solto)|poda|ra[íi]z\s*(expost|levant)|pra[çc]a|parque|jardim|mato\s*(alto|crescend)|capim\s*alto|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 8 },
@@ -1712,6 +1733,81 @@ export async function getClassificationFromFeedback(
   return null;
 }
 
+/** Valores de `report_classification_prediction_log.classification_source` (métricas de acurácia). */
+export const CLASSIFICATION_PREDICTION_SOURCES = [
+  'feedback_loop',
+  'urgent_pattern',
+  'auto_heuristic',
+  'fallback_outro',
+  'user_recovery',
+  'fuzzy_text',
+  'keyword_extract',
+  'manual_form',
+  'unknown',
+] as const;
+export type ClassificationPredictionSource = (typeof CLASSIFICATION_PREDICTION_SOURCES)[number];
+
+/** Infere a origem da categoria urbana a partir dos flags da coleta determinística. */
+export function inferUrbanClassificationSource(
+  accumulated: Record<string, unknown> | undefined
+): ClassificationPredictionSource {
+  const acc = accumulated || {};
+  if (acc._from_feedback === true) return 'feedback_loop';
+  if (acc._urgent_content === true) return 'urgent_pattern';
+  if (acc._fallback_category === true) return 'user_recovery';
+  if (acc._auto_classified === true) return 'auto_heuristic';
+  return 'unknown';
+}
+
+/** Infere a origem do tipo de relato de transporte (feedback, fuzzy, keywords, fallback). */
+export function inferTransportClassificationSource(
+  accumulated: Record<string, unknown> | undefined
+): ClassificationPredictionSource {
+  const acc = accumulated || {};
+  if (acc._from_classification_feedback === true) return 'feedback_loop';
+  const route = acc._transport_classification_route;
+  if (route === 'fuzzy_text' || route === 'keyword_extract' || route === 'fallback_outro') {
+    return route;
+  }
+  if (acc._fallback_report_type === true) return 'fallback_outro';
+  return 'unknown';
+}
+
+/**
+ * Registra predição no momento do registro do relato (JWT do cidadão; RLS user_id = auth.uid()).
+ * Falha não interrompe o fluxo do chat. Também emite log estruturado para observabilidade.
+ */
+export async function insertClassificationPredictionLog(
+  supabase: SupabaseClient,
+  params: {
+    userId: string;
+    reportId: string;
+    reportType: 'urban' | 'transport';
+    predictedCategory: string;
+    predictedSubcategory: string | null;
+    classificationSource: string;
+  }
+): Promise<void> {
+  const payload = {
+    report_id: params.reportId,
+    report_type: params.reportType,
+    predicted_category: params.predictedCategory,
+    predicted_subcategory: params.predictedSubcategory,
+    classification_source: params.classificationSource,
+    user_id: params.userId,
+  };
+  console.log('[CLASSIFICATION_METRIC]', JSON.stringify({ event: 'prediction_at_registration', ...payload }));
+  const { error } = await supabase.from('report_classification_prediction_log').insert(payload);
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '23505') {
+      console.warn('[insertClassificationPredictionLog] duplicate report_id+type, ignored');
+      return;
+    }
+    console.warn('[insertClassificationPredictionLog] insert failed:', error.message);
+  }
+}
+
 // Generate intuitive label from description when no pattern matches
 export function generateLabelFromDescription(description: string): string {
   if (!description || description.trim().length === 0) {
@@ -1811,14 +1907,18 @@ export function mapLabelToCategory(label: string): string | null {
       'poste', 'luz', 'lampada', 'lâmpada', 'escuro', 'escuridão', 'iluminação', 
       'apagado', 'queimado', 'caído', 'caido', 'torto', 'inclinado', 'pendendo'
     ],
-    'via_publica': [
-      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada', 'pavimentação'
+    // OS explícitas antes de via genérica (evita "rua" dominar "recape na rua")
+    'pavimentacao': [
+      'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'capeamento', 'fresagem', 'cbuq', 'obra de pavimento',
     ],
     'sinalizacao': [
       'semáforo', 'semaforo', 'sinalização', 'sinalizacao', 'faixa', 'pedestre', 'placa', 'sinal'
     ],
     'drenagem': [
       'drenagem', 'água pluvial', 'pluvial', 'galeria', 'sarjeta', 'chuva', 'bueiro pluvial'
+    ],
+    'via_publica': [
+      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada',
     ],
     'calcada': [
       'calçada', 'calcada', 'passeio', 'guia', 'meio-fio', 'rampa', 'acessibilidade'
@@ -2175,8 +2275,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       const categoryMap: Record<string, string> = {
         'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
         'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'rua': 'via_publica',
+        'pavimentação': 'pavimentacao', 'pavimentacao': 'pavimentacao', 'recape': 'pavimentacao', 'asfaltamento': 'pavimentacao',
         'sinalização': 'sinalizacao', 'sinalizacao': 'sinalizacao', 'semáforo': 'sinalizacao', 'semaforo': 'sinalizacao', 'faixa': 'sinalizacao', 'placa': 'sinalizacao',
-        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem',
+        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem', 'pluvial': 'drenagem',
         'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
         'lixo': 'lixo', 'entulho': 'lixo', 'sujeira': 'lixo',
         'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto', 'água': 'esgoto', 'agua': 'esgoto',
@@ -2670,6 +2771,7 @@ export function accumulateFieldsFromHistory(
         const categoryPatterns = [
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
+          { pattern: /problema de \*?\*?pavimenta[çc][ãa]o\*?\*?/i, category: 'pavimentacao' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
           { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
           { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
@@ -4200,7 +4302,7 @@ export function detectCollectionIntent(
   }
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
   const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
@@ -5832,6 +5934,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',
@@ -6044,18 +6147,22 @@ export async function executeTool(
         }
         
         // === HARD VALIDATION FOR RISK CATEGORIES ===
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'sinalizacao', 'drenagem'];
+        const RISK_CATEGORIES = [
+          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
+        ];
         
         if (RISK_CATEGORIES.includes(args.category)) {
           // Require risk_level for risk categories
           if (!args.risk_level) {
             const categoryLabels: Record<string, string> = {
               via_publica: 'via pública',
+              pavimentacao: 'pavimentação',
               iluminacao: 'iluminação',
               esgoto: 'esgoto/alagamento',
               area_verde: 'área verde',
+              calcada: 'calçada',
               sinalizacao: 'sinalização',
-              drenagem: 'drenagem'
+              drenagem: 'drenagem',
             };
             const label = categoryLabels[args.category] || args.category;
             // Add FIELD_REQUEST marker for deterministic capture of risk_level
@@ -6155,6 +6262,21 @@ export async function executeTool(
           protocol_code: data.protocol_code
         });
 
+        try {
+          await insertClassificationPredictionLog(supabase, {
+            userId,
+            reportId: data.id,
+            reportType: 'urban',
+            predictedCategory: String(args.category),
+            predictedSubcategory: args.subcategory ? String(args.subcategory) : null,
+            classificationSource: inferUrbanClassificationSource(
+              accumulatedFields as Record<string, unknown> | undefined
+            ),
+          });
+        } catch (metricErr) {
+          console.warn('[create_urban_report] classification metric log failed:', metricErr);
+        }
+
         if (args.risk_level) {
           const desc = String(args.description || "").trim();
           const snippet = desc.slice(0, 240);
@@ -6198,6 +6320,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',
@@ -6264,7 +6387,9 @@ export async function executeTool(
         
         // Build impact section (only for risk categories)
         let impactSection = '';
-        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
+        const riskCategories = [
+          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
+        ];
         if (riskCategories.includes(args.category) && args.risk_level) {
           const impactParts = [];
           if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
@@ -6511,6 +6636,21 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        try {
+          await insertClassificationPredictionLog(supabase, {
+            userId,
+            reportId: data.id,
+            reportType: 'transport',
+            predictedCategory: String(validReportType),
+            predictedSubcategory: subcategoryLabel ? String(subcategoryLabel) : null,
+            classificationSource: inferTransportClassificationSource(
+              accumulatedFields as Record<string, unknown> | undefined
+            ),
+          });
+        } catch (metricErr) {
+          console.warn('[create_transport_report] classification metric log failed:', metricErr);
+        }
 
         const transportSeverityJustification =
           validReportType === "seguranca"
@@ -7168,6 +7308,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',

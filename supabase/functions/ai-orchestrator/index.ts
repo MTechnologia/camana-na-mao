@@ -34,12 +34,14 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     console.log('[ai-orchestrator] Environment check:', {
       hasAiChatBaseUrl: !!aiChatBaseUrl,
       hasAiBaseUrl: !!aiBaseUrl,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseAnonKey: !!supabaseAnonKey,
+      hasSupabaseServiceRoleKey: !!supabaseServiceRoleKey,
       aiChatModel,
       supabaseUrl: supabaseUrl ? supabaseUrl.substring(0, 50) + '...' : 'missing',
       supabaseAnonKeyLength: supabaseAnonKey?.length || 0
@@ -158,6 +160,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
+
+    // Leitura de report_classification_feedback: RLS só permite admin/gestor; cidadão no chat usa JWT.
+    // Cliente service role (só servidor) para o feedback loop funcionar no fluxo conversacional.
+    const supabaseClassificationFeedbackRead =
+      supabaseServiceRoleKey && supabaseServiceRoleKey.length > 0
+        ? createClient(supabaseUrl, supabaseServiceRoleKey)
+        : null;
+    if (!supabaseClassificationFeedbackRead) {
+      console.warn(
+        '[ai-orchestrator] SUPABASE_SERVICE_ROLE_KEY ausente: getClassificationFromFeedback usa JWT do usuário (RLS pode bloquear).'
+      );
+    }
     
     console.log('[ai-orchestrator] Verifying user authentication...');
     console.log('[ai-orchestrator] Using Supabase URL:', supabaseUrl);
@@ -245,7 +259,8 @@ serve(async (req) => {
         if (lines.length >= 2) district = lines[1];
       }
       const categoryToIssueType: Record<string, string> = {
-        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
+        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'pavimentacao': 'urbanismo', 'pavimentação': 'urbanismo',
+        'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
         'calcada': 'urbanismo', 'calçada': 'urbanismo', 'sinalizacao': 'urbanismo', 'sinalização': 'urbanismo',
         'drenagem': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
         'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
@@ -688,6 +703,7 @@ serve(async (req) => {
       collectionType: string,
       fields: Record<string, unknown>,
       supabaseClient: SupabaseClient,
+      classificationFeedbackReadClient: SupabaseClient,
       userIdForAddress: string
     ): Promise<{ field: string | null; picker: string | null; prompt: string | null }> {
       
@@ -747,7 +763,11 @@ serve(async (req) => {
           const description = (fields.description || '').toLowerCase();
           
           // Feedback loop: correções anteriores com descrição similar têm prioridade
-          const feedback = await lib.getClassificationFromFeedback(supabaseClient, fields.description || '', 'urban');
+          const feedback = await lib.getClassificationFromFeedback(
+            classificationFeedbackReadClient,
+            fields.description || '',
+            'urban'
+          );
           if (feedback) {
             fields.category = feedback.category;
             fields.subcategory = feedback.subcategory || lib.generateLabelFromDescription(fields.description || '');
@@ -783,7 +803,7 @@ serve(async (req) => {
             // Medium confidence - ask for confirmation using intuitive label if available
             const intuitiveName = autoClass.suggestedLabel || (() => {
               const categoryLabels: Record<string, string> = {
-                iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
+                iluminacao: 'iluminação', via_publica: 'via pública', pavimentacao: 'pavimentação', calcada: 'calçada',
                 sinalizacao: 'sinalização', drenagem: 'drenagem',
                 lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
                 higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'barulho/poluição', outro: 'outro'
@@ -808,7 +828,7 @@ serve(async (req) => {
             } else {
               // First time - ask with expanded options including "outro"
               fields._asked_category = true;
-              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco, sinalização, drenagem/água pluvial, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
+              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco na via, **pavimentação/recape**, **sinalização** (semáforo/placa/faixa), **drenagem**/água pluvial/sarjeta, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
             }
             }
           }
@@ -960,7 +980,9 @@ serve(async (req) => {
         }
         
         // 5. Risk assessment for risk categories - WITH AUTO-INFERENCE
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
+        const RISK_CATEGORIES = [
+          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
+        ];
         if (RISK_CATEGORIES.includes(fields.category)) {
           if (!fields.risk_level) {
             // TRY AUTO-INFERENCE from description before asking
@@ -1008,7 +1030,7 @@ serve(async (req) => {
         // If can't infer, use 'outro' with generated label (NEVER block the flow)
         if (!fields.report_type) {
           const transportFeedback = await lib.getClassificationFromFeedback(
-            supabaseClient,
+            classificationFeedbackReadClient,
             description,
             'transport'
           );
@@ -1022,6 +1044,7 @@ serve(async (req) => {
               fields.subcategory_label = transportFeedback.subcategory;
             }
             fields._from_classification_feedback = true;
+            fields._transport_classification_route = 'feedback_loop';
             console.log(
               '[getNextMissingField] Transport report_type from classification feedback:',
               fields.report_type,
@@ -1034,17 +1057,20 @@ serve(async (req) => {
           const fuzzyInferredType = lib.inferTransportTypeFromText(description);
           if (fuzzyInferredType) {
             fields.report_type = fuzzyInferredType;
+            fields._transport_classification_route = 'fuzzy_text';
             console.log('[getNextMissingField] Fuzzy-inferred transport report_type:', fields.report_type);
           } else {
             // Fallback to extractTransportFields for exact matching
             const inferredFields = lib.extractTransportFields(description.toLowerCase());
             if (inferredFields.report_type) {
               fields.report_type = inferredFields.report_type;
+              fields._transport_classification_route = 'keyword_extract';
               console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
             } else {
               // FALLBACK: Can't infer - use 'outro' and continue (NEVER ASK, NEVER BLOCK)
               fields.report_type = 'outro';
               fields._fallback_report_type = true;
+              fields._transport_classification_route = 'fallback_outro';
               console.log('[getNextMissingField] Fallback transport report_type to outro');
             }
           }
@@ -1295,7 +1321,8 @@ serve(async (req) => {
       }
       const description = descText;
       const categoryToIssueType: Record<string, string> = {
-        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
+        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'pavimentacao': 'urbanismo', 'pavimentação': 'urbanismo',
+        'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
         'calcada': 'urbanismo', 'calçada': 'urbanismo', 'sinalizacao': 'urbanismo', 'sinalização': 'urbanismo',
         'drenagem': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
         'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
@@ -1551,7 +1578,13 @@ serve(async (req) => {
     }
 
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
-      nextFieldInfo = await getNextMissingField(collectionIntent.type, accumulatedFields, supabase, user.id);
+      nextFieldInfo = await getNextMissingField(
+        collectionIntent.type,
+        accumulatedFields,
+        supabase,
+        supabaseClassificationFeedbackRead ?? supabase,
+        user.id
+      );
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
       
       // === CRITICAL FIX: Auto-call create function when all fields are ready ===
@@ -1591,7 +1624,7 @@ serve(async (req) => {
             // 3) Perguntamos e usuário disse NÃO → mostrar preview
             if (askedPhotoChoice && userSaidNo) {
               const catLabels: Record<string, string> = {
-                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
                 sinalizacao: 'Sinalização', drenagem: 'Drenagem',
                 esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
                 animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
@@ -1663,7 +1696,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             // 5) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
             if (askedToAttach && !toolResult) {
               const catLabels: Record<string, string> = {
-                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
                 sinalizacao: 'Sinalização', drenagem: 'Drenagem',
                 esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
                 animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'

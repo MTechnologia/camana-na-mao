@@ -13,15 +13,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { logManualClassificationPrediction } from "@/lib/classificationPredictionLog";
 
+/** Valores alinhados a `VALID_URBAN_CATEGORIES` / relato via chat (OS: pavimentação, sinalização, drenagem explícitas). */
 const categories = [
-  { value: "iluminacao", label: "Iluminação Pública" },
+  { value: "iluminacao", label: "Iluminação pública" },
   { value: "calcada", label: "Calçada" },
-  { value: "via", label: "Via Pública" },
-  { value: "lixo", label: "Lixo e Limpeza" },
-  { value: "verde", label: "Área Verde" },
-  { value: "outro", label: "Outro" }
+  { value: "via_publica", label: "Via pública (buraco, erosão, lombada)" },
+  { value: "pavimentacao", label: "Pavimentação (recape, asfaltamento, obra)" },
+  { value: "sinalizacao", label: "Sinalização (semáforo, placa, faixa)" },
+  { value: "drenagem", label: "Drenagem / água pluvial (sarjeta, galeria)" },
+  { value: "esgoto", label: "Esgoto / bueiro sanitário" },
+  { value: "lixo", label: "Lixo e limpeza" },
+  { value: "area_verde", label: "Área verde / praça" },
+  { value: "higiene_urbana", label: "Higiene urbana" },
+  { value: "animais", label: "Animais" },
+  { value: "poluicao", label: "Poluição / barulho" },
+  { value: "feedback_camara", label: "Feedback à Câmara" },
+  { value: "outro", label: "Outro" },
 ];
+
+function normalizeManualCategory(raw: string): string {
+  if (raw === "via") return "via_publica";
+  if (raw === "verde") return "area_verde";
+  return raw;
+}
 
 // Buscar configurações de automação
 const getN8NSettings = async () => {
@@ -92,7 +108,11 @@ export default function ManualReportPage() {
     try {
       const saved = sessionStorage.getItem(DRAFT_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved) as Record<string, unknown>;
+        if (typeof parsed.category === "string") {
+          parsed.category = normalizeManualCategory(parsed.category);
+        }
+        return parsed;
       }
     } catch { /* ignore parse errors for draft */ }
     return {
@@ -284,6 +304,14 @@ export default function ManualReportPage() {
         .single();
 
       if (error) throw error;
+
+      await logManualClassificationPrediction(supabase, {
+        userId: user.id,
+        reportId: insertedReport.id,
+        reportType: "urban",
+        predictedCategory: formData.category,
+        predictedSubcategory: formData.title?.trim() || null,
+      });
 
       // Limpar draft após sucesso
       sessionStorage.removeItem(DRAFT_KEY);

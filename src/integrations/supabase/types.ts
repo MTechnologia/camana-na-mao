@@ -1165,6 +1165,39 @@ export type Database = {
           },
         ]
       }
+      report_classification_prediction_log: {
+        Row: {
+          id: string
+          created_at: string
+          report_id: string
+          report_type: string
+          predicted_category: string
+          predicted_subcategory: string | null
+          classification_source: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          report_id: string
+          report_type: string
+          predicted_category: string
+          predicted_subcategory?: string | null
+          classification_source: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          report_id?: string
+          report_type?: string
+          predicted_category?: string
+          predicted_subcategory?: string | null
+          classification_source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       report_patterns: {
         Row: {
           average_severity: string | null
@@ -2360,7 +2393,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_classification_accuracy_by_source: {
+        Row: {
+          report_type: string | null
+          classification_source: string | null
+          evaluated_reports: number | null
+          category_hits: number | null
+          category_misses: number | null
+          category_accuracy_pct: number | null
+        }
+        Relationships: []
+      }
+      v_classification_predictions_pending: {
+        Row: {
+          report_id: string | null
+          report_type: string | null
+          predicted_category: string | null
+          predicted_subcategory: string | null
+          classification_source: string | null
+          created_at: string | null
+          protocol_code: string | null
+        }
+        Relationships: []
+      }
+      v_classification_prediction_vs_feedback: {
+        Row: {
+          prediction_log_id: string | null
+          predicted_at: string | null
+          report_id: string | null
+          report_type: string | null
+          predicted_category: string | null
+          predicted_subcategory: string | null
+          classification_source: string | null
+          feedback_id: string | null
+          corrected_at: string | null
+          correction_source: string | null
+          original_category: string | null
+          original_subcategory: string | null
+          corrected_category: string | null
+          corrected_subcategory: string | null
+          category_match: boolean | null
+          subcategory_match: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       insert_audiencia_participacao: {
