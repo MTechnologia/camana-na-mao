@@ -1551,6 +1551,7 @@ export type Database = {
           id: string
           is_anonymous: boolean | null
           publication_status: string
+          rating_dimensions: Record<string, number> | null
           rating_stars: number
           rating_text: string | null
           sentiment: string | null
@@ -1565,6 +1566,7 @@ export type Database = {
           id?: string
           is_anonymous?: boolean | null
           publication_status?: string
+          rating_dimensions?: Record<string, number> | null
           rating_stars: number
           rating_text?: string | null
           sentiment?: string | null
@@ -1579,6 +1581,7 @@ export type Database = {
           id?: string
           is_anonymous?: boolean | null
           publication_status?: string
+          rating_dimensions?: Record<string, number> | null
           rating_stars?: number
           rating_text?: string | null
           sentiment?: string | null
