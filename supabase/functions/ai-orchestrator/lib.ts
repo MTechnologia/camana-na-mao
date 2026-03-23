@@ -4,6 +4,40 @@ import {
   URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
 } from "./lib-urban-tramite.ts";
 
+// ========== SERVICE RATING: DIMENSÕES (alinhado a src/lib/serviceRatingDimensions.ts) ==========
+export const SERVICE_RATING_DIMENSION_KEYS = ['atendimento', 'limpeza', 'infraestrutura', 'tempo_espera'] as const;
+
+export function isCompleteServiceRatingDimensions(o: unknown): boolean {
+  if (!o || typeof o !== 'object') return false;
+  const rec = o as Record<string, unknown>;
+  for (const k of SERVICE_RATING_DIMENSION_KEYS) {
+    const n = Number(rec[k]);
+    if (!Number.isInteger(n) || n < 1 || n > 5) return false;
+  }
+  return true;
+}
+
+export function parseRatingDimensionsMarker(content: string): Record<string, number> | null {
+  const marker = '[RATING_DIMENSIONS:';
+  const idx = content.indexOf(marker);
+  if (idx < 0) return null;
+  const start = idx + marker.length;
+  const end = content.indexOf(']', start);
+  if (end < 0) return null;
+  try {
+    const o = JSON.parse(content.slice(start, end)) as Record<string, unknown>;
+    if (!isCompleteServiceRatingDimensions(o)) return null;
+    return o as Record<string, number>;
+  } catch {
+    return null;
+  }
+}
+
+export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
+  const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
 /**
@@ -245,6 +279,11 @@ export function extractImplicitData(
     } else if (/ótimo|otimo|excelente|perfeito|maravilhoso|muito bom|sensacional|top/i.test(lower)) {
       extracted.rating_stars = 5;
       extracted.sentiment = 'positive';
+    }
+    const dimsMark = parseRatingDimensionsMarker(userMessage);
+    if (dimsMark) {
+      extracted.rating_dimensions = dimsMark;
+      extracted.rating_stars = aggregateRatingDimensionsStars(dimsMark);
     }
   }
   
@@ -2061,6 +2100,15 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       break;
     }
 
+    case 'rating_dimensions': {
+      const fromMark = parseRatingDimensionsMarker(response);
+      if (fromMark) {
+        result.rating_dimensions = fromMark;
+        result.rating_stars = aggregateRatingDimensionsStars(fromMark);
+      }
+      break;
+    }
+
     case 'cep': {
       // CEP numérico (8 dígitos)
       const cepMatch = response.match(/\b(\d{5}[-]?\d{3})\b/);
@@ -3034,15 +3082,22 @@ export function accumulateFieldsFromHistory(
         }
       }
       
-      // Parse "Nota: X estrelas" format from InlineRatingPicker
+      const rdParsed = parseRatingDimensionsMarker(content);
+      if (rdParsed) {
+        accumulated.rating_dimensions = rdParsed;
+        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
+        console.log('[accumulateFields] Parsed rating_dimensions from marker');
+      }
+
+      // Parse "Nota: X estrelas" format from InlineRatingPicker (legado)
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
-      if (ratingMatch && !accumulated.rating_stars) {
+      if (ratingMatch && !accumulated.rating_stars && !accumulated.rating_dimensions) {
         accumulated.rating_stars = parseInt(ratingMatch[1]);
         console.log('[accumulateFields] Parsed rating_stars from picker:', accumulated.rating_stars);
       }
       
       // Also detect rating from natural language if not already captured
-      if (!accumulated.rating_stars) {
+      if (!accumulated.rating_stars && !accumulated.rating_dimensions) {
         const naturalRatingMatch = contentLower.match(/(\d)\s*(?:estrela|nota)/);
         if (naturalRatingMatch) {
           accumulated.rating_stars = parseInt(naturalRatingMatch[1]);
@@ -3112,10 +3167,24 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
+            case 'rating_dimensions': {
+              const rd = parseRatingDimensionsMarker(answer);
+              if (rd) {
+                accumulated.rating_dimensions = rd;
+                accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+              }
+              break;
+            }
             case 'rating_stars': {
-              const starsMatch = answer.match(/(\d)/);
-              if (starsMatch) {
-                accumulated.rating_stars = parseInt(starsMatch[1]);
+              const rdAns = parseRatingDimensionsMarker(answer);
+              if (rdAns) {
+                accumulated.rating_dimensions = rdAns;
+                accumulated.rating_stars = aggregateRatingDimensionsStars(rdAns);
+              } else {
+                const starsMatch = answer.match(/(\d)/);
+                if (starsMatch) {
+                  accumulated.rating_stars = parseInt(starsMatch[1]);
+                }
               }
               break;
             }
@@ -6544,14 +6613,27 @@ export async function executeTool(
       }
       
       case 'create_service_rating': {
-        // 1. Validate rating_stars (CRITICAL: must be 1-5, never 0)
-        const stars = args.rating_stars;
+        // 1. Avaliação: preferir dimensões completas; senão rating_stars (legado)
+        const dimsMerged =
+          (args.rating_dimensions && isCompleteServiceRatingDimensions(args.rating_dimensions) ? args.rating_dimensions : null) ??
+          (accumulatedFields?.rating_dimensions && isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
+            ? accumulatedFields.rating_dimensions
+            : null);
+        let stars =
+          typeof args.rating_stars === 'number' && args.rating_stars >= 1 && args.rating_stars <= 5
+            ? args.rating_stars
+            : null;
+        if (dimsMerged && typeof dimsMerged === 'object') {
+          stars = aggregateRatingDimensionsStars(dimsMerged as Record<string, number>);
+        }
         if (!stars || stars < 1 || stars > 5) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:rating_stars]**Qual nota de 1 a 5** você dá para o atendimento? [RATING_PICKER]'
+            message:
+              '[FIELD_REQUEST:rating_dimensions]Avalie **de 1 a 5** cada aspecto: atendimento, limpeza, infraestrutura e tempo de espera. [MULTI_DIMENSION_RATING_PICKER]',
           };
         }
+        const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
         
         // 2. Validate rating_text
         if (!args.rating_text || args.rating_text.trim().length < 5) {
@@ -6724,16 +6806,21 @@ export async function executeTool(
           moderation_preview: preModeration,
         });
 
+        const insertRow: Record<string, unknown> = {
+          user_id: userId,
+          service_id: serviceId,
+          visit_id: visitId,
+          rating_stars: stars,
+          rating_text: trimmedComment,
+          sentiment: args.sentiment || 'neutral',
+        };
+        if (ratingDimensionsJson) {
+          insertRow.rating_dimensions = ratingDimensionsJson;
+        }
+
         const { data, error } = await supabase
           .from('service_ratings')
-          .insert({
-            user_id: userId,
-            service_id: serviceId,
-            visit_id: visitId,
-            rating_stars: stars,
-            rating_text: trimmedComment,
-            sentiment: args.sentiment || 'neutral',
-          })
+          .insert(insertRow)
           .select('id, publication_status')
           .single();
 
@@ -6773,10 +6860,13 @@ export async function executeTool(
           publicationStatus === 'pending_review'
             ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
             : '';
+        const dimLine = ratingDimensionsJson
+          ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
+          : '';
 
         return {
           success: true,
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }

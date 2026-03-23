@@ -3,6 +3,18 @@ import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users, Eye,
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import {
+  isCompleteServiceRatingDimensions,
+  SERVICE_RATING_DIMENSION_KEYS,
+  SERVICE_RATING_DIMENSION_LABELS,
+} from "@/lib/serviceRatingDimensions";
+
+function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
+  if (fieldKey === "rating_dimensions") {
+    return isCompleteServiceRatingDimensions(fields.rating_dimensions);
+  }
+  return !!fields[fieldKey];
+}
 
 export type CollectionType = 'urban_report' | 'transport_report' | 'service_rating' | null;
 
@@ -150,7 +162,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'service_name', label: 'Serviço', required: true },
       { key: 'service_neighborhood', label: 'Bairro', required: false },
       { key: 'service_address_confirmed', label: 'Endereço confirmado', required: true },
-      { key: 'rating_stars', label: 'Nota', required: true },
+      { key: 'rating_dimensions', label: 'Avaliação (4 dimensões)', required: true },
       { key: 'rating_text', label: 'Comentário', required: true },
     ]
   }
@@ -216,6 +228,13 @@ const formatFieldValue = (key: string, value: unknown): string => {
   if (key === 'rating_stars' && typeof value === 'number') {
     return `${'★'.repeat(value)}${'☆'.repeat(5 - value)} (${value}/5)`;
   }
+
+  if (key === 'rating_dimensions' && value && typeof value === 'object' && !Array.isArray(value)) {
+    const o = value as Record<string, number>;
+    return SERVICE_RATING_DIMENSION_KEYS.map(
+      (k) => `${SERVICE_RATING_DIMENSION_LABELS[k]}: ${o[k] ?? "—"}/5`
+    ).join(" · ");
+  }
   
   if (typeof value === 'string' && value.length > 60) {
     return value.substring(0, 57) + '...';
@@ -277,15 +296,15 @@ const DataCollectionTracker = ({
   const requiredFields = config.fields.filter(f => f.required);
   const optionalFields = config.fields.filter(f => !f.required);
   const totalFields = config.fields.length;
-  const collectedCount = config.fields.filter(f => !!collectedFields[f.key]).length;
-  const missingRequiredCount = requiredFields.filter(f => !collectedFields[f.key]).length;
+  const collectedCount = config.fields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
+  const missingRequiredCount = requiredFields.filter((f) => !isTrackerFieldCollected(f.key, collectedFields)).length;
   const allRequiredCollected = missingRequiredCount === 0;
   const progress = Math.round((collectedCount / totalFields) * 100);
   const hasOptional = optionalFields.length > 0;
-  const collectedOptionalCount = optionalFields.filter(f => !!collectedFields[f.key]).length;
+  const collectedOptionalCount = optionalFields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
 
   const totalRequiredCount = requiredFields.length;
-  const completedRequiredCount = requiredFields.filter(f => !!collectedFields[f.key]).length;
+  const completedRequiredCount = requiredFields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
   const currentStep = totalRequiredCount > 0
     ? Math.min(completedRequiredCount + (allRequiredCollected ? 0 : 1), totalRequiredCount)
     : 0;
@@ -317,11 +336,12 @@ const DataCollectionTracker = ({
     }
 
     if (collectionType === 'service_rating') {
-      const hasRating = !!collectedFields.rating_stars;
+      const hasRating =
+        isCompleteServiceRatingDimensions(collectedFields.rating_dimensions) || !!collectedFields.rating_stars;
       const hasText = !!collectedFields.rating_text;
       const hasLocation = !!collectedFields.service_address_confirmed;
       return [
-        { key: 'rating', label: 'Nota', required: true, fulfilled: hasRating },
+        { key: 'rating', label: 'Avaliação', required: true, fulfilled: hasRating },
         { key: 'text', label: 'Comentário', required: true, fulfilled: hasText },
         { key: 'location', label: 'Localização', required: true, fulfilled: hasLocation },
       ];
@@ -478,7 +498,7 @@ const DataCollectionTracker = ({
               <FieldIndicator
                 key={field.key}
                 label={field.label}
-                isCollected={!!collectedFields[field.key]}
+                isCollected={isTrackerFieldCollected(field.key, collectedFields)}
                 isRequired={true}
                 isCurrent={currentField === field.key}
               />
@@ -528,7 +548,7 @@ const DataCollectionTracker = ({
                   <FieldIndicator
                     key={field.key}
                     label={field.label}
-                    isCollected={!!collectedFields[field.key]}
+                    isCollected={isTrackerFieldCollected(field.key, collectedFields)}
                     isRequired={false}
                     isCurrent={currentField === field.key}
                   />
@@ -566,7 +586,7 @@ const DataCollectionTracker = ({
                     transition={{ duration: 0.15 }}
                     className="mt-2 bg-background/60 rounded-md p-2 border border-border/30 space-y-1"
                   >
-                    {config.fields.filter(f => collectedFields[f.key]).map(field => (
+                    {config.fields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).map(field => (
                       <div key={field.key} className="flex items-start gap-2 text-xs">
                         <span className="text-muted-foreground shrink-0 min-w-[70px]">
                           {field.label}:

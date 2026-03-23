@@ -40,8 +40,7 @@ const chips: PromptChip[] = [
   {
     id: "urban",
     label: "Relato na cidade",
-    message:
-      "Quero falar sobre a cidade — pode ser reclamação, dúvida, sugestão ou elogio",
+    message: "Quero falar sobre a cidade",
     icon: Building2,
     collectionType: "urban_report",
   },

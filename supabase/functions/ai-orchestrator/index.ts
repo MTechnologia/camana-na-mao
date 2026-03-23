@@ -904,6 +904,11 @@ serve(async (req) => {
         }
         
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
+        const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+        const hasLocationViaCep = cepDigits.length === 8;
+        const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
+        const hasLocation = hasLocationViaCep || hasLocationViaAddress;
+
         // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
         const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
         if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
@@ -948,7 +953,7 @@ serve(async (req) => {
             prompt: `Encontrei este **endereço no seu perfil**:\n\n📍 ${line}\n\n**O problema é neste local?** Responda **sim** para continuar ou **não** para informar outro CEP ou endereço.`,
           };
         }
-        
+
         // 4. Street number / reference (optional but helpful)
         if (!fields.street_number && !fields.reference_point) {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
@@ -1065,8 +1070,15 @@ serve(async (req) => {
 
         // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
         if (fields.visit_id) {
-          if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
-            return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+          if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+            return {
+              field: 'rating_dimensions',
+              picker: '[MULTI_DIMENSION_RATING_PICKER]',
+              prompt:
+                'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+            };
+          }
+          fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
@@ -1191,9 +1203,16 @@ serve(async (req) => {
           };
         }
         
-        // 4. Rating stars (REQUIRED 1-5)
-        if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
-          return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+        // 4. Avaliação multidimensional (1–5 em cada dimensão)
+        if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+          return {
+            field: 'rating_dimensions',
+            picker: '[MULTI_DIMENSION_RATING_PICKER]',
+            prompt:
+              'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+          };
+        }
+        fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
         
         // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
         const textLen = (fields.rating_text || '').length;
@@ -1634,7 +1653,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 active_consequences: accumulatedFields.active_consequences,
                 urgency_reason: accumulatedFields.urgency_reason,
                 council_member_name: accumulatedFields.council_member_name,
-                council_member_party: accumulatedFields.council_member_party
+                council_member_party: accumulatedFields.council_member_party,
               };
               if (photosToSave.length > 0) {
                 toolArgs.photos = photosToSave;
@@ -1794,6 +1813,7 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               service_neighborhood: accumulatedFields.service_neighborhood,
               service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
               rating_stars: accumulatedFields.rating_stars,
+              rating_dimensions: accumulatedFields.rating_dimensions,
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment || 'neutral'
             };
@@ -2614,6 +2634,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             // Service rating fields
             ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
             ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
+            ...(toolArgs.rating_dimensions && { rating_dimensions: toolArgs.rating_dimensions }),
             ...(toolArgs.sentiment && { sentiment: toolArgs.sentiment }),
           };
           
@@ -2766,6 +2787,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
         ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
         ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
+        ...(toolArgs.rating_dimensions && { rating_dimensions: toolArgs.rating_dimensions }),
       };
       
       let responseContent = result.message;
