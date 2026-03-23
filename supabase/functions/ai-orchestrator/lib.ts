@@ -2510,7 +2510,8 @@ export function accumulateFieldsFromHistory(
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
-          { pattern: /feedback.*c[âa]mara/i, category: 'feedback_camara' },
+          // Evitar "feedback" genérico + "Câmara" em textos longos do app (ex.: trâmite) — só frases explícitas de feedback legislativo
+          { pattern: /registrar\s+(?:como\s+)?feedback\s+(?:para|à|a)\s+(?:a\s+)?c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar.*preocupa[çc][ãa]o.*c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar como feedback/i, category: 'feedback_camara' },
           { pattern: /feedback geral para a c[âa]mara/i, category: 'feedback_camara' },
@@ -3943,7 +3944,7 @@ export function detectCollectionIntent(
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
   const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
-  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'alagado', 'alagando'];
+  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
   urbanProblems.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 2; });
@@ -3984,9 +3985,10 @@ export function detectCollectionIntent(
   }
   
   // Chamber feedback scoring - use user-only context
-  // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
+  // IMPORTANTE: NÃO pontuar só com reclamacao/elogio/sugestao — são os mesmos termos dos botões de NATUREZA do relato urbano.
+  // Só é feedback à Câmara (vereador/legislativo) quando o cidadão menciona Câmara, vereador, gabinete, etc.
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
-  const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  const feedbackTermsWhenChamberAnchored = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
   const factualQuestionTerms = [
     'salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'qual a ',
     'quanto é', 'quanto e', 'quantos ', 'quantas ', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do',
@@ -4002,8 +4004,12 @@ export function detectCollectionIntent(
     && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
-  feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
-  if (chamberScore > 0 && !isFactualQuestionAboutChamber) {
+  const chamberAnchored = chamberDomain.some(kw => fullUserContext.includes(kw));
+  // Só soma "elogio/reclamação/..." depois de âncora institucional — evita confundir relato de infraestrutura com feedback à Câmara
+  if (chamberAnchored) {
+    feedbackTermsWhenChamberAnchored.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
+  }
+  if (chamberAnchored && chamberScore >= 5 && !isFactualQuestionAboutChamber) {
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
@@ -4266,7 +4272,7 @@ export function detectCollectionIntent(
     'urban_report': 3,      // Lower: catch natural complaints like "tem um buraco"
     'transport_report': 3,  // Lower: catch "ônibus lotado"
     'service_rating': 3,    // Lower: catch explicit "quero avaliar" - allows journey switch
-    'chamber_feedback': 5,  // Higher: needs explicit chamber reference
+    'chamber_feedback': 9,  // Câmara/vereador + termo de feedback (evita confundir com botões reclamacao/elogio do relato urbano)
     'services': 4,          // Medium: needs location question
     'audiencias': 4,        // Medium: needs audiencia reference
     'general': 4,           // Medium: needs knowledge question
