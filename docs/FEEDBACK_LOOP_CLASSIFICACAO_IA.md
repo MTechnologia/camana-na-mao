@@ -11,13 +11,13 @@ Correções humanas (admin, N8N) e, no futuro, do cidadão alimentam a tabela `r
 | `descriptionMatchesFeedbackExcerpt` | Regras: excerpt curto (≤160 chars) contido na descrição; prefixo comum (~100 chars); ou **Jaccard** de tokens ≥ 0,28. |
 | `getNextMissingField` urban (`index.ts`) | Se não há categoria, consulta feedback **antes** de `autoClassifyCategory`. |
 | `getNextMissingField` transport (`index.ts`) | Se não há `report_type`, consulta feedback **antes** de `inferTransportTypeFromText`. |
-| Admin (`useReportsAdmin.updateManifestCategory`) | Ao salvar categoria urbana, insere linha com `source: 'admin'`. |
+| Admin (`useReportsAdmin.updateManifestCategory`) | Ao salvar categoria **urbana** ou tipo **transporte**, insere linha com `source: 'admin'` (drawer de gestão de relatos). |
 | `n8n-callback` | Quando a categoria validada difere da salva, insere com `source: 'n8n'`. |
 | `detectEmergingCategory` | Padrões fixos (`EMERGING_PATTERNS`) + tabela `dynamic_categories` — **outro** eixo (novos temas), não o mesmo que `report_classification_feedback`. |
 
 ## Limitações atuais
 
-- **Transporte no admin:** o drawer ainda não expõe edição de `report_type`; correções de transporte entram sobretudo via N8N.
+- **Transporte no admin:** o drawer permite corrigir `report_type` e opcionalmente um rótulo (vai para `corrected_subcategory` no feedback).
 - **Fonte `user`:** reservada na migration; falta fluxo no app (ex.: “A categoria estava errada?” após o relato).
 - **Modelo de ML:** o loop **não** retreina modelo; ele **prioriza** correções salvas. Para fine-tuning ou few-shot dinâmico, seria outra etapa (exportar `report_classification_feedback` + pipeline).
 

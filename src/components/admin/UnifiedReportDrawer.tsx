@@ -36,6 +36,17 @@ const ADMIN_CATEGORY_OPTIONS = [
   { value: 'outro', label: 'Outro' },
 ];
 
+/** Tipos de `transport_reports.report_type` + feedback loop (alinhado ao orquestrador) */
+const ADMIN_TRANSPORT_REPORT_TYPE_OPTIONS = [
+  { value: 'atraso', label: 'Atraso' },
+  { value: 'lotacao', label: 'Lotação' },
+  { value: 'seguranca', label: 'Segurança' },
+  { value: 'acessibilidade', label: 'Acessibilidade' },
+  { value: 'limpeza', label: 'Limpeza' },
+  { value: 'conducao', label: 'Condução / motorista' },
+  { value: 'outro', label: 'Outro' },
+];
+
 interface UnifiedReportDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -112,6 +123,8 @@ export const UnifiedReportDrawer = ({
   const [submitting, setSubmitting] = useState(false);
   const [editCategory, setEditCategory] = useState('');
   const [editSubcategory, setEditSubcategory] = useState('');
+  const [editTransportReportType, setEditTransportReportType] = useState('');
+  const [editTransportSubLabel, setEditTransportSubLabel] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
   const [publishingEvaluation, setPublishingEvaluation] = useState(false);
 
@@ -158,6 +171,13 @@ export const UnifiedReportDrawer = ({
       setEditSubcategory(manifest.urban_data.subcategory || '');
     }
   }, [open, manifest?.id, manifest?.urban_data?.category, manifest?.urban_data?.subcategory]);
+
+  useEffect(() => {
+    if (open && manifest?.type === 'transport' && manifest.transport_data) {
+      setEditTransportReportType(manifest.transport_data.report_type || '');
+      setEditTransportSubLabel('');
+    }
+  }, [open, manifest?.id, manifest?.type, manifest?.transport_data?.report_type]);
 
   const handleSubmitResponse = async () => {
     if (!manifest || !newResponse.trim()) return;
@@ -479,6 +499,67 @@ export const UnifiedReportDrawer = ({
                     <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20">
                       <AlertCircle className="h-3 w-3 mr-1" /> Aguardando Resposta
                     </Badge>
+                  )}
+
+                  {onCategoryCorrected && (
+                    <div className="p-4 rounded-lg border border-dashed bg-muted/20">
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Edit3 className="h-4 w-4" />
+                        Corrigir tipo do relato (melhora a classificação da IA)
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        O tipo é salvo no relato e registrado para relatos futuros com descrição parecida.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Tipo de problema</Label>
+                          <Select value={editTransportReportType} onValueChange={setEditTransportReportType}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ADMIN_TRANSPORT_REPORT_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Rótulo detalhado (opcional)</Label>
+                          <Input
+                            className="h-9"
+                            value={editTransportSubLabel}
+                            onChange={(e) => setEditTransportSubLabel(e.target.value)}
+                            placeholder="Ex.: Superlotação no horário de pico"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="mt-3"
+                        disabled={
+                          savingCategory ||
+                          (editTransportReportType === (manifest.transport_data?.report_type ?? '') &&
+                            !editTransportSubLabel.trim())
+                        }
+                        onClick={async () => {
+                          setSavingCategory(true);
+                          try {
+                            await onCategoryCorrected(
+                              manifest,
+                              editTransportReportType,
+                              editTransportSubLabel.trim() || null
+                            );
+                          } finally {
+                            setSavingCategory(false);
+                          }
+                        }}
+                      >
+                        {savingCategory ? 'Salvando…' : 'Salvar correção'}
+                      </Button>
+                    </div>
                   )}
                 </>
               )}
