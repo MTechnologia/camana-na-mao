@@ -184,6 +184,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     { value: 'iluminacao', label: 'Iluminação' },
     { value: 'calcada', label: 'Calçada' },
     { value: 'via_publica', label: 'Via Pública' },
+    { value: 'pavimentacao', label: 'Pavimentação' },
     { value: 'sinalizacao', label: 'Sinalização' },
     { value: 'drenagem', label: 'Drenagem' },
     { value: 'lixo', label: 'Lixo e Limpeza' },
@@ -593,9 +594,11 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           source: 'admin',
         });
         if (feedbackError) {
-          console.warn('Feedback de classificação (transporte) não registrado (RLS?):', feedbackError);
+          console.warn('Feedback de classificação (transporte) não registrado:', feedbackError);
+          toast.warning('Tipo atualizado, mas a correção não foi gravada nas métricas. Verifique permissões.');
+        } else {
+          toast.success('Tipo atualizado; correção usada para melhorar a IA.');
         }
-        toast.success('Tipo atualizado; correção usada para melhorar a IA.');
       } catch (error) {
         setManifests(previousManifests);
         console.error('Error updating transport report type:', error);
@@ -642,9 +645,11 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           source: 'admin',
         });
       if (feedbackError) {
-        console.warn('Feedback de classificação não registrado (RLS?):', feedbackError);
+        console.warn('Feedback de classificação não registrado:', feedbackError);
+        toast.warning('Categoria atualizada, mas a correção não foi gravada nas métricas. Verifique permissões.');
+      } else {
+        toast.success('Categoria atualizada; correção usada para melhorar a IA.');
       }
-      toast.success('Categoria atualizada; correção usada para melhorar a IA.');
     } catch (error) {
       setManifests(previousManifests);
       console.error('Error updating category:', error);

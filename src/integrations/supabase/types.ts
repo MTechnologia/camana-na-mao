@@ -2404,6 +2404,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_classification_predictions_pending: {
+        Row: {
+          report_id: string | null
+          report_type: string | null
+          predicted_category: string | null
+          predicted_subcategory: string | null
+          classification_source: string | null
+          created_at: string | null
+          protocol_code: string | null
+        }
+        Relationships: []
+      }
       v_classification_prediction_vs_feedback: {
         Row: {
           prediction_log_id: string | null

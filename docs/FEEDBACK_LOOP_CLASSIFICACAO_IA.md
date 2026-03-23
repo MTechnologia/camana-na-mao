@@ -31,7 +31,7 @@ Alterações no match e no transporte exigem `supabase functions deploy ai-orche
 
 ## Métricas de acurácia
 
-Predições no registro (chat) e views SQL para acertos/erros por fonte: [CLASSIFICACAO_METRICAS.md](./CLASSIFICACAO_METRICAS.md).
+No admin: **Acurácia da classificação** (`/admin/classification-accuracy`). Detalhes e SQL: [CLASSIFICACAO_METRICAS.md](./CLASSIFICACAO_METRICAS.md).
 
 ## Teste manual sugerido
 

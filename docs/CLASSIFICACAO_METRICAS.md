@@ -1,6 +1,10 @@
 # Métricas de acurácia da classificação
 
-Não há **dashboard** no app. A medição combina:
+## Dashboard no painel admin
+
+Admin e gestor: **Área Admin → Acurácia da classificação** (`/admin/classification-accuracy`) — cartões resumo, tabela por origem da predição e últimas correções avaliadas.
+
+A medição combina também:
 
 1. **Registro no momento da criação do relato** (chat) → tabela `report_classification_prediction_log`
 2. **Correção humana ou N8N** → tabela `report_classification_feedback` (já existente)
