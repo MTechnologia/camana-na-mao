@@ -437,6 +437,8 @@ export const useUnifiedAIChat = (
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
+          { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
@@ -1433,7 +1435,7 @@ export const useUnifiedAIChat = (
     if (!collectionType) return [];
     
     // Import would cause circular dependency, so inline the logic
-    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
     
     const configs: Record<string, { key: string; required: boolean; requiredFor?: string[]; requiredWhen?: { field: string; values: string[] } }[]> = {
       urban_report: [

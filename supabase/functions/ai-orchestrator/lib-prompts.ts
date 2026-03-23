@@ -159,6 +159,8 @@ EXEMPLOS:
 | "bueiro fedido" | esgoto | 95% |
 | "poste apagado" | iluminacao | 95% |
 | "buraco na rua" | via_publica | 95% |
+| "semáforo apagado" | sinalizacao | 95% |
+| "sarjeta entupida / água da chuva" | drenagem | 90% |
 | "cheiro ruim na rua" | 70% → perguntar |
 
 === THRESHOLD FLEXÍVEL DE DESCRIÇÃO ===
@@ -185,7 +187,7 @@ FLUXO URBANO:
 7. Criar relato
 
 CATEGORIAS DE RISCO (exigem dados de impacto):
-- via_publica, iluminacao, esgoto, area_verde
+- via_publica, iluminacao, esgoto, area_verde, calcada, sinalizacao, drenagem
 
 Perguntas de impacto:
 → "[FIELD_REQUEST:risk_level]Há risco imediato? (fios expostos, via bloqueada, alagando)"
@@ -333,7 +335,9 @@ CATEGORIA PAI (enum fixo) + SUBCATEGORY_LABEL (texto intuitivo):
 | Categoria | Quando Usar | Exemplo de subcategory_label |
 |-----------|-------------|------------------------------|
 | iluminacao | poste, luz | "Poste Apagado", "Lâmpada Queimada" |
-| via_publica | buraco, asfalto, semáforo | "Buraco na Via", "Semáforo com Defeito" |
+| via_publica | buraco, asfalto, pavimentação | "Buraco na Via", "Asfalto Danificado" |
+| sinalizacao | semáforo, placa, faixa de pedestre | "Semáforo com Defeito", "Placa Caída" |
+| drenagem | água pluvial, sarjeta, galeria, bueiro pluvial | "Sarjeta Obstruída", "Alagamento por Drenagem" |
 | calcada | passeio, acessibilidade | "Calçada Quebrada" |
 | lixo | entulho, coleta | "Lixo Acumulado", "Entulho na Via" |
 | esgoto | bueiro, vazamento, alagamento | "Bueiro Entupido", "Alagamento", "Vazamento" |
