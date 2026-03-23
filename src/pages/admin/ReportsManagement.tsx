@@ -443,9 +443,22 @@ export default function ReportsManagement() {
         onStatusChange={updateManifestStatus}
         onCategoryCorrected={async (manifest, newCategory, newSubcategory) => {
           await updateManifestCategory(manifest, newCategory, newSubcategory);
-          setSelectedManifest(prev => prev && prev.id === manifest.id && prev.urban_data
-            ? { ...prev, urban_data: { ...prev.urban_data, category: newCategory, subcategory: newSubcategory } }
-            : prev);
+          setSelectedManifest(prev => {
+            if (!prev || prev.id !== manifest.id) return prev;
+            if (prev.urban_data) {
+              return {
+                ...prev,
+                urban_data: { ...prev.urban_data, category: newCategory, subcategory: newSubcategory },
+              };
+            }
+            if (prev.transport_data) {
+              return {
+                ...prev,
+                transport_data: { ...prev.transport_data, report_type: newCategory },
+              };
+            }
+            return prev;
+          });
         }}
         onDelete={handleDeleteClick}
         onReferral={() => setReferralDialogOpen(true)}

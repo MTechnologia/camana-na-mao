@@ -1595,6 +1595,56 @@ export function autoClassifyCategory(description: string): {
   return { category: null, confidence: 0, suggestedLabel };
 }
 
+// --- Feedback loop: matching descrição ↔ trecho salvo (admin / N8N) ---
+
+const FEEDBACK_MATCH_STOPWORDS = new Set([
+  'o', 'a', 'os', 'as', 'um', 'uma', 'de', 'da', 'do', 'das', 'dos', 'em', 'na', 'no', 'nas', 'nos',
+  'que', 'e', 'é', 'para', 'com', 'por', 'como', 'mas', 'foi', 'ser', 'tem', 'se', 'ao', 'aos', 'à', 'às',
+  'não', 'nao', 'mais', 'muito', 'muita', 'já', 'ja', 'está', 'esta', 'estão', 'estao', 'são', 'sao', 'ou',
+]);
+
+/** Tokens significativos para similaridade (feedback loop). */
+export function tokenSetForFeedbackMatch(text: string): Set<string> {
+  const raw = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !FEEDBACK_MATCH_STOPWORDS.has(w));
+  return new Set(raw);
+}
+
+function jaccardTokenSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) {
+    if (b.has(t)) inter++;
+  }
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Indica se a descrição atual é suficientemente parecida com o trecho armazenado na correção.
+ * Evita depender só de `includes(excerpt)` com 500 chars (quase nunca casa).
+ */
+export function descriptionMatchesFeedbackExcerpt(description: string, excerpt: string): boolean {
+  const ex = excerpt.trim();
+  const desc = description.trim();
+  if (ex.length < 8 || desc.length < 5) return false;
+  const dLower = desc.toLowerCase();
+  const eLower = ex.toLowerCase();
+  // Trecho curto e característico contido na descrição
+  if (eLower.length >= 10 && eLower.length <= 160 && dLower.includes(eLower)) return true;
+  // Prefixo comum (admin/N8N costumam salvar o início da descrição)
+  const prefixLen = Math.min(100, ex.length, desc.length);
+  if (prefixLen >= 20 && dLower.slice(0, prefixLen) === eLower.slice(0, prefixLen)) return true;
+  // Similaridade lexical (descrições com mesmas palavras-chave, ordem diferente)
+  const sim = jaccardTokenSimilarity(tokenSetForFeedbackMatch(desc), tokenSetForFeedbackMatch(ex));
+  return sim >= 0.28;
+}
+
 /** Feedback loop: retorna categoria/subcategoria sugerida a partir de correções anteriores (descrição similar). */
 export async function getClassificationFromFeedback(
   supabase: SupabaseClient,
@@ -1610,10 +1660,10 @@ export async function getClassificationFromFeedback(
     .order('created_at', { ascending: false })
     .limit(500);
   if (!rows?.length) return null;
-  const descLower = description.toLowerCase();
   for (const row of rows) {
     const excerpt = (row.description_excerpt || '').trim();
-    if (excerpt.length >= 10 && descLower.includes(excerpt.toLowerCase())) {
+    if (excerpt.length < 8) continue;
+    if (descriptionMatchesFeedbackExcerpt(description, excerpt)) {
       return {
         category: row.corrected_category,
         subcategory: row.corrected_subcategory ?? null
@@ -1950,41 +2000,63 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     }
 
     case 'location_method': {
-      const gpsMatch = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
-        || (responseLower.includes('localização gps') || responseLower.includes('localizacao gps')
-          ? response.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/)
-          : null);
-      if (gpsMatch) {
-        const la = parseFloat(gpsMatch[1].trim());
-        const lo = parseFloat(gpsMatch[2].trim());
-        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
-          result.location_method = 'gps';
-          result.user_lat = la;
-          result.user_lon = lo;
-          console.log('[parseFieldResponse] location_method: gps', la, lo);
-          break;
-        }
-      }
-      if (/usar\s+endere[cç]o\s+cadastrado/i.test(responseLower)) {
+      const t = response.trim();
+      const tl = t.toLowerCase();
+      if (/^usar endereço cadastrado$/i.test(t) || /^usar endereco cadastrado$/i.test(t)) {
         result.location_method = 'registered_address';
         break;
       }
-      if (/digitar\s+(cep|endere[cç]o)|digitar\s+cep\s+ou\s+endere[cç]o/i.test(responseLower)) {
+      if (/^digitar cep ou endereço$/i.test(t) || /^digitar cep ou endereco$/i.test(t)) {
         result.location_method = 'manual';
         break;
       }
-      if (/^📍/u.test(response.trim()) || /sua\s+posi[cç][aã]o\s+atual\s*\(gps\)/i.test(responseLower)) {
-        result.location_method = 'gps';
-        const gm = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
-          || response.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/);
-        if (gm) {
-          const la = parseFloat(gm[1].trim());
-          const lo = parseFloat(gm[2].trim());
-          if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
-            result.user_lat = la;
-            result.user_lon = lo;
-          }
+      const gpsLineLm = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i);
+      if (gpsLineLm) {
+        const la = parseFloat(gpsLineLm[1]);
+        const lo = parseFloat(gpsLineLm[2]);
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          result.user_lat = la;
+          result.user_lon = lo;
+          result.location_method = 'gps';
         }
+        break;
+      }
+      if (/usar\s+minha\s+localiza[cç][aã]o|^gps$/i.test(tl)) {
+        result.location_method = 'gps';
+      }
+      break;
+    }
+
+    case 'gps_coords': {
+      const gpsLine = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i);
+      if (gpsLine) {
+        const la = parseFloat(gpsLine[1]);
+        const lo = parseFloat(gpsLine[2]);
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          result.user_lat = la;
+          result.user_lon = lo;
+          result.location_method = 'gps';
+        }
+      }
+      break;
+    }
+
+    case 'urban_registered_address_ack': {
+      const t = responseLower.trim();
+      if (/^(sim|s|yes|y|ok|correto|isso|confirmo|pode ser|certo|exato)\b/i.test(t) || /^👍/u.test(response.trim())) {
+        result.urban_registered_address_ack = true;
+        break;
+      }
+      if (/^(não|nao|n|no|nope|errado|outro|outra)\b/i.test(t)) {
+        result.urban_registered_address_ack = true;
+        result.location_method = 'manual';
+        result.street = '';
+        result.neighborhood = '';
+        result.cep = '';
+        result.street_number = '';
+        result.reference_point = '';
+        result._location_from_user_profile = false;
+        console.log('[parseFieldResponse] urban_registered_address_ack: user rejected profile address → manual');
       }
       break;
     }
@@ -2494,6 +2566,12 @@ export function accumulateFieldsFromHistory(
         // Skip structured messages (addresses, numbers, short answers)
         const isStructured = 
           contentLower.includes('endereço selecionado:') ||
+          contentLower.includes('localização gps:') ||
+          contentLower.includes('localizacao gps:') ||
+          /^usar endereço cadastrado$/i.test(msg.content.trim()) ||
+          /^usar endereco cadastrado$/i.test(msg.content.trim()) ||
+          /^digitar cep ou endereço$/i.test(msg.content.trim()) ||
+          /^digitar cep ou endereco$/i.test(msg.content.trim()) ||
           contentLower.includes('linha selecionada:') ||
           contentLower.includes('nota:') ||
           contentLower.includes('data:') ||
@@ -2550,7 +2628,8 @@ export function accumulateFieldsFromHistory(
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
-          { pattern: /feedback.*c[âa]mara/i, category: 'feedback_camara' },
+          // Evitar "feedback" genérico + "Câmara" em textos longos do app (ex.: trâmite) — só frases explícitas de feedback legislativo
+          { pattern: /registrar\s+(?:como\s+)?feedback\s+(?:para|à|a)\s+(?:a\s+)?c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar.*preocupa[çc][ãa]o.*c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar como feedback/i, category: 'feedback_camara' },
           { pattern: /feedback geral para a c[âa]mara/i, category: 'feedback_camara' },
@@ -2807,6 +2886,46 @@ export function accumulateFieldsFromHistory(
             }
           } else {
             Object.assign(accumulated, parsedFields);
+          }
+        }
+      }
+    }
+
+    // Método de localização + coordenadas GPS (InlineLocationMethodPicker — relato urbano)
+    {
+      const getContentU = (msg: { role: string; content: string | unknown }): string => {
+        const raw = msg.content;
+        if (typeof raw === 'string') return raw;
+        if (Array.isArray(raw)) {
+          const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
+          return part ? String((part as Record<string, unknown>).text) : '';
+        }
+        return '';
+      };
+      for (const msg of messages) {
+        if (msg.role !== 'user') continue;
+        const c = getContentU(msg).trim();
+        const cLower = c.toLowerCase();
+        if (!accumulated.location_method) {
+          if (/^usar endereço cadastrado$/i.test(c) || /^usar endereco cadastrado$/i.test(c)) {
+            accumulated.location_method = 'registered_address';
+          } else if (/^digitar cep ou endereço$/i.test(c) || /^digitar cep ou endereco$/i.test(c)) {
+            accumulated.location_method = 'manual';
+          } else if (/usar\s+(minha\s+)?localiza[cç][aã]o|localiza[cç][aã]o\s*gps:/i.test(cLower)) {
+            accumulated.location_method = 'gps';
+          }
+        }
+        const gpsMatch =
+          c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i) ||
+          ((cLower.includes('localização gps') || cLower.includes('localizacao gps')) &&
+            c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/));
+        if (gpsMatch && accumulated.user_lat == null) {
+          const lat = parseFloat(gpsMatch[1].trim());
+          const lon = parseFloat(gpsMatch[2].trim());
+          if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            accumulated.user_lat = lat;
+            accumulated.user_lon = lon;
+            if (!accumulated.location_method) accumulated.location_method = 'gps';
           }
         }
       }
@@ -4013,7 +4132,7 @@ export function detectCollectionIntent(
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
   const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
-  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'alagado', 'alagando'];
+  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
   urbanProblems.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 2; });
@@ -4054,9 +4173,10 @@ export function detectCollectionIntent(
   }
   
   // Chamber feedback scoring - use user-only context
-  // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
+  // IMPORTANTE: NÃO pontuar só com reclamacao/elogio/sugestao — são os mesmos termos dos botões de NATUREZA do relato urbano.
+  // Só é feedback à Câmara (vereador/legislativo) quando o cidadão menciona Câmara, vereador, gabinete, etc.
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
-  const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  const feedbackTermsWhenChamberAnchored = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
   const factualQuestionTerms = [
     'salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'qual a ',
     'quanto é', 'quanto e', 'quantos ', 'quantas ', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do',
@@ -4072,8 +4192,12 @@ export function detectCollectionIntent(
     && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
-  feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
-  if (chamberScore > 0 && !isFactualQuestionAboutChamber) {
+  const chamberAnchored = chamberDomain.some(kw => fullUserContext.includes(kw));
+  // Só soma "elogio/reclamação/..." depois de âncora institucional — evita confundir relato de infraestrutura com feedback à Câmara
+  if (chamberAnchored) {
+    feedbackTermsWhenChamberAnchored.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
+  }
+  if (chamberAnchored && chamberScore >= 5 && !isFactualQuestionAboutChamber) {
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
@@ -4336,7 +4460,7 @@ export function detectCollectionIntent(
     'urban_report': 3,      // Lower: catch natural complaints like "tem um buraco"
     'transport_report': 3,  // Lower: catch "ônibus lotado"
     'service_rating': 3,    // Lower: catch explicit "quero avaliar" - allows journey switch
-    'chamber_feedback': 5,  // Higher: needs explicit chamber reference
+    'chamber_feedback': 9,  // Câmara/vereador + termo de feedback (evita confundir com botões reclamacao/elogio do relato urbano)
     'services': 4,          // Medium: needs location question
     'audiencias': 4,        // Medium: needs audiencia reference
     'general': 4,           // Medium: needs knowledge question
