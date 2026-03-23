@@ -900,8 +900,31 @@ serve(async (req) => {
         if (!isValidDesc)
           return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
         
-        // 2. Report type - TRY AUTO-INFERENCE from description using FUZZY MATCHING
+        // 2. Report type - feedback loop (correções admin/N8N) → fuzzy → fallback outro
         // If can't infer, use 'outro' with generated label (NEVER block the flow)
+        if (!fields.report_type) {
+          const transportFeedback = await lib.getClassificationFromFeedback(
+            supabaseClient,
+            description,
+            'transport'
+          );
+          const validTransportTypes = ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'] as const;
+          if (
+            transportFeedback?.category &&
+            (validTransportTypes as readonly string[]).includes(transportFeedback.category)
+          ) {
+            fields.report_type = transportFeedback.category;
+            if (transportFeedback.subcategory) {
+              fields.subcategory_label = transportFeedback.subcategory;
+            }
+            fields._from_classification_feedback = true;
+            console.log(
+              '[getNextMissingField] Transport report_type from classification feedback:',
+              fields.report_type,
+              transportFeedback.subcategory
+            );
+          }
+        }
         if (!fields.report_type) {
           // First try the new fuzzy inference
           const fuzzyInferredType = lib.inferTransportTypeFromText(description);

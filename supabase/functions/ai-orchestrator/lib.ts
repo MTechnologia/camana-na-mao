@@ -1595,6 +1595,56 @@ export function autoClassifyCategory(description: string): {
   return { category: null, confidence: 0, suggestedLabel };
 }
 
+// --- Feedback loop: matching descrição ↔ trecho salvo (admin / N8N) ---
+
+const FEEDBACK_MATCH_STOPWORDS = new Set([
+  'o', 'a', 'os', 'as', 'um', 'uma', 'de', 'da', 'do', 'das', 'dos', 'em', 'na', 'no', 'nas', 'nos',
+  'que', 'e', 'é', 'para', 'com', 'por', 'como', 'mas', 'foi', 'ser', 'tem', 'se', 'ao', 'aos', 'à', 'às',
+  'não', 'nao', 'mais', 'muito', 'muita', 'já', 'ja', 'está', 'esta', 'estão', 'estao', 'são', 'sao', 'ou',
+]);
+
+/** Tokens significativos para similaridade (feedback loop). */
+export function tokenSetForFeedbackMatch(text: string): Set<string> {
+  const raw = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !FEEDBACK_MATCH_STOPWORDS.has(w));
+  return new Set(raw);
+}
+
+function jaccardTokenSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) {
+    if (b.has(t)) inter++;
+  }
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Indica se a descrição atual é suficientemente parecida com o trecho armazenado na correção.
+ * Evita depender só de `includes(excerpt)` com 500 chars (quase nunca casa).
+ */
+export function descriptionMatchesFeedbackExcerpt(description: string, excerpt: string): boolean {
+  const ex = excerpt.trim();
+  const desc = description.trim();
+  if (ex.length < 8 || desc.length < 5) return false;
+  const dLower = desc.toLowerCase();
+  const eLower = ex.toLowerCase();
+  // Trecho curto e característico contido na descrição
+  if (eLower.length >= 10 && eLower.length <= 160 && dLower.includes(eLower)) return true;
+  // Prefixo comum (admin/N8N costumam salvar o início da descrição)
+  const prefixLen = Math.min(100, ex.length, desc.length);
+  if (prefixLen >= 20 && dLower.slice(0, prefixLen) === eLower.slice(0, prefixLen)) return true;
+  // Similaridade lexical (descrições com mesmas palavras-chave, ordem diferente)
+  const sim = jaccardTokenSimilarity(tokenSetForFeedbackMatch(desc), tokenSetForFeedbackMatch(ex));
+  return sim >= 0.28;
+}
+
 /** Feedback loop: retorna categoria/subcategoria sugerida a partir de correções anteriores (descrição similar). */
 export async function getClassificationFromFeedback(
   supabase: SupabaseClient,
@@ -1610,10 +1660,10 @@ export async function getClassificationFromFeedback(
     .order('created_at', { ascending: false })
     .limit(500);
   if (!rows?.length) return null;
-  const descLower = description.toLowerCase();
   for (const row of rows) {
     const excerpt = (row.description_excerpt || '').trim();
-    if (excerpt.length >= 10 && descLower.includes(excerpt.toLowerCase())) {
+    if (excerpt.length < 8) continue;
+    if (descriptionMatchesFeedbackExcerpt(description, excerpt)) {
       return {
         category: row.corrected_category,
         subcategory: row.corrected_subcategory ?? null
