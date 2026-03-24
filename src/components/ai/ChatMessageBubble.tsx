@@ -21,6 +21,8 @@ import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
+import InlineMultiDimensionRatingPicker from "./InlineMultiDimensionRatingPicker";
+import type { ServiceRatingDimensions } from "@/lib/serviceRatingDimensions";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
@@ -56,6 +58,8 @@ interface ChatMessage {
   content: string;
   timestamp?: string | Date;
   source?: string;
+  /** URLs públicas de imagens anexadas na mensagem do usuário. */
+  attachmentUrls?: string[];
 }
 
 const formatTimestamp = (timestamp: string | Date | undefined): string => {
@@ -106,6 +110,7 @@ interface ChatMessageBubbleProps {
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
+  onMultiDimensionRatingSelected?: (dimensions: ServiceRatingDimensions) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
@@ -131,6 +136,7 @@ const ChatMessageBubble = ({
   onDateSelected,
   onTimeSelected,
   onRatingSelected,
+  onMultiDimensionRatingSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
@@ -144,6 +150,7 @@ const ChatMessageBubble = ({
   disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
+  const attachmentUrls = isUser ? (Array.isArray(message.attachmentUrls) ? message.attachmentUrls : []) : [];
   const navigate = useNavigate();
   const [addressSelected, setAddressSelected] = useState(false);
   const [decisionMade, setDecisionMade] = useState(false);
@@ -151,6 +158,7 @@ const ChatMessageBubble = ({
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
+  const [multiDimensionRatingSubmitted, setMultiDimensionRatingSubmitted] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
@@ -181,6 +189,7 @@ const ChatMessageBubble = ({
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
+  const hasMultiDimensionRatingPicker = !isUser && message.content.includes('[MULTI_DIMENSION_RATING_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
@@ -356,13 +365,35 @@ const ChatMessageBubble = ({
   
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
-    if (isUser || ratingSelected || hasRatingPicker) return false;
+    if (isUser || ratingSelected || hasRatingPicker || hasMultiDimensionRatingPicker) return false;
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:rating_stars]') ||
       ((content.includes('que nota') || content.includes('de 1 a 5')) && isLastAssistantMessage)
     );
-  }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
+  }, [isUser, message.content, ratingSelected, hasRatingPicker, hasMultiDimensionRatingPicker, isLastAssistantMessage]);
+
+  const isAskingForMultiDimensionRating = useMemo(() => {
+    if (isUser || multiDimensionRatingSubmitted || hasMultiDimensionRatingPicker) return false;
+    const raw = message.content;
+    const c = raw.toLowerCase();
+    // Sucesso do create_service_rating: mesmo texto pode repetir nomes das dimensões no resumo — não mostrar picker de novo
+    if (raw.includes('[RATING_CREATED:') || /avalia[çc][ãa]o\s+registrada/i.test(raw)) {
+      return false;
+    }
+    if (c.includes('por dimensão:') || c.includes('por dimensao:') || c.includes('nota geral (média)') || c.includes('nota geral (media)')) {
+      return false;
+    }
+    if (c.includes('[field_request:rating_dimensions]')) return true;
+    // Heurística só quando claramente é o pedido de avaliar (não o recap "Atendimento X/5 · Limpeza…")
+    const looksLikeRatingPrompt =
+      (c.includes('use os controles') && c.includes('abaixo')) ||
+      c.includes('cada aspecto da visita') ||
+      c.includes('aspectos da visita') ||
+      (c.includes('avalia') && c.includes('de 1 a 5') && (c.includes('atendimento') || c.includes('tempo de espera')));
+    if (!looksLikeRatingPrompt || !isLastAssistantMessage) return false;
+    return c.includes('tempo de espera') && c.includes('infraestrutura') && c.includes('limpeza');
+  }, [isUser, message.content, multiDimensionRatingSubmitted, hasMultiDimensionRatingPicker, isLastAssistantMessage]);
   
   // Detect service type question
   const isAskingForServiceType = useMemo(() => {
@@ -392,8 +423,13 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       (content.includes('como você quer informar sua localização') ||
-       content.includes('como quer informar sua localização') ||
-       content.includes('informar sua localização para buscar')) &&
+        content.includes('como quer informar sua localização') ||
+        content.includes('informar sua localização para buscar') ||
+        content.includes('onde fica** o problema') ||
+        content.includes('onde fica o problema') ||
+        content.includes('como você quer informar **onde fica**') ||
+        (content.includes('toque em') && content.includes('usar minha localização')) ||
+        (content.includes('endereço cadastrado') && content.includes('digitar cep'))) &&
       isLastAssistantMessage
     );
   }, [isUser, message.content, locationMethodSelected, hasLocationMethodPicker, isLastAssistantMessage]);
@@ -522,6 +558,13 @@ const ChatMessageBubble = ({
     setRatingSelected(true);
     if (onRatingSelected) {
       onRatingSelected(stars);
+    }
+  };
+
+  const handleMultiDimensionRatingSubmit = (dimensions: ServiceRatingDimensions) => {
+    setMultiDimensionRatingSubmitted(true);
+    if (onMultiDimensionRatingSelected) {
+      onMultiDimensionRatingSelected(dimensions);
     }
   };
   
@@ -820,6 +863,29 @@ const ChatMessageBubble = ({
             </div>
           )}
         </div>
+
+        {/* Preview das fotos anexadas no chat (após upload). */}
+        {isUser && attachmentUrls.length > 0 && (
+          <div className="w-full max-w-[320px] grid grid-cols-3 gap-2 mt-1">
+            {attachmentUrls.slice(0, 3).map((url, index) => (
+              <a
+                key={`${message.id}-attachment-${index}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg overflow-hidden border border-primary/30 bg-primary/10 hover:opacity-90 transition-opacity"
+                aria-label={`Abrir imagem anexada ${index + 1}`}
+              >
+                <img
+                  src={url}
+                  alt={`Imagem anexada ${index + 1}`}
+                  className="w-full h-24 object-cover"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        )}
         
         {/* Inline Address Autocomplete - shown when asking for CEP/address */}
         {(isAskingForAddress || hasAddressPicker) && !addressSelected && (
@@ -864,8 +930,20 @@ const ChatMessageBubble = ({
           <InlineTimePicker onSelect={handleTimeSelected} />
         )}
         
-        {/* Inline Rating Picker */}
-        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && (
+        {/* Avaliação multidimensional (atendimento, limpeza, infraestrutura, tempo de espera) */}
+        {(hasMultiDimensionRatingPicker || isAskingForMultiDimensionRating) &&
+          !multiDimensionRatingSubmitted &&
+          isLastAssistantMessage &&
+          onMultiDimensionRatingSelected && (
+            <InlineMultiDimensionRatingPicker onSubmit={handleMultiDimensionRatingSubmit} />
+          )}
+
+        {/* Inline Rating Picker (legado: uma única nota) */}
+        {(hasRatingPicker || isAskingForRating) &&
+          !ratingSelected &&
+          !hasMultiDimensionRatingPicker &&
+          !isAskingForMultiDimensionRating &&
+          isLastAssistantMessage && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
         

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Home, Pencil, Loader2 } from "lucide-react";
 import { reverseGeocodeLatLngClient } from "@/lib/reverseGeocodeLatLngClient";
+import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
 
 export type LocationMethod = "gps" | "registered_address" | "manual";
 
@@ -13,7 +14,8 @@ const OPTIONS: { id: LocationMethod; label: string; description: string; icon: t
   {
     id: "gps",
     label: "Usar minha localização (GPS)",
-    description: "O navegador vai pedir permissão para acessar sua localização",
+    description:
+      "Obtém coordenadas e, com a chave do Google Maps configurada, envia também o endereço aproximado ao assistente.",
     icon: MapPin,
   },
   {
@@ -46,10 +48,23 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
       async (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+
+        if (!isGpsAccuracyAcceptable(accuracy)) {
+          setLoading(false);
+          setError(
+            accuracy != null
+              ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou use CEP.`
+              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço."
+          );
+          return;
+        }
+
         try {
+          // Reverse geocoding (GPS → endereço) para o modelo e ferramentas; cache compartilhado com Perto de você.
           const friendly = await reverseGeocodeLatLngClient(lat, lon);
           const humanLine = friendly ? `📍 ${friendly}` : "📍 Sua posição atual (GPS)";
-          // Linha técnica permanece para o backend (accumulateFieldsFromHistory); na UI ela é ocultada.
+          // Linha "Localização GPS:" permanece para o orquestrador; na UI a linha técnica pode ser ocultada (UserChatBubbleText).
           onSelect("gps", `${humanLine}\nLocalização GPS: ${lat},${lon}`);
         } finally {
           setSelected(true);

@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUnifiedAIChat, type EvaluationContext } from "@/hooks/useUnifiedAIChat";
+import {
+  aggregateServiceRatingStars,
+  parseRatingDimensionsFromMessage,
+} from "@/lib/serviceRatingDimensions";
 import ChatMessageBubble from "@/components/ai/ChatMessageBubble";
 import ChatInput from "@/components/ai/ChatInput";
 import TypingIndicator from "@/components/ai/TypingIndicator";
@@ -32,6 +36,7 @@ export function ConversationalEvaluation({
     sendMessage,
     createdReport,
     handleRatingSelected,
+    handleMultiDimensionRatingSelected,
     handleServiceSelected,
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
@@ -70,10 +75,18 @@ export function ConversationalEvaluation({
     if (createdReport?.type === "rating" && createdReport.id && !hasCompletedRef.current) {
       hasCompletedRef.current = true;
       const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+      const dimsFromChat = [...messages]
+        .reverse()
+        .map((m) => (m.role === "user" ? parseRatingDimensionsFromMessage(m.content || "") : null))
+        .find(Boolean);
       const ratingMatch = messages
         .flatMap((m) => (m.content || "").match(/\[RATING_SELECTED:(\d)\]/g) || [])
         .pop();
-      const stars = ratingMatch ? parseInt(ratingMatch.replace(/\[RATING_SELECTED:(\d)\]/, "$1"), 10) : 4;
+      const stars = dimsFromChat
+        ? aggregateServiceRatingStars(dimsFromChat)
+        : ratingMatch
+          ? parseInt(ratingMatch.replace(/\[RATING_SELECTED:(\d)\]/, "$1"), 10)
+          : 4;
       onComplete({
         rating: stars,
         comments: lastUser.length >= 10 ? lastUser : "Avaliação registrada via chat.",
@@ -115,6 +128,7 @@ export function ConversationalEvaluation({
                 userInitials={userInitials}
                 isLastAssistantMessage={isLastAssistant}
                 onRatingSelected={handleRatingSelected}
+                onMultiDimensionRatingSelected={handleMultiDimensionRatingSelected}
                 onServiceSelected={handleServiceSelected}
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}

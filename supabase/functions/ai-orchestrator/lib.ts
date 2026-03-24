@@ -4,6 +4,40 @@ import {
   URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
 } from "./lib-urban-tramite.ts";
 
+// ========== SERVICE RATING: DIMENSÕES (alinhado a src/lib/serviceRatingDimensions.ts) ==========
+export const SERVICE_RATING_DIMENSION_KEYS = ['atendimento', 'limpeza', 'infraestrutura', 'tempo_espera'] as const;
+
+export function isCompleteServiceRatingDimensions(o: unknown): boolean {
+  if (!o || typeof o !== 'object') return false;
+  const rec = o as Record<string, unknown>;
+  for (const k of SERVICE_RATING_DIMENSION_KEYS) {
+    const n = Number(rec[k]);
+    if (!Number.isInteger(n) || n < 1 || n > 5) return false;
+  }
+  return true;
+}
+
+export function parseRatingDimensionsMarker(content: string): Record<string, number> | null {
+  const marker = '[RATING_DIMENSIONS:';
+  const idx = content.indexOf(marker);
+  if (idx < 0) return null;
+  const start = idx + marker.length;
+  const end = content.indexOf(']', start);
+  if (end < 0) return null;
+  try {
+    const o = JSON.parse(content.slice(start, end)) as Record<string, unknown>;
+    if (!isCompleteServiceRatingDimensions(o)) return null;
+    return o as Record<string, number>;
+  } catch {
+    return null;
+  }
+}
+
+export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
+  const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
 /**
@@ -246,6 +280,11 @@ export function extractImplicitData(
       extracted.rating_stars = 5;
       extracted.sentiment = 'positive';
     }
+    const dimsMark = parseRatingDimensionsMarker(userMessage);
+    if (dimsMark) {
+      extracted.rating_dimensions = dimsMark;
+      extracted.rating_stars = aggregateRatingDimensionsStars(dimsMark);
+    }
   }
   
   // === CONTEXT: Address confirmation ===
@@ -302,6 +341,10 @@ export function tryPatternBasedLabel(description: string, category: string): str
       { pattern: /buraco\s*(grande|enorme|gigante)?/i, label: 'Buraco na Via' },
       { pattern: /asfalto\s*(danificad|quebrad)/i, label: 'Asfalto Danificado' },
       { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' }
+    ],
+    pavimentacao: [
+      { pattern: /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem/i, label: 'Pavimentação / Recape' },
+      { pattern: /obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|cbuq|restaura[çc][ãa]o\s*asf[áa]ltica/i, label: 'Obra de Pavimentação' },
     ],
     sinalizacao: [
       { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' },
@@ -1277,7 +1320,7 @@ export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<st
 
 // Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
-  'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
+  'iluminacao', 'calcada', 'via_publica', 'pavimentacao', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
   'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
 ] as const;
 
@@ -1539,12 +1582,29 @@ export function autoClassifyCategory(description: string): {
     // === POLUIÇÃO SONORA (weight 9) ===
     { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
     
-    // === SINALIZAÇÃO (weight 8.5 — escopo OS) ===
-    { keywords: /sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?/i, category: 'sinalizacao', weight: 8.5 },
-    // === DRENAGEM (weight 8.5 — escopo OS, águas pluviais) ===
-    { keywords: /drenagem|água\s*pluvial|pluvial|galeria\s*(de\s*águas)?|sarjeta|bueiro\s*pluvial|água\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente/i, category: 'drenagem', weight: 8.5 },
-    // === VIA PÚBLICA (weight 8 — buraco, asfalto, pavimentação; semáforo/faixa em sinalizacao) ===
-    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    // === PAVIMENTAÇÃO (weight 8.6 — OS: recape, capeamento, obras de pavimento; não confundir com só “buraco”) ===
+    {
+      keywords:
+        /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem|cbuq|obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|restaura[çc][ãa]o\s*asf[áa]ltica|revestimento\s*asf[áa]ltico/i,
+      category: 'pavimentacao',
+      weight: 8.6,
+    },
+    // === SINALIZAÇÃO (weight 8.5 — OS: vertical/horizontal, semáforo, placa, faixa) ===
+    {
+      keywords:
+        /sem[áa]foro|sinaliza[çc][ãa]o\s*(vertical|horizontal)?|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?|demarca[çc][ãa]o|repintura|zebr(?:a)?/i,
+      category: 'sinalizacao',
+      weight: 8.5,
+    },
+    // === DRENAGEM (weight 8.5 — OS: águas pluviais, sarjeta, galeria, bueiro de chuva) ===
+    {
+      keywords:
+        /drenagem|água\s*pluvial|agua\s*pluvial|pluvial|galeria\s*(de\s*águas|pluvial)?|sarjeta|bueiro\s*pluvial|bueiro\s*de\s*chuva|água\s*da\s*chuva|agua\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente|encharcad[oa]\s*pela\s*chuva/i,
+      category: 'drenagem',
+      weight: 8.5,
+    },
+    // === VIA PÚBLICA (weight 8 — buraco, erosão, lombada; pavimentação explícita → pavimentacao) ===
+    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
     
     // === ÁREA VERDE (EXPANDED - weight 8) ===
     { keywords: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)?|galho\s*(ca[íi]d|quebrad|solto)|poda|ra[íi]z\s*(expost|levant)|pra[çc]a|parque|jardim|mato\s*(alto|crescend)|capim\s*alto|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 8 },
@@ -1595,6 +1655,56 @@ export function autoClassifyCategory(description: string): {
   return { category: null, confidence: 0, suggestedLabel };
 }
 
+// --- Feedback loop: matching descrição ↔ trecho salvo (admin / N8N) ---
+
+const FEEDBACK_MATCH_STOPWORDS = new Set([
+  'o', 'a', 'os', 'as', 'um', 'uma', 'de', 'da', 'do', 'das', 'dos', 'em', 'na', 'no', 'nas', 'nos',
+  'que', 'e', 'é', 'para', 'com', 'por', 'como', 'mas', 'foi', 'ser', 'tem', 'se', 'ao', 'aos', 'à', 'às',
+  'não', 'nao', 'mais', 'muito', 'muita', 'já', 'ja', 'está', 'esta', 'estão', 'estao', 'são', 'sao', 'ou',
+]);
+
+/** Tokens significativos para similaridade (feedback loop). */
+export function tokenSetForFeedbackMatch(text: string): Set<string> {
+  const raw = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !FEEDBACK_MATCH_STOPWORDS.has(w));
+  return new Set(raw);
+}
+
+function jaccardTokenSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) {
+    if (b.has(t)) inter++;
+  }
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Indica se a descrição atual é suficientemente parecida com o trecho armazenado na correção.
+ * Evita depender só de `includes(excerpt)` com 500 chars (quase nunca casa).
+ */
+export function descriptionMatchesFeedbackExcerpt(description: string, excerpt: string): boolean {
+  const ex = excerpt.trim();
+  const desc = description.trim();
+  if (ex.length < 8 || desc.length < 5) return false;
+  const dLower = desc.toLowerCase();
+  const eLower = ex.toLowerCase();
+  // Trecho curto e característico contido na descrição
+  if (eLower.length >= 10 && eLower.length <= 160 && dLower.includes(eLower)) return true;
+  // Prefixo comum (admin/N8N costumam salvar o início da descrição)
+  const prefixLen = Math.min(100, ex.length, desc.length);
+  if (prefixLen >= 20 && dLower.slice(0, prefixLen) === eLower.slice(0, prefixLen)) return true;
+  // Similaridade lexical (descrições com mesmas palavras-chave, ordem diferente)
+  const sim = jaccardTokenSimilarity(tokenSetForFeedbackMatch(desc), tokenSetForFeedbackMatch(ex));
+  return sim >= 0.28;
+}
+
 /** Feedback loop: retorna categoria/subcategoria sugerida a partir de correções anteriores (descrição similar). */
 export async function getClassificationFromFeedback(
   supabase: SupabaseClient,
@@ -1610,10 +1720,10 @@ export async function getClassificationFromFeedback(
     .order('created_at', { ascending: false })
     .limit(500);
   if (!rows?.length) return null;
-  const descLower = description.toLowerCase();
   for (const row of rows) {
     const excerpt = (row.description_excerpt || '').trim();
-    if (excerpt.length >= 10 && descLower.includes(excerpt.toLowerCase())) {
+    if (excerpt.length < 8) continue;
+    if (descriptionMatchesFeedbackExcerpt(description, excerpt)) {
       return {
         category: row.corrected_category,
         subcategory: row.corrected_subcategory ?? null
@@ -1621,6 +1731,81 @@ export async function getClassificationFromFeedback(
     }
   }
   return null;
+}
+
+/** Valores de `report_classification_prediction_log.classification_source` (métricas de acurácia). */
+export const CLASSIFICATION_PREDICTION_SOURCES = [
+  'feedback_loop',
+  'urgent_pattern',
+  'auto_heuristic',
+  'fallback_outro',
+  'user_recovery',
+  'fuzzy_text',
+  'keyword_extract',
+  'manual_form',
+  'unknown',
+] as const;
+export type ClassificationPredictionSource = (typeof CLASSIFICATION_PREDICTION_SOURCES)[number];
+
+/** Infere a origem da categoria urbana a partir dos flags da coleta determinística. */
+export function inferUrbanClassificationSource(
+  accumulated: Record<string, unknown> | undefined
+): ClassificationPredictionSource {
+  const acc = accumulated || {};
+  if (acc._from_feedback === true) return 'feedback_loop';
+  if (acc._urgent_content === true) return 'urgent_pattern';
+  if (acc._fallback_category === true) return 'user_recovery';
+  if (acc._auto_classified === true) return 'auto_heuristic';
+  return 'unknown';
+}
+
+/** Infere a origem do tipo de relato de transporte (feedback, fuzzy, keywords, fallback). */
+export function inferTransportClassificationSource(
+  accumulated: Record<string, unknown> | undefined
+): ClassificationPredictionSource {
+  const acc = accumulated || {};
+  if (acc._from_classification_feedback === true) return 'feedback_loop';
+  const route = acc._transport_classification_route;
+  if (route === 'fuzzy_text' || route === 'keyword_extract' || route === 'fallback_outro') {
+    return route;
+  }
+  if (acc._fallback_report_type === true) return 'fallback_outro';
+  return 'unknown';
+}
+
+/**
+ * Registra predição no momento do registro do relato (JWT do cidadão; RLS user_id = auth.uid()).
+ * Falha não interrompe o fluxo do chat. Também emite log estruturado para observabilidade.
+ */
+export async function insertClassificationPredictionLog(
+  supabase: SupabaseClient,
+  params: {
+    userId: string;
+    reportId: string;
+    reportType: 'urban' | 'transport';
+    predictedCategory: string;
+    predictedSubcategory: string | null;
+    classificationSource: string;
+  }
+): Promise<void> {
+  const payload = {
+    report_id: params.reportId,
+    report_type: params.reportType,
+    predicted_category: params.predictedCategory,
+    predicted_subcategory: params.predictedSubcategory,
+    classification_source: params.classificationSource,
+    user_id: params.userId,
+  };
+  console.log('[CLASSIFICATION_METRIC]', JSON.stringify({ event: 'prediction_at_registration', ...payload }));
+  const { error } = await supabase.from('report_classification_prediction_log').insert(payload);
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '23505') {
+      console.warn('[insertClassificationPredictionLog] duplicate report_id+type, ignored');
+      return;
+    }
+    console.warn('[insertClassificationPredictionLog] insert failed:', error.message);
+  }
 }
 
 // Generate intuitive label from description when no pattern matches
@@ -1722,14 +1907,18 @@ export function mapLabelToCategory(label: string): string | null {
       'poste', 'luz', 'lampada', 'lâmpada', 'escuro', 'escuridão', 'iluminação', 
       'apagado', 'queimado', 'caído', 'caido', 'torto', 'inclinado', 'pendendo'
     ],
-    'via_publica': [
-      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada', 'pavimentação'
+    // OS explícitas antes de via genérica (evita "rua" dominar "recape na rua")
+    'pavimentacao': [
+      'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'capeamento', 'fresagem', 'cbuq', 'obra de pavimento',
     ],
     'sinalizacao': [
       'semáforo', 'semaforo', 'sinalização', 'sinalizacao', 'faixa', 'pedestre', 'placa', 'sinal'
     ],
     'drenagem': [
       'drenagem', 'água pluvial', 'pluvial', 'galeria', 'sarjeta', 'chuva', 'bueiro pluvial'
+    ],
+    'via_publica': [
+      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada',
     ],
     'calcada': [
       'calçada', 'calcada', 'passeio', 'guia', 'meio-fio', 'rampa', 'acessibilidade'
@@ -1898,6 +2087,49 @@ export function mapUrbanRiskLevelToSeverity(riskLevel: string | null | undefined
   }
 }
 
+/** Raio em metros para considerar proximidade a equipamentos sensíveis (escolas, hospitais, UBS). */
+const PROXIMITY_RADIUS_METERS = 500;
+
+const SENSITIVE_SERVICE_TYPES = ['school', 'hospital', 'ubs'] as const;
+
+/**
+ * Ajusta severidade do relato urbano se houver equipamentos sensíveis (escola, hospital, UBS)
+ * próximos ao local. Eleva: low→medium, medium→high. critical/high permanecem.
+ */
+export async function adjustSeverityForProximityToSensitiveEquipment(
+  supabase: SupabaseClient,
+  lat: number,
+  lon: number,
+  currentSeverity: string | null,
+): Promise<{ adjustedSeverity: string; proximityDetails: string[] } | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (!currentSeverity || currentSeverity === 'critical' || currentSeverity === 'high') return null;
+
+  const delta = 0.005; // ~555m em SP
+  const { data, error } = await supabase.rpc('search_public_services_fulltext', {
+    min_lat: lat - delta,
+    max_lat: lat + delta,
+    min_lng: lon - delta,
+    max_lng: lon + delta,
+    center_lat: lat,
+    center_lng: lon,
+    radius_meters: PROXIMITY_RADIUS_METERS,
+    search_query: null,
+    service_types: [...SENSITIVE_SERVICE_TYPES],
+    result_limit: 20,
+  });
+
+  if (error || !data?.length) return null;
+
+  const labels: Record<string, string> = { school: 'escola', hospital: 'hospital', ubs: 'UBS' };
+  const types = [...new Set((data as { service_type?: string }[]).map(s => s.service_type).filter(Boolean))];
+  const proximityDetails = types.map(t => labels[t as string] || t);
+
+  const bump: Record<string, string> = { low: 'medium', medium: 'high' };
+  const adjustedSeverity = bump[currentSeverity] ?? currentSeverity;
+  return { adjustedSeverity, proximityDetails };
+}
+
 /**
  * OS-05: persiste linha de auditoria para revisão humana (moderação).
  * Falha silenciosa no log para não quebrar criação do relato.
@@ -1945,6 +2177,77 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       if (n) {
         result.report_nature = n;
         console.log('[parseFieldResponse] report_nature:', n);
+      }
+      break;
+    }
+
+    case 'location_method': {
+      const t = response.trim();
+      const tl = t.toLowerCase();
+      if (/^usar endereço cadastrado$/i.test(t) || /^usar endereco cadastrado$/i.test(t)) {
+        result.location_method = 'registered_address';
+        break;
+      }
+      if (/^digitar cep ou endereço$/i.test(t) || /^digitar cep ou endereco$/i.test(t)) {
+        result.location_method = 'manual';
+        break;
+      }
+      const gpsLineLm = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i);
+      if (gpsLineLm) {
+        const la = parseFloat(gpsLineLm[1]);
+        const lo = parseFloat(gpsLineLm[2]);
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          result.user_lat = la;
+          result.user_lon = lo;
+          result.location_method = 'gps';
+        }
+        break;
+      }
+      if (/usar\s+minha\s+localiza[cç][aã]o|^gps$/i.test(tl)) {
+        result.location_method = 'gps';
+      }
+      break;
+    }
+
+    case 'gps_coords': {
+      const gpsLine = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i);
+      if (gpsLine) {
+        const la = parseFloat(gpsLine[1]);
+        const lo = parseFloat(gpsLine[2]);
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          result.user_lat = la;
+          result.user_lon = lo;
+          result.location_method = 'gps';
+        }
+      }
+      break;
+    }
+
+    case 'urban_registered_address_ack': {
+      const t = responseLower.trim();
+      if (/^(sim|s|yes|y|ok|correto|isso|confirmo|pode ser|certo|exato)\b/i.test(t) || /^👍/u.test(response.trim())) {
+        result.urban_registered_address_ack = true;
+        break;
+      }
+      if (/^(não|nao|n|no|nope|errado|outro|outra)\b/i.test(t)) {
+        result.urban_registered_address_ack = true;
+        result.location_method = 'manual';
+        result.street = '';
+        result.neighborhood = '';
+        result.cep = '';
+        result.street_number = '';
+        result.reference_point = '';
+        result._location_from_user_profile = false;
+        console.log('[parseFieldResponse] urban_registered_address_ack: user rejected profile address → manual');
+      }
+      break;
+    }
+
+    case 'rating_dimensions': {
+      const fromMark = parseRatingDimensionsMarker(response);
+      if (fromMark) {
+        result.rating_dimensions = fromMark;
+        result.rating_stars = aggregateRatingDimensionsStars(fromMark);
       }
       break;
     }
@@ -2015,8 +2318,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       const categoryMap: Record<string, string> = {
         'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
         'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'rua': 'via_publica',
+        'pavimentação': 'pavimentacao', 'pavimentacao': 'pavimentacao', 'recape': 'pavimentacao', 'asfaltamento': 'pavimentacao',
         'sinalização': 'sinalizacao', 'sinalizacao': 'sinalizacao', 'semáforo': 'sinalizacao', 'semaforo': 'sinalizacao', 'faixa': 'sinalizacao', 'placa': 'sinalizacao',
-        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem',
+        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem', 'pluvial': 'drenagem',
         'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
         'lixo': 'lixo', 'entulho': 'lixo', 'sujeira': 'lixo',
         'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto', 'água': 'esgoto', 'agua': 'esgoto',
@@ -2454,6 +2758,12 @@ export function accumulateFieldsFromHistory(
         // Skip structured messages (addresses, numbers, short answers)
         const isStructured = 
           contentLower.includes('endereço selecionado:') ||
+          contentLower.includes('localização gps:') ||
+          contentLower.includes('localizacao gps:') ||
+          /^usar endereço cadastrado$/i.test(msg.content.trim()) ||
+          /^usar endereco cadastrado$/i.test(msg.content.trim()) ||
+          /^digitar cep ou endereço$/i.test(msg.content.trim()) ||
+          /^digitar cep ou endereco$/i.test(msg.content.trim()) ||
           contentLower.includes('linha selecionada:') ||
           contentLower.includes('nota:') ||
           contentLower.includes('data:') ||
@@ -2504,13 +2814,15 @@ export function accumulateFieldsFromHistory(
         const categoryPatterns = [
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
+          { pattern: /problema de \*?\*?pavimenta[çc][ãa]o\*?\*?/i, category: 'pavimentacao' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
           { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
           { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
-          { pattern: /feedback.*c[âa]mara/i, category: 'feedback_camara' },
+          // Evitar "feedback" genérico + "Câmara" em textos longos do app (ex.: trâmite) — só frases explícitas de feedback legislativo
+          { pattern: /registrar\s+(?:como\s+)?feedback\s+(?:para|à|a)\s+(?:a\s+)?c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar.*preocupa[çc][ãa]o.*c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar como feedback/i, category: 'feedback_camara' },
           { pattern: /feedback geral para a c[âa]mara/i, category: 'feedback_camara' },
@@ -2540,6 +2852,36 @@ export function accumulateFieldsFromHistory(
             accumulated.category = 'feedback_camara';
             console.log('[accumulateFields] Category set to feedback_camara from user acceptance');
           }
+        }
+      }
+    }
+
+    // Relato urbano: método de localização + linha "Localização GPS:" (mesmo padrão do fluxo de serviços)
+    for (const msg of messages) {
+      if (msg.role !== 'user' || typeof msg.content !== 'string') continue;
+      const c = msg.content;
+      const cLower = c.toLowerCase();
+      if (!accumulated.location_method) {
+        if (/localiza[cç][aã]o\s*gps\s*[-:0-9]/i.test(c) || /^📍/u.test(c.trim())) {
+          accumulated.location_method = 'gps';
+        } else if (/usar\s+endere[cç]o\s+cadastrado/i.test(cLower)) {
+          accumulated.location_method = 'registered_address';
+        } else if (/digitar\s+(cep|endere[cç]o)|digitar\s+cep\s+ou\s+endere[cç]o/i.test(cLower)) {
+          accumulated.location_method = 'manual';
+        }
+      }
+      const gpsM =
+        c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps')
+          ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/)
+          : null);
+      if (gpsM && accumulated.user_lat == null) {
+        const la = parseFloat(gpsM[1].trim());
+        const lo = parseFloat(gpsM[2].trim());
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          accumulated.user_lat = la;
+          accumulated.user_lon = lo;
+          if (!accumulated.location_method) accumulated.location_method = 'gps';
         }
       }
     }
@@ -2742,6 +3084,46 @@ export function accumulateFieldsFromHistory(
       }
     }
 
+    // Método de localização + coordenadas GPS (InlineLocationMethodPicker — relato urbano)
+    {
+      const getContentU = (msg: { role: string; content: string | unknown }): string => {
+        const raw = msg.content;
+        if (typeof raw === 'string') return raw;
+        if (Array.isArray(raw)) {
+          const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
+          return part ? String((part as Record<string, unknown>).text) : '';
+        }
+        return '';
+      };
+      for (const msg of messages) {
+        if (msg.role !== 'user') continue;
+        const c = getContentU(msg).trim();
+        const cLower = c.toLowerCase();
+        if (!accumulated.location_method) {
+          if (/^usar endereço cadastrado$/i.test(c) || /^usar endereco cadastrado$/i.test(c)) {
+            accumulated.location_method = 'registered_address';
+          } else if (/^digitar cep ou endereço$/i.test(c) || /^digitar cep ou endereco$/i.test(c)) {
+            accumulated.location_method = 'manual';
+          } else if (/usar\s+(minha\s+)?localiza[cç][aã]o|localiza[cç][aã]o\s*gps:/i.test(cLower)) {
+            accumulated.location_method = 'gps';
+          }
+        }
+        const gpsMatch =
+          c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i) ||
+          ((cLower.includes('localização gps') || cLower.includes('localizacao gps')) &&
+            c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/));
+        if (gpsMatch && accumulated.user_lat == null) {
+          const lat = parseFloat(gpsMatch[1].trim());
+          const lon = parseFloat(gpsMatch[2].trim());
+          if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            accumulated.user_lat = lat;
+            accumulated.user_lon = lon;
+            if (!accumulated.location_method) accumulated.location_method = 'gps';
+          }
+        }
+      }
+    }
+
     // Botões rápidos / resposta curta: reclamacao, elogio, sugestao, duvida
     if (!accumulated.report_nature) {
       for (const msg of messages) {
@@ -2845,15 +3227,22 @@ export function accumulateFieldsFromHistory(
         }
       }
       
-      // Parse "Nota: X estrelas" format from InlineRatingPicker
+      const rdParsed = parseRatingDimensionsMarker(content);
+      if (rdParsed) {
+        accumulated.rating_dimensions = rdParsed;
+        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
+        console.log('[accumulateFields] Parsed rating_dimensions from marker');
+      }
+
+      // Parse "Nota: X estrelas" format from InlineRatingPicker (legado)
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
-      if (ratingMatch && !accumulated.rating_stars) {
+      if (ratingMatch && !accumulated.rating_stars && !accumulated.rating_dimensions) {
         accumulated.rating_stars = parseInt(ratingMatch[1]);
         console.log('[accumulateFields] Parsed rating_stars from picker:', accumulated.rating_stars);
       }
       
       // Also detect rating from natural language if not already captured
-      if (!accumulated.rating_stars) {
+      if (!accumulated.rating_stars && !accumulated.rating_dimensions) {
         const naturalRatingMatch = contentLower.match(/(\d)\s*(?:estrela|nota)/);
         if (naturalRatingMatch) {
           accumulated.rating_stars = parseInt(naturalRatingMatch[1]);
@@ -2923,10 +3312,24 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
+            case 'rating_dimensions': {
+              const rd = parseRatingDimensionsMarker(answer);
+              if (rd) {
+                accumulated.rating_dimensions = rd;
+                accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+              }
+              break;
+            }
             case 'rating_stars': {
-              const starsMatch = answer.match(/(\d)/);
-              if (starsMatch) {
-                accumulated.rating_stars = parseInt(starsMatch[1]);
+              const rdAns = parseRatingDimensionsMarker(answer);
+              if (rdAns) {
+                accumulated.rating_dimensions = rdAns;
+                accumulated.rating_stars = aggregateRatingDimensionsStars(rdAns);
+              } else {
+                const starsMatch = answer.match(/(\d)/);
+                if (starsMatch) {
+                  accumulated.rating_stars = parseInt(starsMatch[1]);
+                }
               }
               break;
             }
@@ -3942,8 +4345,8 @@ export function detectCollectionIntent(
   }
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
-  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'alagado', 'alagando'];
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
+  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
   urbanProblems.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 2; });
@@ -3984,9 +4387,10 @@ export function detectCollectionIntent(
   }
   
   // Chamber feedback scoring - use user-only context
-  // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
+  // IMPORTANTE: NÃO pontuar só com reclamacao/elogio/sugestao — são os mesmos termos dos botões de NATUREZA do relato urbano.
+  // Só é feedback à Câmara (vereador/legislativo) quando o cidadão menciona Câmara, vereador, gabinete, etc.
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
-  const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  const feedbackTermsWhenChamberAnchored = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
   const factualQuestionTerms = [
     'salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'qual a ',
     'quanto é', 'quanto e', 'quantos ', 'quantas ', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do',
@@ -4002,8 +4406,12 @@ export function detectCollectionIntent(
     && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
-  feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
-  if (chamberScore > 0 && !isFactualQuestionAboutChamber) {
+  const chamberAnchored = chamberDomain.some(kw => fullUserContext.includes(kw));
+  // Só soma "elogio/reclamação/..." depois de âncora institucional — evita confundir relato de infraestrutura com feedback à Câmara
+  if (chamberAnchored) {
+    feedbackTermsWhenChamberAnchored.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
+  }
+  if (chamberAnchored && chamberScore >= 5 && !isFactualQuestionAboutChamber) {
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
@@ -4116,8 +4524,7 @@ export function detectCollectionIntent(
     console.log('[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG');
   }
   // Apresentação da estrutura e funcionamento da Câmara (card ClickUp)
-  const isEstruturaFuncionamento = /(estrutura|funcionamento|apresenta[cç][aã]o)\s+(da\s+)?(câmara|camara)|conhecer\s+(a\s+)?(câmara|camara)|como\s+(a\s+)?(câmara|camara)\s+(é|e)\s+organizada|como\s+funciona\s+(a\s+)?(câmara|camara)/i.test(fullUserContext);
-  if (isEstruturaFuncionamento) {
+  if (isCamaraFuncionamentoInternoQuery(fullUserContext)) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
   }
@@ -4266,7 +4673,7 @@ export function detectCollectionIntent(
     'urban_report': 3,      // Lower: catch natural complaints like "tem um buraco"
     'transport_report': 3,  // Lower: catch "ônibus lotado"
     'service_rating': 3,    // Lower: catch explicit "quero avaliar" - allows journey switch
-    'chamber_feedback': 5,  // Higher: needs explicit chamber reference
+    'chamber_feedback': 9,  // Câmara/vereador + termo de feedback (evita confundir com botões reclamacao/elogio do relato urbano)
     'services': 4,          // Medium: needs location question
     'audiencias': 4,        // Medium: needs audiencia reference
     'general': 4,           // Medium: needs knowledge question
@@ -4641,27 +5048,69 @@ export function formatServicesWithContext(
   return `${header}\n\n${list}${footer}`;
 }
 
+/** Perguntas sobre estrutura, órgãos e funcionamento legislativo da Câmara (evita depender só do RAG genérico). */
+export function isCamaraFuncionamentoInternoQuery(contextText: string): boolean {
+  const ctx = contextText.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  const estruturaOuApresentacao =
+    /(estrutura|funcionamento|apresentacao)\s+(da\s+)?camara|conhecer\s+(a\s+)?camara|como\s+(a\s+)?camara\s+e\s+organizada|como\s+funciona\s+(a\s+)?camara|o\s+que\s+e\s+(a\s+)?camara\s+municipal/.test(ctx);
+  const orgaosOuProcesso =
+    /mesa\s+diretora|secretaria\s+da\s+mesa|procuradoria|regimento\s+interno|regimento|tramitacao|tramitar|sessao\s+plenaria|sessoes\s+plenarias|processo\s+legislativo|poder\s+legislativo|legislativo\s+municipal|comissoes?\s+(da\s+)?camara|comissoes?\s+permanentes|comissoes?\s+tecnicas|atribuicoes\s+das\s+comissoes/.test(ctx);
+  const mentionsChamber = /camara\s+municipal|\bcamara\b|vereador|vereadores|plen|comiss/.test(ctx);
+  const funcionamentoInterno = /funcionamento\s+interno/.test(ctx);
+  return estruturaOuApresentacao || funcionamentoInterno || (mentionsChamber && orgaosOuProcesso);
+}
+
+function sanitizeKbIlikeTerm(term: string): string {
+  return term.replace(/%/g, '').replace(/_/g, '').trim();
+}
+
 // Helper: Search knowledge base (with positive alternatives)
 export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {
-  let searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+  let searchTerms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map(sanitizeKbIlikeTerm)
+    .filter(t => t.length > 2)
+    .slice(0, 5);
   // Para zoneamento/LPUOS/construir: garantir termos que existem no conteúdo (evitar falha por acento: construir vs construído)
   const zoneamentoBoost = ['zoneamento', 'lpuos', 'construir', 'construído', 'imóvel', 'imovel', 'siszon', 'geosampa'];
   const q = query.toLowerCase();
   if (zoneamentoBoost.some(k => q.includes(k))) {
-    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].filter(t => !searchTerms.includes(t));
+    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].map(sanitizeKbIlikeTerm).filter(t => t.length > 2);
     searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 6);
+  }
+  // Funcionamento interno / estrutura da Câmara: termos que aparecem nas FAQs da KB
+  const camaraKbBoost = ['mesa', 'plenário', 'plenario', 'comissões', 'comissoes', 'regimento', 'tramitação', 'tramitacao', 'legislativo', 'câmara', 'camara', 'vereador', 'secretaria', 'procuradoria', 'estrutura', 'funcionamento'];
+  if (isCamaraFuncionamentoInternoQuery(query) || camaraKbBoost.some(k => q.includes(k))) {
+    const extra = ['mesa', 'plenário', 'comissões', 'regimento', 'tramitação', 'vereador', 'legislativo', 'câmara']
+      .map(sanitizeKbIlikeTerm)
+      .filter(t => t.length > 2);
+    searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 8);
   }
   if (searchTerms.length === 0) {
     return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
   }
 
+  const orClause = searchTerms
+    .flatMap(term => [`content.ilike.%${term}%`, `title.ilike.%${term}%`])
+    .join(',');
+
   const { data, error } = await supabase
     .from('knowledge_base')
     .select('content, content_type, title')
-    .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
-    .limit(5);
+    .or(orClause)
+    .limit(6);
+
+  const hitCount = data?.length ?? 0;
+  console.log('[searchKnowledgeBase]', JSON.stringify({
+    querySnippet: query.slice(0, 120),
+    termCount: searchTerms.length,
+    hits: hitCount,
+    dbError: !!error,
+  }));
 
   if (error || !data?.length) {
+    console.log('[searchKnowledgeBase] empty_or_error', JSON.stringify({ reason: error ? 'db_error' : 'no_rows', querySnippet: query.slice(0, 120) }));
     // NEVER NEGATIVE: Suggest alternatives instead of just saying "not found"
     const suggestions = [
       '• Como funciona a Câmara Municipal',
@@ -5569,6 +6018,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',
@@ -5781,18 +6231,22 @@ export async function executeTool(
         }
         
         // === HARD VALIDATION FOR RISK CATEGORIES ===
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'sinalizacao', 'drenagem'];
+        const RISK_CATEGORIES = [
+          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
+        ];
         
         if (RISK_CATEGORIES.includes(args.category)) {
           // Require risk_level for risk categories
           if (!args.risk_level) {
             const categoryLabels: Record<string, string> = {
               via_publica: 'via pública',
+              pavimentacao: 'pavimentação',
               iluminacao: 'iluminação',
               esgoto: 'esgoto/alagamento',
               area_verde: 'área verde',
+              calcada: 'calçada',
               sinalizacao: 'sinalização',
-              drenagem: 'drenagem'
+              drenagem: 'drenagem',
             };
             const label = categoryLabels[args.category] || args.category;
             // Add FIELD_REQUEST marker for deterministic capture of risk_level
@@ -5832,11 +6286,47 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
-        const derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+        let derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+
+        // Geocode para coordenadas do relato (usado em proximidade e no registro)
+        let reportLat: number | null = null;
+        let reportLon: number | null = null;
+        let proximityAdjustment: { adjustedSeverity: string; proximityDetails: string[] } | null = null;
+
+        const addrForGeocode = {
+          street: args.street || null,
+          street_number: args.street_number || null,
+          neighborhood: args.neighborhood || null,
+          cep: args.cep || null,
+          city: (args.city ?? accumulatedFields?.city) as string | null || 'São Paulo',
+        };
+        let coords = await geocodeAddressWithGoogle(supabase, addrForGeocode);
+        if (!coords) {
+          coords = await geocodeAddressToCoord(addrForGeocode);
+        }
+        if (coords) {
+          reportLat = coords.lat;
+          reportLon = coords.lon;
+          proximityAdjustment = await adjustSeverityForProximityToSensitiveEquipment(
+            supabase, reportLat, reportLon, derivedSeverity,
+          );
+          if (proximityAdjustment) {
+            derivedSeverity = proximityAdjustment.adjustedSeverity;
+          }
+        }
 
         const reportNatureResolved =
           normalizeReportNature((args.report_nature as string) ?? (accumulatedFields?.report_nature as string)) ??
           'reclamacao';
+
+        // Prioridade imediata: relatos críticos de segurança e saúde
+        const SAFETY_HEALTH_CATEGORIES = ['esgoto', 'via_publica', 'iluminacao', 'sinalizacao', 'drenagem', 'area_verde'];
+        const isCriticalSeverity = derivedSeverity === 'critical';
+        const isSafetyHealthWithRisk =
+          SAFETY_HEALTH_CATEGORIES.includes(args.category) &&
+          ['critical', 'moderate'].includes(String(args.risk_level || ''));
+        const initialN8nPriority =
+          isCriticalSeverity || isSafetyHealthWithRisk ? 'critica' : null;
 
         console.log('[create_urban_report] Attempting to insert report:', {
           userId,
@@ -5864,6 +6354,8 @@ export async function executeTool(
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
             neighborhood: args.neighborhood || null,
+            latitude: reportLat,
+            longitude: reportLon,
             photos: Array.isArray(args.photos) && args.photos.length > 0 ? args.photos : null,
             ai_classification: {
               council_member_name: args.council_member_name || null,
@@ -5877,7 +6369,8 @@ export async function executeTool(
             active_consequences: args.active_consequences || [],
             urgency_reason: args.urgency_reason || null,
             severity: derivedSeverity,
-            status: 'pending'
+            status: 'pending',
+            n8n_priority: initialN8nPriority
           })
           .select('id, protocol_code')
           .single();
@@ -5891,6 +6384,21 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        try {
+          await insertClassificationPredictionLog(supabase, {
+            userId,
+            reportId: data.id,
+            reportType: 'urban',
+            predictedCategory: String(args.category),
+            predictedSubcategory: args.subcategory ? String(args.subcategory) : null,
+            classificationSource: inferUrbanClassificationSource(
+              accumulatedFields as Record<string, unknown> | undefined
+            ),
+          });
+        } catch (metricErr) {
+          console.warn('[create_urban_report] classification metric log failed:', metricErr);
+        }
 
         if (args.risk_level) {
           const desc = String(args.description || "").trim();
@@ -5916,6 +6424,23 @@ export async function executeTool(
             },
           });
         }
+
+        if (proximityAdjustment) {
+          const prevSev = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+          await insertReportSeverityAuditLog(supabase, {
+            urban_report_id: data.id,
+            metric: "severity_proximity_adjustment",
+            previous_value: prevSev,
+            new_value: proximityAdjustment.adjustedSeverity,
+            justification: `Severidade elevada por proximidade a ${proximityAdjustment.proximityDetails.join(', ')} (até ${PROXIMITY_RADIUS_METERS}m).`,
+            source_snippet: null,
+            metadata: {
+              latitude: reportLat,
+              longitude: reportLon,
+              proximity_details: proximityAdjustment.proximityDetails,
+            },
+          });
+        }
         
         // Notify n8n
         try {
@@ -5935,6 +6460,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',
@@ -6001,7 +6527,9 @@ export async function executeTool(
         
         // Build impact section (only for risk categories)
         let impactSection = '';
-        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
+        const riskCategories = [
+          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
+        ];
         if (riskCategories.includes(args.category) && args.risk_level) {
           const impactParts = [];
           if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
@@ -6206,6 +6734,16 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        // Prioridade imediata: relatos críticos de segurança e saúde
+        const isTransportSafety = validReportType === 'seguranca';
+        const isTransportCritical = inferredSeverity === 'critica';
+        const isTransportHigh = inferredSeverity === 'alta';
+        const initialTransportPriority = isTransportSafety || isTransportCritical
+          ? 'critica'
+          : isTransportHigh
+            ? 'alta'
+            : null;
+
         console.log('[create_transport_report] Attempting to insert report:', {
           userId,
           report_type: validReportType,
@@ -6234,7 +6772,8 @@ export async function executeTool(
             severity: inferredSeverity,
             impact_description: args.impact_description || null,
             status: 'pending',
-            photos: photosArray
+            photos: photosArray,
+            n8n_priority: initialTransportPriority
           })
           .select('id, protocol_code')
           .single();
@@ -6248,6 +6787,21 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        try {
+          await insertClassificationPredictionLog(supabase, {
+            userId,
+            reportId: data.id,
+            reportType: 'transport',
+            predictedCategory: String(validReportType),
+            predictedSubcategory: subcategoryLabel ? String(subcategoryLabel) : null,
+            classificationSource: inferTransportClassificationSource(
+              accumulatedFields as Record<string, unknown> | undefined
+            ),
+          });
+        } catch (metricErr) {
+          console.warn('[create_transport_report] classification metric log failed:', metricErr);
+        }
 
         const transportSeverityJustification =
           validReportType === "seguranca"
@@ -6350,14 +6904,27 @@ export async function executeTool(
       }
       
       case 'create_service_rating': {
-        // 1. Validate rating_stars (CRITICAL: must be 1-5, never 0)
-        const stars = args.rating_stars;
+        // 1. Avaliação: preferir dimensões completas; senão rating_stars (legado)
+        const dimsMerged =
+          (args.rating_dimensions && isCompleteServiceRatingDimensions(args.rating_dimensions) ? args.rating_dimensions : null) ??
+          (accumulatedFields?.rating_dimensions && isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
+            ? accumulatedFields.rating_dimensions
+            : null);
+        let stars =
+          typeof args.rating_stars === 'number' && args.rating_stars >= 1 && args.rating_stars <= 5
+            ? args.rating_stars
+            : null;
+        if (dimsMerged && typeof dimsMerged === 'object') {
+          stars = aggregateRatingDimensionsStars(dimsMerged as Record<string, number>);
+        }
         if (!stars || stars < 1 || stars > 5) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:rating_stars]**Qual nota de 1 a 5** você dá para o atendimento? [RATING_PICKER]'
+            message:
+              '[FIELD_REQUEST:rating_dimensions]Avalie **de 1 a 5** cada aspecto: atendimento, limpeza, infraestrutura e tempo de espera. [MULTI_DIMENSION_RATING_PICKER]',
           };
         }
+        const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
         
         // 2. Validate rating_text
         if (!args.rating_text || args.rating_text.trim().length < 5) {
@@ -6530,16 +7097,21 @@ export async function executeTool(
           moderation_preview: preModeration,
         });
 
+        const insertRow: Record<string, unknown> = {
+          user_id: userId,
+          service_id: serviceId,
+          visit_id: visitId,
+          rating_stars: stars,
+          rating_text: trimmedComment,
+          sentiment: args.sentiment || 'neutral',
+        };
+        if (ratingDimensionsJson) {
+          insertRow.rating_dimensions = ratingDimensionsJson;
+        }
+
         const { data, error } = await supabase
           .from('service_ratings')
-          .insert({
-            user_id: userId,
-            service_id: serviceId,
-            visit_id: visitId,
-            rating_stars: stars,
-            rating_text: trimmedComment,
-            sentiment: args.sentiment || 'neutral',
-          })
+          .insert(insertRow)
           .select('id, publication_status')
           .single();
 
@@ -6579,10 +7151,13 @@ export async function executeTool(
           publicationStatus === 'pending_review'
             ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
             : '';
+        const dimLine = ratingDimensionsJson
+          ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
+          : '';
 
         return {
           success: true,
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }
@@ -6884,6 +7459,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',

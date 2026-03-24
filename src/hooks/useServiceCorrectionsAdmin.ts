@@ -9,6 +9,8 @@ import {
   SERVICE_CORRECTION_REVIEW_SLA_HOURS,
 } from "@/lib/serviceCorrectionFields";
 
+const SLA_MS = SERVICE_CORRECTION_REVIEW_SLA_HOURS * 60 * 60 * 1000;
+
 export type ServiceCorrectionRow = Database["public"]["Tables"]["service_corrections"]["Row"] & {
   public_services?: {
     id: string;
@@ -24,6 +26,7 @@ export type ServiceCorrectionRow = Database["public"]["Tables"]["service_correct
 
 export type ServiceCorrectionStatusCounts = {
   pending: number;
+  pendingOverSla: number;
   approved: number;
   rejected: number;
   applied: number;
@@ -32,6 +35,7 @@ export type ServiceCorrectionStatusCounts = {
 
 const emptyCounts: ServiceCorrectionStatusCounts = {
   pending: 0,
+  pendingOverSla: 0,
   approved: 0,
   rejected: 0,
   applied: 0,
@@ -91,7 +95,11 @@ export function useServiceCorrectionsAdmin() {
       setStatusCounts(counts);
 
       const { data, error } = listResult;
-      if (error) throw error;
+      if (error) {
+        console.error("[useServiceCorrectionsAdmin] Erro ao listar service_corrections:", error);
+        setRows([]);
+        return;
+      }
 
       const base = (data ?? []) as ServiceCorrectionRow[];
       const submitterIds = [...new Set(base.map((r) => r.user_id))];
@@ -144,7 +152,11 @@ export function useServiceCorrectionsAdmin() {
     } catch (e) {
       console.error("[useServiceCorrectionsAdmin]", e);
       setRows([]);
-      setStatusCounts(emptyCounts);
+      try {
+        setStatusCounts(await fetchStatusCounts());
+      } catch {
+        setStatusCounts(emptyCounts);
+      }
     } finally {
       setLoading(false);
     }

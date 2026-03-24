@@ -4,6 +4,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
+import {
+  aggregateServiceRatingStars,
+  buildServiceRatingDimensionsUserMessage,
+  isCompleteServiceRatingDimensions,
+  parseRatingDimensionsFromMessage,
+  type ServiceRatingDimensions,
+} from "@/lib/serviceRatingDimensions";
+import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -437,6 +445,8 @@ export const useUnifiedAIChat = (
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
+          { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
@@ -741,8 +751,17 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // Detectar nota (1-5 estrelas)
-      if (!collectedFields.rating_stars) {
+      const parsedDims = parseRatingDimensionsFromMessage(raw);
+      if (parsedDims) {
+        setCollectedFields((prev) => ({
+          ...prev,
+          rating_dimensions: parsedDims,
+          rating_stars: aggregateServiceRatingStars(parsedDims),
+        }));
+      }
+
+      // Detectar nota (1-5 estrelas) — legado, só se ainda não houver dimensões
+      if (!collectedFields.rating_stars && !collectedFields.rating_dimensions) {
         const starsMatch = raw.match(/(\d)\s*(estrela|nota|ponto)/i);
         if (starsMatch) {
           const stars = parseInt(starsMatch[1]);
@@ -783,30 +802,52 @@ export const useUnifiedAIChat = (
       }
     }
 
-    // Verifica se já existe uma mensagem otimista com o mesmo conteúdo
-    const hasOptimisticMessage = messages.some(
-      msg => msg.role === "user" && msg.content === content
-    );
+    // Evita duplicar somente quando o ÚLTIMO envio imediato é igual (ex.: double-click).
+    // Não pode bloquear "sim"/"não" antigos, senão o backend processa a resposta errada.
+    const lastMessage = messages[messages.length - 1];
+    const hasOptimisticMessage =
+      !!lastMessage &&
+      isLoading &&
+      lastMessage.role === "user" &&
+      lastMessage.content === content;
 
     // Upload de fotos anexadas (relato via chat): até 3, máx 50MB cada
+    // Nova regra: comprimir/redimensionar antes do upload para reduzir tráfego e falhas.
     const MAX_CHAT_PHOTOS = 3;
     const MAX_CHAT_PHOTO_BYTES = 50 * 1024 * 1024;
-    let attachmentUrls: string[] = [];
+    const attachmentUrls: string[] = [];
     if (options?.attachmentFiles?.length && user) {
       const files = options.attachmentFiles.slice(0, MAX_CHAT_PHOTOS);
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.size > MAX_CHAT_PHOTO_BYTES) {
+        const originalFile = files[i];
+        if (originalFile.size > MAX_CHAT_PHOTO_BYTES) {
           toast({
             title: "Foto muito grande",
-            description: `Máximo 50MB por imagem. "${file.name}" foi ignorada.`,
+            description: `Máximo 50MB por imagem. "${originalFile.name}" foi ignorada.`,
             variant: "destructive",
           });
           continue;
         }
-        const ext = file.name.split('.').pop() || 'jpg';
+
+        let fileToUpload = originalFile;
+        try {
+          fileToUpload = await compressChatPhoto(originalFile);
+          if (fileToUpload.size < originalFile.size) {
+            const reduction = Math.round((1 - fileToUpload.size / originalFile.size) * 100);
+            console.log("[useUnifiedAIChat] Photo compressed:", {
+              name: originalFile.name,
+              before: originalFile.size,
+              after: fileToUpload.size,
+              reductionPercent: reduction,
+            });
+          }
+        } catch (compressionError) {
+          console.warn("[useUnifiedAIChat] Photo compression failed, uploading original file:", compressionError);
+        }
+
+        const ext = fileToUpload.name.split('.').pop() || 'jpg';
         const fileName = `${user.id}/${Date.now()}-${i}.${ext}`;
-        const { error } = await supabase.storage.from('urban-reports').upload(fileName, file);
+        const { error } = await supabase.storage.from('urban-reports').upload(fileName, fileToUpload);
         if (error) {
           console.error('[useUnifiedAIChat] Upload attachment failed:', error);
           toast({
@@ -1433,7 +1474,7 @@ export const useUnifiedAIChat = (
     if (!collectionType) return [];
     
     // Import would cause circular dependency, so inline the logic
-    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
     
     const configs: Record<string, { key: string; required: boolean; requiredFor?: string[]; requiredWhen?: { field: string; values: string[] } }[]> = {
       urban_report: [
@@ -1454,7 +1495,7 @@ export const useUnifiedAIChat = (
         { key: 'service_type', required: true },
         { key: 'service_name', required: true },
         { key: 'service_address_confirmed', required: true },
-        { key: 'rating_stars', required: true },
+        { key: 'rating_dimensions', required: true },
         { key: 'rating_text', required: true },
       ]
     };
@@ -1466,7 +1507,11 @@ export const useUnifiedAIChat = (
     const missing: string[] = [];
     
     for (const field of fields) {
-      if (collectedFields[field.key]) continue;
+      if (field.key === 'rating_dimensions') {
+        if (isCompleteServiceRatingDimensions(collectedFields.rating_dimensions)) continue;
+      } else if (collectedFields[field.key]) {
+        continue;
+      }
       
       let isRequired = field.required;
       
@@ -1554,6 +1599,12 @@ export const useUnifiedAIChat = (
     sendMessage(`Nota: ${stars} estrelas`);
   }, [sendMessage]);
 
+  const handleMultiDimensionRatingSelected = useCallback((dims: ServiceRatingDimensions) => {
+    const avg = aggregateServiceRatingStars(dims);
+    setCollectedFields((prev) => ({ ...prev, rating_dimensions: dims, rating_stars: avg }));
+    sendMessage(buildServiceRatingDimensionsUserMessage(dims));
+  }, [sendMessage]);
+
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
   const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
     sendMessage(messageToSend);
@@ -1619,6 +1670,7 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleRatingSelected,
+    handleMultiDimensionRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,

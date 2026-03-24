@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Building2, Bus, Star, MessageSquare, MapPin, Calendar, Clock,
   Download, Trash2, Forward, ExternalLink, Send,
-  CheckCircle2, AlertCircle, Image as ImageIcon, Activity, Edit3
+  CheckCircle2, AlertCircle, Image as ImageIcon, Activity, Edit3, History
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,17 @@ const ADMIN_CATEGORY_OPTIONS = [
   { value: 'animais', label: 'Animais' },
   { value: 'poluicao', label: 'Poluição/Barulho' },
   { value: 'feedback_camara', label: 'Feedback Câmara' },
+  { value: 'outro', label: 'Outro' },
+];
+
+/** Tipos de `transport_reports.report_type` + feedback loop (alinhado ao orquestrador) */
+const ADMIN_TRANSPORT_REPORT_TYPE_OPTIONS = [
+  { value: 'atraso', label: 'Atraso' },
+  { value: 'lotacao', label: 'Lotação' },
+  { value: 'seguranca', label: 'Segurança' },
+  { value: 'acessibilidade', label: 'Acessibilidade' },
+  { value: 'limpeza', label: 'Limpeza' },
+  { value: 'conducao', label: 'Condução / motorista' },
   { value: 'outro', label: 'Outro' },
 ];
 
@@ -86,6 +97,14 @@ const riskLevelConfig: Record<string, { label: string; color: string }> = {
   none: { label: 'Nenhum', color: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
 };
 
+/** Severidade de transporte (baixa/media/alta/critica) */
+const transportSeverityConfig: Record<string, { label: string; color: string }> = {
+  baixa: { label: 'Baixa', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  media: { label: 'Média', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+  alta: { label: 'Alta', color: 'bg-orange-500/10 text-orange-600 border-orange-500/20' },
+  critica: { label: 'Crítica', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
+};
+
 const affectedScopeLabels: Record<string, string> = {
   individual: 'Individual (1-5 pessoas)',
   street: 'Rua toda',
@@ -112,8 +131,39 @@ export const UnifiedReportDrawer = ({
   const [submitting, setSubmitting] = useState(false);
   const [editCategory, setEditCategory] = useState('');
   const [editSubcategory, setEditSubcategory] = useState('');
+  const [editTransportReportType, setEditTransportReportType] = useState('');
+  const [editTransportSubLabel, setEditTransportSubLabel] = useState('');
   const [savingCategory, setSavingCategory] = useState(false);
   const [publishingEvaluation, setPublishingEvaluation] = useState(false);
+  const [severityAuditLogs, setSeverityAuditLogs] = useState<{
+    id: string;
+    metric: string;
+    previous_value: string | null;
+    new_value: string;
+    justification: string;
+    created_at: string;
+  }[]>([]);
+  const [loadingSeverityAudit, setLoadingSeverityAudit] = useState(false);
+
+  const fetchSeverityAuditLog = useCallback(async () => {
+    if (!manifest || (manifest.type !== 'urban' && manifest.type !== 'transport')) return;
+    setLoadingSeverityAudit(true);
+    try {
+      const col = manifest.type === 'urban' ? 'urban_report_id' : 'transport_report_id';
+      const { data, error } = await supabase
+        .from('report_severity_audit_log')
+        .select('id, metric, previous_value, new_value, justification, created_at')
+        .eq(col, manifest.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      setSeverityAuditLogs(data || []);
+    } catch (e) {
+      console.error('Error fetching severity audit log:', e);
+      setSeverityAuditLogs([]);
+    } finally {
+      setLoadingSeverityAudit(false);
+    }
+  }, [manifest]);
 
   const fetchResponses = useCallback(async () => {
     if (!manifest) return;
@@ -153,11 +203,24 @@ export const UnifiedReportDrawer = ({
   }, [open, manifest, fetchResponses]);
 
   useEffect(() => {
+    if (open && manifest && (manifest.type === 'urban' || manifest.type === 'transport')) {
+      fetchSeverityAuditLog();
+    }
+  }, [open, manifest, fetchSeverityAuditLog]);
+
+  useEffect(() => {
     if (open && manifest?.urban_data) {
       setEditCategory(manifest.urban_data.category || '');
       setEditSubcategory(manifest.urban_data.subcategory || '');
     }
   }, [open, manifest?.id, manifest?.urban_data?.category, manifest?.urban_data?.subcategory]);
+
+  useEffect(() => {
+    if (open && manifest?.type === 'transport' && manifest.transport_data) {
+      setEditTransportReportType(manifest.transport_data.report_type || '');
+      setEditTransportSubLabel('');
+    }
+  }, [open, manifest?.id, manifest?.type, manifest?.transport_data?.report_type]);
 
   const handleSubmitResponse = async () => {
     if (!manifest || !newResponse.trim()) return;
@@ -480,6 +543,67 @@ export const UnifiedReportDrawer = ({
                       <AlertCircle className="h-3 w-3 mr-1" /> Aguardando Resposta
                     </Badge>
                   )}
+
+                  {onCategoryCorrected && (
+                    <div className="p-4 rounded-lg border border-dashed bg-muted/20">
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Edit3 className="h-4 w-4" />
+                        Corrigir tipo do relato (melhora a classificação da IA)
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        O tipo é salvo no relato e registrado para relatos futuros com descrição parecida.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Tipo de problema</Label>
+                          <Select value={editTransportReportType} onValueChange={setEditTransportReportType}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ADMIN_TRANSPORT_REPORT_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Rótulo detalhado (opcional)</Label>
+                          <Input
+                            className="h-9"
+                            value={editTransportSubLabel}
+                            onChange={(e) => setEditTransportSubLabel(e.target.value)}
+                            placeholder="Ex.: Superlotação no horário de pico"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="mt-3"
+                        disabled={
+                          savingCategory ||
+                          (editTransportReportType === (manifest.transport_data?.report_type ?? '') &&
+                            !editTransportSubLabel.trim())
+                        }
+                        onClick={async () => {
+                          setSavingCategory(true);
+                          try {
+                            await onCategoryCorrected(
+                              manifest,
+                              editTransportReportType,
+                              editTransportSubLabel.trim() || null
+                            );
+                          } finally {
+                            setSavingCategory(false);
+                          }
+                        }}
+                      >
+                        {savingCategory ? 'Salvando…' : 'Salvar correção'}
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -541,6 +665,62 @@ export const UnifiedReportDrawer = ({
                     </Button>
                   )}
                 </>
+              )}
+
+              {/* Histórico de ajustes de severidade (IA) */}
+              {(manifest.type === 'urban' || manifest.type === 'transport') && (
+                <div className="p-4 rounded-lg border bg-muted/30">
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <History className="h-4 w-4" />
+                    Histórico de ajustes de severidade (IA)
+                  </h4>
+                  {loadingSeverityAudit ? (
+                    <p className="text-sm text-muted-foreground">Carregando…</p>
+                  ) : severityAuditLogs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum ajuste registrado pela IA para este relato.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {severityAuditLogs.map((entry) => {
+                        const metricLabels: Record<string, string> = {
+                          risk_level: 'Nível de risco',
+                          severity_proximity_adjustment: 'Ajuste por proximidade',
+                          severity: 'Severidade',
+                        };
+                        const label = metricLabels[entry.metric] || entry.metric;
+                        const valueConfig =
+                          entry.metric === 'risk_level'
+                            ? riskLevelConfig
+                            : entry.metric === 'severity' && manifest.type === 'transport'
+                              ? transportSeverityConfig
+                              : severityConfig;
+                        const prevLabel = entry.previous_value ? valueConfig[entry.previous_value]?.label || entry.previous_value : null;
+                        const newLabel = valueConfig[entry.new_value]?.label || entry.new_value;
+                        return (
+                          <div key={entry.id} className="text-sm border-l-2 border-muted-foreground/30 pl-3 py-1">
+                            <p className="font-medium text-muted-foreground">{label}</p>
+                            <p className="mt-0.5">
+                              {prevLabel ? (
+                                <>
+                                  <span className="line-through text-muted-foreground">{prevLabel}</span>
+                                  {' → '}
+                                  <span className="font-medium">{newLabel}</span>
+                                </>
+                              ) : (
+                                <span className="font-medium">{newLabel}</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">{entry.justification}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {formatDateTime(entry.created_at)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Automated Processing */}

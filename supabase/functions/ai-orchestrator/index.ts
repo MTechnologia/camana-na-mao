@@ -18,7 +18,7 @@ serve(async (req) => {
   const requestStartTime = Date.now();
   const lib = await import("./lib.ts");
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
-  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-01-31-v4 (deteccao deterministica ANTES do short-circuit)');
+  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-03-24-v1 (kb camara funcionamento + skip vertex)');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);
@@ -34,12 +34,14 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     console.log('[ai-orchestrator] Environment check:', {
       hasAiChatBaseUrl: !!aiChatBaseUrl,
       hasAiBaseUrl: !!aiBaseUrl,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseAnonKey: !!supabaseAnonKey,
+      hasSupabaseServiceRoleKey: !!supabaseServiceRoleKey,
       aiChatModel,
       supabaseUrl: supabaseUrl ? supabaseUrl.substring(0, 50) + '...' : 'missing',
       supabaseAnonKeyLength: supabaseAnonKey?.length || 0
@@ -158,6 +160,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
+
+    // Leitura de report_classification_feedback: RLS só permite admin/gestor; cidadão no chat usa JWT.
+    // Cliente service role (só servidor) para o feedback loop funcionar no fluxo conversacional.
+    const supabaseClassificationFeedbackRead =
+      supabaseServiceRoleKey && supabaseServiceRoleKey.length > 0
+        ? createClient(supabaseUrl, supabaseServiceRoleKey)
+        : null;
+    if (!supabaseClassificationFeedbackRead) {
+      console.warn(
+        '[ai-orchestrator] SUPABASE_SERVICE_ROLE_KEY ausente: getClassificationFromFeedback usa JWT do usuário (RLS pode bloquear).'
+      );
+    }
     
     console.log('[ai-orchestrator] Verifying user authentication...');
     console.log('[ai-orchestrator] Using Supabase URL:', supabaseUrl);
@@ -245,7 +259,8 @@ serve(async (req) => {
         if (lines.length >= 2) district = lines[1];
       }
       const categoryToIssueType: Record<string, string> = {
-        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
+        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'pavimentacao': 'urbanismo', 'pavimentação': 'urbanismo',
+        'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
         'calcada': 'urbanismo', 'calçada': 'urbanismo', 'sinalizacao': 'urbanismo', 'sinalização': 'urbanismo',
         'drenagem': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
         'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
@@ -687,7 +702,9 @@ serve(async (req) => {
     async function getNextMissingField(
       collectionType: string,
       fields: Record<string, unknown>,
-      supabaseClient: SupabaseClient
+      supabaseClient: SupabaseClient,
+      classificationFeedbackReadClient: SupabaseClient,
+      userIdForAddress: string
     ): Promise<{ field: string | null; picker: string | null; prompt: string | null }> {
       
       if (collectionType === 'urban_report') {
@@ -746,7 +763,11 @@ serve(async (req) => {
           const description = (fields.description || '').toLowerCase();
           
           // Feedback loop: correções anteriores com descrição similar têm prioridade
-          const feedback = await lib.getClassificationFromFeedback(supabaseClient, fields.description || '', 'urban');
+          const feedback = await lib.getClassificationFromFeedback(
+            classificationFeedbackReadClient,
+            fields.description || '',
+            'urban'
+          );
           if (feedback) {
             fields.category = feedback.category;
             fields.subcategory = feedback.subcategory || lib.generateLabelFromDescription(fields.description || '');
@@ -782,7 +803,8 @@ serve(async (req) => {
             // Medium confidence - ask for confirmation using intuitive label if available
             const intuitiveName = autoClass.suggestedLabel || (() => {
               const categoryLabels: Record<string, string> = {
-                iluminacao: 'iluminação', via_publica: 'via pública', calcada: 'calçada',
+                iluminacao: 'iluminação', via_publica: 'via pública', pavimentacao: 'pavimentação', calcada: 'calçada',
+                sinalizacao: 'sinalização', drenagem: 'drenagem',
                 lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
                 higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'barulho/poluição', outro: 'outro'
               };
@@ -806,7 +828,7 @@ serve(async (req) => {
             } else {
               // First time - ask with expanded options including "outro"
               fields._asked_category = true;
-              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
+              return { field: 'category', picker: null, prompt: 'Qual **tema** melhor descreve seu relato? (iluminação, buraco na via, **pavimentação/recape**, **sinalização** (semáforo/placa/faixa), **drenagem**/água pluvial/sarjeta, esgoto, lixo, barulho, praça/área verde, ou descreva com suas palavras)' };
             }
             }
           }
@@ -825,19 +847,95 @@ serve(async (req) => {
           console.log('[getNextMissingField] Set subcategory:', fields.subcategory);
         }
         
+        // 2c. Como informar o local (GPS / cadastrado / CEP) — antes de pedir só o CEP
+        if (!fields.location_method) {
+          return {
+            field: 'location_method',
+            picker: '[LOCATION_METHOD_PICKER]',
+            prompt:
+              'Como você quer informar **onde fica** o problema?\n\nToque em **Usar minha localização (GPS)** abaixo, ou escolha **endereço cadastrado** / **digitar CEP ou endereço**.',
+          };
+        }
+        if (fields.location_method === 'gps' && (fields.user_lat == null || fields.user_lon == null)) {
+          return {
+            field: 'gps_coords',
+            picker: '[LOCATION_METHOD_PICKER]',
+            prompt:
+              'Preciso da sua posição: use **Usar minha localização (GPS)** abaixo e permita o acesso no navegador (e no celular, se pedir).',
+          };
+        }
+        if (fields.location_method === 'registered_address' && userIdForAddress) {
+          const cepDigitsPre = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+          const hasLocPre = cepDigitsPre.length === 8 || (!!fields.street && !!fields.neighborhood);
+          if (!hasLocPre) {
+            const { data: addrRows } = await supabaseClient
+              .from('user_addresses')
+              .select('street, number, neighborhood, city, zip_code, is_primary')
+              .eq('user_id', userIdForAddress)
+              .order('is_primary', { ascending: false })
+              .limit(1);
+            const addr = addrRows?.[0] as
+              | { street?: string; number?: string; neighborhood?: string; city?: string; zip_code?: string }
+              | undefined;
+            if (addr?.street && addr.neighborhood) {
+              fields.street = addr.street;
+              fields.street_number = addr.number || '';
+              fields.neighborhood = addr.neighborhood;
+              fields.city = addr.city || fields.city;
+              const z = String(addr.zip_code || '').replace(/\D/g, '');
+              if (z.length === 8) fields.cep = z;
+              fields._location_from_user_profile = true;
+              console.log('[getNextMissingField] Urban: filled location from user_addresses');
+            } else {
+              return {
+                field: 'cep',
+                picker: '[ADDRESS_PICKER]',
+                prompt:
+                  'Não há **endereço cadastrado** no seu perfil (ou está incompleto). Qual o **CEP** do local do problema?\n\n_Se não souber, me diz a rua e bairro._',
+              };
+            }
+          }
+        }
+        if (fields.location_method === 'gps') {
+          const ulat = fields.user_lat != null ? Number(fields.user_lat) : NaN;
+          const ulon = fields.user_lon != null ? Number(fields.user_lon) : NaN;
+          if (Number.isFinite(ulat) && Number.isFinite(ulon)) {
+            const cepDigitsG = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+            const hasLocG = cepDigitsG.length === 8 || (!!fields.street && !!fields.neighborhood);
+            if (!hasLocG) {
+              const rev = await lib.reverseGeocodeLatLon(ulat, ulon);
+              if (rev) {
+                const parts = rev.split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (parts.length >= 2) {
+                  fields.street = parts[0].slice(0, 200);
+                  fields.neighborhood = parts[1].slice(0, 120);
+                } else {
+                  fields.street = rev.slice(0, 200);
+                  fields.neighborhood = 'Referência GPS';
+                }
+              } else {
+                fields.street = 'Local informado por GPS';
+                fields.neighborhood = 'Aproximação por coordenadas';
+              }
+              if (!fields.city) fields.city = 'São Paulo';
+              console.log('[getNextMissingField] Urban: reverse geocode GPS →', fields.street, '|', fields.neighborhood);
+            }
+          }
+        }
+        
         // 3. Location: CEP OR (street AND neighborhood) - FLEXIBLE GROUP
         const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
         const hasLocationViaCep = cepDigits.length === 8;
         const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
-        const hasLocation = hasLocationViaCep || hasLocationViaAddress;
-        
+        const hasResolvedLocation = hasLocationViaCep || hasLocationViaAddress;
+
         // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
         const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
-        if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
+        if (hasResolvedLocation && city && !lib.isCitySaoPaulo(city)) {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(city) };
         }
         
-        if (!hasLocation) {
+        if (!hasResolvedLocation) {
           // If user already gave street without neighborhood (or vice versa), ask for the missing one
           if (fields.street && !fields.neighborhood) {
             return { field: 'neighborhood', picker: null, prompt: 'Em qual **bairro** fica essa rua?' };
@@ -845,17 +943,46 @@ serve(async (req) => {
           if (fields.neighborhood && !fields.street) {
             return { field: 'street', picker: '[ADDRESS_PICKER]', prompt: 'Qual o **nome da rua**?' };
           }
-          // Default: ask for CEP with address picker fallback
-          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: '[FIELD_REQUEST:cep]Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._' };
+          // manual, ou cadastro vazio: pedir CEP / busca de endereço
+          const cepPrompt =
+            fields.location_method === 'registered_address'
+              ? 'Não encontrei endereço no seu **perfil**. Informe o **CEP** ou a rua e o bairro do local.\n\n_Se não souber o CEP, me diz a rua e bairro._'
+              : 'Qual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._';
+          return { field: 'cep', picker: '[ADDRESS_PICKER]', prompt: `[FIELD_REQUEST:cep]${cepPrompt}` };
         }
         
+        // 3b. Endereço cadastrado: mostrar o que veio do perfil e pedir confirmação antes de número/risco
+        if (
+          fields.location_method === 'registered_address' &&
+          fields._location_from_user_profile === true &&
+          !fields.urban_registered_address_ack &&
+          hasLocationViaAddress
+        ) {
+          const st = String(fields.street || '').trim();
+          const nb = String(fields.neighborhood || '').trim();
+          const numRaw = fields.street_number != null ? String(fields.street_number).trim() : '';
+          const num = numRaw ? `, ${numRaw}` : '';
+          const cityPart = fields.city ? `, ${String(fields.city).trim()}` : '';
+          const cepRaw = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
+          const cepFmt = cepRaw.length === 8 ? `${cepRaw.slice(0, 5)}-${cepRaw.slice(5)}` : '';
+          const cepPart = cepFmt ? ` — CEP ${cepFmt}` : '';
+          const line = `**${st}${num}**, ${nb}${cityPart}${cepPart}`;
+          return {
+            field: 'urban_registered_address_ack',
+            picker: null,
+            prompt: `Encontrei este **endereço no seu perfil**:\n\n📍 ${line}\n\n**O problema é neste local?** Responda **sim** para continuar ou **não** para informar outro CEP ou endereço.`,
+          };
+        }
+
         // 4. Street number / reference (optional but helpful)
         if (!fields.street_number && !fields.reference_point) {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
         }
         
         // 5. Risk assessment for risk categories - WITH AUTO-INFERENCE
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada'];
+        const RISK_CATEGORIES = [
+          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
+        ];
         if (RISK_CATEGORIES.includes(fields.category)) {
           if (!fields.risk_level) {
             // TRY AUTO-INFERENCE from description before asking
@@ -899,24 +1026,51 @@ serve(async (req) => {
         if (!isValidDesc)
           return { field: 'description', picker: null, prompt: '**O que aconteceu?** Me conta o problema.' };
         
-        // 2. Report type - TRY AUTO-INFERENCE from description using FUZZY MATCHING
+        // 2. Report type - feedback loop (correções admin/N8N) → fuzzy → fallback outro
         // If can't infer, use 'outro' with generated label (NEVER block the flow)
+        if (!fields.report_type) {
+          const transportFeedback = await lib.getClassificationFromFeedback(
+            classificationFeedbackReadClient,
+            description,
+            'transport'
+          );
+          const validTransportTypes = ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'] as const;
+          if (
+            transportFeedback?.category &&
+            (validTransportTypes as readonly string[]).includes(transportFeedback.category)
+          ) {
+            fields.report_type = transportFeedback.category;
+            if (transportFeedback.subcategory) {
+              fields.subcategory_label = transportFeedback.subcategory;
+            }
+            fields._from_classification_feedback = true;
+            fields._transport_classification_route = 'feedback_loop';
+            console.log(
+              '[getNextMissingField] Transport report_type from classification feedback:',
+              fields.report_type,
+              transportFeedback.subcategory
+            );
+          }
+        }
         if (!fields.report_type) {
           // First try the new fuzzy inference
           const fuzzyInferredType = lib.inferTransportTypeFromText(description);
           if (fuzzyInferredType) {
             fields.report_type = fuzzyInferredType;
+            fields._transport_classification_route = 'fuzzy_text';
             console.log('[getNextMissingField] Fuzzy-inferred transport report_type:', fields.report_type);
           } else {
             // Fallback to extractTransportFields for exact matching
             const inferredFields = lib.extractTransportFields(description.toLowerCase());
             if (inferredFields.report_type) {
               fields.report_type = inferredFields.report_type;
+              fields._transport_classification_route = 'keyword_extract';
               console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
             } else {
               // FALLBACK: Can't infer - use 'outro' and continue (NEVER ASK, NEVER BLOCK)
               fields.report_type = 'outro';
               fields._fallback_report_type = true;
+              fields._transport_classification_route = 'fallback_outro';
               console.log('[getNextMissingField] Fallback transport report_type to outro');
             }
           }
@@ -942,8 +1096,15 @@ serve(async (req) => {
 
         // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
         if (fields.visit_id) {
-          if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
-            return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+          if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+            return {
+              field: 'rating_dimensions',
+              picker: '[MULTI_DIMENSION_RATING_PICKER]',
+              prompt:
+                'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+            };
+          }
+          fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
@@ -1068,9 +1229,16 @@ serve(async (req) => {
           };
         }
         
-        // 4. Rating stars (REQUIRED 1-5)
-        if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
-          return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+        // 4. Avaliação multidimensional (1–5 em cada dimensão)
+        if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+          return {
+            field: 'rating_dimensions',
+            picker: '[MULTI_DIMENSION_RATING_PICKER]',
+            prompt:
+              'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+          };
+        }
+        fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
         
         // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
         const textLen = (fields.rating_text || '').length;
@@ -1153,7 +1321,8 @@ serve(async (req) => {
       }
       const description = descText;
       const categoryToIssueType: Record<string, string> = {
-        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
+        'via_publica': 'urbanismo', 'via pública': 'urbanismo', 'pavimentacao': 'urbanismo', 'pavimentação': 'urbanismo',
+        'iluminacao': 'urbanismo', 'iluminação': 'urbanismo',
         'calcada': 'urbanismo', 'calçada': 'urbanismo', 'sinalizacao': 'urbanismo', 'sinalização': 'urbanismo',
         'drenagem': 'urbanismo', 'lixo': 'urbanismo', 'esgoto': 'urbanismo',
         'area_verde': 'meio_ambiente', 'área verde': 'meio_ambiente', 'feedback_camara': 'urbanismo', 'feedback câmara': 'urbanismo'
@@ -1409,7 +1578,13 @@ serve(async (req) => {
     }
 
     if (collectionIntent && ['urban_report', 'transport_report', 'service_rating', 'services'].includes(collectionIntent.type)) {
-      nextFieldInfo = await getNextMissingField(collectionIntent.type, accumulatedFields, supabase);
+      nextFieldInfo = await getNextMissingField(
+        collectionIntent.type,
+        accumulatedFields,
+        supabase,
+        supabaseClassificationFeedbackRead ?? supabase,
+        user.id
+      );
       console.log('[ai-orchestrator] Deterministic next field:', nextFieldInfo.field);
       
       // === CRITICAL FIX: Auto-call create function when all fields are ready ===
@@ -1449,7 +1624,8 @@ serve(async (req) => {
             // 3) Perguntamos e usuário disse NÃO → mostrar preview
             if (askedPhotoChoice && userSaidNo) {
               const catLabels: Record<string, string> = {
-                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                sinalizacao: 'Sinalização', drenagem: 'Drenagem',
                 esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
                 animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
               };
@@ -1510,7 +1686,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 active_consequences: accumulatedFields.active_consequences,
                 urgency_reason: accumulatedFields.urgency_reason,
                 council_member_name: accumulatedFields.council_member_name,
-                council_member_party: accumulatedFields.council_member_party
+                council_member_party: accumulatedFields.council_member_party,
               };
               if (photosToSave.length > 0) {
                 toolArgs.photos = photosToSave;
@@ -1520,7 +1696,8 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             // 5) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
             if (askedToAttach && !toolResult) {
               const catLabels: Record<string, string> = {
-                iluminacao: 'Iluminação', via_publica: 'Via Pública', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                sinalizacao: 'Sinalização', drenagem: 'Drenagem',
                 esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
                 animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
               };
@@ -1669,6 +1846,7 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               service_neighborhood: accumulatedFields.service_neighborhood,
               service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
               rating_stars: accumulatedFields.rating_stars,
+              rating_dimensions: accumulatedFields.rating_dimensions,
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment || 'neutral'
             };
@@ -2117,15 +2295,39 @@ ${empathyNote}
     // pois o conteúdo está na tabela knowledge_base (populate-knowledge-base) e o Vertex RAG pode não tê-lo.
     const zoneamentoKeywords = ['zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana', 'smul'];
     const isZoneamentoQuery = zoneamentoKeywords.some(k => lastUserMessage.toLowerCase().includes(k));
+    const isCamaraFuncionamentoQuery = lib.isCamaraFuncionamentoInternoQuery(lastUserMessage);
     if (isZoneamentoQuery) {
       console.log('[ai-orchestrator] Zoneamento/LPUOS query detected → skipping Vertex RAG, will use search_knowledge_base');
     }
+    if (isCamaraFuncionamentoQuery) {
+      console.log('[ai-orchestrator] Câmara funcionamento/estrutura → skipping Vertex RAG (Supabase KB + prompt)');
+    }
+
+    // Pré-busca na KB do Supabase para estrutura/funcionamento (uma ida; evita RAG genérico e reduz alucinação)
+    if (collectionIntent?.type === 'general' && isCamaraFuncionamentoQuery && !isZoneamentoQuery) {
+      try {
+        const kbText = await lib.searchKnowledgeBase(supabase, lastUserMessage);
+        if (!kbText.includes('Não encontrei informações específicas')) {
+          dynamicSystemPrompt = dynamicSystemPrompt
+            + '\n\n[Contexto da base de conhecimento da Câmara (Supabase)]:\n'
+            + kbText
+            + '\n\nInstrução: Use o texto acima como base principal sobre o funcionamento e a estrutura da Câmara. Organize em linguagem simples; não contradiga esses trechos. Se faltar detalhe pontual, complemente de forma coerente com o que está escrito.';
+          console.log('[ai-orchestrator] Injected Supabase KB for Câmara funcionamento, chars:', kbText.length);
+        } else {
+          console.log('[ai-orchestrator] Supabase KB (Câmara funcionamento) sem trechos específicos; modelo pode usar search_knowledge_base');
+        }
+      } catch (e) {
+        console.warn('[ai-orchestrator] Pré-busca searchKnowledgeBase (Câmara) falhou:', (e as Error).message);
+      }
+    }
+
     if (
       collectionIntent?.type === 'general' &&
       (vertexRagDatastore || vertexRagCorpus) &&
       finalAiApiKey &&
       lastUserMessage.trim().length > 3 &&
       !isZoneamentoQuery &&
+      !isCamaraFuncionamentoQuery &&
       !lib.isBusInformationalQuery(lastUserMessage) &&
       !lib.isQuestionAboutProximasOuQuaisAudiencias(lastUserMessage)
     ) {
@@ -2190,15 +2392,20 @@ ${empathyNote}
     const currentYear = now.getFullYear();
     dynamicSystemPrompt = dynamicSystemPrompt + `\n\n[DATA E AUDIÊNCIAS] Data de hoje: ${todayStr} (ano civil ${currentYear}). Ao falar de "este ano" use sempre o ano ${currentYear}. Para audiências públicas: use APENAS o texto retornado pela ferramenta search_audiencias; não invente audiências, datas nem resuma com outro ano.`;
 
-    // Se injetamos contexto do Vertex RAG, não expor search_knowledge_base para evitar que o modelo prefira a tool e "alucine"
+    // Se injetamos contexto do Vertex RAG ou da KB Supabase (Câmara), não expor search_knowledge_base para evitar segunda busca redundante
     const vertexRagInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Vertex RAG)]');
-    const effectiveTools = vertexRagInjected
+    const supabaseCamaraKbInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Supabase)]');
+    const suppressSearchKnowledgeBase = vertexRagInjected || supabaseCamaraKbInjected;
+    const effectiveTools = suppressSearchKnowledgeBase
       ? (lib.tools as Array<{ type?: string; function?: { name?: string } }>).filter(
           t => t?.function?.name !== 'search_knowledge_base'
         )
       : lib.tools;
     if (vertexRagInjected) {
       console.log('[ai-orchestrator] Vertex RAG context injected → search_knowledge_base excluded from tools (prefer RAG)');
+    }
+    if (supabaseCamaraKbInjected) {
+      console.log('[ai-orchestrator] Supabase KB (Câmara) injected → search_knowledge_base excluded from tools');
     }
 
     // Call AI API with streaming enabled and timeout
@@ -2489,6 +2696,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             // Service rating fields
             ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
             ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
+            ...(toolArgs.rating_dimensions && { rating_dimensions: toolArgs.rating_dimensions }),
             ...(toolArgs.sentiment && { sentiment: toolArgs.sentiment }),
           };
           
@@ -2641,6 +2849,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
         ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
         ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
+        ...(toolArgs.rating_dimensions && { rating_dimensions: toolArgs.rating_dimensions }),
       };
       
       let responseContent = result.message;

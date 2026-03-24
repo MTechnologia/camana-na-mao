@@ -60,6 +60,7 @@ const formatCategory = (category: string | undefined): string | undefined => {
     "lixo": "Lixo/Limpeza",
     "calcada": "Calçada",
     "sinalizacao": "Sinalização",
+    "drenagem": "Drenagem",
     "area_verde": "Área Verde",
     "animais": "Animais",
     "atraso": "Atraso",

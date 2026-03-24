@@ -12,8 +12,8 @@ export const tools = [
         properties: {
           category: {
             type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento, alagamento), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
+            enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
+            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, pavimentação), sinalizacao (semáforo, placa, faixa de pedestre, sinalização), drenagem (água pluvial, sarjeta, galeria, bueiro pluvial, poça), lixo (entulho), esgoto (bueiro sanitário, vazamento de esgoto), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
           },
           subcategory_label: {
             type: "string",
@@ -102,7 +102,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_urban_report",
-      description: "Registra relato urbano (reclamação, dúvida, sugestão ou elogio) ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Preencher report_nature quando o cidadão deixou claro. Para categorias de risco (via_publica, iluminacao, esgoto, area_verde), coletar também dados de impacto.",
+      description: "Registra relato urbano (reclamação, dúvida, sugestão ou elogio) ou feedback sobre a Câmara. SOMENTE chamar quando tiver: 1) categoria, 2) descrição (min 15 chars), 3) rua + bairro (via CEP validado ou informados manualmente). Preencher report_nature quando o cidadão deixou claro. Para categorias de risco (via_publica, iluminacao, esgoto, area_verde, calcada, sinalizacao, drenagem), coletar também dados de impacto.",
       parameters: {
         type: "object",
         properties: {
@@ -113,8 +113,8 @@ export const tools = [
           },
           category: {
             type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, semáforo), lixo (entulho), esgoto (bueiro, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
+            enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
+            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto), sinalizacao (semáforo, placa, faixa), drenagem (pluvial, sarjeta, galeria), lixo (entulho), esgoto (bueiro sanitário, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
           },
           subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
           description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
@@ -200,11 +200,11 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. Dois modos: 1) COM visit_id (página de avaliação): passe visit_id + rating_stars + rating_text + sentiment; serviço e visita já existem. 2) SEM visit_id: colete service_type, service_name, service_address_confirmed, rating_stars, rating_text, sentiment. NUNCA CHAMAR COM rating_stars=0 ou rating_text vazio.",
+      description: "Registra avaliação de serviço público. Notas: use rating_dimensions (atendimento, limpeza, infraestrutura, tempo_espera, cada uma 1-5) OU rating_stars (média legada 1-5). Dois modos: 1) COM visit_id: visit_id + dimensões + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, dimensões, rating_text, sentiment. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
-          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem - só pedir nota e comentário." },
+          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem - só pedir avaliação multidimensional e comentário." },
           service_id: { type: "string", description: "ID do serviço (public_services). Usado junto com visit_id para evitar lookup." },
           service_type: {
             type: "string",
@@ -214,7 +214,17 @@ export const tools = [
           service_name: { type: "string", description: "Nome do serviço. Obrigatório APENAS quando visit_id NÃO for informado." },
           service_neighborhood: { type: "string", description: "Bairro (ajuda a localizar quando sem visit_id)" },
           service_address_confirmed: { type: "boolean", description: "Confirmação do endereço. Obrigatório APENAS quando visit_id NÃO for informado." },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO: Nota 1-5 estrelas. NUNCA usar 0!" },
+          rating_dimensions: {
+            type: "object",
+            description: "Preferencial: notas 1-5 para atendimento, limpeza, infraestrutura, tempo_espera",
+            properties: {
+              atendimento: { type: "integer", minimum: 1, maximum: 5 },
+              limpeza: { type: "integer", minimum: 1, maximum: 5 },
+              infraestrutura: { type: "integer", minimum: 1, maximum: 5 },
+              tempo_espera: { type: "integer", minimum: 1, maximum: 5 },
+            },
+          },
+          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Média 1-5 se não houver rating_dimensions (legado)" },
           rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
             type: "string",
@@ -222,7 +232,7 @@ export const tools = [
             description: "Sentimento inferido do comentário"
           }
         },
-        required: ["rating_stars", "rating_text", "sentiment"]
+        required: ["rating_text", "sentiment"]
       }
     }
   },
@@ -453,8 +463,8 @@ export const tools = [
           // NOVO: Campos extraídos da mensagem inicial
           urban_category: {
             type: "string",
-            enum: ["iluminacao", "calcada", "via_publica", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "PARA urban_report: categoria inferida do problema. Ex: 'ônibus capotou' = via_publica, 'poste apagado' = iluminacao, 'bueiro entupido' = esgoto"
+            enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
+            description: "PARA urban_report: categoria inferida do problema. Ex: 'ônibus capotou' = via_publica, 'poste apagado' = iluminacao, 'semáforo apagado' = sinalizacao, 'sarjeta entupida' = drenagem, 'bueiro de esgoto' = esgoto"
           },
           transport_type: {
             type: "string",

@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatShortDate } from '@/lib/dateUtils';
 import { transportProblems } from '@/data/transportProblems';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CitizenSeverityBadge } from '@/components/citizen/CitizenSeverityBadge';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from '@/lib/citizenProtocol';
@@ -28,6 +29,7 @@ export default function MyReportsPage() {
     location?: string;
     date?: string;
     report_type?: string;
+    severity?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -105,9 +107,12 @@ export default function MyReportsPage() {
                     )}
 
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {problem && <problem.icon className={`w-4 h-4 ${problem.color}`} />}
                         <p className="text-sm font-medium">{problem?.label || report.report_type}</p>
+                        {report.severity && (
+                          <CitizenSeverityBadge severity={report.severity as string} size="sm" />
+                        )}
                       </div>
 
                       {report.description && (
@@ -143,6 +148,7 @@ export default function MyReportsPage() {
                               location: report.location_address || report.location || undefined,
                               date: report.created_at,
                               report_type: report.report_type || undefined,
+                              severity: report.severity as string | undefined,
                             });
                             setReferralDialogOpen(true);
                           }}

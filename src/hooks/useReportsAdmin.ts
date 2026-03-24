@@ -184,6 +184,9 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     { value: 'iluminacao', label: 'Iluminação' },
     { value: 'calcada', label: 'Calçada' },
     { value: 'via_publica', label: 'Via Pública' },
+    { value: 'pavimentacao', label: 'Pavimentação' },
+    { value: 'sinalizacao', label: 'Sinalização' },
+    { value: 'drenagem', label: 'Drenagem' },
     { value: 'lixo', label: 'Lixo e Limpeza' },
     { value: 'area_verde', label: 'Área Verde' },
     { value: 'poluicao', label: 'Poluição' },
@@ -539,9 +542,73 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   }, [manifests, fetchKPIs]);
 
+  const VALID_TRANSPORT_REPORT_TYPES = [
+    'atraso',
+    'lotacao',
+    'seguranca',
+    'acessibilidade',
+    'limpeza',
+    'conducao',
+    'outro',
+  ] as const;
+
   const updateManifestCategory = useCallback(async (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => {
+    if (manifest.type === 'transport') {
+      if (!VALID_TRANSPORT_REPORT_TYPES.includes(newCategory as (typeof VALID_TRANSPORT_REPORT_TYPES)[number])) {
+        toast.error('Tipo de relato de transporte inválido');
+        return;
+      }
+      const originalType = manifest.transport_data?.report_type ?? '';
+      const subTrim = newSubcategory?.trim() || null;
+      if (originalType === newCategory && !subTrim) {
+        toast.info('Nenhuma alteração');
+        return;
+      }
+      const previousManifests = [...manifests];
+      setManifests(prev =>
+        prev.map(m => {
+          if (m.id !== manifest.id) return m;
+          return {
+            ...m,
+            transport_data: m.transport_data
+              ? { ...m.transport_data, report_type: newCategory }
+              : undefined,
+          };
+        })
+      );
+      try {
+        const { error: updateError } = await supabase
+          .from('transport_reports')
+          .update({ report_type: newCategory, updated_at: new Date().toISOString() })
+          .eq('id', manifest.id);
+        if (updateError) throw updateError;
+        const descriptionExcerpt = (manifest.description || '').slice(0, 500) || '(sem descrição)';
+        const { error: feedbackError } = await supabase.from('report_classification_feedback').insert({
+          report_type: 'transport',
+          report_id: manifest.id,
+          original_category: originalType,
+          original_subcategory: null,
+          corrected_category: newCategory,
+          corrected_subcategory: subTrim,
+          description_excerpt: descriptionExcerpt,
+          source: 'admin',
+        });
+        if (feedbackError) {
+          console.warn('Feedback de classificação (transporte) não registrado:', feedbackError);
+          toast.warning('Tipo atualizado, mas a correção não foi gravada nas métricas. Verifique permissões.');
+        } else {
+          toast.success('Tipo atualizado; correção usada para melhorar a IA.');
+        }
+      } catch (error) {
+        setManifests(previousManifests);
+        console.error('Error updating transport report type:', error);
+        toast.error('Erro ao atualizar tipo de transporte');
+      }
+      return;
+    }
+
     if (manifest.type !== 'urban' && manifest.type !== 'feedback') {
-      toast.error('Correção de categoria só para relatos urbanos');
+      toast.error('Correção de categoria só para relatos urbanos ou transporte');
       return;
     }
     const originalCategory = manifest.urban_data?.category ?? '';
@@ -578,9 +645,11 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           source: 'admin',
         });
       if (feedbackError) {
-        console.warn('Feedback de classificação não registrado (RLS?):', feedbackError);
+        console.warn('Feedback de classificação não registrado:', feedbackError);
+        toast.warning('Categoria atualizada, mas a correção não foi gravada nas métricas. Verifique permissões.');
+      } else {
+        toast.success('Categoria atualizada; correção usada para melhorar a IA.');
       }
-      toast.success('Categoria atualizada; correção usada para melhorar a IA.');
     } catch (error) {
       setManifests(previousManifests);
       console.error('Error updating category:', error);
