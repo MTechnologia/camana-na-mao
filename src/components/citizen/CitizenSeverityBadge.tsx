@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { AlertOctagon, AlertTriangle, CircleAlert, CircleCheck2 } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, CircleAlert, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** Configuração visual por severidade. Suporta urbano (critical/high/medium/low) e transporte (critica/alta/media/baixa). */
@@ -10,8 +10,8 @@ const SEVERITY_CONFIG: Record<string, { label: string; color: string; icon: type
   alta: { label: 'Alta', color: 'bg-orange-500/15 text-orange-700 border-orange-500/30', icon: AlertTriangle },
   medium: { label: 'Média', color: 'bg-amber-500/15 text-amber-700 border-amber-500/30', icon: CircleAlert },
   media: { label: 'Média', color: 'bg-amber-500/15 text-amber-700 border-amber-500/30', icon: CircleAlert },
-  low: { label: 'Baixa', color: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30', icon: CircleCheck2 },
-  baixa: { label: 'Baixa', color: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30', icon: CircleCheck2 },
+  low: { label: 'Baixa', color: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30', icon: CheckCircle2 },
+  baixa: { label: 'Baixa', color: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30', icon: CheckCircle2 },
 };
 
 interface CitizenSeverityBadgeProps {
