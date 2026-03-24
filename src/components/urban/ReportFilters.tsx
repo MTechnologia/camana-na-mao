@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { SEVERITY_CONFIG } from "@/components/citizen/CitizenSeverityBadge";
 
 interface Filters {
   category: string | null;
@@ -83,16 +84,25 @@ export const ReportFilters = ({ filters, onFilterChange }: ReportFiltersProps) =
       <div className="space-y-2">
         <span className="text-xs font-medium text-muted-foreground">Por criticidade</span>
         <div className="flex flex-wrap gap-2">
-          {severities.map((sev) => (
-            <Badge
-              key={sev.value}
-              variant={filters.severity === sev.value ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => toggleSeverity(sev.value)}
-            >
-              {sev.label}
-            </Badge>
-          ))}
+          {severities.map((sev) => {
+            const config = SEVERITY_CONFIG[sev.value];
+            const isActive = filters.severity === sev.value;
+            const Icon = config?.icon;
+            const colorClass = config?.color ?? "bg-muted text-muted-foreground border-border";
+            return (
+              <Badge
+                key={sev.value}
+                variant="outline"
+                className={`cursor-pointer transition-all inline-flex items-center gap-1.5 ${
+                  isActive ? colorClass : `${colorClass} opacity-60 hover:opacity-100`
+                }`}
+                onClick={() => toggleSeverity(sev.value)}
+              >
+                {Icon && <Icon className="h-3 w-3" aria-hidden />}
+                {sev.label}
+              </Badge>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -20,6 +20,7 @@ import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 import { toast } from "@/hooks/use-toast";
 import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
 
@@ -58,13 +59,6 @@ const categoryLabels: Record<string, string> = {
   poluicao: "Poluição",
   feedback_camara: "Feedback Câmara",
   outro: "Outro"
-};
-
-const severityLabels: Record<string, string> = {
-  low: "Baixa",
-  medium: "Média",
-  high: "Alta",
-  critical: "Crítica"
 };
 
 export default function ReportHistoryPage() {
@@ -248,9 +242,9 @@ export default function ReportHistoryPage() {
               )}
 
               {report.severity && (
-                <p className="text-xs text-muted-foreground">
-                  Gravidade: {severityLabels[report.severity]}
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <CitizenSeverityBadge severity={report.severity} size="sm" />
+                </div>
               )}
               {citizenProtocol && (
                 <p className="text-xs font-mono font-medium text-primary mt-1 flex items-center gap-1.5">

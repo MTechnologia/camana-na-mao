@@ -2087,6 +2087,49 @@ export function mapUrbanRiskLevelToSeverity(riskLevel: string | null | undefined
   }
 }
 
+/** Raio em metros para considerar proximidade a equipamentos sensíveis (escolas, hospitais, UBS). */
+const PROXIMITY_RADIUS_METERS = 500;
+
+const SENSITIVE_SERVICE_TYPES = ['school', 'hospital', 'ubs'] as const;
+
+/**
+ * Ajusta severidade do relato urbano se houver equipamentos sensíveis (escola, hospital, UBS)
+ * próximos ao local. Eleva: low→medium, medium→high. critical/high permanecem.
+ */
+export async function adjustSeverityForProximityToSensitiveEquipment(
+  supabase: SupabaseClient,
+  lat: number,
+  lon: number,
+  currentSeverity: string | null,
+): Promise<{ adjustedSeverity: string; proximityDetails: string[] } | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (!currentSeverity || currentSeverity === 'critical' || currentSeverity === 'high') return null;
+
+  const delta = 0.005; // ~555m em SP
+  const { data, error } = await supabase.rpc('search_public_services_fulltext', {
+    min_lat: lat - delta,
+    max_lat: lat + delta,
+    min_lng: lon - delta,
+    max_lng: lon + delta,
+    center_lat: lat,
+    center_lng: lon,
+    radius_meters: PROXIMITY_RADIUS_METERS,
+    search_query: null,
+    service_types: [...SENSITIVE_SERVICE_TYPES],
+    result_limit: 20,
+  });
+
+  if (error || !data?.length) return null;
+
+  const labels: Record<string, string> = { school: 'escola', hospital: 'hospital', ubs: 'UBS' };
+  const types = [...new Set((data as { service_type?: string }[]).map(s => s.service_type).filter(Boolean))];
+  const proximityDetails = types.map(t => labels[t as string] || t);
+
+  const bump: Record<string, string> = { low: 'medium', medium: 'high' };
+  const adjustedSeverity = bump[currentSeverity] ?? currentSeverity;
+  return { adjustedSeverity, proximityDetails };
+}
+
 /**
  * OS-05: persiste linha de auditoria para revisão humana (moderação).
  * Falha silenciosa no log para não quebrar criação do relato.
@@ -6202,11 +6245,47 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
-        const derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+        let derivedSeverity = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+
+        // Geocode para coordenadas do relato (usado em proximidade e no registro)
+        let reportLat: number | null = null;
+        let reportLon: number | null = null;
+        let proximityAdjustment: { adjustedSeverity: string; proximityDetails: string[] } | null = null;
+
+        const addrForGeocode = {
+          street: args.street || null,
+          street_number: args.street_number || null,
+          neighborhood: args.neighborhood || null,
+          cep: args.cep || null,
+          city: (args.city ?? accumulatedFields?.city) as string | null || 'São Paulo',
+        };
+        let coords = await geocodeAddressWithGoogle(supabase, addrForGeocode);
+        if (!coords) {
+          coords = await geocodeAddressToCoord(addrForGeocode);
+        }
+        if (coords) {
+          reportLat = coords.lat;
+          reportLon = coords.lon;
+          proximityAdjustment = await adjustSeverityForProximityToSensitiveEquipment(
+            supabase, reportLat, reportLon, derivedSeverity,
+          );
+          if (proximityAdjustment) {
+            derivedSeverity = proximityAdjustment.adjustedSeverity;
+          }
+        }
 
         const reportNatureResolved =
           normalizeReportNature((args.report_nature as string) ?? (accumulatedFields?.report_nature as string)) ??
           'reclamacao';
+
+        // Prioridade imediata: relatos críticos de segurança e saúde
+        const SAFETY_HEALTH_CATEGORIES = ['esgoto', 'via_publica', 'iluminacao', 'sinalizacao', 'drenagem', 'area_verde'];
+        const isCriticalSeverity = derivedSeverity === 'critical';
+        const isSafetyHealthWithRisk =
+          SAFETY_HEALTH_CATEGORIES.includes(args.category) &&
+          ['critical', 'moderate'].includes(String(args.risk_level || ''));
+        const initialN8nPriority =
+          isCriticalSeverity || isSafetyHealthWithRisk ? 'critica' : null;
 
         console.log('[create_urban_report] Attempting to insert report:', {
           userId,
@@ -6234,6 +6313,8 @@ export async function executeTool(
             street_number: args.street_number || null,
             reference_point: args.reference_point || null,
             neighborhood: args.neighborhood || null,
+            latitude: reportLat,
+            longitude: reportLon,
             photos: Array.isArray(args.photos) && args.photos.length > 0 ? args.photos : null,
             ai_classification: {
               council_member_name: args.council_member_name || null,
@@ -6247,7 +6328,8 @@ export async function executeTool(
             active_consequences: args.active_consequences || [],
             urgency_reason: args.urgency_reason || null,
             severity: derivedSeverity,
-            status: 'pending'
+            status: 'pending',
+            n8n_priority: initialN8nPriority
           })
           .select('id, protocol_code')
           .single();
@@ -6298,6 +6380,23 @@ export async function executeTool(
               derived_severity: derivedSeverity,
               category: args.category,
               auto_inferred: isAuto,
+            },
+          });
+        }
+
+        if (proximityAdjustment) {
+          const prevSev = mapUrbanRiskLevelToSeverity(args.risk_level || null);
+          await insertReportSeverityAuditLog(supabase, {
+            urban_report_id: data.id,
+            metric: "severity_proximity_adjustment",
+            previous_value: prevSev,
+            new_value: proximityAdjustment.adjustedSeverity,
+            justification: `Severidade elevada por proximidade a ${proximityAdjustment.proximityDetails.join(', ')} (até ${PROXIMITY_RADIUS_METERS}m).`,
+            source_snippet: null,
+            metadata: {
+              latitude: reportLat,
+              longitude: reportLon,
+              proximity_details: proximityAdjustment.proximityDetails,
             },
           });
         }
@@ -6594,6 +6693,16 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        // Prioridade imediata: relatos críticos de segurança e saúde
+        const isTransportSafety = validReportType === 'seguranca';
+        const isTransportCritical = inferredSeverity === 'critica';
+        const isTransportHigh = inferredSeverity === 'alta';
+        const initialTransportPriority = isTransportSafety || isTransportCritical
+          ? 'critica'
+          : isTransportHigh
+            ? 'alta'
+            : null;
+
         console.log('[create_transport_report] Attempting to insert report:', {
           userId,
           report_type: validReportType,
@@ -6622,7 +6731,8 @@ export async function executeTool(
             severity: inferredSeverity,
             impact_description: args.impact_description || null,
             status: 'pending',
-            photos: photosArray
+            photos: photosArray,
+            n8n_priority: initialTransportPriority
           })
           .select('id, protocol_code')
           .single();

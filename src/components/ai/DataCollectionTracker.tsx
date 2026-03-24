@@ -8,6 +8,7 @@ import {
   SERVICE_RATING_DIMENSION_KEYS,
   SERVICE_RATING_DIMENSION_LABELS,
 } from "@/lib/serviceRatingDimensions";
+import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 
 function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
   if (fieldKey === "rating_dimensions") {
@@ -591,9 +592,16 @@ const DataCollectionTracker = ({
                         <span className="text-muted-foreground shrink-0 min-w-[70px]">
                           {field.label}:
                         </span>
-                        <span className="text-foreground break-words">
-                          {formatFieldValue(field.key, collectedFields[field.key])}
-                        </span>
+                        {field.key === 'severity' && collectedFields[field.key] ? (
+                          <CitizenSeverityBadge
+                            severity={String(collectedFields[field.key])}
+                            size="sm"
+                          />
+                        ) : (
+                          <span className="text-foreground break-words">
+                            {formatFieldValue(field.key, collectedFields[field.key])}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </motion.div>

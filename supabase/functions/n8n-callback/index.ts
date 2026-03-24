@@ -73,6 +73,32 @@ serve(async (req) => {
     const validatedCategory = payload.processed_data.validated_category;
     const validatedSubcategory = payload.processed_data.validated_subcategory ?? null;
 
+    // Prioridade: não rebaixar relatos críticos de segurança/saúde definidos na criação
+    const PRIORITY_HIGHEST = ['critica', 'urgente'];
+    const PRIORITY_HIGH = ['alta'];
+    const newPriority = payload.processed_data.priority || null;
+
+    let finalPriority = newPriority;
+    if (payload.report_type === 'urban' || payload.report_type === 'transport') {
+      const table = payload.report_type === 'urban' ? 'urban_reports' : 'transport_reports';
+      const { data: existing } = await supabase
+        .from(table)
+        .select('n8n_priority')
+        .eq('id', payload.report_id)
+        .single();
+
+      const currentPriority = (existing as { n8n_priority?: string } | null)?.n8n_priority;
+      if (currentPriority && PRIORITY_HIGHEST.includes(currentPriority.toLowerCase())) {
+        if (!newPriority || !PRIORITY_HIGHEST.includes((newPriority as string).toLowerCase())) {
+          finalPriority = currentPriority;
+        }
+      } else if (currentPriority && PRIORITY_HIGH.includes(currentPriority.toLowerCase())) {
+        if (newPriority && !PRIORITY_HIGHEST.includes((newPriority as string).toLowerCase()) && !PRIORITY_HIGH.includes((newPriority as string).toLowerCase())) {
+          finalPriority = currentPriority;
+        }
+      }
+    }
+
     // Feedback loop: se N8N enviou categoria validada diferente da atual, registrar correção e aplicar
     if (payload.report_type === 'urban' && validatedCategory) {
       const { data: report } = await supabase
@@ -120,7 +146,7 @@ serve(async (req) => {
     const updateData: Record<string, unknown> = {
       n8n_processed: true,
       n8n_processed_at: new Date().toISOString(),
-      n8n_priority: payload.processed_data.priority,
+      n8n_priority: finalPriority ?? payload.processed_data.priority,
       n8n_validated_category: validatedCategory,
       n8n_tags: payload.processed_data.tags,
       n8n_enriched_data: payload.processed_data.enriched_data,
