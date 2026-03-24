@@ -74,6 +74,41 @@ function formatDataHora(data: string, hora: string | null): string {
   return d;
 }
 
+/** Bloco HTML com o texto da manifestação por escrito (quebras de linha preservadas). */
+function manifestacaoEscritoHtml(record: ParticipacaoRecord): string {
+  const sug = (record.sugestao ?? "").trim();
+  const bairro = (record.bairro ?? "").trim();
+  let block = "";
+  if (sug) {
+    block +=
+      "<p><strong>Texto da sua manifestação</strong></p>" +
+      "<div style=\"margin:12px 0;padding:12px 14px;background:#f4f4f5;border-radius:8px;border-left:4px solid #22c55e;white-space:pre-wrap;word-break:break-word;\">" +
+      escapeHtml(sug) +
+      "</div>";
+  }
+  if (bairro) {
+    block += "<p><strong>Bairro (subprefeitura) informado:</strong> " + escapeHtml(bairro) + "</p>";
+  }
+  return block;
+}
+
+function manifestacaoEscritoAdminHtml(record: ParticipacaoRecord): string {
+  const sug = (record.sugestao ?? "").trim();
+  const bairro = (record.bairro ?? "").trim();
+  let block = "";
+  if (sug) {
+    block +=
+      "<p><strong>Texto da manifestação</strong></p>" +
+      "<div style=\"margin:12px 0;padding:12px 14px;background:#f1f5f9;border-radius:8px;border-left:4px solid #1e40af;white-space:pre-wrap;word-break:break-word;\">" +
+      escapeHtml(sug) +
+      "</div>";
+  }
+  if (bairro) {
+    block += "<p><strong>Bairro (subprefeitura):</strong> " + escapeHtml(bairro) + "</p>";
+  }
+  return block;
+}
+
 function buildHtmlEmail(
   record: ParticipacaoRecord,
   audiencia: AudienciaRow | null,
@@ -92,6 +127,9 @@ function buildHtmlEmail(
 
   let body = "";
   body += "<p><strong>Registramos sua " + (tipo === "escrito" ? "manifestação por escrito." : "inscrição.") + "</strong></p>";
+  if (tipo === "escrito") {
+    body += manifestacaoEscritoHtml(record);
+  }
   if (tipo === "videoconferencia" && audiencia?.comissao) {
     body += "<p>Obrigado por se inscrever para participar de Audiência Pública a ser realizada pela " + escapeHtml(audiencia.comissao) + ".</p>";
   }
@@ -177,6 +215,9 @@ function buildAdminNotificationEmail(
     " — " +
     escapeHtml(telefoneDigits) +
     "</p>";
+  if (tipo === "escrito") {
+    body += manifestacaoEscritoAdminHtml(record);
+  }
   if (tipo === "videoconferencia" && audiencia?.link_transmissao?.trim()) {
     body +=
       "<p>Link para participação: <a href=\"" +

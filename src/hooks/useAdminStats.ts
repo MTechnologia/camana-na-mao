@@ -16,6 +16,7 @@ export const useAdminStats = () => {
     pendingTransportReports: 0,
     pendingReports: 0,
     pendingReferrals: 0,
+    pendingServiceCorrections: 0,
     loading: true,
   });
 

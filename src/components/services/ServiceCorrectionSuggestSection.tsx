@@ -18,6 +18,7 @@ import { Camera, PencilLine, X } from "lucide-react";
 import {
   SERVICE_CORRECTION_TYPES,
   SERVICE_CORRECTION_REVIEW_SLA_HOURS,
+  toLegacyCorrectionTypeForDb,
   type ServiceCorrectionTypeValue,
   type ServiceLike,
   getServiceContextSummary,
@@ -141,16 +142,28 @@ export function ServiceCorrectionSuggestSection({
         evidenceUrl = await uploadEvidence(userId);
       }
 
-      const { error } = await supabase.from("service_corrections").insert({
+      const baseRow = {
         user_id: userId,
         service_id: realServiceId,
-        field_name: null,
+        field_name: null as string | null,
         current_value: contextSummary.length > 2000 ? `${contextSummary.slice(0, 2000)}…` : contextSummary,
         suggested_value: trimmed,
         correction_type: correctionType,
         evidence_photo_url: evidenceUrl,
-        status: "pending",
-      });
+        status: "pending" as const,
+      };
+
+      let { error } = await supabase.from("service_corrections").insert(baseRow);
+      const isCorrectionTypeCheck =
+        error?.code === "23514" &&
+        String(error.message ?? "").includes("service_corrections_correction_type_check");
+      if (isCorrectionTypeCheck) {
+        const { error: retryError } = await supabase.from("service_corrections").insert({
+          ...baseRow,
+          correction_type: toLegacyCorrectionTypeForDb(correctionType),
+        });
+        error = retryError;
+      }
       if (error) throw error;
       toast.success(
         `Sugestão enviada. Nossa equipe tende a validar em até ${SERVICE_CORRECTION_REVIEW_SLA_HOURS} horas. Obrigado por ajudar!`,
