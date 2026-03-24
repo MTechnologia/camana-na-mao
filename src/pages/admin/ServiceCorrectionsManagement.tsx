@@ -181,7 +181,7 @@ function PendingQueueTable({
         <Inbox className="h-12 w-12 text-muted-foreground mb-3" aria-hidden />
         <p className="font-medium text-foreground">Nenhuma sugestão pendente</p>
         <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-          Quando munícipes enviarem correções de cadastro, elas aparecerão aqui para validação.
+          Quando munícipes enviarem correções sobre equipamentos, elas aparecerão aqui para validação.
         </p>
       </div>
     );
@@ -360,7 +360,7 @@ export default function ServiceCorrectionsManagement() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
               <ClipboardList className="h-8 w-8 text-primary" />
-              Painel — sugestões de correção de cadastro
+              Painel — sugestões de correção de equipamentos
             </h1>
             <p className="text-muted-foreground mt-1 max-w-2xl">
               <strong>Fluxo:</strong> primeiro <strong>aceitar</strong> a sugestão (aprovação); só então atualize o

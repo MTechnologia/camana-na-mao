@@ -31,6 +31,21 @@ export const SERVICE_CORRECTION_TYPES = [
 
 export type ServiceCorrectionTypeValue = (typeof SERVICE_CORRECTION_TYPES)[number]["value"];
 
+/**
+ * Constraint antiga (antes de 20260311160000): horario | servico | localizacao | outro.
+ * Usado como fallback no insert se o banco ainda não tiver a constraint v2.
+ */
+export function toLegacyCorrectionTypeForDb(v: ServiceCorrectionTypeValue): string {
+  const map: Record<ServiceCorrectionTypeValue, string> = {
+    horario_incorreto: "horario",
+    servico_listado_indisponivel: "servico",
+    servico_disponivel_nao_listado: "servico",
+    localizacao_incorreta: "localizacao",
+    informacao_desatualizada: "outro",
+  };
+  return map[v];
+}
+
 const CORRECTION_TYPE_LABELS: Record<ServiceCorrectionTypeValue, string> = {
   horario_incorreto: "Horário incorreto",
   servico_listado_indisponivel: "Serviço listado não disponível",

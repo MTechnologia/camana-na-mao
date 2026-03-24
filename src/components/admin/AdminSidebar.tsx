@@ -57,7 +57,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         ...(canModerateServiceCorrections
           ? [
               {
-                title: 'Correções de cadastro',
+                title: 'Correções de equipamentos',
                 icon: ClipboardList,
                 href: '/admin/service-corrections',
                 badge: stats.pendingServiceCorrections > 0 ? stats.pendingServiceCorrections : null,

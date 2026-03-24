@@ -103,7 +103,7 @@ export const useUserRole = () => {
   const canManageUsers = isAdmin;
   const canConfigureSystem = isAdmin;
   const canViewAuditLogs = isAdmin;
-  /** Validação / aprovação de sugestões de correção de cadastro (equipamentos). */
+  /** Validação / aprovação de sugestões de correção de equipamentos. */
   const canModerateServiceCorrections = isAdmin;
 
   return {
