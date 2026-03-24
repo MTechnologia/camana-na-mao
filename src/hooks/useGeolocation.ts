@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
 
 // Localização simulada padrão (Praça da Sé, São Paulo - Centro)
 const SIMULATED_LOCATION = {
@@ -45,6 +46,23 @@ export const useGeolocation = () => {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const accuracy = position.coords.accuracy;
+        if (!isGpsAccuracyAcceptable(accuracy)) {
+          toast.info(
+            accuracy != null
+              ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Use área aberta ou CEP.`
+              : "Precisão não verificada. Tente em área aberta ou use CEP/endereço."
+          );
+          setState({
+            latitude: SIMULATED_LOCATION.latitude,
+            longitude: SIMULATED_LOCATION.longitude,
+            error: null,
+            loading: false,
+            permissionGranted: true,
+            isSimulated: true,
+          });
+          return;
+        }
         setState({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,

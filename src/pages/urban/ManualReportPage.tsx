@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { logManualClassificationPrediction } from "@/lib/classificationPredictionLog";
+import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
 
 /** Valores alinhados a `VALID_URBAN_CATEGORIES` / relato via chat (OS: pavimentação, sinalização, drenagem explícitas). */
 const categories = [
@@ -224,7 +225,15 @@ export default function ManualReportPage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
+        if (!isGpsAccuracyAcceptable(accuracy)) {
+          toast.error(
+            accuracy != null
+              ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou informe CEP.`
+              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou informe o CEP."
+          );
+          return;
+        }
         setFormData(prev => ({
           ...prev,
           latitude,
@@ -235,7 +244,8 @@ export default function ManualReportPage() {
       },
       () => {
         toast.error("Não foi possível obter sua localização");
-      }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   };
 

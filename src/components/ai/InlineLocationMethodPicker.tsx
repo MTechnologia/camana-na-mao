@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Home, Pencil, Loader2 } from "lucide-react";
 import { reverseGeocodeLatLngClient } from "@/lib/reverseGeocodeLatLngClient";
+import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
 
 export type LocationMethod = "gps" | "registered_address" | "manual";
 
@@ -47,6 +48,18 @@ export const InlineLocationMethodPicker = ({ onSelect }: InlineLocationMethodPic
       async (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+
+        if (!isGpsAccuracyAcceptable(accuracy)) {
+          setLoading(false);
+          setError(
+            accuracy != null
+              ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Tente em área aberta ou use CEP.`
+              : "Não foi possível verificar a precisão do GPS. Tente em área aberta ou use CEP/endereço."
+          );
+          return;
+        }
+
         try {
           // Reverse geocoding (GPS → endereço) para o modelo e ferramentas; cache compartilhado com Perto de você.
           const friendly = await reverseGeocodeLatLngClient(lat, lon);
