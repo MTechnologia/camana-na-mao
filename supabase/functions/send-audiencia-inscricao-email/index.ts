@@ -221,7 +221,25 @@ serve(async (req) => {
       );
     }
 
-    const record = payload.record as ParticipacaoRecord;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let record = payload.record as ParticipacaoRecord;
+    // Fonte de verdade no banco (webhook pode omitir colunas ou estar desatualizado)
+    if (record.id) {
+      const { data: row } = await supabase
+        .from("audiencia_participacoes")
+        .select(
+          "id, audiencia_id, tipo, nome, email, telefone, protocolo, entidade, funcao, bairro, sugestao"
+        )
+        .eq("id", record.id)
+        .maybeSingle();
+      if (row) {
+        record = { ...record, ...(row as ParticipacaoRecord) };
+      }
+    }
+
     const toEmail = typeof record.email === "string" ? record.email.trim() : "";
     if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
       return new Response(
@@ -229,10 +247,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: audiencia } = await supabase
       .from("audiencias")

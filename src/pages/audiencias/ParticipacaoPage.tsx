@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { User, FileText, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,7 @@ const ParticipacaoPage = () => {
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
   const [participacaoIdVideoconferencia, setParticipacaoIdVideoconferencia] = useState<string | null>(null);
   const [cancelandoInscricao, setCancelandoInscricao] = useState(false);
+  const prefillEmailForUserIdRef = useRef<string | null>(null);
 
   const audienciaId = useMemo(() => (id ? String(id) : ""), [id]);
 
@@ -106,8 +107,15 @@ const ParticipacaoPage = () => {
   }, [audienciaId]);
 
   useEffect(() => {
-    if (user?.email) setEmail(user.email);
-  }, [user?.email]);
+    if (!user?.id) {
+      prefillEmailForUserIdRef.current = null;
+      return;
+    }
+    if (!user.email) return;
+    if (prefillEmailForUserIdRef.current === user.id) return;
+    prefillEmailForUserIdRef.current = user.id;
+    setEmail(user.email);
+  }, [user?.id, user?.email]);
 
   useEffect(() => {
     if (!user?.id || !audienciaId) return;
@@ -467,8 +475,18 @@ const ParticipacaoPage = () => {
                 </div>
                 <div className="space-y-2 sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email-v">E-mail *</Label>
-                    <Input id="email-v" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" />
+                    <Label htmlFor="email-v">E-mail para contato nesta inscrição *</Label>
+                    <Input
+                      id="email-v"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                      autoComplete="email"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Pode ser diferente do e-mail do cadastro no app.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="telefone-v">Telefone/WhatsApp *</Label>
@@ -538,8 +556,18 @@ const ParticipacaoPage = () => {
               <Input id="nome-e" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Seu nome completo" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email-e">E-mail *</Label>
-              <Input id="email-e" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="email-e">E-mail para contato nesta inscrição *</Label>
+              <Input
+                id="email-e"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                autoComplete="email"
+              />
+              <p className="text-xs text-muted-foreground">
+                Pode ser diferente do e-mail do cadastro no app.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="telefone-e">Telefone/WhatsApp *</Label>

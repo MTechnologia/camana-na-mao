@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,8 @@ export function AudienciaInscricaoInline() {
   const [success, setSuccess] = useState(false);
   const [protocolo, setProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
+  /** Prefill do e-mail só ao entrar com outro usuário ou no 1º load; não reseta o que foi digitado na mesma sessão. */
+  const prefillEmailForUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,8 +104,15 @@ export function AudienciaInscricaoInline() {
   }, []);
 
   useEffect(() => {
-    if (user?.email) setEmail(user.email);
-  }, [user?.email]);
+    if (!user?.id) {
+      prefillEmailForUserIdRef.current = null;
+      return;
+    }
+    if (!user.email) return;
+    if (prefillEmailForUserIdRef.current === user.id) return;
+    prefillEmailForUserIdRef.current = user.id;
+    setEmail(user.email);
+  }, [user?.id, user?.email]);
 
   useEffect(() => {
     if (!user?.id || !audienciaId) {
@@ -384,14 +393,18 @@ export function AudienciaInscricaoInline() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">E-mail *</Label>
+            <Label className="text-xs">E-mail para contato nesta inscrição *</Label>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
+              autoComplete="email"
               className="h-9 text-sm"
             />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Pode ser diferente do e-mail do seu cadastro no app. Usaremos este endereço para comunicações sobre esta audiência.
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Telefone/WhatsApp *</Label>

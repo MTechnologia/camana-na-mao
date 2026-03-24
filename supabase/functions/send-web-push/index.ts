@@ -204,6 +204,11 @@ serve(async (req) => {
 
     // --- E-mail (SendGrid ou Resend) ---
     if (emailEnabled && userEmail) {
+      if (record.type === "audiencia_inscricao") {
+        // Confirmação completa vai para o e-mail do formulário (send-audiencia-inscricao-email).
+        // Aqui o destino seria auth.users.email — incorreto quando o contato é outro endereço.
+        console.log("[notification-delivery] E-mail genérico omitido (audiencia_inscricao); confirmação via send-audiencia-inscricao-email");
+      } else {
       const appUrl = Deno.env.get("APP_URL") || "";
       const actionUrl = record.action_url
         ? (record.action_url.startsWith("http") ? record.action_url : appUrl ? `${appUrl}${record.action_url}` : record.action_url)
@@ -262,6 +267,7 @@ serve(async (req) => {
             console.warn("[notification-delivery] Email error:", e);
           }
         }
+      }
       }
     }
 
