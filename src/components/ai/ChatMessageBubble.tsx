@@ -58,6 +58,8 @@ interface ChatMessage {
   content: string;
   timestamp?: string | Date;
   source?: string;
+  /** URLs públicas de imagens anexadas na mensagem do usuário. */
+  attachmentUrls?: string[];
 }
 
 const formatTimestamp = (timestamp: string | Date | undefined): string => {
@@ -148,6 +150,7 @@ const ChatMessageBubble = ({
   disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
+  const attachmentUrls = isUser ? (Array.isArray(message.attachmentUrls) ? message.attachmentUrls : []) : [];
   const navigate = useNavigate();
   const [addressSelected, setAddressSelected] = useState(false);
   const [decisionMade, setDecisionMade] = useState(false);
@@ -860,6 +863,29 @@ const ChatMessageBubble = ({
             </div>
           )}
         </div>
+
+        {/* Preview das fotos anexadas no chat (após upload). */}
+        {isUser && attachmentUrls.length > 0 && (
+          <div className="w-full max-w-[320px] grid grid-cols-3 gap-2 mt-1">
+            {attachmentUrls.slice(0, 3).map((url, index) => (
+              <a
+                key={`${message.id}-attachment-${index}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg overflow-hidden border border-primary/30 bg-primary/10 hover:opacity-90 transition-opacity"
+                aria-label={`Abrir imagem anexada ${index + 1}`}
+              >
+                <img
+                  src={url}
+                  alt={`Imagem anexada ${index + 1}`}
+                  className="w-full h-24 object-cover"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        )}
         
         {/* Inline Address Autocomplete - shown when asking for CEP/address */}
         {(isAskingForAddress || hasAddressPicker) && !addressSelected && (

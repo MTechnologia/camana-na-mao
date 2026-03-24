@@ -927,15 +927,15 @@ serve(async (req) => {
         const cepDigits = fields.cep ? String(fields.cep).replace(/\D/g, '') : '';
         const hasLocationViaCep = cepDigits.length === 8;
         const hasLocationViaAddress = !!fields.street && !!fields.neighborhood;
-        const hasLocation = hasLocationViaCep || hasLocationViaAddress;
+        const hasResolvedLocation = hasLocationViaCep || hasLocationViaAddress;
 
         // Abrangência: relatos apenas no município de São Paulo — Guarulhos e demais cidades bloqueados
         const city = typeof fields.city === 'string' ? fields.city.trim() : undefined;
-        if (hasLocation && city && !lib.isCitySaoPaulo(city)) {
+        if (hasResolvedLocation && city && !lib.isCitySaoPaulo(city)) {
           return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(city) };
         }
         
-        if (!hasLocation) {
+        if (!hasResolvedLocation) {
           // If user already gave street without neighborhood (or vice versa), ask for the missing one
           if (fields.street && !fields.neighborhood) {
             return { field: 'neighborhood', picker: null, prompt: 'Em qual **bairro** fica essa rua?' };

@@ -11,6 +11,7 @@ import {
   parseRatingDimensionsFromMessage,
   type ServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
+import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -801,30 +802,52 @@ export const useUnifiedAIChat = (
       }
     }
 
-    // Verifica se já existe uma mensagem otimista com o mesmo conteúdo
-    const hasOptimisticMessage = messages.some(
-      msg => msg.role === "user" && msg.content === content
-    );
+    // Evita duplicar somente quando o ÚLTIMO envio imediato é igual (ex.: double-click).
+    // Não pode bloquear "sim"/"não" antigos, senão o backend processa a resposta errada.
+    const lastMessage = messages[messages.length - 1];
+    const hasOptimisticMessage =
+      !!lastMessage &&
+      isLoading &&
+      lastMessage.role === "user" &&
+      lastMessage.content === content;
 
     // Upload de fotos anexadas (relato via chat): até 3, máx 50MB cada
+    // Nova regra: comprimir/redimensionar antes do upload para reduzir tráfego e falhas.
     const MAX_CHAT_PHOTOS = 3;
     const MAX_CHAT_PHOTO_BYTES = 50 * 1024 * 1024;
-    let attachmentUrls: string[] = [];
+    const attachmentUrls: string[] = [];
     if (options?.attachmentFiles?.length && user) {
       const files = options.attachmentFiles.slice(0, MAX_CHAT_PHOTOS);
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.size > MAX_CHAT_PHOTO_BYTES) {
+        const originalFile = files[i];
+        if (originalFile.size > MAX_CHAT_PHOTO_BYTES) {
           toast({
             title: "Foto muito grande",
-            description: `Máximo 50MB por imagem. "${file.name}" foi ignorada.`,
+            description: `Máximo 50MB por imagem. "${originalFile.name}" foi ignorada.`,
             variant: "destructive",
           });
           continue;
         }
-        const ext = file.name.split('.').pop() || 'jpg';
+
+        let fileToUpload = originalFile;
+        try {
+          fileToUpload = await compressChatPhoto(originalFile);
+          if (fileToUpload.size < originalFile.size) {
+            const reduction = Math.round((1 - fileToUpload.size / originalFile.size) * 100);
+            console.log("[useUnifiedAIChat] Photo compressed:", {
+              name: originalFile.name,
+              before: originalFile.size,
+              after: fileToUpload.size,
+              reductionPercent: reduction,
+            });
+          }
+        } catch (compressionError) {
+          console.warn("[useUnifiedAIChat] Photo compression failed, uploading original file:", compressionError);
+        }
+
+        const ext = fileToUpload.name.split('.').pop() || 'jpg';
         const fileName = `${user.id}/${Date.now()}-${i}.${ext}`;
-        const { error } = await supabase.storage.from('urban-reports').upload(fileName, file);
+        const { error } = await supabase.storage.from('urban-reports').upload(fileName, fileToUpload);
         if (error) {
           console.error('[useUnifiedAIChat] Upload attachment failed:', error);
           toast({
