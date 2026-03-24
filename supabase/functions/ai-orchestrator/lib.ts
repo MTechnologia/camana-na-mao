@@ -4524,8 +4524,7 @@ export function detectCollectionIntent(
     console.log('[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG');
   }
   // Apresentação da estrutura e funcionamento da Câmara (card ClickUp)
-  const isEstruturaFuncionamento = /(estrutura|funcionamento|apresenta[cç][aã]o)\s+(da\s+)?(câmara|camara)|conhecer\s+(a\s+)?(câmara|camara)|como\s+(a\s+)?(câmara|camara)\s+(é|e)\s+organizada|como\s+funciona\s+(a\s+)?(câmara|camara)/i.test(fullUserContext);
-  if (isEstruturaFuncionamento) {
+  if (isCamaraFuncionamentoInternoQuery(fullUserContext)) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
   }
@@ -5049,27 +5048,69 @@ export function formatServicesWithContext(
   return `${header}\n\n${list}${footer}`;
 }
 
+/** Perguntas sobre estrutura, órgãos e funcionamento legislativo da Câmara (evita depender só do RAG genérico). */
+export function isCamaraFuncionamentoInternoQuery(contextText: string): boolean {
+  const ctx = contextText.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  const estruturaOuApresentacao =
+    /(estrutura|funcionamento|apresentacao)\s+(da\s+)?camara|conhecer\s+(a\s+)?camara|como\s+(a\s+)?camara\s+e\s+organizada|como\s+funciona\s+(a\s+)?camara|o\s+que\s+e\s+(a\s+)?camara\s+municipal/.test(ctx);
+  const orgaosOuProcesso =
+    /mesa\s+diretora|secretaria\s+da\s+mesa|procuradoria|regimento\s+interno|regimento|tramitacao|tramitar|sessao\s+plenaria|sessoes\s+plenarias|processo\s+legislativo|poder\s+legislativo|legislativo\s+municipal|comissoes?\s+(da\s+)?camara|comissoes?\s+permanentes|comissoes?\s+tecnicas|atribuicoes\s+das\s+comissoes/.test(ctx);
+  const mentionsChamber = /camara\s+municipal|\bcamara\b|vereador|vereadores|plen|comiss/.test(ctx);
+  const funcionamentoInterno = /funcionamento\s+interno/.test(ctx);
+  return estruturaOuApresentacao || funcionamentoInterno || (mentionsChamber && orgaosOuProcesso);
+}
+
+function sanitizeKbIlikeTerm(term: string): string {
+  return term.replace(/%/g, '').replace(/_/g, '').trim();
+}
+
 // Helper: Search knowledge base (with positive alternatives)
 export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {
-  let searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+  let searchTerms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map(sanitizeKbIlikeTerm)
+    .filter(t => t.length > 2)
+    .slice(0, 5);
   // Para zoneamento/LPUOS/construir: garantir termos que existem no conteúdo (evitar falha por acento: construir vs construído)
   const zoneamentoBoost = ['zoneamento', 'lpuos', 'construir', 'construído', 'imóvel', 'imovel', 'siszon', 'geosampa'];
   const q = query.toLowerCase();
   if (zoneamentoBoost.some(k => q.includes(k))) {
-    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].filter(t => !searchTerms.includes(t));
+    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].map(sanitizeKbIlikeTerm).filter(t => t.length > 2);
     searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 6);
+  }
+  // Funcionamento interno / estrutura da Câmara: termos que aparecem nas FAQs da KB
+  const camaraKbBoost = ['mesa', 'plenário', 'plenario', 'comissões', 'comissoes', 'regimento', 'tramitação', 'tramitacao', 'legislativo', 'câmara', 'camara', 'vereador', 'secretaria', 'procuradoria', 'estrutura', 'funcionamento'];
+  if (isCamaraFuncionamentoInternoQuery(query) || camaraKbBoost.some(k => q.includes(k))) {
+    const extra = ['mesa', 'plenário', 'comissões', 'regimento', 'tramitação', 'vereador', 'legislativo', 'câmara']
+      .map(sanitizeKbIlikeTerm)
+      .filter(t => t.length > 2);
+    searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 8);
   }
   if (searchTerms.length === 0) {
     return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
   }
 
+  const orClause = searchTerms
+    .flatMap(term => [`content.ilike.%${term}%`, `title.ilike.%${term}%`])
+    .join(',');
+
   const { data, error } = await supabase
     .from('knowledge_base')
     .select('content, content_type, title')
-    .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
-    .limit(5);
+    .or(orClause)
+    .limit(6);
+
+  const hitCount = data?.length ?? 0;
+  console.log('[searchKnowledgeBase]', JSON.stringify({
+    querySnippet: query.slice(0, 120),
+    termCount: searchTerms.length,
+    hits: hitCount,
+    dbError: !!error,
+  }));
 
   if (error || !data?.length) {
+    console.log('[searchKnowledgeBase] empty_or_error', JSON.stringify({ reason: error ? 'db_error' : 'no_rows', querySnippet: query.slice(0, 120) }));
     // NEVER NEGATIVE: Suggest alternatives instead of just saying "not found"
     const suggestions = [
       '• Como funciona a Câmara Municipal',

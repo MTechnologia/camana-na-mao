@@ -18,7 +18,7 @@ serve(async (req) => {
   const requestStartTime = Date.now();
   const lib = await import("./lib.ts");
   console.log('[ai-orchestrator] ========== REQUEST RECEIVED ==========');
-  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-01-31-v4 (deteccao deterministica ANTES do short-circuit)');
+  console.log('[ai-orchestrator] DEPLOY VERSION: 2026-03-24-v1 (kb camara funcionamento + skip vertex)');
   console.log('[ai-orchestrator] Request started at', new Date().toISOString());
   console.log('[ai-orchestrator] Method:', req.method);
   console.log('[ai-orchestrator] URL:', req.url);
@@ -2295,15 +2295,39 @@ ${empathyNote}
     // pois o conteúdo está na tabela knowledge_base (populate-knowledge-base) e o Vertex RAG pode não tê-lo.
     const zoneamentoKeywords = ['zoneamento', 'lpuos', 'construir', 'reformar', 'imóvel', 'imovel', 'siszon', 'legislação urbana', 'legislacao urbana', 'smul'];
     const isZoneamentoQuery = zoneamentoKeywords.some(k => lastUserMessage.toLowerCase().includes(k));
+    const isCamaraFuncionamentoQuery = lib.isCamaraFuncionamentoInternoQuery(lastUserMessage);
     if (isZoneamentoQuery) {
       console.log('[ai-orchestrator] Zoneamento/LPUOS query detected → skipping Vertex RAG, will use search_knowledge_base');
     }
+    if (isCamaraFuncionamentoQuery) {
+      console.log('[ai-orchestrator] Câmara funcionamento/estrutura → skipping Vertex RAG (Supabase KB + prompt)');
+    }
+
+    // Pré-busca na KB do Supabase para estrutura/funcionamento (uma ida; evita RAG genérico e reduz alucinação)
+    if (collectionIntent?.type === 'general' && isCamaraFuncionamentoQuery && !isZoneamentoQuery) {
+      try {
+        const kbText = await lib.searchKnowledgeBase(supabase, lastUserMessage);
+        if (!kbText.includes('Não encontrei informações específicas')) {
+          dynamicSystemPrompt = dynamicSystemPrompt
+            + '\n\n[Contexto da base de conhecimento da Câmara (Supabase)]:\n'
+            + kbText
+            + '\n\nInstrução: Use o texto acima como base principal sobre o funcionamento e a estrutura da Câmara. Organize em linguagem simples; não contradiga esses trechos. Se faltar detalhe pontual, complemente de forma coerente com o que está escrito.';
+          console.log('[ai-orchestrator] Injected Supabase KB for Câmara funcionamento, chars:', kbText.length);
+        } else {
+          console.log('[ai-orchestrator] Supabase KB (Câmara funcionamento) sem trechos específicos; modelo pode usar search_knowledge_base');
+        }
+      } catch (e) {
+        console.warn('[ai-orchestrator] Pré-busca searchKnowledgeBase (Câmara) falhou:', (e as Error).message);
+      }
+    }
+
     if (
       collectionIntent?.type === 'general' &&
       (vertexRagDatastore || vertexRagCorpus) &&
       finalAiApiKey &&
       lastUserMessage.trim().length > 3 &&
       !isZoneamentoQuery &&
+      !isCamaraFuncionamentoQuery &&
       !lib.isBusInformationalQuery(lastUserMessage) &&
       !lib.isQuestionAboutProximasOuQuaisAudiencias(lastUserMessage)
     ) {
@@ -2368,15 +2392,20 @@ ${empathyNote}
     const currentYear = now.getFullYear();
     dynamicSystemPrompt = dynamicSystemPrompt + `\n\n[DATA E AUDIÊNCIAS] Data de hoje: ${todayStr} (ano civil ${currentYear}). Ao falar de "este ano" use sempre o ano ${currentYear}. Para audiências públicas: use APENAS o texto retornado pela ferramenta search_audiencias; não invente audiências, datas nem resuma com outro ano.`;
 
-    // Se injetamos contexto do Vertex RAG, não expor search_knowledge_base para evitar que o modelo prefira a tool e "alucine"
+    // Se injetamos contexto do Vertex RAG ou da KB Supabase (Câmara), não expor search_knowledge_base para evitar segunda busca redundante
     const vertexRagInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Vertex RAG)]');
-    const effectiveTools = vertexRagInjected
+    const supabaseCamaraKbInjected = dynamicSystemPrompt.includes('[Contexto da base de conhecimento da Câmara (Supabase)]');
+    const suppressSearchKnowledgeBase = vertexRagInjected || supabaseCamaraKbInjected;
+    const effectiveTools = suppressSearchKnowledgeBase
       ? (lib.tools as Array<{ type?: string; function?: { name?: string } }>).filter(
           t => t?.function?.name !== 'search_knowledge_base'
         )
       : lib.tools;
     if (vertexRagInjected) {
       console.log('[ai-orchestrator] Vertex RAG context injected → search_knowledge_base excluded from tools (prefer RAG)');
+    }
+    if (supabaseCamaraKbInjected) {
+      console.log('[ai-orchestrator] Supabase KB (Câmara) injected → search_knowledge_base excluded from tools');
     }
 
     // Call AI API with streaming enabled and timeout
