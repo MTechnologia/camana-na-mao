@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Bookmark } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
@@ -635,24 +635,14 @@ export default function NearbyServicesPage() {
             ) : isLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
-              <div className="relative">
-                <MapView
-                  userLocation={stableMapUserLocation}
-                  services={filteredByName}
-                  onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
-                  distanceLabel={distanceLabelMode}
-                  activeServiceTypes={selectedTypes}
-                  focusOnService={mapFocusPayload}
-                />
-                <Link
-                  to="/servicos/favoritos"
-                  className="absolute bottom-4 right-4 z-30 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-2.5 text-sm font-medium hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  aria-label="Ir para Meus Favoritos"
-                >
-                  <Bookmark className="h-4 w-4 shrink-0" aria-hidden />
-                  Meus Favoritos
-                </Link>
-              </div>
+              <MapView
+                userLocation={stableMapUserLocation}
+                services={filteredByName}
+                onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
+                distanceLabel={distanceLabelMode}
+                activeServiceTypes={selectedTypes}
+                focusOnService={mapFocusPayload}
+              />
             ) : (
               <div className="text-center py-12">
                 <div className="mb-3 flex justify-center" aria-hidden>
