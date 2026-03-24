@@ -1,7 +1,10 @@
 import { lazy, Suspense, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Bookmark } from 'lucide-react';
 import { SimulatedMap } from './SimulatedMap';
 import type { MapFocusOnService } from './GoogleMapView';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { MapOverlayLayersPanel } from './MapOverlayLayersPanel';
 import { useGeoSampaOverlay } from '@/hooks/useGeoSampaOverlay';
 import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
@@ -43,6 +46,17 @@ const MapLoader = () => (
   </div>
 );
 
+function MapFavoritesButton() {
+  return (
+    <Button variant="secondary" size="sm" className="shadow-sm gap-2" asChild>
+      <Link to="/servicos/favoritos" aria-label="Ir para Meus Favoritos">
+        <Bookmark className="h-4 w-4 shrink-0" aria-hidden />
+        Meus Favoritos
+      </Link>
+    </Button>
+  );
+}
+
 export const MapView = ({
   userLocation,
   services,
@@ -62,13 +76,16 @@ export const MapView = ({
     return (
       <Suspense fallback={<MapLoader />}>
         <div className="space-y-2">
-          <MapOverlayLayersPanel
-            enabledLayerIds={enabledOverlayIds}
-            onEnabledChange={setEnabledOverlayIds}
-            layerStates={overlayLayers}
-            wmsImageamentoEnabled={wmsImageamentoEnabled}
-            onWmsImageamentoChange={setWmsImageamentoEnabled}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <MapOverlayLayersPanel
+              enabledLayerIds={enabledOverlayIds}
+              onEnabledChange={setEnabledOverlayIds}
+              layerStates={overlayLayers}
+              wmsImageamentoEnabled={wmsImageamentoEnabled}
+              onWmsImageamentoChange={setWmsImageamentoEnabled}
+            />
+            <MapFavoritesButton />
+          </div>
           <GoogleMapView
             userLocation={userLocation}
             services={services}
@@ -85,12 +102,17 @@ export const MapView = ({
   }
 
   return (
-    <SimulatedMap
-      userLocation={userLocation}
-      services={services}
-      onServiceClick={onServiceClick}
-      distanceLabel={distanceLabel}
-      activeServiceTypes={activeServiceTypes}
-    />
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <MapFavoritesButton />
+      </div>
+      <SimulatedMap
+        userLocation={userLocation}
+        services={services}
+        onServiceClick={onServiceClick}
+        distanceLabel={distanceLabel}
+        activeServiceTypes={activeServiceTypes}
+      />
+    </div>
   );
 };
