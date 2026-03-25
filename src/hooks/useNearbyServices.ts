@@ -60,9 +60,6 @@ interface UseNearbyServicesProps {
   skipFetch?: boolean;
 }
 
-// Coordenadas padrão: Praça da Sé, centro de São Paulo
-const CENTRO_SP = { lat: -23.5505, lng: -46.6333 };
-
 // Haversine: distância em linha reta (não é a distância da rota a pé/carro). A UI exibe "(em linha reta)" para evitar confusão com o Maps.
 const calculateDistance = (
   lat1: number,
@@ -107,8 +104,8 @@ export const useNearbyServices = ({
   minRadiusMeters,
   skipFetch = false,
 }: UseNearbyServicesProps) => {
-  // useRef para manter última localização válida e evitar recálculos desnecessários
-  const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
+  // useRef para manter última localização válida e evitar recálculos desnecessários (sem fallback em ponto fixo)
+  const lastValidLocation = useRef<{ lat: number; lng: number } | null>(null);
 
   const [services, setServices] = useState<NearbyService[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,8 +136,8 @@ export const useNearbyServices = ({
       return;
     }
 
-    const userLat = lastValidLocation.current.lat;
-    const userLng = lastValidLocation.current.lng;
+    const userLat = lastValidLocation.current?.lat;
+    const userLng = lastValidLocation.current?.lng;
 
     if (!isValidCoordinate(userLat) || !isValidCoordinate(userLng)) {
       setServices([]);
