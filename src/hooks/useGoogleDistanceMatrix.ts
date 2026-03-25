@@ -3,6 +3,8 @@ import { useLoadGoogleMaps } from "@/hooks/useLoadGoogleMaps";
 
 /** Máximo de destinos por request (Routes API: até 25 destinos com 1 origem). */
 const MAX_DESTINATIONS_PER_REQUEST = 25;
+/** Requisições em paralelo (antes sequenciais: N chunks × latência ≈ vários segundos). */
+const ROUTE_MATRIX_CONCURRENCY = 4;
 
 interface ServiceWithCoords {
   id: string;
@@ -61,54 +63,54 @@ export function useGoogleDistanceMatrix(
     }
 
     const results = new Map<string, number>();
-    let processedChunks = 0;
 
-    async function runNextChunk() {
-      if (requestIdRef.current !== requestId) return;
-
-      const chunk = chunks[processedChunks];
-      if (!chunk) {
-        if (requestIdRef.current === requestId) {
-          setWalkingDistances(results.size > 0 ? results : null);
-          setError(null);
-          setLoading(false);
-        }
-        return;
-      }
-
+    const runChunks = async () => {
       try {
         const { RouteMatrix } = (await google.maps.importLibrary(
           "routes"
         )) as google.maps.RoutesLibrary;
 
         const origin = { lat: userLocation.latitude, lng: userLocation.longitude };
-        const destinations = chunk.map((s) => ({ lat: s.latitude, lng: s.longitude }));
 
-        const { matrix } = await RouteMatrix.computeRouteMatrix({
-          origins: [origin],
-          destinations,
-          travelMode: travelMode as google.maps.TravelMode,
-          fields: ["distanceMeters", "durationMillis", "condition"],
-        });
+        for (let batchStart = 0; batchStart < chunks.length; batchStart += ROUTE_MATRIX_CONCURRENCY) {
+          if (requestIdRef.current !== requestId) return;
 
-        if (requestIdRef.current !== requestId) return;
+          const batch = chunks.slice(batchStart, batchStart + ROUTE_MATRIX_CONCURRENCY);
 
-        const row = matrix.rows?.[0];
-        if (row?.items) {
-          row.items.forEach((item, i) => {
-            const s = chunk[i];
-            const dist = item.distanceMeters;
-            const ok =
-              item.condition === "ROUTE_EXISTS" ||
-              (dist != null && !item.error);
-            if (s && dist != null && Number.isFinite(dist) && ok) {
-              results.set(s.id, Math.round(dist));
-            }
-          });
+          await Promise.all(
+            batch.map(async (chunk) => {
+              const destinations = chunk.map((s) => ({ lat: s.latitude, lng: s.longitude }));
+
+              const { matrix } = await RouteMatrix.computeRouteMatrix({
+                origins: [origin],
+                destinations,
+                travelMode: travelMode as google.maps.TravelMode,
+                fields: ["distanceMeters", "durationMillis", "condition"],
+              });
+
+              if (requestIdRef.current !== requestId) return;
+
+              const row = matrix.rows?.[0];
+              if (row?.items) {
+                row.items.forEach((item, i) => {
+                  const s = chunk[i];
+                  const dist = item.distanceMeters;
+                  const ok =
+                    item.condition === "ROUTE_EXISTS" ||
+                    (dist != null && !item.error);
+                  if (s && dist != null && Number.isFinite(dist) && ok) {
+                    results.set(s.id, Math.round(dist));
+                  }
+                });
+              }
+            })
+          );
         }
 
-        processedChunks++;
-        runNextChunk();
+        if (requestIdRef.current !== requestId) return;
+        setWalkingDistances(results.size > 0 ? results : null);
+        setError(null);
+        setLoading(false);
       } catch (err) {
         if (requestIdRef.current !== requestId) return;
         const msg =
@@ -134,9 +136,9 @@ export function useGoogleDistanceMatrix(
         );
         setLoading(false);
       }
-    }
+    };
 
-    runNextChunk();
+    void runChunks();
   }, [
     userLocation?.latitude,
     userLocation?.longitude,

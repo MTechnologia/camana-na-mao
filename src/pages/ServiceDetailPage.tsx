@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ui/page-header";
 
 import { Button } from "@/components/ui/button";
@@ -75,6 +75,10 @@ function getOperationalStatusMeta(status: unknown): { label: string; className: 
   return null;
 }
 
+function isServiceIdUUID(str: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 export default function ServiceDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -93,41 +97,42 @@ export default function ServiceDetailPage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadService();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadService runs when id changes
-  }, [id]);
-
-  useEffect(() => {
-    if (user && realServiceId) checkSubscription();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
-  }, [user, realServiceId]);
-
-  const isUUID = (str: string) => {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-  };
-
-  const loadService = async () => {
+  const loadService = useCallback(async () => {
     if (!id) {
       toast.error("ID do serviço não encontrado");
       navigate("/servicos-proximos");
       return;
     }
 
+    setLoading(true);
+    setService(null);
+    setRealServiceId(null);
+
     try {
-      // Se é UUID, busca direto no Supabase
-      if (isUUID(id)) {
+      // Se é UUID, busca direto no Supabase (sempre dados atuais de média/total)
+      if (isServiceIdUUID(id)) {
         const { data, error } = await supabase
           .from("public_services")
           .select("*")
           .eq("id", id)
           .maybeSingle();
 
+        if (error) {
+          console.error("Error loading public_services by id:", error);
+          toast.error("Erro ao carregar equipamento");
+          navigate("/servicos-proximos");
+          return;
+        }
+
         if (data) {
           setService(data);
           setRealServiceId(data.id);
           return;
         }
+
+        toast.error("Equipamento não encontrado");
+        navigate("/servicos-proximos");
+        return;
       }
 
       // Busca nos dados mockados
@@ -152,12 +157,15 @@ export default function ServiceDetailPage() {
         setService(serviceData);
 
         // Verifica se já existe no banco pelo nome
-        const { data: existingService } = await supabase
+        const { data: existingService, error: existingErr } = await supabase
           .from("public_services")
           .select("id")
           .eq("name", mockedService.title)
           .maybeSingle();
 
+        if (existingErr) {
+          console.warn("Lookup public_services by mock name:", existingErr.message);
+        }
         if (existingService) {
           setRealServiceId(existingService.id);
         }
@@ -172,7 +180,26 @@ export default function ServiceDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    void loadService();
+  }, [id, location.key, loadService]);
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && id) {
+        void loadService();
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [id, loadService]);
+
+  useEffect(() => {
+    if (user && realServiceId) checkSubscription();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
+  }, [user, realServiceId]);
 
   const checkSubscription = async () => {
     if (!user || !realServiceId) return;
@@ -198,7 +225,7 @@ export default function ServiceDetailPage() {
     if (realServiceId) return realServiceId;
 
     // Se o ID atual é UUID, pode ser que já exista
-    if (id && isUUID(id)) return id;
+    if (id && isServiceIdUUID(id)) return id;
 
     try {
       // Verifica se já existe pelo nome
@@ -514,8 +541,8 @@ export default function ServiceDetailPage() {
                   <AlertTriangle className="h-4 w-4" aria-hidden />
                   <AlertTitle>Média de avaliações abaixo de 2 estrelas</AlertTitle>
                   <AlertDescription>
-                    Este equipamento está <strong>sinalizado para verificação</strong>. A média considera apenas
-                    avaliações publicadas.
+                    Este equipamento está <strong>sinalizado para verificação</strong>. A média inclui notas já
+                    enviadas (publicadas ou em revisão); comentários só ficam visíveis a todos após moderação.
                   </AlertDescription>
                 </Alert>
               )}
