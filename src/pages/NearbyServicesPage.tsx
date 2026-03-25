@@ -24,13 +24,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Loader2 } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
 import { LocationSearchCard } from "@/components/map/LocationSearchCard";
 import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSearchInput";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
+import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -199,26 +200,44 @@ export default function NearbyServicesPage() {
 
   const filteredByName = useMemo(() => {
     const qRaw = searchByName.trim();
-    const q = qRaw.toLowerCase();
     const base = filteredByOpeningHours;
     if (!qRaw) return base;
-    // Online + 2+ caracteres: lista já veio filtrada por FTS no banco (search_tsv).
-    if (qRaw.length >= NEARBY_FULLTEXT_MIN_LENGTH && isOnline) return base;
+    // Online + 2+ caracteres: lista já veio filtrada por FTS/ILIKE no banco; refinamos por palavras no cliente.
+    if (qRaw.length >= NEARBY_FULLTEXT_MIN_LENGTH && isOnline) {
+      return base.filter((s) => {
+        const haystack = [
+          s.name,
+          s.address,
+          s.district,
+          resolvedAddresses[s.id] ?? "",
+          s.services_offered ?? "",
+        ].join(" ");
+        return textMatchesSearchQuery(haystack, qRaw);
+      });
+    }
     return base.filter((s) => {
-      const name = (s.name ?? "").toLowerCase();
-      const address = (s.address ?? "").toLowerCase();
-      const district = (s.district ?? "").toLowerCase();
-      const resolved = (resolvedAddresses[s.id] ?? "").toLowerCase();
-      return (
-        name.includes(q) ||
-        address.includes(q) ||
-        district.includes(q) ||
-        resolved.includes(q)
-      );
+      const haystack = [
+        s.name,
+        s.address,
+        s.district,
+        resolvedAddresses[s.id] ?? "",
+        s.services_offered ?? "",
+      ].join(" ");
+      return textMatchesSearchQuery(haystack, qRaw);
     });
   }, [filteredByOpeningHours, searchByName, resolvedAddresses, isOnline]);
 
   const focusMapOnEquipment = useCallback((s: NearbyService) => {
+    setCepCenter({
+      latitude: s.latitude,
+      longitude: s.longitude,
+      label: getServiceDisplayName({
+        name: s.name,
+        address: s.address,
+        district: s.district,
+        service_type: s.service_type,
+      }),
+    });
     setEquipmentMapFocusCoords({ lat: s.latitude, lng: s.longitude });
     setEquipmentMapFocusKey((k) => k + 1);
     setViewMode("map");
@@ -313,7 +332,8 @@ export default function NearbyServicesPage() {
       }
     );
   }, [detectedVisit, handleVisitAvaliar]);
-  const isLoading = servicesLoading && services.length === 0;
+  const isInitialLoading = servicesLoading && services.length === 0;
+  const isListRefreshing = servicesLoading && services.length > 0;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
@@ -493,6 +513,9 @@ export default function NearbyServicesPage() {
           onChange={setSearchByName}
           servicesInArea={filteredByOpeningHours}
           resolvedAddresses={resolvedAddresses}
+          searchCenterLat={searchLat}
+          searchCenterLng={searchLng}
+          serviceTypesFilter={selectedTypes.length > 0 ? selectedTypes : undefined}
           onPlaceCenterSelected={(center) => {
             setCepCenter(center);
             setSearchByName("");
@@ -500,6 +523,17 @@ export default function NearbyServicesPage() {
           onEquipmentMapFocus={focusMapOnEquipment}
           disabled={!!geoError}
         />
+
+        {isListRefreshing && (
+          <div
+            className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            Atualizando equipamentos conforme o filtro…
+          </div>
+        )}
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -514,7 +548,7 @@ export default function NearbyServicesPage() {
           </TabsList>
 
           <TabsContent value="list" className="mt-0">
-            {isLoading ? (
+            {isInitialLoading ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                 {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-32 w-full" />
@@ -632,7 +666,7 @@ export default function NearbyServicesPage() {
                   O mapa precisa de conexão para carregar. Use a aba <strong>Lista</strong> para ver os equipamentos em cache.
                 </p>
               </div>
-            ) : isLoading ? (
+            ) : isInitialLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
               <MapView

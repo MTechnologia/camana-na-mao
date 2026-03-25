@@ -5,6 +5,10 @@ import {
   saveNearbyServicesCache,
   type CachedNearbyService,
 } from "@/lib/nearbyServicesCache";
+import {
+  getBoundingBoxForRadiusMeters,
+  mapPublicServiceRowToNearbyService,
+} from "@/lib/nearbyServiceRow";
 
 export interface NearbyService {
   id: string;
@@ -29,11 +33,10 @@ type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_c
   | "fire_station" | "other" | "all";
 
 /**
- * Mínimo de caracteres para usar RPC full-text (`search_tsv`).
- * Abaixo disso: bbox + filtro no cliente (substring / endereço resolvido).
- * Com 2–3 letras o FTS em português não cobre prefixo ("Con" ≠ "Condomínio") e zerava a lista.
+ * Mínimo de caracteres para usar RPC `search_public_services_fulltext` (FTS + fallback ILIKE).
+ * Com 1 caractere: só bbox (sem filtro textual no servidor).
  */
-export const NEARBY_FULLTEXT_MIN_LENGTH = 4;
+export const NEARBY_FULLTEXT_MIN_LENGTH = 2;
 
 interface UseNearbyServicesProps {
   latitude: number | null;
@@ -44,8 +47,8 @@ interface UseNearbyServicesProps {
   /** Múltiplos tipos (multiseleção). Vazio = todos. Tem precedência sobre serviceType */
   serviceTypes?: ServiceType[];
   /**
-   * Comprimento >= NEARBY_FULLTEXT_MIN_LENGTH: usa RPC `search_public_services_fulltext` (FTS + bbox + raio).
-   * Abaixo disso mantém a query por bounding box e filtro no cliente.
+   * Texto >= NEARBY_FULLTEXT_MIN_LENGTH dispara FTS na RPC; filtro por tipo(s) também usa a mesma RPC
+   * (evita timeout do REST só com bbox + service_type).
    */
   fullTextQuery?: string;
 }
@@ -77,32 +80,6 @@ const calculateDistance = (
 // Verificação robusta de coordenada válida
 const isValidCoordinate = (value: unknown): value is number => {
   return typeof value === 'number' && !isNaN(value) && isFinite(value);
-};
-
-const parseNumber = (value: unknown): number | null => {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : null;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-};
-
-const metersToDegrees = (meters: number) => meters / 111_320;
-
-const getBoundingBox = (lat: number, lng: number, radius: number) => {
-  const latDelta = metersToDegrees(radius);
-  const lngDeltaRaw = metersToDegrees(radius) / Math.cos((lat * Math.PI) / 180);
-  const lngDelta = Number.isFinite(lngDeltaRaw) ? lngDeltaRaw : latDelta;
-
-  return {
-    minLat: lat - latDelta,
-    maxLat: lat + latDelta,
-    minLng: lng - lngDelta,
-    maxLng: lng + lngDelta,
-  };
 };
 
 /** Chave de localização para deduplicar serviços no mesmo ponto (evita cards repetidos). */
@@ -160,23 +137,22 @@ export const useNearbyServices = ({
 
     const safeRadius = Math.max(radiusMeters, 100);
 
-    try {
-      const cached = await getNearbyServicesCache();
-      if (cached?.services?.length) {
-        // Offline/cache: usar o centro salvo no cache para as distâncias, assim o filtro
-        // por raio (2km, 10km) continua coerente com a região que foi buscada.
-        const centerLat = cached.centerLat;
-        const centerLng = cached.centerLng;
-        const withDistance = excludeGenericOtherType(
-          applyCacheWithDistance(cached.services, centerLat, centerLng),
-        );
-        setServices(withDistance);
-      }
-    } catch {
-      // Ignore cache read errors
-    }
-
     if (!navigator.onLine) {
+      try {
+        const cached = await getNearbyServicesCache();
+        if (cached?.services?.length) {
+          const centerLat = cached.centerLat;
+          const centerLng = cached.centerLng;
+          const withDistance = excludeGenericOtherType(
+            applyCacheWithDistance(cached.services, centerLat, centerLng),
+          );
+          setServices(withDistance);
+        } else {
+          setServices([]);
+        }
+      } catch {
+        setServices([]);
+      }
       setLoading(false);
       setError("Sem conexão. Exibindo equipamentos em cache quando disponível.");
       return;
@@ -185,7 +161,7 @@ export const useNearbyServices = ({
     const requestId = ++fetchRequestIdRef.current;
 
     try {
-      const { minLat, maxLat, minLng, maxLng } = getBoundingBox(
+      const { minLat, maxLat, minLng, maxLng } = getBoundingBoxForRadiusMeters(
         userLat,
         userLng,
         safeRadius
@@ -196,15 +172,21 @@ export const useNearbyServices = ({
       const effectiveTypes =
         types.length > 0 ? types : singleType ? [singleType] : [];
       const isAllTypes = effectiveTypes.length === 0;
-      const limit = isAllTypes ? 5000 : 800;
+      /** Com filtro de tipo a RPC já é mais seletiva; 400 basta ao raio e reduz Haversine + Routes API. */
+      const limit = isAllTypes ? 5000 : 400;
 
       const ftsTrimmed = (fullTextQuery ?? "").trim();
-      const useFullTextRpc = ftsTrimmed.length >= NEARBY_FULLTEXT_MIN_LENGTH;
+      const hasTextSearch = ftsTrimmed.length >= NEARBY_FULLTEXT_MIN_LENGTH;
+      /**
+       * RPC aplica raio Haversine + LIMIT no banco — evita timeout do REST (bbox + enum)
+       * em áreas grandes (ex.: só CEU: `eq.ceu` varria milhões de linhas no retângulo).
+       */
+      const useLocationRpc = hasTextSearch || effectiveTypes.length > 0;
 
       let data: unknown[] | null = null;
       let fetchError: { message?: string } | null = null;
 
-      if (useFullTextRpc) {
+      if (useLocationRpc) {
         const { data: rpcData, error: rpcError } = await supabase.rpc("search_public_services_fulltext", {
           min_lat: minLat,
           max_lat: maxLat,
@@ -213,7 +195,7 @@ export const useNearbyServices = ({
           center_lat: userLat,
           center_lng: userLng,
           radius_meters: safeRadius,
-          search_query: ftsTrimmed,
+          search_query: hasTextSearch ? ftsTrimmed : null,
           service_types: effectiveTypes.length > 0 ? effectiveTypes : null,
           result_limit: limit,
         });
@@ -232,7 +214,12 @@ export const useNearbyServices = ({
           .limit(limit);
 
         if (effectiveTypes.length > 0) {
-          query = query.in("service_type", effectiveTypes as string[]);
+          // PostgREST pode responder 500 com `service_type=in.(ubs)` (único valor em enum);
+          // usar `.eq` quando há só um tipo evita o erro.
+          query =
+            effectiveTypes.length === 1
+              ? query.eq("service_type", effectiveTypes[0] as string)
+              : query.in("service_type", effectiveTypes as string[]);
         } else {
           query = query.neq("service_type", "other");
         }
@@ -247,35 +234,9 @@ export const useNearbyServices = ({
       }
 
       const formatted = (data || [])
-        .map((raw) => {
-          const service = raw as Record<string, unknown>;
-          const id = String(service.id ?? "").trim();
-          if (!id) return null;
-
-          const lat = parseNumber(service.latitude);
-          const lng = parseNumber(service.longitude);
-
-          if (!isValidCoordinate(lat) || !isValidCoordinate(lng)) {
-            return null;
-          }
-
-          return {
-            id,
-            name: String(service.name ?? ""),
-            service_type: String(service.service_type ?? "other"),
-            address: String(service.address ?? ""),
-            district: String(service.district ?? ""),
-            latitude: lat,
-            longitude: lng,
-            phone: (service.phone as string | null) ?? null,
-            average_rating: parseNumber(service.average_rating) ?? 0,
-            total_ratings: parseNumber(service.total_ratings) ?? 0,
-            distance: calculateDistance(userLat, userLng, lat, lng),
-            opening_hours: (service.opening_hours as NearbyService["opening_hours"]) ?? null,
-            services_offered: (service.services_offered as string | null) ?? null,
-            operational_status: (service.operational_status as NearbyService["operational_status"]) ?? null,
-          } as NearbyService;
-        })
+        .map((raw) =>
+          mapPublicServiceRowToNearbyService(raw as Record<string, unknown>, userLat, userLng),
+        )
         .filter((service): service is NearbyService => service !== null);
 
       const withoutOther = excludeGenericOtherType(formatted);
@@ -293,9 +254,9 @@ export const useNearbyServices = ({
       });
 
       setServices(deduped);
-      if (!useFullTextRpc) {
-        await saveNearbyServicesCache(deduped, userLat, userLng, safeRadius);
-      }
+      void saveNearbyServicesCache(deduped, userLat, userLng, safeRadius).catch((err) => {
+        console.warn("Falha ao gravar cache de equipamentos próximos:", err);
+      });
     } catch (fetchError) {
       console.error("Error fetching nearby services:", fetchError);
       if (requestId !== fetchRequestIdRef.current) {

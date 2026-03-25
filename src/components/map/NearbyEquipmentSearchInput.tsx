@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, MapPin, Loader2, Building2, History, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBoundingBoxForRadiusMeters, mapPublicServiceRowToNearbyService } from "@/lib/nearbyServiceRow";
+import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
 import { lookupCepAddress } from "@/lib/cepLookup";
@@ -21,7 +23,13 @@ const MAX_EQUIPMENT_SUGGESTIONS = 8;
 const MAX_RECENT_WHEN_TYPING = 5;
 /** Autocomplete de endereços: debounce curto para sensação “em tempo real”. */
 const PLACES_DEBOUNCE_MS = 200;
+/** Debounce para RPC de equipamentos (área ampla). */
+const EQUIPMENT_RPC_DEBOUNCE_MS = 320;
 const MIN_TEXT_QUERY_TO_SAVE = 2;
+/** Raio padrão para sugestões de equipamento no dropdown (além do raio da lista). */
+const DEFAULT_EQUIPMENT_SUGGESTION_RADIUS_M = 45_000;
+/** Mínimo de caracteres para consultar equipamentos no servidor (alinhado ao RPC). */
+const MIN_EQUIPMENT_QUERY_CHARS = 2;
 
 type PlacePrediction = {
   placeId: string;
@@ -35,18 +43,14 @@ function matchesEquipmentQuery(
   q: string,
   resolved: Record<string, string>,
 ): boolean {
-  const ql = q.trim().toLowerCase();
-  if (!ql) return false;
-  const name = (s.name ?? "").toLowerCase();
-  const address = (s.address ?? "").toLowerCase();
-  const district = (s.district ?? "").toLowerCase();
-  const resolvedAddr = (resolved[s.id] ?? "").toLowerCase();
-  return (
-    name.includes(ql) ||
-    address.includes(ql) ||
-    district.includes(ql) ||
-    resolvedAddr.includes(ql)
-  );
+  const haystack = [
+    s.name,
+    s.address,
+    s.district,
+    resolved[s.id] ?? "",
+    s.services_offered ?? "",
+  ].join(" ");
+  return textMatchesSearchQuery(haystack, q);
 }
 
 function isCepDigits(value: string): boolean {
@@ -96,6 +100,10 @@ export function NearbyEquipmentSearchInput({
   resolvedAddresses,
   onPlaceCenterSelected,
   onEquipmentMapFocus,
+  searchCenterLat,
+  searchCenterLng,
+  equipmentSuggestionRadiusMeters = DEFAULT_EQUIPMENT_SUGGESTION_RADIUS_M,
+  serviceTypesFilter,
   disabled,
   className,
   inputClassName,
@@ -105,11 +113,15 @@ export function NearbyEquipmentSearchInput({
   const [placesLoading, setPlacesLoading] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [selectedFlatIndex, setSelectedFlatIndex] = useState(-1);
+  const [remoteEquipmentRows, setRemoteEquipmentRows] = useState<NearbyService[]>([]);
+  const [remoteEquipmentLoading, setRemoteEquipmentLoading] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const equipmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const equipmentRequestIdRef = useRef(0);
 
   const {
     entries: recentEntries,
@@ -129,13 +141,26 @@ export function NearbyEquipmentSearchInput({
     return filterRecentEntriesForQuery(recentEntries, t, MAX_RECENT_WHEN_TYPING);
   }, [recentEntries, value]);
 
-  const equipmentMatches = useMemo(() => {
+  const localEquipmentMatches = useMemo(() => {
     const q = value.trim();
     if (q.length < 1) return [];
-    return servicesInArea
-      .filter((s) => matchesEquipmentQuery(s, q, resolvedAddresses))
-      .slice(0, MAX_EQUIPMENT_SUGGESTIONS);
+    return servicesInArea.filter((s) => matchesEquipmentQuery(s, q, resolvedAddresses));
   }, [value, servicesInArea, resolvedAddresses]);
+
+  const mergedEquipmentMatches = useMemo(() => {
+    const byId = new Map<string, NearbyService>();
+    for (const s of remoteEquipmentRows) {
+      if (!byId.has(s.id)) byId.set(s.id, s);
+    }
+    for (const s of localEquipmentMatches) {
+      byId.set(s.id, s);
+    }
+    return [...byId.values()]
+      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
+      .slice(0, MAX_EQUIPMENT_SUGGESTIONS);
+  }, [remoteEquipmentRows, localEquipmentMatches]);
+
+  const equipmentMatches = mergedEquipmentMatches;
 
   const placeRows = useMemo(() => placePredictions.slice(0, MAX_PLACE_SUGGESTIONS), [placePredictions]);
 
@@ -220,6 +245,74 @@ export function NearbyEquipmentSearchInput({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [value, fetchPlaces]);
+
+  useEffect(() => {
+    if (equipmentDebounceRef.current) clearTimeout(equipmentDebounceRef.current);
+    const q = value.trim();
+    const lat = searchCenterLat;
+    const lng = searchCenterLng;
+    if (
+      q.length < MIN_EQUIPMENT_QUERY_CHARS ||
+      typeof lat !== "number" ||
+      Number.isNaN(lat) ||
+      typeof lng !== "number" ||
+      Number.isNaN(lng)
+    ) {
+      setRemoteEquipmentRows([]);
+      setRemoteEquipmentLoading(false);
+      return;
+    }
+
+    equipmentDebounceRef.current = setTimeout(() => {
+      const reqId = ++equipmentRequestIdRef.current;
+      setRemoteEquipmentLoading(true);
+      void (async () => {
+        try {
+          const r = equipmentSuggestionRadiusMeters;
+          const { minLat, maxLat, minLng, maxLng } = getBoundingBoxForRadiusMeters(lat, lng, r);
+          const effectiveTypes = serviceTypesFilter?.filter((t) => t !== "all") ?? [];
+          const { data, error } = await supabase.rpc("search_public_services_fulltext", {
+            min_lat: minLat,
+            max_lat: maxLat,
+            min_lng: minLng,
+            max_lng: maxLng,
+            center_lat: lat,
+            center_lng: lng,
+            radius_meters: r,
+            search_query: q,
+            service_types: effectiveTypes.length > 0 ? effectiveTypes : null,
+            result_limit: 24,
+          });
+          if (reqId !== equipmentRequestIdRef.current) return;
+          if (error) {
+            console.warn("[NearbySearch] equipment RPC:", error.message);
+            setRemoteEquipmentRows([]);
+            return;
+          }
+          const rows = (data || [])
+            .map((raw) =>
+              mapPublicServiceRowToNearbyService(raw as Record<string, unknown>, lat, lng),
+            )
+            .filter((s): s is NearbyService => s !== null);
+          setRemoteEquipmentRows(rows);
+        } catch (e) {
+          if (reqId !== equipmentRequestIdRef.current) return;
+          console.warn("[NearbySearch] equipment fetch:", e);
+          setRemoteEquipmentRows([]);
+        } finally {
+          if (reqId === equipmentRequestIdRef.current) {
+            setRemoteEquipmentLoading(false);
+          }
+        }
+      })();
+    }, EQUIPMENT_RPC_DEBOUNCE_MS);
+
+    return () => {
+      if (equipmentDebounceRef.current) clearTimeout(equipmentDebounceRef.current);
+      equipmentRequestIdRef.current += 1;
+      setRemoteEquipmentLoading(false);
+    };
+  }, [value, searchCenterLat, searchCenterLng, equipmentSuggestionRadiusMeters, serviceTypesFilter]);
 
   const resolveCepToCenter = useCallback(
     async (cleanedCep: string): Promise<CepCenter | null> => {
@@ -378,7 +471,11 @@ export function NearbyEquipmentSearchInput({
   const dropdownVisible =
     showDropdown &&
     (flatRecentCount > 0 ||
-      (hasTypedQuery && (placesLoading || flatPlaceCount > 0 || flatEquipmentCount > 0)));
+      (hasTypedQuery &&
+        (placesLoading ||
+          flatPlaceCount > 0 ||
+          flatEquipmentCount > 0 ||
+          remoteEquipmentLoading)));
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
@@ -446,7 +543,7 @@ export function NearbyEquipmentSearchInput({
         <Input
           ref={inputRef}
           type="search"
-          placeholder="Buscar por nome, endereço ou bairro"
+          placeholder="Equipamento (CEU, UBS…), endereço ou bairro"
           value={value}
           disabled={disabled || detailsLoading}
           onChange={(e) => {
@@ -601,7 +698,7 @@ export function NearbyEquipmentSearchInput({
           {flatEquipmentCount > 0 && (
             <div>
               <div className="sticky top-0 z-[1] bg-muted/90 backdrop-blur-sm px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Equipamentos nesta área
+                Equipamentos
               </div>
               {equipmentMatches.map((s, i) => {
                 const flatIdx = flatRecentCount + flatPlaceCount + i;
@@ -643,6 +740,15 @@ export function NearbyEquipmentSearchInput({
               Buscando endereços…
             </div>
           )}
+
+          {remoteEquipmentLoading &&
+            flatEquipmentCount === 0 &&
+            value.trim().length >= MIN_EQUIPMENT_QUERY_CHARS && (
+              <div className="px-3 py-2 text-xs text-muted-foreground flex items-center gap-2 border-t border-border/40">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Buscando equipamentos no cadastro…
+              </div>
+            )}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
--- Recalcula average_rating e total_ratings em public_services com base apenas em
--- avaliações publication_status = 'published'.
+-- Recalcula average_rating e total_ratings em public_services com base em avaliações
+-- publication_status IN ('published', 'pending_review') (alinhado ao trigger update_service_rating).
 --
 -- Pré-requisito: migration 20260321130000_service_ratings_auto_moderation.sql aplicada
 -- (coluna service_ratings.publication_status existe).
@@ -36,7 +36,7 @@ FROM (
     AVG(sr.rating_stars)::numeric AS avg_stars,
     COUNT(*)::integer AS cnt
   FROM public.service_ratings sr
-  WHERE sr.publication_status = 'published'
+  WHERE sr.publication_status IN ('published', 'pending_review')
   GROUP BY sr.service_id
 ) s
 WHERE ps.id = s.service_id;
@@ -48,5 +48,5 @@ WHERE NOT EXISTS (
   SELECT 1
   FROM public.service_ratings sr
   WHERE sr.service_id = ps.id
-    AND sr.publication_status = 'published'
+    AND sr.publication_status IN ('published', 'pending_review')
 );
