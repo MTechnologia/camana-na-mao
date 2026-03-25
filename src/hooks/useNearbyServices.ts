@@ -51,6 +51,11 @@ interface UseNearbyServicesProps {
    * (evita timeout do REST só com bbox + service_type).
    */
   fullTextQuery?: string;
+  /**
+   * Distância mínima (Haversine) em metros na RPC — obrigatório como número quando não há filtro de tipo
+   * (faixas em anel); evita LIMIT 5000 arbitrário do REST sem anel completo.
+   */
+  minRadiusMeters?: number;
 }
 
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
@@ -97,6 +102,7 @@ export const useNearbyServices = ({
   serviceType,
   serviceTypes,
   fullTextQuery = "",
+  minRadiusMeters,
 }: UseNearbyServicesProps) => {
   // useRef para manter última localização válida e evitar recálculos desnecessários
   const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
@@ -178,10 +184,16 @@ export const useNearbyServices = ({
       const ftsTrimmed = (fullTextQuery ?? "").trim();
       const hasTextSearch = ftsTrimmed.length >= NEARBY_FULLTEXT_MIN_LENGTH;
       /**
-       * RPC aplica raio Haversine + LIMIT no banco — evita timeout do REST (bbox + enum)
-       * em áreas grandes (ex.: só CEU: `eq.ceu` varria milhões de linhas no retângulo).
+       * RPC: texto, tipo(s), ou faixa mínima explícita (anel sem tipo — número em minRadiusMeters).
+       * REST com LIMIT sem ORDER BY distância omitia equipamentos nas faixas 501 m–1 km, 1,1–2 km, 2,1–5 km.
        */
-      const useLocationRpc = hasTextSearch || effectiveTypes.length > 0;
+      const useLocationRpc =
+        hasTextSearch ||
+        effectiveTypes.length > 0 ||
+        typeof minRadiusMeters === "number";
+
+      const minRadiusRpc =
+        typeof minRadiusMeters === "number" && minRadiusMeters > 0 ? minRadiusMeters : null;
 
       let data: unknown[] | null = null;
       let fetchError: { message?: string } | null = null;
@@ -198,6 +210,7 @@ export const useNearbyServices = ({
           search_query: hasTextSearch ? ftsTrimmed : null,
           service_types: effectiveTypes.length > 0 ? effectiveTypes : null,
           result_limit: limit,
+          min_radius_meters: minRadiusRpc,
         });
         fetchError = rpcError;
         data = (rpcData ?? null) as unknown[] | null;
@@ -279,7 +292,7 @@ export const useNearbyServices = ({
         setLoading(false);
       }
     }
-  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, fullTextQuery]);
+  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, fullTextQuery, minRadiusMeters]);
 
   useEffect(() => {
     fetchServices();
