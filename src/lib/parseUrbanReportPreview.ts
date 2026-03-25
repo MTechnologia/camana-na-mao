@@ -7,7 +7,16 @@ export type ParsedUrbanReportPreview = {
   /** Natureza: reclamação, dúvida, sugestão, elogio (quando presente no resumo). */
   nature?: string;
   category: string;
+  /** Subcategoria / rótulo técnico (quando presente). */
+  tipoDetalhe?: string;
   description: string;
+  /** Criticidade coletada (rótulo em português, ex.: Crítico, Moderado). */
+  gravity?: string;
+  /** Lista textual de tipos de risco (quando presente). */
+  riskTypesLine?: string;
+  /** Escopo de afetação (quando presente). */
+  affectedScope?: string;
+  cep?: string;
   address: string;
   photosLine?: string;
   /** Texto de instrução após os dados (sem markdown de negrito). */
@@ -27,7 +36,12 @@ export function parseUrbanReportPreview(text: string): ParsedUrbanReportPreview 
 
   const natureM = mainPart.match(/•\s*\*\*Natureza:\*\*\s*(.+)/i);
   const catM = mainPart.match(/•\s*\*\*Categoria:\*\*\s*(.+)/i);
+  const tipoM = mainPart.match(/•\s*\*\*Tipo \/ detalhe:\*\*\s*(.+)/i);
   const descM = mainPart.match(/•\s*\*\*Descrição:\*\*\s*(.+)/i);
+  const gravM = mainPart.match(/•\s*\*\*Gravidade:\*\*\s*(.+)/i);
+  const riskTypesM = mainPart.match(/•\s*\*\*Tipos de risco:\*\*\s*(.+)/i);
+  const affM = mainPart.match(/•\s*\*\*Afeta[cç][aã]o:\*\*\s*(.+)/i);
+  const cepM = mainPart.match(/•\s*\*\*CEP:\*\*\s*(.+)/i);
   const addrM = mainPart.match(/•\s*\*\*Endereço:\*\*\s*(.+)/i);
   const photosM = mainPart.match(/•\s*\*\*Fotos anexadas:\*\*\s*(.+)/i);
 
@@ -36,7 +50,12 @@ export function parseUrbanReportPreview(text: string): ParsedUrbanReportPreview 
   return {
     nature: natureM?.[1]?.trim(),
     category: catM[1].trim(),
+    tipoDetalhe: tipoM?.[1]?.trim(),
     description: descM?.[1]?.trim() || "—",
+    gravity: gravM?.[1]?.trim(),
+    riskTypesLine: riskTypesM?.[1]?.trim(),
+    affectedScope: affM?.[1]?.trim(),
+    cep: cepM?.[1]?.trim(),
     address: addrM?.[1]?.trim() || "—",
     photosLine: photosM?.[1]?.trim(),
     footerHint:

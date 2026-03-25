@@ -9,6 +9,7 @@ import {
   SERVICE_RATING_DIMENSION_LABELS,
 } from "@/lib/serviceRatingDimensions";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
+import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 
 function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
   if (fieldKey === "rating_dimensions") {
@@ -121,8 +122,6 @@ interface CollectionConfig {
   fields: FieldConfig[];
 }
 
-const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
-
 const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {
     title: "Experiência Urbana",
@@ -137,7 +136,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'street_number', label: 'Número', required: false },
       { key: 'neighborhood', label: 'Bairro', required: true },
       { key: 'reference_point', label: 'Referência', required: false },
-      { key: 'risk_level', label: 'Risco', required: false },
+      { key: 'risk_level', label: 'Gravidade', required: false },
       { key: 'affected_scope', label: 'Afetação', required: false },
     ]
   },
@@ -272,7 +271,8 @@ const DataCollectionTracker = ({
     if (collectionType === 'urban_report') {
       const category = collectedFields.category;
       // `collectedFields` é `unknown`, então tipamos com segurança antes do `includes`.
-      const isRiskCategory = typeof category === 'string' && RISK_CATEGORIES.includes(category);
+      const isRiskCategory =
+        typeof category === 'string' && URBAN_RISK_COLLECTION_CATEGORIES.includes(category);
       
       if (!isRiskCategory) {
         return {

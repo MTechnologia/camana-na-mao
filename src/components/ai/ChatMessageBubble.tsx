@@ -446,6 +446,13 @@ const ChatMessageBubble = ({
 
   const isLongContent = cleanContent.length > 450;
 
+  /** Relato/avaliação já registrados: mostrar texto completo (gravidade, trâmite, links) sem line-clamp. */
+  const isRegisteredReportSuccessMessage =
+    !isUser &&
+    (message.content.includes("[REPORT_CREATED:") ||
+      message.content.includes("[TRANSPORT_CREATED:") ||
+      message.content.includes("[RATING_CREATED:"));
+
   // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
   const appActions = useMemo(
     () => (!isUser ? getAppActionsFromContent(message.content) : {}),
@@ -510,7 +517,8 @@ const ChatMessageBubble = ({
     audienciaContentSplit.contentAfter === null;
 
   /** Card urbano já é legível; evita "Ver mais" sem sentido se o texto bruto for longo. */
-  const showVerMais = !isUser && isLongContent && !showUrbanPreviewCard;
+  const showVerMais =
+    !isUser && isLongContent && !showUrbanPreviewCard && !isRegisteredReportSuccessMessage;
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (

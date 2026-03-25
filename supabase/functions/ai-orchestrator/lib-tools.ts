@@ -13,7 +13,7 @@ export const tools = [
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, pavimentação), sinalizacao (semáforo, placa, faixa de pedestre, sinalização), drenagem (água pluvial, sarjeta, galeria, bueiro pluvial, poça), lixo (entulho), esgoto (bueiro sanitário, vazamento de esgoto), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
+            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, pavimentação), sinalizacao (semáforo, placa, faixa de pedestre, sinalização), drenagem (água pluvial, sarjeta, galeria, bueiro pluvial, poça), lixo (entulho), esgoto (bueiro sanitário, vazamento de esgoto), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (SOM: barulho, música alta, festa, vizinho, poluição sonora/acústica, buzina — subcategory_label tipo Perturbação Sonora; AMBIENTAL: fumaça, chaminé, poluição do ar/atmosférica, contaminação, químico — subcategory_label tipo Poluição Atmosférica/Contaminação; NÃO misturar os dois sentidos), feedback_camara (vereador), outro (quando não encaixar)"
           },
           subcategory_label: {
             type: "string",
@@ -114,7 +114,7 @@ export const tools = [
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto), sinalizacao (semáforo, placa, faixa), drenagem (pluvial, sarjeta, galeria), lixo (entulho), esgoto (bueiro sanitário, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
+            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto), sinalizacao (semáforo, placa, faixa), drenagem (pluvial, sarjeta, galeria), lixo (entulho), esgoto (bueiro sanitário, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (sonora: barulho/som/festa/vizinho; ambiental: fumaça/poluição do ar/contaminação — usar subcategory_label distinto), feedback_camara (vereador/câmara), outro"
           },
           subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
           description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },

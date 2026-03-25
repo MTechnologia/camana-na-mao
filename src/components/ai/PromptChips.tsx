@@ -39,7 +39,7 @@ interface PromptChipsProps {
 const chips: PromptChip[] = [
   {
     id: "urban",
-    label: "Relato na cidade",
+    label: "Relato Urbano",
     message: "Quero falar sobre a cidade",
     icon: Building2,
     collectionType: "urban_report",
@@ -127,6 +127,7 @@ const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
     const IconComponent = chip.icon;
     return (
       <motion.button
+        type="button"
         key={chip.id}
         onClick={() => onSelect(chip.message, chip.collectionType)}
         className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full bg-secondary/80 hover:bg-secondary border border-border hover:border-primary/30 text-xs sm:text-sm font-medium text-foreground hover:text-primary transition-all duration-200 flex-shrink-0 min-w-fit"
