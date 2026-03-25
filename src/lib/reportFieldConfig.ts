@@ -62,7 +62,7 @@ export const SERVICE_RATING_FIELDS: FieldConfig[] = [
   { key: 'service_neighborhood', label: 'Bairro', required: false },
   { key: 'service_address', label: 'Endereço', required: false },
   { key: 'service_address_confirmed', label: 'Endereço Confirmado', required: true },
-  { key: 'rating_dimensions', label: 'Avaliação (4 dimensões)', required: true },
+  { key: 'rating_stars', label: 'Avaliação geral (1–5)', required: true },
   { key: 'rating_text', label: 'Comentário', required: true },
 ];
 

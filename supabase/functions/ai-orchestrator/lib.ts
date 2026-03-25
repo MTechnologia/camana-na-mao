@@ -3450,7 +3450,12 @@ export function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed rating_dimensions from marker');
       }
 
-      // Parse "Nota: X estrelas" format from InlineRatingPicker (legado)
+      // Parse "Nota: X estrelas" ou [RATING_SELECTED:N] (picker de avaliação geral)
+      const ratingSelectedTag = content.match(/\[RATING_SELECTED:([1-5])\]/);
+      if (ratingSelectedTag && !accumulated.rating_stars) {
+        accumulated.rating_stars = parseInt(ratingSelectedTag[1], 10);
+        console.log('[accumulateFields] Parsed rating_stars from RATING_SELECTED marker');
+      }
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
       if (ratingMatch && !accumulated.rating_stars && !accumulated.rating_dimensions) {
         accumulated.rating_stars = parseInt(ratingMatch[1]);
@@ -7287,7 +7292,7 @@ export async function executeTool(
           return {
             success: false,
             message:
-              '[FIELD_REQUEST:rating_dimensions]Avalie **de 1 a 5** cada aspecto: atendimento, limpeza, infraestrutura e tempo de espera. [MULTI_DIMENSION_RATING_PICKER]',
+              '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). [RATING_PICKER]',
           };
         }
         const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;

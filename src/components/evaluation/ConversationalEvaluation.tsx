@@ -29,13 +29,16 @@ interface ConversationalEvaluationProps {
   completed?: boolean;
 }
 
-/** Próximo passo é o comentário textual (dimensões já enviadas; assistente pediu experiência). */
+/** Próximo passo é o comentário textual (nota já enviada; assistente pediu experiência). */
 function shouldOfferRatingCommentReview(
   collectedFields: Record<string, unknown>,
   lastAssistantContent: string,
   draft: string,
 ): boolean {
-  if (!isCompleteServiceRatingDimensions(collectedFields.rating_dimensions)) return false;
+  const rs = collectedFields.rating_stars;
+  const hasGeneral =
+    typeof rs === "number" && Number.isInteger(rs) && rs >= 1 && rs <= 5;
+  if (!hasGeneral && !isCompleteServiceRatingDimensions(collectedFields.rating_dimensions)) return false;
   if (collectedFields.rating_text) return false;
   const a = lastAssistantContent.toLowerCase();
   const asked =
@@ -71,7 +74,6 @@ export function ConversationalEvaluation({
     createdReport,
     collectedFields,
     handleRatingSelected,
-    handleMultiDimensionRatingSelected,
     handleServiceSelected,
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
@@ -188,7 +190,6 @@ export function ConversationalEvaluation({
                 userInitials={userInitials}
                 isLastAssistantMessage={isLastAssistant}
                 onRatingSelected={handleRatingSelected}
-                onMultiDimensionRatingSelected={handleMultiDimensionRatingSelected}
                 onServiceSelected={handleServiceSelected}
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}
@@ -215,7 +216,14 @@ export function ConversationalEvaluation({
                     </p>
                   </div>
                 </div>
-                {isCompleteServiceRatingDimensions(collectedFields.rating_dimensions) && (
+                {typeof collectedFields.rating_stars === "number" &&
+                collectedFields.rating_stars >= 1 &&
+                collectedFields.rating_stars <= 5 ? (
+                  <p className="text-sm rounded-md bg-background/80 border px-3 py-2">
+                    <span className="text-muted-foreground">Avaliação geral:</span>{" "}
+                    <span className="font-medium">{collectedFields.rating_stars}/5</span>
+                  </p>
+                ) : isCompleteServiceRatingDimensions(collectedFields.rating_dimensions) ? (
                   <ul className="text-sm space-y-1 rounded-md bg-background/80 border px-3 py-2">
                     {SERVICE_RATING_DIMENSION_KEYS.map((k) => (
                       <li key={k}>
@@ -227,7 +235,7 @@ export function ConversationalEvaluation({
                       Média: {aggregateServiceRatingStars(collectedFields.rating_dimensions)} estrelas
                     </li>
                   </ul>
-                )}
+                ) : null}
                 <div className="space-y-1.5">
                   <label htmlFor="evaluation-review-comment" className="text-xs font-medium text-foreground">
                     Comentário
