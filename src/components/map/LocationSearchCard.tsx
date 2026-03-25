@@ -8,14 +8,22 @@ import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/go
 import { useAuth } from "@/contexts/AuthContext";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { lookupCepAddress } from "@/lib/cepLookup";
-import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 
-type LocationOption = "my_location" | "registered_address" | "cep";
+/** Resumo: endereço fixo no mapa; escolha: GPS ou CEP (estado elevado na página). */
+export type NearbyLocationUiPhase = "locked" | "picking";
 
 interface LocationSearchCardProps {
-  cepCenter: CepCenter | null;
-  onCepCenterChange: (center: CepCenter | null) => void;
-  disabled?: boolean;
+  phase: NearbyLocationUiPhase;
+  /** Rótulo exibido em "Próximo de:" quando phase === locked */
+  lockedLabel: string | null;
+  onAlterarLocal: () => void;
+  onRequestGps: () => void;
+  /** Logado: restaurar endereço do cadastro (snapshot ou fetch no pai) */
+  onUseProfileAddress: () => void | Promise<void>;
+  profileAddressLoading: boolean;
+  onCepSearchComplete: (center: CepCenter) => void;
+  geoLoading: boolean;
+  gpsError: string | null;
 }
 
 const formatCep = (value: string) => {
@@ -24,50 +32,26 @@ const formatCep = (value: string) => {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
 
-export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: LocationSearchCardProps) {
+export function LocationSearchCard({
+  phase,
+  lockedLabel,
+  onAlterarLocal,
+  onRequestGps,
+  onUseProfileAddress,
+  profileAddressLoading,
+  onCepSearchComplete,
+  geoLoading,
+  gpsError,
+}: LocationSearchCardProps) {
   const { user } = useAuth();
-  const [activeOption, setActiveOption] = useState<LocationOption | null>(null);
   const [showCepInput, setShowCepInput] = useState(false);
   const [cepInput, setCepInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
 
   const apiKey = getGoogleMapsApiKey();
-
-  const handleMyLocation = useCallback(() => {
-    setActiveOption("my_location");
-    setShowCepInput(false);
-    onCepCenterChange(null);
-  }, [onCepCenterChange]);
-
-  const handleRegisteredAddress = useCallback(async () => {
-    if (!user?.id) {
-      toast.error("Faça login para usar o endereço cadastrado");
-      return;
-    }
-    setActiveOption("registered_address");
-    setShowCepInput(false);
-    setLoading(true);
-    try {
-      const center = await getUserPrimaryAddressCenter(user.id, apiKey);
-      if (!center) {
-        if (!apiKey?.trim()) {
-          toast.error(getGoogleMapsNotConfiguredMessage());
-        } else {
-          toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
-        }
-        return;
-      }
-      onCepCenterChange(center);
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro ao carregar endereço cadastrado");
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, apiKey, onCepCenterChange]);
+  const showUseProfileButton = !!user;
 
   const handleDigitarCep = useCallback(() => {
-    setActiveOption("cep");
     setShowCepInput(true);
   }, []);
 
@@ -81,7 +65,7 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
       toast.error(getGoogleMapsNotConfiguredMessage());
       return;
     }
-    setLoading(true);
+    setCepLoading(true);
     try {
       const result = await lookupCepAddress(clean);
       if (!result.ok) {
@@ -90,7 +74,6 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
         } else {
           toast.info("Não foi possível consultar o CEP agora. Tente novamente em instantes.");
         }
-        setLoading(false);
         return;
       }
       const addressParts = [
@@ -107,58 +90,58 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
       const first = geoData?.results?.[0];
       if (!first?.geometry?.location) {
         toast.error("Não foi possível localizar o endereço deste CEP");
-        setLoading(false);
         return;
       }
       const { lat, lng } = first.geometry.location;
       const label = first.formatted_address ?? address;
-      onCepCenterChange({ latitude: lat, longitude: lng, label });
+      onCepSearchComplete({ latitude: lat, longitude: lng, label });
+      setShowCepInput(false);
+      setCepInput("");
     } catch (e) {
       console.error(e);
       toast.error("Erro ao buscar CEP");
     } finally {
-      setLoading(false);
+      setCepLoading(false);
     }
-  }, [cepInput, apiKey, onCepCenterChange]);
+  }, [cepInput, apiKey, onCepSearchComplete]);
 
-  const clearAndShowOptions = useCallback(() => {
-    setCepInput("");
+  const backFromCep = useCallback(() => {
     setShowCepInput(false);
-    setActiveOption(null);
-    onCepCenterChange(null);
-  }, [onCepCenterChange]);
+    setCepInput("");
+  }, []);
 
-  const hasCenter = !!cepCenter;
-  const showOptions = !hasCenter && !showCepInput;
+  if (phase === "locked") {
+    const label = lockedLabel ?? "Local selecionado";
+    return (
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <MapPin className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Onde buscar serviços?</span>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground line-clamp-2" title={label}>
+              Próximo de: {label}
+            </p>
+            <Button type="button" variant="outline" size="sm" className="w-full" onClick={onAlterarLocal}>
+              <X className="w-4 h-4 mr-2" />
+              Alterar local
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <MapPin className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">
-            Onde buscar serviços?
-          </span>
+          <span className="text-sm font-medium text-foreground">Onde buscar serviços?</span>
         </div>
 
-        {hasCenter ? (
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground line-clamp-2" title={cepCenter.label}>
-              Próximo de: {cepCenter.label}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={clearAndShowOptions}
-              disabled={disabled}
-            >
-              <X className="w-4 h-4 mr-2" />
-              Alterar local
-            </Button>
-          </div>
-        ) : showCepInput ? (
+        {showCepInput ? (
           <div className="space-y-2">
             <div className="flex gap-2">
               <Input
@@ -169,15 +152,15 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
                 onKeyDown={(e) => e.key === "Enter" && searchByCep()}
                 className="flex-1"
                 maxLength={9}
-                disabled={disabled}
+                disabled={cepLoading}
               />
               <Button
                 type="button"
                 size="default"
                 onClick={searchByCep}
-                disabled={disabled || loading || cepInput.replace(/\D/g, "").length < 8}
+                disabled={cepLoading || cepInput.replace(/\D/g, "").length < 8}
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar"}
+                {cepLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar"}
               </Button>
             </div>
             <Button
@@ -185,47 +168,58 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
               variant="ghost"
               size="sm"
               className="w-full text-muted-foreground"
-              onClick={() => { setShowCepInput(false); setCepInput(""); }}
-              disabled={disabled}
+              onClick={backFromCep}
+              disabled={cepLoading}
             >
               Voltar às opções
             </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
+            {gpsError ? (
+              <p className="text-xs text-destructive" role="alert">
+                {gpsError}
+              </p>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="w-full justify-start gap-3 h-auto py-2.5"
-              onClick={handleMyLocation}
-              disabled={disabled}
+              onClick={onRequestGps}
+              disabled={geoLoading}
             >
-              <Navigation className="w-4 h-4 shrink-0" />
-              <span>Usar minha localização</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full justify-start gap-3 h-auto py-2.5"
-              onClick={handleRegisteredAddress}
-              disabled={disabled || loading}
-            >
-              {loading && activeOption === "registered_address" ? (
+              {geoLoading ? (
                 <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
               ) : (
-                <Home className="w-4 h-4 shrink-0" />
+                <Navigation className="w-4 h-4 shrink-0" />
               )}
-              <span>Usar endereço de cadastro</span>
+              <span>Usar minha localização</span>
             </Button>
+            {showUseProfileButton ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-3 h-auto py-2.5"
+                onClick={() => void onUseProfileAddress()}
+                disabled={profileAddressLoading}
+              >
+                {profileAddressLoading ? (
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                ) : (
+                  <Home className="w-4 h-4 shrink-0" />
+                )}
+                <span>Usar endereço de cadastro</span>
+              </Button>
+            ) : null}
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="w-full justify-start gap-3 h-auto py-2.5"
               onClick={handleDigitarCep}
-              disabled={disabled}
+              disabled={cepLoading}
             >
               <MapPin className="w-4 h-4 shrink-0" />
               <span>Digitar CEP</span>

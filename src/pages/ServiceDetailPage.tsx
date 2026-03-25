@@ -9,6 +9,7 @@ import { RatingStars } from "@/components/evaluation/RatingStars";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
 import { Phone, Clock, Star, Bell, Info, ExternalLink, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -84,7 +85,9 @@ export default function ServiceDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { latitude: userLatitude, longitude: userLongitude } = useGeolocation();
+  const { latitude: userLatitude, longitude: userLongitude } = useGeolocation({
+    maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS,
+  });
   const [service, setService] = useState<{
     id: string;
     name?: string;

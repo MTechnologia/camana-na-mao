@@ -4,7 +4,10 @@ import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
-import { ServiceTypeFilter, type ServiceTypeFilterValue } from "@/components/evaluation/ServiceTypeFilter";
+import {
+  ServiceTypeFilter,
+  type ServiceTypeFilterValue,
+} from "@/components/evaluation/ServiceTypeFilter";
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
 import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
@@ -27,15 +30,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Loader2 } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
-import { LocationSearchCard } from "@/components/map/LocationSearchCard";
+import { LocationSearchCard, type NearbyLocationUiPhase } from "@/components/map/LocationSearchCard";
 import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSearchInput";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
 import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
+import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
+import { NEARBY_DEFAULT_SERVICE_TYPES } from "@/lib/nearbyDefaultServiceTypes";
 import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 import { cn } from "@/lib/utils";
-import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
+import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function NearbyServicesPage() {
@@ -44,12 +49,18 @@ export default function NearbyServicesPage() {
   const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
-  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(() => [
+    ...NEARBY_DEFAULT_SERVICE_TYPES,
+  ]);
   const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
+  const [locationMode, setLocationMode] = useState<NearbyLocationMode>("unset");
+  const [locationUiPhase, setLocationUiPhase] = useState<NearbyLocationUiPhase>("picking");
+  const [savedProfileCenter, setSavedProfileCenter] = useState<CepCenter | null>(null);
+  const [profileAddressLoading, setProfileAddressLoading] = useState(false);
   /** Logado: aguarda tentativa de carregar endereço primário antes da busca */
   const [addressBootstrapDone, setAddressBootstrapDone] = useState(false);
   const [searchByName, setSearchByName] = useState("");
@@ -60,15 +71,19 @@ export default function NearbyServicesPage() {
 
   const PAGE_SIZE = 20;
 
-  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } =
-    useGeolocation({ autoRequest: false });
-  const searchLat = cepCenter?.latitude ?? latitude;
-  const searchLng = cepCenter?.longitude ?? longitude;
+  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation } =
+    useGeolocation({ autoRequest: false, maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS });
+  const searchLat = locationMode === "gps" ? latitude : cepCenter?.latitude ?? null;
+  const searchLng = locationMode === "gps" ? longitude : cepCenter?.longitude ?? null;
 
   useEffect(() => {
     if (authLoading) return;
     if (!user?.id) {
       setAddressBootstrapDone(true);
+      setLocationUiPhase("picking");
+      setLocationMode("unset");
+      setCepCenter(null);
+      setSavedProfileCenter(null);
       return;
     }
     let cancelled = false;
@@ -77,7 +92,17 @@ export default function NearbyServicesPage() {
       try {
         const center = await getUserPrimaryAddressCenter(user.id, getGoogleMapsApiKey());
         if (cancelled) return;
-        setCepCenter((prev) => (prev == null && center != null ? center : prev));
+        if (center) {
+          setSavedProfileCenter(center);
+          setCepCenter(center);
+          setLocationMode("profile_address");
+          setLocationUiPhase("locked");
+        } else {
+          setSavedProfileCenter(null);
+          setCepCenter(null);
+          setLocationMode("unset");
+          setLocationUiPhase("picking");
+        }
       } finally {
         if (!cancelled) setAddressBootstrapDone(true);
       }
@@ -87,7 +112,88 @@ export default function NearbyServicesPage() {
     };
   }, [authLoading, user?.id]);
 
-  const skipNearbyFetch = authLoading || (!!user?.id && !addressBootstrapDone);
+  const skipNearbyFetch =
+    authLoading ||
+    (!!user?.id && !addressBootstrapDone) ||
+    searchLat == null ||
+    searchLng == null;
+
+  const lockedLabel = useMemo(() => {
+    if (locationUiPhase !== "locked") return null;
+    if (locationMode === "gps" && latitude != null && longitude != null) return "Minha localização atual";
+    if (cepCenter?.label) return cepCenter.label;
+    return null;
+  }, [locationUiPhase, locationMode, latitude, longitude, cepCenter]);
+
+  const handleAlterarLocal = useCallback(() => {
+    setLocationUiPhase("picking");
+    setLocationMode("unset");
+    setCepCenter(null);
+  }, []);
+
+  const handleRequestGps = useCallback(() => {
+    setLocationMode("gps");
+    setCepCenter(null);
+    refetchLocation();
+  }, [refetchLocation]);
+
+  const handleUseProfileAddress = useCallback(async () => {
+    if (savedProfileCenter) {
+      setCepCenter(savedProfileCenter);
+      setLocationMode("profile_address");
+      setLocationUiPhase("locked");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("Faça login para usar o endereço cadastrado.");
+      return;
+    }
+    const apiKey = getGoogleMapsApiKey();
+    setProfileAddressLoading(true);
+    try {
+      const center = await getUserPrimaryAddressCenter(user.id, apiKey);
+      if (center) {
+        setSavedProfileCenter(center);
+        setCepCenter(center);
+        setLocationMode("profile_address");
+        setLocationUiPhase("locked");
+      } else {
+        if (!apiKey?.trim()) {
+          toast.error(getGoogleMapsNotConfiguredMessage());
+        } else {
+          toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao carregar endereço cadastrado");
+    } finally {
+      setProfileAddressLoading(false);
+    }
+  }, [savedProfileCenter, user?.id]);
+
+  const handleCepSearchComplete = useCallback((center: CepCenter) => {
+    setCepCenter(center);
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
+  }, []);
+
+  useEffect(() => {
+    if (locationMode !== "gps") return;
+    if (geoLoading) return;
+    if (latitude != null && longitude != null && !geoError) {
+      setLocationUiPhase("locked");
+    }
+  }, [locationMode, geoLoading, latitude, longitude, geoError]);
+
+  useEffect(() => {
+    if (locationMode !== "gps" || geoLoading) return;
+    if (geoError) {
+      toast.error(geoError);
+      setLocationMode("unset");
+      setLocationUiPhase("picking");
+    }
+  }, [locationMode, geoLoading, geoError]);
 
   const googleMapsApiKey = getGoogleMapsApiKey();
   const hasGoogleMapsKey = !!googleMapsApiKey;
@@ -286,6 +392,8 @@ export default function NearbyServicesPage() {
         service_type: s.service_type,
       }),
     });
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
     setEquipmentMapFocusCoords({ lat: s.latitude, lng: s.longitude });
     setEquipmentMapFocusKey((k) => k + 1);
     setViewMode("map");
@@ -352,11 +460,10 @@ export default function NearbyServicesPage() {
   );
 
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
-    latitude: latitude ?? undefined,
-    longitude: longitude ?? undefined,
+    latitude: locationMode === "gps" ? latitude : null,
+    longitude: locationMode === "gps" ? longitude : null,
     services: servicesForVisit,
     userId: user?.id,
-    isSimulated,
   });
 
   const handleVisitAvaliar = useCallback(() => {
@@ -388,35 +495,6 @@ export default function NearbyServicesPage() {
       <PageHeader title="Perto de Você" />
       
       <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
-        {isSimulated && !cepCenter && (
-          <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground mb-1">
-                Modo Demonstração
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Usando localização simulada (Centro de São Paulo) com os serviços cadastrados no sistema
-              </p>
-            </div>
-          </div>
-        )}
-
-        {geoError && !isSimulated && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-destructive mb-1">
-                Não foi possível obter sua localização
-              </p>
-              <p className="text-xs text-muted-foreground mb-2">{geoError}</p>
-              <Button size="sm" variant="outline" onClick={refetchLocation}>
-                Tentar novamente
-              </Button>
-            </div>
-          </div>
-        )}
-
         {!isOnline && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
             <WifiOff className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -450,7 +528,7 @@ export default function NearbyServicesPage() {
           </div>
         )}
 
-        {(searchLat != null && searchLng != null) && !geoError && (
+        {(searchLat != null && searchLng != null) && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -463,7 +541,7 @@ export default function NearbyServicesPage() {
               </div>
               <ServiceSortSelect value={sortBy} onValueChange={setSortBy} />
             </div>
-            {user && !isSimulated && services.length > 0 && (
+            {user && locationMode === "gps" && services.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
               </p>
@@ -476,7 +554,17 @@ export default function NearbyServicesPage() {
           </>
         )}
 
-        <LocationSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
+        <LocationSearchCard
+          phase={locationUiPhase}
+          lockedLabel={lockedLabel}
+          onAlterarLocal={handleAlterarLocal}
+          onRequestGps={handleRequestGps}
+          onUseProfileAddress={handleUseProfileAddress}
+          profileAddressLoading={profileAddressLoading}
+          onCepSearchComplete={handleCepSearchComplete}
+          geoLoading={geoLoading}
+          gpsError={locationUiPhase === "picking" ? geoError : null}
+        />
         <RadiusSelector
           radius={radiusMeters}
           onRadiusChange={(r) => setRadiusMeters(clampNearbyRadiusMeters(r))}
@@ -570,10 +658,11 @@ export default function NearbyServicesPage() {
           serviceTypesFilter={selectedTypes.length > 0 ? selectedTypes : undefined}
           onPlaceCenterSelected={(center) => {
             setCepCenter(center);
+            setLocationMode("cep_lookup");
+            setLocationUiPhase("locked");
             setSearchByName("");
           }}
           onEquipmentMapFocus={focusMapOnEquipment}
-          disabled={!!geoError}
         />
 
         {isListRefreshing && (
