@@ -86,6 +86,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
     .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
     .replace(/\[QUICK_REPLY:[^\]]+\]/g, '')
+    .replace(/\[SIMILAR_URBAN_REPORTS_B64:[^\]]+\]/g, '')
     .replace(/\[APP_ACTIONS:audiencias\]/g, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
   result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
