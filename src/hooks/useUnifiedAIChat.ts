@@ -19,6 +19,71 @@ const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_r
 const LIGHT_JOURNEY_TYPES: string[] = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 
+const COLLECTION_PROGRESS_PREFIX = "[COLLECTION_PROGRESS:";
+
+/**
+ * Extrai cada payload JSON dos marcadores `[COLLECTION_PROGRESS:type:{...}]`.
+ * Usa profundidade de chaves ignorando `{`/`}` dentro de strings JSON (o regex `\{[^\]]*\}`
+ * quebrava quando `description` continha `[RATING_DIMENSIONS:...]` com `]`).
+ */
+function extractCollectionProgressJsonObjects(text: string): Array<{ type: string; jsonStr: string }> {
+  const results: Array<{ type: string; jsonStr: string }> = [];
+  let pos = 0;
+  while (pos < text.length) {
+    const start = text.indexOf(COLLECTION_PROGRESS_PREFIX, pos);
+    if (start === -1) break;
+    const typeStart = start + COLLECTION_PROGRESS_PREFIX.length;
+    const colonIdx = text.indexOf(":", typeStart);
+    if (colonIdx === -1) break;
+    const type = text.slice(typeStart, colonIdx);
+    if (!/^\w+$/.test(type)) {
+      pos = typeStart;
+      continue;
+    }
+    const braceStart = text.indexOf("{", colonIdx);
+    if (braceStart === -1) break;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let i = braceStart;
+    let closed = false;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (inString) {
+        if (c === "\\") {
+          escape = true;
+          continue;
+        }
+        if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') {
+        inString = true;
+        continue;
+      }
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          closed = true;
+          break;
+        }
+      }
+    }
+    if (!closed) break;
+    const jsonStr = text.slice(braceStart, i + 1);
+    if (text[i + 1] === "]") {
+      results.push({ type, jsonStr });
+    }
+    pos = i + 2;
+  }
+  return results;
+}
+
 /** Corpo de erro da Edge (HTML/JSON) → texto útil em português. */
 function describeAiOrchestratorFailure(status: number, body: string): string {
   const b = body.trim();
@@ -1180,13 +1245,13 @@ export const useUnifiedAIChat = (
               assistantMessage = assistantMessage.replace(/\[TIMEOUT\]/g, '');
             }
             
-            // Check for collection progress markers (robust parsing)
-            const progressRegex = /\[COLLECTION_PROGRESS:(\w+):(\{[^\]]*\})\]/g;
-            let progressMatch;
-            while ((progressMatch = progressRegex.exec(assistantMessage)) !== null) {
-              const type = progressMatch[1] as CollectionType;
+            // Check for collection progress markers (JSON com chaves balanceadas; strings podem conter ] e { ... })
+            for (const { type: progressType, jsonStr: progressJsonStr } of extractCollectionProgressJsonObjects(
+              assistantMessage,
+            )) {
+              const type = progressType as CollectionType;
               try {
-                const fields = JSON.parse(progressMatch[2]);
+                const fields = JSON.parse(progressJsonStr);
                 console.log('[useUnifiedAIChat] Collection progress detected:', type, fields);
                 
                 // === CRITICAL FIX: Respect explicit JOURNEY_SWITCHED from user ===
@@ -1227,7 +1292,7 @@ export const useUnifiedAIChat = (
                   }
                 }
               } catch (e) {
-                console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressMatch[2], e);
+                console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressJsonStr, e);
               }
             }
             
