@@ -56,6 +56,8 @@ interface UseNearbyServicesProps {
    * (faixas em anel); evita LIMIT 5000 arbitrário do REST sem anel completo.
    */
   minRadiusMeters?: number;
+  /** Evita fetch (ex.: aguardando endereço primário do usuário) sem erro de localização */
+  skipFetch?: boolean;
 }
 
 // Coordenadas padrão: Praça da Sé, centro de São Paulo
@@ -103,6 +105,7 @@ export const useNearbyServices = ({
   serviceTypes,
   fullTextQuery = "",
   minRadiusMeters,
+  skipFetch = false,
 }: UseNearbyServicesProps) => {
   // useRef para manter última localização válida e evitar recálculos desnecessários
   const lastValidLocation = useRef({ lat: CENTRO_SP.lat, lng: CENTRO_SP.lng });
@@ -129,6 +132,13 @@ export const useNearbyServices = ({
   );
 
   const fetchServices = useCallback(async () => {
+    if (skipFetch) {
+      setServices([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     const userLat = lastValidLocation.current.lat;
     const userLng = lastValidLocation.current.lng;
 
@@ -292,11 +302,11 @@ export const useNearbyServices = ({
         setLoading(false);
       }
     }
-  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, fullTextQuery, minRadiusMeters]);
+  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, fullTextQuery, minRadiusMeters, skipFetch]);
 
   useEffect(() => {
     fetchServices();
-  }, [fetchServices, latitude, longitude]);
+  }, [fetchServices, latitude, longitude, skipFetch]);
 
   return {
     services,

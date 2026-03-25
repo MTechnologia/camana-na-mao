@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { isGpsAccuracyAcceptable } from "@/lib/gpsAccuracy";
 
-// Localização simulada padrão (Praça da Sé, São Paulo - Centro)
+// Localização simulada padrão (Praça da Sé, São Paulo - Centro) — só após falha de GPS quando o usuário pede "minha localização"
 const SIMULATED_LOCATION = {
   latitude: -23.5505,
   longitude: -46.6333,
@@ -17,19 +17,47 @@ interface GeolocationState {
   isSimulated: boolean;
 }
 
-export const useGeolocation = () => {
-  const [state, setState] = useState<GeolocationState>({
-    latitude: SIMULATED_LOCATION.latitude,
-    longitude: SIMULATED_LOCATION.longitude,
-    error: null,
-    loading: false,
-    permissionGranted: false,
-    isSimulated: true,
-  });
+export interface UseGeolocationOptions {
+  /**
+   * Se false, não chama getCurrentPosition ao montar (ex.: Perto de você usa endereço cadastrado primeiro).
+   * Coordenadas ficam null até refetch().
+   */
+  autoRequest?: boolean;
+}
 
-  const requestLocation = () => {
+export const useGeolocation = (options?: UseGeolocationOptions) => {
+  const autoRequest = options?.autoRequest !== false;
+  const mountedRef = useRef(true);
+
+  const [state, setState] = useState<GeolocationState>(() =>
+    autoRequest
+      ? {
+          latitude: SIMULATED_LOCATION.latitude,
+          longitude: SIMULATED_LOCATION.longitude,
+          error: null,
+          loading: false,
+          permissionGranted: false,
+          isSimulated: true,
+        }
+      : {
+          latitude: null,
+          longitude: null,
+          error: null,
+          loading: false,
+          permissionGranted: false,
+          isSimulated: false,
+        },
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      // Usar localização simulada se geolocalização não for suportada
       setState({
         latitude: SIMULATED_LOCATION.latitude,
         longitude: SIMULATED_LOCATION.longitude,
@@ -42,16 +70,17 @@ export const useGeolocation = () => {
       return;
     }
 
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({ ...prev, loading: true, error: null }));
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (!mountedRef.current) return;
         const accuracy = position.coords.accuracy;
         if (!isGpsAccuracyAcceptable(accuracy)) {
           toast.info(
             accuracy != null
               ? `Precisão insuficiente (${Math.round(accuracy)}m). Requer ≤15m. Use área aberta ou CEP.`
-              : "Precisão não verificada. Tente em área aberta ou use CEP/endereço."
+              : "Precisão não verificada. Tente em área aberta ou use CEP/endereço.",
           );
           setState({
             latitude: SIMULATED_LOCATION.latitude,
@@ -73,8 +102,9 @@ export const useGeolocation = () => {
         });
       },
       (error) => {
+        if (!mountedRef.current) return;
         let errorMessage = "Erro ao obter localização";
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage = "Permissão negada - usando localização simulada";
@@ -87,7 +117,6 @@ export const useGeolocation = () => {
             break;
         }
 
-        // Usar localização simulada quando houver erro
         setState({
           latitude: SIMULATED_LOCATION.latitude,
           longitude: SIMULATED_LOCATION.longitude,
@@ -101,14 +130,16 @@ export const useGeolocation = () => {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000, // Cache for 5 minutes
-      }
+        maximumAge: 300000,
+      },
     );
-  };
+  }, []);
 
   useEffect(() => {
-    requestLocation();
-  }, []);
+    if (autoRequest) {
+      requestLocation();
+    }
+  }, [autoRequest, requestLocation]);
 
   return {
     ...state,
