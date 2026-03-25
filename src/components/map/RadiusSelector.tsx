@@ -1,21 +1,22 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { MapPin } from "lucide-react";
+import { NEARBY_RADIUS_PRESETS, clampNearbyRadiusMeters, nearbyBandHint } from "@/lib/nearbyRadiusBands";
 
 interface RadiusSelectorProps {
   radius: number;
   onRadiusChange: (radius: number) => void;
+  /** Se true, explica faixa em anel (0–500 m, 501 m–1 km, …) */
+  showBandHint?: boolean;
 }
 
-const radiusOptions = [
-  { value: 500, label: "500m" },
-  { value: 1000, label: "1km" },
-  { value: 2000, label: "2km" },
-  { value: 5000, label: "5km" },
-  { value: 10000, label: "10km" },
-];
+export const RadiusSelector = ({ radius, onRadiusChange, showBandHint }: RadiusSelectorProps) => {
+  const safeRadius = clampNearbyRadiusMeters(radius);
+  const presetIndex = Math.max(
+    0,
+    NEARBY_RADIUS_PRESETS.indexOf(safeRadius as (typeof NEARBY_RADIUS_PRESETS)[number]),
+  );
 
-export const RadiusSelector = ({ radius, onRadiusChange }: RadiusSelectorProps) => {
   const formatRadius = (meters: number) => {
     if (meters < 1000) return `${meters}m`;
     return `${(meters / 1000).toFixed(0)}km`;
@@ -27,36 +28,44 @@ export const RadiusSelector = ({ radius, onRadiusChange }: RadiusSelectorProps) 
         <div className="flex items-center gap-2 mb-3">
           <MapPin className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">
-            Raio de busca: {formatRadius(radius)}
+            Raio de busca: {formatRadius(safeRadius)}
           </span>
         </div>
-        
+
         <Slider
-          value={[radius]}
-          onValueChange={([value]) => onRadiusChange(value)}
-          min={500}
-          max={10000}
-          step={500}
+          value={[presetIndex]}
+          onValueChange={([value]) => {
+            const idx = Math.min(Math.max(0, value), NEARBY_RADIUS_PRESETS.length - 1);
+            onRadiusChange(NEARBY_RADIUS_PRESETS[idx]);
+          }}
+          min={0}
+          max={NEARBY_RADIUS_PRESETS.length - 1}
+          step={1}
           className="mb-3"
         />
-        
-        <div className="flex gap-2">
-          {radiusOptions.map((option) => (
+
+        <div className="flex flex-wrap gap-2">
+          {NEARBY_RADIUS_PRESETS.map((option) => (
             <button
-              key={option.value}
-              onClick={() => onRadiusChange(option.value)}
+              key={option}
+              type="button"
+              onClick={() => onRadiusChange(option)}
               className={`
-                flex-1 px-3 py-1.5 text-xs rounded-md transition-colors
-                ${radius === option.value 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                flex-1 min-w-[4.5rem] px-3 py-1.5 text-xs rounded-md transition-colors
+                ${safeRadius === option
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }
               `}
             >
-              {option.label}
+              {formatRadius(option)}
             </button>
           ))}
         </div>
+
+        {showBandHint && (
+          <p className="mt-3 text-xs text-muted-foreground leading-snug">{nearbyBandHint(safeRadius)}</p>
+        )}
       </CardContent>
     </Card>
   );

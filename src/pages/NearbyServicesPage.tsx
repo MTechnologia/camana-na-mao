@@ -32,6 +32,7 @@ import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSear
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
 import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
+import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -43,7 +44,7 @@ export default function NearbyServicesPage() {
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
   const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
-  const [radiusMeters, setRadiusMeters] = useState(2000);
+  const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
@@ -65,20 +66,35 @@ export default function NearbyServicesPage() {
 
   const { isOnline } = useNetworkStatus();
 
+  const hasTypeFilter = selectedTypes.length > 0;
+  /** Sem tipo: informa o mínimo da faixa (anel) para a RPC; com tipo: não envia (usa só filtro de tipo no servidor). */
+  const minRadiusForHook = !hasTypeFilter
+    ? getNearbyDistanceBand(radiusMeters, false).min
+    : undefined;
+
   const { services, loading: servicesLoading, error: servicesError } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
     serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
     fullTextQuery: searchByName,
+    minRadiusMeters: minRadiusForHook,
   });
   const isCacheOrOfflineMessage = servicesError != null && (
     servicesError.includes("cache") || servicesError.includes("Sem conexão")
   );
+  /** Sem filtro de tipo: faixas em anel; com filtro de tipo: disco 0..raio */
+  const servicesInBand = useMemo(() => {
+    const band = getNearbyDistanceBand(radiusMeters, hasTypeFilter);
+    return services.filter((s) => {
+      const d = s.distance ?? 0;
+      return d >= band.min && d <= band.max;
+    });
+  }, [services, radiusMeters, hasTypeFilter]);
 
   const filteredByRating = minRating === "all"
-    ? services
-    : services.filter((s) => (s.average_rating ?? 0) >= minRating);
+    ? servicesInBand
+    : servicesInBand.filter((s) => (s.average_rating ?? 0) >= minRating);
 
   // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco;
   // o card mostra endereço do reverse geocode — a busca precisa usar o mesmo texto.
@@ -114,8 +130,8 @@ export default function NearbyServicesPage() {
     null,
   );
 
-  /** Raio 5km ou 10km: usa rota de carro; 500m/1km/2km: usa rota a pé, para sempre exibir distância por rota (evitar "em linha reta"). */
-  const matrixProfile = radiusMeters >= 5000 ? "driving" : "walking";
+  /** Usar distância por rota a pé em todos os raios para manter consistência das faixas. */
+  const matrixProfile = "walking";
   const { walkingDistances, loading: walkingLoading } = useGoogleDistanceMatrix(
     mapCenter,
     sortedServicesByHaversine,
@@ -124,6 +140,9 @@ export default function NearbyServicesPage() {
   );
 
   const { sortedServices, routeFilterFallback } = useMemo(() => {
+    const band = getNearbyDistanceBand(radiusMeters, hasTypeFilter);
+    const inBand = (d: number) => d >= band.min && d <= band.max;
+
     const hasRouteData = walkingDistances && walkingDistances.size > 0;
     const withRouteDistance = hasRouteData
       ? sortedServicesByHaversine.map((s) => ({
@@ -132,13 +151,13 @@ export default function NearbyServicesPage() {
         }))
       : sortedServicesByHaversine.map((s) => ({ ...s }));
 
-    let withinRadius = withRouteDistance.filter((s) => (s.distance ?? 0) <= radiusMeters);
+    let withinRadius = withRouteDistance.filter((s) => inBand(s.distance ?? 0));
 
-    // Sem filtro de tipo há muitos serviços; após rota a pé quase todos ficam > raio e a lista zera. Fallback: mostrar por linha reta.
+    // Sem filtro de tipo há muitos serviços; após rota a pé quase todos ficam fora da faixa. Fallback: mostrar por linha reta (Haversine) dentro da faixa.
     const fallback =
       hasRouteData && withinRadius.length === 0 && sortedServicesByHaversine.length > 0;
     if (fallback) {
-      withinRadius = sortedServicesByHaversine.filter((s) => (s.distance ?? 0) <= radiusMeters);
+      withinRadius = sortedServicesByHaversine.filter((s) => inBand(s.distance ?? 0));
     }
 
     const sorted = [...withinRadius].sort((a, b) => {
@@ -150,7 +169,7 @@ export default function NearbyServicesPage() {
       return (a.distance ?? 0) - (b.distance ?? 0);
     });
     return { sortedServices: sorted, routeFilterFallback: fallback };
-  }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters]);
+  }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters, hasTypeFilter]);
 
   const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
   const distanceLabelMode = useRouteDistance && !routeFilterFallback ? matrixProfile : "straight";
@@ -293,14 +312,14 @@ export default function NearbyServicesPage() {
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
     () =>
-      services.map((s) => ({
+      servicesInBand.map((s) => ({
         id: s.id,
         name: s.name,
         displayName: getServiceDisplayName({ name: s.name, address: s.address, district: s.district, service_type: s.service_type }),
         latitude: s.latitude,
         longitude: s.longitude,
       })),
-    [services]
+    [servicesInBand]
   );
 
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
@@ -429,7 +448,11 @@ export default function NearbyServicesPage() {
         )}
 
         <LocationSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
-        <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
+        <RadiusSelector
+          radius={radiusMeters}
+          onRadiusChange={(r) => setRadiusMeters(clampNearbyRadiusMeters(r))}
+          showBandHint={!hasTypeFilter}
+        />
 
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
 

@@ -2468,6 +2468,7 @@ export type Database = {
           max_lng: number
           min_lat: number
           min_lng: number
+          min_radius_meters?: number | null
           radius_meters: number
           result_limit?: number
           search_query: string
