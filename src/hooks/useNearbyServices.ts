@@ -109,6 +109,10 @@ const getBoundingBox = (lat: number, lng: number, radius: number) => {
 const locationKey = (lat: number, lng: number, decimals = 5) =>
   `${Number(lat.toFixed(decimals))},${Number(lng.toFixed(decimals))}`;
 
+/** Categoria genérica `other` (GeoSampa) não entra na lista — reduz ruído na UI. */
+const excludeGenericOtherType = <T extends { service_type: string }>(items: T[]): T[] =>
+  items.filter((s) => s.service_type !== "other");
+
 export const useNearbyServices = ({
   latitude,
   longitude,
@@ -163,7 +167,9 @@ export const useNearbyServices = ({
         // por raio (2km, 10km) continua coerente com a região que foi buscada.
         const centerLat = cached.centerLat;
         const centerLng = cached.centerLng;
-        const withDistance = applyCacheWithDistance(cached.services, centerLat, centerLng);
+        const withDistance = excludeGenericOtherType(
+          applyCacheWithDistance(cached.services, centerLat, centerLng),
+        );
         setServices(withDistance);
       }
     } catch {
@@ -227,6 +233,8 @@ export const useNearbyServices = ({
 
         if (effectiveTypes.length > 0) {
           query = query.in("service_type", effectiveTypes as string[]);
+        } else {
+          query = query.neq("service_type", "other");
         }
 
         const res = await query;
@@ -270,7 +278,9 @@ export const useNearbyServices = ({
         })
         .filter((service): service is NearbyService => service !== null);
 
-      const withinRadius = formatted
+      const withoutOther = excludeGenericOtherType(formatted);
+
+      const withinRadius = withoutOther
         .filter((service) => (service.distance ?? 0) <= safeRadius)
         .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 
@@ -294,10 +304,8 @@ export const useNearbyServices = ({
       const cached = await getNearbyServicesCache();
       if (cached?.services?.length) {
         // Usar centro do cache para distâncias coerentes com o raio (2km, 10km, etc.)
-        const withDistance = applyCacheWithDistance(
-          cached.services,
-          cached.centerLat,
-          cached.centerLng
+        const withDistance = excludeGenericOtherType(
+          applyCacheWithDistance(cached.services, cached.centerLat, cached.centerLng),
         );
         setServices(withDistance);
         setError("Sem conexão. Exibindo equipamentos em cache.");
