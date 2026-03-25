@@ -200,7 +200,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. Notas: use rating_dimensions (atendimento, limpeza, infraestrutura, tempo_espera, cada uma 1-5) OU rating_stars (média legada 1-5). Dois modos: 1) COM visit_id: visit_id + dimensões + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, dimensões, rating_text, sentiment. NUNCA rating_text vazio.",
+      description: "Registra avaliação de serviço público. Nota: rating_stars 1-5 (avaliação geral). Opcional rating_dimensions (legado). Dois modos: 1) COM visit_id: visit_id + rating_stars + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, rating_stars, rating_text, sentiment. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
@@ -216,7 +216,7 @@ export const tools = [
           service_address_confirmed: { type: "boolean", description: "Confirmação do endereço. Obrigatório APENAS quando visit_id NÃO for informado." },
           rating_dimensions: {
             type: "object",
-            description: "Preferencial: notas 1-5 para atendimento, limpeza, infraestrutura, tempo_espera",
+            description: "Opcional (legado): notas 1-5 por dimensão; preferir rating_stars",
             properties: {
               atendimento: { type: "integer", minimum: 1, maximum: 5 },
               limpeza: { type: "integer", minimum: 1, maximum: 5 },
@@ -224,7 +224,7 @@ export const tools = [
               tempo_espera: { type: "integer", minimum: 1, maximum: 5 },
             },
           },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Média 1-5 se não houver rating_dimensions (legado)" },
+          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Avaliação geral 1-5 (obrigatória se não houver rating_dimensions completas)" },
           rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
             type: "string",

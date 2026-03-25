@@ -1085,15 +1085,15 @@ serve(async (req) => {
 
         // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
         if (fields.visit_id) {
-          if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+          const rs = fields.rating_stars;
+          if (typeof rs !== 'number' || rs < 1 || rs > 5) {
             return {
-              field: 'rating_dimensions',
-              picker: '[MULTI_DIMENSION_RATING_PICKER]',
+              field: 'rating_stars',
+              picker: '[RATING_PICKER]',
               prompt:
-                'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+                '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
             };
           }
-          fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
@@ -1218,16 +1218,16 @@ serve(async (req) => {
           };
         }
         
-        // 4. Avaliação multidimensional (1–5 em cada dimensão)
-        if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+        // 4. Avaliação geral (1–5)
+        const rsFree = fields.rating_stars;
+        if (typeof rsFree !== 'number' || rsFree < 1 || rsFree > 5) {
           return {
-            field: 'rating_dimensions',
-            picker: '[MULTI_DIMENSION_RATING_PICKER]',
+            field: 'rating_stars',
+            picker: '[RATING_PICKER]',
             prompt:
-              'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+              '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
           };
         }
-        fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
         
         // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
         const textLen = (fields.rating_text || '').length;

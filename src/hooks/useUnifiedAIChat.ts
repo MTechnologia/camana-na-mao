@@ -6,10 +6,8 @@ import type { CollectionType, CollectedFields } from "@/components/ai/DataCollec
 import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 import {
   aggregateServiceRatingStars,
-  buildServiceRatingDimensionsUserMessage,
   isCompleteServiceRatingDimensions,
   parseRatingDimensionsFromMessage,
-  type ServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
@@ -881,8 +879,14 @@ export const useUnifiedAIChat = (
         }));
       }
 
-      // Detectar nota (1-5 estrelas) — legado, só se ainda não houver dimensões
-      if (!collectedFields.rating_stars && !collectedFields.rating_dimensions) {
+      const ratingSelectedTag = raw.match(/\[RATING_SELECTED:([1-5])\]/);
+      if (ratingSelectedTag) {
+        const stars = parseInt(ratingSelectedTag[1], 10);
+        setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
+      }
+
+      // Detectar nota (1-5 estrelas) — legado, só se ainda não houver dimensões / marcador
+      if (!collectedFields.rating_stars && !collectedFields.rating_dimensions && !ratingSelectedTag) {
         const starsMatch = raw.match(/(\d)\s*(estrela|nota|ponto)/i);
         if (starsMatch) {
           const stars = parseInt(starsMatch[1]);
@@ -1630,7 +1634,7 @@ export const useUnifiedAIChat = (
         { key: 'service_type', required: true },
         { key: 'service_name', required: true },
         { key: 'service_address_confirmed', required: true },
-        { key: 'rating_dimensions', required: true },
+        { key: 'rating_stars', required: true },
         { key: 'rating_text', required: true },
       ]
     };
@@ -1642,8 +1646,9 @@ export const useUnifiedAIChat = (
     const missing: string[] = [];
     
     for (const field of fields) {
-      if (field.key === 'rating_dimensions') {
-        if (isCompleteServiceRatingDimensions(collectedFields.rating_dimensions)) continue;
+      if (field.key === 'rating_stars') {
+        const n = Number(collectedFields.rating_stars);
+        if (Number.isInteger(n) && n >= 1 && n <= 5) continue;
       } else if (collectedFields[field.key]) {
         continue;
       }
@@ -1730,14 +1735,8 @@ export const useUnifiedAIChat = (
 
   // Handle rating selection from inline picker
   const handleRatingSelected = useCallback((stars: number) => {
-    setCollectedFields(prev => ({ ...prev, rating_stars: stars }));
-    sendMessage(`Nota: ${stars} estrelas`);
-  }, [sendMessage]);
-
-  const handleMultiDimensionRatingSelected = useCallback((dims: ServiceRatingDimensions) => {
-    const avg = aggregateServiceRatingStars(dims);
-    setCollectedFields((prev) => ({ ...prev, rating_dimensions: dims, rating_stars: avg }));
-    sendMessage(buildServiceRatingDimensionsUserMessage(dims));
+    setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
+    sendMessage(`Nota: ${stars} estrelas [RATING_SELECTED:${stars}]`);
   }, [sendMessage]);
 
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
@@ -1805,7 +1804,6 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleRatingSelected,
-    handleMultiDimensionRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,

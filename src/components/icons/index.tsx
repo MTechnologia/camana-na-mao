@@ -36,6 +36,7 @@ export {
   SERVICE_TYPE_ICONS,
   SERVICE_TYPE_LABELS,
   SERVICE_TYPE_MAP_COLORS,
+  SERVICE_BALLOON_MARKER_LAYOUT,
   getServiceTypeMarkerChar,
   getServiceTypeBalloonIconUrl,
   getServiceTypeLabel,

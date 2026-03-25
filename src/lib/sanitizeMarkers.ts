@@ -74,6 +74,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[DATE_PICKER\]/g, '')
     .replace(/\[TIME_PICKER\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
+    .replace(/\[RATING_SELECTED:[1-5]\]/g, '')
     .replace(/\[MULTI_DIMENSION_RATING_PICKER\]/g, '')
     .replace(/\[RATING_DIMENSIONS:\{[^}]+\}\]/g, '')
     .replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '')

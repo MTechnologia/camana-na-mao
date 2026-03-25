@@ -12,6 +12,10 @@ import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge"
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 
 function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
+  if (fieldKey === "rating_stars") {
+    const n = Number(fields.rating_stars);
+    return Number.isInteger(n) && n >= 1 && n <= 5;
+  }
   if (fieldKey === "rating_dimensions") {
     return isCompleteServiceRatingDimensions(fields.rating_dimensions);
   }
@@ -162,7 +166,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'service_name', label: 'Serviço', required: true },
       { key: 'service_neighborhood', label: 'Bairro', required: false },
       { key: 'service_address_confirmed', label: 'Endereço confirmado', required: true },
-      { key: 'rating_dimensions', label: 'Avaliação (4 dimensões)', required: true },
+      { key: 'rating_stars', label: 'Avaliação geral (1–5)', required: true },
       { key: 'rating_text', label: 'Comentário', required: true },
     ]
   }
