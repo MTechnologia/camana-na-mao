@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { ThumbsUp, MapPin, Hash } from "lucide-react";
+import { ThumbsUp, MapPin, Hash, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +38,7 @@ type Props = {
  * Lista de relatos urbanos próximos (ordenados por distância no backend) com ação de apoiar (curtida).
  */
 export function SimilarUrbanReportsInChat({ payload, className }: Props) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [supportedIds, setSupportedIds] = useState<Set<string>>(new Set());
@@ -125,17 +127,29 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
                   </p>
                 ) : null}
               </div>
-              <Button
-                type="button"
-                variant={supported ? "secondary" : "default"}
-                size="sm"
-                className="shrink-0 w-full sm:w-auto"
-                disabled={supported || loadingId === r.id}
-                onClick={() => apoiar(r.id)}
-              >
-                <ThumbsUp className="h-3.5 w-3.5 mr-1.5" aria-hidden />
-                {supported ? "Apoiado" : "Apoiar"}
-              </Button>
+              <div className="shrink-0 w-full sm:w-auto flex flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={() => navigate(`/relato-urbano/historico?reportId=${encodeURIComponent(r.id)}`)}
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+                  Ver detalhes
+                </Button>
+                <Button
+                  type="button"
+                  variant={supported ? "secondary" : "default"}
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  disabled={supported || loadingId === r.id}
+                  onClick={() => apoiar(r.id)}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+                  {supported ? "Apoiado" : "Apoiar"}
+                </Button>
+              </div>
             </li>
           );
         })}
