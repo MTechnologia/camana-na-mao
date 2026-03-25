@@ -6,9 +6,9 @@ import { MapPin, Loader2, X, Home, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { lookupCepAddress } from "@/lib/cepLookup";
+import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 
 type LocationOption = "my_location" | "registered_address" | "cep";
 
@@ -23,11 +23,6 @@ const formatCep = (value: string) => {
   if (digits.length <= 5) return digits;
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
-
-function buildAddressLabel(parts: { street: string; number: string; neighborhood: string; city: string; state: string }) {
-  const { street, number, neighborhood, city, state } = parts;
-  return [street, number, neighborhood, `${city} - ${state}`].filter(Boolean).join(", ");
-}
 
 export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: LocationSearchCardProps) {
   const { user } = useAuth();
@@ -53,59 +48,16 @@ export function LocationSearchCard({ cepCenter, onCepCenterChange, disabled }: L
     setShowCepInput(false);
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("user_addresses")
-        .select("street, number, neighborhood, city, state, latitude, longitude")
-        .eq("user_id", user.id)
-        .eq("is_primary", true)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!data) {
-        toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
-        setLoading(false);
+      const center = await getUserPrimaryAddressCenter(user.id, apiKey);
+      if (!center) {
+        if (!apiKey?.trim()) {
+          toast.error(getGoogleMapsNotConfiguredMessage());
+        } else {
+          toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
+        }
         return;
       }
-
-      const label = buildAddressLabel({
-        street: data.street,
-        number: data.number,
-        neighborhood: data.neighborhood,
-        city: data.city,
-        state: data.state,
-      });
-
-      if (data.latitude != null && data.longitude != null) {
-        onCepCenterChange({
-          latitude: data.latitude,
-          longitude: data.longitude,
-          label,
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (!apiKey) {
-        toast.error(getGoogleMapsNotConfiguredMessage());
-        setLoading(false);
-        return;
-      }
-
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(label)}&key=${apiKey}&language=pt-BR`;
-      const geoRes = await fetch(geocodeUrl);
-      const geoData = await geoRes.json();
-      const first = geoData?.results?.[0];
-      if (!first?.geometry?.location) {
-        toast.error("Não foi possível localizar o endereço cadastrado");
-        setLoading(false);
-        return;
-      }
-      const { lat, lng } = first.geometry.location;
-      onCepCenterChange({
-        latitude: lat,
-        longitude: lng,
-        label: first.formatted_address ?? label,
-      });
+      onCepCenterChange(center);
     } catch (e) {
       console.error(e);
       toast.error("Erro ao carregar endereço cadastrado");

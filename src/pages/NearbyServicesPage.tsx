@@ -33,13 +33,14 @@ import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
 import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
+import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
@@ -49,6 +50,8 @@ export default function NearbyServicesPage() {
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
+  /** Logado: aguarda tentativa de carregar endereço primário antes da busca */
+  const [addressBootstrapDone, setAddressBootstrapDone] = useState(false);
   const [searchByName, setSearchByName] = useState("");
   const [onlyWithOpeningHours, setOnlyWithOpeningHours] = useState(false);
   const [openingTimeFilter, setOpeningTimeFilter] = useState<string>("");
@@ -57,9 +60,34 @@ export default function NearbyServicesPage() {
 
   const PAGE_SIZE = 20;
 
-  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
+  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } =
+    useGeolocation({ autoRequest: false });
   const searchLat = cepCenter?.latitude ?? latitude;
   const searchLng = cepCenter?.longitude ?? longitude;
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user?.id) {
+      setAddressBootstrapDone(true);
+      return;
+    }
+    let cancelled = false;
+    setAddressBootstrapDone(false);
+    void (async () => {
+      try {
+        const center = await getUserPrimaryAddressCenter(user.id, getGoogleMapsApiKey());
+        if (cancelled) return;
+        setCepCenter((prev) => (prev == null && center != null ? center : prev));
+      } finally {
+        if (!cancelled) setAddressBootstrapDone(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
+
+  const skipNearbyFetch = authLoading || (!!user?.id && !addressBootstrapDone);
 
   const googleMapsApiKey = getGoogleMapsApiKey();
   const hasGoogleMapsKey = !!googleMapsApiKey;
@@ -79,6 +107,7 @@ export default function NearbyServicesPage() {
     serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
     fullTextQuery: searchByName,
     minRadiusMeters: minRadiusForHook,
+    skipFetch: skipNearbyFetch,
   });
   const isCacheOrOfflineMessage = servicesError != null && (
     servicesError.includes("cache") || servicesError.includes("Sem conexão")
@@ -359,7 +388,7 @@ export default function NearbyServicesPage() {
       <PageHeader title="Perto de Você" />
       
       <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
-        {isSimulated && (
+        {isSimulated && !cepCenter && (
           <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
             <div className="flex-1">
