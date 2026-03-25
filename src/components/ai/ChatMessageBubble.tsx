@@ -3,6 +3,7 @@ import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitize
 import { UserChatBubbleText } from "./UserChatBubbleText";
 import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/parseUrbanReportPreview";
 import { UrbanReportPreviewInChat } from "./UrbanReportPreviewInChat";
+import { SimilarUrbanReportsInChat, parseSimilarUrbanReportsB64 } from "./SimilarUrbanReportsInChat";
 import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -495,6 +496,7 @@ const ChatMessageBubble = ({
       não: 'Não',
       nao: 'Não',
       registrar: 'Registrar',
+      novo_relato: 'Registrar novo relato',
       confirmar: 'Confirmar',
       corrigir: 'Corrigir',
       reclamacao: 'Reclamação',
@@ -507,6 +509,12 @@ const ChatMessageBubble = ({
       label: labels[value] || value.charAt(0).toUpperCase() + value.slice(1),
     }));
   }, [isUser, message.content, onSendMessage]);
+
+  /** Relatos próximos (RPC) embutidos em Base64 no texto da assistente. */
+  const similarUrbanReportsPayload = useMemo(
+    () => (!isUser ? parseSimilarUrbanReportsB64(message.content) : null),
+    [isUser, message.content]
+  );
 
   /** Preview estruturado do relato urbano (PO: melhor UX que parágrafo denso em markdown). */
   const urbanReportPreviewParsed = useMemo(() => parseUrbanReportPreview(cleanContent), [cleanContent]);
@@ -867,6 +875,9 @@ const ChatMessageBubble = ({
                     </>
                   )}
                 </button>
+              )}
+              {!isUser && similarUrbanReportsPayload && (
+                <SimilarUrbanReportsInChat payload={similarUrbanReportsPayload} className="mt-3" />
               )}
             </div>
           )}

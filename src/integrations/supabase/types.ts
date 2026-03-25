@@ -2527,6 +2527,27 @@ export type Database = {
           title: string
         }[]
       }
+      nearest_urban_reports_by_distance: {
+        Args: {
+          p_category: string
+          p_exclude_user_id?: string | null
+          p_lat: number
+          p_limit?: number
+          p_lng: number
+        }
+        Returns: {
+          category: string
+          created_at: string
+          description: string | null
+          distance_meters: number
+          id: string
+          location_address: string | null
+          neighborhood: string | null
+          protocol_code: string | null
+          severity: string | null
+          subcategory: string | null
+        }[]
+      }
       notify_admins: {
         Args: {
           p_action_url?: string

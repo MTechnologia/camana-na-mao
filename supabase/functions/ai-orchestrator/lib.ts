@@ -1258,6 +1258,66 @@ export async function geocodeAddressWithGoogle(
   }
 }
 
+/** Linha retornada por `nearest_urban_reports_by_distance` (relatos próximos no chat). */
+export type NearestUrbanReportRow = {
+  id: string;
+  protocol_code: string | null;
+  category: string;
+  subcategory: string | null;
+  description: string | null;
+  location_address: string | null;
+  neighborhood: string | null;
+  severity: string | null;
+  created_at: string;
+  distance_meters: number;
+};
+
+/** Coordenadas para busca de relatos similares: GPS do fluxo ou geocodificação do endereço coletado. */
+export async function resolveUrbanCoordsForSimilarSearch(
+  supabase: SupabaseClient,
+  fields: Record<string, unknown>,
+): Promise<{ lat: number; lon: number } | null> {
+  const ula = fields.user_lat != null ? Number(fields.user_lat) : NaN;
+  const ulo = fields.user_lon != null ? Number(fields.user_lon) : NaN;
+  if (Number.isFinite(ula) && Number.isFinite(ulo)) {
+    return { lat: ula, lon: ulo };
+  }
+  const addr = {
+    street: (fields.street as string) || null,
+    street_number: (fields.street_number as string) || null,
+    neighborhood: (fields.neighborhood as string) || null,
+    cep: (fields.cep as string) || null,
+    city: (fields.city as string) || null,
+  };
+  if (!addr.street && !addr.neighborhood && !addr.cep) return null;
+  const g = await geocodeAddressWithGoogle(supabase, addr);
+  if (g) return g;
+  return geocodeAddressToCoord(addr);
+}
+
+/** K relatos mais próximos (mesma categoria), ordenados por distância. */
+export async function fetchNearestUrbanReportsForSimilarity(
+  supabase: SupabaseClient,
+  lat: number,
+  lon: number,
+  category: string,
+  excludeUserId: string | undefined,
+  limit = 10,
+): Promise<NearestUrbanReportRow[]> {
+  const { data, error } = await supabase.rpc('nearest_urban_reports_by_distance', {
+    p_lat: lat,
+    p_lng: lon,
+    p_category: category,
+    p_exclude_user_id: excludeUserId ?? null,
+    p_limit: limit,
+  });
+  if (error) {
+    console.error('[fetchNearestUrbanReportsForSimilarity]', error);
+    return [];
+  }
+  return (data || []) as NearestUrbanReportRow[];
+}
+
 /** Monta linha curta a partir do objeto address do Nominatim (reverse). */
 function formatNominatimReverseAddress(addr: Record<string, string | undefined> | undefined): string | null {
   if (!addr) return null;

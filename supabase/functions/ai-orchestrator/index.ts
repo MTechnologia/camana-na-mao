@@ -1592,8 +1592,61 @@ serve(async (req) => {
             const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
             const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
 
-            // 1) Ainda não perguntamos se quer anexar → perguntar (botões Sim/Não no front)
-            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+            const showedSimilarReports =
+              /\[SIMILAR_URBAN_REPORTS_B64:/i.test(lastAssistantLower) ||
+              /relatos\s+na\s+mesma\s+categoria/i.test(lastAssistantLower);
+            const userWantsNewAfterSimilar =
+              /^(novo_relato|novo\s+relato|registrar\s+novo|criar\s+novo|mesmo\s+assim)\b/i.test(msgLower.trim());
+
+            // 0) Após lista de relatos próximos: usuário escolheu seguir com novo relato → perguntar fotos
+            if (
+              showedSimilarReports &&
+              userWantsNewAfterSimilar &&
+              !askedPhotoChoice &&
+              !askedToAttach &&
+              !showedPreview
+            ) {
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+              console.log('[ai-orchestrator] Urban report: similar reports acknowledged → asking photo choice');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            // 1) Ainda não perguntamos relatos próximos nem fotos → tentar relatos na mesma região (K mais próximos por distância)
+            if (!askedPhotoChoice && !askedToAttach && !showedPreview && !showedSimilarReports) {
+              const cat = String(accumulatedFields.category || '');
+              if (cat && cat !== 'feedback_camara') {
+                try {
+                  const coords = await lib.resolveUrbanCoordsForSimilarSearch(supabase, accumulatedFields);
+                  if (coords) {
+                    const near = await lib.fetchNearestUrbanReportsForSimilarity(
+                      supabase,
+                      coords.lat,
+                      coords.lon,
+                      cat,
+                      user.id,
+                      10,
+                    );
+                    if (near.length > 0) {
+                      const payload = { reports: near, center: coords };
+                      const json = JSON.stringify(payload);
+                      const b64 = btoa(unescape(encodeURIComponent(json)));
+                      const intro =
+                        `Encontramos **relatos na mesma categoria** próximos do local informado, **do mais próximo ao mais distante** (até ${near.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                      const similarMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]${intro}\n\n[SIMILAR_URBAN_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                      const ssePayload = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                      console.log('[ai-orchestrator] Urban report: showing nearest similar reports, count:', near.length);
+                      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                      });
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Urban similar reports lookup failed:', e);
+                }
+              }
               const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
               console.log('[ai-orchestrator] Urban report: asking photo choice');
@@ -1710,6 +1763,21 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Urban report: user sent Continuar (attach flow), showing preview, attachmentUrls count:', attachmentUrls.length);
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 1b) Na lista de relatos próximos: mensagem do usuário sem "novo relato" — reforço para não ficar sem resposta
+            if (
+              showedSimilarReports &&
+              !userWantsNewAfterSimilar &&
+              !askedPhotoChoice &&
+              !askedToAttach &&
+              !showedPreview &&
+              lastUserMessage.trim().length > 0
+            ) {
+              const hint = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Para **seguir com um novo relato** (fotos e confirmação), use **Registrar novo relato**. Você pode **apoiar** um dos relatos listados acima.[QUICK_REPLY:novo_relato]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: hint } }] });
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
