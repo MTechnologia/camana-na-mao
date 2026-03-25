@@ -14,8 +14,25 @@ export interface ReportConfig {
   fields: FieldConfig[];
 }
 
-// Risk categories that require impact assessment
-export const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
+/**
+ * Categorias urbanas com coleta de gravidade/criticidade (risk_level).
+ * Exclui feedback_camara. Manter alinhado a `URBAN_RISK_COLLECTION_CATEGORIES` em supabase/functions/ai-orchestrator/lib.ts
+ */
+export const URBAN_RISK_COLLECTION_CATEGORIES: readonly string[] = [
+  'via_publica',
+  'pavimentacao',
+  'iluminacao',
+  'esgoto',
+  'area_verde',
+  'calcada',
+  'sinalizacao',
+  'drenagem',
+  'poluicao',
+  'lixo',
+  'higiene_urbana',
+  'animais',
+  'outro',
+];
 
 export const URBAN_REPORT_FIELDS: FieldConfig[] = [
   { key: 'category', label: 'Categoria', required: true },
@@ -25,7 +42,7 @@ export const URBAN_REPORT_FIELDS: FieldConfig[] = [
   { key: 'street_number', label: 'Número', required: false },
   { key: 'neighborhood', label: 'Bairro', required: true },
   { key: 'reference_point', label: 'Referência', required: false },
-  { key: 'risk_level', label: 'Risco', required: false, requiredFor: RISK_CATEGORIES },
+  { key: 'risk_level', label: 'Gravidade', required: false, requiredFor: [...URBAN_RISK_COLLECTION_CATEGORIES] },
   { key: 'affected_scope', label: 'Afetação', required: false, requiredWhen: { field: 'risk_level', values: ['critical', 'moderate'] } },
 ];
 

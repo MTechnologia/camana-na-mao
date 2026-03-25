@@ -806,7 +806,7 @@ serve(async (req) => {
                 iluminacao: 'iluminação', via_publica: 'via pública', pavimentacao: 'pavimentação', calcada: 'calçada',
                 sinalizacao: 'sinalização', drenagem: 'drenagem',
                 lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
-                higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'barulho/poluição', outro: 'outro'
+                higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição (barulho ou ar/fumaça)', outro: 'outro'
               };
               return categoryLabels[autoClass.category!] || autoClass.category;
             })();
@@ -979,27 +979,16 @@ serve(async (req) => {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
         }
         
-        // 5. Risk assessment for risk categories - WITH AUTO-INFERENCE
-        const RISK_CATEGORIES = [
-          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
-        ];
-        if (RISK_CATEGORIES.includes(fields.category)) {
+        // 5. Gravidade / criticidade (risco) — todas as categorias de infraestrutura/ambiente, exceto feedback à Câmara
+        if (lib.URBAN_RISK_COLLECTION_CATEGORIES.includes(String(fields.category || ''))) {
           if (!fields.risk_level) {
-            // TRY AUTO-INFERENCE from description before asking
-            const autoRisk = lib.autoInferRisk(fields.description || '');
-            if (autoRisk.risk_level && autoRisk.confidence >= 0.7) {
-              // High confidence - auto-set and skip question
-              fields.risk_level = autoRisk.risk_level;
-              if (autoRisk.risk_types && autoRisk.risk_types.length > 0) {
-                fields.risk_types = autoRisk.risk_types;
-              }
-              fields.urgency_reason = `Auto-inferido: ${autoRisk.reason}`;
-              console.log('[getNextMissingField] Auto-inferred risk:', autoRisk);
-              // Don't return - continue to next field check
-            } else {
-              // Low confidence - need to ask
-              return { field: 'risk_level', picker: null, prompt: 'Há algum **risco imediato**? (sim/não) _(ex: fios expostos, via bloqueada, alagando)_' };
-            }
+            // Sempre pergunta ao cidadão (evita classificação “invisível” só por autoInferRisk)
+            return {
+              field: 'risk_level',
+              picker: null,
+              prompt:
+                '[FIELD_REQUEST:risk_level]**Gravidade do problema:** há **risco ou impacto imediato** no local ou para as pessoas? _(ex.: fios expostos, via bloqueada, alagamento forte, foco de contaminação, cheiro tóxico forte)_\n\nResponda **sim** ou **não**, ou descreva em uma frase.',
+            };
           }
           if (['critical', 'moderate'].includes(fields.risk_level) && !fields.affected_scope) {
             return { field: 'affected_scope', picker: null, prompt: 'Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?' };
@@ -1640,8 +1629,8 @@ serve(async (req) => {
               const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
 
 • **Natureza:** ${natureLabel}
-• **Categoria:** ${catLabel}
-• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Categoria:** ${catLabel}${lib.formatUrbanReportPreviewAfterCategory(accumulatedFields as Record<string, unknown>)}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
 • **Endereço:** ${addr}${neighborhood}
 
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
@@ -1714,8 +1703,8 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 : '';
               const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
 • **Natureza:** ${natureLabel2}
-• **Categoria:** ${catLabel}
-• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Categoria:** ${catLabel}${lib.formatUrbanReportPreviewAfterCategory(accumulatedFields as Record<string, unknown>)}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
 • **Endereço:** ${addr}${neighborhood}${photoLine}
 
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
@@ -2105,6 +2094,15 @@ ${empathyNote}
       });
     }
 
+    // Avaliação / desempenho subjetivo de políticos → resposta padrão sem LLM
+    if (lib.isPoliticianPerformanceEvaluationQuestion(lastUserMsg)) {
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: lib.POLITICIAN_EVALUATION_BLOCKED_MESSAGE } }] });
+      console.log('[ai-orchestrator] Bloqueio: avaliação/desempenho de políticos:', lastUserMsg.slice(0, 80));
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     // Small talk: "tudo bem?", "como vai?" (reciprocal) vs papo realmente fora (céu azul, tempo, etc.)
     const reciprocalGreetingPatterns = [
       /tudo bem\??/i, /tudo bom\??/i, /como vai\??/i, /como (está|esta) (você|vc|voce)\??/i,
@@ -2167,7 +2165,7 @@ ${empathyNote}
         else if (msgLower.includes('bom dia')) greeting = 'Bom dia!';
         else if (msgLower.includes('boa tarde')) greeting = 'Boa tarde!';
         else if (msgLower.includes('olá') || msgLower.includes('oi')) greeting = 'Olá!';
-        const servicesList = '• Problema na cidade\n• Transporte\n• Avaliar serviço\n• Serviços próximos\n• Tirar dúvida sobre a Câmara';
+        const servicesList = '• Relato Urbano\n• Transporte\n• Avaliar serviço\n• Serviços próximos\n• Tirar dúvida sobre a Câmara';
         const offTopicResponse = `${greeting} Desculpe, o intuito deste canal é poder te ajudar com estes serviços:\n\n${servicesList}\n\n[SHOW_SERVICES_CHIPS]`;
         const ssePayload = JSON.stringify({ choices: [{ delta: { content: offTopicResponse } }] });
         return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -2833,7 +2831,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
 
       console.log('[ai-orchestrator] Tool call (non-stream):', toolName);
       
-      const result = await lib.executeTool(toolName, toolArgs, user.id, supabase);
+      const result = await lib.executeTool(toolName, toolArgs, user.id, supabase, accumulatedFields);
       
       // Merge toolArgs for non-streaming mode too
       const finalFields = {

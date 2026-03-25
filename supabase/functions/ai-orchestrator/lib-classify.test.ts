@@ -146,12 +146,30 @@ Deno.test("B9: 'drenagem entupida' → drenagem, confidence 8.5/10, label null (
 
 // ─── Grupo C: baixa confiança / fallback ──────────────────────────────────────
 
-Deno.test("C1: 'barulho no bairro' → poluicao, confidence 0.6 (padrão genérico weight 6)", () => {
-  // 'barulho na madrugada' bate no padrão weight 9 (barulho.*madrugada)
-  // 'barulho no bairro' só bate no padrão genérico weight 6
+Deno.test("C1: 'barulho no bairro' → poluicao, confidence 0.7 (padrão sonora weight 7)", () => {
+  // 'barulho na madrugada' bate no padrão weight 9
+  // 'barulho no bairro' bate no padrão sonora genérico weight 7
   const r = autoClassifyCategory("barulho no bairro");
   assertEquals(r.category, "poluicao");
-  assertEquals(r.confidence, 0.6);
+  assertEquals(r.confidence, 0.7);
+});
+
+Deno.test("P1: 'poluição sonora do vizinho' → poluicao, label Perturbação Sonora", () => {
+  const r = autoClassifyCategory("poluição sonora do vizinho");
+  assertEquals(r.category, "poluicao");
+  assertEquals(r.suggestedLabel, "Perturbação Sonora");
+});
+
+Deno.test("P2: 'fumaça tóxica da fábrica poluição do ar' → poluicao, label Poluição Atmosférica ou Ambiental", () => {
+  const r = autoClassifyCategory("fumaça tóxica da fábrica poluição do ar");
+  assertEquals(r.category, "poluicao");
+  assertEquals(r.suggestedLabel, "Poluição Atmosférica");
+});
+
+Deno.test("P3: 'poluição atmosférica industrial' → poluicao, label Poluição Ambiental", () => {
+  const r = autoClassifyCategory("poluição atmosférica industrial");
+  assertEquals(r.category, "poluicao");
+  assertEquals(r.suggestedLabel, "Poluição Ambiental");
 });
 
 Deno.test("C2: 'situação irregular no bairro' → outro, confidence 0.2", () => {

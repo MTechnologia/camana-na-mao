@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAnonKey } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
@@ -12,11 +12,39 @@ import {
   type ServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
+import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 const LIGHT_JOURNEY_TYPES: string[] = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
+
+/** Corpo de erro da Edge (HTML/JSON) → texto útil em português. */
+function describeAiOrchestratorFailure(status: number, body: string): string {
+  const b = body.trim();
+  if (b.startsWith("{")) {
+    try {
+      const j = JSON.parse(b) as { code?: string; message?: string };
+      if (j.code === "NOT_FOUND" || /function was not found|not found/i.test(String(j.message ?? ""))) {
+        return "A função ai-orchestrator não foi encontrada neste projeto. Publique a Edge Function e confira CAMARA_URL / VITE_SUPABASE_URL.";
+      }
+      if (j.message) return j.message;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (
+    status === 404 ||
+    /trouble finding the resource|requested function was not found/i.test(b)
+  ) {
+    return "Serviço do assistente indisponível (404). Verifique o deploy de ai-orchestrator e se a URL do Supabase está correta.";
+  }
+  if (status === 401 || status === 403) {
+    return "Sessão expirada ou sem permissão. Faça login novamente.";
+  }
+  if (b.length > 400) return `${b.slice(0, 400)}…`;
+  return b || `Erro HTTP ${status}`;
+}
 
 interface Message {
   id: string;
@@ -493,6 +521,7 @@ export const useUnifiedAIChat = (
         if (askedForRisk && raw.length > 0) {
           let risk_level: string | null = null;
           const risk_types: string[] = [];
+          const riskNorm = rawLower.replace(/\bcheio(?=\s+t[óo]xic)/g, "cheiro");
 
           // Detecção de negação
           if (rawLower.includes('sem risco') || rawLower.includes('não tem risco') || rawLower.includes('nenhum risco')) {
@@ -504,7 +533,9 @@ export const useUnifiedAIChat = (
             rawLower.includes('alag') || rawLower.includes('inund') || rawLower.includes('desab') || rawLower.includes('desmor') ||
             rawLower.includes('bloqueada') || rawLower.includes('bloqueado') || rawLower.includes('não passa') || rawLower.includes('nao passa') ||
             rawLower.includes('urgente') || rawLower.includes('emergência') || rawLower.includes('emergencia') ||
-            rawLower.includes('crítico') || rawLower.includes('muito perigoso') || rawLower.includes('grave')
+            rawLower.includes('crítico') || rawLower.includes('muito perigoso') || rawLower.includes('grave') ||
+            riskNorm.includes('tóxic') || riskNorm.includes('toxic') || riskNorm.includes('foco de contamina') ||
+            (riskNorm.includes('cheiro') && riskNorm.includes('forte'))
           ) {
             risk_level = 'critical';
             if (rawLower.includes('fios') || rawLower.includes('choque') || rawLower.includes('elétric')) risk_types.push('electrical');
@@ -512,14 +543,39 @@ export const useUnifiedAIChat = (
             if (rawLower.includes('desab') || rawLower.includes('desmor') || rawLower.includes('estrutur')) risk_types.push('structural');
             if (rawLower.includes('incênd') || rawLower.includes('fogo')) risk_types.push('fire');
             if (rawLower.includes('trânsit') || rawLower.includes('bloqu') || rawLower.includes('passa')) risk_types.push('traffic');
+            if (riskNorm.includes('tóxic') || riskNorm.includes('toxic') || riskNorm.includes('cheiro') || riskNorm.includes('fedor') || riskNorm.includes('fuma')) {
+              risk_types.push('health');
+            }
           } 
           // Moderado - problemas de trânsito e acidentes
           else if (rawLower.includes('acident') || rawLower.includes('trânsit') || rawLower.includes('transit') || rawLower.includes('lento')) {
             risk_level = 'moderate';
             risk_types.push('traffic');
-          } 
+          }
+          // Odor / poluição / saúde (frases livres, alinhado ao parser do orquestrador)
+          else if (
+            riskNorm.includes('cheiro') ||
+            riskNorm.includes('fedor') ||
+            riskNorm.includes('fumaça') ||
+            riskNorm.includes('fumaca') ||
+            riskNorm.includes('contamina') ||
+            riskNorm.includes('polui')
+          ) {
+            risk_level = riskNorm.includes('forte') || riskNorm.includes('grave') || riskNorm.includes('tóxic') || riskNorm.includes('toxic')
+              ? 'critical'
+              : 'moderate';
+            risk_types.push('health');
+          }
           // Baixo - incômodos
           else if (rawLower.includes('incômod') || rawLower.includes('desconfort') || rawLower.includes('pouco')) {
+            risk_level = 'low';
+          }
+          // Frase substantiva sem padrão claro: não travar o fluxo (tracker / UI)
+          else if (
+            raw.trim().length >= 8 &&
+            !/^(não|nao|n|no)\b/i.test(raw.trim()) &&
+            !/^(não sei|nao sei|sem ideia)\b/i.test(raw.trim())
+          ) {
             risk_level = 'low';
           }
           // Resposta afirmativa simples ("sim", "sim, o trânsito está lento")
@@ -802,14 +858,26 @@ export const useUnifiedAIChat = (
       }
     }
 
-    // Evita duplicar somente quando o ÚLTIMO envio imediato é igual (ex.: double-click).
-    // Não pode bloquear "sim"/"não" antigos, senão o backend processa a resposta errada.
+    // Evita duplicar a bolha do usuário quando já existe mensagem otimista com o mesmo texto
+    // (chip na tela inicial: addOptimisticMessage + sendMessage via pendingMessageRef).
+    // Não exigir isLoading aqui: no início de sendMessage isLoading ainda é false, e exigir isLoading
+    // fazia append duplicado → duas vezes "Quero falar sobre a cidade".
+    const trimmedContent = content.trim();
     const lastMessage = messages[messages.length - 1];
     const hasOptimisticMessage =
       !!lastMessage &&
-      isLoading &&
       lastMessage.role === "user" &&
-      lastMessage.content === content;
+      lastMessage.content === trimmedContent;
+
+    // Evita segunda requisição idêntica (ex.: duplo disparo do efeito ou duplo clique antes da resposta)
+    if (
+      isLoading &&
+      lastMessage?.role === "user" &&
+      lastMessage.content === trimmedContent
+    ) {
+      console.warn("[useUnifiedAIChat] Ignoring duplicate send (same text while request in flight)");
+      return;
+    }
 
     // Upload de fotos anexadas (relato via chat): até 3, máx 50MB cada
     // Nova regra: comprimir/redimensionar antes do upload para reduzir tráfego e falhas.
@@ -865,7 +933,7 @@ export const useUnifiedAIChat = (
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content,
+      content: trimmedContent,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
         hour: "2-digit",
         minute: "2-digit",
@@ -896,7 +964,7 @@ export const useUnifiedAIChat = (
             .update({
               messages: updatedMessages,
               last_message_at: new Date().toISOString(),
-              title: currentConv.title || content.slice(0, 50),
+              title: currentConv.title || trimmedContent.slice(0, 50),
             })
             .eq('id', conversationIdRef.current);
         }
@@ -1023,6 +1091,9 @@ export const useUnifiedAIChat = (
       const supabaseUrl =
         import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) throw new Error("Missing CAMARA_URL (or VITE_SUPABASE_URL)");
+      if (!supabaseAnonKey) {
+        console.warn("[useUnifiedAIChat] CAMARA_PUBLISHABLE_KEY / VITE_SUPABASE_PUBLISHABLE_KEY ausente — chamadas à Edge Function podem falhar.");
+      }
 
       // Always call the unified orchestrator
       const response = await fetch(
@@ -1032,6 +1103,7 @@ export const useUnifiedAIChat = (
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${finalToken}`,
+            ...(supabaseAnonKey ? { apikey: supabaseAnonKey } : {}),
           },
           body: JSON.stringify(payload),
         }
@@ -1040,6 +1112,7 @@ export const useUnifiedAIChat = (
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Erro desconhecido');
         console.error('[useUnifiedAIChat] API error:', response.status, errorText);
+        const userFacingDetail = describeAiOrchestratorFailure(response.status, errorText);
         
         if (response.status === 429) {
           toast({
@@ -1062,7 +1135,7 @@ export const useUnifiedAIChat = (
         if (response.status === 400) {
           toast({
             title: "Erro na requisição",
-            description: errorText || "Verifique os dados enviados e tente novamente.",
+            description: userFacingDetail || "Verifique os dados enviados e tente novamente.",
             variant: "destructive",
           });
           setIsLoading(false);
@@ -1070,7 +1143,7 @@ export const useUnifiedAIChat = (
         }
         toast({
           title: "Erro ao enviar mensagem",
-          description: errorText || "Não foi possível enviar a mensagem. Tente novamente.",
+          description: userFacingDetail || "Não foi possível enviar a mensagem. Tente novamente.",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -1473,9 +1546,6 @@ export const useUnifiedAIChat = (
   const getMissingRequiredFields = useCallback((): string[] => {
     if (!collectionType) return [];
     
-    // Import would cause circular dependency, so inline the logic
-    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
-    
     const configs: Record<string, { key: string; required: boolean; requiredFor?: string[]; requiredWhen?: { field: string; values: string[] } }[]> = {
       urban_report: [
         { key: 'report_nature', required: true },
@@ -1483,7 +1553,7 @@ export const useUnifiedAIChat = (
         { key: 'description', required: true },
         { key: 'street', required: true },
         { key: 'neighborhood', required: true },
-        { key: 'risk_level', required: false, requiredFor: RISK_CATEGORIES },
+        { key: 'risk_level', required: false, requiredFor: [...URBAN_RISK_COLLECTION_CATEGORIES] },
         { key: 'affected_scope', required: false, requiredWhen: { field: 'risk_level', values: ['critical', 'moderate'] } },
       ],
       transport_report: [
