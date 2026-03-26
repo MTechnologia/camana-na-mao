@@ -10,8 +10,12 @@ import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useImpactAnalytics } from '@/hooks/useImpactAnalytics';
 import { useRoutesUsageAdminStats } from '@/hooks/useRoutesUsageAdminStats';
+import { useEquipmentOccupancyAdminStats } from '@/hooks/useEquipmentOccupancyAdminStats';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HeatmapChart } from '@/components/analytics/HeatmapChart';
+import { CompactBarChart } from '@/components/analytics/CompactBarChart';
 import { 
   BarChart3, 
   AlertTriangle, 
@@ -37,6 +41,7 @@ export default function AdminDashboard() {
   const { stats: sentimentStats } = useSentimentAnalytics();
   const { stats: impactStats } = useImpactAnalytics();
   const routesUsageStats = useRoutesUsageAdminStats();
+  const occupancyStats = useEquipmentOccupancyAdminStats();
 
   // Marcar como carregado após primeira carga completa
   useMemo(() => {
@@ -173,6 +178,65 @@ export default function AdminDashboard() {
               icon={Coins}
               subtitle="estimativa interna via elements"
             />
+          </div>
+        </div>
+
+        {/* Equipment occupancy */}
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Ocupação de Equipamentos (último ping)</h2>
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              Subdividido por equipamento: selecione um para ver Heatmap (por hora) e gráfico diário.
+            </div>
+            <div className="w-full md:w-72">
+              <Select
+                value={occupancyStats.selectedServiceId || ""}
+                onValueChange={(v) => occupancyStats.setSelectedServiceId(v)}
+                disabled={occupancyStats.loadingTop}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={occupancyStats.loadingTop ? "Carregando..." : "Selecione"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {occupancyStats.topEquipments.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      {occupancyStats.loadingTop ? "Carregando..." : "Sem dados para exibir"}
+                    </SelectItem>
+                  ) : (
+                    occupancyStats.topEquipments.map((eq) => (
+                      <SelectItem key={eq.service_id} value={eq.service_id}>
+                        {eq.service_name ? eq.service_name : `Equipamento ${eq.service_id.slice(0, 6)}`}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="p-6">
+              <h3 className="text-md font-semibold mb-4">Por hora (últimos 7 dias)</h3>
+              {occupancyStats.loadingCharts ? (
+                <div className="h-[360px] flex items-center justify-center text-muted-foreground text-sm">Carregando...</div>
+              ) : (
+                <HeatmapChart data={occupancyStats.heatmap} />
+              )}
+            </Card>
+            <Card className="p-6">
+              <h3 className="text-md font-semibold mb-4">Por dia (últimos 14 dias)</h3>
+              {occupancyStats.loadingCharts ? (
+                <div className="h-[360px] flex items-center justify-center text-muted-foreground text-sm">Carregando...</div>
+              ) : (
+                <div className="h-[360px]">
+                  <CompactBarChart
+                    data={occupancyStats.dailyBars}
+                    total={occupancyStats.dailyTotal}
+                  />
+                </div>
+              )}
+            </Card>
           </div>
         </div>
 
