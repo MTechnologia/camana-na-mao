@@ -9,6 +9,7 @@ import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useImpactAnalytics } from '@/hooks/useImpactAnalytics';
+import { useRoutesUsageAdminStats } from '@/hooks/useRoutesUsageAdminStats';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { 
@@ -21,7 +22,10 @@ import {
   ChevronRight,
   MessageSquare,
   Users,
-  PieChart
+  PieChart,
+  Route,
+  Coins,
+  Layers
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -32,6 +36,7 @@ export default function AdminDashboard() {
   const { stats, isLoading, refresh } = useReportsAnalytics();
   const { stats: sentimentStats } = useSentimentAnalytics();
   const { stats: impactStats } = useImpactAnalytics();
+  const routesUsageStats = useRoutesUsageAdminStats();
 
   // Marcar como carregado após primeira carga completa
   useMemo(() => {
@@ -132,6 +137,43 @@ export default function AdminDashboard() {
             icon={CheckCircle2}
             className="border-green-500/30"
           />
+        </div>
+
+        {/* Routes cost monitoring (30d) */}
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Uso de Rotas (30 dias)</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KPICard
+              title="Eventos Matrix"
+              value={routesUsageStats.loading ? "..." : routesUsageStats.events30d}
+              icon={Route}
+              subtitle="execuções do cálculo de rotas"
+            />
+            <KPICard
+              title="Elements (origem x destino)"
+              value={routesUsageStats.loading ? "..." : routesUsageStats.elements30d}
+              icon={Layers}
+              subtitle="base para estimativa de custo"
+            />
+            <KPICard
+              title="Cache Hit"
+              value={routesUsageStats.loading ? "..." : `${routesUsageStats.cacheHitRate30d}%`}
+              icon={CheckCircle2}
+              subtitle="consultas reaproveitadas"
+            />
+            <KPICard
+              title="Custo Estimado (BRL)"
+              value={
+                routesUsageStats.loading
+                  ? "..."
+                  : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                      routesUsageStats.estimatedCost30dBrl
+                    )
+              }
+              icon={Coins}
+              subtitle="estimativa interna via elements"
+            />
+          </div>
         </div>
 
         {/* Quick Stats - 3 Cards */}
