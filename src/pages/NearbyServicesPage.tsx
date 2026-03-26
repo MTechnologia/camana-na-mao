@@ -18,6 +18,7 @@ import {
   type NearbyService,
 } from "@/hooks/useNearbyServices";
 import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
@@ -239,18 +240,13 @@ export default function NearbyServicesPage() {
     maxConcurrent: 2,
   });
 
+  /** Base para matrix: sempre por distância haversine (não depende da ordenação visual). */
   const sortedServicesByHaversine = useMemo(
-    () =>
-      [...filteredByRating].sort((a, b) => {
-        if (sortBy === "rating") {
-          const ra = a.average_rating ?? 0;
-          const rb = b.average_rating ?? 0;
-          if (rb !== ra) return rb - ra;
-        }
-        return (a.distance ?? 0) - (b.distance ?? 0);
-      }),
-    [filteredByRating, sortBy]
+    () => [...filteredByRating].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
+    [filteredByRating]
   );
+  /** Debounce para evitar recalcular matrix a cada microalteração de filtro/raio. */
+  const debouncedMatrixServices = useDebounce(sortedServicesByHaversine, 800);
 
   const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
   /** Referência estável para o mapa (evita reexecução desnecessária de efeitos no GoogleMap). */
@@ -269,9 +265,10 @@ export default function NearbyServicesPage() {
   const matrixProfile = "walking";
   const { walkingDistances, loading: walkingLoading } = useGoogleDistanceMatrix(
     mapCenter,
-    sortedServicesByHaversine,
+    debouncedMatrixServices,
     hasGoogleMapsKey ? googleMapsApiKey : undefined,
-    matrixProfile
+    matrixProfile,
+    user?.id
   );
 
   const { sortedServices, routeFilterFallback } = useMemo(() => {

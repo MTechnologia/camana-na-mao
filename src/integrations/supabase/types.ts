@@ -1505,6 +1505,56 @@ export type Database = {
           },
         ]
       }
+      routes_usage_metrics: {
+        Row: {
+          cache_hit: boolean
+          chunk_requests: number
+          context: string
+          created_at: string
+          destinations_count: number
+          elements_count: number
+          id: string
+          origin_lat: number | null
+          origin_lng: number | null
+          profile: string
+          user_id: string | null
+        }
+        Insert: {
+          cache_hit?: boolean
+          chunk_requests?: number
+          context?: string
+          created_at?: string
+          destinations_count?: number
+          elements_count?: number
+          id?: string
+          origin_lat?: number | null
+          origin_lng?: number | null
+          profile?: string
+          user_id?: string | null
+        }
+        Update: {
+          cache_hit?: boolean
+          chunk_requests?: number
+          context?: string
+          created_at?: string
+          destinations_count?: number
+          elements_count?: number
+          id?: string
+          origin_lat?: number | null
+          origin_lng?: number | null
+          profile?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_usage_metrics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_plan_items: {
         Row: {
           estimated_duration: number | null
