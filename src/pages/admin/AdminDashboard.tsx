@@ -215,27 +215,26 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-6">
-              <h3 className="text-md font-semibold mb-4">Por hora (últimos 7 dias)</h3>
-              {occupancyStats.loadingCharts ? (
-                <div className="h-[360px] flex items-center justify-center text-muted-foreground text-sm">Carregando...</div>
-              ) : (
-                <HeatmapChart data={occupancyStats.heatmap} />
-              )}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+            <Card className="flex min-h-0 flex-col overflow-hidden p-4 md:p-6">
+              <h3 className="mb-4 shrink-0 text-md font-semibold">Por hora (últimos 7 dias)</h3>
+              <div className="min-h-0 min-w-0 w-full overflow-x-auto">
+                {occupancyStats.loadingCharts ? (
+                  <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Carregando...</div>
+                ) : (
+                  <HeatmapChart data={occupancyStats.heatmap} />
+                )}
+              </div>
             </Card>
-            <Card className="p-6">
-              <h3 className="text-md font-semibold mb-4">Por dia (últimos 14 dias)</h3>
-              {occupancyStats.loadingCharts ? (
-                <div className="h-[360px] flex items-center justify-center text-muted-foreground text-sm">Carregando...</div>
-              ) : (
-                <div className="h-[360px]">
-                  <CompactBarChart
-                    data={occupancyStats.dailyBars}
-                    total={occupancyStats.dailyTotal}
-                  />
-                </div>
-              )}
+            <Card className="flex min-h-0 flex-col overflow-hidden p-4 md:p-6">
+              <h3 className="mb-4 shrink-0 text-md font-semibold">Por dia (últimos 14 dias)</h3>
+              <div className="flex h-[420px] min-h-0 w-full min-w-0 flex-col md:h-[460px]">
+                {occupancyStats.loadingCharts ? (
+                  <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando...</div>
+                ) : (
+                  <CompactBarChart data={occupancyStats.dailyBars} total={occupancyStats.dailyTotal} />
+                )}
+              </div>
             </Card>
           </div>
         </div>
