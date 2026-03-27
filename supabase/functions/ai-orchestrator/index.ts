@@ -358,7 +358,7 @@ serve(async (req) => {
     
     // PRIORITY: Use frontend collection type if it's a structured journey type
     const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
-    const LIGHT_JOURNEY_TYPES = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
+    const LIGHT_JOURNEY_TYPES = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
     let collectionIntent: lib.CollectionIntent | null = null;
     
     if (journeySwitchMatch) {
@@ -1293,6 +1293,33 @@ serve(async (req) => {
     const lastAssistantMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
     const userMessagesOrdered = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+
+    // Ocupação: após seleção no picker (mensagem com [SERVICE_ID:...]) — não cair no fluxo "serviços próximos" (location_method).
+    const occupancyServiceIdMatch = lastUserMessage.match(/\[SERVICE_ID:([a-f0-9-]{36})\]/i);
+    const lastAssistantHadOccupancyPicker =
+      /\[OCCUPANCY_SERVICE_PICK\]/i.test(lastAssistantMessage) ||
+      (/consultar a ocupação correta/i.test(lastAssistantMessage) && /\[SERVICE_PICKER/i.test(lastAssistantMessage)) ||
+      (/Selecione na lista abaixo \(ou refine por nome\/bairro\)/i.test(lastAssistantMessage) && /\[SERVICE_PICKER/i.test(lastAssistantMessage));
+    if (occupancyServiceIdMatch && lastAssistantHadOccupancyPicker) {
+      try {
+        const toolResult = await lib.executeTool(
+          'get_service_occupancy_status',
+          { service_id: occupancyServiceIdMatch[1] },
+          user.id,
+          supabase,
+          accumulatedFields
+        );
+        const replyBody = toolResult.message || 'Não consegui consultar a ocupação agora.';
+        const occReply = `[LIGHT_JOURNEY:occupancy]${replyBody}`;
+        const ssePayload = JSON.stringify({ choices: [{ delta: { content: occReply } }] });
+        console.log('[ai-orchestrator] Occupancy picker follow-up: get_service_occupancy_status by service_id');
+        return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+        });
+      } catch (e) {
+        console.error('[ai-orchestrator] Occupancy short-circuit failed:', e);
+      }
+    }
 
     // Encaminhar relato para vereador: se a última resposta do bot foi "Relato registrado com sucesso" e o usuário pede para encaminhar para vereador, NÃO criar novo relato — chamar suggest_council_member
     const lastBotWasReportSuccess = /relato\s+registrado\s+com\s+sucesso|(?:URB|REL)-20\d{2}-\d+/.test(lastAssistantLower);

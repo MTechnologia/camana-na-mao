@@ -927,13 +927,13 @@ export function inferTransportTypeFromText(text: string): string | null {
 
 // Intent detection for collection progress tracking with scoring system
 export type CollectionIntent = {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias';
   fields: Record<string, unknown>;
   accumulatedFields?: Record<string, unknown>; // All fields collected across conversation
 };
 
 export interface DetectionScore {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias';
   score: number;
   fields: Record<string, unknown>;
 }
@@ -945,6 +945,7 @@ export function getToolHintForIntent(intentType: string): string | null {
     'audiencias': '[TOOL_HINT:search_audiencias]',
     'general': '[TOOL_HINT:search_knowledge_base]',
     'history': '[TOOL_HINT:get_citizen_history]',
+    'occupancy': '[TOOL_HINT:get_service_occupancy_status]',
   };
   return hints[intentType] || null;
 }
@@ -2722,7 +2723,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
 // Accumulate fields from all messages in conversation for better tracking
 export function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
-  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias'
+  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias'
 ): Record<string, unknown> {
   // === LIGHT JOURNEY: services (busca de serviços próximos) ===
   // Ordem: 1) location_method (GPS / cadastrado / manual), 2) se manual → CEP/endereço, 3) service_type
@@ -4517,7 +4518,7 @@ export function detectCollectionIntent(
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
   
   // === GENERIC "quero falar de X" PATTERN DETECTION ===
-  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias';
   // Inclui preciso/gostaria e "sobre a cidade" → tópico "cidade" (antes capturava só "a")
   const queroFalarMatch = msgLower.match(
     /(?:quero|vou|vamos|preciso|gostaria(?:\s+de)?)\s+falar\s+(?:de|do|da|sobre)\s+(?:a\s+)?(\w+)/i
@@ -4642,6 +4643,22 @@ export function detectCollectionIntent(
     scores.push({ type: 'general', score: 22, fields: {} });
   }
 
+  // Consulta de ocupação de equipamento (ex.: "A UBS X está cheia?") → general com tool de ocupação.
+  // Não deve cair em fluxo estruturado de avaliação.
+  const isEquipmentOccupancyQuery = (() => {
+    const m = msgLower;
+    const hasServiceEntity = /\b(ubs|hospital|escola|ceu|biblioteca|posto de sa[úu]de|centro esportivo|equipamento)\b/i.test(m);
+    const hasOccupancySignal =
+      /(ocup[aã]?[cç][aã]o|lota[cç][aã]o|movimenta[cç][aã]o|est[aá]\s+chei[oa]|t[aá]\s+chei[oa]|lotad[oa]|superlotad[oa])/.test(m);
+    const asksNow =
+      /(como est[aá]|agora|neste momento|nesse momento|nesse local|neste local|\best[aá]\b.*\?)/.test(m);
+    return hasServiceEntity && hasOccupancySignal && asksNow;
+  })();
+  if (isEquipmentOccupancyQuery) {
+    console.log('[detectCollectionIntent] Equipment occupancy query detected → occupancy tool, not service_rating');
+    scores.push({ type: 'occupancy', score: 28, fields: {} });
+  }
+
   // Transport scoring (relato de problema: atraso, lotação, etc.)
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus', 'transporte', 'transporte público', 'transporte publico'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
@@ -4697,7 +4714,12 @@ export function detectCollectionIntent(
     serviceScore += 5; // Strong boost for explicit intent
     console.log('[detectCollectionIntent] Explicit rating intent detected');
   }
-  if (serviceScore > 0) {
+  const hasRatingSignal = ratingTerms.some(term => fullUserContext.includes(term));
+  // Evita confundir "UBS X está cheia?" com fluxo de avaliação.
+  if (isEquipmentOccupancyQuery) {
+    serviceScore = 0;
+  }
+  if (serviceScore > 0 && (hasRatingSignal || hasExplicitRatingIntent)) {
     scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullUserContext) });
   }
   
@@ -5002,7 +5024,7 @@ export function detectCollectionIntent(
   // === UNIVERSAL JOURNEY SWITCH DETECTION ===
   // Detect switches between ANY journey types (structured or light)
   const allJourneyTypes = ['urban_report', 'transport_report', 'service_rating', 
-                           'services', 'audiencias', 'general', 'history',
+                           'services', 'audiencias', 'general', 'history', 'occupancy',
                            'vereadores', 'noticias'] as const;
   const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
   
@@ -5044,7 +5066,7 @@ export function detectCollectionIntent(
   
   // === PHASE 1: Check if we should maintain existing journey ===
   // If there's an existing structured journey and the new winner is a "light" type with LOW score, keep existing
-  const lightTypes = ['services', 'audiencias', 'general', 'history'];
+  const lightTypes = ['services', 'audiencias', 'general', 'history', 'occupancy'];
   if (existingJourney && isExistingStructured && lightTypes.includes(winner.type) && winner.score < 6) {
     console.log(`[detectCollectionIntent] Existing journey ${existingJourney} preserved (new intent was light with low score: ${winner.type}=${winner.score})`);
     const accumulatedFields = accumulateFieldsFromHistory(conversationHistory, existingJourney);
@@ -5740,6 +5762,203 @@ export async function getServiceAddressByName(supabase: SupabaseClient, serviceN
   const addressLine = [first.address, first.district].filter(Boolean).join(', ');
   const phoneNote = first.phone ? `\n📞 ${first.phone}` : '';
   return `${first.name}\n📍 ${addressLine}${phoneNote}`;
+}
+
+type OccupancyServiceDisplay = {
+  name: string;
+  address?: string | null;
+  district?: string | null;
+};
+
+/** Formata texto de ocupação a partir do retorno da RPC (mesma política da UI cidadã). */
+function formatOccupancySummaryFromRpcResult(selected: OccupancyServiceDisplay, occRows: unknown): string {
+  const row = Array.isArray(occRows) ? occRows[0] : null;
+  const usersCount = Math.max(0, Number((row as { users_count?: unknown })?.users_count || 0));
+  const lastPingAt = row && typeof (row as { last_ping_at?: unknown }).last_ping_at === 'string'
+    ? String((row as { last_ping_at: string }).last_ping_at)
+    : null;
+  const MIN_SAMPLE = 3;
+
+  let movementLabel = 'Movimentação baixa';
+  let coverageLabel = 'Cobertura baixa';
+  if (usersCount >= 20) {
+    movementLabel = 'Movimentação alta';
+    coverageLabel = 'Cobertura alta';
+  } else if (usersCount >= 8) {
+    movementLabel = 'Movimentação média';
+    coverageLabel = 'Cobertura média';
+  }
+
+  const header = `📍 **${selected.name}**${selected.district ? ` (${selected.district})` : ''}`;
+  const address = selected.address ? `\nEndereço: ${selected.address}` : '';
+  const baseLine = `\nFonte: Visitas detectadas no app (sinais de presença agregados).`;
+  const lastPingLine = lastPingAt
+    ? `\nÚltimo ping: ${new Date(lastPingAt).toLocaleString('pt-BR')}.`
+    : '';
+  const transparencyLine = `\nIndicador estimado com base em interações de usuários do app (não é medição oficial da Prefeitura).`;
+
+  if (usersCount < MIN_SAMPLE) {
+    return `${header}${address}\n\n**Dados insuficientes** para estimar a movimentação agora (base abaixo da amostra mínima).${baseLine}${lastPingLine}${transparencyLine}`;
+  }
+
+  return `${header}${address}\n\n${movementLabel} nas últimas 2h.\n${coverageLabel}.\nBase: ${usersCount} pessoa${usersCount === 1 ? '' : 's'} com sinais recentes no app.${baseLine}${lastPingLine}${transparencyLine}`;
+}
+
+/**
+ * Ocupação por UUID (ex.: seleção no picker após pergunta de lotação).
+ */
+export async function getServiceOccupancyStatusByServiceId(
+  supabase: SupabaseClient,
+  serviceId: string
+): Promise<string> {
+  const idTrim = String(serviceId || '').trim();
+  if (!/^[a-f0-9-]{36}$/i.test(idTrim)) {
+    return 'Identificador do serviço inválido.';
+  }
+  const { data: svc, error } = await supabase
+    .from('public_services')
+    .select('id, name, address, district')
+    .eq('id', idTrim)
+    .maybeSingle();
+  if (error || !svc) {
+    return 'Não encontrei esse equipamento na base. Tente novamente ou escolha outro na lista.';
+  }
+  const selected: OccupancyServiceDisplay = {
+    name: String(svc.name),
+    address: (svc as { address?: string | null }).address ?? null,
+    district: (svc as { district?: string | null }).district ?? null,
+  };
+  const { data: occRows, error: occError } = await supabase.rpc('get_equipment_occupancy_summary_for_service', {
+    p_service_id: idTrim,
+    p_window_minutes: 120,
+  });
+  if (occError) {
+    console.warn('[getServiceOccupancyStatusByServiceId] occupancy rpc error:', occError.message);
+    return `Encontrei **${selected.name}**, mas não consegui consultar a ocupação neste momento.`;
+  }
+  return formatOccupancySummaryFromRpcResult(selected, occRows);
+}
+
+/**
+ * Retorna status de ocupação de um equipamento específico pelo nome.
+ * Usa a mesma política da UI cidadã: amostra mínima, nível de movimentação e transparência.
+ */
+export async function getServiceOccupancyStatusByName(
+  supabase: SupabaseClient,
+  serviceName: string,
+  district?: string
+): Promise<string> {
+  const nameTrim = String(serviceName || "").trim();
+  const districtTrim = String(district || "").trim();
+  if (nameTrim.length < 3) {
+    return 'Me diga o nome do equipamento com mais detalhe (ex.: "CEU Butantã" ou "UBS Vila Mariana").';
+  }
+
+  // Remove termos de pergunta para melhorar matching por nome real do equipamento.
+  const cleanedName = nameTrim
+    .replace(/\?/g, ' ')
+    .replace(/\b(como\s+est[aá]|est[aá]\s+chei[oa]|t[aá]\s+chei[oa]|lota[cç][aã]o|ocupa[cç][aã]o|agora)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const lookupTerm = cleanedName.length >= 3 ? cleanedName : nameTrim;
+
+  const inferServiceTypeForPicker = (text: string): string | null => {
+    const t = text.toLowerCase();
+    if (/\bubs\b|posto de sa[úu]de/.test(t)) return 'ubs';
+    if (/\bhospital\b/.test(t)) return 'hospital';
+    if (/\bescola\b|emef|emei|etec/.test(t)) return 'school';
+    if (/\bceu\b/.test(t)) return 'ceu';
+    if (/\bbiblioteca\b/.test(t)) return 'library';
+    if (/centro esportivo|esportivo/.test(t)) return 'sports_center';
+    return null;
+  };
+  const inferDistrictForPicker = (text: string): string | null => {
+    const t = text
+      .replace(/\b(ubs|hospital|escola|ceu|biblioteca|posto de sa[úu]de|centro esportivo)\b/gi, ' ')
+      .replace(/\b(como|est[aá]|agora|ocup[aã]?[cç][aã]o|lota[cç][aã]o|movimenta[cç][aã]o)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return t.length >= 3 ? t : null;
+  };
+  const pickerType = inferServiceTypeForPicker(lookupTerm);
+  const pickerDistrict = districtTrim || inferDistrictForPicker(lookupTerm) || '';
+  const pickerMarker = `[SERVICE_PICKER${pickerDistrict ? `:district=${encodeURIComponent(pickerDistrict)}` : ''}${pickerType ? `:type=${pickerType}` : ''}]`;
+
+  // Query mínima e resiliente (evita erro em ambientes com variações de colunas como district/neighborhood).
+  let { data: services, error: serviceError } = await supabase
+    .from('public_services')
+    .select('id, name')
+    .ilike('name', `%${lookupTerm}%`)
+    .limit(8);
+  if (serviceError) {
+    console.warn('[getServiceOccupancyStatusByName] service lookup error (table):', serviceError.message);
+    // Fallback robusto via RPC de busca (usada em outras jornadas do app).
+    const { data: rpcData, error: rpcError } = await supabase.rpc('search_public_services_fulltext', {
+      min_lat: null,
+      max_lat: null,
+      min_lng: null,
+      max_lng: null,
+      center_lat: null,
+      center_lng: null,
+      radius_meters: null,
+      search_query: lookupTerm,
+      service_types: null,
+      result_limit: 8,
+    });
+    if (rpcError) {
+      console.warn('[getServiceOccupancyStatusByName] service lookup error (rpc):', rpcError.message);
+      return 'Não consegui consultar a ocupação agora. Tente novamente em instantes.';
+    }
+    services = (Array.isArray(rpcData) ? rpcData : [])
+      .map((r: Record<string, unknown>) => ({ id: String(r.id || ''), name: String(r.name || '') }))
+      .filter((r) => r.id && r.name);
+  }
+  if (!services?.length) {
+    return `[OCCUPANCY_SERVICE_PICK][FIELD_REQUEST:service_name]Não encontrei exatamente esse equipamento${districtTrim ? ` em ${districtTrim}` : ''}. Selecione na lista abaixo (ou refine por nome/bairro).\n${pickerMarker}`;
+  }
+
+  // Tenta enriquecer com address/district; se falhar, segue sem esses campos.
+  let detailsById = new Map<string, { address?: string | null; district?: string | null }>();
+  const ids = services.map((s) => s.id).filter(Boolean);
+  if (ids.length > 0) {
+    const { data: detailsRows } = await supabase
+      .from('public_services')
+      .select('id, address, district')
+      .in('id', ids);
+    for (const row of (detailsRows || [])) {
+      detailsById.set(String(row.id), {
+        address: (row as { address?: string | null }).address ?? null,
+        district: (row as { district?: string | null }).district ?? null,
+      });
+    }
+  }
+
+  const ranked = services
+    .map((s) => {
+      const d = detailsById.get(String(s.id));
+      const scoreNameExact = s.name?.toLowerCase?.() === lookupTerm.toLowerCase() ? 4 : 0;
+      const scoreNameIncludes = s.name?.toLowerCase?.().includes(lookupTerm.toLowerCase()) ? 2 : 0;
+      const scoreDistrict = districtTrim && d?.district?.toLowerCase?.().includes(districtTrim.toLowerCase()) ? 3 : 0;
+      return { ...s, address: d?.address ?? null, district: d?.district ?? null, _score: scoreNameExact + scoreNameIncludes + scoreDistrict };
+    })
+    .sort((a, b) => b._score - a._score);
+
+  if (ranked.length > 1 && ranked[0]?._score === ranked[1]?._score) {
+    return `[OCCUPANCY_SERVICE_PICK][FIELD_REQUEST:service_name]Encontrei mais de um equipamento parecido. Selecione na lista abaixo para eu consultar a ocupação correta.\n${pickerMarker}`;
+  }
+
+  const selected = ranked[0];
+  const { data: occRows, error: occError } = await supabase.rpc('get_equipment_occupancy_summary_for_service', {
+    p_service_id: selected.id,
+    p_window_minutes: 120,
+  });
+
+  if (occError) {
+    console.warn('[getServiceOccupancyStatusByName] occupancy rpc error:', occError.message);
+    return `Encontrei **${selected.name}**, mas não consegui consultar a ocupação neste momento.`;
+  }
+
+  return formatOccupancySummaryFromRpcResult(selected, occRows);
 }
 
 // Helper: build tema filter (ilike on tema or titulo)
@@ -7539,6 +7758,24 @@ export async function executeTool(
           success: true, 
           message: result || 'Não encontrei informações sobre isso. Tente reformular a pergunta.' 
         };
+      }
+
+      case 'get_service_occupancy_status': {
+        const serviceId = typeof args.service_id === 'string' ? args.service_id.trim() : '';
+        if (serviceId && /^[a-f0-9-]{36}$/i.test(serviceId)) {
+          const result = await getServiceOccupancyStatusByServiceId(supabase, serviceId);
+          return { success: true, message: result };
+        }
+        const serviceName = typeof args.service_name === 'string' ? args.service_name.trim() : '';
+        const district = typeof args.district === 'string' ? args.district.trim() : '';
+        if (!serviceName) {
+          return {
+            success: false,
+            message: 'Me diga o nome do equipamento para eu consultar a ocupação (ex.: "CEU Butantã").'
+          };
+        }
+        const result = await getServiceOccupancyStatusByName(supabase, serviceName, district || undefined);
+        return { success: true, message: result };
       }
       
       case 'find_nearby_services': {
