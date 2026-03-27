@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
-import { Phone, Clock, Star, Bell, Info, ExternalLink, AlertTriangle } from "lucide-react";
+import { Phone, Clock, Star, Bell, Info, ExternalLink, AlertTriangle, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { servicosProximos } from "@/data/searchData";
@@ -21,6 +21,14 @@ import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRat
 import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
 import { ServiceFavoriteButton } from "@/components/services/ServiceFavoriteButton";
 import { SERVICE_CORRECTION_REVIEW_SLA_HOURS } from "@/lib/serviceCorrectionFields";
+import {
+  getOccupancyBadgeMeta,
+  getOccupancyCoverageMeta,
+  getOccupancyLevel,
+  MIN_OCCUPANCY_SAMPLE_USERS,
+  OCCUPANCY_SOURCE_SHORT,
+  OCCUPANCY_WINDOW_MINUTES,
+} from "@/lib/occupancySignals";
 import type { ServiceLike } from "@/lib/serviceCorrectionFields";
 
 /** Sanitiza HTML permitindo apenas strong, p e br (conteúdo de services_offered dos CEUs). */
@@ -99,6 +107,8 @@ export default function ServiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [realServiceId, setRealServiceId] = useState<string | null>(null);
+  const [occupancy, setOccupancy] = useState<{ usersCount: number; lastPingAt: string | null } | null>(null);
+  const [loadingOccupancy, setLoadingOccupancy] = useState(false);
 
   const loadService = useCallback(async () => {
     if (!id) {
@@ -203,6 +213,51 @@ export default function ServiceDetailPage() {
     if (user && realServiceId) checkSubscription();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- checkSubscription runs when user/realServiceId change
   }, [user, realServiceId]);
+
+  useEffect(() => {
+    const serviceIdForOccupancy = realServiceId || (id && isServiceIdUUID(id) ? id : null);
+    if (!serviceIdForOccupancy) {
+      setOccupancy(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchOccupancy = async () => {
+      setLoadingOccupancy(true);
+      try {
+        const supabaseAny = supabase as unknown as {
+          rpc: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>
+        };
+        const { data, error } = await supabaseAny.rpc("get_equipment_occupancy_summary_for_service", {
+          p_service_id: serviceIdForOccupancy,
+          p_window_minutes: OCCUPANCY_WINDOW_MINUTES,
+        });
+        if (cancelled) return;
+        if (error) {
+          console.warn("[service-occupancy] rpc error:", error.message);
+          setOccupancy(null);
+          return;
+        }
+        const row = Array.isArray(data) ? (data[0] as { users_count?: number; last_ping_at?: string | null } | undefined) : undefined;
+        setOccupancy({
+          usersCount: Number(row?.users_count ?? 0),
+          lastPingAt: row?.last_ping_at ?? null,
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.warn("[service-occupancy] fetch failed:", err);
+          setOccupancy(null);
+        }
+      } finally {
+        if (!cancelled) setLoadingOccupancy(false);
+      }
+    };
+
+    void fetchOccupancy();
+    return () => {
+      cancelled = true;
+    };
+  }, [realServiceId, id]);
 
   const checkSubscription = async () => {
     if (!user || !realServiceId) return;
@@ -461,6 +516,77 @@ export default function ServiceDetailPage() {
                 </p>
               </div>
             )}
+
+            {/* Ocupação simplificada para munícipe (sem heatmap). */}
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                Pessoas no local
+              </h3>
+              {loadingOccupancy ? (
+                <p className="text-sm text-muted-foreground">Carregando estimativa...</p>
+              ) : occupancy ? (
+                <div className="space-y-2">
+                  {occupancy.usersCount < MIN_OCCUPANCY_SAMPLE_USERS ? (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className="border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300"
+                      >
+                        Dados insuficientes
+                      </Badge>
+                      <p className="text-sm text-muted-foreground">
+                        Ainda não há volume suficiente para estimar a movimentação deste local.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {(() => {
+                        const level = getOccupancyLevel(occupancy.usersCount);
+                        const badge = getOccupancyBadgeMeta(level);
+                        const coverage = getOccupancyCoverageMeta(occupancy.usersCount);
+                        return (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className={badge.className}>
+                              {badge.label}
+                            </Badge>
+                            <Badge variant="outline" className={coverage.className}>
+                              {coverage.label}
+                            </Badge>
+                          </div>
+                        );
+                      })()}
+                      <p className="text-sm text-muted-foreground">
+                        Estimativa de presença nas últimas {Math.round(OCCUPANCY_WINDOW_MINUTES / 60)}h.
+                      </p>
+                    </>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Fonte: {OCCUPANCY_SOURCE_SHORT} (sinais de presença agregados).
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Base: {occupancy.usersCount} pessoa{occupancy.usersCount === 1 ? "" : "s"} com sinais recentes no app
+                    {occupancy.lastPingAt
+                      ? ` • último ping: ${new Date(occupancy.lastPingAt).toLocaleString("pt-BR")}`
+                      : ""}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Indicador estimado com base em interações de usuários do app (não é medição oficial da Prefeitura).
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Para desativar esse tipo de sinal, ajuste suas permissões de localização/notificações em{" "}
+                    <a href="/perfil/preferencias" className="text-primary hover:underline">
+                      Preferências
+                    </a>.
+                    Se desativar, a detecção de presença e os lembretes de avaliação podem não funcionar.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Sem dados recentes de ocupação para esta unidade.
+                </p>
+              )}
+            </div>
 
             {/* O que este serviço oferece — tipo, serviços e ambientes quando existirem */}
             <div className="space-y-1">
