@@ -273,6 +273,22 @@ export const tools = [
   {
     type: "function",
     function: {
+      name: "get_service_occupancy_status",
+      description: "Consulta a estimativa atual de ocupação/movimentação de um equipamento público específico pelo nome (ex.: 'Como está o CEU Butantã agora?'). Usar quando o cidadão perguntar 'como está', 'está cheio', 'ocupação', 'movimentação' de um local/equipamento.",
+      parameters: {
+        type: "object",
+        properties: {
+          service_name: { type: "string", description: "Nome do equipamento/serviço (ex.: CEU Butantã, UBS Vila Mariana)" },
+          service_id: { type: "string", description: "UUID do serviço quando o cidadão escolheu um item na lista (picker); preferir em relação ao nome." },
+          district: { type: "string", description: "Bairro/região para desambiguar quando houver nomes parecidos (opcional)." }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "search_bus_lines",
       description: "Busca linhas de ônibus da SPTrans (Olho Vivo) por número ou nome. Usar quando o cidadão perguntar: qual linha passa aqui, ônibus 8000, linha para a Lapa, etc.",
       parameters: {

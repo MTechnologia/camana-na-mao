@@ -14,7 +14,7 @@ import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
-const LIGHT_JOURNEY_TYPES: string[] = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
+const LIGHT_JOURNEY_TYPES: string[] = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
 
 const COLLECTION_PROGRESS_PREFIX = "[COLLECTION_PROGRESS:";
