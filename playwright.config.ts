@@ -11,6 +11,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   // Com 4 workers, auth/redirect e /avaliar ficam instáveis; localmente 2, CI 1
   workers: process.env.CI ? 1 : 2,
+  timeout: 60_000,
+  expect: {
+    timeout: 15_000,
+  },
   reporter: [
     ['html'],
     ['json', { outputFile: 'test-results/results.json' }],
@@ -19,6 +23,8 @@ export default defineConfig({
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
   },
 
   projects: [
@@ -36,5 +42,12 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
+    env: {
+      ...process.env,
+      // E2E deve ser determinístico e não depender de integrações externas (ex.: Google Maps).
+      // Se você quiser testar com Maps real, rode localmente com VITE_GOOGLE_MAPS_API_KEY no ambiente
+      // e remova/ajuste esta linha.
+      VITE_GOOGLE_MAPS_API_KEY: '',
+    },
   },
 });
