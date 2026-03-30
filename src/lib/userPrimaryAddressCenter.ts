@@ -13,10 +13,13 @@ function buildAddressLabel(parts: {
 }
 
 /** Centro (lat/lng + rótulo) do endereço primário do usuário, ou null. */
+export type UserPrimaryAddressCenterResult =
+  | { center: CepCenter; reason: "ok" }
+  | { center: null; reason: "not_found" | "missing_coordinates" };
+
 export async function getUserPrimaryAddressCenter(
   userId: string,
-  googleMapsApiKey: string | undefined,
-): Promise<CepCenter | null> {
+): Promise<UserPrimaryAddressCenterResult> {
   const { data, error } = await supabase
     .from("user_addresses")
     .select("street, number, neighborhood, city, state, latitude, longitude")
@@ -24,7 +27,7 @@ export async function getUserPrimaryAddressCenter(
     .eq("is_primary", true)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data) return { center: null, reason: "not_found" };
 
   const label = buildAddressLabel({
     street: data.street,
@@ -36,23 +39,13 @@ export async function getUserPrimaryAddressCenter(
 
   if (data.latitude != null && data.longitude != null) {
     return {
-      latitude: data.latitude,
-      longitude: data.longitude,
-      label,
+      center: {
+        latitude: data.latitude,
+        longitude: data.longitude,
+        label,
+      },
+      reason: "ok",
     };
   }
-
-  if (!googleMapsApiKey?.trim()) return null;
-
-  const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(label)}&key=${googleMapsApiKey}&language=pt-BR`;
-  const geoRes = await fetch(geocodeUrl);
-  const geoData = await geoRes.json();
-  const first = geoData?.results?.[0];
-  if (!first?.geometry?.location) return null;
-  const { lat, lng } = first.geometry.location;
-  return {
-    latitude: lat,
-    longitude: lng,
-    label: first.formatted_address ?? label,
-  };
+  return { center: null, reason: "missing_coordinates" };
 }
