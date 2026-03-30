@@ -17,8 +17,6 @@ import {
   NEARBY_FULLTEXT_MIN_LENGTH,
   type NearbyService,
 } from "@/hooks/useNearbyServices";
-import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
-import { useDebounce } from "@/hooks/useDebounce";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
@@ -41,7 +39,7 @@ import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
 import { NEARBY_DEFAULT_SERVICE_TYPES } from "@/lib/nearbyDefaultServiceTypes";
 import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 import { cn } from "@/lib/utils";
-import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
+import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function NearbyServicesPage() {
@@ -91,11 +89,11 @@ export default function NearbyServicesPage() {
     setAddressBootstrapDone(false);
     void (async () => {
       try {
-        const center = await getUserPrimaryAddressCenter(user.id, getGoogleMapsApiKey());
+        const result = await getUserPrimaryAddressCenter(user.id);
         if (cancelled) return;
-        if (center) {
-          setSavedProfileCenter(center);
-          setCepCenter(center);
+        if (result.center) {
+          setSavedProfileCenter(result.center);
+          setCepCenter(result.center);
           setLocationMode("profile_address");
           setLocationUiPhase("locked");
         } else {
@@ -149,20 +147,19 @@ export default function NearbyServicesPage() {
       toast.error("Faça login para usar o endereço cadastrado.");
       return;
     }
-    const apiKey = getGoogleMapsApiKey();
     setProfileAddressLoading(true);
     try {
-      const center = await getUserPrimaryAddressCenter(user.id, apiKey);
-      if (center) {
-        setSavedProfileCenter(center);
-        setCepCenter(center);
+      const result = await getUserPrimaryAddressCenter(user.id);
+      if (result.center) {
+        setSavedProfileCenter(result.center);
+        setCepCenter(result.center);
         setLocationMode("profile_address");
         setLocationUiPhase("locked");
       } else {
-        if (!apiKey?.trim()) {
-          toast.error(getGoogleMapsNotConfiguredMessage());
-        } else {
+        if (result.reason === "not_found") {
           toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
+        } else {
+          toast.error("Seu endereço cadastrado ainda não possui coordenadas. Atualize o endereço em Perfil → Endereço.");
         }
       }
     } catch (e) {
@@ -195,9 +192,6 @@ export default function NearbyServicesPage() {
       setLocationUiPhase("picking");
     }
   }, [locationMode, geoLoading, geoError]);
-
-  const googleMapsApiKey = getGoogleMapsApiKey();
-  const hasGoogleMapsKey = !!googleMapsApiKey;
 
   const { isOnline } = useNetworkStatus();
 
@@ -240,13 +234,11 @@ export default function NearbyServicesPage() {
     maxConcurrent: 2,
   });
 
-  /** Base para matrix: sempre por distância haversine (não depende da ordenação visual). */
+  /** Base de ordenação por distância em linha reta (Haversine). */
   const sortedServicesByHaversine = useMemo(
     () => [...filteredByRating].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
     [filteredByRating]
   );
-  /** Debounce para evitar recalcular matrix a cada microalteração de filtro/raio. */
-  const debouncedMatrixServices = useDebounce(sortedServicesByHaversine, 800);
 
   const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
   /** Referência estável para o mapa (evita reexecução desnecessária de efeitos no GoogleMap). */
@@ -261,36 +253,10 @@ export default function NearbyServicesPage() {
     null,
   );
 
-  /** Usar distância por rota a pé em todos os raios para manter consistência das faixas. */
-  const matrixProfile = "walking";
-  const { walkingDistances, loading: walkingLoading } = useGoogleDistanceMatrix(
-    mapCenter,
-    debouncedMatrixServices,
-    hasGoogleMapsKey ? googleMapsApiKey : undefined,
-    matrixProfile,
-    user?.id
-  );
-
-  const { sortedServices, routeFilterFallback } = useMemo(() => {
+  const sortedServices = useMemo(() => {
     const band = getNearbyDistanceBand(radiusMeters, hasTypeFilter);
     const inBand = (d: number) => d >= band.min && d <= band.max;
-
-    const hasRouteData = walkingDistances && walkingDistances.size > 0;
-    const withRouteDistance = hasRouteData
-      ? sortedServicesByHaversine.map((s) => ({
-          ...s,
-          distance: walkingDistances.get(s.id) ?? s.distance,
-        }))
-      : sortedServicesByHaversine.map((s) => ({ ...s }));
-
-    let withinRadius = withRouteDistance.filter((s) => inBand(s.distance ?? 0));
-
-    // Sem filtro de tipo há muitos serviços; após rota a pé quase todos ficam fora da faixa. Fallback: mostrar por linha reta (Haversine) dentro da faixa.
-    const fallback =
-      hasRouteData && withinRadius.length === 0 && sortedServicesByHaversine.length > 0;
-    if (fallback) {
-      withinRadius = sortedServicesByHaversine.filter((s) => inBand(s.distance ?? 0));
-    }
+    const withinRadius = sortedServicesByHaversine.filter((s) => inBand(s.distance ?? 0));
 
     const sorted = [...withinRadius].sort((a, b) => {
       if (sortBy === "rating") {
@@ -300,11 +266,10 @@ export default function NearbyServicesPage() {
       }
       return (a.distance ?? 0) - (b.distance ?? 0);
     });
-    return { sortedServices: sorted, routeFilterFallback: fallback };
-  }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters, hasTypeFilter]);
+    return sorted;
+  }, [sortedServicesByHaversine, sortBy, radiusMeters, hasTypeFilter]);
 
-  const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
-  const distanceLabelMode = useRouteDistance && !routeFilterFallback ? matrixProfile : "straight";
+  const distanceLabelMode = "straight" as const;
 
   const filteredByOperationalStatus = useMemo(() => {
     if (operationalStatusFilter === "all") return sortedServices;
@@ -541,11 +506,6 @@ export default function NearbyServicesPage() {
             {user && locationMode === "gps" && services.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
-              </p>
-            )}
-            {hasGoogleMapsKey && walkingLoading && sortedServices.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {matrixProfile === "driving" ? "Atualizando distâncias de carro…" : "Atualizando distâncias a pé…"}
               </p>
             )}
           </>

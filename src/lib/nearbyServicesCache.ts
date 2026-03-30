@@ -6,8 +6,10 @@
 const DB_NAME = "camana-na-mao-cache";
 const STORE_NAME = "nearby-services";
 const CACHE_KEY = "last-view";
-/** Cache válido por 7 dias; após isso não usamos em modo offline. */
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * Cache persistente ("eterno") para equipamentos próximos.
+ * A invalidação ocorre quando um novo fetch bem-sucedido sobrescreve a entrada.
+ */
 /** Limite de equipamentos guardados para não estourar armazenamento. */
 const MAX_CACHED_SERVICES = 3000;
 
@@ -94,7 +96,7 @@ export async function saveNearbyServicesCache(
 }
 
 /**
- * Lê o cache da última visualização. Retorna null se não houver cache ou estiver expirado.
+ * Lê o cache da última visualização. Retorna null se não houver cache.
  */
 export async function getNearbyServicesCache(): Promise<NearbyServicesCacheEntry | null> {
   try {
@@ -108,8 +110,6 @@ export async function getNearbyServicesCache(): Promise<NearbyServicesCacheEntry
     });
     db.close();
     if (!entry?.services?.length) return null;
-    const age = Date.now() - entry.savedAt;
-    if (age > CACHE_TTL_MS) return null;
     return {
       services: entry.services,
       centerLat: entry.centerLat,
