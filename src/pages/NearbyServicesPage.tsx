@@ -36,11 +36,19 @@ import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHour
 import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
 import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
-import { NEARBY_DEFAULT_SERVICE_TYPES } from "@/lib/nearbyDefaultServiceTypes";
 import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
+/** Tipos pré-selecionados ao abrir Perto de Você (UBS, CEU, escolas, hospitais, esportes). */
+const DEFAULT_NEARBY_SERVICE_TYPES: ServiceTypeFilterValue[] = [
+  "ubs",
+  "ceu",
+  "school",
+  "hospital",
+  "sports_center",
+];
 
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
@@ -48,9 +56,9 @@ export default function NearbyServicesPage() {
   const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
-  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(() => [
-    ...NEARBY_DEFAULT_SERVICE_TYPES,
-  ]);
+  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(
+    () => [...DEFAULT_NEARBY_SERVICE_TYPES],
+  );
   const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
@@ -195,13 +203,11 @@ export default function NearbyServicesPage() {
 
   const { isOnline } = useNetworkStatus();
 
-  const hasTypeFilter = selectedTypes.length > 0;
-  /** Sem tipo: informa o mínimo da faixa (anel) para a RPC; com tipo: não envia (usa só filtro de tipo no servidor). */
-  const minRadiusForHook = !hasTypeFilter
-    ? getNearbyDistanceBand(radiusMeters, false).min
-    : undefined;
+  const distanceBand = useMemo(() => getNearbyDistanceBand(radiusMeters), [radiusMeters]);
+  /** Mínimo da faixa em anel para a RPC (0 = não envia). Sempre que a faixa tiver mínimo > 0. */
+  const minRadiusForHook = distanceBand.min > 0 ? distanceBand.min : undefined;
 
-  const { services, loading: servicesLoading, error: servicesError } = useNearbyServices({
+  const { services, loading: servicesLoading, loadingMore: servicesLoadingMore, error: servicesError } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
@@ -213,14 +219,13 @@ export default function NearbyServicesPage() {
   const isCacheOrOfflineMessage = servicesError != null && (
     servicesError.includes("cache") || servicesError.includes("Sem conexão")
   );
-  /** Sem filtro de tipo: faixas em anel; com filtro de tipo: disco 0..raio */
+  /** Faixa em anel conforme o preset (independente de filtro de tipo). */
   const servicesInBand = useMemo(() => {
-    const band = getNearbyDistanceBand(radiusMeters, hasTypeFilter);
     return services.filter((s) => {
       const d = s.distance ?? 0;
-      return d >= band.min && d <= band.max;
+      return d >= distanceBand.min && d <= distanceBand.max;
     });
-  }, [services, radiusMeters, hasTypeFilter]);
+  }, [services, distanceBand.min, distanceBand.max]);
 
   const filteredByRating = minRating === "all"
     ? servicesInBand
@@ -254,8 +259,7 @@ export default function NearbyServicesPage() {
   );
 
   const sortedServices = useMemo(() => {
-    const band = getNearbyDistanceBand(radiusMeters, hasTypeFilter);
-    const inBand = (d: number) => d >= band.min && d <= band.max;
+    const inBand = (d: number) => d >= distanceBand.min && d <= distanceBand.max;
     const withinRadius = sortedServicesByHaversine.filter((s) => inBand(s.distance ?? 0));
 
     const sorted = [...withinRadius].sort((a, b) => {
@@ -267,7 +271,7 @@ export default function NearbyServicesPage() {
       return (a.distance ?? 0) - (b.distance ?? 0);
     });
     return sorted;
-  }, [sortedServicesByHaversine, sortBy, radiusMeters, hasTypeFilter]);
+  }, [sortedServicesByHaversine, sortBy, distanceBand.min, distanceBand.max]);
 
   const distanceLabelMode = "straight" as const;
 
@@ -450,7 +454,8 @@ export default function NearbyServicesPage() {
     );
   }, [detectedVisit, handleVisitAvaliar]);
   const isInitialLoading = servicesLoading && services.length === 0;
-  const isListRefreshing = servicesLoading && services.length > 0;
+  const isListRefreshing =
+    (servicesLoading && services.length > 0) || servicesLoadingMore;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
@@ -503,6 +508,24 @@ export default function NearbyServicesPage() {
               </div>
               <ServiceSortSelect value={sortBy} onValueChange={setSortBy} />
             </div>
+            {(onlyWithOpeningHours || openingTimeFilter || closingTimeFilter) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                <span>Filtros de horário ativos podem reduzir os resultados dentro do raio selecionado.</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    setOnlyWithOpeningHours(false);
+                    setOpeningTimeFilter("");
+                    setClosingTimeFilter("");
+                  }}
+                >
+                  Limpar filtros de horário
+                </Button>
+              </div>
+            )}
             {user && locationMode === "gps" && services.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
@@ -525,7 +548,7 @@ export default function NearbyServicesPage() {
         <RadiusSelector
           radius={radiusMeters}
           onRadiusChange={(r) => setRadiusMeters(clampNearbyRadiusMeters(r))}
-          showBandHint={!hasTypeFilter}
+          showBandHint
         />
 
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
@@ -629,7 +652,9 @@ export default function NearbyServicesPage() {
             aria-live="polite"
           >
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-            Atualizando equipamentos conforme o filtro…
+            {servicesLoadingMore && !servicesLoading
+              ? "Ampliando resultados até o raio selecionado…"
+              : "Atualizando equipamentos conforme o filtro…"}
           </div>
         )}
 

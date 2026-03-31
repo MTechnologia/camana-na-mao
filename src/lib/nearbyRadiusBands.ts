@@ -1,6 +1,5 @@
 /**
- * Raio "Perto de você" sem filtro de tipo: faixas em anel (não disco 0–R),
- * para distribuir equipamentos por distância. Com filtro de tipo: disco 0–R.
+ * Presets do slider: cada um corresponde a uma faixa em anel (Haversine), não disco cumulativo.
  */
 export const NEARBY_RADIUS_PRESETS = [500, 1000, 2000, 5000] as const;
 export type NearbyRadiusPreset = (typeof NEARBY_RADIUS_PRESETS)[number];
@@ -15,17 +14,15 @@ export function clampNearbyRadiusMeters(m: number): NearbyRadiusPreset {
 }
 
 /**
- * @param presetMeters valor do preset (500, 1000, 2000 ou 5000)
- * @param hasTypeFilter se true, intervalo [0, preset]; se false, faixa em anel conforme regra de produto
+ * Faixa de distância (m) para o preset ativo.
+ * @param _hasTypeFilter mantido por compatibilidade de assinatura (faixa é a mesma com ou sem filtro de tipo)
  */
 export function getNearbyDistanceBand(
   presetMeters: number,
-  hasTypeFilter: boolean,
+  _hasTypeFilter?: boolean,
 ): { min: number; max: number } {
-  if (hasTypeFilter) {
-    return { min: 0, max: presetMeters };
-  }
-  switch (presetMeters) {
+  const r = clampNearbyRadiusMeters(presetMeters);
+  switch (r) {
     case 500:
       return { min: 0, max: 500 };
     case 1000:
@@ -35,13 +32,13 @@ export function getNearbyDistanceBand(
     case 5000:
       return { min: 2100, max: 5000 };
     default:
-      return { min: 0, max: clampNearbyRadiusMeters(presetMeters) };
+      return { min: 0, max: r };
   }
 }
 
-/** Texto curto quando não há filtro de tipo (faixa em anel) */
+/** Texto curto para a faixa ativa (anel). */
 export function nearbyBandHint(presetMeters: number): string {
-  switch (presetMeters) {
+  switch (clampNearbyRadiusMeters(presetMeters)) {
     case 500:
       return "Mostrando equipamentos entre 0 e 500 m";
     case 1000:

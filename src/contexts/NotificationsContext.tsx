@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useExpoPushToken } from "@/hooks/useExpoPushToken";
+import { withPoolRetry } from "@/lib/supabaseRetry";
 
 interface Notification {
   id: string;
@@ -41,12 +42,16 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      const { data, error } = await withPoolRetry(
+        () =>
+          supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(50),
+        { retries: 1, baseDelayMs: 800 },
+      );
 
       if (error) throw error;
 

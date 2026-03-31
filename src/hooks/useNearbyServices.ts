@@ -9,6 +9,7 @@ import {
   getBoundingBoxForRadiusMeters,
   mapPublicServiceRowToNearbyService,
 } from "@/lib/nearbyServiceRow";
+import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
 
 export interface NearbyService {
   id: string;
@@ -32,10 +33,57 @@ type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_c
   | "social_assistance" | "transit_station" | "bicycle" | "subprefeitura" | "police_station" | "cemetery" | "accessibility" | "recycling_point"
   | "fire_station" | "other" | "all";
 
+/** Valores que existem em `public_services.service_type` (exclui UI `all`/`other`). */
+type PublicServiceTypeRow = Exclude<ServiceType, "all" | "other">;
+
 /**
- * Mínimo de caracteres para usar RPC `search_public_services_fulltext` (FTS + fallback ILIKE).
- * Com 1 caractere: só bbox (sem filtro textual no servidor).
+ * Bbox grande + `ORDER BY id` no PostgREST costuma estourar tempo (500). Cursor ordenado só em bbox menor (~2 km).
  */
+type BboxRowFetchMode = "ordered_cursor" | "unordered_single";
+
+/**
+ * Quando não há filtro de tipo, não usar `service_type.neq.other` no PostgREST (plano caro em bbox grande, ex. 5 km).
+ * Buscamos cada tipo com `eq` e unimos no cliente.
+ */
+const ALL_QUERYABLE_SERVICE_TYPES: PublicServiceTypeRow[] = [
+  "ubs",
+  "school",
+  "ceu",
+  "hospital",
+  "library",
+  "sports_center",
+  "street_market",
+  "community_center",
+  "daycare",
+  "park",
+  "market",
+  "city_market",
+  "theater",
+  "museum",
+  "social_assistance",
+  "transit_station",
+  "bicycle",
+  "subprefeitura",
+  "police_station",
+  "cemetery",
+  "accessibility",
+  "recycling_point",
+  "fire_station",
+];
+
+/** Máximo de queries `eq(service_type)` em paralelo (evita pico de 20+ requisições). */
+const NEARBY_TYPE_FETCH_CONCURRENCY = 8;
+
+/** Raio a partir do qual usamos estratégia “5 km” (duas fases + cap enxuto). */
+const NEARBY_LARGE_RADIUS_THRESHOLD_M = 4500;
+
+/**
+ * Com todos os tipos e bbox largo (preset ~5 km), poucas linhas REST evitam 500 no gateway;
+ * a lista na UI também fica limitada a isso.
+ */
+const NEARBY_MAX_LIST_ALL_TYPES_LARGE = 200;
+
+/** Mínimo de caracteres para aplicar filtro textual no cliente sobre a amostra REST no bbox. */
 export const NEARBY_FULLTEXT_MIN_LENGTH = 2;
 
 interface UseNearbyServicesProps {
@@ -46,15 +94,9 @@ interface UseNearbyServicesProps {
   serviceType?: ServiceType;
   /** Múltiplos tipos (multiseleção). Vazio = todos. Tem precedência sobre serviceType */
   serviceTypes?: ServiceType[];
-  /**
-   * Texto >= NEARBY_FULLTEXT_MIN_LENGTH dispara FTS na RPC; filtro por tipo(s) também usa a mesma RPC
-   * (evita timeout do REST só com bbox + service_type).
-   */
+  /** Texto >= NEARBY_FULLTEXT_MIN_LENGTH: filtro no cliente sobre amostra REST no bbox (sem RPC FTS). */
   fullTextQuery?: string;
-  /**
-   * Distância mínima (Haversine) em metros na RPC — obrigatório como número quando não há filtro de tipo
-   * (faixas em anel); evita LIMIT 5000 arbitrário do REST sem anel completo.
-   */
+  /** Distância mínima (Haversine) em metros no filtro cliente (faixas em anel do preset). */
   minRadiusMeters?: number;
   /** Evita fetch (ex.: aguardando endereço primário do usuário) sem erro de localização */
   skipFetch?: boolean;
@@ -94,6 +136,19 @@ const locationKey = (lat: number, lng: number, decimals = 5) =>
 const excludeGenericOtherType = <T extends { service_type: string }>(items: T[]): T[] =>
   items.filter((s) => s.service_type !== "other");
 
+const getAdaptiveRestCap = (radius: number, hasTypeFilter: boolean): number => {
+  if (hasTypeFilter) {
+    if (radius <= 500) return 250;
+    if (radius <= 1000) return 400;
+    if (radius <= 2000) return 600;
+    return 900;
+  }
+  if (radius <= 500) return 300;
+  if (radius <= 1000) return 500;
+  if (radius <= 2000) return 800;
+  return NEARBY_MAX_LIST_ALL_TYPES_LARGE;
+};
+
 export const useNearbyServices = ({
   latitude,
   longitude,
@@ -109,6 +164,8 @@ export const useNearbyServices = ({
 
   const [services, setServices] = useState<NearbyService[]>([]);
   const [loading, setLoading] = useState(false);
+  /** Segunda fase da busca em raio grande (ex.: 5km após resultado rápido em ~2km). */
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Evita que uma resposta antiga sobrescreva uma busca mais recente (digitação rápida). */
   const fetchRequestIdRef = useRef(0);
@@ -132,6 +189,7 @@ export const useNearbyServices = ({
     if (skipFetch) {
       setServices([]);
       setLoading(false);
+      setLoadingMore(false);
       setError(null);
       return;
     }
@@ -146,6 +204,7 @@ export const useNearbyServices = ({
     }
 
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
 
     const safeRadius = Math.max(radiusMeters, 100);
@@ -171,7 +230,16 @@ export const useNearbyServices = ({
       return;
     }
 
-    const requestId = ++fetchRequestIdRef.current;
+      const requestId = ++fetchRequestIdRef.current;
+
+      const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, context: string): Promise<T> => {
+        return await Promise.race([
+          promise,
+          new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) em ${context}`)), timeoutMs),
+          ),
+        ]);
+      };
 
     try {
       const { minLat, maxLat, minLng, maxLng } = getBoundingBoxForRadiusMeters(
@@ -185,106 +253,377 @@ export const useNearbyServices = ({
       const effectiveTypes =
         types.length > 0 ? types : singleType ? [singleType] : [];
       const isAllTypes = effectiveTypes.length === 0;
-      /** Com filtro de tipo a RPC já é mais seletiva; 400 basta ao raio e reduz Haversine + Routes API. */
-      const limit = isAllTypes ? 5000 : 400;
+      /**
+       * Cap adaptativo para fallback REST:
+       * evita timeout de consultas muito amplas e reduz inconsistência de amostragem.
+       */
+      const limit = getAdaptiveRestCap(safeRadius, !isAllTypes);
+      const listMaxAllTypesLarge =
+        isAllTypes && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M
+          ? NEARBY_MAX_LIST_ALL_TYPES_LARGE
+          : undefined;
+      const restTypeConcurrency =
+        isAllTypes && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M ? 3 : undefined;
+      const rowFetchModeForMainFetch: BboxRowFetchMode =
+        safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M ? "unordered_single" : "ordered_cursor";
 
       const ftsTrimmed = (fullTextQuery ?? "").trim();
       const hasTextSearch = ftsTrimmed.length >= NEARBY_FULLTEXT_MIN_LENGTH;
-      /**
-       * RPC: texto, tipo(s), ou faixa mínima explícita (anel sem tipo — número em minRadiusMeters).
-       * REST com LIMIT sem ORDER BY distância omitia equipamentos nas faixas 501 m–1 km, 1,1–2 km, 2,1–5 km.
-       */
-      const useLocationRpc =
-        hasTextSearch ||
-        effectiveTypes.length > 0 ||
-        typeof minRadiusMeters === "number";
 
-      const minRadiusRpc =
-        typeof minRadiusMeters === "number" && minRadiusMeters > 0 ? minRadiusMeters : null;
+      const distMinM =
+        typeof minRadiusMeters === "number" && minRadiusMeters > 0 ? minRadiusMeters : 0;
+
+      const buildNearbyFromRawRows = (
+        rawRows: unknown[],
+        maxM: number,
+        minM: number,
+        maxResults?: number,
+      ): NearbyService[] => {
+        const formatted = (rawRows || [])
+          .map((raw) =>
+            mapPublicServiceRowToNearbyService(raw as Record<string, unknown>, userLat, userLng),
+          )
+          .filter((service): service is NearbyService => service !== null);
+
+        const withoutOther = excludeGenericOtherType(formatted);
+
+        const withinRadius = withoutOther
+          .filter((service) => {
+            const d = service.distance ?? 0;
+            return d <= maxM && d >= minM;
+          })
+          .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+
+        const seen = new Set<string>();
+        const deduped = withinRadius.filter((s) => {
+          const key = locationKey(s.latitude, s.longitude);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        if (typeof maxResults === "number" && maxResults > 0 && deduped.length > maxResults) {
+          return deduped.slice(0, maxResults);
+        }
+        return deduped;
+      };
+
+      /**
+       * REST, um tipo por requisição. `ordered_cursor`: pagina por id (bbox pequeno).
+       * `unordered_single`: um GET sem ORDER BY (bbox grande — evita 500 no gateway).
+       */
+      const fetchBboxCursorRowsInner = async (
+        box: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+        totalCap: number,
+        batchSize: number,
+        queryTimeoutMs: number,
+        singleType: PublicServiceTypeRow,
+        rowFetchMode: BboxRowFetchMode,
+      ): Promise<{ rows: unknown[]; error: { message?: string } | null }> => {
+        const baseSelect =
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status";
+
+        if (rowFetchMode === "unordered_single") {
+          const lim = Math.max(1, Math.min(totalCap, 200));
+          const { data: bboxData, error: bboxError } = await withTimeout(
+            supabase
+              .from("public_services")
+              .select(baseSelect)
+              .gte("latitude", box.minLat)
+              .lte("latitude", box.maxLat)
+              .gte("longitude", box.minLng)
+              .lte("longitude", box.maxLng)
+              .eq("service_type", singleType)
+              .limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+            queryTimeoutMs,
+            "public_services bbox unordered",
+          );
+          if (bboxError) {
+            return { rows: [], error: bboxError };
+          }
+          return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
+        }
+
+        const merged: unknown[] = [];
+        let lastId: string | null = null;
+        const maxBatches = Math.max(1, Math.ceil(totalCap / batchSize));
+        for (let i = 0; i < maxBatches; i++) {
+          let query = supabase
+            .from("public_services")
+            .select(baseSelect)
+            .gte("latitude", box.minLat)
+            .lte("latitude", box.maxLat)
+            .gte("longitude", box.minLng)
+            .lte("longitude", box.maxLng)
+            .eq("service_type", singleType)
+            .order("id", { ascending: true })
+            .limit(batchSize);
+
+          if (lastId) {
+            query = query.gt("id", lastId);
+          }
+
+          const { data: bboxData, error: bboxError } = await withTimeout(
+            query as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+            queryTimeoutMs,
+            "public_services bbox cursor",
+          );
+
+          if (bboxError) {
+            return { rows: [], error: bboxError };
+          }
+
+          const rows = (bboxData ?? []) as Array<{ id?: string } & Record<string, unknown>>;
+          if (rows.length === 0) {
+            break;
+          }
+
+          merged.push(...rows);
+          lastId = typeof rows[rows.length - 1]?.id === "string" ? rows[rows.length - 1].id : null;
+          if (!lastId || rows.length < batchSize) {
+            break;
+          }
+        }
+        return { rows: merged, error: null };
+      };
+
+      const fetchBboxCursorRowsMerged = async (
+        box: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+        totalCap: number,
+        batchSize: number,
+        queryTimeoutMs: number,
+        typesList: ServiceType[],
+        typeConcurrency: number | undefined,
+        rowFetchMode: BboxRowFetchMode,
+      ): Promise<{ rows: unknown[]; error: { message?: string } | null }> => {
+        const types: PublicServiceTypeRow[] =
+          typesList.length > 0
+            ? typesList.filter((t): t is PublicServiceTypeRow => t !== "all" && t !== "other")
+            : ALL_QUERYABLE_SERVICE_TYPES;
+        if (typesList.length > 0 && types.length === 0) {
+          return { rows: [], error: null };
+        }
+
+        if (types.length === 1) {
+          return fetchBboxCursorRowsInner(
+            box,
+            totalCap,
+            batchSize,
+            queryTimeoutMs,
+            types[0],
+            rowFetchMode,
+          );
+        }
+
+        const perType = Math.max(1, Math.ceil(totalCap / types.length));
+        const byId = new Map<string, unknown>();
+        const wave =
+          typeof typeConcurrency === "number" && typeConcurrency > 0
+            ? typeConcurrency
+            : NEARBY_TYPE_FETCH_CONCURRENCY;
+
+        for (let i = 0; i < types.length; i += wave) {
+          const slice = types.slice(i, i + wave);
+          const results = await Promise.all(
+            slice.map((t) =>
+              fetchBboxCursorRowsInner(
+                box,
+                perType,
+                batchSize,
+                queryTimeoutMs,
+                t,
+                rowFetchMode,
+              ),
+            ),
+          );
+          const errResult = results.find((r) => r.error)?.error;
+          if (errResult) {
+            return { rows: [], error: errResult };
+          }
+          for (const r of results) {
+            for (const row of r.rows) {
+              const rid = (row as { id?: string }).id;
+              if (typeof rid === "string") byId.set(rid, row);
+            }
+          }
+        }
+
+        return { rows: [...byId.values()], error: null };
+      };
+
+      const REST_BATCH = 32;
+      const REST_QUERY_MS = 16_000;
 
       let data: unknown[] | null = null;
       let fetchError: { message?: string } | null = null;
+      let skipMainProcessing = false;
 
-      if (useLocationRpc) {
-        const { data: rpcData, error: rpcError } = await supabase.rpc("search_public_services_fulltext", {
-          min_lat: minLat,
-          max_lat: maxLat,
-          min_lng: minLng,
-          max_lng: maxLng,
-          center_lat: userLat,
-          center_lng: userLng,
-          radius_meters: safeRadius,
-          search_query: hasTextSearch ? ftsTrimmed : null,
-          service_types: effectiveTypes.length > 0 ? effectiveTypes : null,
-          result_limit: limit,
-          min_radius_meters: minRadiusRpc,
-        });
-        fetchError = rpcError;
-        data = (rpcData ?? null) as unknown[] | null;
-      } else {
-        let query = supabase
-          .from("public_services")
-          .select(
-            "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status"
-          )
-          .gte("latitude", minLat)
-          .lte("latitude", maxLat)
-          .gte("longitude", minLng)
-          .lte("longitude", maxLng)
-          .limit(limit);
+      /** Raio grande (disco 0–5 km no mapa de busca): primeiro bbox ~2 km, depois bbox completo. Só quando não há anel (distMinM === 0). */
+      const PHASE1_RADIUS_M = 2000;
 
-        if (effectiveTypes.length > 0) {
-          // PostgREST pode responder 500 com `service_type=in.(ubs)` (único valor em enum);
-          // usar `.eq` quando há só um tipo evita o erro.
-          query =
-            effectiveTypes.length === 1
-              ? query.eq("service_type", effectiveTypes[0] as string)
-              : query.in("service_type", effectiveTypes as string[]);
-        } else {
-          query = query.neq("service_type", "other");
+      const useTwoPhase =
+        !hasTextSearch && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M && distMinM === 0;
+
+      if (useTwoPhase) {
+        try {
+          const boxPhase1 = getBoundingBoxForRadiusMeters(userLat, userLng, PHASE1_RADIUS_M);
+          const limitPhase1 = Math.min(getAdaptiveRestCap(PHASE1_RADIUS_M, !isAllTypes), 200);
+          const r1 = await fetchBboxCursorRowsMerged(
+            boxPhase1,
+            limitPhase1,
+            REST_BATCH,
+            REST_QUERY_MS,
+            effectiveTypes,
+            restTypeConcurrency,
+            "ordered_cursor",
+          );
+          if (r1.error) {
+            throw r1.error;
+          }
+          if (requestId !== fetchRequestIdRef.current) {
+            return;
+          }
+
+          const partialList = buildNearbyFromRawRows(
+            r1.rows,
+            safeRadius,
+            distMinM,
+            listMaxAllTypesLarge,
+          );
+          setServices(partialList);
+          setLoading(false);
+          setLoadingMore(true);
+
+          try {
+            const r2 = await fetchBboxCursorRowsMerged(
+              { minLat, maxLat, minLng, maxLng },
+              limit,
+              REST_BATCH,
+              REST_QUERY_MS,
+              effectiveTypes,
+              restTypeConcurrency,
+              "unordered_single",
+            );
+            if (requestId !== fetchRequestIdRef.current) {
+              return;
+            }
+            if (!r2.error) {
+              const byId = new Map<string, unknown>();
+              for (const row of r1.rows) {
+                const rid = (row as { id?: string }).id;
+                if (typeof rid === "string") byId.set(rid, row);
+              }
+              for (const row of r2.rows) {
+                const rid = (row as { id?: string }).id;
+                if (typeof rid === "string") byId.set(rid, row);
+              }
+              const mergedRows = [...byId.values()];
+              const finalList = buildNearbyFromRawRows(
+                mergedRows,
+                safeRadius,
+                distMinM,
+                listMaxAllTypesLarge,
+              );
+              setServices(finalList);
+              void saveNearbyServicesCache(finalList, userLat, userLng, safeRadius).catch(() => {});
+            } else {
+              void saveNearbyServicesCache(partialList, userLat, userLng, safeRadius).catch(() => {});
+            }
+            skipMainProcessing = true;
+          } finally {
+            setLoadingMore(false);
+          }
+        } catch (phaseErr) {
+          if (import.meta.env.DEV) {
+            console.debug("[useNearbyServices] busca em duas fases falhou", phaseErr);
+          }
+          setLoadingMore(false);
+        }
+      }
+
+      if (!skipMainProcessing) {
+        const restCap = hasTextSearch
+          ? Math.min(Math.max(limit * 4, 400), 1400)
+          : limit;
+        const r = await fetchBboxCursorRowsMerged(
+          { minLat, maxLat, minLng, maxLng },
+          restCap,
+          REST_BATCH,
+          REST_QUERY_MS,
+          effectiveTypes,
+          restTypeConcurrency,
+          rowFetchModeForMainFetch,
+        );
+        fetchError = r.error;
+        data = r.rows;
+
+        if (fetchError) {
+          throw fetchError;
         }
 
-        const res = await query;
-        fetchError = res.error;
-        data = res.data as unknown[] | null;
+        const formatted = (data || [])
+          .map((raw) =>
+            mapPublicServiceRowToNearbyService(raw as Record<string, unknown>, userLat, userLng),
+          )
+          .filter((service): service is NearbyService => service !== null);
+
+        const withoutOther = excludeGenericOtherType(formatted);
+
+        const withinRadius = withoutOther
+          .filter((service) => {
+            const d = service.distance ?? 0;
+            return d <= safeRadius && d >= distMinM;
+          })
+          .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
+
+        const seen = new Set<string>();
+        let deduped = withinRadius.filter((s) => {
+          const key = locationKey(s.latitude, s.longitude);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        if (hasTextSearch) {
+          deduped = deduped.filter((s) => {
+            const haystack = [s.name, s.address, s.district, s.services_offered ?? ""].join(" ");
+            return textMatchesSearchQuery(haystack, ftsTrimmed);
+          });
+        }
+
+        if (
+          typeof listMaxAllTypesLarge === "number" &&
+          deduped.length > listMaxAllTypesLarge
+        ) {
+          deduped = deduped.slice(0, listMaxAllTypesLarge);
+        }
+
+        setServices(deduped);
+        void saveNearbyServicesCache(deduped, userLat, userLng, safeRadius).catch(() => {});
       }
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      const formatted = (data || [])
-        .map((raw) =>
-          mapPublicServiceRowToNearbyService(raw as Record<string, unknown>, userLat, userLng),
-        )
-        .filter((service): service is NearbyService => service !== null);
-
-      const withoutOther = excludeGenericOtherType(formatted);
-
-      const withinRadius = withoutOther
-        .filter((service) => (service.distance ?? 0) <= safeRadius)
-        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
-
-      const seen = new Set<string>();
-      const deduped = withinRadius.filter((s) => {
-        const key = locationKey(s.latitude, s.longitude);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      setServices(deduped);
-      void saveNearbyServicesCache(deduped, userLat, userLng, safeRadius).catch((err) => {
-        console.warn("Falha ao gravar cache de equipamentos próximos:", err);
-      });
     } catch (fetchError) {
-      console.error("Error fetching nearby services:", fetchError);
+      if (import.meta.env.DEV) {
+        console.debug("[useNearbyServices] erro ao buscar serviços próximos", fetchError);
+      }
       if (requestId !== fetchRequestIdRef.current) {
         return;
       }
+      // Em erro online, NÃO usar cache silenciosamente (evita impressão de filtros "travados").
+      // Cache automático fica restrito ao modo offline (bloco navigator.onLine === false).
+      if (navigator.onLine) {
+        setServices([]);
+        const message =
+          typeof fetchError === "object" &&
+          fetchError !== null &&
+          "message" in fetchError &&
+          typeof (fetchError as { message?: unknown }).message === "string"
+            ? (fetchError as { message: string }).message
+            : "Erro ao buscar serviços próximos.";
+        setError(message);
+        return;
+      }
+
       const cached = await getNearbyServicesCache();
       if (cached?.services?.length) {
-        // Usar centro do cache para distâncias coerentes com o raio (2km, 10km, etc.)
         const withDistance = excludeGenericOtherType(
           applyCacheWithDistance(cached.services, cached.centerLat, cached.centerLng),
         );
@@ -292,7 +631,7 @@ export const useNearbyServices = ({
         setError("Sem conexão. Exibindo equipamentos em cache.");
       } else {
         setServices([]);
-        setError("Erro ao buscar serviços próximos.");
+        setError("Sem conexão e sem cache disponível.");
       }
     } finally {
       if (requestId === fetchRequestIdRef.current) {
@@ -308,6 +647,7 @@ export const useNearbyServices = ({
   return {
     services,
     loading,
+    loadingMore,
     error,
     refetch: fetchServices,
   };
