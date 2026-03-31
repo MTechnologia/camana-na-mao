@@ -1624,6 +1624,10 @@ serve(async (req) => {
               /relatos\s+na\s+mesma\s+categoria/i.test(lastAssistantLower);
             const userWantsNewAfterSimilar =
               /^(novo_relato|novo\s+relato|registrar\s+novo|criar\s+novo|mesmo\s+assim)\b/i.test(msgLower.trim());
+            const askedCorrectionField =
+              /qual\s+campo\s+voc[eê]\s+gostaria\s+de\s+corrigir|voc[eê]\s+pode\s+me\s+dizer,\s*por\s+exemplo/i.test(lastAssistantLower);
+            const userSentCorrectionLikeText =
+              /\b(n[aã]o\s+[ée]|n[aã]o\s+est[aá]|est[aá]\s+errad|corrig|deveria\s+ser)\b/i.test(msgLower);
 
             // 0) Após lista de relatos próximos: usuário escolheu seguir com novo relato → perguntar fotos
             if (
@@ -1643,6 +1647,37 @@ serve(async (req) => {
 
             // 1) Ainda não perguntamos relatos próximos nem fotos → tentar relatos na mesma região (K mais próximos por distância)
             if (!askedPhotoChoice && !askedToAttach && !showedPreview && !showedSimilarReports) {
+              // Se estamos no subfluxo de correção do preview, não reabrir lista de similares;
+              // seguir direto para o resumo atualizado para confirmar/corrigir.
+              if (askedCorrectionField || userSentCorrectionLikeText) {
+                const catLabels: Record<string, string> = {
+                  iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                  sinalizacao: 'Sinalização', drenagem: 'Drenagem',
+                  esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
+                  animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
+                };
+                const cat = String(accumulatedFields.category || '');
+                const catLabel = catLabels[cat] || cat;
+                const natureK = String(accumulatedFields.report_nature || 'reclamacao');
+                const natureLabel =
+                  lib.REPORT_NATURE_LABELS[natureK as keyof typeof lib.REPORT_NATURE_LABELS] || natureK;
+                const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
+                  .filter(Boolean).join(', ');
+                const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
+                const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+
+• **Natureza:** ${natureLabel}
+• **Categoria:** ${catLabel}${lib.formatUrbanReportPreviewAfterCategory(accumulatedFields as Record<string, unknown>)}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
+• **Endereço:** ${addr}${neighborhood}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+                console.log('[ai-orchestrator] Urban report: correction context detected → skipping similar list and showing updated preview');
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                });
+              }
               const cat = String(accumulatedFields.category || '');
               if (cat && cat !== 'feedback_camara') {
                 try {
