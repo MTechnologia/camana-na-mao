@@ -83,6 +83,21 @@ const NEARBY_LARGE_RADIUS_THRESHOLD_M = 4500;
  */
 const NEARBY_MAX_LIST_ALL_TYPES_LARGE = 200;
 
+/**
+ * Vários tipos em bbox grande sem ORDER BY: `limit` alto por tipo em paralelo estoura o gateway (500).
+ * Com os 5 tipos padrão e cap 900, `ceil(900/5)=180` × 5 GETs era o padrão ruim.
+ */
+const NEARBY_UNORDERED_PER_TYPE_MAX = 48;
+
+/** Concorrência em raio grande quando o usuário escolhe poucos tipos (não “todos”). */
+const NEARBY_LARGE_RADIUS_MULTI_TYPE_CONCURRENCY = 2;
+
+/**
+ * A RPC `search_public_services_bbox_light` pode levar >15s em bbox grande no Postgres;
+ * timeout menor no cliente cortava a resposta e parecia “500”/falha intermitente.
+ */
+const NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS = 55_000;
+
 /** Mínimo de caracteres para aplicar filtro textual no cliente sobre a amostra REST no bbox. */
 export const NEARBY_FULLTEXT_MIN_LENGTH = 2;
 
@@ -135,6 +150,25 @@ const locationKey = (lat: number, lng: number, decimals = 5) =>
 /** Categoria genérica `other` (GeoSampa) não entra na lista — reduz ruído na UI. */
 const excludeGenericOtherType = <T extends { service_type: string }>(items: T[]): T[] =>
   items.filter((s) => s.service_type !== "other");
+
+type NearbyBoundingBox = {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+};
+
+/** Divide o retângulo em 4 quadrantes (bbox grande + timeout no DB). */
+function splitBoundingBoxInFour(box: NearbyBoundingBox): NearbyBoundingBox[] {
+  const midLat = (box.minLat + box.maxLat) / 2;
+  const midLng = (box.minLng + box.maxLng) / 2;
+  return [
+    { minLat: box.minLat, maxLat: midLat, minLng: box.minLng, maxLng: midLng },
+    { minLat: box.minLat, maxLat: midLat, minLng: midLng, maxLng: box.maxLng },
+    { minLat: midLat, maxLat: box.maxLat, minLng: box.minLng, maxLng: midLng },
+    { minLat: midLat, maxLat: box.maxLat, minLng: midLng, maxLng: box.maxLng },
+  ];
+}
 
 const getAdaptiveRestCap = (radius: number, hasTypeFilter: boolean): number => {
   if (hasTypeFilter) {
@@ -262,8 +296,17 @@ export const useNearbyServices = ({
         isAllTypes && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M
           ? NEARBY_MAX_LIST_ALL_TYPES_LARGE
           : undefined;
+
+      const fetchTypeCount = isAllTypes
+        ? ALL_QUERYABLE_SERVICE_TYPES.length
+        : effectiveTypes.filter((t): t is PublicServiceTypeRow => t !== "all" && t !== "other")
+            .length;
       const restTypeConcurrency =
-        isAllTypes && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M ? 3 : undefined;
+        safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M && fetchTypeCount > 1
+          ? isAllTypes
+            ? 3
+            : NEARBY_LARGE_RADIUS_MULTI_TYPE_CONCURRENCY
+          : undefined;
       const rowFetchModeForMainFetch: BboxRowFetchMode =
         safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M ? "unordered_single" : "ordered_cursor";
 
@@ -324,6 +367,51 @@ export const useNearbyServices = ({
 
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
+          /**
+           * PostgREST em `public_services` com bbox grande costuma devolver 500 / statement_timeout.
+           * Preferimos a RPC `search_public_services_bbox_light` (sem ORDER BY; migração 20260403120000
+           * ajusta timeout local e predicados float8). Se falhar, tentamos a mesma RPC em 4 quadrantes
+           * (área menor → plano mais barato), depois GET REST como último recurso.
+           */
+          const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) =>
+            withTimeout(
+              supabase.rpc("search_public_services_bbox_light", {
+                min_lat: b.minLat,
+                max_lat: b.maxLat,
+                min_lng: b.minLng,
+                max_lng: b.maxLng,
+                service_types: [singleType],
+                result_limit: resultLimit,
+                result_offset: 0,
+              }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+              Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
+              "search_public_services_bbox_light",
+            );
+
+          const { data: rpcData, error: rpcError } = await rpcBboxLight(box, lim);
+          if (!rpcError && Array.isArray(rpcData)) {
+            return { rows: rpcData as unknown[], error: null };
+          }
+
+          const quarters = splitBoundingBoxInFour(box);
+          const byId = new Map<string, unknown>();
+          const perQ = Math.max(1, Math.ceil(lim / 4));
+          for (let qi = 0; qi < quarters.length; qi++) {
+            const { data: qData, error: qErr } = await rpcBboxLight(quarters[qi], perQ);
+            if (!qErr && Array.isArray(qData)) {
+              for (const row of qData) {
+                const rid = (row as { id?: string }).id;
+                if (typeof rid === "string") byId.set(rid, row);
+              }
+            }
+            if (qi < quarters.length - 1) {
+              await new Promise((r) => setTimeout(r, 40));
+            }
+          }
+          if (byId.size > 0) {
+            return { rows: [...byId.values()].slice(0, lim), error: null };
+          }
+
           const { data: bboxData, error: bboxError } = await withTimeout(
             supabase
               .from("public_services")
@@ -335,10 +423,10 @@ export const useNearbyServices = ({
               .eq("service_type", singleType)
               .limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
             queryTimeoutMs,
-            "public_services bbox unordered",
+            "public_services bbox unordered fallback",
           );
           if (bboxError) {
-            return { rows: [], error: bboxError };
+            return { rows: [], error: rpcError ?? bboxError };
           }
           return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
         }
@@ -414,7 +502,11 @@ export const useNearbyServices = ({
           );
         }
 
-        const perType = Math.max(1, Math.ceil(totalCap / types.length));
+        const perTypeRaw = Math.max(1, Math.ceil(totalCap / types.length));
+        const perType =
+          types.length > 1 && rowFetchMode === "unordered_single"
+            ? Math.min(perTypeRaw, NEARBY_UNORDERED_PER_TYPE_MAX)
+            : perTypeRaw;
         const byId = new Map<string, unknown>();
         const wave =
           typeof typeConcurrency === "number" && typeConcurrency > 0
@@ -444,6 +536,13 @@ export const useNearbyServices = ({
               const rid = (row as { id?: string }).id;
               if (typeof rid === "string") byId.set(rid, row);
             }
+          }
+          if (
+            rowFetchMode === "unordered_single" &&
+            types.length > 1 &&
+            i + wave < types.length
+          ) {
+            await new Promise((r) => setTimeout(r, 75));
           }
         }
 

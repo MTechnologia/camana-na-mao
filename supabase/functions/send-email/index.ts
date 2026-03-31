@@ -186,33 +186,63 @@ Deno.serve(async (req) => {
   const fromName = fromMatch ? fromMatch[1].trim() : "Câmara na Mão";
   const fromEmail = fromMatch ? fromMatch[2].trim() : sendgridFrom.trim();
 
-  try {
-    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+  const mailPayload = {
+    personalizations: [{ to: [{ email: toEmail }], subject }],
+    from: { email: fromEmail, name: fromName },
+    content: [{ type: "text/html", value: html }],
+  };
+
+  const postSendGrid = async () =>
+    fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${sendgridKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: toEmail }], subject }],
-        from: { email: fromEmail, name: fromName },
-        content: [{ type: "text/html", value: html }],
-      }),
+      body: JSON.stringify(mailPayload),
     });
+
+  try {
+    let res = await postSendGrid();
+    // Transientes (rate limit / instabilidade) e falhas 5xx: uma nova tentativa após breve espera
+    if (!res.ok && [429, 500, 502, 503, 504].includes(res.status)) {
+      await new Promise((r) => setTimeout(r, 800));
+      res = await postSendGrid();
+    }
     if (!res.ok) {
       const text = await res.text();
       console.error("[send-email] SendGrid error:", res.status, text);
+      // 403: remetente/domínio não verificado no SendGrid é o caso mais comum em produção
+      if (res.status === 403) {
+        console.error(
+          "[send-email] Dica: valide o remetente (Single Sender) ou autentique o domínio em SendGrid; confira SENDGRID_FROM.",
+        );
+      }
       return new Response(
-        JSON.stringify({ error: "Failed to send email", details: text }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Failed to send email", details: text.slice(0, 2000) }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
   } catch (e) {
     console.error("[send-email] SendGrid request failed:", e);
-    return new Response(
-      JSON.stringify({ error: String(e) }),
-      { status: 502, headers: { "Content-Type": "application/json" } }
-    );
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+      const res2 = await postSendGrid();
+      if (res2.ok) {
+        return new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const t2 = await res2.text();
+      console.error("[send-email] SendGrid retry failed:", res2.status, t2);
+    } catch (e2) {
+      console.error("[send-email] SendGrid retry exception:", e2);
+    }
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   return new Response(JSON.stringify({}), {
