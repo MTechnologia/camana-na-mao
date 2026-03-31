@@ -25,7 +25,8 @@ async function geocodeAddressViaPlaces(fullAddress: string): Promise<{ latitude:
     );
     if (autocompleteError || !autocompleteData?.predictions?.length) return null;
 
-    const placeId = autocompleteData.predictions[0]?.place_id;
+    const firstPrediction = autocompleteData.predictions[0];
+    const placeId = firstPrediction?.placeId ?? firstPrediction?.place_id;
     if (!placeId) return null;
 
     const { data: detailsData, error: detailsError } = await supabase.functions.invoke(
@@ -34,8 +35,9 @@ async function geocodeAddressViaPlaces(fullAddress: string): Promise<{ latitude:
     );
     if (detailsError) return null;
 
-    const lat = detailsData?.structuredAddress?.latitude;
-    const lng = detailsData?.structuredAddress?.longitude;
+    const detailsAddress = detailsData?.structuredAddress ?? detailsData?.address;
+    const lat = detailsAddress?.latitude;
+    const lng = detailsAddress?.longitude;
     if (typeof lat === "number" && typeof lng === "number") {
       return { latitude: lat, longitude: lng };
     }
