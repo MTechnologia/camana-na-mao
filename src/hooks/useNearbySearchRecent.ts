@@ -6,6 +6,7 @@ import {
   remoteItemsToRecentEntries,
   syncAppSuggestions,
 } from "@/lib/api/appSuggestionsApi";
+import { withPoolRetry } from "@/lib/supabaseRetry";
 import type {
   NearbyRecentEquipmentPayload,
   NearbyRecentPlacePayload,
@@ -132,7 +133,10 @@ export function useNearbySearchRecent() {
 
     (async () => {
       try {
-        const remoteRaw = await fetchAppSuggestions();
+        const remoteRaw = await withPoolRetry(() => fetchAppSuggestions(), {
+          retries: 1,
+          baseDelayMs: 900,
+        });
         if (cancelled) return;
         const remoteEntries = remoteItemsToRecentEntries(remoteRaw);
         setEntries((prev) => mergeRecentLists(prev, remoteEntries));
@@ -154,7 +158,10 @@ export function useNearbySearchRecent() {
 
     const handle = window.setTimeout(() => {
       const payload = recentEntriesToSyncPayload(entries);
-      void syncAppSuggestions(payload).catch((e) =>
+      void withPoolRetry(() => syncAppSuggestions(payload), {
+        retries: 1,
+        baseDelayMs: 900,
+      }).catch((e) =>
         console.warn("[useNearbySearchRecent] Falha ao sincronizar na nuvem:", e),
       );
     }, CLOUD_SYNC_DEBOUNCE_MS);

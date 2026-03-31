@@ -83,23 +83,55 @@ export const GoogleMapView = ({
   useEffect(() => {
     if (!isLoaded || !mapRef.current || !window.google?.maps) return;
 
-    const center = userLocation
-      ? { lat: userLocation.latitude, lng: userLocation.longitude }
-      : { lat: -23.5505, lng: -46.6333 };
+    let cancelled = false;
+    let mapForCleanup: google.maps.Map | null = null;
 
-    const map = new google.maps.Map(mapRef.current, {
-      center,
-      zoom: 14,
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true,
-      zoomControl: true,
-    });
+    const initMap = async () => {
+      const center = userLocation
+        ? { lat: userLocation.latitude, lng: userLocation.longitude }
+        : { lat: -23.5505, lng: -46.6333 };
 
-    mapInstanceRef.current = map;
+      let mapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+        typeof window.google?.maps?.Map === 'function'
+          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          : null;
+
+      if (!mapCtor && typeof (window.google.maps as any)?.importLibrary === 'function') {
+        try {
+          const mapsLib = await (window.google.maps as any).importLibrary('maps');
+          mapCtor = mapsLib?.Map ?? null;
+        } catch (e) {
+          console.error('[GoogleMapView] importLibrary("maps") falhou:', e);
+        }
+      }
+
+      if (!mapCtor) {
+        if (!cancelled) {
+          setLoadError('Google Maps carregou incompleto. Recarregue a página.');
+        }
+        return;
+      }
+
+      const map = new mapCtor(mapRef.current!, {
+        center,
+        zoom: 14,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+      });
+
+      if (cancelled) return;
+      mapForCleanup = map;
+      mapInstanceRef.current = map;
+    };
+
+    void initMap();
 
     return () => {
-      if (wmsOverlayRef.current && map.overlayMapTypes) {
+      cancelled = true;
+      const map = mapForCleanup ?? mapInstanceRef.current;
+      if (map && wmsOverlayRef.current && map.overlayMapTypes) {
         const arr = map.overlayMapTypes.getArray();
         const idx = arr.indexOf(wmsOverlayRef.current);
         if (idx >= 0) map.overlayMapTypes.removeAt(idx);

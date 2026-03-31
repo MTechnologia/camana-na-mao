@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
+import { withPoolRetry } from "@/lib/supabaseRetry";
 
 export type ServiceFavoriteRow = Database["public"]["Tables"]["service_favorites"]["Row"];
 
@@ -35,7 +36,10 @@ export function useFavoriteServiceIds() {
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase.from("service_favorites").select("service_id").eq("user_id", user.id);
+    const { data, error } = await withPoolRetry(
+      () => supabase.from("service_favorites").select("service_id").eq("user_id", user.id),
+      { retries: 1, baseDelayMs: 700 },
+    );
     if (error) {
       console.error("[useFavoriteServiceIds]", error);
       setFavoriteIds(new Set());

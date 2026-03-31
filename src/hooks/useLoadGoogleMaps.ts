@@ -25,21 +25,60 @@ export function useLoadGoogleMaps(apiKey: string | undefined) {
       return;
     }
 
-    if (window.google?.maps) {
+    if (window.google?.maps && (typeof window.google.maps.Map === 'function' || typeof (window.google.maps as any).importLibrary === 'function')) {
       setIsLoaded(true);
       return;
     }
 
-    const existing = document.querySelector('script[src*="maps.googleapis.com"]');
+    const isMapsReady = () =>
+      !!window.google?.maps &&
+      (typeof window.google.maps.Map === 'function' ||
+        typeof (window.google.maps as any).importLibrary === 'function');
+
+    const waitForMapsReady = (timeoutMs = 5000, intervalMs = 100) =>
+      new Promise<boolean>((resolve) => {
+        const startedAt = Date.now();
+        const timer = window.setInterval(() => {
+          if (!mountedRef.current) {
+            window.clearInterval(timer);
+            resolve(false);
+            return;
+          }
+          if (isMapsReady()) {
+            window.clearInterval(timer);
+            resolve(true);
+            return;
+          }
+          if (Date.now() - startedAt >= timeoutMs) {
+            window.clearInterval(timer);
+            resolve(false);
+          }
+        }, intervalMs);
+      });
+
+    const existing = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
     if (existing) {
-      if (window.google?.maps) setIsLoaded(true);
-      else existing.addEventListener('load', () => mountedRef.current && setIsLoaded(true));
+      if (isMapsReady()) {
+        setIsLoaded(true);
+      } else {
+        existing.addEventListener('load', async () => {
+          if (!mountedRef.current) return;
+          const ready = await waitForMapsReady();
+          if (!mountedRef.current) return;
+          if (ready) setIsLoaded(true);
+          else setError('Google Maps carregou incompleto (Map indisponível)');
+        });
+      }
       return;
     }
 
     const callbackName = '__googleMapsCallback';
-    (window as any)[callbackName] = () => {
-      if (mountedRef.current) setIsLoaded(true);
+    (window as any)[callbackName] = async () => {
+      if (!mountedRef.current) return;
+      const ready = await waitForMapsReady();
+      if (!mountedRef.current) return;
+      if (ready) setIsLoaded(true);
+      else setError('Google Maps carregou incompleto (Map indisponível)');
     };
 
     const script = document.createElement('script');

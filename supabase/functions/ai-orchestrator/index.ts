@@ -987,7 +987,7 @@ serve(async (req) => {
               field: 'risk_level',
               picker: null,
               prompt:
-                '[FIELD_REQUEST:risk_level]**Gravidade do problema:** há **risco ou impacto imediato** no local ou para as pessoas? _(ex.: fios expostos, via bloqueada, alagamento forte, foco de contaminação, cheiro tóxico forte)_\n\nResponda **sim** ou **não**, ou descreva em uma frase.',
+                '[FIELD_REQUEST:risk_level]**Gravidade do problema:** há **risco ou impacto imediato** no local ou para as pessoas? _(ex.: fios expostos, via bloqueada, alagamento forte, foco de contaminação, cheiro tóxico forte)_\n\nEscolha uma opção abaixo ou descreva em uma frase.[QUICK_REPLY:critical,moderate,low,none]',
             };
           }
           if (['critical', 'moderate'].includes(fields.risk_level) && !fields.affected_scope) {
@@ -1618,6 +1618,7 @@ serve(async (req) => {
             const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
             const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
             const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
+            const userWantsCorrection = /^(corrigir|corrigir\s+relato|editar|ajustar)$/i.test(msgLower.trim());
 
             const showedSimilarReports =
               /\[SIMILAR_URBAN_REPORTS_B64:/i.test(lastAssistantLower) ||
@@ -1755,7 +1756,19 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
-            // 4) Mostramos preview e usuário confirmou → criar relato (com fotos se tiver vindo na conversa)
+            // 4) Mostramos preview e usuário clicou em "Corrigir" → oferecer opções guiadas de campos
+            if (showedPreview && userWantsCorrection) {
+              const correctionOptions =
+                `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de corrigir no resumo do relato?\n\n` +
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: correctionOptions } }] });
+              console.log('[ai-orchestrator] Urban report: user requested correction → showing correction options');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            // 5) Mostramos preview e usuário confirmou → criar relato (com fotos se tiver vindo na conversa)
             if (showedPreview && userConfirms) {
               let photosToSave = attachmentUrls;
               if (photosToSave.length === 0 && conversationId) {
@@ -1797,7 +1810,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               }
               toolResult = await lib.executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
             }
-            // 5) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
+            // 6) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
             if (askedToAttach && !toolResult) {
               const catLabels: Record<string, string> = {
                 iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
