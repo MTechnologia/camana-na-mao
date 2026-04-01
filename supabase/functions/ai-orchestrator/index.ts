@@ -979,18 +979,34 @@ serve(async (req) => {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
         }
         
-        // 5. Gravidade / criticidade (risco) — todas as categorias de infraestrutura/ambiente, exceto feedback à Câmara
+        // 5. Gravidade / criticidade (risco) — inferência automática pelo texto; sem botões; pergunta só se incerto
         if (lib.URBAN_RISK_COLLECTION_CATEGORIES.includes(String(fields.category || ''))) {
           if (!fields.risk_level) {
-            // Sempre pergunta ao cidadão (evita classificação “invisível” só por autoInferRisk)
-            return {
-              field: 'risk_level',
-              picker: null,
-              prompt:
-                '[FIELD_REQUEST:risk_level]**Gravidade do problema:** há **risco ou impacto imediato** no local ou para as pessoas? _(ex.: fios expostos, via bloqueada, alagamento forte, foco de contaminação, cheiro tóxico forte)_\n\nEscolha uma opção abaixo ou descreva em uma frase.[QUICK_REPLY:critical,moderate,low,none]',
-            };
+            const inferText = `${fields.description || ''} ${fields.subcategory || ''}`.trim();
+            const inferred =
+              inferText.length >= 4
+                ? lib.autoInferRisk(inferText)
+                : { risk_level: null as string | null, confidence: 0, risk_types: [] as string[] };
+            if (inferred.risk_level != null && inferred.confidence >= 0.4) {
+              fields.risk_level = inferred.risk_level;
+              if (inferred.risk_types?.length) fields.risk_types = inferred.risk_types;
+              fields._risk_auto_inferred = true;
+              console.log(
+                '[getNextMissingField] Auto-inferred risk_level:',
+                inferred.risk_level,
+                'confidence:',
+                inferred.confidence
+              );
+            } else {
+              return {
+                field: 'risk_level',
+                picker: null,
+                prompt:
+                  '[FIELD_REQUEST:risk_level]Para classificar o impacto, preciso de **uma frase** sobre o que está acontecendo **agora** no local. _(ex.: água subindo na calçada, bueiro transbordando, só poça, sem risco imediato)_\n\n_Classifico automaticamente a partir disso; no **resumo** você pode **Corrigir** a gravidade se precisar._',
+              };
+            }
           }
-          if (['critical', 'moderate'].includes(fields.risk_level) && !fields.affected_scope) {
+          if (['critical', 'moderate'].includes(String(fields.risk_level || '')) && !fields.affected_scope) {
             return { field: 'affected_scope', picker: null, prompt: 'Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?' };
           }
         }

@@ -2155,6 +2155,8 @@ export function autoInferRisk(description: string): {
     // Flooding - most common high-risk
     { pattern: /completamente\s*alagad[oa]|totalmente\s*alagad[oa]|muito\s*alagad[oa]/, weight: 0.95, type: 'flooding', reason: 'alagamento grave' },
     { pattern: /alagad[oa]|inundad[oa]|chei[oa]\s*d[e']?\s*[áa]gua/, weight: 0.85, type: 'flooding', reason: 'alagamento' },
+    // Gerúndios / processo em curso ("está alagando", "inundando a calçada")
+    { pattern: /\b(a?lagando|inundando|transbordando)\b|está\s*a?\s*lagando|esta\s*a?\s*lagando|tá\s*a?\s*lagando/, weight: 0.88, type: 'flooding', reason: 'alagamento em curso' },
     { pattern: /água\s*subindo|transbordando|enchente/, weight: 0.9, type: 'flooding', reason: 'alagamento crescente' },
     
     // Blocking/obstruction
@@ -2563,6 +2565,33 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       // Normaliza typo comum ("cheio tóxico" → "cheiro tóxico") para keywords e inferência
       const rl = responseLower.replace(/\bcheio(?=\s+t[óo]xic)/g, 'cheiro');
 
+      // Botões / valores canônicos (evita cair no fallback "frase ≥8 chars" → low, ex.: "critical")
+      const riskQuickNorm = response
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '');
+      const riskQuickMap: Record<string, string> = {
+        critical: 'critical',
+        moderate: 'moderate',
+        low: 'low',
+        none: 'none',
+        critica: 'critical',
+        critico: 'critical',
+        moderada: 'moderate',
+        moderado: 'moderate',
+        baixa: 'low',
+        baixo: 'low',
+        semriscoimediato: 'none',
+        semrisco: 'none',
+      };
+      const riskQuickKey = riskQuickNorm.replace(/\s+/g, '');
+      if (riskQuickMap[riskQuickKey]) {
+        result.risk_level = riskQuickMap[riskQuickKey];
+        result.urgency_reason = response;
+        break;
+      }
+
       // Parse risk level from natural language - EXPANDED VOCABULARY
       // Simple yes/no responses first
       if (rl === 'sim' || rl === 's' || rl === 'yes' || rl === 'y') {
@@ -2640,7 +2669,10 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         } else {
           const t = response.trim();
           const vague = /^(não sei|nao sei|sem ideia|não\s*opino|nao\s*opino)\b/i.test(t);
-          if (t.length >= 8 && !vague && !/^(não|nao|n|no)\b/i.test(t)) {
+          const looksDescriptive = t.length >= 10 && /\s/.test(t);
+          const looksLikeFlowToken =
+            /^(confirmar|corrigir|continuar|registrar|novo_relato|ok|obrigad)/i.test(t);
+          if (looksDescriptive && !vague && !/^(não|nao|n|no)\b/i.test(t) && !looksLikeFlowToken) {
             result.risk_level = 'low';
             result.urgency_reason = response;
           }
@@ -3226,11 +3258,19 @@ export function accumulateFieldsFromHistory(
         }
         
         // === NEW: Heuristic parsing for impact fields (as fallback) ===
-        // Risk level detection from question context
-        if ((question.includes('risco imediato') || question.includes('há algum risco') ||
-             question.includes('gravidade')) && !accumulated.risk_level) {
+        // Risk level: reaplicar quando o cidadão corrige gravidade (já havia risk_level)
+        const riskQuestionHeuristic =
+          /\[QUICK_REPLY:\s*critical\b/i.test(rawQuestion) ||
+          /\bnova\s+gravidade\b/i.test(question) ||
+          /\bqual\s+a\s+nova\s+gravidade\b/i.test(question) ||
+          (/\bgravidade\s+do\s+problema\b/i.test(question) &&
+            /escolha|op(ç|c)[aã]o|risco\s+ou\s+impacto|uma\s+frase|descreva/i.test(question)) ||
+          (/\bhá\s+algum\s+risco\b/i.test(question) || /\brisco\s+imediat/i.test(question));
+        if (riskQuestionHeuristic) {
           const parsedRisk = parseFieldResponse('risk_level', answer);
-          Object.assign(accumulated, parsedRisk);
+          if (parsedRisk.risk_level != null) {
+            Object.assign(accumulated, parsedRisk);
+          }
         }
         
         // Affected scope detection

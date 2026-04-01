@@ -596,8 +596,49 @@ function slugToApCode(slug: string): string {
   return slug.slice(0, idx).toUpperCase() + slug.slice(idx);
 }
 
-/** Verifica na página da audiência (CMSP) se as inscrições foram encerradas. */
-async function pageHasInscricoesEncerradas(slug: string): Promise<boolean> {
+function stripDiacriticsHtmlText(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Texto da API SPLEGIS (Colabore, observação, etc.) indica audiência sem inscrição por videoconferência. */
+function textoIndicaSemInscricaoVideoconferencia(...parts: (string | null | undefined)[]): boolean {
+  const raw = parts.filter((p) => p != null && String(p).trim()).join("\n");
+  if (!raw.trim()) return false;
+  const t = stripDiacriticsHtmlText(raw);
+  return (
+    /\bparticipacao somente presencial\b/.test(t) ||
+    /\baudiencia publica com participacao somente presencial\b/.test(t) ||
+    /\bparticipacao exclusivamente presencial\b/.test(t) ||
+    (/nao e possivel se inscrever\b/.test(t) && /\bvideoconferencia\b/.test(t)) ||
+    (/nao e possivel\b/.test(t) && /participar por videoconferencia\b/.test(t))
+  );
+}
+
+/** Analisa HTML da página da audiência no site da CMSP (alinha ao SPLegis / WordPress). */
+function parseCmspAudienciaPageFlags(html: string): { inscricoesEncerradas: boolean; semInscricaoVideo: boolean } {
+  const plain = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  const t = stripDiacriticsHtmlText(plain);
+  const inscricoesEncerradas =
+    /inscri[cç][oõ]es\s+encerradas?/i.test(html) ||
+    /inscri[cç][oõ]es\s+para\s+[^.]{0,120}foram\s+encerradas/i.test(t);
+  const semInscricaoVideo =
+    /\bparticipacao somente presencial\b/.test(t) ||
+    /\baudiencia publica com participacao somente presencial\b/.test(t) ||
+    /\bparticipacao exclusivamente presencial\b/.test(t) ||
+    (/nao e possivel se inscrever\b/.test(t) && /\bvideoconferencia\b/.test(t)) ||
+    (/nao e possivel\b/.test(t) && /participar por videoconferencia\b/.test(t));
+  return { inscricoesEncerradas, semInscricaoVideo };
+}
+
+async function fetchCmspAudienciaPageFlags(slug: string): Promise<{ inscricoesEncerradas: boolean; semInscricaoVideo: boolean } | null> {
   const pageUrl = `${CMSP_AUDIENCIA_BASE}/${encodeURIComponent(slug)}/`;
   try {
     const res = await fetch(pageUrl, {
@@ -607,14 +648,11 @@ async function pageHasInscricoesEncerradas(slug: string): Promise<boolean> {
       },
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const html = await res.text();
-    return (
-      /inscri[çc][oõ]es\s+encerradas?/i.test(html) ||
-      /inscri[çc][oõ]es\s+para\s+(?:participa[çc][aã]o|manifesta[çc][aã]o)[^.]*foram\s+encerradas/i.test(html)
-    );
+    return parseCmspAudienciaPageFlags(html);
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -743,6 +781,9 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const projetoAutores = primeiroProjeto?.autores ?? null;
   const ementaProjeto = primeiroProjeto?.ementa?.trim() ?? "";
   const temaStr = getStr(item, "Tema", "tema");
+  const colaboreStr = getStr(item, "Colabore", "colabore");
+  const observacaoApi = getStr(item, "Observacao", "observacao");
+  const descricaoApi = getStr(item, "Descricao", "descricao");
   const temaEhRotuloCurto = !temaStr || temaStr.length < 25 || /^geral$/i.test(temaStr.trim());
   const comissoesDesc = getDescricaoFromComissoes(item);
   let descricao =
@@ -773,19 +814,25 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     status,
     comissao,
     observacao:
-      getStr(item, "Observacao", "observacao") ||
-      extrairObservacao(getStr(item, "Colabore", "colabore")) ||
+      observacaoApi ||
+      extrairObservacao(colaboreStr) ||
       extrairObservacao(getStr(item, "FormInscricoes", "formInscricoes")) ||
       (dataNorm >= new Date().toISOString().slice(0, 10) ? observacaoPadraoSiteOficial(dataNorm) : null) ||
       null,
     convidados:
-      extrairConvidados(getStr(item, "Colabore", "colabore")) ||
+      extrairConvidados(colaboreStr) ||
       extrairConvidados(getStr(item, "Tema", "tema")) ||
       extrairConvidados(getStr(item, "Descricao", "descricao")) ||
       null,
     mais_informacoes: getStr(item, "Contato", "contato") || null,
     vagas_disponiveis: vagas,
     inscricoes_abertas: inscricoesAbertas ?? true,
+    permite_inscricao_videoconferencia: !textoIndicaSemInscricaoVideoconferencia(
+      colaboreStr,
+      observacaoApi,
+      descricaoApi,
+      temaStr,
+    ),
     link_transmissao: getStr(item, "LinkTeleconferencia", "linkTeleconferencia") || null,
     projeto_referencia: projetoRef || null,
     projeto_autores: projetoAutores || null,
@@ -1142,8 +1189,9 @@ serve(async (req) => {
       console.warn("[fetch-audiencias] Sync slug CMSP ignorado:", (slugErr as Error).message);
     }
 
-    // Atualizar inscricoes_abertas = false quando a página da CMSP indicar "Inscrições encerradas"
+    // Página CMSP: inscrições encerradas e/ou sem inscrição por videoconferência (ex.: somente presencial)
     let inscricoesEncerradasUpdated = 0;
+    let semVideoInscricaoUpdated = 0;
     try {
       const hoje = new Date().toISOString().slice(0, 10);
       const { data: comSlugFuturas } = await supabase
@@ -1155,20 +1203,26 @@ serve(async (req) => {
       for (const row of comSlugFuturas ?? []) {
         const slug = row.slug as string;
         if (!slug?.trim()) continue;
-        const encerradas = await pageHasInscricoesEncerradas(slug);
-        if (encerradas) {
-          const { error: upErr } = await supabase
-            .from("audiencias")
-            .update({ inscricoes_abertas: false })
-            .eq("id", row.id);
-          if (!upErr) inscricoesEncerradasUpdated++;
+        const flags = await fetchCmspAudienciaPageFlags(slug);
+        if (!flags) continue;
+        const patch: Record<string, unknown> = {};
+        if (flags.inscricoesEncerradas) patch.inscricoes_abertas = false;
+        if (flags.semInscricaoVideo) patch.permite_inscricao_videoconferencia = false;
+        if (Object.keys(patch).length === 0) continue;
+        const { error: upErr } = await supabase.from("audiencias").update(patch).eq("id", row.id);
+        if (!upErr) {
+          if (flags.inscricoesEncerradas) inscricoesEncerradasUpdated++;
+          if (flags.semInscricaoVideo) semVideoInscricaoUpdated++;
         }
       }
       if (inscricoesEncerradasUpdated > 0) {
-        console.log("[fetch-audiencias] inscricoes_abertas=false (CMSP encerrou):", inscricoesEncerradasUpdated);
+        console.log("[fetch-audiencias] inscricoes_abertas=false (CMSP):", inscricoesEncerradasUpdated);
+      }
+      if (semVideoInscricaoUpdated > 0) {
+        console.log("[fetch-audiencias] permite_inscricao_videoconferencia=false (CMSP somente presencial / sem vídeo):", semVideoInscricaoUpdated);
       }
     } catch (err) {
-      console.warn("[fetch-audiencias] Verificação inscrições encerradas ignorada:", (err as Error).message);
+      console.warn("[fetch-audiencias] Verificação página CMSP ignorada:", (err as Error).message);
     }
 
     const atualizadas = jaExistiam;
@@ -1182,7 +1236,8 @@ serve(async (req) => {
       updated: atualizadas,
       slugsUpdated,
       inscricoesEncerradasUpdated,
-      message: `Sincronizadas: ${inseridas} novas, ${atualizadas} atualizadas (${processed} no total, período ${dataInicial} a ${dataFinal}).${slugsUpdated > 0 ? ` Slug/ap_code: ${slugsUpdated} preenchidos pela listagem CMSP.` : ""}${inscricoesEncerradasUpdated > 0 ? ` Inscrições encerradas (CMSP): ${inscricoesEncerradasUpdated} atualizadas.` : ""}`,
+      semVideoInscricaoUpdated,
+      message: `Sincronizadas: ${inseridas} novas, ${atualizadas} atualizadas (${processed} no total, período ${dataInicial} a ${dataFinal}).${slugsUpdated > 0 ? ` Slug/ap_code: ${slugsUpdated} preenchidos pela listagem CMSP.` : ""}${inscricoesEncerradasUpdated > 0 ? ` Inscrições encerradas (CMSP): ${inscricoesEncerradasUpdated} atualizadas.` : ""}${semVideoInscricaoUpdated > 0 ? ` Sem inscrição videoconf. (CMSP): ${semVideoInscricaoUpdated} atualizadas.` : ""}`,
     };
 
     return new Response(JSON.stringify(result), {
