@@ -191,14 +191,14 @@ FLUXO URBANO:
 3. Perguntar CEP (ou rua+bairro se não souber)
 4. Pedir número/referência
 5. Se descrição < threshold: pedir mais detalhes
-6. **Gravidade/criticidade:** para quase todas as categorias urbanas (exceto feedback à Câmara), **sempre** perguntar impacto/risco — não pule só com inferência automática
+6. **Gravidade/criticidade:** para quase todas as categorias urbanas (exceto feedback à Câmara), o **motor determinístico infere** o nível a partir da descrição/tipo — **não** use botões de criticidade na coleta inicial. Só peça texto curto se a inferência for incerta; o cidadão pode **Corrigir** no resumo.
 7. Criar relato
 
 CATEGORIAS COM COLETA DE GRAVIDADE (risk_level) — todas as urbanas exceto feedback_camara:
 - via_publica, pavimentacao, iluminacao, esgoto, area_verde, calcada, sinalizacao, drenagem, poluicao, lixo, higiene_urbana, animais, outro
 
-Perguntas de impacto:
-→ "[FIELD_REQUEST:risk_level]**Gravidade:** há risco ou impacto imediato? (fios, via, alagamento, contaminação, saúde pública)"
+Perguntas de impacto (sem QUICK_REPLY de nível na primeira coleta; correção no resumo pode usar botões se o app enviar):
+→ Se precisar clarificar: "[FIELD_REQUEST:risk_level]Em uma frase: o que está acontecendo agora no local? (água subindo, cheiro forte, sem risco imediato, etc.)"
 → Se risco >= moderate: "[FIELD_REQUEST:affected_scope]Afeta só você, a rua ou o bairro?"
 
 === TRÂMITE ADMINISTRATIVO DO RELATO URBANO (EDUCATIVO — REQUISITO PO) ===
@@ -294,10 +294,9 @@ RELATOS APENAS SÃO PAULO (CAPITAL): Relatos urbanos são exclusivos do municíp
 - "[FIELD_REQUEST:description]Pode me contar mais sobre o que está acontecendo?"
 - "[FIELD_REQUEST:description]Consegue descrever melhor o problema?"
 
-4ª Risco: Use variações:
-- "[FIELD_REQUEST:risk_level]Há risco imediato? (fios expostos, via bloqueada, alagando)"
-- "[FIELD_REQUEST:risk_level]Isso representa algum risco agora?"
-- "[FIELD_REQUEST:risk_level]Tem algum perigo imediato?"
+4ª Risco (inferência automática no backend; só clarificar em texto se necessário):
+- "[FIELD_REQUEST:risk_level]Em uma frase: o que está acontecendo agora no local? (inclua se há água, cheiro forte, via bloqueada, etc.)"
+- "[FIELD_REQUEST:risk_level]Descreva o impacto imediato em uma frase curta."
 
 TRANSPORTE:
 1ª Descrição: Use variações:

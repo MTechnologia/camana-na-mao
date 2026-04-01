@@ -159,6 +159,7 @@ export type Database = {
           observacao: string | null
           id: string
           inscricoes_abertas: boolean | null
+          permite_inscricao_videoconferencia: boolean
           link_transmissao: string | null
           local: string
           slug: string | null
@@ -182,6 +183,7 @@ export type Database = {
           mais_informacoes?: string | null
           observacao?: string | null
           inscricoes_abertas?: boolean | null
+          permite_inscricao_videoconferencia?: boolean
           link_transmissao?: string | null
           local: string
           slug?: string | null
@@ -205,6 +207,7 @@ export type Database = {
           mais_informacoes?: string | null
           observacao?: string | null
           inscricoes_abertas?: boolean | null
+          permite_inscricao_videoconferencia?: boolean
           link_transmissao?: string | null
           local?: string
           slug?: string | null

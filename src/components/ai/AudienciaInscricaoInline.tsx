@@ -51,6 +51,7 @@ interface AudienciaOption {
   slug: string | null;
   ap_code: string | null;
   convidados: string | null;
+  permite_inscricao_videoconferencia?: boolean | null;
 }
 
 export function AudienciaInscricaoInline() {
@@ -79,7 +80,7 @@ export function AudienciaInscricaoInline() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, data, local, comissao, slug, ap_code, convidados")
+        .select("id, titulo, data, local, comissao, slug, ap_code, convidados, permite_inscricao_videoconferencia")
         .eq("inscricoes_abertas", true)
         .gte("data", today)
         .order("data", { ascending: true })
@@ -102,6 +103,17 @@ export function AudienciaInscricaoInline() {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
+  const permiteVideoNaAudiencia = selectedAudiencia?.permite_inscricao_videoconferencia !== false;
+
+  useEffect(() => {
+    const a = audiencias.find((x) => x.id === audienciaId);
+    if (!a) return;
+    if (a.permite_inscricao_videoconferencia === false) {
+      setTipoParticipacao((prev) => (prev === "videoconferencia" ? "escrito" : prev));
+    }
+  }, [audienciaId, audiencias]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -133,10 +145,12 @@ export function AudienciaInscricaoInline() {
     return () => { cancelled = true; };
   }, [user?.id, audienciaId]);
 
-  const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
-
   const handleSubmit = async () => {
     if (tipoParticipacao === "presencial") return;
+    if (tipoParticipacao === "videoconferencia" && !permiteVideoNaAudiencia) {
+      toast.error("Esta audiência não aceita inscrição por videoconferência.");
+      return;
+    }
 
     if (tipoParticipacao === "escrito") {
       if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
@@ -204,7 +218,13 @@ export function AudienciaInscricaoInline() {
     } catch (e) {
       console.error(e);
       const msg = (e as { message?: string })?.message;
-      toast.error(msg && msg.includes("já está inscrito") ? "Você já está inscrito nesta audiência." : "Não foi possível enviar. Tente novamente.");
+      toast.error(
+        msg && msg.includes("já está inscrito")
+          ? "Você já está inscrito nesta audiência."
+          : msg && msg.includes("não aceita inscrição para videoconferência")
+            ? "Esta audiência não aceita inscrição por videoconferência."
+            : "Não foi possível enviar. Tente novamente.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -276,10 +296,12 @@ export function AudienciaInscricaoInline() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {permiteVideoNaAudiencia ? (
             <SelectItem value="videoconferencia" className="text-sm flex items-center gap-2">
               <Video className="h-3.5 w-3.5" />
               Videoconferência
             </SelectItem>
+            ) : null}
             <SelectItem value="escrito" className="text-sm flex items-center gap-2">
               <FileText className="h-3.5 w-3.5" />
               Manifestação por escrito

@@ -571,17 +571,50 @@ export const useUnifiedAIChat = (
         }
       }
 
-      // 2) Risco (impacto) - Heurística expandida para detectar respostas variadas
-      if (!collectedFields.risk_level) {
-        const askedForRisk = 
-          lastAssistantLower.includes('risco imediato') || 
-          lastAssistantLower.includes('risco') ||
-          lastAssistantLower.includes('perigo') ||
-          lastAssistantLower.includes('gravidade') ||
-          lastAssistantLower.includes('urgên') ||
-          /\balgum\s+risco\b/i.test(lastAssistantText);
-          
-        if (askedForRisk && raw.length > 0) {
+      // 2) Risco (impacto) - Heurística expandida; permite corrigir gravidade depois do primeiro valor
+      const riskBtnKey = raw
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/\s+/g, '');
+      const riskBtnMap: Record<string, string> = {
+        critical: 'critical',
+        moderate: 'moderate',
+        low: 'low',
+        none: 'none',
+        critica: 'critical',
+        critico: 'critical',
+        moderada: 'moderate',
+        moderado: 'moderate',
+        baixa: 'low',
+        baixo: 'low',
+        semriscoimediato: 'none',
+        semrisco: 'none',
+      };
+      const fromRiskButton = riskBtnMap[riskBtnKey];
+      const askedForRisk =
+        lastAssistantLower.includes('risco imediato') ||
+        lastAssistantLower.includes('risco') ||
+        lastAssistantLower.includes('perigo') ||
+        lastAssistantLower.includes('gravidade') ||
+        lastAssistantLower.includes('urgên') ||
+        /\balgum\s+risco\b/i.test(lastAssistantText);
+      const forceRiskUpdate =
+        !!fromRiskButton ||
+        lastAssistantLower.includes('nova gravidade') ||
+        /\[field_request:risk_level\]/i.test(lastAssistantText) ||
+        (lastAssistantLower.includes('gravidade do problema') &&
+          (lastAssistantLower.includes('escolha') ||
+            lastAssistantLower.includes('opção') ||
+            lastAssistantLower.includes('opcao') ||
+            lastAssistantLower.includes('frase'))) ||
+        !collectedFields.risk_level;
+
+      if (forceRiskUpdate) {
+        if (fromRiskButton && askedForRisk && raw.length > 0) {
+          setCollectedFields((prev) => ({ ...prev, risk_level: fromRiskButton }));
+        } else if (!fromRiskButton && askedForRisk && raw.length > 0) {
           let risk_level: string | null = null;
           const risk_types: string[] = [];
           const riskNorm = rawLower.replace(/\bcheio(?=\s+t[óo]xic)/g, "cheiro");
@@ -633,11 +666,13 @@ export const useUnifiedAIChat = (
           else if (rawLower.includes('incômod') || rawLower.includes('desconfort') || rawLower.includes('pouco')) {
             risk_level = 'low';
           }
-          // Frase substantiva sem padrão claro: não travar o fluxo (tracker / UI)
+          // Frase substantiva sem padrão claro: não travar o fluxo (evita tokens de fluxo tipo "confirmar")
           else if (
-            raw.trim().length >= 8 &&
+            raw.trim().length >= 10 &&
+            /\s/.test(raw.trim()) &&
             !/^(não|nao|n|no)\b/i.test(raw.trim()) &&
-            !/^(não sei|nao sei|sem ideia)\b/i.test(raw.trim())
+            !/^(não sei|nao sei|sem ideia)\b/i.test(raw.trim()) &&
+            !/^(confirmar|corrigir|continuar|registrar|ok|obrigad)/i.test(raw.trim())
           ) {
             risk_level = 'low';
           }
