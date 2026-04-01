@@ -643,6 +643,34 @@ serve(async (req) => {
       console.log('[ai-orchestrator] Overriding intent to general: pergunta informativa vereador/câmara → RAG');
       collectionIntent = { type: 'general', fields: {} };
     }
+
+    // Primeira mensagem (ou saudação + fato) descreve incidente urbano grave → relato urbano mesmo sem chip / sem intent genérico
+    if (!journeySwitchMatch && (!collectionIntent || collectionIntent.type === 'general')) {
+      const userMsgsOpen = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+      const nOpen = userMsgsOpen.length;
+      const lastOpen = String(lastUserMsg || '').trim();
+      const firstOpen = nOpen >= 1 ? String(userMsgsOpen[0].content || '').trim() : '';
+      const openFirstNature = lib.normalizeReportNature(firstOpen) !== null;
+      const openFirstGreet =
+        firstOpen.length > 0 &&
+        firstOpen.length <= 24 &&
+        /^(oi|ol[aá]|opa|hey|bom\s+dia|boa\s+tarde|boa\s+noite)\b/i.test(firstOpen);
+      const openEligible =
+        (nOpen === 1 && lastOpen === String(userMsgsOpen[0].content || '').trim()) ||
+        (nOpen === 2 &&
+          lastOpen === String(userMsgsOpen[1].content || '').trim() &&
+          (openFirstNature || openFirstGreet));
+      if (
+        openEligible &&
+        lib.messageLooksLikeUrbanIncidentStarter(lastOpen) &&
+        lib.isValidDomainDescription(lastOpen, 'urban') &&
+        !lib.isGenericIntentText(lastOpen) &&
+        !lib.isBareUrbanReportNatureReply(lastOpen)
+      ) {
+        collectionIntent = { type: 'urban_report', fields: {} };
+        console.log('[ai-orchestrator] Forced urban_report: abertura com incidente na cidade');
+      }
+    }
     
     // Accumulate fields from conversation history for better tracking
     // BUT if journey was just switched, start fresh
@@ -686,6 +714,47 @@ serve(async (req) => {
           if (!accumulatedFields.state && cepLookup.state) {
             accumulatedFields.state = cepLookup.state;
           }
+        }
+      }
+
+      // Atalho: 1ª mensagem com fato grave (ex. incêndio) → natureza reclamação + descrição; próximo passo = categoria → "como informar o local"
+      if (
+        collectionIntent.type === 'urban_report' &&
+        !journeySwitchMatch &&
+        !/\[JOURNEY_DECLINED:/i.test(lastUserMsg)
+      ) {
+        const userMsgsUrban = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+        const nU = userMsgsUrban.length;
+        const lastTrim = String(lastUserMsg || '').trim();
+        const firstU = nU >= 1 ? String(userMsgsUrban[0].content || '').trim() : '';
+        const firstIsNature = lib.normalizeReportNature(firstU) !== null;
+        const firstIsShortGreeting =
+          firstU.length > 0 &&
+          firstU.length <= 24 &&
+          /^(oi|ol[aá]|opa|hey|bom\s+dia|boa\s+tarde|boa\s+noite)\b/i.test(firstU);
+        const incidentOk =
+          lib.messageLooksLikeUrbanIncidentStarter(lastTrim) &&
+          lib.isValidDomainDescription(lastTrim, 'urban') &&
+          !lib.isGenericIntentText(lastTrim) &&
+          !lib.isBareUrbanReportNatureReply(lastTrim);
+        const shapeOk =
+          (nU === 1 && lastTrim === String(userMsgsUrban[0].content || '').trim()) ||
+          (nU === 2 &&
+            lastTrim === String(userMsgsUrban[1].content || '').trim() &&
+            (firstIsNature || firstIsShortGreeting));
+        if (
+          shapeOk &&
+          incidentOk &&
+          accumulatedFields.location_method == null &&
+          !accumulatedFields.urban_registered_address_ack
+        ) {
+          if (!accumulatedFields.report_nature) {
+            accumulatedFields.report_nature = 'reclamacao';
+          }
+          accumulatedFields.description = lastTrim;
+          console.log(
+            '[ai-orchestrator] Urban incident opening: report_nature + description definidos → fluxo até location_method'
+          );
         }
       }
       
@@ -1002,7 +1071,7 @@ serve(async (req) => {
                 field: 'risk_level',
                 picker: null,
                 prompt:
-                  '[FIELD_REQUEST:risk_level]Para classificar o impacto, preciso de **uma frase** sobre o que está acontecendo **agora** no local. _(ex.: água subindo na calçada, bueiro transbordando, só poça, sem risco imediato)_\n\n_Classifico automaticamente a partir disso; no **resumo** você pode **Corrigir** a gravidade se precisar._',
+                  'Qual o **nível de gravidade** deste relato? Toque em uma opção abaixo (ou descreva em uma frase, se preferir).[QUICK_REPLY:critical,moderate,low,none]',
               };
             }
           }
@@ -1627,6 +1696,20 @@ serve(async (req) => {
         let toolResult;
         try {
           if (collectionIntent.type === 'urban_report') {
+            const lastOfferedCorrectionOptions =
+              /Selecione uma opção abaixo/i.test(lastAssistantLower) &&
+              /\[QUICK_REPLY:.*gravidade/i.test(lastAssistantMessage);
+            const userPickedGravidadeCorrection = /^(gravidade|gravidad)$/i.test(msgLower.trim());
+            if (lastOfferedCorrectionOptions && userPickedGravidadeCorrection) {
+              const riskAsk =
+                `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]` +
+                `[FIELD_REQUEST:risk_level]Qual o **nível de gravidade** correto para este relato?[QUICK_REPLY:critical,moderate,low,none]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: riskAsk } }] });
+              console.log('[ai-orchestrator] Urban report: correction → gravidade com botões');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
             // --- Fluxo: perguntar "deseja anexar imagens?" → sim: mostrar anexos; não: mostrar preview → confirmar → criar ---
             const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
             const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*continuar|envie\s+\*?continuar\*?/i.test(lastAssistantLower);
@@ -2159,8 +2242,15 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
       // Check if description contains urgent/grave problems for empathy context
       const description = accumulatedFields.description || '';
       const descLower = description.toLowerCase();
-      const hasUrgentContent = /(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente)/i.test(descLower);
-      const empathyNote = hasUrgentContent ? '\n\n⚠️ **ATENÇÃO - PROBLEMA GRAVE DETECTADO:**\nA descrição menciona situações de risco, violência, armas ou drogas. SEMPRE:\n1. Reconheça a gravidade e seja empático\n2. NÃO pergunte "qual tipo de problema" de forma genérica - já temos a descrição\n3. Se precisar de categoria, classifique automaticamente como "poluicao" (barulho) ou "outro" (segurança) baseado na descrição\n4. Mantenha tom empático e preocupado, mas eficiente\n' : '';
+      const lastUserUrgent = /(incêndio|incendio|fogo|queimando|chamas|armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente)/i.test(msgLower);
+      const hasUrgentContent =
+        /(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente|incêndio|incendio|fogo|queimando|chamas)/i.test(descLower) ||
+        lastUserUrgent;
+      const empathyNote = hasUrgentContent
+        ? '\n\n⚠️ **ATENÇÃO - CONTEÚDO URGENTE / GRAVE:**\nReconheça a gravidade com empatia e eficiência.\n' +
+          '**Localização:** NUNCA peça só "digite o CEP". O próximo passo correto é **location_method** com opções GPS / endereço cadastrado / CEP (o app mostra botões quando o backend envia `[LOCATION_METHOD_PICKER]`).\n' +
+          'NÃO pergunte de novo por dados já listados em "Campos JÁ COLETADOS".\n'
+        : '';
       
       const collectionContext = `
 
@@ -2352,16 +2442,62 @@ ${empathyNote}
         response = 'Olá! Como posso ajudar?';
       }
       
-      // If urgent problem detected, add urgency recognition
+      // Urgência: nunca pedir só "digite o CEP" — alinhar ao fluxo (GPS / cadastrado / CEP)
       if (isUrgent || hasUrgentInDescription) {
-        if (msgLower.includes('incêndio') || msgLower.includes('fogo') || msgLower.includes('queimando') || accumulatedDesc.toLowerCase().includes('incêndio') || accumulatedDesc.toLowerCase().includes('fogo')) {
-          response = 'Isso é muito perigoso! Vamos registrar urgentemente. Qual o CEP do local?';
-        } else if (msgLower.includes('fios') || msgLower.includes('expostos') || accumulatedDesc.toLowerCase().includes('fios') || accumulatedDesc.toLowerCase().includes('expostos')) {
-          response = 'Isso é perigoso! Vamos resolver rápido. Qual o CEP do local?';
-        } else if (msgLower.includes('risco') || msgLower.includes('perigo') || msgLower.includes('armado') || msgLower.includes('arma') || accumulatedDesc.toLowerCase().includes('armado') || accumulatedDesc.toLowerCase().includes('arma') || accumulatedDesc.toLowerCase().includes('drogas') || accumulatedDesc.toLowerCase().includes('violência') || accumulatedDesc.toLowerCase().includes('baderna')) {
-          response = 'Entendi a gravidade da situação. Isso é muito preocupante! Vamos registrar como alto risco imediato. Qual o CEP do local?';
+        const urbanUrgent =
+          collectionIntent?.type === 'urban_report' &&
+          nextFieldInfo.field === 'location_method' &&
+          !skipDeterministicForUrbanNature;
+        const fieldsJson = JSON.stringify(accumulatedFields || {});
+        const progressUrban = `[COLLECTION_PROGRESS:urban_report:${fieldsJson}]`;
+        const locationBody =
+          'Como você quer informar **onde fica** o problema? Toque em **Usar minha localização (GPS)** abaixo, ou escolha **endereço cadastrado** / **digitar CEP ou endereço**.';
+
+        if (urbanUrgent) {
+          let intro = 'Isso é perigoso! Vamos resolver rápido.\n\n';
+          if (
+            msgLower.includes('incêndio') ||
+            msgLower.includes('fogo') ||
+            msgLower.includes('queimando') ||
+            accumulatedDesc.toLowerCase().includes('incêndio') ||
+            accumulatedDesc.toLowerCase().includes('fogo')
+          ) {
+            intro = 'Isso é muito perigoso! Vamos registrar urgentemente.\n\n';
+          } else if (
+            msgLower.includes('fios') ||
+            msgLower.includes('expostos') ||
+            accumulatedDesc.toLowerCase().includes('fios') ||
+            accumulatedDesc.toLowerCase().includes('expostos')
+          ) {
+            intro = 'Isso é perigoso! Vamos resolver rápido.\n\n';
+          } else if (
+            msgLower.includes('risco') ||
+            msgLower.includes('perigo') ||
+            msgLower.includes('armado') ||
+            msgLower.includes('arma') ||
+            accumulatedDesc.toLowerCase().includes('armado') ||
+            accumulatedDesc.toLowerCase().includes('arma') ||
+            accumulatedDesc.toLowerCase().includes('drogas') ||
+            accumulatedDesc.toLowerCase().includes('violência') ||
+            accumulatedDesc.toLowerCase().includes('baderna')
+          ) {
+            intro =
+              'Entendi a gravidade da situação. Isso é muito preocupante! Vamos registrar como alto risco imediato.\n\n';
+          }
+          response = `${progressUrban}[FIELD_REQUEST:location_method]${intro}${locationBody}\n\n[LOCATION_METHOD_PICKER]`;
         } else {
-          response = 'Isso é perigoso! Vamos resolver rápido. Qual o CEP do local?';
+          response =
+            'Isso é urgente. Para registrar com segurança, escolha **Relato Urbano** nos serviços abaixo; em seguida você poderá informar o local por **GPS**, **endereço cadastrado** ou **CEP**.\n\n[SHOW_SERVICES_CHIPS]';
+          if (
+            msgLower.includes('incêndio') ||
+            msgLower.includes('fogo') ||
+            msgLower.includes('queimando') ||
+            accumulatedDesc.toLowerCase().includes('incêndio') ||
+            accumulatedDesc.toLowerCase().includes('fogo')
+          ) {
+            response =
+              'Isso é muito perigoso! Vamos registrar urgentemente. Escolha **Relato Urbano** abaixo e, na próxima etapa, indique o local por **GPS**, **endereço cadastrado** ou **CEP**.\n\n[SHOW_SERVICES_CHIPS]';
+          }
         }
       } else if (msgLower.includes('problema') || msgLower.includes('relatar')) {
         // Problem mentioned but not urgent
@@ -2371,7 +2507,14 @@ ${empathyNote}
       }
       
       // Saudação simples (com ou sem "tudo bem?"): mostrar chips para o usuário escolher o serviço
-      if (isGreeting && !isOffTopic && !isGenericReport && !isEmpathyRequest) {
+      if (
+        isGreeting &&
+        !isOffTopic &&
+        !isGenericReport &&
+        !isEmpathyRequest &&
+        !response.includes('[LOCATION_METHOD_PICKER]') &&
+        !response.includes('[SHOW_SERVICES_CHIPS]')
+      ) {
         response = `${response}\n\n[SHOW_SERVICES_CHIPS]`;
       }
       
