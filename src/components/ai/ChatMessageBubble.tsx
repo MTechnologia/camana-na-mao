@@ -318,7 +318,18 @@ const ChatMessageBubble = ({
       content.includes("fogo") ||
       content.includes("queimando") ||
       /registrar\s+urgent/i.test(content);
-    return urbanProgress || urgentTone;
+    // Água / drenagem: a LLM costuma pular para CEP; mesmo fluxo que GPS/cadastrado/digitar
+    const waterOrDrainageUrban =
+      content.includes("drenagem") ||
+      content.includes("alag") ||
+      content.includes("enchent") ||
+      content.includes("inunda") ||
+      content.includes("chovendo") ||
+      content.includes("chuva forte") ||
+      content.includes("bueiro") ||
+      content.includes("água na rua") ||
+      content.includes("agua na rua");
+    return urbanProgress || urgentTone || waterOrDrainageUrban;
   }, [isUser, isLastAssistantMessage, message.content, addressSelected, locationMethodSelected]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
