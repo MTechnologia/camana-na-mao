@@ -966,7 +966,10 @@ export const INTENT_KEYWORDS = [
   'pegando fogo',
   'em chamas',
   'alagamento',
+  'alagando',
   'enchente',
+  'chovendo',
+  'chuva forte',
   'fios expostos',
   'desabamento',
   'desmoron',
@@ -1521,7 +1524,7 @@ export function isBareUrbanReportNatureReply(text: string): boolean {
 /** Relato que descreve fato grave na cidade — atalho para entrar no fluxo urbano até "como informar o local". */
 const URBAN_INCIDENT_STARTER_PATTERNS: RegExp[] = [
   /inc[eê]ndio|incendio|pegando\s*fogo|em\s*chamas|queimando/i,
-  /alagamento|enchente|inundando|água\s*subindo|agua\s*subindo/i,
+  /alagando|alagada|alagado|alagamento|rua\s+alag|enchente|inundando|inundada|inundado|inundou|água\s*subindo|agua\s*subindo|chovendo\s*(muito\s*)?(forte|pesad)|chuva\s*(muito\s*)?(forte|pesad)/i,
   /fios?\s*expostos|cabos?\s*soltos|choque\s*el[eé]tric/i,
   /explos[aã]o|transformador/i,
   /desabamento|desmoron|risco\s*de\s*desab/i,
@@ -4769,7 +4772,7 @@ export function detectCollectionIntent(
   }
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem', 'incêndio', 'incendio', 'fogo', 'chamas', 'queimando', 'alagamento', 'enchente', 'inundando', 'fios expostos', 'explosão', 'explosao', 'transformador', 'desabamento', 'atropelamento', 'prédio abandonado', 'predio abandonado'];
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem', 'incêndio', 'incendio', 'fogo', 'chamas', 'queimando', 'alagamento', 'alagando', 'enchente', 'inundando', 'chovendo', 'chuva forte', 'fios expostos', 'explosão', 'explosao', 'transformador', 'desabamento', 'atropelamento', 'prédio abandonado', 'predio abandonado'];
   const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
