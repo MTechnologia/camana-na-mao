@@ -49,6 +49,7 @@ const DEFAULT_NEARBY_SERVICE_TYPES: ServiceTypeFilterValue[] = [
   "hospital",
   "sports_center",
 ];
+const MAX_REVERSE_GEOCODE_ITEMS = 24;
 
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
@@ -231,9 +232,18 @@ export default function NearbyServicesPage() {
     ? servicesInBand
     : servicesInBand.filter((s) => (s.average_rating ?? 0) >= minRating);
 
-  // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco;
-  // o card mostra endereço do reverse geocode — a busca precisa usar o mesmo texto.
-  const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
+  // Em raio grande, resolver endereço para muitos itens pode ficar lento (várias chamadas de geocoding).
+  // Priorizamos os mais próximos para manter a lista responsiva.
+  const servicesForAddressResolution = useMemo(
+    () =>
+      [...filteredByRating]
+        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
+        .slice(0, MAX_REVERSE_GEOCODE_ITEMS),
+    [filteredByRating]
+  );
+
+  // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco.
+  const resolvedAddresses = useReverseGeocodeForServices(servicesForAddressResolution, {
     apiKey: getGoogleMapsApiKey(),
     throttleMs: 200,
     maxConcurrent: 2,

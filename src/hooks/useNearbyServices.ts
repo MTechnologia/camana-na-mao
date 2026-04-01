@@ -87,10 +87,10 @@ const NEARBY_MAX_LIST_ALL_TYPES_LARGE = 200;
  * Vários tipos em bbox grande sem ORDER BY: `limit` alto por tipo em paralelo estoura o gateway (500).
  * Com os 5 tipos padrão e cap 900, `ceil(900/5)=180` × 5 GETs era o padrão ruim.
  */
-const NEARBY_UNORDERED_PER_TYPE_MAX = 48;
+const NEARBY_UNORDERED_PER_TYPE_MAX = 32;
 
 /** Concorrência em raio grande quando o usuário escolhe poucos tipos (não “todos”). */
-const NEARBY_LARGE_RADIUS_MULTI_TYPE_CONCURRENCY = 2;
+const NEARBY_LARGE_RADIUS_MULTI_TYPE_CONCURRENCY = 4;
 
 /**
  * A RPC `search_public_services_bbox_light` pode levar >15s em bbox grande no Postgres;
@@ -367,12 +367,25 @@ export const useNearbyServices = ({
 
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
-          /**
-           * PostgREST em `public_services` com bbox grande costuma devolver 500 / statement_timeout.
-           * Preferimos a RPC `search_public_services_bbox_light` (sem ORDER BY; migração 20260403120000
-           * ajusta timeout local e predicados float8). Se falhar, tentamos a mesma RPC em 4 quadrantes
-           * (área menor → plano mais barato), depois GET REST como último recurso.
-           */
+          // Fast path: consulta REST direta por tipo com cap baixo.
+          const { data: bboxData, error: bboxError } = await withTimeout(
+            supabase
+              .from("public_services")
+              .select(baseSelect)
+              .gte("latitude", box.minLat)
+              .lte("latitude", box.maxLat)
+              .gte("longitude", box.minLng)
+              .lte("longitude", box.maxLng)
+              .eq("service_type", singleType)
+              .limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+            queryTimeoutMs,
+            "public_services bbox unordered fallback",
+          );
+          if (!bboxError) {
+            return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
+          }
+
+          // Fallback: RPC bbox light (e quadrantes) quando REST falha em bbox grande.
           const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) =>
             withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
@@ -411,24 +424,7 @@ export const useNearbyServices = ({
           if (byId.size > 0) {
             return { rows: [...byId.values()].slice(0, lim), error: null };
           }
-
-          const { data: bboxData, error: bboxError } = await withTimeout(
-            supabase
-              .from("public_services")
-              .select(baseSelect)
-              .gte("latitude", box.minLat)
-              .lte("latitude", box.maxLat)
-              .gte("longitude", box.minLng)
-              .lte("longitude", box.maxLng)
-              .eq("service_type", singleType)
-              .limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
-            queryTimeoutMs,
-            "public_services bbox unordered fallback",
-          );
-          if (bboxError) {
-            return { rows: [], error: rpcError ?? bboxError };
-          }
-          return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
+          return { rows: [], error: rpcError ?? bboxError };
         }
 
         const merged: unknown[] = [];
@@ -550,17 +546,17 @@ export const useNearbyServices = ({
       };
 
       const REST_BATCH = 32;
-      const REST_QUERY_MS = 16_000;
+      const REST_QUERY_MS = 12_000;
 
       let data: unknown[] | null = null;
       let fetchError: { message?: string } | null = null;
       let skipMainProcessing = false;
 
       /** Raio grande (disco 0–5 km no mapa de busca): primeiro bbox ~2 km, depois bbox completo. Só quando não há anel (distMinM === 0). */
-      const PHASE1_RADIUS_M = 2000;
+      const PHASE1_RADIUS_M = 1500;
 
       const useTwoPhase =
-        !hasTextSearch && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M && distMinM === 0;
+        !hasTextSearch && isAllTypes && safeRadius >= NEARBY_LARGE_RADIUS_THRESHOLD_M && distMinM === 0;
 
       if (useTwoPhase) {
         try {
