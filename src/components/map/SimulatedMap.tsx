@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
 import { ServiceTypeIcon, getServiceTypeLabel, getServiceTypeMapColor } from "@/components/icons";
+import { getUserLocationMarkerIconDataUrl } from "@/lib/mapUserMarkerIcon";
 import { formatDistance, formatDistanceStraightLine, getServiceDisplayName } from "@/lib/mapUtils";
 import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 
@@ -66,7 +67,14 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
       {/* Legenda (alinhada ao GoogleMapView – OS-05) */}
       <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-          <div className="w-3 h-3 bg-primary rounded-full shrink-0" />
+          <img
+            src={getUserLocationMarkerIconDataUrl()}
+            alt=""
+            width={22}
+            height={26}
+            className="shrink-0 object-contain drop-shadow-sm"
+            aria-hidden
+          />
           <span>Você está aqui</span>
         </div>
         {activeServiceTypes.length > 0 ? (
@@ -76,10 +84,14 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
               return (
                 <div key={type} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: color ?? "hsl(var(--muted-foreground))" }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm"
+                    style={{
+                      boxShadow: color ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)` : undefined,
+                    }}
                     aria-hidden
-                  />
+                  >
+                    <ServiceTypeIcon serviceType={type} size={16} />
+                  </div>
                   <span className="truncate">{getServiceTypeLabel(type)}</span>
                 </div>
               );
@@ -96,11 +108,17 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
       {/* User location marker */}
       {userLocation && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
-          <div className="relative">
-            <div className="w-12 h-12 bg-primary rounded-full shadow-xl flex items-center justify-center animate-pulse">
-              <MapPin className="w-6 h-6 text-primary-foreground" />
+          <div className="relative flex flex-col items-center">
+            <div className="rounded-full bg-background/90 p-1 shadow-lg ring-2 ring-primary/15 animate-pulse">
+              <img
+                src={getUserLocationMarkerIconDataUrl()}
+                alt="Sua localização"
+                width={40}
+                height={48}
+                className="object-contain drop-shadow-md"
+              />
             </div>
-            <Badge variant="default" className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap shadow-md">
+            <Badge variant="default" className="mt-2 whitespace-nowrap shadow-md">
               Você está aqui
             </Badge>
           </div>

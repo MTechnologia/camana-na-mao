@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { withPoolRetry } from "@/lib/supabaseRetry";
 
 interface Profile {
   id: string;
@@ -21,11 +22,15 @@ export const useProfile = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data, error } = await withPoolRetry(
+        () =>
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle(),
+        { retries: 1, baseDelayMs: 700 },
+      );
 
       if (error) {
         console.error("Error loading profile:", error);

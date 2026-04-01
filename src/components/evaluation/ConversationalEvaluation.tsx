@@ -1,14 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useUnifiedAIChat, type EvaluationContext } from "@/hooks/useUnifiedAIChat";
 import {
   aggregateServiceRatingStars,
+  isCompleteServiceRatingDimensions,
   parseRatingDimensionsFromMessage,
+  SERVICE_RATING_DIMENSION_KEYS,
+  SERVICE_RATING_DIMENSION_LABELS,
 } from "@/lib/serviceRatingDimensions";
 import ChatMessageBubble from "@/components/ai/ChatMessageBubble";
 import ChatInput from "@/components/ai/ChatInput";
 import TypingIndicator from "@/components/ai/TypingIndicator";
 import { useProfile } from "@/hooks/useProfile";
+import { CheckCircle2, Pencil } from "lucide-react";
 
 interface ConversationalEvaluationProps {
   /** Contexto da visita para pular coleta de serviço. Se null, modo livre (pede tipo/nome do serviço). */
@@ -19,24 +25,55 @@ interface ConversationalEvaluationProps {
     comments: string;
     sentiment?: string;
   }) => void;
+  /** Após sucesso: esconde envio e evita redirecionamento automático (controlado pelo pai). */
+  completed?: boolean;
+}
+
+/** Próximo passo é o comentário textual (nota já enviada; assistente pediu experiência). */
+function shouldOfferRatingCommentReview(
+  collectedFields: Record<string, unknown>,
+  lastAssistantContent: string,
+  draft: string,
+): boolean {
+  const rs = collectedFields.rating_stars;
+  const hasGeneral =
+    typeof rs === "number" && Number.isInteger(rs) && rs >= 1 && rs <= 5;
+  if (!hasGeneral && !isCompleteServiceRatingDimensions(collectedFields.rating_dimensions)) return false;
+  if (collectedFields.rating_text) return false;
+  const a = lastAssistantContent.toLowerCase();
+  const asked =
+    a.includes("experiência") ||
+    a.includes("experiencia") ||
+    a.includes("comentário") ||
+    a.includes("comentario") ||
+    a.includes("descreva") ||
+    a.includes("como foi o atendimento") ||
+    a.includes("[field_request:rating_text]");
+  if (!asked) return false;
+  return draft.trim().length >= 5;
 }
 
 export function ConversationalEvaluation({
   evaluationContext,
   onComplete,
+  completed = false,
 }: ConversationalEvaluationProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasCompletedRef = useRef(false);
   const hasAutoStartedRef = useRef(false);
   const { profile, getInitials } = useProfile();
+  const [pendingCommentReview, setPendingCommentReview] = useState<string | null>(null);
+  const [reviewText, setReviewText] = useState("");
+  /** Limpa o ChatInput após enviar pelo painel de revisão (o campo ainda tinha o texto porque não limpamos no intercept). */
+  const [chatInputResetKey, setChatInputResetKey] = useState(0);
 
   const {
     messages,
     isLoading,
     sendMessage,
     createdReport,
+    collectedFields,
     handleRatingSelected,
-    handleMultiDimensionRatingSelected,
     handleServiceSelected,
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
@@ -105,9 +142,34 @@ export function ConversationalEvaluation({
     }
   }, [evaluationContext?.service_name, messages.length, sendMessage]);
 
-  const handleSend = (content: string) => {
-    if (!content.trim() || isLoading) return;
-    sendMessage(content.trim());
+  const handleSend = useCallback(
+    (content: string): void | boolean => {
+      const trimmed = content.trim();
+      if (!trimmed || isLoading || completed) return;
+      const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant")?.content || "";
+      if (
+        shouldOfferRatingCommentReview(collectedFields as Record<string, unknown>, lastAssistant, trimmed)
+      ) {
+        setPendingCommentReview(trimmed);
+        setReviewText(trimmed);
+        return false;
+      }
+      sendMessage(trimmed);
+    },
+    [isLoading, completed, messages, collectedFields, sendMessage],
+  );
+
+  const confirmReviewedComment = () => {
+    const t = reviewText.trim();
+    if (t.length < 5 || isLoading) return;
+    setPendingCommentReview(null);
+    setChatInputResetKey((k) => k + 1);
+    sendMessage(t);
+  };
+
+  const cancelCommentReview = () => {
+    setPendingCommentReview(null);
+    setReviewText("");
   };
 
   const userAvatarUrl = profile?.avatar_url;
@@ -128,7 +190,6 @@ export function ConversationalEvaluation({
                 userInitials={userInitials}
                 isLastAssistantMessage={isLastAssistant}
                 onRatingSelected={handleRatingSelected}
-                onMultiDimensionRatingSelected={handleMultiDimensionRatingSelected}
                 onServiceSelected={handleServiceSelected}
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}
@@ -142,15 +203,85 @@ export function ConversationalEvaluation({
           )}
           <div ref={messagesEndRef} />
         </div>
-        <div className="border-t border-border pt-2 shrink-0">
-          <ChatInput
-            onSendMessage={handleSend}
-            disabled={isLoading}
-            placeholder="Digite sua mensagem..."
-            draftKey="evaluation"
-            autoFocus={false}
-            initialFocusLockSeconds={isInApp ? 5 : undefined}
-          />
+        <div className="border-t border-border pt-2 shrink-0 space-y-3">
+          {pendingCommentReview != null && !completed && (
+            <Card className="border-amber-500/40 bg-amber-500/5">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Revise antes de publicar</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Confira as notas e o comentário. Depois de enviar, a avaliação será registrada.
+                    </p>
+                  </div>
+                </div>
+                {typeof collectedFields.rating_stars === "number" &&
+                collectedFields.rating_stars >= 1 &&
+                collectedFields.rating_stars <= 5 ? (
+                  <p className="text-sm rounded-md bg-background/80 border px-3 py-2">
+                    <span className="text-muted-foreground">Avaliação geral:</span>{" "}
+                    <span className="font-medium">{collectedFields.rating_stars}/5</span>
+                  </p>
+                ) : isCompleteServiceRatingDimensions(collectedFields.rating_dimensions) ? (
+                  <ul className="text-sm space-y-1 rounded-md bg-background/80 border px-3 py-2">
+                    {SERVICE_RATING_DIMENSION_KEYS.map((k) => (
+                      <li key={k}>
+                        <span className="text-muted-foreground">{SERVICE_RATING_DIMENSION_LABELS[k]}:</span>{" "}
+                        <span className="font-medium">{collectedFields.rating_dimensions![k]}/5</span>
+                      </li>
+                    ))}
+                    <li className="pt-1 text-muted-foreground text-xs">
+                      Média: {aggregateServiceRatingStars(collectedFields.rating_dimensions)} estrelas
+                    </li>
+                  </ul>
+                ) : null}
+                <div className="space-y-1.5">
+                  <label htmlFor="evaluation-review-comment" className="text-xs font-medium text-foreground">
+                    Comentário
+                  </label>
+                  <Textarea
+                    id="evaluation-review-comment"
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    rows={4}
+                    className="resize-y min-h-[88px] text-sm"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={cancelCommentReview} disabled={isLoading}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+                    Voltar e editar no chat
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={confirmReviewedComment}
+                    disabled={isLoading || reviewText.trim().length < 5}
+                  >
+                    Confirmar e enviar avaliação
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {!completed && pendingCommentReview == null && (
+            <ChatInput
+              key={chatInputResetKey}
+              onSendMessage={handleSend}
+              disabled={isLoading}
+              placeholder="Digite sua mensagem..."
+              draftKey="evaluation"
+              autoFocus={false}
+              initialFocusLockSeconds={isInApp ? 5 : undefined}
+            />
+          )}
+          {!completed && pendingCommentReview != null && (
+            <p className="text-xs text-muted-foreground px-1">
+              Use o painel acima para confirmar ou voltar ao chat.
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -358,7 +358,7 @@ serve(async (req) => {
     
     // PRIORITY: Use frontend collection type if it's a structured journey type
     const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
-    const LIGHT_JOURNEY_TYPES = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
+    const LIGHT_JOURNEY_TYPES = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
     let collectionIntent: lib.CollectionIntent | null = null;
     
     if (journeySwitchMatch) {
@@ -806,7 +806,7 @@ serve(async (req) => {
                 iluminacao: 'iluminação', via_publica: 'via pública', pavimentacao: 'pavimentação', calcada: 'calçada',
                 sinalizacao: 'sinalização', drenagem: 'drenagem',
                 lixo: 'lixo/entulho', esgoto: 'esgoto/alagamento', area_verde: 'área verde',
-                higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'barulho/poluição', outro: 'outro'
+                higiene_urbana: 'higiene urbana', animais: 'animais', poluicao: 'poluição (barulho ou ar/fumaça)', outro: 'outro'
               };
               return categoryLabels[autoClass.category!] || autoClass.category;
             })();
@@ -979,29 +979,34 @@ serve(async (req) => {
           return { field: 'street_number', picker: null, prompt: 'Qual o **número** ou **ponto de referência** próximo?' };
         }
         
-        // 5. Risk assessment for risk categories - WITH AUTO-INFERENCE
-        const RISK_CATEGORIES = [
-          'via_publica', 'pavimentacao', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem',
-        ];
-        if (RISK_CATEGORIES.includes(fields.category)) {
+        // 5. Gravidade / criticidade (risco) — inferência automática pelo texto; sem botões; pergunta só se incerto
+        if (lib.URBAN_RISK_COLLECTION_CATEGORIES.includes(String(fields.category || ''))) {
           if (!fields.risk_level) {
-            // TRY AUTO-INFERENCE from description before asking
-            const autoRisk = lib.autoInferRisk(fields.description || '');
-            if (autoRisk.risk_level && autoRisk.confidence >= 0.7) {
-              // High confidence - auto-set and skip question
-              fields.risk_level = autoRisk.risk_level;
-              if (autoRisk.risk_types && autoRisk.risk_types.length > 0) {
-                fields.risk_types = autoRisk.risk_types;
-              }
-              fields.urgency_reason = `Auto-inferido: ${autoRisk.reason}`;
-              console.log('[getNextMissingField] Auto-inferred risk:', autoRisk);
-              // Don't return - continue to next field check
+            const inferText = `${fields.description || ''} ${fields.subcategory || ''}`.trim();
+            const inferred =
+              inferText.length >= 4
+                ? lib.autoInferRisk(inferText)
+                : { risk_level: null as string | null, confidence: 0, risk_types: [] as string[] };
+            if (inferred.risk_level != null && inferred.confidence >= 0.4) {
+              fields.risk_level = inferred.risk_level;
+              if (inferred.risk_types?.length) fields.risk_types = inferred.risk_types;
+              fields._risk_auto_inferred = true;
+              console.log(
+                '[getNextMissingField] Auto-inferred risk_level:',
+                inferred.risk_level,
+                'confidence:',
+                inferred.confidence
+              );
             } else {
-              // Low confidence - need to ask
-              return { field: 'risk_level', picker: null, prompt: 'Há algum **risco imediato**? (sim/não) _(ex: fios expostos, via bloqueada, alagando)_' };
+              return {
+                field: 'risk_level',
+                picker: null,
+                prompt:
+                  '[FIELD_REQUEST:risk_level]Para classificar o impacto, preciso de **uma frase** sobre o que está acontecendo **agora** no local. _(ex.: água subindo na calçada, bueiro transbordando, só poça, sem risco imediato)_\n\n_Classifico automaticamente a partir disso; no **resumo** você pode **Corrigir** a gravidade se precisar._',
+              };
             }
           }
-          if (['critical', 'moderate'].includes(fields.risk_level) && !fields.affected_scope) {
+          if (['critical', 'moderate'].includes(String(fields.risk_level || '')) && !fields.affected_scope) {
             return { field: 'affected_scope', picker: null, prompt: 'Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?' };
           }
         }
@@ -1096,15 +1101,15 @@ serve(async (req) => {
 
         // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
         if (fields.visit_id) {
-          if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+          const rs = fields.rating_stars;
+          if (typeof rs !== 'number' || rs < 1 || rs > 5) {
             return {
-              field: 'rating_dimensions',
-              picker: '[MULTI_DIMENSION_RATING_PICKER]',
+              field: 'rating_stars',
+              picker: '[RATING_PICKER]',
               prompt:
-                'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+                '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
             };
           }
-          fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
@@ -1229,16 +1234,16 @@ serve(async (req) => {
           };
         }
         
-        // 4. Avaliação multidimensional (1–5 em cada dimensão)
-        if (!lib.isCompleteServiceRatingDimensions(fields.rating_dimensions)) {
+        // 4. Avaliação geral (1–5)
+        const rsFree = fields.rating_stars;
+        if (typeof rsFree !== 'number' || rsFree < 1 || rsFree > 5) {
           return {
-            field: 'rating_dimensions',
-            picker: '[MULTI_DIMENSION_RATING_PICKER]',
+            field: 'rating_stars',
+            picker: '[RATING_PICKER]',
             prompt:
-              'Avalie **de 1 a 5** cada aspecto da visita (1 = muito ruim, 5 = excelente): **atendimento**, **limpeza**, **infraestrutura** e **tempo de espera**. Use os controles abaixo e envie.',
+              '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
           };
         }
-        fields.rating_stars = lib.aggregateRatingDimensionsStars(fields.rating_dimensions as Record<string, number>);
         
         // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
         const textLen = (fields.rating_text || '').length;
@@ -1304,6 +1309,33 @@ serve(async (req) => {
     const lastAssistantMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
     const userMessagesOrdered = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+
+    // Ocupação: após seleção no picker (mensagem com [SERVICE_ID:...]) — não cair no fluxo "serviços próximos" (location_method).
+    const occupancyServiceIdMatch = lastUserMessage.match(/\[SERVICE_ID:([a-f0-9-]{36})\]/i);
+    const lastAssistantHadOccupancyPicker =
+      /\[OCCUPANCY_SERVICE_PICK\]/i.test(lastAssistantMessage) ||
+      (/consultar a ocupação correta/i.test(lastAssistantMessage) && /\[SERVICE_PICKER/i.test(lastAssistantMessage)) ||
+      (/Selecione na lista abaixo \(ou refine por nome\/bairro\)/i.test(lastAssistantMessage) && /\[SERVICE_PICKER/i.test(lastAssistantMessage));
+    if (occupancyServiceIdMatch && lastAssistantHadOccupancyPicker) {
+      try {
+        const toolResult = await lib.executeTool(
+          'get_service_occupancy_status',
+          { service_id: occupancyServiceIdMatch[1] },
+          user.id,
+          supabase,
+          accumulatedFields
+        );
+        const replyBody = toolResult.message || 'Não consegui consultar a ocupação agora.';
+        const occReply = `[LIGHT_JOURNEY:occupancy]${replyBody}`;
+        const ssePayload = JSON.stringify({ choices: [{ delta: { content: occReply } }] });
+        console.log('[ai-orchestrator] Occupancy picker follow-up: get_service_occupancy_status by service_id');
+        return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+          headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+        });
+      } catch (e) {
+        console.error('[ai-orchestrator] Occupancy short-circuit failed:', e);
+      }
+    }
 
     // Encaminhar relato para vereador: se a última resposta do bot foi "Relato registrado com sucesso" e o usuário pede para encaminhar para vereador, NÃO criar novo relato — chamar suggest_council_member
     const lastBotWasReportSuccess = /relato\s+registrado\s+com\s+sucesso|(?:URB|REL)-20\d{2}-\d+/.test(lastAssistantLower);
@@ -1602,9 +1634,98 @@ serve(async (req) => {
             const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
             const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
             const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
+            const userWantsCorrection = /^(corrigir|corrigir\s+relato|editar|ajustar)$/i.test(msgLower.trim());
 
-            // 1) Ainda não perguntamos se quer anexar → perguntar (botões Sim/Não no front)
-            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+            const showedSimilarReports =
+              /\[SIMILAR_URBAN_REPORTS_B64:/i.test(lastAssistantLower) ||
+              /relatos\s+na\s+mesma\s+categoria/i.test(lastAssistantLower);
+            const userWantsNewAfterSimilar =
+              /^(novo_relato|novo\s+relato|registrar\s+novo|criar\s+novo|mesmo\s+assim)\b/i.test(msgLower.trim());
+            const askedCorrectionField =
+              /qual\s+campo\s+voc[eê]\s+gostaria\s+de\s+corrigir|voc[eê]\s+pode\s+me\s+dizer,\s*por\s+exemplo/i.test(lastAssistantLower);
+            const userSentCorrectionLikeText =
+              /\b(n[aã]o\s+[ée]|n[aã]o\s+est[aá]|est[aá]\s+errad|corrig|deveria\s+ser)\b/i.test(msgLower);
+
+            // 0) Após lista de relatos próximos: usuário escolheu seguir com novo relato → perguntar fotos
+            if (
+              showedSimilarReports &&
+              userWantsNewAfterSimilar &&
+              !askedPhotoChoice &&
+              !askedToAttach &&
+              !showedPreview
+            ) {
+              const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+              console.log('[ai-orchestrator] Urban report: similar reports acknowledged → asking photo choice');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            // 1) Ainda não perguntamos relatos próximos nem fotos → tentar relatos na mesma região (K mais próximos por distância)
+            if (!askedPhotoChoice && !askedToAttach && !showedPreview && !showedSimilarReports) {
+              // Se estamos no subfluxo de correção do preview, não reabrir lista de similares;
+              // seguir direto para o resumo atualizado para confirmar/corrigir.
+              if (askedCorrectionField || userSentCorrectionLikeText) {
+                const catLabels: Record<string, string> = {
+                  iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
+                  sinalizacao: 'Sinalização', drenagem: 'Drenagem',
+                  esgoto: 'Esgoto/Bueiro', area_verde: 'Área Verde', higiene_urbana: 'Higiene Urbana',
+                  animais: 'Animais', poluicao: 'Poluição', feedback_camara: 'Feedback Câmara', outro: 'Outro'
+                };
+                const cat = String(accumulatedFields.category || '');
+                const catLabel = catLabels[cat] || cat;
+                const natureK = String(accumulatedFields.report_nature || 'reclamacao');
+                const natureLabel =
+                  lib.REPORT_NATURE_LABELS[natureK as keyof typeof lib.REPORT_NATURE_LABELS] || natureK;
+                const addr = [accumulatedFields.street, accumulatedFields.street_number, accumulatedFields.reference_point]
+                  .filter(Boolean).join(', ');
+                const neighborhood = accumulatedFields.neighborhood ? ` - ${accumulatedFields.neighborhood}` : '';
+                const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
+
+• **Natureza:** ${natureLabel}
+• **Categoria:** ${catLabel}${lib.formatUrbanReportPreviewAfterCategory(accumulatedFields as Record<string, unknown>)}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
+• **Endereço:** ${addr}${neighborhood}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+                console.log('[ai-orchestrator] Urban report: correction context detected → skipping similar list and showing updated preview');
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                });
+              }
+              const cat = String(accumulatedFields.category || '');
+              if (cat && cat !== 'feedback_camara') {
+                try {
+                  const coords = await lib.resolveUrbanCoordsForSimilarSearch(supabase, accumulatedFields);
+                  if (coords) {
+                    const near = await lib.fetchNearestUrbanReportsForSimilarity(
+                      supabase,
+                      coords.lat,
+                      coords.lon,
+                      cat,
+                      user.id,
+                      10,
+                    );
+                    if (near.length > 0) {
+                      const payload = { reports: near, center: coords };
+                      const json = JSON.stringify(payload);
+                      const b64 = btoa(unescape(encodeURIComponent(json)));
+                      const intro =
+                        `Encontramos **relatos na mesma categoria** próximos do local informado, **do mais próximo ao mais distante** (até ${near.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                      const similarMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]${intro}\n\n[SIMILAR_URBAN_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                      const ssePayload = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                      console.log('[ai-orchestrator] Urban report: showing nearest similar reports, count:', near.length);
+                      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                      });
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Urban similar reports lookup failed:', e);
+                }
+              }
               const photoChoiceMsg = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens ao seu relato?**[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
               console.log('[ai-orchestrator] Urban report: asking photo choice');
@@ -1640,8 +1761,8 @@ serve(async (req) => {
               const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
 
 • **Natureza:** ${natureLabel}
-• **Categoria:** ${catLabel}
-• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Categoria:** ${catLabel}${lib.formatUrbanReportPreviewAfterCategory(accumulatedFields as Record<string, unknown>)}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
 • **Endereço:** ${addr}${neighborhood}
 
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
@@ -1651,7 +1772,19 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
-            // 4) Mostramos preview e usuário confirmou → criar relato (com fotos se tiver vindo na conversa)
+            // 4) Mostramos preview e usuário clicou em "Corrigir" → oferecer opções guiadas de campos
+            if (showedPreview && userWantsCorrection) {
+              const correctionOptions =
+                `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de corrigir no resumo do relato?\n\n` +
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,endereço,categoria,tipo_detalhe,gravidade,tipos_de_risco,afetação,cep,natureza]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: correctionOptions } }] });
+              console.log('[ai-orchestrator] Urban report: user requested correction → showing correction options');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            // 5) Mostramos preview e usuário confirmou → criar relato (com fotos se tiver vindo na conversa)
             if (showedPreview && userConfirms) {
               let photosToSave = attachmentUrls;
               if (photosToSave.length === 0 && conversationId) {
@@ -1693,7 +1826,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               }
               toolResult = await lib.executeTool('create_urban_report', toolArgs, user.id, supabase, accumulatedFields);
             }
-            // 5) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
+            // 6) Instruímos a anexar e usuário enviou "Continuar" (com ou sem anexos) → mostrar PREVIEW e pedir confirmação (não criar ainda)
             if (askedToAttach && !toolResult) {
               const catLabels: Record<string, string> = {
                 iluminacao: 'Iluminação', via_publica: 'Via Pública', pavimentacao: 'Pavimentação', calcada: 'Calçada', lixo: 'Lixo/Entulho',
@@ -1714,13 +1847,28 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 : '';
               const preview = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato**
 • **Natureza:** ${natureLabel2}
-• **Categoria:** ${catLabel}
-• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}
+• **Categoria:** ${catLabel}${lib.formatUrbanReportPreviewAfterCategory(accumulatedFields as Record<string, unknown>)}
+• **Descrição:** ${(accumulatedFields.description || '').toString().slice(0, 200)}${(accumulatedFields.description || '').toString().length > 200 ? '...' : ''}${lib.formatUrbanReportPreviewAfterDescription(accumulatedFields as Record<string, unknown>)}
 • **Endereço:** ${addr}${neighborhood}${photoLine}
 
 Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.[QUICK_REPLY:confirmar,corrigir]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Urban report: user sent Continuar (attach flow), showing preview, attachmentUrls count:', attachmentUrls.length);
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            // 1b) Na lista de relatos próximos: mensagem do usuário sem "novo relato" — reforço para não ficar sem resposta
+            if (
+              showedSimilarReports &&
+              !userWantsNewAfterSimilar &&
+              !askedPhotoChoice &&
+              !askedToAttach &&
+              !showedPreview &&
+              lastUserMessage.trim().length > 0
+            ) {
+              const hint = `[COLLECTION_PROGRESS:urban_report:${JSON.stringify(accumulatedFields)}]Para **seguir com um novo relato** (fotos e confirmação), use **Registrar novo relato**. Você pode **apoiar** um dos relatos listados acima.[QUICK_REPLY:novo_relato]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: hint } }] });
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
@@ -2105,6 +2253,15 @@ ${empathyNote}
       });
     }
 
+    // Avaliação / desempenho subjetivo de políticos → resposta padrão sem LLM
+    if (lib.isPoliticianPerformanceEvaluationQuestion(lastUserMsg)) {
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: lib.POLITICIAN_EVALUATION_BLOCKED_MESSAGE } }] });
+      console.log('[ai-orchestrator] Bloqueio: avaliação/desempenho de políticos:', lastUserMsg.slice(0, 80));
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+      });
+    }
+
     // Small talk: "tudo bem?", "como vai?" (reciprocal) vs papo realmente fora (céu azul, tempo, etc.)
     const reciprocalGreetingPatterns = [
       /tudo bem\??/i, /tudo bom\??/i, /como vai\??/i, /como (está|esta) (você|vc|voce)\??/i,
@@ -2167,7 +2324,7 @@ ${empathyNote}
         else if (msgLower.includes('bom dia')) greeting = 'Bom dia!';
         else if (msgLower.includes('boa tarde')) greeting = 'Boa tarde!';
         else if (msgLower.includes('olá') || msgLower.includes('oi')) greeting = 'Olá!';
-        const servicesList = '• Problema na cidade\n• Transporte\n• Avaliar serviço\n• Serviços próximos\n• Tirar dúvida sobre a Câmara';
+        const servicesList = '• Relato Urbano\n• Transporte\n• Avaliar serviço\n• Serviços próximos\n• Tirar dúvida sobre a Câmara';
         const offTopicResponse = `${greeting} Desculpe, o intuito deste canal é poder te ajudar com estes serviços:\n\n${servicesList}\n\n[SHOW_SERVICES_CHIPS]`;
         const ssePayload = JSON.stringify({ choices: [{ delta: { content: offTopicResponse } }] });
         return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -2833,7 +2990,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
 
       console.log('[ai-orchestrator] Tool call (non-stream):', toolName);
       
-      const result = await lib.executeTool(toolName, toolArgs, user.id, supabase);
+      const result = await lib.executeTool(toolName, toolArgs, user.id, supabase, accumulatedFields);
       
       // Merge toolArgs for non-streaming mode too
       const finalFields = {

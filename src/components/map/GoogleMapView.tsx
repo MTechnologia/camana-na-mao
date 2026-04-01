@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import { Card } from '@/components/ui/card';
 import { Navigation, MapPin } from 'lucide-react';
 import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
@@ -11,7 +11,17 @@ import {
   GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
   buildWmsGetMapUrl,
 } from '@/config/geosampa-wms-imageamento';
-import { getServiceTypeBalloonIconUrl, getServiceTypeLabel, getServiceTypeMapColor } from '@/components/icons';
+import {
+  getServiceTypeBalloonIconUrl,
+  getServiceTypeLabel,
+  getServiceTypeMapColor,
+  SERVICE_BALLOON_MARKER_LAYOUT,
+  ServiceTypeIcon,
+} from '@/components/icons';
+import {
+  getUserLocationMarkerIconDataUrl,
+  USER_LOCATION_MARKER_LAYOUT,
+} from '@/lib/mapUserMarkerIcon';
 import { needsVerificationForLowAverageRating } from '@/lib/serviceRatingVerification';
 
 interface Service {
@@ -73,23 +83,55 @@ export const GoogleMapView = ({
   useEffect(() => {
     if (!isLoaded || !mapRef.current || !window.google?.maps) return;
 
-    const center = userLocation
-      ? { lat: userLocation.latitude, lng: userLocation.longitude }
-      : { lat: -23.5505, lng: -46.6333 };
+    let cancelled = false;
+    let mapForCleanup: google.maps.Map | null = null;
 
-    const map = new google.maps.Map(mapRef.current, {
-      center,
-      zoom: 14,
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true,
-      zoomControl: true,
-    });
+    const initMap = async () => {
+      const center = userLocation
+        ? { lat: userLocation.latitude, lng: userLocation.longitude }
+        : { lat: -23.5505, lng: -46.6333 };
 
-    mapInstanceRef.current = map;
+      let mapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+        typeof window.google?.maps?.Map === 'function'
+          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          : null;
+
+      if (!mapCtor && typeof (window.google.maps as any)?.importLibrary === 'function') {
+        try {
+          const mapsLib = await (window.google.maps as any).importLibrary('maps');
+          mapCtor = mapsLib?.Map ?? null;
+        } catch (e) {
+          console.error('[GoogleMapView] importLibrary("maps") falhou:', e);
+        }
+      }
+
+      if (!mapCtor) {
+        if (!cancelled) {
+          setLoadError('Google Maps carregou incompleto. Recarregue a página.');
+        }
+        return;
+      }
+
+      const map = new mapCtor(mapRef.current!, {
+        center,
+        zoom: 14,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+      });
+
+      if (cancelled) return;
+      mapForCleanup = map;
+      mapInstanceRef.current = map;
+    };
+
+    void initMap();
 
     return () => {
-      if (wmsOverlayRef.current && map.overlayMapTypes) {
+      cancelled = true;
+      const map = mapForCleanup ?? mapInstanceRef.current;
+      if (map && wmsOverlayRef.current && map.overlayMapTypes) {
         const arr = map.overlayMapTypes.getArray();
         const idx = arr.indexOf(wmsOverlayRef.current);
         if (idx >= 0) map.overlayMapTypes.removeAt(idx);
@@ -162,12 +204,15 @@ export const GoogleMapView = ({
       map: mapInstanceRef.current,
       title: 'Você está aqui',
       icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#3b82f6',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 3,
+        url: getUserLocationMarkerIconDataUrl(),
+        scaledSize: new google.maps.Size(
+          USER_LOCATION_MARKER_LAYOUT.width,
+          USER_LOCATION_MARKER_LAYOUT.height,
+        ),
+        anchor: new google.maps.Point(
+          USER_LOCATION_MARKER_LAYOUT.anchorX,
+          USER_LOCATION_MARKER_LAYOUT.anchorY,
+        ),
       },
     });
 
@@ -207,8 +252,14 @@ export const GoogleMapView = ({
         title: displayName,
         icon: {
           url: getServiceTypeBalloonIconUrl(service.service_type),
-          scaledSize: new google.maps.Size(36, 36),
-          anchor: new google.maps.Point(18, 36),
+          scaledSize: new google.maps.Size(
+            SERVICE_BALLOON_MARKER_LAYOUT.width,
+            SERVICE_BALLOON_MARKER_LAYOUT.height,
+          ),
+          anchor: new google.maps.Point(
+            SERVICE_BALLOON_MARKER_LAYOUT.anchorX,
+            SERVICE_BALLOON_MARKER_LAYOUT.anchorY,
+          ),
         },
       });
 
@@ -246,7 +297,11 @@ export const GoogleMapView = ({
       clustererRef.current = new MarkerClusterer({
         map: mapInstanceRef.current,
         markers,
-        // Renderer padrão: círculos com contagem; ao dar zoom os clusters se separam em marcadores individuais
+        /** Zoom acima disso: pins individuais com ícone do tipo (evita só “bolinhas” vermelhas cedo demais). */
+        algorithm: new SuperClusterAlgorithm({
+          maxZoom: 15,
+          radius: 52,
+        }),
       });
     }
   }, [
@@ -359,7 +414,14 @@ export const GoogleMapView = ({
 
         <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <div className="w-3 h-3 bg-primary rounded-full shrink-0" />
+            <img
+              src={getUserLocationMarkerIconDataUrl()}
+              alt=""
+              width={22}
+              height={26}
+              className="shrink-0 object-contain drop-shadow-sm"
+              aria-hidden
+            />
             <span>Você está aqui</span>
           </div>
           {activeServiceTypes.length > 0 ? (
@@ -369,10 +431,14 @@ export const GoogleMapView = ({
                 return (
                   <div key={type} className="flex items-center gap-2 text-xs text-muted-foreground">
                     <div
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: color ?? 'hsl(var(--muted-foreground))' }}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm"
+                      style={{
+                        boxShadow: color ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)` : undefined,
+                      }}
                       aria-hidden
-                    />
+                    >
+                      <ServiceTypeIcon serviceType={type} size={16} />
+                    </div>
                     <span className="truncate">{getServiceTypeLabel(type)}</span>
                   </div>
                 );

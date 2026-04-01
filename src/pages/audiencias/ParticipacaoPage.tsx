@@ -60,6 +60,7 @@ const ParticipacaoPage = () => {
   const [audienciaHora, setAudienciaHora] = useState<string | null>(null);
   const [audienciaComissao, setAudienciaComissao] = useState<string | null>(null);
   const [audienciaMaisInformacoes, setAudienciaMaisInformacoes] = useState<string | null>(null);
+  const [permiteVideoconferencia, setPermiteVideoconferencia] = useState(true);
   const [audienciaLoading, setAudienciaLoading] = useState(true);
   const [confirmProtocolo, setConfirmProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
@@ -76,7 +77,7 @@ const ParticipacaoPage = () => {
       setAudienciaLoading(true);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, slug, ap_code, link_transmissao, data, hora, comissao, mais_informacoes")
+        .select("id, titulo, slug, ap_code, link_transmissao, data, hora, comissao, mais_informacoes, permite_inscricao_videoconferencia")
         .eq("id", audienciaId)
         .maybeSingle();
       if (!cancelled) {
@@ -89,6 +90,7 @@ const ParticipacaoPage = () => {
           setAudienciaHora(null);
           setAudienciaComissao(null);
           setAudienciaMaisInformacoes(null);
+          setPermiteVideoconferencia(true);
         } else {
           setAudienciaTitle(data.titulo);
           setAudienciaSlug(data.slug ?? null);
@@ -98,6 +100,9 @@ const ParticipacaoPage = () => {
           setAudienciaHora((data as { hora?: string | null }).hora ?? null);
           setAudienciaComissao((data as { comissao?: string | null }).comissao ?? null);
           setAudienciaMaisInformacoes((data as { mais_informacoes?: string | null }).mais_informacoes ?? null);
+          setPermiteVideoconferencia(
+            (data as { permite_inscricao_videoconferencia?: boolean | null }).permite_inscricao_videoconferencia !== false,
+          );
         }
         setAudienciaLoading(false);
       }
@@ -158,6 +163,32 @@ const ParticipacaoPage = () => {
 
   const backToDetail = `/audiencias/${id}`;
 
+  if (tipo === "videoconferencia" && !permiteVideoconferencia) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <PageHeader title="Participação" backTo={backToDetail} />
+        <div className="pt-[60px] p-6 max-w-lg mx-auto space-y-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Esta audiência está prevista como <strong className="text-foreground">participação presencial</strong> no local,
+            sem inscrição por videoconferência no app — alinhado ao site oficial da Câmara.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Você pode enviar <strong className="text-foreground">manifestação por escrito</strong> pelo app ou acompanhar pela
+            transmissão online.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button onClick={() => navigate(`${backToDetail}/participar?tipo=escrito`)} className="w-full">
+              Manifestação por escrito
+            </Button>
+            <Button variant="outline" onClick={() => navigate(backToDetail)} className="w-full">
+              Voltar ao detalhe da audiência
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Escolha do tipo (sem ?tipo= na URL)
   if (!tipo || (tipo !== "videoconferencia" && tipo !== "escrito")) {
     return (
@@ -171,20 +202,22 @@ const ParticipacaoPage = () => {
           </p>
           <p className="text-sm text-muted-foreground">Escolha como deseja participar:</p>
           <div className="flex flex-col gap-3">
-            {inscritoVideoconferencia ? (
-              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
-                <CheckCircle2 className="h-5 w-5 shrink-0" />
-                <span>Já inscrito nesta audiência</span>
-              </div>
-            ) : (
-              <Button
-                onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
-                className="w-full bg-primary hover:bg-primary/90 h-auto py-4"
-              >
-                <User className="h-5 w-5 mr-2 shrink-0" />
-                Inscrição para manifestar-se durante a videoconferência
-              </Button>
-            )}
+            {permiteVideoconferencia ? (
+              inscritoVideoconferencia ? (
+                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  <span>Já inscrito nesta audiência</span>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                  className="w-full bg-primary hover:bg-primary/90 h-auto py-4"
+                >
+                  <User className="h-5 w-5 mr-2 shrink-0" />
+                  Inscrição para manifestar-se durante a videoconferência
+                </Button>
+              )
+            ) : null}
             <Button
               variant="outline"
               onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
@@ -254,7 +287,9 @@ const ParticipacaoPage = () => {
       if (msg.includes("já está inscrito")) toast.error("Você já está inscrito nesta audiência.");
       else if (msg.includes("Autenticação obrigatória")) toast.error("Faça login para se inscrever.");
       else if (msg.includes("Inscrições não estão abertas")) toast.error("Inscrições não estão abertas para esta audiência.");
-      else toast.error("Não foi possível enviar. Tente novamente.");
+      else if (msg.includes("não aceita inscrição para videoconferência")) {
+        toast.error("Esta audiência não aceita inscrição por videoconferência. Use manifestação por escrito ou participe presencialmente.");
+      } else toast.error("Não foi possível enviar. Tente novamente.");
     } finally {
       setIsLoading(false);
     }

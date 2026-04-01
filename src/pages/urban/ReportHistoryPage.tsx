@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -63,6 +63,8 @@ const categoryLabels: Record<string, string> = {
 
 export default function ReportHistoryPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reportIdFromQuery = searchParams.get("reportId");
   const { user } = useAuth();
   const { canReferToCouncilMember } = useUserRole();
   const [myReports, setMyReports] = useState<Report[]>([]);
@@ -97,6 +99,36 @@ export default function ReportHistoryPage() {
     loadAllReports();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllReports runs when filters change
   }, [filters]);
+
+  useEffect(() => {
+    const reportId = reportIdFromQuery;
+    if (!reportId) return;
+
+    const reportFromLists =
+      myReports.find((report) => report.id === reportId) ||
+      allReports.find((report) => report.id === reportId);
+
+    if (reportFromLists) {
+      setSelectedReport(reportFromLists);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("urban_reports")
+        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .eq("id", reportId)
+        .maybeSingle();
+
+      if (cancelled || error || !data) return;
+      setSelectedReport(data as Report);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reportIdFromQuery, myReports, allReports]);
 
   const loadReports = async () => {
     if (!user) return;
@@ -135,7 +167,7 @@ export default function ReportHistoryPage() {
     try {
       let query = supabase
         .from("urban_reports")
-        .select("id, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -434,7 +466,16 @@ export default function ReportHistoryPage() {
       </div>
 
       {/* Dialog de Comentários */}
-      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+      <Dialog
+        open={!!selectedReport}
+        onOpenChange={(open) => {
+          if (open) return;
+          setSelectedReport(null);
+          const params = new URLSearchParams(searchParams);
+          params.delete("reportId");
+          setSearchParams(params, { replace: true });
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Comentários</DialogTitle>

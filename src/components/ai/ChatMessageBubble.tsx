@@ -3,6 +3,7 @@ import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitize
 import { UserChatBubbleText } from "./UserChatBubbleText";
 import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/parseUrbanReportPreview";
 import { UrbanReportPreviewInChat } from "./UrbanReportPreviewInChat";
+import { SimilarUrbanReportsInChat, parseSimilarUrbanReportsB64 } from "./SimilarUrbanReportsInChat";
 import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,8 +22,6 @@ import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
-import InlineMultiDimensionRatingPicker from "./InlineMultiDimensionRatingPicker";
-import type { ServiceRatingDimensions } from "@/lib/serviceRatingDimensions";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
@@ -110,7 +109,6 @@ interface ChatMessageBubbleProps {
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
-  onMultiDimensionRatingSelected?: (dimensions: ServiceRatingDimensions) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
@@ -136,7 +134,6 @@ const ChatMessageBubble = ({
   onDateSelected,
   onTimeSelected,
   onRatingSelected,
-  onMultiDimensionRatingSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
@@ -158,7 +155,6 @@ const ChatMessageBubble = ({
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
-  const [multiDimensionRatingSubmitted, setMultiDimensionRatingSubmitted] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
@@ -189,7 +185,6 @@ const ChatMessageBubble = ({
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
-  const hasMultiDimensionRatingPicker = !isUser && message.content.includes('[MULTI_DIMENSION_RATING_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
@@ -365,35 +360,13 @@ const ChatMessageBubble = ({
   
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
-    if (isUser || ratingSelected || hasRatingPicker || hasMultiDimensionRatingPicker) return false;
+    if (isUser || ratingSelected || hasRatingPicker) return false;
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:rating_stars]') ||
       ((content.includes('que nota') || content.includes('de 1 a 5')) && isLastAssistantMessage)
     );
-  }, [isUser, message.content, ratingSelected, hasRatingPicker, hasMultiDimensionRatingPicker, isLastAssistantMessage]);
-
-  const isAskingForMultiDimensionRating = useMemo(() => {
-    if (isUser || multiDimensionRatingSubmitted || hasMultiDimensionRatingPicker) return false;
-    const raw = message.content;
-    const c = raw.toLowerCase();
-    // Sucesso do create_service_rating: mesmo texto pode repetir nomes das dimensões no resumo — não mostrar picker de novo
-    if (raw.includes('[RATING_CREATED:') || /avalia[çc][ãa]o\s+registrada/i.test(raw)) {
-      return false;
-    }
-    if (c.includes('por dimensão:') || c.includes('por dimensao:') || c.includes('nota geral (média)') || c.includes('nota geral (media)')) {
-      return false;
-    }
-    if (c.includes('[field_request:rating_dimensions]')) return true;
-    // Heurística só quando claramente é o pedido de avaliar (não o recap "Atendimento X/5 · Limpeza…")
-    const looksLikeRatingPrompt =
-      (c.includes('use os controles') && c.includes('abaixo')) ||
-      c.includes('cada aspecto da visita') ||
-      c.includes('aspectos da visita') ||
-      (c.includes('avalia') && c.includes('de 1 a 5') && (c.includes('atendimento') || c.includes('tempo de espera')));
-    if (!looksLikeRatingPrompt || !isLastAssistantMessage) return false;
-    return c.includes('tempo de espera') && c.includes('infraestrutura') && c.includes('limpeza');
-  }, [isUser, message.content, multiDimensionRatingSubmitted, hasMultiDimensionRatingPicker, isLastAssistantMessage]);
+  }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
   
   // Detect service type question
   const isAskingForServiceType = useMemo(() => {
@@ -446,6 +419,13 @@ const ChatMessageBubble = ({
 
   const isLongContent = cleanContent.length > 450;
 
+  /** Relato/avaliação já registrados: mostrar texto completo (gravidade, trâmite, links) sem line-clamp. */
+  const isRegisteredReportSuccessMessage =
+    !isUser &&
+    (message.content.includes("[REPORT_CREATED:") ||
+      message.content.includes("[TRANSPORT_CREATED:") ||
+      message.content.includes("[RATING_CREATED:"));
+
   // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
   const appActions = useMemo(
     () => (!isUser ? getAppActionsFromContent(message.content) : {}),
@@ -488,8 +468,24 @@ const ChatMessageBubble = ({
       não: 'Não',
       nao: 'Não',
       registrar: 'Registrar',
+      novo_relato: 'Registrar novo relato',
       confirmar: 'Confirmar',
       corrigir: 'Corrigir',
+      descrição: 'Descrição',
+      endereco: 'Endereço',
+      endereço: 'Endereço',
+      categoria: 'Categoria',
+      tipo_detalhe: 'Tipo / detalhe',
+      gravidade: 'Gravidade',
+      tipos_de_risco: 'Tipos de risco',
+      afetação: 'Afetação',
+      afetacao: 'Afetação',
+      cep: 'CEP',
+      natureza: 'Natureza',
+      critical: 'Crítica',
+      moderate: 'Moderada',
+      low: 'Baixa',
+      none: 'Sem risco imediato',
       reclamacao: 'Reclamação',
       duvida: 'Dúvida',
       sugestao: 'Sugestão',
@@ -501,6 +497,12 @@ const ChatMessageBubble = ({
     }));
   }, [isUser, message.content, onSendMessage]);
 
+  /** Relatos próximos (RPC) embutidos em Base64 no texto da assistente. */
+  const similarUrbanReportsPayload = useMemo(
+    () => (!isUser ? parseSimilarUrbanReportsB64(message.content) : null),
+    [isUser, message.content]
+  );
+
   /** Preview estruturado do relato urbano (PO: melhor UX que parágrafo denso em markdown). */
   const urbanReportPreviewParsed = useMemo(() => parseUrbanReportPreview(cleanContent), [cleanContent]);
   const showUrbanPreviewCard =
@@ -510,7 +512,8 @@ const ChatMessageBubble = ({
     audienciaContentSplit.contentAfter === null;
 
   /** Card urbano já é legível; evita "Ver mais" sem sentido se o texto bruto for longo. */
-  const showVerMais = !isUser && isLongContent && !showUrbanPreviewCard;
+  const showVerMais =
+    !isUser && isLongContent && !showUrbanPreviewCard && !isRegisteredReportSuccessMessage;
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
@@ -561,13 +564,6 @@ const ChatMessageBubble = ({
     }
   };
 
-  const handleMultiDimensionRatingSubmit = (dimensions: ServiceRatingDimensions) => {
-    setMultiDimensionRatingSubmitted(true);
-    if (onMultiDimensionRatingSelected) {
-      onMultiDimensionRatingSelected(dimensions);
-    }
-  };
-  
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
     setLocationMethodSelected(true);
     if (onLocationMethodSelected) {
@@ -860,6 +856,9 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
+              {!isUser && similarUrbanReportsPayload && (
+                <SimilarUrbanReportsInChat payload={similarUrbanReportsPayload} className="mt-3" />
+              )}
             </div>
           )}
         </div>
@@ -930,20 +929,8 @@ const ChatMessageBubble = ({
           <InlineTimePicker onSelect={handleTimeSelected} />
         )}
         
-        {/* Avaliação multidimensional (atendimento, limpeza, infraestrutura, tempo de espera) */}
-        {(hasMultiDimensionRatingPicker || isAskingForMultiDimensionRating) &&
-          !multiDimensionRatingSubmitted &&
-          isLastAssistantMessage &&
-          onMultiDimensionRatingSelected && (
-            <InlineMultiDimensionRatingPicker onSubmit={handleMultiDimensionRatingSubmit} />
-          )}
-
-        {/* Inline Rating Picker (legado: uma única nota) */}
-        {(hasRatingPicker || isAskingForRating) &&
-          !ratingSelected &&
-          !hasMultiDimensionRatingPicker &&
-          !isAskingForMultiDimensionRating &&
-          isLastAssistantMessage && (
+        {/* Avaliação geral (1–5 estrelas) */}
+        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
         

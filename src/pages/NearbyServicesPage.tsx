@@ -4,7 +4,10 @@ import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
-import { ServiceTypeFilter, type ServiceTypeFilterValue } from "@/components/evaluation/ServiceTypeFilter";
+import {
+  ServiceTypeFilter,
+  type ServiceTypeFilterValue,
+} from "@/components/evaluation/ServiceTypeFilter";
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
 import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
@@ -14,7 +17,6 @@ import {
   NEARBY_FULLTEXT_MIN_LENGTH,
   type NearbyService,
 } from "@/hooks/useNearbyServices";
-import { useGoogleDistanceMatrix } from "@/hooks/useGoogleDistanceMatrix";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
@@ -24,29 +26,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Loader2 } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
-import { LocationSearchCard } from "@/components/map/LocationSearchCard";
+import { LocationSearchCard, type NearbyLocationUiPhase } from "@/components/map/LocationSearchCard";
 import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSearchInput";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
+import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
+import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
+import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
+import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+/** Tipos pré-selecionados ao abrir Perto de Você (UBS, CEU, escolas, hospitais, esportes). */
+const DEFAULT_NEARBY_SERVICE_TYPES: ServiceTypeFilterValue[] = [
+  "ubs",
+  "ceu",
+  "school",
+  "hospital",
+  "sports_center",
+];
+
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
   const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
   const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
-  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
-  const [radiusMeters, setRadiusMeters] = useState(2000);
+  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(
+    () => [...DEFAULT_NEARBY_SERVICE_TYPES],
+  );
+  const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
+  const [locationMode, setLocationMode] = useState<NearbyLocationMode>("unset");
+  const [locationUiPhase, setLocationUiPhase] = useState<NearbyLocationUiPhase>("picking");
+  const [savedProfileCenter, setSavedProfileCenter] = useState<CepCenter | null>(null);
+  const [profileAddressLoading, setProfileAddressLoading] = useState(false);
+  /** Logado: aguarda tentativa de carregar endereço primário antes da busca */
+  const [addressBootstrapDone, setAddressBootstrapDone] = useState(false);
   const [searchByName, setSearchByName] = useState("");
   const [onlyWithOpeningHours, setOnlyWithOpeningHours] = useState(false);
   const [openingTimeFilter, setOpeningTimeFilter] = useState<string>("");
@@ -55,29 +78,158 @@ export default function NearbyServicesPage() {
 
   const PAGE_SIZE = 20;
 
-  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
-  const searchLat = cepCenter?.latitude ?? latitude;
-  const searchLng = cepCenter?.longitude ?? longitude;
+  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation } =
+    useGeolocation({ autoRequest: false, maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS });
+  const searchLat = locationMode === "gps" ? latitude : cepCenter?.latitude ?? null;
+  const searchLng = locationMode === "gps" ? longitude : cepCenter?.longitude ?? null;
 
-  const googleMapsApiKey = getGoogleMapsApiKey();
-  const hasGoogleMapsKey = !!googleMapsApiKey;
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user?.id) {
+      setAddressBootstrapDone(true);
+      setLocationUiPhase("picking");
+      setLocationMode("unset");
+      setCepCenter(null);
+      setSavedProfileCenter(null);
+      return;
+    }
+    let cancelled = false;
+    setAddressBootstrapDone(false);
+    void (async () => {
+      try {
+        const result = await getUserPrimaryAddressCenter(user.id);
+        if (cancelled) return;
+        if (result.center) {
+          setSavedProfileCenter(result.center);
+          setCepCenter(result.center);
+          setLocationMode("profile_address");
+          setLocationUiPhase("locked");
+        } else {
+          setSavedProfileCenter(null);
+          setCepCenter(null);
+          setLocationMode("unset");
+          setLocationUiPhase("picking");
+        }
+      } finally {
+        if (!cancelled) setAddressBootstrapDone(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
+
+  const skipNearbyFetch =
+    authLoading ||
+    (!!user?.id && !addressBootstrapDone) ||
+    searchLat == null ||
+    searchLng == null;
+
+  const lockedLabel = useMemo(() => {
+    if (locationUiPhase !== "locked") return null;
+    if (locationMode === "gps" && latitude != null && longitude != null) return "Minha localização atual";
+    if (cepCenter?.label) return cepCenter.label;
+    return null;
+  }, [locationUiPhase, locationMode, latitude, longitude, cepCenter]);
+
+  const handleAlterarLocal = useCallback(() => {
+    setLocationUiPhase("picking");
+    setLocationMode("unset");
+    setCepCenter(null);
+  }, []);
+
+  const handleRequestGps = useCallback(() => {
+    setLocationMode("gps");
+    setCepCenter(null);
+    refetchLocation();
+  }, [refetchLocation]);
+
+  const handleUseProfileAddress = useCallback(async () => {
+    if (savedProfileCenter) {
+      setCepCenter(savedProfileCenter);
+      setLocationMode("profile_address");
+      setLocationUiPhase("locked");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("Faça login para usar o endereço cadastrado.");
+      return;
+    }
+    setProfileAddressLoading(true);
+    try {
+      const result = await getUserPrimaryAddressCenter(user.id);
+      if (result.center) {
+        setSavedProfileCenter(result.center);
+        setCepCenter(result.center);
+        setLocationMode("profile_address");
+        setLocationUiPhase("locked");
+      } else {
+        if (result.reason === "not_found") {
+          toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
+        } else {
+          toast.error("Seu endereço cadastrado ainda não possui coordenadas. Atualize o endereço em Perfil → Endereço.");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao carregar endereço cadastrado");
+    } finally {
+      setProfileAddressLoading(false);
+    }
+  }, [savedProfileCenter, user?.id]);
+
+  const handleCepSearchComplete = useCallback((center: CepCenter) => {
+    setCepCenter(center);
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
+  }, []);
+
+  useEffect(() => {
+    if (locationMode !== "gps") return;
+    if (geoLoading) return;
+    if (latitude != null && longitude != null && !geoError) {
+      setLocationUiPhase("locked");
+    }
+  }, [locationMode, geoLoading, latitude, longitude, geoError]);
+
+  useEffect(() => {
+    if (locationMode !== "gps" || geoLoading) return;
+    if (geoError) {
+      toast.error(geoError);
+      setLocationMode("unset");
+      setLocationUiPhase("picking");
+    }
+  }, [locationMode, geoLoading, geoError]);
 
   const { isOnline } = useNetworkStatus();
 
-  const { services, loading: servicesLoading, error: servicesError } = useNearbyServices({
+  const distanceBand = useMemo(() => getNearbyDistanceBand(radiusMeters), [radiusMeters]);
+  /** Mínimo da faixa em anel para a RPC (0 = não envia). Sempre que a faixa tiver mínimo > 0. */
+  const minRadiusForHook = distanceBand.min > 0 ? distanceBand.min : undefined;
+
+  const { services, loading: servicesLoading, loadingMore: servicesLoadingMore, error: servicesError } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
     serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
     fullTextQuery: searchByName,
+    minRadiusMeters: minRadiusForHook,
+    skipFetch: skipNearbyFetch,
   });
   const isCacheOrOfflineMessage = servicesError != null && (
     servicesError.includes("cache") || servicesError.includes("Sem conexão")
   );
+  /** Faixa em anel conforme o preset (independente de filtro de tipo). */
+  const servicesInBand = useMemo(() => {
+    return services.filter((s) => {
+      const d = s.distance ?? 0;
+      return d >= distanceBand.min && d <= distanceBand.max;
+    });
+  }, [services, distanceBand.min, distanceBand.max]);
 
   const filteredByRating = minRating === "all"
-    ? services
-    : services.filter((s) => (s.average_rating ?? 0) >= minRating);
+    ? servicesInBand
+    : servicesInBand.filter((s) => (s.average_rating ?? 0) >= minRating);
 
   // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco;
   // o card mostra endereço do reverse geocode — a busca precisa usar o mesmo texto.
@@ -87,17 +239,10 @@ export default function NearbyServicesPage() {
     maxConcurrent: 2,
   });
 
+  /** Base de ordenação por distância em linha reta (Haversine). */
   const sortedServicesByHaversine = useMemo(
-    () =>
-      [...filteredByRating].sort((a, b) => {
-        if (sortBy === "rating") {
-          const ra = a.average_rating ?? 0;
-          const rb = b.average_rating ?? 0;
-          if (rb !== ra) return rb - ra;
-        }
-        return (a.distance ?? 0) - (b.distance ?? 0);
-      }),
-    [filteredByRating, sortBy]
+    () => [...filteredByRating].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
+    [filteredByRating]
   );
 
   const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
@@ -113,32 +258,9 @@ export default function NearbyServicesPage() {
     null,
   );
 
-  /** Raio 5km ou 10km: usa rota de carro; 500m/1km/2km: usa rota a pé, para sempre exibir distância por rota (evitar "em linha reta"). */
-  const matrixProfile = radiusMeters >= 5000 ? "driving" : "walking";
-  const { walkingDistances, loading: walkingLoading } = useGoogleDistanceMatrix(
-    mapCenter,
-    sortedServicesByHaversine,
-    hasGoogleMapsKey ? googleMapsApiKey : undefined,
-    matrixProfile
-  );
-
-  const { sortedServices, routeFilterFallback } = useMemo(() => {
-    const hasRouteData = walkingDistances && walkingDistances.size > 0;
-    const withRouteDistance = hasRouteData
-      ? sortedServicesByHaversine.map((s) => ({
-          ...s,
-          distance: walkingDistances.get(s.id) ?? s.distance,
-        }))
-      : sortedServicesByHaversine.map((s) => ({ ...s }));
-
-    let withinRadius = withRouteDistance.filter((s) => (s.distance ?? 0) <= radiusMeters);
-
-    // Sem filtro de tipo há muitos serviços; após rota a pé quase todos ficam > raio e a lista zera. Fallback: mostrar por linha reta.
-    const fallback =
-      hasRouteData && withinRadius.length === 0 && sortedServicesByHaversine.length > 0;
-    if (fallback) {
-      withinRadius = sortedServicesByHaversine.filter((s) => (s.distance ?? 0) <= radiusMeters);
-    }
+  const sortedServices = useMemo(() => {
+    const inBand = (d: number) => d >= distanceBand.min && d <= distanceBand.max;
+    const withinRadius = sortedServicesByHaversine.filter((s) => inBand(s.distance ?? 0));
 
     const sorted = [...withinRadius].sort((a, b) => {
       if (sortBy === "rating") {
@@ -148,11 +270,10 @@ export default function NearbyServicesPage() {
       }
       return (a.distance ?? 0) - (b.distance ?? 0);
     });
-    return { sortedServices: sorted, routeFilterFallback: fallback };
-  }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters]);
+    return sorted;
+  }, [sortedServicesByHaversine, sortBy, distanceBand.min, distanceBand.max]);
 
-  const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
-  const distanceLabelMode = useRouteDistance && !routeFilterFallback ? matrixProfile : "straight";
+  const distanceLabelMode = "straight" as const;
 
   const filteredByOperationalStatus = useMemo(() => {
     if (operationalStatusFilter === "all") return sortedServices;
@@ -199,26 +320,46 @@ export default function NearbyServicesPage() {
 
   const filteredByName = useMemo(() => {
     const qRaw = searchByName.trim();
-    const q = qRaw.toLowerCase();
     const base = filteredByOpeningHours;
     if (!qRaw) return base;
-    // Online + 2+ caracteres: lista já veio filtrada por FTS no banco (search_tsv).
-    if (qRaw.length >= NEARBY_FULLTEXT_MIN_LENGTH && isOnline) return base;
+    // Online + 2+ caracteres: lista já veio filtrada por FTS/ILIKE no banco; refinamos por palavras no cliente.
+    if (qRaw.length >= NEARBY_FULLTEXT_MIN_LENGTH && isOnline) {
+      return base.filter((s) => {
+        const haystack = [
+          s.name,
+          s.address,
+          s.district,
+          resolvedAddresses[s.id] ?? "",
+          s.services_offered ?? "",
+        ].join(" ");
+        return textMatchesSearchQuery(haystack, qRaw);
+      });
+    }
     return base.filter((s) => {
-      const name = (s.name ?? "").toLowerCase();
-      const address = (s.address ?? "").toLowerCase();
-      const district = (s.district ?? "").toLowerCase();
-      const resolved = (resolvedAddresses[s.id] ?? "").toLowerCase();
-      return (
-        name.includes(q) ||
-        address.includes(q) ||
-        district.includes(q) ||
-        resolved.includes(q)
-      );
+      const haystack = [
+        s.name,
+        s.address,
+        s.district,
+        resolvedAddresses[s.id] ?? "",
+        s.services_offered ?? "",
+      ].join(" ");
+      return textMatchesSearchQuery(haystack, qRaw);
     });
   }, [filteredByOpeningHours, searchByName, resolvedAddresses, isOnline]);
 
   const focusMapOnEquipment = useCallback((s: NearbyService) => {
+    setCepCenter({
+      latitude: s.latitude,
+      longitude: s.longitude,
+      label: getServiceDisplayName({
+        name: s.name,
+        address: s.address,
+        district: s.district,
+        service_type: s.service_type,
+      }),
+    });
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
     setEquipmentMapFocusCoords({ lat: s.latitude, lng: s.longitude });
     setEquipmentMapFocusKey((k) => k + 1);
     setViewMode("map");
@@ -274,22 +415,21 @@ export default function NearbyServicesPage() {
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
     () =>
-      services.map((s) => ({
+      servicesInBand.map((s) => ({
         id: s.id,
         name: s.name,
         displayName: getServiceDisplayName({ name: s.name, address: s.address, district: s.district, service_type: s.service_type }),
         latitude: s.latitude,
         longitude: s.longitude,
       })),
-    [services]
+    [servicesInBand]
   );
 
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
-    latitude: latitude ?? undefined,
-    longitude: longitude ?? undefined,
+    latitude: locationMode === "gps" ? latitude : null,
+    longitude: locationMode === "gps" ? longitude : null,
     services: servicesForVisit,
     userId: user?.id,
-    isSimulated,
   });
 
   const handleVisitAvaliar = useCallback(() => {
@@ -313,42 +453,15 @@ export default function NearbyServicesPage() {
       }
     );
   }, [detectedVisit, handleVisitAvaliar]);
-  const isLoading = servicesLoading && services.length === 0;
+  const isInitialLoading = servicesLoading && services.length === 0;
+  const isListRefreshing =
+    (servicesLoading && services.length > 0) || servicesLoadingMore;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
       <PageHeader title="Perto de Você" />
       
       <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
-        {isSimulated && (
-          <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground mb-1">
-                Modo Demonstração
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Usando localização simulada (Centro de São Paulo) com os serviços cadastrados no sistema
-              </p>
-            </div>
-          </div>
-        )}
-
-        {geoError && !isSimulated && (
-          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-destructive mb-1">
-                Não foi possível obter sua localização
-              </p>
-              <p className="text-xs text-muted-foreground mb-2">{geoError}</p>
-              <Button size="sm" variant="outline" onClick={refetchLocation}>
-                Tentar novamente
-              </Button>
-            </div>
-          </div>
-        )}
-
         {!isOnline && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
             <WifiOff className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -382,7 +495,7 @@ export default function NearbyServicesPage() {
           </div>
         )}
 
-        {(searchLat != null && searchLng != null) && !geoError && (
+        {(searchLat != null && searchLng != null) && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -395,21 +508,48 @@ export default function NearbyServicesPage() {
               </div>
               <ServiceSortSelect value={sortBy} onValueChange={setSortBy} />
             </div>
-            {user && !isSimulated && services.length > 0 && (
+            {(onlyWithOpeningHours || openingTimeFilter || closingTimeFilter) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                <span>Filtros de horário ativos podem reduzir os resultados dentro do raio selecionado.</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    setOnlyWithOpeningHours(false);
+                    setOpeningTimeFilter("");
+                    setClosingTimeFilter("");
+                  }}
+                >
+                  Limpar filtros de horário
+                </Button>
+              </div>
+            )}
+            {user && locationMode === "gps" && services.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
-              </p>
-            )}
-            {hasGoogleMapsKey && walkingLoading && sortedServices.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {matrixProfile === "driving" ? "Atualizando distâncias de carro…" : "Atualizando distâncias a pé…"}
               </p>
             )}
           </>
         )}
 
-        <LocationSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
-        <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
+        <LocationSearchCard
+          phase={locationUiPhase}
+          lockedLabel={lockedLabel}
+          onAlterarLocal={handleAlterarLocal}
+          onRequestGps={handleRequestGps}
+          onUseProfileAddress={handleUseProfileAddress}
+          profileAddressLoading={profileAddressLoading}
+          onCepSearchComplete={handleCepSearchComplete}
+          geoLoading={geoLoading}
+          gpsError={locationUiPhase === "picking" ? geoError : null}
+        />
+        <RadiusSelector
+          radius={radiusMeters}
+          onRadiusChange={(r) => setRadiusMeters(clampNearbyRadiusMeters(r))}
+          showBandHint
+        />
 
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
 
@@ -493,13 +633,30 @@ export default function NearbyServicesPage() {
           onChange={setSearchByName}
           servicesInArea={filteredByOpeningHours}
           resolvedAddresses={resolvedAddresses}
+          searchCenterLat={searchLat}
+          searchCenterLng={searchLng}
+          serviceTypesFilter={selectedTypes.length > 0 ? selectedTypes : undefined}
           onPlaceCenterSelected={(center) => {
             setCepCenter(center);
+            setLocationMode("cep_lookup");
+            setLocationUiPhase("locked");
             setSearchByName("");
           }}
           onEquipmentMapFocus={focusMapOnEquipment}
-          disabled={!!geoError}
         />
+
+        {isListRefreshing && (
+          <div
+            className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            {servicesLoadingMore && !servicesLoading
+              ? "Ampliando resultados até o raio selecionado…"
+              : "Atualizando equipamentos conforme o filtro…"}
+          </div>
+        )}
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -514,7 +671,7 @@ export default function NearbyServicesPage() {
           </TabsList>
 
           <TabsContent value="list" className="mt-0">
-            {isLoading ? (
+            {isInitialLoading ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                 {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-32 w-full" />
@@ -632,7 +789,7 @@ export default function NearbyServicesPage() {
                   O mapa precisa de conexão para carregar. Use a aba <strong>Lista</strong> para ver os equipamentos em cache.
                 </p>
               </div>
-            ) : isLoading ? (
+            ) : isInitialLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
               <MapView

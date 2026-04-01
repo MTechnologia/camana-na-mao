@@ -9,8 +9,13 @@ import {
   SERVICE_RATING_DIMENSION_LABELS,
 } from "@/lib/serviceRatingDimensions";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
+import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 
 function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
+  if (fieldKey === "rating_stars") {
+    const n = Number(fields.rating_stars);
+    return Number.isInteger(n) && n >= 1 && n <= 5;
+  }
   if (fieldKey === "rating_dimensions") {
     return isCompleteServiceRatingDimensions(fields.rating_dimensions);
   }
@@ -121,8 +126,6 @@ interface CollectionConfig {
   fields: FieldConfig[];
 }
 
-const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
-
 const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {
     title: "Experiência Urbana",
@@ -137,7 +140,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'street_number', label: 'Número', required: false },
       { key: 'neighborhood', label: 'Bairro', required: true },
       { key: 'reference_point', label: 'Referência', required: false },
-      { key: 'risk_level', label: 'Risco', required: false },
+      { key: 'risk_level', label: 'Gravidade', required: false },
       { key: 'affected_scope', label: 'Afetação', required: false },
     ]
   },
@@ -163,7 +166,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'service_name', label: 'Serviço', required: true },
       { key: 'service_neighborhood', label: 'Bairro', required: false },
       { key: 'service_address_confirmed', label: 'Endereço confirmado', required: true },
-      { key: 'rating_dimensions', label: 'Avaliação (4 dimensões)', required: true },
+      { key: 'rating_stars', label: 'Avaliação geral (1–5)', required: true },
       { key: 'rating_text', label: 'Comentário', required: true },
     ]
   }
@@ -272,7 +275,8 @@ const DataCollectionTracker = ({
     if (collectionType === 'urban_report') {
       const category = collectedFields.category;
       // `collectedFields` é `unknown`, então tipamos com segurança antes do `includes`.
-      const isRiskCategory = typeof category === 'string' && RISK_CATEGORIES.includes(category);
+      const isRiskCategory =
+        typeof category === 'string' && URBAN_RISK_COLLECTION_CATEGORIES.includes(category);
       
       if (!isRiskCategory) {
         return {

@@ -13,7 +13,7 @@ export const tools = [
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, pavimentação), sinalizacao (semáforo, placa, faixa de pedestre, sinalização), drenagem (água pluvial, sarjeta, galeria, bueiro pluvial, poça), lixo (entulho), esgoto (bueiro sanitário, vazamento de esgoto), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho, som alto, perturbação), feedback_camara (vereador), outro (quando não encaixar)"
+            description: "Categoria PAI mais próxima: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto, pavimentação), sinalizacao (semáforo, placa, faixa de pedestre, sinalização), drenagem (água pluvial, sarjeta, galeria, bueiro pluvial, poça), lixo (entulho), esgoto (bueiro sanitário, vazamento de esgoto), area_verde (praça, árvore), higiene_urbana (fedor genérico, sujeira), animais (bicho morto, rato), poluicao (SOM: barulho, música alta, festa, vizinho, poluição sonora/acústica, buzina — subcategory_label tipo Perturbação Sonora; AMBIENTAL: fumaça, chaminé, poluição do ar/atmosférica, contaminação, químico — subcategory_label tipo Poluição Atmosférica/Contaminação; NÃO misturar os dois sentidos), feedback_camara (vereador), outro (quando não encaixar)"
           },
           subcategory_label: {
             type: "string",
@@ -114,7 +114,7 @@ export const tools = [
           category: {
             type: "string",
             enum: ["iluminacao", "calcada", "via_publica", "sinalizacao", "drenagem", "lixo", "esgoto", "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro"],
-            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto), sinalizacao (semáforo, placa, faixa), drenagem (pluvial, sarjeta, galeria), lixo (entulho), esgoto (bueiro sanitário, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (fumaça, barulho), feedback_camara (vereador/câmara), outro"
+            description: "Categoria: iluminacao (poste, luz), calcada (passeio), via_publica (buraco, asfalto), sinalizacao (semáforo, placa, faixa), drenagem (pluvial, sarjeta, galeria), lixo (entulho), esgoto (bueiro sanitário, vazamento), area_verde (praça, árvore), higiene_urbana (fedor, sujeira), animais (bicho morto, rato), poluicao (sonora: barulho/som/festa/vizinho; ambiental: fumaça/poluição do ar/contaminação — usar subcategory_label distinto), feedback_camara (vereador/câmara), outro"
           },
           subcategory: { type: "string", description: "Subcategoria (para feedback_camara: elogio, reclamacao, sugestao)" },
           description: { type: "string", description: "Descrição completa do problema (mínimo 15 caracteres)" },
@@ -200,7 +200,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. Notas: use rating_dimensions (atendimento, limpeza, infraestrutura, tempo_espera, cada uma 1-5) OU rating_stars (média legada 1-5). Dois modos: 1) COM visit_id: visit_id + dimensões + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, dimensões, rating_text, sentiment. NUNCA rating_text vazio.",
+      description: "Registra avaliação de serviço público. Nota: rating_stars 1-5 (avaliação geral). Opcional rating_dimensions (legado). Dois modos: 1) COM visit_id: visit_id + rating_stars + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, rating_stars, rating_text, sentiment. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
@@ -216,7 +216,7 @@ export const tools = [
           service_address_confirmed: { type: "boolean", description: "Confirmação do endereço. Obrigatório APENAS quando visit_id NÃO for informado." },
           rating_dimensions: {
             type: "object",
-            description: "Preferencial: notas 1-5 para atendimento, limpeza, infraestrutura, tempo_espera",
+            description: "Opcional (legado): notas 1-5 por dimensão; preferir rating_stars",
             properties: {
               atendimento: { type: "integer", minimum: 1, maximum: 5 },
               limpeza: { type: "integer", minimum: 1, maximum: 5 },
@@ -224,7 +224,7 @@ export const tools = [
               tempo_espera: { type: "integer", minimum: 1, maximum: 5 },
             },
           },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Média 1-5 se não houver rating_dimensions (legado)" },
+          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Avaliação geral 1-5 (obrigatória se não houver rating_dimensions completas)" },
           rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
             type: "string",
@@ -267,6 +267,22 @@ export const tools = [
           limit: { type: "integer", description: "Quantidade máxima de resultados (padrão: 5)", minimum: 1, maximum: 10 }
         },
         required: ["service_type"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_service_occupancy_status",
+      description: "Consulta a estimativa atual de ocupação/movimentação de um equipamento público específico pelo nome (ex.: 'Como está o CEU Butantã agora?'). Usar quando o cidadão perguntar 'como está', 'está cheio', 'ocupação', 'movimentação' de um local/equipamento.",
+      parameters: {
+        type: "object",
+        properties: {
+          service_name: { type: "string", description: "Nome do equipamento/serviço (ex.: CEU Butantã, UBS Vila Mariana)" },
+          service_id: { type: "string", description: "UUID do serviço quando o cidadão escolheu um item na lista (picker); preferir em relação ao nome." },
+          district: { type: "string", description: "Bairro/região para desambiguar quando houver nomes parecidos (opcional)." }
+        },
+        required: []
       }
     }
   },

@@ -4,7 +4,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Filter, ChevronDown } from "lucide-react";
@@ -92,7 +91,24 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto min-w-[380px]">
-        <DropdownMenuLabel>Filtrar por tipo (multiseleção)</DropdownMenuLabel>
+        <div className="flex items-start justify-between gap-2 px-2 py-1.5">
+          <span className="text-sm font-semibold leading-tight pr-1">
+            Filtrar por tipo (multiseleção)
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 px-2 text-xs"
+            disabled={selectedTypes.length === 0}
+            onClick={(e) => {
+              e.preventDefault();
+              onTypesChange([]);
+            }}
+          >
+            Limpar filtros
+          </Button>
+        </div>
         <DropdownMenuSeparator />
         <div className="grid grid-cols-2 gap-0 p-1">
           {SERVICE_TYPES.map((type) => (

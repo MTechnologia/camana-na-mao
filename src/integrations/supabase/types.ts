@@ -159,6 +159,7 @@ export type Database = {
           observacao: string | null
           id: string
           inscricoes_abertas: boolean | null
+          permite_inscricao_videoconferencia: boolean
           link_transmissao: string | null
           local: string
           slug: string | null
@@ -182,6 +183,7 @@ export type Database = {
           mais_informacoes?: string | null
           observacao?: string | null
           inscricoes_abertas?: boolean | null
+          permite_inscricao_videoconferencia?: boolean
           link_transmissao?: string | null
           local: string
           slug?: string | null
@@ -205,6 +207,7 @@ export type Database = {
           mais_informacoes?: string | null
           observacao?: string | null
           inscricoes_abertas?: boolean | null
+          permite_inscricao_videoconferencia?: boolean
           link_transmissao?: string | null
           local?: string
           slug?: string | null
@@ -1505,6 +1508,56 @@ export type Database = {
           },
         ]
       }
+      routes_usage_metrics: {
+        Row: {
+          cache_hit: boolean
+          chunk_requests: number
+          context: string
+          created_at: string
+          destinations_count: number
+          elements_count: number
+          id: string
+          origin_lat: number | null
+          origin_lng: number | null
+          profile: string
+          user_id: string | null
+        }
+        Insert: {
+          cache_hit?: boolean
+          chunk_requests?: number
+          context?: string
+          created_at?: string
+          destinations_count?: number
+          elements_count?: number
+          id?: string
+          origin_lat?: number | null
+          origin_lng?: number | null
+          profile?: string
+          user_id?: string | null
+        }
+        Update: {
+          cache_hit?: boolean
+          chunk_requests?: number
+          context?: string
+          created_at?: string
+          destinations_count?: number
+          elements_count?: number
+          id?: string
+          origin_lat?: number | null
+          origin_lng?: number | null
+          profile?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routes_usage_metrics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_plan_items: {
         Row: {
           estimated_duration: number | null
@@ -2468,6 +2521,7 @@ export type Database = {
           max_lng: number
           min_lat: number
           min_lng: number
+          min_radius_meters?: number | null
           radius_meters: number
           result_limit?: number
           search_query: string
@@ -2525,6 +2579,27 @@ export type Database = {
           source_id: string
           source_table: string
           title: string
+        }[]
+      }
+      nearest_urban_reports_by_distance: {
+        Args: {
+          p_category: string
+          p_exclude_user_id?: string | null
+          p_lat: number
+          p_limit?: number
+          p_lng: number
+        }
+        Returns: {
+          category: string
+          created_at: string
+          description: string | null
+          distance_meters: number
+          id: string
+          location_address: string | null
+          neighborhood: string | null
+          protocol_code: string | null
+          severity: string | null
+          subcategory: string | null
         }[]
       }
       notify_admins: {

@@ -34,15 +34,13 @@ interface ServiceForVisit {
 }
 
 interface UseVisitDetectionProps {
-  /** Lat/lng do usuário (GPS real, não simulada) */
+  /** Lat/lng do usuário (GPS real) */
   latitude: number | null;
   longitude: number | null;
   /** Serviços próximos (ex: da useNearbyServices) */
   services: ServiceForVisit[];
   /** ID do usuário logado */
   userId: string | undefined;
-  /** Se a localização é simulada (ex: Centro SP) - não detectar visita */
-  isSimulated: boolean;
 }
 
 interface DetectedVisit {
@@ -61,7 +59,6 @@ export function useVisitDetection({
   longitude,
   services,
   userId,
-  isSimulated,
 }: UseVisitDetectionProps): {
   detectedVisit: DetectedVisit | null;
   onAcknowledged: () => void;
@@ -120,15 +117,9 @@ export function useVisitDetection({
   );
 
   const checkProximity = useCallback(async () => {
-    if (
-      !latitude ||
-      !longitude ||
-      !userId ||
-      isSimulated ||
-      services.length === 0
-    ) {
+    if (!latitude || !longitude || !userId || services.length === 0) {
       if (import.meta.env?.DEV && services.length === 0) {
-        console.debug("[useVisitDetection] checkProximity não roda:", { isSimulated, servicesLength: services.length, hasUser: !!userId });
+        console.debug("[useVisitDetection] checkProximity não roda:", { servicesLength: services.length, hasUser: !!userId });
       }
       return;
     }
@@ -172,30 +163,17 @@ export function useVisitDetection({
     if (import.meta.env?.DEV && withinRadius > 0) {
       console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: MIN_DWELL_MINUTES });
     }
-  }, [
-    latitude,
-    longitude,
-    userId,
-    isSimulated,
-    services,
-    createVisit,
-  ]);
+  }, [latitude, longitude, userId, services, createVisit]);
 
   useEffect(() => {
-    if (
-      !latitude ||
-      !longitude ||
-      !userId ||
-      isSimulated ||
-      services.length === 0
-    ) {
+    if (!latitude || !longitude || !userId || services.length === 0) {
       return;
     }
 
     checkProximity();
     const interval = setInterval(checkProximity, CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [latitude, longitude, userId, isSimulated, services, checkProximity]);
+  }, [latitude, longitude, userId, services, checkProximity]);
 
   return { detectedVisit, onAcknowledged, isChecking };
 }

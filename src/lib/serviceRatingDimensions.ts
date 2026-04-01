@@ -1,6 +1,6 @@
 /**
- * Avaliação multidimensional de serviços (chat IA + persistência).
- * Manter chaves alinhadas ao backend em supabase/functions/ai-orchestrator/lib.ts
+ * Avaliação por dimensões (legado em mensagens antigas). Fluxo atual: uma nota geral (rating_stars).
+ * Chaves alinhadas ao backend em supabase/functions/ai-orchestrator/lib.ts
  */
 export const SERVICE_RATING_DIMENSION_KEYS = [
   "atendimento",

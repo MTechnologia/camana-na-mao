@@ -66,6 +66,8 @@ interface Audiencia {
   mais_informacoes: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
+  /** false = não oferecer inscrição para falar por videoconferência (ex.: audiência somente presencial na CMSP). */
+  permite_inscricao_videoconferencia?: boolean | null;
   link_transmissao: string | null;
   projeto_referencia: string | null;
   projeto_autores: string | null;
@@ -215,6 +217,7 @@ const AudienciaDetailPage = () => {
 
   const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
   const hoje = new Date().toISOString().slice(0, 10);
+  const permiteInscricaoVideo = audiencia.permite_inscricao_videoconferencia !== false;
   const isAudienciaFutura = audiencia.data >= hoje;
   const isAudienciaFinalizada =
     !isAudienciaFutura ||
@@ -590,20 +593,22 @@ const AudienciaDetailPage = () => {
             </div>
           ) : (
             <>
-              {inscritoVideoconferencia ? (
-                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
-                  <CheckCircle2 className="h-5 w-5 shrink-0" />
-                  <span>Já inscrito nesta audiência</span>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
-                  className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <User className="h-4 w-4 shrink-0" />
-                  Inscrição para manifestar-se durante a videoconferência
-                </Button>
-              )}
+              {permiteInscricaoVideo ? (
+                inscritoVideoconferencia ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                    <span>Já inscrito nesta audiência</span>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                    className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <User className="h-4 w-4 shrink-0" />
+                    Inscrição para manifestar-se durante a videoconferência
+                  </Button>
+                )
+              ) : null}
               <Button
                 variant="outline"
                 onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}
