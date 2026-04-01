@@ -1,5 +1,4 @@
-import { Plus, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -20,12 +19,6 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const handleNewChat = () => {
-    clearConversation();
-    navigate('/');
-    onConversationClick?.();
-  };
 
   const handleDeleteConversation = async (conversationId: string) => {
     await deleteConversation(conversationId);
@@ -135,17 +128,6 @@ const ChatSidebar = ({ onConversationClick }: ChatSidebarProps) => {
         </div>
       </ScrollArea>
 
-      {/* New Chat Button - Footer */}
-      <div className="p-3 border-t border-border mt-auto">
-        <Button
-          onClick={handleNewChat}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          size="lg"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Nova Conversa
-        </Button>
-      </div>
     </div>
   );
 };
