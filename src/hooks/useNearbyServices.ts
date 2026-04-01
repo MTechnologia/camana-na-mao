@@ -487,6 +487,50 @@ export const useNearbyServices = ({
           return { rows: [], error: null };
         }
 
+        // Em bbox grande, uma única RPC com todos os tipos reduz chamadas e evita 500 intermitente no REST por tipo.
+        if (rowFetchMode === "unordered_single") {
+          const lim = Math.max(1, Math.min(totalCap, 200));
+          const rpcManyTypes = async (b: NearbyBoundingBox, resultLimit: number) =>
+            withTimeout(
+              supabase.rpc("search_public_services_bbox_light", {
+                min_lat: b.minLat,
+                max_lat: b.maxLat,
+                min_lng: b.minLng,
+                max_lng: b.maxLng,
+                service_types: types,
+                result_limit: resultLimit,
+                result_offset: 0,
+              }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+              Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
+              "search_public_services_bbox_light (many types)",
+            );
+
+          const { data: rpcData, error: rpcError } = await rpcManyTypes(box, lim);
+          if (!rpcError && Array.isArray(rpcData)) {
+            return { rows: rpcData as unknown[], error: null };
+          }
+
+          const quarters = splitBoundingBoxInFour(box);
+          const byId = new Map<string, unknown>();
+          const perQ = Math.max(1, Math.ceil(lim / 4));
+          for (let qi = 0; qi < quarters.length; qi++) {
+            const { data: qData, error: qErr } = await rpcManyTypes(quarters[qi], perQ);
+            if (!qErr && Array.isArray(qData)) {
+              for (const row of qData) {
+                const rid = (row as { id?: string }).id;
+                if (typeof rid === "string") byId.set(rid, row);
+              }
+            }
+            if (qi < quarters.length - 1) {
+              await new Promise((r) => setTimeout(r, 40));
+            }
+          }
+          if (byId.size > 0) {
+            return { rows: [...byId.values()].slice(0, lim), error: null };
+          }
+          // Se a RPC falhar também, cai para o fluxo atual (por tipo) como último recurso.
+        }
+
         if (types.length === 1) {
           return fetchBboxCursorRowsInner(
             box,
