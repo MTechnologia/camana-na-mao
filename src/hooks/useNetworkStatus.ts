@@ -17,8 +17,8 @@ export function useNetworkStatus(): NetworkStatus {
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   
   const failureCountRef = useRef(0);
-  const recheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recheckIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
   const performConnectivityCheck = useCallback(async (): Promise<boolean> => {

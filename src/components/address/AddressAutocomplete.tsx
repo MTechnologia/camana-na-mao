@@ -45,7 +45,7 @@ export function AddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const sessionTokenRef = useRef<string>(crypto.randomUUID());
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check if input looks like a CEP (8 digits, optionally with hyphen)
   const isCepFormat = (input: string): boolean => {
