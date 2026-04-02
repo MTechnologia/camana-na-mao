@@ -109,6 +109,18 @@ function describeAiOrchestratorFailure(status: number, body: string): string {
   return b || `Erro HTTP ${status}`;
 }
 
+function isStatementTimeoutFailure(body: string): boolean {
+  const b = body.trim();
+  if (/canceling statement due to statement timeout/i.test(b)) return true;
+  if (!b.startsWith("{")) return false;
+  try {
+    const j = JSON.parse(b) as { message?: string };
+    return /canceling statement due to statement timeout/i.test(String(j.message ?? ""));
+  } catch {
+    return false;
+  }
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -1216,6 +1228,13 @@ export const useUnifiedAIChat = (
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Erro desconhecido');
         console.error('[useUnifiedAIChat] API error:', response.status, errorText);
+
+        // Não exibir toast para timeout de statement (ruído técnico transitório).
+        if (isStatementTimeoutFailure(errorText)) {
+          setIsLoading(false);
+          return;
+        }
+
         const userFacingDetail = describeAiOrchestratorFailure(response.status, errorText);
         
         if (response.status === 429) {

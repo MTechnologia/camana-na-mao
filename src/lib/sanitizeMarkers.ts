@@ -88,7 +88,9 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
     .replace(/\[QUICK_REPLY:[^\]]+\]/g, '')
     .replace(/\[SIMILAR_URBAN_REPORTS_B64:[^\]]+\]/g, '')
-    .replace(/\[APP_ACTIONS:audiencias\]/g, '');
+    .replace(/\[APP_ACTIONS:audiencias\]/g, '')
+    // Hide raw DB timeout text when leaked by backend/provider.
+    .replace(/canceling statement due to statement timeout/gi, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
   result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
   
