@@ -343,6 +343,20 @@ function observacaoPadraoSiteOficial(dataNorm: string): string {
   return `As inscrições para participação na audiência de forma virtual se encerram às 19h do dia ${diaAnterior}.`;
 }
 
+/** Texto alinhado ao site da CMSP quando não há inscrição por videoconferência. */
+const OBSERVACAO_SOMENTE_PRESENCIAL =
+  "Audiência pública com participação somente presencial. Não é possível se inscrever para participar por videoconferência desta Audiência Pública. Compareça ao evento e contribua presencialmente.";
+
+/** True se a observação gravada é só o prazo padrão de inscrição virtual (não se aplica a audiências somente presenciais). */
+function observacaoEhPrazoVirtualGerado(s: string | null | undefined): boolean {
+  const t = (s ?? "").trim().toLowerCase();
+  if (!t) return false;
+  return (
+    /inscri[cç][oõ]es?\s+para\s+participa[cç][aã]o\s+na\s+audi[eê]ncia\s+de\s+forma\s+virtual/i.test(t) &&
+    /encerra(m|r[aã]o)?\s+(\u00e0s|as)\s+19h/i.test(t)
+  );
+}
+
 /** Normaliza data para YYYY-MM-DD. Aceita DD/MM/YYYY, DD-MM-YYYY ou YYYY-MM-DD. */
 function normalizeDate(s: string): string {
   if (!s || typeof s !== "string") return "";
@@ -614,6 +628,7 @@ function textoIndicaSemInscricaoVideoconferencia(...parts: (string | null | unde
     /\bparticipacao somente presencial\b/.test(t) ||
     /\baudiencia publica com participacao somente presencial\b/.test(t) ||
     /\bparticipacao exclusivamente presencial\b/.test(t) ||
+    (/\binscricoes?\b/.test(t) && /\bsomente no local\b/.test(t)) ||
     (/nao e possivel se inscrever\b/.test(t) && /\bvideoconferencia\b/.test(t)) ||
     (/nao e possivel\b/.test(t) && /participar por videoconferencia\b/.test(t))
   );
@@ -633,6 +648,8 @@ function parseCmspAudienciaPageFlags(html: string): { inscricoesEncerradas: bool
     /\bparticipacao somente presencial\b/.test(t) ||
     /\baudiencia publica com participacao somente presencial\b/.test(t) ||
     /\bparticipacao exclusivamente presencial\b/.test(t) ||
+    (/\bsomente presencial\b/.test(t) && /\baudiencia\b/.test(t)) ||
+    (/\binscricoes?\b/.test(t) && /\bsomente no local\b/.test(t)) ||
     (/nao e possivel se inscrever\b/.test(t) && /\bvideoconferencia\b/.test(t)) ||
     (/nao e possivel\b/.test(t) && /participar por videoconferencia\b/.test(t));
   return { inscricoesEncerradas, semInscricaoVideo };
@@ -784,6 +801,12 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const colaboreStr = getStr(item, "Colabore", "colabore");
   const observacaoApi = getStr(item, "Observacao", "observacao");
   const descricaoApi = getStr(item, "Descricao", "descricao");
+  const semInscricaoVideoconfApi = textoIndicaSemInscricaoVideoconferencia(
+    colaboreStr,
+    observacaoApi,
+    descricaoApi,
+    temaStr,
+  );
   const temaEhRotuloCurto = !temaStr || temaStr.length < 25 || /^geral$/i.test(temaStr.trim());
   const comissoesDesc = getDescricaoFromComissoes(item);
   let descricao =
@@ -803,6 +826,17 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
   const descricaoSemConvidados = descricao ? removerSecaoConvidados(descricao) : null;
   const temaSemConvidados = tema ? removerSecaoConvidados(tema) : tema;
 
+  const hojeIso = new Date().toISOString().slice(0, 10);
+  let observacao =
+    observacaoApi ||
+    extrairObservacao(colaboreStr) ||
+    extrairObservacao(getStr(item, "FormInscricoes", "formInscricoes")) ||
+    (!semInscricaoVideoconfApi && dataNorm >= hojeIso ? observacaoPadraoSiteOficial(dataNorm) : null) ||
+    null;
+  if (semInscricaoVideoconfApi && (!observacao?.trim() || observacaoEhPrazoVirtualGerado(observacao))) {
+    observacao = OBSERVACAO_SOMENTE_PRESENCIAL;
+  }
+
   return {
     splegis_chave: splegisChave,
     titulo,
@@ -813,12 +847,7 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     tema: temaSemConvidados.trim() || "Geral",
     status,
     comissao,
-    observacao:
-      observacaoApi ||
-      extrairObservacao(colaboreStr) ||
-      extrairObservacao(getStr(item, "FormInscricoes", "formInscricoes")) ||
-      (dataNorm >= new Date().toISOString().slice(0, 10) ? observacaoPadraoSiteOficial(dataNorm) : null) ||
-      null,
+    observacao,
     convidados:
       extrairConvidados(colaboreStr) ||
       extrairConvidados(getStr(item, "Tema", "tema")) ||
@@ -827,12 +856,7 @@ function mapToDbRow(item: SplegisAudienciaItem): Record<string, unknown> {
     mais_informacoes: getStr(item, "Contato", "contato") || null,
     vagas_disponiveis: vagas,
     inscricoes_abertas: inscricoesAbertas ?? true,
-    permite_inscricao_videoconferencia: !textoIndicaSemInscricaoVideoconferencia(
-      colaboreStr,
-      observacaoApi,
-      descricaoApi,
-      temaStr,
-    ),
+    permite_inscricao_videoconferencia: !semInscricaoVideoconfApi,
     link_transmissao: getStr(item, "LinkTeleconferencia", "linkTeleconferencia") || null,
     projeto_referencia: projetoRef || null,
     projeto_autores: projetoAutores || null,
@@ -1196,7 +1220,7 @@ serve(async (req) => {
       const hoje = new Date().toISOString().slice(0, 10);
       const { data: comSlugFuturas } = await supabase
         .from("audiencias")
-        .select("id, slug")
+        .select("id, slug, observacao")
         .not("slug", "is", null)
         .gte("data", hoje)
         .limit(MAX_CHECK_INSCRICOES_ENCERRADAS);
@@ -1207,7 +1231,13 @@ serve(async (req) => {
         if (!flags) continue;
         const patch: Record<string, unknown> = {};
         if (flags.inscricoesEncerradas) patch.inscricoes_abertas = false;
-        if (flags.semInscricaoVideo) patch.permite_inscricao_videoconferencia = false;
+        if (flags.semInscricaoVideo) {
+          patch.permite_inscricao_videoconferencia = false;
+          const obsAtual = (row as { observacao?: string | null }).observacao;
+          if (!obsAtual?.trim() || observacaoEhPrazoVirtualGerado(obsAtual)) {
+            patch.observacao = OBSERVACAO_SOMENTE_PRESENCIAL;
+          }
+        }
         if (Object.keys(patch).length === 0) continue;
         const { error: upErr } = await supabase.from("audiencias").update(patch).eq("id", row.id);
         if (!upErr) {

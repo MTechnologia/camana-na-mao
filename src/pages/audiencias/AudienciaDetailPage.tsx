@@ -9,7 +9,13 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloCardAudiencia, descricaoParaDetalhe, parseConvidadosItens, extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
+import {
+  tituloCardAudiencia,
+  descricaoParaDetalhe,
+  parseConvidadosItens,
+  extrairEmailDeMaisInformacoes,
+  observacaoParaDetalheAudiencia,
+} from "@/lib/audienciaDisplay";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
@@ -218,6 +224,7 @@ const AudienciaDetailPage = () => {
   const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
   const hoje = new Date().toISOString().slice(0, 10);
   const permiteInscricaoVideo = audiencia.permite_inscricao_videoconferencia !== false;
+  const observacaoExibida = observacaoParaDetalheAudiencia(audiencia.observacao, permiteInscricaoVideo);
   const isAudienciaFutura = audiencia.data >= hoje;
   const isAudienciaFinalizada =
     !isAudienciaFutura ||
@@ -404,10 +411,10 @@ const AudienciaDetailPage = () => {
         })()}
 
         {/* Observação (Mais informações está em Documentos e materiais de referência) */}
-        {audiencia.observacao?.trim() && (
+        {observacaoExibida?.trim() && (
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              <strong className="text-foreground">Observação:</strong> {audiencia.observacao.trim()}
+            <p className="whitespace-pre-line">
+              <strong className="text-foreground">Observação:</strong> {observacaoExibida.trim()}
             </p>
           </div>
         )}
@@ -471,14 +478,24 @@ const AudienciaDetailPage = () => {
             <User className="h-4 w-4 text-primary" />
             Como participar
           </h4>
-          <p className="text-sm text-muted-foreground">
-            As audiências públicas são abertas a todos os cidadãos. Ao se inscrever você receberá:
-          </p>
-          <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-            <li>• Link de acesso à audiência</li>
-            <li>• Materiais de apoio</li>
-            <li>• Lembrete do evento</li>
-          </ul>
+          {permiteInscricaoVideo ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                As audiências públicas são abertas a todos os cidadãos. Ao se inscrever você receberá:
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                <li>• Link de acesso à audiência</li>
+                <li>• Materiais de apoio</li>
+                <li>• Lembrete do evento</li>
+              </ul>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Esta audiência é com <strong className="text-foreground">participação somente presencial</strong> para
+              discursar no local. Não há inscrição por videoconferência. Você pode enviar manifestação por escrito pelo
+              botão abaixo e acompanhar a transmissão ao vivo pelos canais oficiais da Câmara quando indicado.
+            </p>
+          )}
         </div>
 
         {/* Localização da Câmara: comparecer no local ou protocolar na secretaria (padrão site oficial) */}
