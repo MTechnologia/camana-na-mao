@@ -2510,6 +2510,28 @@ export function accumulateFieldsFromHistory(
         }
       }
       
+      const waitTimeMarker = content.match(/\[WAIT_TIME:(\d+|null)\]/i);
+      if (waitTimeMarker) {
+        const rawWt = waitTimeMarker[1].toLowerCase();
+        const parsedWt = rawWt === 'null' ? null : parseInt(waitTimeMarker[1], 10);
+        if (parsedWt === null || (parsedWt >= 2 && parsedWt <= 5)) {
+          accumulated.wait_time_score = parsedWt;
+          console.log('[accumulateFields] Parsed wait_time_score from marker:', accumulated.wait_time_score);
+        }
+      }
+
+      // Parse dimension rating markers: [DIM_RATING:atendimento:4]
+      const dimRatingMarker = content.match(/\[DIM_RATING:(\w+):(\d)\]/i);
+      if (dimRatingMarker) {
+        const dimKey = dimRatingMarker[1].toLowerCase();
+        const dimScore = parseInt(dimRatingMarker[2], 10);
+        if (dimScore >= 1 && dimScore <= 5) {
+          const fieldKey = `${dimKey}_score`;
+          accumulated[fieldKey] = dimScore;
+          console.log(`[accumulateFields] Parsed ${fieldKey} from DIM_RATING marker:`, dimScore);
+        }
+      }
+
       // Parse "Nota: X estrelas" format from InlineRatingPicker
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
       if (ratingMatch && !accumulated.rating_stars) {
@@ -2592,6 +2614,18 @@ export function accumulateFieldsFromHistory(
               const starsMatch = answer.match(/(\d)/);
               if (starsMatch) {
                 accumulated.rating_stars = parseInt(starsMatch[1]);
+              }
+              break;
+            }
+            case 'wait_time': {
+              const waitMarker = answer.match(/\[WAIT_TIME:(\d+|null)\]/i);
+              if (waitMarker) {
+                const rawW = waitMarker[1].toLowerCase();
+                const v = rawW === 'null' ? null : parseInt(waitMarker[1], 10);
+                if (v === null || (v >= 2 && v <= 5)) {
+                  accumulated.wait_time_score = v;
+                  console.log('[accumulateFields] FIELD_REQUEST wait_time → wait_time_score:', v);
+                }
               }
               break;
             }
@@ -5696,23 +5730,37 @@ export async function executeTool(
           return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
         }
         
+        const argsRec = args as Record<string, unknown>;
+        let waitTimeStored: number | null | undefined;
+        if (argsRec.wait_time_score !== undefined) {
+          waitTimeStored = argsRec.wait_time_score as number | null;
+        } else if (accumulatedFields && 'wait_time_score' in accumulatedFields) {
+          waitTimeStored = accumulatedFields.wait_time_score as number | null;
+        } else {
+          waitTimeStored = undefined;
+        }
+
         console.log('[create_service_rating] Attempting to insert rating:', {
           userId,
           serviceId,
           visitId,
-          rating_stars: stars
+          rating_stars: stars,
+          wait_time_score: waitTimeStored
         });
-        
+
+        const insertPayload: Record<string, unknown> = {
+          user_id: userId,
+          service_id: serviceId,
+          visit_id: visitId,
+          rating_stars: stars,
+          rating_text: args.rating_text.trim(),
+          sentiment: args.sentiment || 'neutral'
+        };
+        if (waitTimeStored !== undefined) insertPayload.wait_time_score = waitTimeStored;
+
         const { data, error } = await supabase
           .from('service_ratings')
-          .insert({
-            user_id: userId,
-            service_id: serviceId,
-            visit_id: visitId,
-            rating_stars: stars,
-            rating_text: args.rating_text.trim(),
-            sentiment: args.sentiment || 'neutral'
-          })
+          .insert(insertPayload)
           .select('id')
           .single();
         
@@ -5734,10 +5782,17 @@ export async function executeTool(
         console.log('[create_service_rating] Rating saved successfully:', {
           id: data.id
         });
+
+        const waitLine =
+          waitTimeStored === undefined
+            ? ''
+            : waitTimeStored === null
+              ? '\n⏱ **Tempo de espera:** Não se aplica'
+              : `\n⏱ **Tempo de espera (faixa):** nota ${waitTimeStored}`;
         
         return { 
           success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${waitLine}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating' }
         };
       }

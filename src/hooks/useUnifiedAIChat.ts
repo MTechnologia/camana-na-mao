@@ -731,6 +731,30 @@ export const useUnifiedAIChat = (
           }
         }
       }
+
+      if (!('wait_time_score' in collectedFields)) {
+        const wtMatch = raw.match(/\[WAIT_TIME:(\d+|null)\]/i);
+        if (wtMatch) {
+          const token = wtMatch[1].toLowerCase();
+          const v = token === 'null' ? null : parseInt(wtMatch[1], 10);
+          if (v === null || (v >= 2 && v <= 5)) {
+            setCollectedFields(prev => ({ ...prev, wait_time_score: v }));
+          }
+        }
+      }
+
+      // Detect dimension rating (atendimento, infraestrutura, etc.)
+      const dimMatch = raw.match(/\[DIM_RATING:(\w+):(\d)\]/i);
+      if (dimMatch) {
+        const dimKey = dimMatch[1].toLowerCase();
+        const dimScore = parseInt(dimMatch[2], 10);
+        if (dimScore >= 1 && dimScore <= 5) {
+          const fieldKey = `${dimKey}_score`;
+          if (!(fieldKey in collectedFields)) {
+            setCollectedFields(prev => ({ ...prev, [fieldKey]: dimScore }));
+          }
+        }
+      }
       
       // Detectar nome do serviço
       if (!collectedFields.service_name && lastAssistantLower.includes('qual') && 
@@ -1379,6 +1403,7 @@ export const useUnifiedAIChat = (
         { key: 'service_name', required: true },
         { key: 'service_address_confirmed', required: true },
         { key: 'rating_stars', required: true },
+        { key: 'wait_time_score', required: true },
         { key: 'rating_text', required: true },
       ]
     };
@@ -1390,7 +1415,11 @@ export const useUnifiedAIChat = (
     const missing: string[] = [];
     
     for (const field of fields) {
-      if (collectedFields[field.key]) continue;
+      if (field.key === 'wait_time_score') {
+        if ('wait_time_score' in collectedFields) continue;
+      } else if (collectedFields[field.key]) {
+        continue;
+      }
       
       let isRequired = field.required;
       
@@ -1478,6 +1507,20 @@ export const useUnifiedAIChat = (
     sendMessage(`Nota: ${stars} estrelas`);
   }, [sendMessage]);
 
+  const handleWaitTimeSelected = useCallback((displayLabel: string, score: number | null) => {
+    setCollectedFields(prev => ({ ...prev, wait_time_score: score }));
+    const marker = score === null ? '[WAIT_TIME:null]' : `[WAIT_TIME:${score}]`;
+    sendMessage(`Tempo de espera: ${displayLabel} ${marker}`);
+  }, [sendMessage]);
+
+  // Handle dimension rating selection (atendimento, infraestrutura, etc.)
+  const handleDimensionRatingSelected = useCallback((dimensionKey: string, stars: number) => {
+    const fieldKey = `${dimensionKey}_score`;
+    setCollectedFields(prev => ({ ...prev, [fieldKey]: stars }));
+    const dimLabel = dimensionKey.charAt(0).toUpperCase() + dimensionKey.slice(1);
+    sendMessage(`${dimLabel}: ${stars} estrelas [DIM_RATING:${dimensionKey}:${stars}]`);
+  }, [sendMessage]);
+
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
   const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
     sendMessage(messageToSend);
@@ -1543,6 +1586,8 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleRatingSelected,
+    handleWaitTimeSelected,
+    handleDimensionRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,

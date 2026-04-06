@@ -879,6 +879,18 @@ serve(async (req) => {
         if (fields.visit_id) {
           if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
             return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+          if (!('wait_time_score' in fields))
+            return {
+              field: 'wait_time',
+              picker: '[WAIT_TIME_PICKER]',
+              prompt: '**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.'
+            };
+          if (!('atendimento_score' in fields))
+            return {
+              field: 'atendimento',
+              picker: '[DIMENSION_RATING_PICKER:atendimento]',
+              prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+            };
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
@@ -976,6 +988,19 @@ serve(async (req) => {
         // 4. Rating stars (REQUIRED 1-5)
         if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
           return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+
+        if (!('wait_time_score' in fields))
+          return {
+            field: 'wait_time',
+            picker: '[WAIT_TIME_PICKER]',
+            prompt: '**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.'
+          };
+        if (!('atendimento_score' in fields))
+          return {
+            field: 'atendimento',
+            picker: '[DIMENSION_RATING_PICKER:atendimento]',
+            prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+          };
         
         // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
         const textLen = (fields.rating_text || '').length;
@@ -1339,6 +1364,10 @@ serve(async (req) => {
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment || 'neutral'
             };
+            if ('wait_time_score' in accumulatedFields)
+              toolArgs.wait_time_score = accumulatedFields.wait_time_score;
+            if ('atendimento_score' in accumulatedFields)
+              toolArgs.atendimento_score = accumulatedFields.atendimento_score;
             if (accumulatedFields.visit_id) {
               toolArgs.visit_id = accumulatedFields.visit_id;
               if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;

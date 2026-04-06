@@ -32,6 +32,8 @@ export function ConversationalEvaluation({
     sendMessage,
     createdReport,
     handleRatingSelected,
+    handleWaitTimeSelected,
+    handleDimensionRatingSelected,
     handleServiceSelected,
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
@@ -115,6 +117,8 @@ export function ConversationalEvaluation({
                 userInitials={userInitials}
                 isLastAssistantMessage={isLastAssistant}
                 onRatingSelected={handleRatingSelected}
+                onWaitTimeSelected={handleWaitTimeSelected}
+                onDimensionRatingSelected={handleDimensionRatingSelected}
                 onServiceSelected={handleServiceSelected}
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}
