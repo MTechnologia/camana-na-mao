@@ -1,0 +1,10 @@
+// [lib.ts] - Replicação no accumulateFieldsFromHistory
+if (dimKey === 'infraestrutura') {
+  accumulated['limpeza_score'] = dimScore;
+}
+
+// [lib.ts] - Replicação na persistência final (create_service_rating)
+if (args.infraestrutura_score) {
+  dimensions.infraestrutura = Number(args.infraestrutura_score);
+  dimensions.limpeza = Number(args.infraestrutura_score); 
+}

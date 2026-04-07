@@ -1,0 +1,13 @@
+// [ChatMessageBubble.tsx] - Detecção do marcador
+const dimensionRatingMatch = useMemo(() => {
+  const match = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
+  return match ? match[1] : null;
+}, [message.content]);
+
+// [ChatMessageBubble.tsx] - Renderização condicional do picker
+{hasDimensionRatingPicker && (
+  <InlineRatingPicker
+    dimensionKey={dimensionRatingMatch!}
+    onSelect={handleDimensionRatingSelected}
+  />
+)}
