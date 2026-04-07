@@ -23,7 +23,8 @@ import {
   Camera,
   Loader2,
   Shield,
-  Download
+  Download,
+  History,
 } from "lucide-react";
 
 const Profile = () => {
@@ -191,6 +192,15 @@ const Profile = () => {
       iconColor: 'text-amber-600',
       iconBg: 'bg-amber-100',
       path: '/servicos/favoritos',
+    },
+    {
+      id: 'visitas',
+      title: 'Histórico de visitas',
+      description: 'Equipamentos detectados por geolocalização',
+      icon: History,
+      iconColor: 'text-sky-600',
+      iconBg: 'bg-sky-100',
+      path: '/perfil/visitas',
     },
     {
       id: 'interests',
