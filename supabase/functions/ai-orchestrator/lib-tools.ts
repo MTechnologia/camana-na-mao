@@ -177,7 +177,12 @@ export const tools = [
           },
           description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
-          occurrence_time: { type: "string", description: "Horário HH:MM (perguntar horário aproximado)" },
+          occurrence_time: { type: "string", description: "Horário exato HH:MM (aceitar formatos variados e normalizar)" },
+          direction: {
+            type: "string",
+            enum: ["ida", "volta", "circular"],
+            description: "Sentido da viagem: ida, volta ou circular"
+          },
           line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
           location: { type: "string", description: "Ponto, estação ou trecho" },
           severity: {
@@ -192,7 +197,7 @@ export const tools = [
             description: "URLs das fotos anexadas pelo usuário (até 3). Preenchido pelo sistema quando o usuário anexa imagens no chat."
           }
         },
-        required: ["report_type", "description", "occurrence_date"]
+        required: ["report_type", "description", "occurrence_date", "occurrence_time", "direction"]
       }
     }
   },

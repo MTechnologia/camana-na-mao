@@ -20,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
+import InlineDirectionPicker from "./InlineDirectionPicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
@@ -108,6 +109,7 @@ interface ChatMessageBubbleProps {
   onLineSelected?: (lineCode: string, lineName: string) => void;
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
+  onDirectionSelected?: (direction: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
@@ -133,6 +135,7 @@ const ChatMessageBubble = ({
   onLineSelected,
   onDateSelected,
   onTimeSelected,
+  onDirectionSelected,
   onRatingSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
@@ -154,6 +157,7 @@ const ChatMessageBubble = ({
   const [lineSelected, setLineSelected] = useState(false);
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
+  const [directionSelected, setDirectionSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
@@ -184,6 +188,7 @@ const ChatMessageBubble = ({
   const hasLinePicker = !isUser && message.content.includes('[LINE_PICKER]');
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
+  const hasDirectionPicker = !isUser && message.content.includes('[DIRECTION_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
@@ -399,6 +404,19 @@ const ChatMessageBubble = ({
       (content.includes('que horas') && isLastAssistantMessage)
     );
   }, [isUser, message.content, timeSelected, hasTimePicker, isLastAssistantMessage]);
+
+  // Detect direction question without explicit marker
+  const isAskingForDirection = useMemo(() => {
+    if (isUser || directionSelected || hasDirectionPicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:direction]') ||
+      (isLastAssistantMessage &&
+        (content.includes('qual era o **sentido** da viagem') ||
+          content.includes('qual era o sentido da viagem') ||
+          content.includes('qual o sentido da viagem')))
+    );
+  }, [isUser, message.content, directionSelected, hasDirectionPicker, isLastAssistantMessage]);
   
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
@@ -604,6 +622,13 @@ const ChatMessageBubble = ({
     setTimeSelected(true);
     if (onTimeSelected) {
       onTimeSelected(time, displayText);
+    }
+  };
+
+  const handleDirectionSelected = (direction: string, displayText: string) => {
+    setDirectionSelected(true);
+    if (onDirectionSelected) {
+      onDirectionSelected(direction, displayText);
     }
   };
   
@@ -977,6 +1002,11 @@ const ChatMessageBubble = ({
         {/* Inline Time Picker */}
         {(hasTimePicker || isAskingForTime) && !timeSelected && isLastAssistantMessage && (
           <InlineTimePicker onSelect={handleTimeSelected} />
+        )}
+
+        {/* Inline Direction Picker */}
+        {(hasDirectionPicker || isAskingForDirection) && !directionSelected && isLastAssistantMessage && (
+          <InlineDirectionPicker onSelect={handleDirectionSelected} />
         )}
         
         {/* Avaliação geral (1–5 estrelas) */}

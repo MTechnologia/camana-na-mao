@@ -33,6 +33,37 @@ export function parseRatingDimensionsMarker(content: string): Record<string, num
   }
 }
 
+export function parseFlexibleOccurrenceTime(input: string): string | null {
+  const raw = (input || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  const normalized = raw
+    .replace(/\s+/g, " ")
+    .replace(/horas?/g, "h")
+    .replace(/\bmeia noite\b/g, "00:00")
+    .replace(/\bmeio dia\b/g, "12:00")
+    .replace(/\bmeio-dia\b/g, "12:00");
+
+  const compact = normalized.replace(/\s+/g, "");
+
+  const hm = compact.match(/\b([01]?\d|2[0-3])(?:h|:)([0-5]?\d)?\b/);
+  if (hm) {
+    const hour = hm[1].padStart(2, "0");
+    const minute = (hm[2] || "00").padStart(2, "0");
+    return `${hour}:${minute}`;
+  }
+
+  const digits = compact.match(/\b([01]\d|2[0-3])([0-5]\d)\b/);
+  if (digits) return `${digits[1]}:${digits[2]}`;
+
+  const hourOnly = compact.match(/\b([01]?\d|2[0-3])\b/);
+  if (hourOnly && /\b(h|hora)\b/.test(normalized)) {
+    return `${hourOnly[1].padStart(2, "0")}:00`;
+  }
+
+  return null;
+}
+
 export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
   const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
@@ -236,7 +267,10 @@ export function extractImplicitData(
     }
     
     // Time inference
-    if (/manhã|de manhã|cedo|logo cedo/i.test(lower)) {
+    const parsedTime = parseFlexibleOccurrenceTime(userMessage);
+    if (parsedTime) {
+      extracted.occurrence_time = parsedTime;
+    } else if (/manhã|de manhã|cedo|logo cedo/i.test(lower)) {
       extracted.occurrence_time = '08:00';
     } else if (/tarde|de tarde|após almoço|depois do almoço/i.test(lower)) {
       extracted.occurrence_time = '14:00';
@@ -1098,15 +1132,24 @@ export function extractTransportFields(context: string): Record<string, unknown>
   }
   
   // Detect time
-  const timeMatch = context.match(/(\d{1,2})[h:](\d{2})?/);
-  if (timeMatch) {
-    fields.occurrence_time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
+  const parsedTime = parseFlexibleOccurrenceTime(context);
+  if (parsedTime) {
+    fields.occurrence_time = parsedTime;
   } else if (context.includes('manhã') || context.includes('cedo')) {
     fields.occurrence_time = '08:00';
   } else if (context.includes('tarde')) {
     fields.occurrence_time = '14:00';
   } else if (context.includes('noite')) {
     fields.occurrence_time = '19:00';
+  }
+
+  // Detect direction
+  if (/\bida\b/.test(context)) {
+    fields.direction = 'ida';
+  } else if (/\bvolta\b/.test(context)) {
+    fields.direction = 'volta';
+  } else if (/\bcircular\b/.test(context)) {
+    fields.direction = 'circular';
   }
   
   // Detect severity
@@ -2746,6 +2789,21 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       }
       break;
     }
+
+    case 'occurrence_time': {
+      const parsed = parseFlexibleOccurrenceTime(response);
+      if (parsed) {
+        result.occurrence_time = parsed;
+      }
+      break;
+    }
+
+    case 'direction': {
+      if (/\bida\b/i.test(responseLower)) result.direction = 'ida';
+      else if (/\bvolta\b/i.test(responseLower)) result.direction = 'volta';
+      else if (/\bcircular\b/i.test(responseLower)) result.direction = 'circular';
+      break;
+    }
       
     case 'active_consequences': {
       // Parse active consequences
@@ -3619,7 +3677,7 @@ export function accumulateFieldsFromHistory(
               }
               break;
             }
-            case 'service_name':
+            case 'service_name': {
               // Aceitar "Serviço: NOME - Bairro\nEndereço: ..." (regex sem $ para multilinha)
               const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*([^\n]*))?(?:\n|$)/i);
               if (nameMatch) {
@@ -3629,6 +3687,7 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
+            }
             case 'rating_dimensions': {
               const rd = parseRatingDimensionsMarker(answer);
               if (rd) {
@@ -3827,10 +3886,20 @@ export function accumulateFieldsFromHistory(
       }
       
       // Parse "Horário: XX:XX" format from InlineTimePicker
-      const timeMatch = content.match(/horário:\s*(\d{1,2}:\d{2})/i);
+      const timeMatch = content.match(/horário:\s*([^\n]+)/i);
       if (timeMatch && !accumulated.occurrence_time) {
-        accumulated.occurrence_time = timeMatch[1];
+        const parsed = parseFlexibleOccurrenceTime(timeMatch[1]);
+        if (parsed) accumulated.occurrence_time = parsed;
         console.log('[accumulateFields] Parsed occurrence_time from picker:', accumulated.occurrence_time);
+      }
+
+      // Parse "Sentido: Ida|Volta|Circular" from InlineDirectionPicker
+      const directionMatch = content.match(/sentido:\s*([^\n]+)/i);
+      if (directionMatch && !accumulated.direction) {
+        const directionRaw = directionMatch[1].trim().toLowerCase();
+        if (directionRaw.includes('ida')) accumulated.direction = 'ida';
+        else if (directionRaw.includes('volta')) accumulated.direction = 'volta';
+        else if (directionRaw.includes('circular')) accumulated.direction = 'circular';
       }
     }
   }
@@ -7382,6 +7451,30 @@ export async function executeTool(
             message: '[FIELD_REQUEST:occurrence_date]**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)'
           };
         }
+
+        if (!args.occurrence_time) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_time]Qual foi o **horário exato** da ocorrência? [TIME_PICKER]'
+          };
+        }
+
+        const normalizedTime = parseFlexibleOccurrenceTime(String(args.occurrence_time || ""));
+        if (!normalizedTime) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_time]Não consegui entender o horário. Pode informar no formato **HH:MM**? [TIME_PICKER]'
+          };
+        }
+        args.occurrence_time = normalizedTime;
+
+        if (!args.direction || !['ida', 'volta', 'circular'].includes(String(args.direction).toLowerCase())) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:direction]Qual era o **sentido** da viagem? [DIRECTION_PICKER]'
+          };
+        }
+        args.direction = String(args.direction).toLowerCase();
         
         // Date confirmation check - args.date_confirmed is set by accumulateFieldsFromHistory
         // when user explicitly selects via picker or says "hoje"/"ontem"
@@ -7451,6 +7544,7 @@ export async function executeTool(
             description: args.description,
             occurrence_date: args.occurrence_date,
             occurrence_time: args.occurrence_time || null,
+            direction: args.direction || null,
             line_id: lineId,
             line_code_custom: args.line_code || null,
             location: args.location || null,
@@ -7554,6 +7648,7 @@ export async function executeTool(
           `🚌 **Linha:** ${args.line_code || 'Não informada'}`,
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
+          args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : '',
           args.location ? `📍 **Local:** ${args.location}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,

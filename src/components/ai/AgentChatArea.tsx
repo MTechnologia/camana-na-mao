@@ -68,6 +68,7 @@ const AgentChatArea = () => {
     handleLineSelected,
     handleDateSelected,
     handleTimeSelected,
+    handleDirectionSelected,
     handleRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
@@ -401,6 +402,7 @@ const AgentChatArea = () => {
                         onLineSelected={handleLineSelected}
                         onDateSelected={handleDateSelected}
                         onTimeSelected={handleTimeSelected}
+                        onDirectionSelected={handleDirectionSelected}
                         onRatingSelected={handleRatingSelected}
                         onLocationMethodSelected={handleLocationMethodSelected}
                         onServiceTypeSelected={handleServiceTypeSelected}

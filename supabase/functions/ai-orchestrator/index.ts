@@ -1157,6 +1157,14 @@ serve(async (req) => {
         // 4. Date (REQUIRED - user must confirm)
         if (!fields.occurrence_date)
           return { field: 'occurrence_date', picker: '[DATE_PICKER]', prompt: '**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)' };
+
+        // 5. Time (REQUIRED - atomic collection)
+        if (!fields.occurrence_time)
+          return { field: 'occurrence_time', picker: '[TIME_PICKER]', prompt: 'Qual foi o **horário exato** da ocorrência?' };
+
+        // 6. Direction (REQUIRED - atomic collection)
+        if (!fields.direction)
+          return { field: 'direction', picker: '[DIRECTION_PICKER]', prompt: 'Qual era o **sentido** da viagem?' };
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };
@@ -1485,7 +1493,7 @@ serve(async (req) => {
         let originForUrl = '';
         if (assistantAskedStreetNumber && userMessagesOrdered.length >= 2) {
           const streetNumberCandidate = originCandidate.trim();
-          const looksLikeNumber = /^[\d\s\-]+$/.test(streetNumberCandidate) || /^(casa|n[°º]?|n[uú]mero)\s*[\d\-]+$/i.test(streetNumberCandidate);
+          const looksLikeNumber = /^[\d\s-]+$/.test(streetNumberCandidate) || /^(casa|n[°º]?|n[uú]mero)\s*[\d-]+$/i.test(streetNumberCandidate);
           if (looksLikeNumber) {
             const prevAddress = getMessageText(userMessagesOrdered[userMessagesOrdered.length - 2]).trim();
             const prevAddressRaw = prevAddress.replace(/^Endere[cç]o\s+selecionado\s*:\s*/i, '').trim();
@@ -1957,6 +1965,20 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
           } else if (collectionIntent.type === 'transport_report') {
+            if (!accumulatedFields.occurrence_time) {
+              const askTimeMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:occurrence_time]Qual foi o **horário exato** da ocorrência?[TIME_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askTimeMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (!accumulatedFields.direction) {
+              const askDirectionMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:direction]Qual era o **sentido** da viagem?[DIRECTION_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askDirectionMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
             // Fluxo de fotos para transporte (conforme relato urbano): perguntar → anexar → preview → criar
             const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
             const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*registrar|envie\s+\*?registrar\*?/i.test(lastAssistantLower);
@@ -1985,7 +2007,8 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
 • **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}
+• **Sentido:** ${accumulatedFields.direction || 'Não informado'}
 
 Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2001,7 +2024,8 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
 • **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}${photoLine}
+• **Sentido:** ${accumulatedFields.direction || 'Não informado'}
 
 Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2032,6 +2056,7 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
                 line_code: accumulatedFields.line_code,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
+                direction: accumulatedFields.direction,
                 location: accumulatedFields.location,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
@@ -2047,7 +2072,8 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
 • **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
+• **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}${photoLine}
+• **Sentido:** ${accumulatedFields.direction || 'Não informado'}
 
 Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2063,6 +2089,7 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
                 line_code: accumulatedFields.line_code,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
+                direction: accumulatedFields.direction,
                 location: accumulatedFields.location,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
@@ -2948,15 +2975,18 @@ ${empathyNote}
                 line_code: toolArgs.line_code ?? accumulatedFields.line_code,
                 occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
                 occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+                direction: toolArgs.direction ?? accumulatedFields.direction,
                 location: toolArgs.location ?? accumulatedFields.location,
                 severity: toolArgs.severity ?? accumulatedFields.severity,
                 subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
               };
+              if (merged.occurrence_time && merged.direction) {
               const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${merged.line_code || 'Não informada'}
-• **Quando:** ${merged.occurrence_date || ''}
+• **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
+• **Sentido:** ${merged.direction || 'Não informado'}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
@@ -2964,6 +2994,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
+              }
             }
           }
 
@@ -2992,6 +3023,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.line_code && { line_code: toolArgs.line_code }),
             ...(toolArgs.occurrence_date && { occurrence_date: toolArgs.occurrence_date }),
             ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
+            ...(toolArgs.direction && { direction: toolArgs.direction }),
             ...(toolArgs.severity && { severity: toolArgs.severity }),
             // Service rating fields
             ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
@@ -3112,15 +3144,18 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             line_code: toolArgs.line_code ?? accumulatedFields.line_code,
             occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
             occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+            direction: toolArgs.direction ?? accumulatedFields.direction,
             location: toolArgs.location ?? accumulatedFields.location,
             severity: toolArgs.severity ?? accumulatedFields.severity,
             subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
           };
+          if (merged.occurrence_time && merged.direction) {
           const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${merged.line_code || 'Não informada'}
-• **Quando:** ${merged.occurrence_date || ''}
+• **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
+• **Sentido:** ${merged.direction || 'Não informado'}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
           const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
@@ -3128,6 +3163,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
           return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
             headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
           });
+          }
         }
       }
 
@@ -3147,6 +3183,8 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         ...(toolArgs.risk_types && { risk_types: toolArgs.risk_types }),
         ...(toolArgs.affected_scope && { affected_scope: toolArgs.affected_scope }),
         ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+        ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
+        ...(toolArgs.direction && { direction: toolArgs.direction }),
         ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
         ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
         ...(toolArgs.rating_dimensions && { rating_dimensions: toolArgs.rating_dimensions }),
