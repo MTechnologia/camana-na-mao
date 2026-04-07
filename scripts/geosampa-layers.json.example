@@ -1,5 +1,5 @@
 [
-  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:ponto_onibus&outputFormat=application%2Fjson","service_type":"other","source_layer":"ponto_onibus"},
+  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:ponto_onibus&outputFormat=application%2Fjson","service_type":"transit_station","source_layer":"ponto_onibus"},
   {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:equipamento_educacao_rede_privada&outputFormat=application%2Fjson","service_type":"school","source_layer":"educacao_rede_privada"},
-  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:classificacao_viaria_cet&outputFormat=application%2Fjson","service_type":"other","source_layer":"sistema_viario_classificacao_cet"}
+  {"url":"https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=geoportal:ecoponto&outputFormat=application%2Fjson","service_type":"recycling_point","source_layer":"ecoponto"}
 ]

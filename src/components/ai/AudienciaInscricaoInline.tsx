@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ interface AudienciaOption {
   slug: string | null;
   ap_code: string | null;
   convidados: string | null;
+  permite_inscricao_videoconferencia?: boolean | null;
 }
 
 export function AudienciaInscricaoInline() {
@@ -70,6 +71,8 @@ export function AudienciaInscricaoInline() {
   const [success, setSuccess] = useState(false);
   const [protocolo, setProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
+  /** Prefill do e-mail só ao entrar com outro usuário ou no 1º load; não reseta o que foi digitado na mesma sessão. */
+  const prefillEmailForUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +80,7 @@ export function AudienciaInscricaoInline() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, data, local, comissao, slug, ap_code, convidados")
+        .select("id, titulo, data, local, comissao, slug, ap_code, convidados, permite_inscricao_videoconferencia")
         .eq("inscricoes_abertas", true)
         .gte("data", today)
         .order("data", { ascending: true })
@@ -101,9 +104,27 @@ export function AudienciaInscricaoInline() {
     return () => { cancelled = true; };
   }, []);
 
+  const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
+  const permiteVideoNaAudiencia = selectedAudiencia?.permite_inscricao_videoconferencia !== false;
+
   useEffect(() => {
-    if (user?.email) setEmail(user.email);
-  }, [user?.email]);
+    const a = audiencias.find((x) => x.id === audienciaId);
+    if (!a) return;
+    if (a.permite_inscricao_videoconferencia === false) {
+      setTipoParticipacao((prev) => (prev === "videoconferencia" ? "escrito" : prev));
+    }
+  }, [audienciaId, audiencias]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      prefillEmailForUserIdRef.current = null;
+      return;
+    }
+    if (!user.email) return;
+    if (prefillEmailForUserIdRef.current === user.id) return;
+    prefillEmailForUserIdRef.current = user.id;
+    setEmail(user.email);
+  }, [user?.id, user?.email]);
 
   useEffect(() => {
     if (!user?.id || !audienciaId) {
@@ -124,10 +145,12 @@ export function AudienciaInscricaoInline() {
     return () => { cancelled = true; };
   }, [user?.id, audienciaId]);
 
-  const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
-
   const handleSubmit = async () => {
     if (tipoParticipacao === "presencial") return;
+    if (tipoParticipacao === "videoconferencia" && !permiteVideoNaAudiencia) {
+      toast.error("Esta audiência não aceita inscrição por videoconferência.");
+      return;
+    }
 
     if (tipoParticipacao === "escrito") {
       if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
@@ -195,7 +218,13 @@ export function AudienciaInscricaoInline() {
     } catch (e) {
       console.error(e);
       const msg = (e as { message?: string })?.message;
-      toast.error(msg && msg.includes("já está inscrito") ? "Você já está inscrito nesta audiência." : "Não foi possível enviar. Tente novamente.");
+      toast.error(
+        msg && msg.includes("já está inscrito")
+          ? "Você já está inscrito nesta audiência."
+          : msg && msg.includes("não aceita inscrição para videoconferência")
+            ? "Esta audiência não aceita inscrição por videoconferência."
+            : "Não foi possível enviar. Tente novamente.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -267,10 +296,12 @@ export function AudienciaInscricaoInline() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {permiteVideoNaAudiencia ? (
             <SelectItem value="videoconferencia" className="text-sm flex items-center gap-2">
               <Video className="h-3.5 w-3.5" />
               Videoconferência
             </SelectItem>
+            ) : null}
             <SelectItem value="escrito" className="text-sm flex items-center gap-2">
               <FileText className="h-3.5 w-3.5" />
               Manifestação por escrito
@@ -384,14 +415,18 @@ export function AudienciaInscricaoInline() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">E-mail *</Label>
+            <Label className="text-xs">E-mail para contato nesta inscrição *</Label>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
+              autoComplete="email"
               className="h-9 text-sm"
             />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Pode ser diferente do e-mail do seu cadastro no app. Usaremos este endereço para comunicações sobre esta audiência.
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Telefone/WhatsApp *</Label>

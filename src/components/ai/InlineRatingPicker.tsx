@@ -19,7 +19,7 @@ export const InlineRatingPicker = ({ onSelect }: InlineRatingPickerProps) => {
     return (
       <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
         <Star className="h-3 w-3 fill-current" />
-        <span>Nota {selectedRating} selecionada ✓</span>
+        <span>Avaliação geral: {selectedRating}/5 ✓</span>
       </div>
     );
   }
@@ -28,7 +28,9 @@ export const InlineRatingPicker = ({ onSelect }: InlineRatingPickerProps) => {
     <div className="mt-2 w-full">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
         <Star className="h-3 w-3" />
-        <span>De 1 a 5, que nota você dá?</span>
+        <span>
+          <strong className="text-foreground">Avaliação geral</strong> — de 1 a 5 (1 = muito ruim, 5 = excelente)
+        </span>
       </div>
       <div className="flex gap-1" role="group" aria-label="Avaliação por estrelas">
         {[1, 2, 3, 4, 5].map((star) => {
@@ -57,7 +59,7 @@ export const InlineRatingPicker = ({ onSelect }: InlineRatingPickerProps) => {
         })}
       </div>
       <div className="mt-1 flex justify-between text-xs text-muted-foreground px-1">
-        <span>Péssimo</span>
+        <span>Muito ruim</span>
         <span>Excelente</span>
       </div>
     </div>

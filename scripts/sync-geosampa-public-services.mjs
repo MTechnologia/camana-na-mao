@@ -79,6 +79,58 @@ function getProp(obj, ...keys) {
   return null;
 }
 
+/**
+ * Converte um texto de "status" vindo do GeoSampa para os valores do app.
+ * Retorna null quando não for possível inferir.
+ *
+ * Valores esperados no banco: 'open' | 'closed' | 'maintenance'
+ */
+function inferOperationalStatus(rawStatus) {
+  const raw = typeof rawStatus === "string" ? rawStatus.trim() : "";
+  const s = raw.toLowerCase();
+  if (!s) return null;
+
+  // Manutenção (inclui variações de escrita e sinais de indisponibilidade)
+  if (
+    /manuten[cç][aã]o/.test(s) ||
+    /manutenc/.test(s) ||
+    /paralisad[oa]/.test(s) ||
+    /paralis/.test(s) ||
+    /parad[oa]/.test(s) ||
+    /interromp/.test(s) ||
+    /indispon[ií]vel/.test(s) ||
+    /fora\s+de\s+opera[cç][aã]o/.test(s)
+  ) {
+    return "maintenance";
+  }
+
+  // Fechado/encerrado/inativo
+  if (
+    /fechad[oa]/.test(s) ||
+    /encerrad[oa]/.test(s) ||
+    /inativad[oa]/.test(s) ||
+    /desativad[oa]/.test(s) ||
+    /fora\s+de\s+opera[cç][aã]o/.test(s) ||
+    /sem\s+funcionamento/.test(s)
+  ) {
+    return "closed";
+  }
+
+  // Aberto/em operação/em funcionamento
+  if (
+    /abert[oa]/.test(s) ||
+    /em\s+opera[cç][aã]o/.test(s) ||
+    /em\s+funcionamento/.test(s) ||
+    /operand[oa]/.test(s) ||
+    /operacional/.test(s) ||
+    /funcionando/.test(s)
+  ) {
+    return "open";
+  }
+
+  return null;
+}
+
 /** Calcula centroide aproximado de um anel [lng, lat][] (média). */
 function ringCentroid(ring) {
   if (!Array.isArray(ring) || ring.length === 0) return null;
@@ -152,6 +204,19 @@ function featureToRow(feature, layerConfig, index) {
     "tx_horario_funcionamento", "horario_funcionamento", "opening_hours", "horario",
     "tx_horario", "horario_abertura", "ds_horario", "horario_funcionamento", "tx_atendimento"
   );
+
+  // Inferir status operacional (aberto/fechado/manutenção) a partir de campos do GeoSampa.
+  // Fazemos isso independentemente do texto "services_offered" para não depender de fallback.
+  let operationalStatus = null;
+  if (layerConfig.source_layer === "estacao_metro" || layerConfig.source_layer === "estacao_trem") {
+    operationalStatus = inferOperationalStatus(getProp(props, "tx_situacao_metro_trem"));
+  }
+  if (layerConfig.source_layer === "terminal_onibus") {
+    operationalStatus = inferOperationalStatus(getProp(props, "tx_status_terminal"));
+  }
+  if (layerConfig.source_layer === "aterro_sanitario") {
+    operationalStatus = inferOperationalStatus(getProp(props, "tx_status_aterro_sanitario"));
+  }
 
   let servicesOffered = getProp(props, "tx_tipo_equipamento", "tx_classe_equipamento", "servicos_ofertados", "services_offered", "description", "tx_descricao");
   if (!servicesOffered && layerConfig.source_layer === "ecoponto") {
@@ -239,6 +304,7 @@ function featureToRow(feature, layerConfig, index) {
   if (phone != null) row.phone = phone.slice(0, 50);
   if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
   if (capacityInfo != null) row.capacity_info = capacityInfo.slice(0, 200);
+  if (operationalStatus != null) row.operational_status = operationalStatus;
   if (servicesOffered != null) {
     let text = String(servicesOffered).replace(/, encaminhamentos par\s*$/i, "").trim();
     if (text && !/[.!?]$/.test(text)) text += ".";

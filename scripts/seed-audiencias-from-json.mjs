@@ -90,6 +90,7 @@ function mapItem(item) {
     vagas_disponiveis: null,
     inscricoes_abertas:
       item.FormInscricoes === 1 || (item.FormInscricoes !== 0 && status === "agendada"),
+    permite_inscricao_videoconferencia: true,
     link_transmissao: item.LinkTeleconferencia || null,
     documentos: Array.isArray(item.Projetos) && item.Projetos.length > 0 ? item.Projetos : [],
   };

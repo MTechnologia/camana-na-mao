@@ -47,6 +47,7 @@ const ConsentsPage = lazy(() => import("./pages/profile/ConsentsPage"));
 const DataExportPage = lazy(() => import("./pages/profile/DataExportPage"));
 const UserRightsPage = lazy(() => import("./pages/profile/UserRightsPage"));
 const PublicProfilePage = lazy(() => import("./pages/profile/PublicProfilePage"));
+const VisitHistoryPage = lazy(() => import("./pages/profile/VisitHistoryPage"));
 
 // ============================================
 // CITIZEN PAGES - Lazy loaded
@@ -83,6 +84,7 @@ const NearbyServicesPage = lazy(() => import("./pages/NearbyServicesPage"));
 const ServiceDetailPage = lazy(() => import("./pages/ServiceDetailPage"));
 const EvaluationPage = lazy(() => import("./pages/EvaluationPage"));
 const RatingsHistoryPage = lazy(() => import("./pages/ratings/RatingsHistoryPage"));
+const MyFavoritesPage = lazy(() => import("./pages/services/MyFavoritesPage"));
 
 // ============================================
 // LEGAL PAGES - Lazy loaded
@@ -118,6 +120,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPage"));
 const TrendDashboardPage = lazy(() => import("./pages/admin/TrendDashboardPage"));
+const ClassificationAccuracyPage = lazy(() => import("./pages/admin/ClassificationAccuracyPage"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
@@ -126,6 +129,7 @@ const N8NIntegration = lazy(() => import("./pages/admin/settings/N8NIntegration"
 const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"));
 const AccessibilitySettings = lazy(() => import("./pages/admin/settings/AccessibilitySettings"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
+const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
 
 // ============================================
 // OTHER PAGES - Lazy loaded
@@ -223,6 +227,7 @@ const AppContent = () => {
             <Route path="/" element={<Home />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/perfil" element={<Profile />} />
+            <Route path="/perfil/visitas" element={<VisitHistoryPage />} />
             <Route path="/perfil/:userId" element={<PublicProfilePage />} />
             <Route path="/perfil/dados-pessoais" element={<PersonalInfoPage />} />
             <Route path="/perfil/interesses" element={<InterestsPage />} />
@@ -260,6 +265,7 @@ const AppContent = () => {
             <Route path="/institucional/noticias" element={<Noticias />} />
             <Route path="/institucional/noticias/:id" element={<NoticiaDetailPage />} />
             <Route path="/servicos-proximos" element={<NearbyServicesPage />} />
+            <Route path="/servicos/favoritos" element={<MyFavoritesPage />} />
             <Route path="/servico/:id" element={<ServiceDetailPage />} />
             <Route path="/avaliar" element={<EvaluationPage />} />
             <Route path="/avaliar/:visitId" element={<EvaluationPage />} />
@@ -281,11 +287,13 @@ const AppContent = () => {
             <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
             <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
             <Route path="/admin/trends" element={<ProtectedAdminRoute><TrendDashboardPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/classification-accuracy" element={<ProtectedAdminRoute><ClassificationAccuracyPage /></ProtectedAdminRoute>} />
             <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
             <Route path="/admin/audit-logs" element={<ProtectedAdminOnlyRoute><AuditLogs /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
+            <Route path="/admin/service-corrections" element={<ProtectedAdminOnlyRoute><ServiceCorrectionsManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />

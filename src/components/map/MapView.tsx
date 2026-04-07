@@ -1,6 +1,10 @@
 import { lazy, Suspense, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Bookmark } from 'lucide-react';
 import { SimulatedMap } from './SimulatedMap';
+import type { MapFocusOnService } from './GoogleMapView';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { MapOverlayLayersPanel } from './MapOverlayLayersPanel';
 import { useGeoSampaOverlay } from '@/hooks/useGeoSampaOverlay';
 import { getGoogleMapsApiKey } from '@/lib/googleMapsKey';
@@ -14,6 +18,11 @@ interface Service {
   latitude: number;
   longitude: number;
   distance?: number;
+  /** Agregados public_services (avaliações publicadas) — mapa pode sinalizar média baixa */
+  average_rating?: number;
+  total_ratings?: number;
+  address?: string;
+  district?: string;
 }
 
 interface MapViewProps {
@@ -24,6 +33,8 @@ interface MapViewProps {
   distanceLabel?: "walking" | "driving" | "straight";
   /** Tipos de serviço ativos no filtro – a legenda do mapa lista estes (OS-05). */
   activeServiceTypes?: string[];
+  /** Google Maps: centralizar no equipamento após busca/seleção (ignorado no mapa simulado). */
+  focusOnService?: MapFocusOnService | null;
 }
 
 const MapLoader = () => (
@@ -35,7 +46,25 @@ const MapLoader = () => (
   </div>
 );
 
-export const MapView = ({ userLocation, services, onServiceClick, distanceLabel = "straight", activeServiceTypes = [] }: MapViewProps) => {
+function MapFavoritesButton() {
+  return (
+    <Button variant="secondary" size="sm" className="shadow-sm gap-2" asChild>
+      <Link to="/servicos/favoritos" aria-label="Ir para Meus Favoritos">
+        <Bookmark className="h-4 w-4 shrink-0" aria-hidden />
+        Meus Favoritos
+      </Link>
+    </Button>
+  );
+}
+
+export const MapView = ({
+  userLocation,
+  services,
+  onServiceClick,
+  distanceLabel = "straight",
+  activeServiceTypes = [],
+  focusOnService = null,
+}: MapViewProps) => {
   const googleMapsKey = getGoogleMapsApiKey();
   const useGoogleMaps = !!googleMapsKey;
 
@@ -47,13 +76,16 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
     return (
       <Suspense fallback={<MapLoader />}>
         <div className="space-y-2">
-          <MapOverlayLayersPanel
-            enabledLayerIds={enabledOverlayIds}
-            onEnabledChange={setEnabledOverlayIds}
-            layerStates={overlayLayers}
-            wmsImageamentoEnabled={wmsImageamentoEnabled}
-            onWmsImageamentoChange={setWmsImageamentoEnabled}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <MapOverlayLayersPanel
+              enabledLayerIds={enabledOverlayIds}
+              onEnabledChange={setEnabledOverlayIds}
+              layerStates={overlayLayers}
+              wmsImageamentoEnabled={wmsImageamentoEnabled}
+              onWmsImageamentoChange={setWmsImageamentoEnabled}
+            />
+            <MapFavoritesButton />
+          </div>
           <GoogleMapView
             userLocation={userLocation}
             services={services}
@@ -62,6 +94,7 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
             activeServiceTypes={activeServiceTypes}
             overlayLayers={overlayLayers}
             wmsImageamentoEnabled={wmsImageamentoEnabled}
+            focusOnService={focusOnService}
           />
         </div>
       </Suspense>
@@ -69,12 +102,17 @@ export const MapView = ({ userLocation, services, onServiceClick, distanceLabel 
   }
 
   return (
-    <SimulatedMap
-      userLocation={userLocation}
-      services={services}
-      onServiceClick={onServiceClick}
-      distanceLabel={distanceLabel}
-      activeServiceTypes={activeServiceTypes}
-    />
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <MapFavoritesButton />
+      </div>
+      <SimulatedMap
+        userLocation={userLocation}
+        services={services}
+        onServiceClick={onServiceClick}
+        distanceLabel={distanceLabel}
+        activeServiceTypes={activeServiceTypes}
+      />
+    </div>
   );
 };

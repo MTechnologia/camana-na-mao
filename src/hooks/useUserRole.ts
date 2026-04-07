@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { withPoolRetry } from '@/lib/supabaseRetry';
 
 export type UserRole =
   | 'admin'
@@ -51,10 +52,14 @@ export const useUserRole = () => {
       let userRoles: UserRole[] = [];
 
       // Prefer direct table read (fast + typed), but fall back to RPC if RLS blocks it.
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id);
+      const { data, error } = await withPoolRetry(
+        () =>
+          supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id),
+        { retries: 1, baseDelayMs: 700 },
+      );
 
       if (!error) {
         userRoles = (data || []).map((r) => r.role as UserRole);
@@ -103,6 +108,8 @@ export const useUserRole = () => {
   const canManageUsers = isAdmin;
   const canConfigureSystem = isAdmin;
   const canViewAuditLogs = isAdmin;
+  /** Validação / aprovação de sugestões de correção de equipamentos. */
+  const canModerateServiceCorrections = isAdmin;
 
   return {
     roles,
@@ -125,6 +132,7 @@ export const useUserRole = () => {
     canManageUsers,
     canConfigureSystem,
     canViewAuditLogs,
+    canModerateServiceCorrections,
     refetch: fetchUserRoles,
   };
 };

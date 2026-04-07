@@ -1,13 +1,125 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseAnonKey } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
+import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
+import {
+  aggregateServiceRatingStars,
+  isCompleteServiceRatingDimensions,
+  parseRatingDimensionsFromMessage,
+} from "@/lib/serviceRatingDimensions";
+import { compressChatPhoto } from "@/lib/chatPhotoCompression";
+import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
-const LIGHT_JOURNEY_TYPES: string[] = ['services', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
+const LIGHT_JOURNEY_TYPES: string[] = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
 const VALID_TRACKER_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
+
+const COLLECTION_PROGRESS_PREFIX = "[COLLECTION_PROGRESS:";
+
+/**
+ * Extrai cada payload JSON dos marcadores `[COLLECTION_PROGRESS:type:{...}]`.
+ * Usa profundidade de chaves ignorando `{`/`}` dentro de strings JSON (o regex `\{[^\]]*\}`
+ * quebrava quando `description` continha `[RATING_DIMENSIONS:...]` com `]`).
+ */
+function extractCollectionProgressJsonObjects(text: string): Array<{ type: string; jsonStr: string }> {
+  const results: Array<{ type: string; jsonStr: string }> = [];
+  let pos = 0;
+  while (pos < text.length) {
+    const start = text.indexOf(COLLECTION_PROGRESS_PREFIX, pos);
+    if (start === -1) break;
+    const typeStart = start + COLLECTION_PROGRESS_PREFIX.length;
+    const colonIdx = text.indexOf(":", typeStart);
+    if (colonIdx === -1) break;
+    const type = text.slice(typeStart, colonIdx);
+    if (!/^\w+$/.test(type)) {
+      pos = typeStart;
+      continue;
+    }
+    const braceStart = text.indexOf("{", colonIdx);
+    if (braceStart === -1) break;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let i = braceStart;
+    let closed = false;
+    for (; i < text.length; i++) {
+      const c = text[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (inString) {
+        if (c === "\\") {
+          escape = true;
+          continue;
+        }
+        if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') {
+        inString = true;
+        continue;
+      }
+      if (c === "{") depth++;
+      else if (c === "}") {
+        depth--;
+        if (depth === 0) {
+          closed = true;
+          break;
+        }
+      }
+    }
+    if (!closed) break;
+    const jsonStr = text.slice(braceStart, i + 1);
+    if (text[i + 1] === "]") {
+      results.push({ type, jsonStr });
+    }
+    pos = i + 2;
+  }
+  return results;
+}
+
+/** Corpo de erro da Edge (HTML/JSON) → texto útil em português. */
+function describeAiOrchestratorFailure(status: number, body: string): string {
+  const b = body.trim();
+  if (b.startsWith("{")) {
+    try {
+      const j = JSON.parse(b) as { code?: string; message?: string };
+      if (j.code === "NOT_FOUND" || /function was not found|not found/i.test(String(j.message ?? ""))) {
+        return "A função ai-orchestrator não foi encontrada neste projeto. Publique a Edge Function e confira CAMARA_URL / VITE_SUPABASE_URL.";
+      }
+      if (j.message) return j.message;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (
+    status === 404 ||
+    /trouble finding the resource|requested function was not found/i.test(b)
+  ) {
+    return "Serviço do assistente indisponível (404). Verifique o deploy de ai-orchestrator e se a URL do Supabase está correta.";
+  }
+  if (status === 401 || status === 403) {
+    return "Sessão expirada ou sem permissão. Faça login novamente.";
+  }
+  if (b.length > 400) return `${b.slice(0, 400)}…`;
+  return b || `Erro HTTP ${status}`;
+}
+
+function isStatementTimeoutFailure(body: string): boolean {
+  const b = body.trim();
+  if (/canceling statement due to statement timeout/i.test(b)) return true;
+  if (!b.startsWith("{")) return false;
+  try {
+    const j = JSON.parse(b) as { message?: string };
+    return /canceling statement due to statement timeout/i.test(String(j.message ?? ""));
+  } catch {
+    return false;
+  }
+}
 
 interface Message {
   id: string;
@@ -348,6 +460,25 @@ export const useUnifiedAIChat = (
       const raw = content.trim();
       const rawLower = raw.toLowerCase();
 
+      // Natureza (reclamação, dúvida, sugestão, elogio) — resposta rápida ou texto curto
+      if (!collectedFields.report_nature) {
+        const askedNature =
+          lastAssistantLower.includes('[field_request:report_nature]') ||
+          lastAssistantLower.includes('tipo do seu relato');
+        if (askedNature && raw.length <= 32) {
+          const nk = rawLower.normalize('NFD').replace(/\p{M}/gu, '');
+          const map: Record<string, string> = {
+            reclamacao: 'reclamacao',
+            duvida: 'duvida',
+            sugestao: 'sugestao',
+            elogio: 'elogio',
+          };
+          if (map[nk]) {
+            setCollectedFields((prev) => ({ ...prev, report_nature: map[nk] }));
+          }
+        }
+      }
+
       // ========== CEP DETECTION (typed manually) ==========
       // If assistant asked for CEP and user provides 8 digits, capture immediately
       const cepPattern = /\b(\d{5})-?(\d{3})\b/;
@@ -417,6 +548,8 @@ export const useUnifiedAIChat = (
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
+          { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
+          { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
@@ -450,19 +583,53 @@ export const useUnifiedAIChat = (
         }
       }
 
-      // 2) Risco (impacto) - Heurística expandida para detectar respostas variadas
-      if (!collectedFields.risk_level) {
-        const askedForRisk = 
-          lastAssistantLower.includes('risco imediato') || 
-          lastAssistantLower.includes('risco') ||
-          lastAssistantLower.includes('perigo') ||
-          lastAssistantLower.includes('gravidade') ||
-          lastAssistantLower.includes('urgên') ||
-          /\balgum\s+risco\b/i.test(lastAssistantText);
-          
-        if (askedForRisk && raw.length > 0) {
+      // 2) Risco (impacto) - Heurística expandida; permite corrigir gravidade depois do primeiro valor
+      const riskBtnKey = raw
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '')
+        .replace(/\s+/g, '');
+      const riskBtnMap: Record<string, string> = {
+        critical: 'critical',
+        moderate: 'moderate',
+        low: 'low',
+        none: 'none',
+        critica: 'critical',
+        critico: 'critical',
+        moderada: 'moderate',
+        moderado: 'moderate',
+        baixa: 'low',
+        baixo: 'low',
+        semriscoimediato: 'none',
+        semrisco: 'none',
+      };
+      const fromRiskButton = riskBtnMap[riskBtnKey];
+      const askedForRisk =
+        lastAssistantLower.includes('risco imediato') ||
+        lastAssistantLower.includes('risco') ||
+        lastAssistantLower.includes('perigo') ||
+        lastAssistantLower.includes('gravidade') ||
+        lastAssistantLower.includes('urgên') ||
+        /\balgum\s+risco\b/i.test(lastAssistantText);
+      const forceRiskUpdate =
+        !!fromRiskButton ||
+        lastAssistantLower.includes('nova gravidade') ||
+        /\[field_request:risk_level\]/i.test(lastAssistantText) ||
+        (lastAssistantLower.includes('gravidade do problema') &&
+          (lastAssistantLower.includes('escolha') ||
+            lastAssistantLower.includes('opção') ||
+            lastAssistantLower.includes('opcao') ||
+            lastAssistantLower.includes('frase'))) ||
+        !collectedFields.risk_level;
+
+      if (forceRiskUpdate) {
+        if (fromRiskButton && askedForRisk && raw.length > 0) {
+          setCollectedFields((prev) => ({ ...prev, risk_level: fromRiskButton }));
+        } else if (!fromRiskButton && askedForRisk && raw.length > 0) {
           let risk_level: string | null = null;
           const risk_types: string[] = [];
+          const riskNorm = rawLower.replace(/\bcheio(?=\s+t[óo]xic)/g, "cheiro");
 
           // Detecção de negação
           if (rawLower.includes('sem risco') || rawLower.includes('não tem risco') || rawLower.includes('nenhum risco')) {
@@ -474,7 +641,9 @@ export const useUnifiedAIChat = (
             rawLower.includes('alag') || rawLower.includes('inund') || rawLower.includes('desab') || rawLower.includes('desmor') ||
             rawLower.includes('bloqueada') || rawLower.includes('bloqueado') || rawLower.includes('não passa') || rawLower.includes('nao passa') ||
             rawLower.includes('urgente') || rawLower.includes('emergência') || rawLower.includes('emergencia') ||
-            rawLower.includes('crítico') || rawLower.includes('muito perigoso') || rawLower.includes('grave')
+            rawLower.includes('crítico') || rawLower.includes('muito perigoso') || rawLower.includes('grave') ||
+            riskNorm.includes('tóxic') || riskNorm.includes('toxic') || riskNorm.includes('foco de contamina') ||
+            (riskNorm.includes('cheiro') && riskNorm.includes('forte'))
           ) {
             risk_level = 'critical';
             if (rawLower.includes('fios') || rawLower.includes('choque') || rawLower.includes('elétric')) risk_types.push('electrical');
@@ -482,14 +651,41 @@ export const useUnifiedAIChat = (
             if (rawLower.includes('desab') || rawLower.includes('desmor') || rawLower.includes('estrutur')) risk_types.push('structural');
             if (rawLower.includes('incênd') || rawLower.includes('fogo')) risk_types.push('fire');
             if (rawLower.includes('trânsit') || rawLower.includes('bloqu') || rawLower.includes('passa')) risk_types.push('traffic');
+            if (riskNorm.includes('tóxic') || riskNorm.includes('toxic') || riskNorm.includes('cheiro') || riskNorm.includes('fedor') || riskNorm.includes('fuma')) {
+              risk_types.push('health');
+            }
           } 
           // Moderado - problemas de trânsito e acidentes
           else if (rawLower.includes('acident') || rawLower.includes('trânsit') || rawLower.includes('transit') || rawLower.includes('lento')) {
             risk_level = 'moderate';
             risk_types.push('traffic');
-          } 
+          }
+          // Odor / poluição / saúde (frases livres, alinhado ao parser do orquestrador)
+          else if (
+            riskNorm.includes('cheiro') ||
+            riskNorm.includes('fedor') ||
+            riskNorm.includes('fumaça') ||
+            riskNorm.includes('fumaca') ||
+            riskNorm.includes('contamina') ||
+            riskNorm.includes('polui')
+          ) {
+            risk_level = riskNorm.includes('forte') || riskNorm.includes('grave') || riskNorm.includes('tóxic') || riskNorm.includes('toxic')
+              ? 'critical'
+              : 'moderate';
+            risk_types.push('health');
+          }
           // Baixo - incômodos
           else if (rawLower.includes('incômod') || rawLower.includes('desconfort') || rawLower.includes('pouco')) {
+            risk_level = 'low';
+          }
+          // Frase substantiva sem padrão claro: não travar o fluxo (evita tokens de fluxo tipo "confirmar")
+          else if (
+            raw.trim().length >= 10 &&
+            /\s/.test(raw.trim()) &&
+            !/^(não|nao|n|no)\b/i.test(raw.trim()) &&
+            !/^(não sei|nao sei|sem ideia)\b/i.test(raw.trim()) &&
+            !/^(confirmar|corrigir|continuar|registrar|ok|obrigad)/i.test(raw.trim())
+          ) {
             risk_level = 'low';
           }
           // Resposta afirmativa simples ("sim", "sim, o trânsito está lento")
@@ -540,6 +736,13 @@ export const useUnifiedAIChat = (
           lastAssistantLower.includes('mais detalhes') ||
           lastAssistantLower.includes('o que está acontecendo') ||
           lastAssistantLower.includes('qual o problema') ||
+          lastAssistantLower.includes('sua dúvida') ||
+          lastAssistantLower.includes('sua duvida') ||
+          lastAssistantLower.includes('sua sugestão') ||
+          lastAssistantLower.includes('sua sugestao') ||
+          lastAssistantLower.includes('quer elogiar') ||
+          lastAssistantLower.includes('funcionando bem') ||
+          lastAssistantLower.includes('ideia de melhoria') ||
           lastAssistantLower.includes('[field_request:description]');
         
         // Helper to detect generic intent phrases (same logic as backend)
@@ -549,6 +752,7 @@ export const useUnifiedAIChat = (
             /^quero\s*(relatar|reportar|fazer|registrar)/i,
             /^preciso\s*(relatar|reportar|fazer|registrar)/i,
             /^tenho\s*um\s*(problema|relato)/i,
+            /quero\s*falar\s+sobre\s+a\s+cidade/i,
             /^(sim|não|nao|ok|pode|quero|desejo|aceito)$/i,
             /^quero\s*avaliar/i,
             // Journey switch phrases (must NOT be treated as descriptions)
@@ -713,8 +917,23 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // Detectar nota (1-5 estrelas)
-      if (!collectedFields.rating_stars) {
+      const parsedDims = parseRatingDimensionsFromMessage(raw);
+      if (parsedDims) {
+        setCollectedFields((prev) => ({
+          ...prev,
+          rating_dimensions: parsedDims,
+          rating_stars: aggregateServiceRatingStars(parsedDims),
+        }));
+      }
+
+      const ratingSelectedTag = raw.match(/\[RATING_SELECTED:([1-5])\]/);
+      if (ratingSelectedTag) {
+        const stars = parseInt(ratingSelectedTag[1], 10);
+        setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
+      }
+
+      // Detectar nota (1-5 estrelas) — legado, só se ainda não houver dimensões / marcador
+      if (!collectedFields.rating_stars && !collectedFields.rating_dimensions && !ratingSelectedTag) {
         const starsMatch = raw.match(/(\d)\s*(estrela|nota|ponto)/i);
         if (starsMatch) {
           const stars = parseInt(starsMatch[1]);
@@ -755,30 +974,64 @@ export const useUnifiedAIChat = (
       }
     }
 
-    // Verifica se já existe uma mensagem otimista com o mesmo conteúdo
-    const hasOptimisticMessage = messages.some(
-      msg => msg.role === "user" && msg.content === content
-    );
+    // Evita duplicar a bolha do usuário quando já existe mensagem otimista com o mesmo texto
+    // (chip na tela inicial: addOptimisticMessage + sendMessage via pendingMessageRef).
+    // Não exigir isLoading aqui: no início de sendMessage isLoading ainda é false, e exigir isLoading
+    // fazia append duplicado → duas vezes "Quero falar sobre a cidade".
+    const trimmedContent = content.trim();
+    const lastMessage = messages[messages.length - 1];
+    const hasOptimisticMessage =
+      !!lastMessage &&
+      lastMessage.role === "user" &&
+      lastMessage.content === trimmedContent;
+
+    // Evita segunda requisição idêntica (ex.: duplo disparo do efeito ou duplo clique antes da resposta)
+    if (
+      isLoading &&
+      lastMessage?.role === "user" &&
+      lastMessage.content === trimmedContent
+    ) {
+      console.warn("[useUnifiedAIChat] Ignoring duplicate send (same text while request in flight)");
+      return;
+    }
 
     // Upload de fotos anexadas (relato via chat): até 3, máx 50MB cada
+    // Nova regra: comprimir/redimensionar antes do upload para reduzir tráfego e falhas.
     const MAX_CHAT_PHOTOS = 3;
     const MAX_CHAT_PHOTO_BYTES = 50 * 1024 * 1024;
-    let attachmentUrls: string[] = [];
+    const attachmentUrls: string[] = [];
     if (options?.attachmentFiles?.length && user) {
       const files = options.attachmentFiles.slice(0, MAX_CHAT_PHOTOS);
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.size > MAX_CHAT_PHOTO_BYTES) {
+        const originalFile = files[i];
+        if (originalFile.size > MAX_CHAT_PHOTO_BYTES) {
           toast({
             title: "Foto muito grande",
-            description: `Máximo 50MB por imagem. "${file.name}" foi ignorada.`,
+            description: `Máximo 50MB por imagem. "${originalFile.name}" foi ignorada.`,
             variant: "destructive",
           });
           continue;
         }
-        const ext = file.name.split('.').pop() || 'jpg';
+
+        let fileToUpload = originalFile;
+        try {
+          fileToUpload = await compressChatPhoto(originalFile);
+          if (fileToUpload.size < originalFile.size) {
+            const reduction = Math.round((1 - fileToUpload.size / originalFile.size) * 100);
+            console.log("[useUnifiedAIChat] Photo compressed:", {
+              name: originalFile.name,
+              before: originalFile.size,
+              after: fileToUpload.size,
+              reductionPercent: reduction,
+            });
+          }
+        } catch (compressionError) {
+          console.warn("[useUnifiedAIChat] Photo compression failed, uploading original file:", compressionError);
+        }
+
+        const ext = fileToUpload.name.split('.').pop() || 'jpg';
         const fileName = `${user.id}/${Date.now()}-${i}.${ext}`;
-        const { error } = await supabase.storage.from('urban-reports').upload(fileName, file);
+        const { error } = await supabase.storage.from('urban-reports').upload(fileName, fileToUpload);
         if (error) {
           console.error('[useUnifiedAIChat] Upload attachment failed:', error);
           toast({
@@ -796,7 +1049,7 @@ export const useUnifiedAIChat = (
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content,
+      content: trimmedContent,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
         hour: "2-digit",
         minute: "2-digit",
@@ -827,7 +1080,7 @@ export const useUnifiedAIChat = (
             .update({
               messages: updatedMessages,
               last_message_at: new Date().toISOString(),
-              title: currentConv.title || content.slice(0, 50),
+              title: currentConv.title || trimmedContent.slice(0, 50),
             })
             .eq('id', conversationIdRef.current);
         }
@@ -954,6 +1207,9 @@ export const useUnifiedAIChat = (
       const supabaseUrl =
         import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) throw new Error("Missing CAMARA_URL (or VITE_SUPABASE_URL)");
+      if (!supabaseAnonKey) {
+        console.warn("[useUnifiedAIChat] CAMARA_PUBLISHABLE_KEY / VITE_SUPABASE_PUBLISHABLE_KEY ausente — chamadas à Edge Function podem falhar.");
+      }
 
       // Always call the unified orchestrator
       const response = await fetch(
@@ -963,6 +1219,7 @@ export const useUnifiedAIChat = (
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${finalToken}`,
+            ...(supabaseAnonKey ? { apikey: supabaseAnonKey } : {}),
           },
           body: JSON.stringify(payload),
         }
@@ -971,6 +1228,14 @@ export const useUnifiedAIChat = (
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Erro desconhecido');
         console.error('[useUnifiedAIChat] API error:', response.status, errorText);
+
+        // Não exibir toast para timeout de statement (ruído técnico transitório).
+        if (isStatementTimeoutFailure(errorText)) {
+          setIsLoading(false);
+          return;
+        }
+
+        const userFacingDetail = describeAiOrchestratorFailure(response.status, errorText);
         
         if (response.status === 429) {
           toast({
@@ -993,7 +1258,7 @@ export const useUnifiedAIChat = (
         if (response.status === 400) {
           toast({
             title: "Erro na requisição",
-            description: errorText || "Verifique os dados enviados e tente novamente.",
+            description: userFacingDetail || "Verifique os dados enviados e tente novamente.",
             variant: "destructive",
           });
           setIsLoading(false);
@@ -1001,7 +1266,7 @@ export const useUnifiedAIChat = (
         }
         toast({
           title: "Erro ao enviar mensagem",
-          description: errorText || "Não foi possível enviar a mensagem. Tente novamente.",
+          description: userFacingDetail || "Não foi possível enviar a mensagem. Tente novamente.",
           variant: "destructive",
         });
         setIsLoading(false);
@@ -1038,13 +1303,13 @@ export const useUnifiedAIChat = (
               assistantMessage = assistantMessage.replace(/\[TIMEOUT\]/g, '');
             }
             
-            // Check for collection progress markers (robust parsing)
-            const progressRegex = /\[COLLECTION_PROGRESS:(\w+):(\{[^\]]*\})\]/g;
-            let progressMatch;
-            while ((progressMatch = progressRegex.exec(assistantMessage)) !== null) {
-              const type = progressMatch[1] as CollectionType;
+            // Check for collection progress markers (JSON com chaves balanceadas; strings podem conter ] e { ... })
+            for (const { type: progressType, jsonStr: progressJsonStr } of extractCollectionProgressJsonObjects(
+              assistantMessage,
+            )) {
+              const type = progressType as CollectionType;
               try {
-                const fields = JSON.parse(progressMatch[2]);
+                const fields = JSON.parse(progressJsonStr);
                 console.log('[useUnifiedAIChat] Collection progress detected:', type, fields);
                 
                 // === CRITICAL FIX: Respect explicit JOURNEY_SWITCHED from user ===
@@ -1064,18 +1329,28 @@ export const useUnifiedAIChat = (
                 // === PHASE 2: Only update collectionType if it's a valid structured type ===
                 // This prevents light intents (services, audiencias, general, history) from
                 // replacing an ongoing structured journey
+                const mergeFields = (raw: Record<string, unknown>) => {
+                  const next = { ...raw };
+                  if (typeof next.service_type === "string") {
+                    const n = normalizeServiceTypeToDbEnum(next.service_type);
+                    if (n) next.service_type = n;
+                  }
+                  return next;
+                };
+                const fieldsNorm = mergeFields(fields);
+
                 if (VALID_TRACKER_TYPES.includes(type)) {
                   setCollectionType(type);
-                  setCollectedFields(prev => ({ ...prev, ...fields }));
+                  setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
                 } else {
                   console.log('[useUnifiedAIChat] Ignoring non-structured type:', type, '- keeping current journey');
                   // Only update fields if we already have a structured type set
                   if (collectionType && VALID_TRACKER_TYPES.includes(collectionType)) {
-                    setCollectedFields(prev => ({ ...prev, ...fields }));
+                    setCollectedFields(prev => ({ ...prev, ...fieldsNorm }));
                   }
                 }
               } catch (e) {
-                console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressMatch[2], e);
+                console.warn('[useUnifiedAIChat] Failed to parse collection progress:', progressJsonStr, e);
               }
             }
             
@@ -1394,16 +1669,14 @@ export const useUnifiedAIChat = (
   const getMissingRequiredFields = useCallback((): string[] => {
     if (!collectionType) return [];
     
-    // Import would cause circular dependency, so inline the logic
-    const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
-    
     const configs: Record<string, { key: string; required: boolean; requiredFor?: string[]; requiredWhen?: { field: string; values: string[] } }[]> = {
       urban_report: [
+        { key: 'report_nature', required: true },
         { key: 'category', required: true },
         { key: 'description', required: true },
         { key: 'street', required: true },
         { key: 'neighborhood', required: true },
-        { key: 'risk_level', required: false, requiredFor: RISK_CATEGORIES },
+        { key: 'risk_level', required: false, requiredFor: [...URBAN_RISK_COLLECTION_CATEGORIES] },
         { key: 'affected_scope', required: false, requiredWhen: { field: 'risk_level', values: ['critical', 'moderate'] } },
       ],
       transport_report: [
@@ -1427,7 +1700,12 @@ export const useUnifiedAIChat = (
     const missing: string[] = [];
     
     for (const field of fields) {
-      if (collectedFields[field.key]) continue;
+      if (field.key === 'rating_stars') {
+        const n = Number(collectedFields.rating_stars);
+        if (Number.isInteger(n) && n >= 1 && n <= 5) continue;
+      } else if (collectedFields[field.key]) {
+        continue;
+      }
       
       let isRequired = field.required;
       
@@ -1511,8 +1789,8 @@ export const useUnifiedAIChat = (
 
   // Handle rating selection from inline picker
   const handleRatingSelected = useCallback((stars: number) => {
-    setCollectedFields(prev => ({ ...prev, rating_stars: stars }));
-    sendMessage(`Nota: ${stars} estrelas`);
+    setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
+    sendMessage(`Nota: ${stars} estrelas [RATING_SELECTED:${stars}]`);
   }, [sendMessage]);
 
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula

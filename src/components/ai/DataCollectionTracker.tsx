@@ -3,6 +3,24 @@ import { Check, Circle, FileText, Bus, Star, ChevronDown, ChevronUp, Users, Eye,
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import {
+  isCompleteServiceRatingDimensions,
+  SERVICE_RATING_DIMENSION_KEYS,
+  SERVICE_RATING_DIMENSION_LABELS,
+} from "@/lib/serviceRatingDimensions";
+import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
+import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
+
+function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boolean {
+  if (fieldKey === "rating_stars") {
+    const n = Number(fields.rating_stars);
+    return Number.isInteger(n) && n >= 1 && n <= 5;
+  }
+  if (fieldKey === "rating_dimensions") {
+    return isCompleteServiceRatingDimensions(fields.rating_dimensions);
+  }
+  return !!fields[fieldKey];
+}
 
 export type CollectionType = 'urban_report' | 'transport_report' | 'service_rating' | null;
 
@@ -12,6 +30,12 @@ export interface CollectedFields {
 
 // Human-readable labels for field values
 const VALUE_LABELS: Record<string, Record<string, string>> = {
+  report_nature: {
+    reclamacao: 'Reclamação',
+    duvida: 'Dúvida',
+    sugestao: 'Sugestão',
+    elogio: 'Elogio',
+  },
   risk_level: {
     critical: 'Crítico',
     moderate: 'Moderado',
@@ -35,6 +59,8 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
   category: {
     via_publica: 'Via Pública',
     iluminacao: 'Iluminação',
+    sinalizacao: 'Sinalização',
+    drenagem: 'Drenagem',
     esgoto: 'Esgoto/Saneamento',
     area_verde: 'Área Verde',
     lixo: 'Lixo/Entulho',
@@ -100,13 +126,12 @@ interface CollectionConfig {
   fields: FieldConfig[];
 }
 
-const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde'];
-
 const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
   urban_report: {
     title: "Experiência Urbana",
     icon: FileText,
     fields: [
+      { key: 'report_nature', label: 'Natureza', required: true },
       { key: 'category', label: 'Categoria', required: true },
       { key: 'subcategory', label: 'Tipo', required: false },
       { key: 'description', label: 'Descrição', required: true },
@@ -115,7 +140,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'street_number', label: 'Número', required: false },
       { key: 'neighborhood', label: 'Bairro', required: true },
       { key: 'reference_point', label: 'Referência', required: false },
-      { key: 'risk_level', label: 'Risco', required: false },
+      { key: 'risk_level', label: 'Gravidade', required: false },
       { key: 'affected_scope', label: 'Afetação', required: false },
     ]
   },
@@ -141,7 +166,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'service_name', label: 'Serviço', required: true },
       { key: 'service_neighborhood', label: 'Bairro', required: false },
       { key: 'service_address_confirmed', label: 'Endereço confirmado', required: true },
-      { key: 'rating_stars', label: 'Nota', required: true },
+      { key: 'rating_stars', label: 'Avaliação geral (1–5)', required: true },
       { key: 'rating_text', label: 'Comentário', required: true },
     ]
   }
@@ -207,6 +232,13 @@ const formatFieldValue = (key: string, value: unknown): string => {
   if (key === 'rating_stars' && typeof value === 'number') {
     return `${'★'.repeat(value)}${'☆'.repeat(5 - value)} (${value}/5)`;
   }
+
+  if (key === 'rating_dimensions' && value && typeof value === 'object' && !Array.isArray(value)) {
+    const o = value as Record<string, number>;
+    return SERVICE_RATING_DIMENSION_KEYS.map(
+      (k) => `${SERVICE_RATING_DIMENSION_LABELS[k]}: ${o[k] ?? "—"}/5`
+    ).join(" · ");
+  }
   
   if (typeof value === 'string' && value.length > 60) {
     return value.substring(0, 57) + '...';
@@ -243,7 +275,8 @@ const DataCollectionTracker = ({
     if (collectionType === 'urban_report') {
       const category = collectedFields.category;
       // `collectedFields` é `unknown`, então tipamos com segurança antes do `includes`.
-      const isRiskCategory = typeof category === 'string' && RISK_CATEGORIES.includes(category);
+      const isRiskCategory =
+        typeof category === 'string' && URBAN_RISK_COLLECTION_CATEGORIES.includes(category);
       
       if (!isRiskCategory) {
         return {
@@ -268,15 +301,15 @@ const DataCollectionTracker = ({
   const requiredFields = config.fields.filter(f => f.required);
   const optionalFields = config.fields.filter(f => !f.required);
   const totalFields = config.fields.length;
-  const collectedCount = config.fields.filter(f => !!collectedFields[f.key]).length;
-  const missingRequiredCount = requiredFields.filter(f => !collectedFields[f.key]).length;
+  const collectedCount = config.fields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
+  const missingRequiredCount = requiredFields.filter((f) => !isTrackerFieldCollected(f.key, collectedFields)).length;
   const allRequiredCollected = missingRequiredCount === 0;
   const progress = Math.round((collectedCount / totalFields) * 100);
   const hasOptional = optionalFields.length > 0;
-  const collectedOptionalCount = optionalFields.filter(f => !!collectedFields[f.key]).length;
+  const collectedOptionalCount = optionalFields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
 
   const totalRequiredCount = requiredFields.length;
-  const completedRequiredCount = requiredFields.filter(f => !!collectedFields[f.key]).length;
+  const completedRequiredCount = requiredFields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
   const currentStep = totalRequiredCount > 0
     ? Math.min(completedRequiredCount + (allRequiredCollected ? 0 : 1), totalRequiredCount)
     : 0;
@@ -308,11 +341,12 @@ const DataCollectionTracker = ({
     }
 
     if (collectionType === 'service_rating') {
-      const hasRating = !!collectedFields.rating_stars;
+      const hasRating =
+        isCompleteServiceRatingDimensions(collectedFields.rating_dimensions) || !!collectedFields.rating_stars;
       const hasText = !!collectedFields.rating_text;
       const hasLocation = !!collectedFields.service_address_confirmed;
       return [
-        { key: 'rating', label: 'Nota', required: true, fulfilled: hasRating },
+        { key: 'rating', label: 'Avaliação', required: true, fulfilled: hasRating },
         { key: 'text', label: 'Comentário', required: true, fulfilled: hasText },
         { key: 'location', label: 'Localização', required: true, fulfilled: hasLocation },
       ];
@@ -469,7 +503,7 @@ const DataCollectionTracker = ({
               <FieldIndicator
                 key={field.key}
                 label={field.label}
-                isCollected={!!collectedFields[field.key]}
+                isCollected={isTrackerFieldCollected(field.key, collectedFields)}
                 isRequired={true}
                 isCurrent={currentField === field.key}
               />
@@ -519,7 +553,7 @@ const DataCollectionTracker = ({
                   <FieldIndicator
                     key={field.key}
                     label={field.label}
-                    isCollected={!!collectedFields[field.key]}
+                    isCollected={isTrackerFieldCollected(field.key, collectedFields)}
                     isRequired={false}
                     isCurrent={currentField === field.key}
                   />
@@ -557,14 +591,21 @@ const DataCollectionTracker = ({
                     transition={{ duration: 0.15 }}
                     className="mt-2 bg-background/60 rounded-md p-2 border border-border/30 space-y-1"
                   >
-                    {config.fields.filter(f => collectedFields[f.key]).map(field => (
+                    {config.fields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).map(field => (
                       <div key={field.key} className="flex items-start gap-2 text-xs">
                         <span className="text-muted-foreground shrink-0 min-w-[70px]">
                           {field.label}:
                         </span>
-                        <span className="text-foreground break-words">
-                          {formatFieldValue(field.key, collectedFields[field.key])}
-                        </span>
+                        {field.key === 'severity' && collectedFields[field.key] ? (
+                          <CitizenSeverityBadge
+                            severity={String(collectedFields[field.key])}
+                            size="sm"
+                          />
+                        ) : (
+                          <span className="text-foreground break-words">
+                            {formatFieldValue(field.key, collectedFields[field.key])}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </motion.div>

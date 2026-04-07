@@ -20,6 +20,7 @@ export default function EvaluationPage() {
   const { pendingRatings, loading: pendingLoading, markAsSkipped } = usePendingRatings({ limit: 50 });
   const [visit, setVisit] = useState<{ id: string; service_id?: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [evaluationDone, setEvaluationDone] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -87,7 +88,7 @@ export default function EvaluationPage() {
       if (visitError) throw visitError;
 
       toast.success("Avaliação enviada com sucesso!");
-      navigate("/");
+      setEvaluationDone(true);
     } catch (error) {
       console.error("Error updating visit:", error);
       toast.error("Erro ao finalizar avaliação");
@@ -219,7 +220,25 @@ export default function EvaluationPage() {
                 district: visit.service.district,
               }}
               onComplete={handleComplete}
+              completed={evaluationDone}
             />
+            {evaluationDone && (
+              <Card className="shrink-0 border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-foreground">
+                    Sua avaliação foi registrada. Use o botão abaixo quando quiser sair — assim você não perde filtros ou outras telas por um redirecionamento automático.
+                  </p>
+                  <div className="flex flex-col gap-2 shrink-0 sm:flex-row">
+                    <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                      Ir para Perto de você
+                    </Button>
+                    <Button size="sm" onClick={() => navigate("/")}>
+                      Voltar ao início
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
       </div>

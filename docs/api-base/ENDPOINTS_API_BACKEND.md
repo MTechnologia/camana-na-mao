@@ -501,6 +501,70 @@ Detalhes de um lugar usando Google Places API.
 }
 ```
 
+### Sugestões persistidas (JWT no corpo ou header)
+
+#### `POST /sync-app-suggestions`
+Recebe e devolve sugestões armazenadas por usuário (ex.: histórico de busca **Perto de você**). A função valida o JWT manualmente (`verify_jwt = false` no gateway).
+
+**Autenticação:** JWT obrigatório — header `Authorization: Bearer <access_token>` ou campo `access_token` no JSON.
+
+**Migração:** `20260323140000_user_app_suggestions.sql`  
+**Cliente web:** `src/lib/api/appSuggestionsApi.ts` (`fetchAppSuggestions`, `syncAppSuggestions`).
+
+**Listar (`action: list`):**
+```json
+{
+  "action": "list",
+  "context": "nearby_search"
+}
+```
+
+**Resposta:**
+```json
+{
+  "ok": true,
+  "context": "nearby_search",
+  "items": [
+    {
+      "stableId": "text:condomínio",
+      "kind": "text",
+      "label": "Condomínio",
+      "payload": { "text": "Condomínio" },
+      "lastTouchedAt": "2026-03-23T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Sincronizar lista completa (`action: sync`)** — apaga entradas anteriores daquele `context` e insere o array (máx. 30 itens):
+```json
+{
+  "action": "sync",
+  "context": "nearby_search",
+  "items": [
+    {
+      "stableId": "eq:uuid-do-servico",
+      "kind": "equipment",
+      "label": "UBS X",
+      "lastTouchedAt": "2026-03-23T12:00:00.000Z",
+      "payload": {
+        "serviceId": "uuid",
+        "label": "UBS X",
+        "latitude": -23.55,
+        "longitude": -46.63
+      }
+    }
+  ]
+}
+```
+
+**Resposta:** `{ "ok": true, "context": "nearby_search", "count": 1 }`
+
+**Deploy:**
+```bash
+npx supabase functions deploy sync-app-suggestions
+```
+
 ### Webhooks (Sem Autenticação)
 
 #### `POST /n8n-webhook`
@@ -571,6 +635,7 @@ Estes endpoints são acessados através de proxies implementados nas Edge Functi
 - `/n8n-callback`
 
 ### Endpoints Protegidos (Requerem JWT)
+- `/sync-app-suggestions` (JWT validado na função; enviar `Authorization` ou `access_token` no body)
 - `/suggest-council-members`
 - `/ai-orchestrator`
 - `/analyze-sentiment`

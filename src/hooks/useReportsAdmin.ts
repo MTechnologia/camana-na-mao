@@ -70,6 +70,8 @@ export interface UnifiedManifest {
     sentiment: string | null;
     visit_id: string;
     is_anonymous: boolean;
+    /** published | pending_review | rejected */
+    publication_status?: string;
   };
   // N8N fields (common for urban/transport)
   n8n_processed?: boolean | null;
@@ -141,7 +143,8 @@ interface UseReportsAdminReturn {
 // Projeção mínima para lista (campos necessários para ManifestCard)
 const URBAN_LIST_FIELDS = 'id,category,subcategory,description,severity,status,created_at,updated_at,location_address,neighborhood,user_id,protocol_code';
 const TRANSPORT_LIST_FIELDS = 'id,report_type,description,severity,status,created_at,updated_at,location,user_id,line_id,occurrence_date,occurrence_time,protocol_code,responded_at';
-const EVALUATION_LIST_FIELDS = 'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous';
+const EVALUATION_LIST_FIELDS =
+  'id,rating_stars,rating_text,sentiment,created_at,updated_at,user_id,service_id,is_anonymous,publication_status';
 
 export const useReportsAdmin = (): UseReportsAdminReturn => {
   const [manifests, setManifests] = useState<UnifiedManifest[]>([]);
@@ -181,6 +184,9 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     { value: 'iluminacao', label: 'Iluminação' },
     { value: 'calcada', label: 'Calçada' },
     { value: 'via_publica', label: 'Via Pública' },
+    { value: 'pavimentacao', label: 'Pavimentação' },
+    { value: 'sinalizacao', label: 'Sinalização' },
+    { value: 'drenagem', label: 'Drenagem' },
     { value: 'lixo', label: 'Lixo e Limpeza' },
     { value: 'area_verde', label: 'Área Verde' },
     { value: 'poluicao', label: 'Poluição' },
@@ -449,6 +455,7 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
               sentiment: r.sentiment,
               visit_id: '',
               is_anonymous: r.is_anonymous || false,
+              publication_status: (r.publication_status as string) || 'published',
             },
           })));
         }
@@ -535,9 +542,73 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
     }
   }, [manifests, fetchKPIs]);
 
+  const VALID_TRANSPORT_REPORT_TYPES = [
+    'atraso',
+    'lotacao',
+    'seguranca',
+    'acessibilidade',
+    'limpeza',
+    'conducao',
+    'outro',
+  ] as const;
+
   const updateManifestCategory = useCallback(async (manifest: UnifiedManifest, newCategory: string, newSubcategory: string | null) => {
+    if (manifest.type === 'transport') {
+      if (!VALID_TRANSPORT_REPORT_TYPES.includes(newCategory as (typeof VALID_TRANSPORT_REPORT_TYPES)[number])) {
+        toast.error('Tipo de relato de transporte inválido');
+        return;
+      }
+      const originalType = manifest.transport_data?.report_type ?? '';
+      const subTrim = newSubcategory?.trim() || null;
+      if (originalType === newCategory && !subTrim) {
+        toast.info('Nenhuma alteração');
+        return;
+      }
+      const previousManifests = [...manifests];
+      setManifests(prev =>
+        prev.map(m => {
+          if (m.id !== manifest.id) return m;
+          return {
+            ...m,
+            transport_data: m.transport_data
+              ? { ...m.transport_data, report_type: newCategory }
+              : undefined,
+          };
+        })
+      );
+      try {
+        const { error: updateError } = await supabase
+          .from('transport_reports')
+          .update({ report_type: newCategory, updated_at: new Date().toISOString() })
+          .eq('id', manifest.id);
+        if (updateError) throw updateError;
+        const descriptionExcerpt = (manifest.description || '').slice(0, 500) || '(sem descrição)';
+        const { error: feedbackError } = await supabase.from('report_classification_feedback').insert({
+          report_type: 'transport',
+          report_id: manifest.id,
+          original_category: originalType,
+          original_subcategory: null,
+          corrected_category: newCategory,
+          corrected_subcategory: subTrim,
+          description_excerpt: descriptionExcerpt,
+          source: 'admin',
+        });
+        if (feedbackError) {
+          console.warn('Feedback de classificação (transporte) não registrado:', feedbackError);
+          toast.warning('Tipo atualizado, mas a correção não foi gravada nas métricas. Verifique permissões.');
+        } else {
+          toast.success('Tipo atualizado; correção usada para melhorar a IA.');
+        }
+      } catch (error) {
+        setManifests(previousManifests);
+        console.error('Error updating transport report type:', error);
+        toast.error('Erro ao atualizar tipo de transporte');
+      }
+      return;
+    }
+
     if (manifest.type !== 'urban' && manifest.type !== 'feedback') {
-      toast.error('Correção de categoria só para relatos urbanos');
+      toast.error('Correção de categoria só para relatos urbanos ou transporte');
       return;
     }
     const originalCategory = manifest.urban_data?.category ?? '';
@@ -574,9 +645,11 @@ export const useReportsAdmin = (): UseReportsAdminReturn => {
           source: 'admin',
         });
       if (feedbackError) {
-        console.warn('Feedback de classificação não registrado (RLS?):', feedbackError);
+        console.warn('Feedback de classificação não registrado:', feedbackError);
+        toast.warning('Categoria atualizada, mas a correção não foi gravada nas métricas. Verifique permissões.');
+      } else {
+        toast.success('Categoria atualizada; correção usada para melhorar a IA.');
       }
-      toast.success('Categoria atualizada; correção usada para melhorar a IA.');
     } catch (error) {
       setManifests(previousManifests);
       console.error('Error updating category:', error);

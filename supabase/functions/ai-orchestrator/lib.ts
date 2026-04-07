@@ -1,4 +1,42 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import {
+  TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
+  URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
+} from "./lib-urban-tramite.ts";
+
+// ========== SERVICE RATING: DIMENSÕES (alinhado a src/lib/serviceRatingDimensions.ts) ==========
+export const SERVICE_RATING_DIMENSION_KEYS = ['atendimento', 'limpeza', 'infraestrutura', 'tempo_espera'] as const;
+
+export function isCompleteServiceRatingDimensions(o: unknown): boolean {
+  if (!o || typeof o !== 'object') return false;
+  const rec = o as Record<string, unknown>;
+  for (const k of SERVICE_RATING_DIMENSION_KEYS) {
+    const n = Number(rec[k]);
+    if (!Number.isInteger(n) || n < 1 || n > 5) return false;
+  }
+  return true;
+}
+
+export function parseRatingDimensionsMarker(content: string): Record<string, number> | null {
+  const marker = '[RATING_DIMENSIONS:';
+  const idx = content.indexOf(marker);
+  if (idx < 0) return null;
+  const start = idx + marker.length;
+  const end = content.indexOf(']', start);
+  if (end < 0) return null;
+  try {
+    const o = JSON.parse(content.slice(start, end)) as Record<string, unknown>;
+    if (!isCompleteServiceRatingDimensions(o)) return null;
+    return o as Record<string, number>;
+  } catch {
+    return null;
+  }
+}
+
+export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
+  const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
+  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
 
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
 
@@ -242,6 +280,11 @@ export function extractImplicitData(
       extracted.rating_stars = 5;
       extracted.sentiment = 'positive';
     }
+    const dimsMark = parseRatingDimensionsMarker(userMessage);
+    if (dimsMark) {
+      extracted.rating_dimensions = dimsMark;
+      extracted.rating_stars = aggregateRatingDimensionsStars(dimsMark);
+    }
   }
   
   // === CONTEXT: Address confirmation ===
@@ -298,6 +341,10 @@ export function tryPatternBasedLabel(description: string, category: string): str
       { pattern: /buraco\s*(grande|enorme|gigante)?/i, label: 'Buraco na Via' },
       { pattern: /asfalto\s*(danificad|quebrad)/i, label: 'Asfalto Danificado' },
       { pattern: /lombada\s*(irregular|alta)/i, label: 'Lombada Irregular' }
+    ],
+    pavimentacao: [
+      { pattern: /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem/i, label: 'Pavimentação / Recape' },
+      { pattern: /obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|cbuq|restaura[çc][ãa]o\s*asf[áa]ltica/i, label: 'Obra de Pavimentação' },
     ],
     sinalizacao: [
       { pattern: /semaforo|semáforo/i, label: 'Semáforo com Defeito' },
@@ -880,13 +927,13 @@ export function inferTransportTypeFromText(text: string): string | null {
 
 // Intent detection for collection progress tracking with scoring system
 export type CollectionIntent = {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias';
   fields: Record<string, unknown>;
   accumulatedFields?: Record<string, unknown>; // All fields collected across conversation
 };
 
 export interface DetectionScore {
-  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
+  type: 'urban_report' | 'transport_report' | 'service_rating' | 'chamber_feedback' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias';
   score: number;
   fields: Record<string, unknown>;
 }
@@ -898,6 +945,7 @@ export function getToolHintForIntent(intentType: string): string | null {
     'audiencias': '[TOOL_HINT:search_audiencias]',
     'general': '[TOOL_HINT:search_knowledge_base]',
     'history': '[TOOL_HINT:get_citizen_history]',
+    'occupancy': '[TOOL_HINT:get_service_occupancy_status]',
   };
   return hints[intentType] || null;
 }
@@ -908,6 +956,24 @@ export const INTENT_KEYWORDS = [
   'relatar um problema', 'problema na cidade', 'problema no transporte',
   'avaliar um serviço', 'me diz o que está acontecendo', 'qual linha e o que aconteceu',
   'quero relatar um problema', 'problema urbano',
+  // Entrada manual ampla (sem "quero fazer") — sem isso detectCollectionIntent retorna null e cai na LLM genérica
+  'falar sobre a cidade',
+  'abrir um relato',
+  'relato na cidade',
+  // Incidentes urbanos / segurança (primeira mensagem sem "quero relatar")
+  'incêndio',
+  'incendio',
+  'pegando fogo',
+  'em chamas',
+  'alagamento',
+  'alagando',
+  'enchente',
+  'chovendo',
+  'chuva forte',
+  'fios expostos',
+  'desabamento',
+  'desmoron',
+  'atropelamento',
   
   // === Verbos de ação explícitos ===
   'quero reclamar', 'preciso relatar', 'quero reportar', 'aconteceu',
@@ -1207,11 +1273,270 @@ export async function geocodeAddressWithGoogle(
   }
 }
 
+/** Linha retornada por `nearest_urban_reports_by_distance` (relatos próximos no chat). */
+export type NearestUrbanReportRow = {
+  id: string;
+  protocol_code: string | null;
+  category: string;
+  subcategory: string | null;
+  description: string | null;
+  location_address: string | null;
+  neighborhood: string | null;
+  severity: string | null;
+  created_at: string;
+  distance_meters: number;
+};
+
+/** Coordenadas para busca de relatos similares: GPS do fluxo ou geocodificação do endereço coletado. */
+export async function resolveUrbanCoordsForSimilarSearch(
+  supabase: SupabaseClient,
+  fields: Record<string, unknown>,
+): Promise<{ lat: number; lon: number } | null> {
+  const ula = fields.user_lat != null ? Number(fields.user_lat) : NaN;
+  const ulo = fields.user_lon != null ? Number(fields.user_lon) : NaN;
+  if (Number.isFinite(ula) && Number.isFinite(ulo)) {
+    return { lat: ula, lon: ulo };
+  }
+  const addr = {
+    street: (fields.street as string) || null,
+    street_number: (fields.street_number as string) || null,
+    neighborhood: (fields.neighborhood as string) || null,
+    cep: (fields.cep as string) || null,
+    city: (fields.city as string) || null,
+  };
+  if (!addr.street && !addr.neighborhood && !addr.cep) return null;
+  const g = await geocodeAddressWithGoogle(supabase, addr);
+  if (g) return g;
+  return geocodeAddressToCoord(addr);
+}
+
+/** K relatos mais próximos (mesma categoria), ordenados por distância. */
+export async function fetchNearestUrbanReportsForSimilarity(
+  supabase: SupabaseClient,
+  lat: number,
+  lon: number,
+  category: string,
+  excludeUserId: string | undefined,
+  limit = 10,
+): Promise<NearestUrbanReportRow[]> {
+  const { data, error } = await supabase.rpc('nearest_urban_reports_by_distance', {
+    p_lat: lat,
+    p_lng: lon,
+    p_category: category,
+    p_exclude_user_id: excludeUserId ?? null,
+    p_limit: limit,
+  });
+  if (error) {
+    console.error('[fetchNearestUrbanReportsForSimilarity]', error);
+    return [];
+  }
+  return (data || []) as NearestUrbanReportRow[];
+}
+
+/** Monta linha curta a partir do objeto address do Nominatim (reverse). */
+function formatNominatimReverseAddress(addr: Record<string, string | undefined> | undefined): string | null {
+  if (!addr) return null;
+  const road = addr.road || addr.pedestrian || addr.path || addr.residential;
+  const num = addr.house_number;
+  const suburb = addr.suburb || addr.neighbourhood || addr.city_district || addr.quarter;
+  if (road && suburb) {
+    return num ? `${road}, ${num} - ${suburb}` : `${road} - ${suburb}`;
+  }
+  if (road) return num ? `${road}, ${num}` : road;
+  return null;
+}
+
+/**
+ * GPS → endereço legível para o cidadão no chat (ex.: "Rua Augusta, 1200 - Consolação").
+ * Tenta Google Geocoding API se GOOGLE_MAPS_API_KEY existir; senão Nominatim (OSM).
+ */
+export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<string | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const key = Deno.env.get('GOOGLE_MAPS_API_KEY')?.trim();
+  if (key) {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${key}&language=pt-BR`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status === 'OK' && data.results?.[0]?.formatted_address) {
+        return String(data.results[0].formatted_address).trim();
+      }
+      if (data.status && data.status !== 'ZERO_RESULTS') {
+        console.warn('[reverseGeocodeLatLon] Google:', data.status, data.error_message ?? '');
+      }
+    } catch (e) {
+      console.warn('[reverseGeocodeLatLon] Google request failed:', e);
+    }
+  }
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      format: 'json',
+      'accept-language': 'pt-BR',
+    })}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fromAddr = formatNominatimReverseAddress(data.address);
+    if (fromAddr) return fromAddr;
+    const dn = typeof data.display_name === 'string' ? data.display_name.trim() : '';
+    if (dn) {
+      const parts = dn.split(',').map((p: string) => p.trim()).filter(Boolean);
+      return parts.slice(0, 4).join(', ') || dn;
+    }
+  } catch (e) {
+    console.warn('[reverseGeocodeLatLon] Nominatim failed:', e);
+  }
+  return null;
+}
+
 // Valid categories for urban reports (source of truth) — escopo OS (Obras e Serviços)
 export const VALID_URBAN_CATEGORIES = [
-  'iluminacao', 'calcada', 'via_publica', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
+  'iluminacao', 'calcada', 'via_publica', 'pavimentacao', 'sinalizacao', 'drenagem', 'lixo', 'esgoto',
   'area_verde', 'higiene_urbana', 'animais', 'poluicao', 'feedback_camara', 'outro'
 ] as const;
+
+/**
+ * Categorias urbanas com coleta obrigatória de risco/gravidade (criticidade).
+ * Exclui só feedback_camara. Manter alinhado a `URBAN_RISK_COLLECTION_CATEGORIES` em src/lib/reportFieldConfig.ts
+ */
+export const URBAN_RISK_COLLECTION_CATEGORIES: readonly string[] = [
+  'via_publica',
+  'pavimentacao',
+  'iluminacao',
+  'esgoto',
+  'area_verde',
+  'calcada',
+  'sinalizacao',
+  'drenagem',
+  'poluicao',
+  'lixo',
+  'higiene_urbana',
+  'animais',
+  'outro',
+];
+
+/** Natureza conversacional do relato (PO: elogio e sugestão explícitos, além de reclamação e dúvida). */
+export const URBAN_REPORT_NATURE_VALUES = ['reclamacao', 'duvida', 'sugestao', 'elogio'] as const;
+export type UrbanReportNature = (typeof URBAN_REPORT_NATURE_VALUES)[number];
+
+export const REPORT_NATURE_LABELS: Record<UrbanReportNature, string> = {
+  reclamacao: 'Reclamação',
+  duvida: 'Dúvida',
+  sugestao: 'Sugestão',
+  elogio: 'Elogio',
+};
+
+/** Rótulos para o resumo “Resumo do relato” no chat (revisão antes de confirmar). */
+const URBAN_PREVIEW_RISK_LEVEL_LABELS: Record<string, string> = {
+  critical: 'Crítico',
+  moderate: 'Moderado',
+  low: 'Baixo',
+  none: 'Nenhum',
+};
+
+const URBAN_PREVIEW_AFFECTED_SCOPE_LABELS: Record<string, string> = {
+  individual: 'Individual',
+  local: 'Local (rua/quadra)',
+  street: 'Toda a rua',
+  neighborhood: 'Bairro',
+  regional: 'Regional (bairro)',
+  citywide: 'Cidade toda',
+};
+
+/** Tipos de risco (códigos internos) → português no preview do chat */
+const URBAN_PREVIEW_RISK_TYPE_LABELS: Record<string, string> = {
+  electrical: 'Elétrico',
+  traffic: 'Trânsito',
+  flooding: 'Alagamento',
+  structural: 'Estrutural',
+  health: 'Saúde',
+  fire: 'Incêndio',
+  pedestrian: 'Pedestre',
+  vehicle: 'Veicular',
+  environmental: 'Ambiental',
+};
+
+/** Linha opcional após **Categoria:** (subcategoria / rótulo técnico). */
+export function formatUrbanReportPreviewAfterCategory(fields: Record<string, unknown>): string {
+  const sub = fields.subcategory;
+  if (sub == null || String(sub).trim() === '') return '';
+  return `\n• **Tipo / detalhe:** ${String(sub).trim()}`;
+}
+
+/** Bloco opcional após **Descrição:** — criticidade, tipos de risco, afetação, CEP. */
+export function formatUrbanReportPreviewAfterDescription(fields: Record<string, unknown>): string {
+  const chunks: string[] = [];
+  const rl = fields.risk_level;
+  if (rl != null && String(rl).trim() !== '') {
+    const key = String(rl).toLowerCase();
+    const label = URBAN_PREVIEW_RISK_LEVEL_LABELS[key] ?? String(rl);
+    chunks.push(`• **Gravidade:** ${label}`);
+  }
+  const rt = fields.risk_types;
+  if (Array.isArray(rt) && rt.length > 0) {
+    const joined = rt
+      .map((x) => {
+        const k = String(x).trim().toLowerCase();
+        return URBAN_PREVIEW_RISK_TYPE_LABELS[k] ?? String(x).trim();
+      })
+      .filter(Boolean)
+      .join(', ');
+    if (joined) chunks.push(`• **Tipos de risco:** ${joined}`);
+  }
+  const af = fields.affected_scope;
+  if (af != null && String(af).trim() !== '') {
+    const key = String(af).toLowerCase();
+    const label = URBAN_PREVIEW_AFFECTED_SCOPE_LABELS[key] ?? String(af);
+    chunks.push(`• **Afetação:** ${label}`);
+  }
+  const cep = fields.cep;
+  if (cep != null && String(cep).trim() !== '') {
+    chunks.push(`• **CEP:** ${String(cep).trim()}`);
+  }
+  return chunks.length ? `\n${chunks.join('\n')}` : '';
+}
+
+export function normalizeReportNature(raw: string | undefined | null): UrbanReportNature | null {
+  if (raw == null || String(raw).trim() === '') return null;
+  const s = String(raw).trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  if (/^reclam/.test(s) || s === 'reclamacao') return 'reclamacao';
+  if (/^duvid/.test(s) || s === 'duvida') return 'duvida';
+  if (/^sugest/.test(s) || s === 'sugestao') return 'sugestao';
+  if (/^elog/.test(s) || s === 'elogio') return 'elogio';
+  return null;
+}
+
+/**
+ * Resposta só com a natureza (chip/botão: reclamação, dúvida…), sem narrar o fato.
+ * Não pode ser tratada como `description` — senão o fluxo pula "o que aconteceu".
+ */
+export function isBareUrbanReportNatureReply(text: string): boolean {
+  const t = text.trim().replace(/\.+$/g, '').trim();
+  if (!t || t.length > 28) return false;
+  if (/\s/.test(t)) return false;
+  return normalizeReportNature(t) !== null;
+}
+
+/** Relato que descreve fato grave na cidade — atalho para entrar no fluxo urbano até "como informar o local". */
+const URBAN_INCIDENT_STARTER_PATTERNS: RegExp[] = [
+  /inc[eê]ndio|incendio|pegando\s*fogo|em\s*chamas|queimando/i,
+  /alagando|alagada|alagado|alagamento|rua\s+alag|enchente|inundando|inundada|inundado|inundou|água\s*subindo|agua\s*subindo|chovendo\s*(muito\s*)?(forte|pesad)|chuva\s*(muito\s*)?(forte|pesad)/i,
+  /fios?\s*expostos|cabos?\s*soltos|choque\s*el[eé]tric/i,
+  /explos[aã]o|transformador/i,
+  /desabamento|desmoron|risco\s*de\s*desab/i,
+  /acidente|atropelamento/i,
+  /armado|tirote|viol[eê]ncia|tr[aá]fico\s*de\s*droga|drogas?\s*na\s*rua/i,
+];
+
+export function messageLooksLikeUrbanIncidentStarter(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 8) return false;
+  return URBAN_INCIDENT_STARTER_PATTERNS.some((p) => p.test(t));
+}
 
 // State to track if category has been classified via AI for current conversation
 export const classifiedCategories = new Map<string, { category: string; confidence: number; user_confirmed: boolean }>();
@@ -1266,6 +1591,12 @@ export function isGenericIntentText(text: string): boolean {
     // === JOURNEY SWITCH PHRASES (must NOT be treated as descriptions) ===
     // These trigger journey switching via detect_user_intent
     /quero\s*falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
+    // "sobre a cidade" (artigo) — chip/manual; sem isso vira description falsa e pula o relato
+    /^quero\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^preciso\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^quero\s+falar\s+da\s+cidade\b/i,
+    /^preciso\s+falar\s+da\s+cidade\b/i,
+    /\bquero\s+falar\s+sobre\s+a\s+cidade\s*[—–-]\s*pode\s+ser\b/i,
     /falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)/i,
     /mudar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
     /trocar\s*para\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|relato)/i,
@@ -1338,6 +1669,19 @@ export function autoClassifyCategory(description: string): {
   
   // Label mapping: more specific patterns → intuitive labels
   const labelPatterns: Array<{ pattern: RegExp; label: string }> = [
+    { pattern: /inc[eê]ndio|pegando\s*fogo|em\s*chamas|pr[eé]dio.*(fogo|chamas|inc[eê]ndio)/i, label: 'Incêndio / Fogo' },
+    // Poluição: distinguir sonora × ambiental (ordem importa — sonora antes de fumaça/atmosfera)
+    {
+      pattern:
+        /polui[çc][ãa]o\s*(sonora|ac[uú]stica)|polui[çc][ãa]o\s+(causada\s+)?(por|pelo|de)\s*(barulho|som|ru[ií]do|incomod)/i,
+      label: 'Perturbação Sonora',
+    },
+    // Fumaça/chaminé antes de "poluição do ar" no mesmo texto → prioriza atmosférica
+    { pattern: /fuma[çc]a|queimada|fumacca|chamin[ée]/, label: 'Poluição Atmosférica' },
+    {
+      pattern: /polui[çc][ãa]o\s*(atmosf|ambiental|do\s*ar|visual|lumin|h[íi]dric)/i,
+      label: 'Poluição Ambiental',
+    },
     // Poluição sonora - labels intuitivos
     { pattern: /som\s*alto|m[úu]sica\s*alta|musica\s*alta/, label: 'Perturbação Sonora' },
     { pattern: /bar\s*(barulho|barulhento|som|muito)?|balada|danceteria|boate|casa\s*noturna/, label: 'Estabelecimento Barulhento' },
@@ -1346,8 +1690,7 @@ export function autoClassifyCategory(description: string): {
     { pattern: /obra\s*(barulho|cedo|madrugada|domingo)?/, label: 'Barulho de Obra' },
     { pattern: /buzina|alarme/, label: 'Poluição Sonora' },
     { pattern: /latido|cachorro|cao|cães/, label: 'Barulho de Animais' },
-    { pattern: /fuma[çc]a|queimada|fumacca/, label: 'Poluição Atmosférica' },
-    { pattern: /contamina[çc][ãa]o|qu[ií]mico|t[óo]xico/, label: 'Contaminação Ambiental' },
+    { pattern: /contamina[çc][ãa]o|qu[ií]mico|t[óo]xico|emiss[aã]o\s+(de\s*)?(g[áa]s|poluente)/i, label: 'Contaminação Ambiental' },
     
     // Outro - labels intuitivos para casos não classificados
     { pattern: /carro\s*abandonad|ve[íi]culo\s*abandonad|moto\s*abandonad/, label: 'Veículo Abandonado' },
@@ -1423,6 +1766,12 @@ export function autoClassifyCategory(description: string): {
   }
   
   const patterns: Array<{ keywords: RegExp; category: string; weight: number }> = [
+    // === INCÊNDIO / FOGO (alta prioridade — categorias oficiais não têm "bombeiros"; fica em "outro" com rótulo claro) ===
+    {
+      keywords: /inc[eê]ndio|incendio|pegando\s*fogo|em\s*chamas|queimando|pr[eé]dio\s*(abandonad\w*\s*)?(em\s*)?(chamas|fogo|inc[eê]ndio)|fogo\s*(no|na|em)\s*pr[eé]dio/i,
+      category: 'outro',
+      weight: 9.5,
+    },
     // === ESGOTO / ALAGAMENTO (HIGHEST priority) ===
     { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando|aberto|tampa)|esgoto|córrego|valeta|enchente|inundad?[oa]?|transbord/i, category: 'esgoto', weight: 10 },
     
@@ -1430,15 +1779,37 @@ export function autoClassifyCategory(description: string): {
     // Padrões curtos como "poste caído" devem classificar com alta confiança
     { keywords: /poste\s*(apagad|sem\s*luz|queimad|ca[íi]d|quebrad|danificad|torto|pendend|inclinad)|luz\s*(apagad|queimad)|ilumina[çc][ãa]o|sem\s*luz|escuro|escurid[ãa]o|l[âa]mpada\s*(queimad|apagad|quebrad)/i, category: 'iluminacao', weight: 9 },
     
-    // === POLUIÇÃO SONORA (weight 9) ===
-    { keywords: /som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturbação\s*(sonora)?|perturbacao|madrugada.*barulho|barulho.*madrugada/i, category: 'poluicao', weight: 9 },
+    // === POLUIÇÃO SONORA (weight 9) — inclui frase explícita "poluição sonora/acústica" ===
+    {
+      keywords:
+        /polui[çc][ãa]o\s*(sonora|ac[uú]stica)|polui[çc][ãa]o\s+(causada\s+)?(por|pelo|de)\s*(barulho|som|ru[ií]do)|som\s*alto|m[úu]sica\s*alta|musica\s*alta|bar\s*(com\s*)?(som|barulho|barulhento)|balada|danceteria|boate|casa\s*noturna|festa\s*(barulho|vizinho)?|vizinho\s*(barulho|som)|perturba[cç][aã]o\s*sonora|perturbacao\s*sonora|perturba[cç][aã]o\s+ac[uú]stica|madrugada.*barulho|barulho.*madrugada/i,
+      category: 'poluicao',
+      weight: 9,
+    },
     
-    // === SINALIZAÇÃO (weight 8.5 — escopo OS) ===
-    { keywords: /sem[áa]foro|sinaliza[çc][ãa]o|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?/i, category: 'sinalizacao', weight: 8.5 },
-    // === DRENAGEM (weight 8.5 — escopo OS, águas pluviais) ===
-    { keywords: /drenagem|água\s*pluvial|pluvial|galeria\s*(de\s*águas)?|sarjeta|bueiro\s*pluvial|água\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente/i, category: 'drenagem', weight: 8.5 },
-    // === VIA PÚBLICA (weight 8 — buraco, asfalto, pavimentação; semáforo/faixa em sinalizacao) ===
-    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|pavimenta[çc][ãa]o|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
+    // === PAVIMENTAÇÃO (weight 8.6 — OS: recape, capeamento, obras de pavimento; não confundir com só “buraco”) ===
+    {
+      keywords:
+        /pavimenta[çc][ãa]o|pavimentacao|recape|recapeamento|asfaltamento|capeamento|fresagem|cbuq|obra\s*(de\s*)?paviment|requalifica[çc][ãa]o\s*vi[áa]ria|restaura[çc][ãa]o\s*asf[áa]ltica|revestimento\s*asf[áa]ltico/i,
+      category: 'pavimentacao',
+      weight: 8.6,
+    },
+    // === SINALIZAÇÃO (weight 8.5 — OS: vertical/horizontal, semáforo, placa, faixa) ===
+    {
+      keywords:
+        /sem[áa]foro|sinaliza[çc][ãa]o\s*(vertical|horizontal)?|faixa\s*(de\s*pedestre|apagad)|placa\s*(de\s*sinal|ca[íi]d|quebrad)?|sinal\s*(quebrad|apagad|piscando)?|demarca[çc][ãa]o|repintura|zebr(?:a)?/i,
+      category: 'sinalizacao',
+      weight: 8.5,
+    },
+    // === DRENAGEM (weight 8.5 — OS: águas pluviais, sarjeta, galeria, bueiro de chuva) ===
+    {
+      keywords:
+        /drenagem|água\s*pluvial|agua\s*pluvial|pluvial|galeria\s*(de\s*águas|pluvial)?|sarjeta|bueiro\s*pluvial|bueiro\s*de\s*chuva|água\s*da\s*chuva|agua\s*da\s*chuva|chuva\s*acumulad|poça\s*permanente|encharcad[oa]\s*pela\s*chuva/i,
+      category: 'drenagem',
+      weight: 8.5,
+    },
+    // === VIA PÚBLICA (weight 8 — buraco, erosão, lombada; pavimentação explícita → pavimentacao) ===
+    { keywords: /buraco|asfalto\s*(danificad|quebrad|esburacad)?|rua\s*(esburacad|quebrad)|cratera|eros[ãa]o|desmoron|lombada|via\s*p[úu]blica/i, category: 'via_publica', weight: 8 },
     
     // === ÁREA VERDE (EXPANDED - weight 8) ===
     { keywords: /[áa]rvore\s*(ca[íi]d|caind|risco|pendend|quebrad)?|galho\s*(ca[íi]d|quebrad|solto)|poda|ra[íi]z\s*(expost|levant)|pra[çc]a|parque|jardim|mato\s*(alto|crescend)|capim\s*alto|vegeta[çc][ãa]o/i, category: 'area_verde', weight: 8 },
@@ -1455,11 +1826,24 @@ export function autoClassifyCategory(description: string): {
     // === HIGIENE URBANA ===
     { keywords: /fedor|mau\s*cheiro|fedend|podre|urina|fezes|coc[ôo]|defeca[çc][ãa]o|suj[oa]|imundo|nojent/i, category: 'higiene_urbana', weight: 7 },
     
-    // === POLUIÇÃO GERAL (smoke, contamination) ===
-    { keywords: /fuma[çc]a|polui[çc][ãa]o\s*(ar|atmosf)?|contamina[çc][ãa]o|t[óo]xico|qu[íi]mico/i, category: 'poluicao', weight: 7 },
-    
-    // === POLUIÇÃO SONORA GENÉRICA (weight 6 - pede confirmação) ===
-    { keywords: /barulho|ru[íi]do|buzina|alarme|latido|bagun[çc]a|obra\s*(barulho|cedo)?/i, category: 'poluicao', weight: 6 },
+    // === POLUIÇÃO AMBIENTAL / ATMOSFÉRICA / QUÍMICA (NÃO usar só "poluição" — evita confundir com sonora) ===
+    {
+      keywords:
+        /fuma[çc]a|queimada|chamin[ée]|polui[çc][ãa]o\s+(atmosf|ambiental|do\s*ar|visual|lumin|h[íi]dric|t[ée]rmic)|polui[çc][ãa]o\s+(do|no|na)\s+(ar|c[ée]u|rio|r[ií]os)|contamina[çc][ãa]o|res[ií]duo\s+(qu[ií]mico|industrial)|emiss[aã]o\s+(de\s*)?(g[áa]s|poluente)|t[óo]xico|qu[íi]mico\s+(no|na|no\s*ar)/i,
+      category: 'poluicao',
+      weight: 7,
+    },
+
+    // === POLUIÇÃO SONORA GENÉRICA (barulho, ruído — mesmo peso que ambiental para desempate por sub-label) ===
+    {
+      keywords:
+        /barulho|barulhent|ru[íi]do|buzina|alarme|latido|bagun[çc]a|obra\s*(barulho|cedo)?|incomod.*(som|barulho|ru[ií]do)|perturba[cç][aã]o(\s+do\s+sossego)?/i,
+      category: 'poluicao',
+      weight: 7,
+    },
+
+    // "Poluição" vaga (sem qualificar) — categoria poluição com confiança menor; preferir que o cidadão detalhe ou a IA refine
+    { keywords: /\bpolui[çc][ãa]o\b/i, category: 'poluicao', weight: 5 },
     
     // === FEEDBACK CÂMARA ===
     { keywords: /vereador|c[âa]mara\s*municipal|legislativo|projeto\s*de\s*lei/i, category: 'feedback_camara', weight: 5 },
@@ -1489,6 +1873,56 @@ export function autoClassifyCategory(description: string): {
   return { category: null, confidence: 0, suggestedLabel };
 }
 
+// --- Feedback loop: matching descrição ↔ trecho salvo (admin / N8N) ---
+
+const FEEDBACK_MATCH_STOPWORDS = new Set([
+  'o', 'a', 'os', 'as', 'um', 'uma', 'de', 'da', 'do', 'das', 'dos', 'em', 'na', 'no', 'nas', 'nos',
+  'que', 'e', 'é', 'para', 'com', 'por', 'como', 'mas', 'foi', 'ser', 'tem', 'se', 'ao', 'aos', 'à', 'às',
+  'não', 'nao', 'mais', 'muito', 'muita', 'já', 'ja', 'está', 'esta', 'estão', 'estao', 'são', 'sao', 'ou',
+]);
+
+/** Tokens significativos para similaridade (feedback loop). */
+export function tokenSetForFeedbackMatch(text: string): Set<string> {
+  const raw = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !FEEDBACK_MATCH_STOPWORDS.has(w));
+  return new Set(raw);
+}
+
+function jaccardTokenSimilarity(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const t of a) {
+    if (b.has(t)) inter++;
+  }
+  const union = a.size + b.size - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Indica se a descrição atual é suficientemente parecida com o trecho armazenado na correção.
+ * Evita depender só de `includes(excerpt)` com 500 chars (quase nunca casa).
+ */
+export function descriptionMatchesFeedbackExcerpt(description: string, excerpt: string): boolean {
+  const ex = excerpt.trim();
+  const desc = description.trim();
+  if (ex.length < 8 || desc.length < 5) return false;
+  const dLower = desc.toLowerCase();
+  const eLower = ex.toLowerCase();
+  // Trecho curto e característico contido na descrição
+  if (eLower.length >= 10 && eLower.length <= 160 && dLower.includes(eLower)) return true;
+  // Prefixo comum (admin/N8N costumam salvar o início da descrição)
+  const prefixLen = Math.min(100, ex.length, desc.length);
+  if (prefixLen >= 20 && dLower.slice(0, prefixLen) === eLower.slice(0, prefixLen)) return true;
+  // Similaridade lexical (descrições com mesmas palavras-chave, ordem diferente)
+  const sim = jaccardTokenSimilarity(tokenSetForFeedbackMatch(desc), tokenSetForFeedbackMatch(ex));
+  return sim >= 0.28;
+}
+
 /** Feedback loop: retorna categoria/subcategoria sugerida a partir de correções anteriores (descrição similar). */
 export async function getClassificationFromFeedback(
   supabase: SupabaseClient,
@@ -1504,10 +1938,10 @@ export async function getClassificationFromFeedback(
     .order('created_at', { ascending: false })
     .limit(500);
   if (!rows?.length) return null;
-  const descLower = description.toLowerCase();
   for (const row of rows) {
     const excerpt = (row.description_excerpt || '').trim();
-    if (excerpt.length >= 10 && descLower.includes(excerpt.toLowerCase())) {
+    if (excerpt.length < 8) continue;
+    if (descriptionMatchesFeedbackExcerpt(description, excerpt)) {
       return {
         category: row.corrected_category,
         subcategory: row.corrected_subcategory ?? null
@@ -1515,6 +1949,81 @@ export async function getClassificationFromFeedback(
     }
   }
   return null;
+}
+
+/** Valores de `report_classification_prediction_log.classification_source` (métricas de acurácia). */
+export const CLASSIFICATION_PREDICTION_SOURCES = [
+  'feedback_loop',
+  'urgent_pattern',
+  'auto_heuristic',
+  'fallback_outro',
+  'user_recovery',
+  'fuzzy_text',
+  'keyword_extract',
+  'manual_form',
+  'unknown',
+] as const;
+export type ClassificationPredictionSource = (typeof CLASSIFICATION_PREDICTION_SOURCES)[number];
+
+/** Infere a origem da categoria urbana a partir dos flags da coleta determinística. */
+export function inferUrbanClassificationSource(
+  accumulated: Record<string, unknown> | undefined
+): ClassificationPredictionSource {
+  const acc = accumulated || {};
+  if (acc._from_feedback === true) return 'feedback_loop';
+  if (acc._urgent_content === true) return 'urgent_pattern';
+  if (acc._fallback_category === true) return 'user_recovery';
+  if (acc._auto_classified === true) return 'auto_heuristic';
+  return 'unknown';
+}
+
+/** Infere a origem do tipo de relato de transporte (feedback, fuzzy, keywords, fallback). */
+export function inferTransportClassificationSource(
+  accumulated: Record<string, unknown> | undefined
+): ClassificationPredictionSource {
+  const acc = accumulated || {};
+  if (acc._from_classification_feedback === true) return 'feedback_loop';
+  const route = acc._transport_classification_route;
+  if (route === 'fuzzy_text' || route === 'keyword_extract' || route === 'fallback_outro') {
+    return route;
+  }
+  if (acc._fallback_report_type === true) return 'fallback_outro';
+  return 'unknown';
+}
+
+/**
+ * Registra predição no momento do registro do relato (JWT do cidadão; RLS user_id = auth.uid()).
+ * Falha não interrompe o fluxo do chat. Também emite log estruturado para observabilidade.
+ */
+export async function insertClassificationPredictionLog(
+  supabase: SupabaseClient,
+  params: {
+    userId: string;
+    reportId: string;
+    reportType: 'urban' | 'transport';
+    predictedCategory: string;
+    predictedSubcategory: string | null;
+    classificationSource: string;
+  }
+): Promise<void> {
+  const payload = {
+    report_id: params.reportId,
+    report_type: params.reportType,
+    predicted_category: params.predictedCategory,
+    predicted_subcategory: params.predictedSubcategory,
+    classification_source: params.classificationSource,
+    user_id: params.userId,
+  };
+  console.log('[CLASSIFICATION_METRIC]', JSON.stringify({ event: 'prediction_at_registration', ...payload }));
+  const { error } = await supabase.from('report_classification_prediction_log').insert(payload);
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === '23505') {
+      console.warn('[insertClassificationPredictionLog] duplicate report_id+type, ignored');
+      return;
+    }
+    console.warn('[insertClassificationPredictionLog] insert failed:', error.message);
+  }
 }
 
 // Generate intuitive label from description when no pattern matches
@@ -1616,14 +2125,18 @@ export function mapLabelToCategory(label: string): string | null {
       'poste', 'luz', 'lampada', 'lâmpada', 'escuro', 'escuridão', 'iluminação', 
       'apagado', 'queimado', 'caído', 'caido', 'torto', 'inclinado', 'pendendo'
     ],
-    'via_publica': [
-      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada', 'pavimentação'
+    // OS explícitas antes de via genérica (evita "rua" dominar "recape na rua")
+    'pavimentacao': [
+      'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'capeamento', 'fresagem', 'cbuq', 'obra de pavimento',
     ],
     'sinalizacao': [
       'semáforo', 'semaforo', 'sinalização', 'sinalizacao', 'faixa', 'pedestre', 'placa', 'sinal'
     ],
     'drenagem': [
       'drenagem', 'água pluvial', 'pluvial', 'galeria', 'sarjeta', 'chuva', 'bueiro pluvial'
+    ],
+    'via_publica': [
+      'buraco', 'asfalto', 'rua', 'via', 'cratera', 'pista', 'erosão', 'desmoronamento', 'lombada',
     ],
     'calcada': [
       'calçada', 'calcada', 'passeio', 'guia', 'meio-fio', 'rampa', 'acessibilidade'
@@ -1670,13 +2183,18 @@ export function autoInferRisk(description: string): {
   risk_types?: string[];
   reason?: string;
 } {
-  const desc = description.toLowerCase();
+  const desc = description
+    .toLowerCase()
+    // Typo comum no celular: "cheio tóxico" no lugar de "cheiro tóxico"
+    .replace(/\bcheio(?=\s+t[óo]xic)/g, 'cheiro');
   
   // Critical risk patterns with weights
   const criticalPatterns: Array<{ pattern: RegExp; weight: number; type?: string; reason: string }> = [
     // Flooding - most common high-risk
     { pattern: /completamente\s*alagad[oa]|totalmente\s*alagad[oa]|muito\s*alagad[oa]/, weight: 0.95, type: 'flooding', reason: 'alagamento grave' },
     { pattern: /alagad[oa]|inundad[oa]|chei[oa]\s*d[e']?\s*[áa]gua/, weight: 0.85, type: 'flooding', reason: 'alagamento' },
+    // Gerúndios / processo em curso ("está alagando", "inundando a calçada")
+    { pattern: /\b(a?lagando|inundando|transbordando)\b|está\s*a?\s*lagando|esta\s*a?\s*lagando|tá\s*a?\s*lagando/, weight: 0.88, type: 'flooding', reason: 'alagamento em curso' },
     { pattern: /água\s*subindo|transbordando|enchente/, weight: 0.9, type: 'flooding', reason: 'alagamento crescente' },
     
     // Blocking/obstruction
@@ -1691,6 +2209,10 @@ export function autoInferRisk(description: string): {
     { pattern: /desab|caindo|cedendo|rachando|tombou|caiu|desmoron/, weight: 0.9, type: 'structural', reason: 'risco estrutural' },
     { pattern: /afundando|cratera\s*grande/, weight: 0.85, type: 'structural', reason: 'afundamento' },
     
+    // Fire / incêndio
+    { pattern: /inc[eê]ndio|pegando?\s*fogo|em\s*chamas|fuma[cç]a\s*(preta|densa)|explos[aã]o/, weight: 0.98, type: 'fire', reason: 'incêndio ou fogo ativo' },
+    { pattern: /pr[eé]dio\s*abandonado.*(fogo|chamas|inc[eê]ndio)|fogo.*pr[eé]dio/, weight: 1.0, type: 'fire', reason: 'incêndio em edificação' },
+    
     // Emergency language
     { pattern: /emergência|urgente|urgência|gravíssimo|muito\s*grave|muito\s*perigoso/, weight: 0.9, reason: 'urgência declarada' },
     { pattern: /ferido|machucado|hospital|ambulância|samu/, weight: 0.95, reason: 'situação de saúde' },
@@ -1704,6 +2226,10 @@ export function autoInferRisk(description: string): {
     { pattern: /risco\s*de|pode\s*causar|perigoso|perigo/, weight: 0.6, reason: 'potencial risco' },
     { pattern: /acidente|contaminação|doença/, weight: 0.65, type: 'health', reason: 'risco de saúde' },
     { pattern: /preocupante|arriscado|grande|sério/, weight: 0.55, reason: 'situação séria' },
+    // Odor / poluição química (ex.: "cheiro tóxico forte" — alinhado ao texto do assistente)
+    { pattern: /tóxic|toxic|venenos|químic|quimic|gás\s*tóxic|gas\s*toxic/, weight: 0.62, type: 'health', reason: 'exposição tóxica ou química' },
+    { pattern: /cheiro.*(forte|tóxic|toxic|ruim|horrível|horrivel|insuportável|insuportavel|muito)|fedor\s*(forte|ruim)|odor\s*forte|fuma[cç]a\s*(tóxic|toxic|preta|densa)/, weight: 0.58, type: 'health', reason: 'odor ou fumaça preocupante' },
+    { pattern: /foco\s*de\s*contamina|contaminação|contaminacao|poluição\s*no\s*ar|poluicao\s*no\s*ar/, weight: 0.6, type: 'health', reason: 'contaminação / ar' },
   ];
   
   // No-risk patterns
@@ -1775,6 +2301,101 @@ export function autoInferRisk(description: string): {
   return { risk_level: null, confidence: 0 };
 }
 
+/** Alinha severidade do relato urbano ao nível de risco (filtros da gestão: critical/high/medium/low). */
+export function mapUrbanRiskLevelToSeverity(riskLevel: string | null | undefined): string | null {
+  if (!riskLevel) return null;
+  switch (riskLevel) {
+    case "critical":
+      return "critical";
+    case "moderate":
+      return "high";
+    case "low":
+      return "medium";
+    case "none":
+      return "low";
+    default:
+      return "medium";
+  }
+}
+
+/** Raio em metros para considerar proximidade a equipamentos sensíveis (escolas, hospitais, UBS). */
+const PROXIMITY_RADIUS_METERS = 500;
+
+const SENSITIVE_SERVICE_TYPES = ['school', 'hospital', 'ubs'] as const;
+
+/**
+ * Ajusta severidade do relato urbano se houver equipamentos sensíveis (escola, hospital, UBS)
+ * próximos ao local. Eleva: low→medium, medium→high. critical/high permanecem.
+ */
+export async function adjustSeverityForProximityToSensitiveEquipment(
+  supabase: SupabaseClient,
+  lat: number,
+  lon: number,
+  currentSeverity: string | null,
+): Promise<{ adjustedSeverity: string; proximityDetails: string[] } | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (!currentSeverity || currentSeverity === 'critical' || currentSeverity === 'high') return null;
+
+  const delta = 0.005; // ~555m em SP
+  const { data, error } = await supabase.rpc('search_public_services_fulltext', {
+    min_lat: lat - delta,
+    max_lat: lat + delta,
+    min_lng: lon - delta,
+    max_lng: lon + delta,
+    center_lat: lat,
+    center_lng: lon,
+    radius_meters: PROXIMITY_RADIUS_METERS,
+    search_query: null,
+    service_types: [...SENSITIVE_SERVICE_TYPES],
+    result_limit: 20,
+  });
+
+  if (error || !data?.length) return null;
+
+  const labels: Record<string, string> = { school: 'escola', hospital: 'hospital', ubs: 'UBS' };
+  const types = [...new Set((data as { service_type?: string }[]).map(s => s.service_type).filter(Boolean))];
+  const proximityDetails = types.map(t => labels[t as string] || t);
+
+  const bump: Record<string, string> = { low: 'medium', medium: 'high' };
+  const adjustedSeverity = bump[currentSeverity] ?? currentSeverity;
+  return { adjustedSeverity, proximityDetails };
+}
+
+/**
+ * OS-05: persiste linha de auditoria para revisão humana (moderação).
+ * Falha silenciosa no log para não quebrar criação do relato.
+ */
+export async function insertReportSeverityAuditLog(
+  supabase: SupabaseClient,
+  entry: {
+    urban_report_id?: string;
+    transport_report_id?: string;
+    metric: string;
+    previous_value?: string | null;
+    new_value: string;
+    justification: string;
+    source_snippet?: string | null;
+    confidence?: number | null;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const row = {
+    urban_report_id: entry.urban_report_id ?? null,
+    transport_report_id: entry.transport_report_id ?? null,
+    metric: entry.metric,
+    previous_value: entry.previous_value ?? null,
+    new_value: entry.new_value,
+    justification: entry.justification,
+    source_snippet: entry.source_snippet ? String(entry.source_snippet).slice(0, 500) : null,
+    confidence: entry.confidence ?? null,
+    metadata: entry.metadata ?? {},
+  };
+  const { error } = await supabase.from("report_severity_audit_log").insert(row);
+  if (error) {
+    console.error("[insertReportSeverityAuditLog]", error);
+  }
+}
+
 // Parse user response for specific field types
 export function parseFieldResponse(fieldType: string, userResponse: string): Record<string, unknown> {
   const response = userResponse.trim();
@@ -1782,6 +2403,86 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
   const result: Record<string, unknown> = {};
   
   switch (fieldType) {
+    case 'report_nature': {
+      const n = normalizeReportNature(response);
+      if (n) {
+        result.report_nature = n;
+        console.log('[parseFieldResponse] report_nature:', n);
+      }
+      break;
+    }
+
+    case 'location_method': {
+      const t = response.trim();
+      const tl = t.toLowerCase();
+      if (/^usar endereço cadastrado$/i.test(t) || /^usar endereco cadastrado$/i.test(t)) {
+        result.location_method = 'registered_address';
+        break;
+      }
+      if (/^digitar cep ou endereço$/i.test(t) || /^digitar cep ou endereco$/i.test(t)) {
+        result.location_method = 'manual';
+        break;
+      }
+      const gpsLineLm = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i);
+      if (gpsLineLm) {
+        const la = parseFloat(gpsLineLm[1]);
+        const lo = parseFloat(gpsLineLm[2]);
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          result.user_lat = la;
+          result.user_lon = lo;
+          result.location_method = 'gps';
+        }
+        break;
+      }
+      if (/usar\s+minha\s+localiza[cç][aã]o|^gps$/i.test(tl)) {
+        result.location_method = 'gps';
+      }
+      break;
+    }
+
+    case 'gps_coords': {
+      const gpsLine = response.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i);
+      if (gpsLine) {
+        const la = parseFloat(gpsLine[1]);
+        const lo = parseFloat(gpsLine[2]);
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          result.user_lat = la;
+          result.user_lon = lo;
+          result.location_method = 'gps';
+        }
+      }
+      break;
+    }
+
+    case 'urban_registered_address_ack': {
+      const t = responseLower.trim();
+      if (/^(sim|s|yes|y|ok|correto|isso|confirmo|pode ser|certo|exato)\b/i.test(t) || /^👍/u.test(response.trim())) {
+        result.urban_registered_address_ack = true;
+        break;
+      }
+      if (/^(não|nao|n|no|nope|errado|outro|outra)\b/i.test(t)) {
+        result.urban_registered_address_ack = true;
+        result.location_method = 'manual';
+        result.street = '';
+        result.neighborhood = '';
+        result.cep = '';
+        result.street_number = '';
+        result.reference_point = '';
+        result._location_from_user_profile = false;
+        console.log('[parseFieldResponse] urban_registered_address_ack: user rejected profile address → manual');
+      }
+      break;
+    }
+
+    case 'rating_dimensions': {
+      const fromMark = parseRatingDimensionsMarker(response);
+      if (fromMark) {
+        result.rating_dimensions = fromMark;
+        result.rating_stars = aggregateRatingDimensionsStars(fromMark);
+      }
+      break;
+    }
+
     case 'cep': {
       // CEP numérico (8 dígitos)
       const cepMatch = response.match(/\b(\d{5}[-]?\d{3})\b/);
@@ -1848,8 +2549,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       const categoryMap: Record<string, string> = {
         'iluminação': 'iluminacao', 'iluminacao': 'iluminacao', 'luz': 'iluminacao', 'poste': 'iluminacao', 'lampada': 'iluminacao',
         'buraco': 'via_publica', 'asfalto': 'via_publica', 'via pública': 'via_publica', 'via publica': 'via_publica', 'rua': 'via_publica',
+        'pavimentação': 'pavimentacao', 'pavimentacao': 'pavimentacao', 'recape': 'pavimentacao', 'asfaltamento': 'pavimentacao',
         'sinalização': 'sinalizacao', 'sinalizacao': 'sinalizacao', 'semáforo': 'sinalizacao', 'semaforo': 'sinalizacao', 'faixa': 'sinalizacao', 'placa': 'sinalizacao',
-        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem',
+        'drenagem': 'drenagem', 'água pluvial': 'drenagem', 'agua pluvial': 'drenagem', 'sarjeta': 'drenagem', 'galeria': 'drenagem', 'pluvial': 'drenagem',
         'calçada': 'calcada', 'calcada': 'calcada', 'passeio': 'calcada',
         'lixo': 'lixo', 'entulho': 'lixo', 'sujeira': 'lixo',
         'esgoto': 'esgoto', 'bueiro': 'esgoto', 'vazamento': 'esgoto', 'alagamento': 'esgoto', 'água': 'esgoto', 'agua': 'esgoto',
@@ -1857,9 +2559,12 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         'higiene': 'higiene_urbana', 'fedor': 'higiene_urbana', 'cheiro': 'higiene_urbana',
         'animais': 'animais', 'rato': 'animais', 'barata': 'animais', 'animal': 'animais',
         // EXPANDED: Poluição with noise-related terms
-        'poluição': 'poluicao', 'poluicao': 'poluicao', 'barulho': 'poluicao', 'ruido': 'poluicao', 'ruído': 'poluicao',
+        'poluição': 'poluicao', 'poluicao': 'poluicao', 'poluição sonora': 'poluicao', 'poluicao sonora': 'poluicao',
+        'poluição ambiental': 'poluicao', 'poluicao ambiental': 'poluicao', 'poluição atmosférica': 'poluicao',
+        'barulho': 'poluicao', 'ruido': 'poluicao', 'ruído': 'poluicao',
         'som': 'poluicao', 'som alto': 'poluicao', 'música': 'poluicao', 'musica': 'poluicao', 'festa': 'poluicao',
-        'perturbação': 'poluicao', 'perturbacao': 'poluicao', 'vizinho': 'poluicao', 'bar': 'poluicao', 'balada': 'poluicao',
+        'perturbação': 'poluicao', 'perturbacao': 'poluicao', 'perturbação sonora': 'poluicao',
+        'vizinho': 'poluicao', 'bar': 'poluicao', 'balada': 'poluicao',
         // FALLBACK: "outro" category
         'outro': 'outro', 'outros': 'outro', 'diferente': 'outro', 'não sei': 'outro', 'nao sei': 'outro', 'outra coisa': 'outro',
       };
@@ -1899,14 +2604,44 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     }
       
     case 'risk_level': {
+      // Normaliza typo comum ("cheio tóxico" → "cheiro tóxico") para keywords e inferência
+      const rl = responseLower.replace(/\bcheio(?=\s+t[óo]xic)/g, 'cheiro');
+
+      // Botões / valores canônicos (evita cair no fallback "frase ≥8 chars" → low, ex.: "critical")
+      const riskQuickNorm = response
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{M}/gu, '');
+      const riskQuickMap: Record<string, string> = {
+        critical: 'critical',
+        moderate: 'moderate',
+        low: 'low',
+        none: 'none',
+        critica: 'critical',
+        critico: 'critical',
+        moderada: 'moderate',
+        moderado: 'moderate',
+        baixa: 'low',
+        baixo: 'low',
+        semriscoimediato: 'none',
+        semrisco: 'none',
+      };
+      const riskQuickKey = riskQuickNorm.replace(/\s+/g, '');
+      if (riskQuickMap[riskQuickKey]) {
+        result.risk_level = riskQuickMap[riskQuickKey];
+        result.urgency_reason = response;
+        break;
+      }
+
       // Parse risk level from natural language - EXPANDED VOCABULARY
       // Simple yes/no responses first
-      if (responseLower === 'sim' || responseLower === 's' || responseLower === 'yes' || responseLower === 'y') {
+      if (rl === 'sim' || rl === 's' || rl === 'yes' || rl === 'y') {
         result.risk_level = 'critical';
         result.urgency_reason = response;
         break;
       }
-      if (responseLower === 'não' || responseLower === 'nao' || responseLower === 'n' || responseLower === 'no') {
+      if (rl === 'não' || rl === 'nao' || rl === 'n' || rl === 'no') {
         result.risk_level = 'none';
         result.urgency_reason = response;
         break;
@@ -1923,42 +2658,72 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         'completamente alagad', 'totalmente alagad', 'muito alagad',
         // Structural
         'desabando', 'caindo', 'desmoronando', 'desabou', 'caiu', 'tombou', 'rachando', 'cedendo',
+        // Fire / incêndio
+        'incêndio', 'incendio', 'fogo', 'chamas', 'pegando fogo', 'fumaça preta', 'fumaca preta', 'explosão', 'explosao',
         // Emergency/urgency
         'risco imediato', 'emergência', 'urgente', 'urgência', 'gravíssimo', 'muito grave', 'muito perigoso',
         // Injury/health immediate
         'ferido', 'machucado', 'hospital', 'ambulância', 'samu',
+        // Químico / odor forte (exemplos do próprio fluxo de gravidade)
+        'tóxico', 'toxico', 'veneno', 'gás tóxico', 'gas toxico', 'vazamento de gás', 'cheiro de gás',
+        'foco de contamina', 'contaminação forte', 'cheiro forte', 'fedor forte',
         // Intensity boosters (with context)
         'completamente', 'totalmente', 'extremamente'
       ];
       const moderateKeywords = [
         'risco de', 'pode causar', 'perigoso', 'perigo', 'acidente', 
         'risco de doença', 'doença', 'doenças', 'contaminação', 'transtorno', 'prejudica',
-        'arriscado', 'preocupante', 'pode machucar', 'pode alagar', 'grande', 'sério'
+        'arriscado', 'preocupante', 'pode machucar', 'pode alagar', 'grande', 'sério',
+        'cheiro', 'fedor', 'fumaça', 'fumaca', 'olor', 'mau cheiro', 'odor', 'poluição', 'poluicao',
       ];
       const lowKeywords = ['incômodo', 'incomodo', 'chato', 'desconfortável', 'feio', 'ruim', 'só atrapalha', 'so atrapalha'];
       const noRiskKeywords = ['sem risco', 'não tem risco', 'nao tem risco', 'nenhum risco', 'tranquilo', 'não há risco', 'nao ha risco', 'só incômodo', 'so incomodo'];
       
-      if (noRiskKeywords.some(k => responseLower.includes(k))) {
+      if (noRiskKeywords.some(k => rl.includes(k))) {
         result.risk_level = 'none';
-      } else if (criticalKeywords.some(k => responseLower.includes(k))) {
+      } else if (criticalKeywords.some(k => rl.includes(k))) {
         result.risk_level = 'critical';
         // Also extract risk types
         const riskTypes: string[] = [];
-        if (responseLower.includes('fio') || responseLower.includes('choque') || responseLower.includes('elétric') || responseLower.includes('eletric')) riskTypes.push('electrical');
-        if (responseLower.includes('bloqueada') || responseLower.includes('não passa') || responseLower.includes('trânsito') || responseLower.includes('transito')) riskTypes.push('traffic');
-        if (responseLower.includes('alagad') || responseLower.includes('inundad') || responseLower.includes('água') || responseLower.includes('agua') || responseLower.includes('enchente')) riskTypes.push('flooding');
-        if (responseLower.includes('caindo') || responseLower.includes('desab') || responseLower.includes('tomb') || responseLower.includes('rachando')) riskTypes.push('structural');
+        if (rl.includes('fio') || rl.includes('choque') || rl.includes('elétric') || rl.includes('eletric')) riskTypes.push('electrical');
+        if (rl.includes('bloqueada') || rl.includes('não passa') || rl.includes('trânsito') || rl.includes('transito')) riskTypes.push('traffic');
+        if (rl.includes('alagad') || rl.includes('inundad') || rl.includes('água') || rl.includes('agua') || rl.includes('enchente')) riskTypes.push('flooding');
+        if (rl.includes('caindo') || rl.includes('desab') || rl.includes('tomb') || rl.includes('rachando')) riskTypes.push('structural');
+        if (rl.includes('tóxic') || rl.includes('toxic') || rl.includes('contamina') || rl.includes('cheiro') || rl.includes('fedor') || rl.includes('fumaça') || rl.includes('fumaca') || rl.includes('gás')) riskTypes.push('health');
+        if (rl.includes('incêndio') || rl.includes('incendio') || rl.includes('fogo') || rl.includes('chamas') || rl.includes('explosão') || rl.includes('explosao')) riskTypes.push('fire');
         if (riskTypes.length > 0) result.risk_types = riskTypes;
-      } else if (moderateKeywords.some(k => responseLower.includes(k))) {
+      } else if (moderateKeywords.some(k => rl.includes(k))) {
         result.risk_level = 'moderate';
         // Extract risk types for moderate too
         const riskTypes: string[] = [];
-        if (responseLower.includes('doença') || responseLower.includes('saúde') || responseLower.includes('contaminação') || responseLower.includes('contaminacao')) riskTypes.push('health');
-        if (responseLower.includes('acidente') || responseLower.includes('trânsito') || responseLower.includes('transito')) riskTypes.push('traffic');
+        if (rl.includes('doença') || rl.includes('saúde') || rl.includes('contaminação') || rl.includes('contaminacao')) riskTypes.push('health');
+        if (rl.includes('acidente') || rl.includes('trânsito') || rl.includes('transito')) riskTypes.push('traffic');
+        if (rl.includes('tóxic') || rl.includes('toxic') || rl.includes('cheiro') || rl.includes('fedor') || rl.includes('fumaça') || rl.includes('fumaca') || rl.includes('odor') || rl.includes('poluição') || rl.includes('poluicao')) riskTypes.push('health');
         if (riskTypes.length > 0) result.risk_types = riskTypes;
-      } else if (lowKeywords.some(k => responseLower.includes(k))) {
+      } else if (lowKeywords.some(k => rl.includes(k))) {
         result.risk_level = 'low';
       }
+
+      // Inferência semântica + fallback: o assistente pede "descreva em uma frase" — frases curtas devem avançar o fluxo
+      if (!result.risk_level) {
+        const inferred = autoInferRisk(response);
+        if (inferred.risk_level != null && inferred.confidence >= 0.45) {
+          result.risk_level = inferred.risk_level;
+          if (inferred.risk_types?.length) result.risk_types = inferred.risk_types;
+          result.urgency_reason = response;
+        } else {
+          const t = response.trim();
+          const vague = /^(não sei|nao sei|sem ideia|não\s*opino|nao\s*opino)\b/i.test(t);
+          const looksDescriptive = t.length >= 10 && /\s/.test(t);
+          const looksLikeFlowToken =
+            /^(confirmar|corrigir|continuar|registrar|novo_relato|ok|obrigad)/i.test(t);
+          if (looksDescriptive && !vague && !/^(não|nao|n|no)\b/i.test(t) && !looksLikeFlowToken) {
+            result.risk_level = 'low';
+            result.urgency_reason = response;
+          }
+        }
+      }
+
       // Store urgency reason with user's actual words
       if (result.risk_level) {
         result.urgency_reason = response;
@@ -2035,7 +2800,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
 // Accumulate fields from all messages in conversation for better tracking
 export function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
-  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias'
+  collectionType: 'urban_report' | 'transport_report' | 'service_rating' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias'
 ): Record<string, unknown> {
   // === LIGHT JOURNEY: services (busca de serviços próximos) ===
   // Ordem: 1) location_method (GPS / cadastrado / manual), 2) se manual → CEP/endereço, 3) service_type
@@ -2268,6 +3033,14 @@ export function accumulateFieldsFromHistory(
         cep: accumulated.cep,
         city: accumulated.city
       });
+      // "Rua X, 1477" antes do hífen do bairro → separar número (evita pedir de novo só o número)
+      if (accumulated.street && !accumulated.street_number) {
+        const sm = String(accumulated.street).match(/^(.+),\s*(\d+[A-Za-z]?)\s*$/);
+        if (sm) {
+          accumulated.street = sm[1].trim();
+          accumulated.street_number = sm[2].trim();
+        }
+      }
     }
   }
   
@@ -2287,6 +3060,12 @@ export function accumulateFieldsFromHistory(
         // Skip structured messages (addresses, numbers, short answers)
         const isStructured = 
           contentLower.includes('endereço selecionado:') ||
+          contentLower.includes('localização gps:') ||
+          contentLower.includes('localizacao gps:') ||
+          /^usar endereço cadastrado$/i.test(msg.content.trim()) ||
+          /^usar endereco cadastrado$/i.test(msg.content.trim()) ||
+          /^digitar cep ou endereço$/i.test(msg.content.trim()) ||
+          /^digitar cep ou endereco$/i.test(msg.content.trim()) ||
           contentLower.includes('linha selecionada:') ||
           contentLower.includes('nota:') ||
           contentLower.includes('data:') ||
@@ -2296,7 +3075,8 @@ export function accumulateFieldsFromHistory(
         const isGeneric = isGenericIntentText(msg.content);
         
         // USE CENTRALIZED NLP: accepts 8+ chars with keyword OR 20+ chars OR 15+ with keyword
-        if (!isStructured && !isGeneric && isValidDomainDescription(msg.content, domain)) {
+        const bareNature = collectionType === 'urban_report' && isBareUrbanReportNatureReply(msg.content);
+        if (!isStructured && !isGeneric && !bareNature && isValidDomainDescription(msg.content, domain)) {
           accumulated.description = msg.content.trim();
           console.log('[accumulateFields] Auto-detected description via isValidDomainDescription:', { 
             length: msg.content.length, 
@@ -2336,13 +3116,15 @@ export function accumulateFieldsFromHistory(
         const categoryPatterns = [
           { pattern: /problema de \*?\*?ilumina[çc][ãa]o\*?\*?/i, category: 'iluminacao' },
           { pattern: /problema de \*?\*?via p[úu]blica\*?\*?/i, category: 'via_publica' },
+          { pattern: /problema de \*?\*?pavimenta[çc][ãa]o\*?\*?/i, category: 'pavimentacao' },
           { pattern: /problema de \*?\*?cal[çc]ada\*?\*?/i, category: 'calcada' },
           { pattern: /problema de \*?\*?sinaliza[çc][ãa]o\*?\*?/i, category: 'sinalizacao' },
           { pattern: /problema de \*?\*?drenagem\*?\*?/i, category: 'drenagem' },
           { pattern: /problema de \*?\*?lixo\*?\*?/i, category: 'lixo' },
           { pattern: /problema de \*?\*?esgoto\*?\*?/i, category: 'esgoto' },
           { pattern: /problema de \*?\*?[áa]rea verde\*?\*?/i, category: 'area_verde' },
-          { pattern: /feedback.*c[âa]mara/i, category: 'feedback_camara' },
+          // Evitar "feedback" genérico + "Câmara" em textos longos do app (ex.: trâmite) — só frases explícitas de feedback legislativo
+          { pattern: /registrar\s+(?:como\s+)?feedback\s+(?:para|à|a)\s+(?:a\s+)?c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar.*preocupa[çc][ãa]o.*c[âa]mara/i, category: 'feedback_camara' },
           { pattern: /registrar como feedback/i, category: 'feedback_camara' },
           { pattern: /feedback geral para a c[âa]mara/i, category: 'feedback_camara' },
@@ -2372,6 +3154,36 @@ export function accumulateFieldsFromHistory(
             accumulated.category = 'feedback_camara';
             console.log('[accumulateFields] Category set to feedback_camara from user acceptance');
           }
+        }
+      }
+    }
+
+    // Relato urbano: método de localização + linha "Localização GPS:" (mesmo padrão do fluxo de serviços)
+    for (const msg of messages) {
+      if (msg.role !== 'user' || typeof msg.content !== 'string') continue;
+      const c = msg.content;
+      const cLower = c.toLowerCase();
+      if (!accumulated.location_method) {
+        if (/localiza[cç][aã]o\s*gps\s*[-:0-9]/i.test(c) || /^📍/u.test(c.trim())) {
+          accumulated.location_method = 'gps';
+        } else if (/usar\s+endere[cç]o\s+cadastrado/i.test(cLower)) {
+          accumulated.location_method = 'registered_address';
+        } else if (/digitar\s+(cep|endere[cç]o)|digitar\s+cep\s+ou\s+endere[cç]o/i.test(cLower)) {
+          accumulated.location_method = 'manual';
+        }
+      }
+      const gpsM =
+        c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps')
+          ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/)
+          : null);
+      if (gpsM && accumulated.user_lat == null) {
+        const la = parseFloat(gpsM[1].trim());
+        const lo = parseFloat(gpsM[2].trim());
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          accumulated.user_lat = la;
+          accumulated.user_lon = lo;
+          if (!accumulated.location_method) accumulated.location_method = 'gps';
         }
       }
     }
@@ -2499,11 +3311,21 @@ export function accumulateFieldsFromHistory(
         }
         
         // === NEW: Heuristic parsing for impact fields (as fallback) ===
-        // Risk level detection from question context
-        if ((question.includes('risco imediato') || question.includes('há algum risco') ||
-             question.includes('gravidade')) && !accumulated.risk_level) {
+        // Risk level: reaplicar quando o cidadão corrige gravidade (já havia risk_level)
+        const riskQuestionHeuristic =
+          /\[FIELD_REQUEST:risk_level\]/i.test(rawQuestion) ||
+          /\[QUICK_REPLY:\s*critical\b/i.test(rawQuestion) ||
+          /\bnova\s+gravidade\b/i.test(question) ||
+          /\bqual\s+a\s+nova\s+gravidade\b/i.test(question) ||
+          /\bn[ií]vel\s+de\s+gravidade\b/i.test(question) ||
+          (/\bgravidade\s+do\s+problema\b/i.test(question) &&
+            /escolha|op(ç|c)[aã]o|risco\s+ou\s+impacto|uma\s+frase|descreva/i.test(question)) ||
+          (/\bhá\s+algum\s+risco\b/i.test(question) || /\brisco\s+imediat/i.test(question));
+        if (riskQuestionHeuristic) {
           const parsedRisk = parseFieldResponse('risk_level', answer);
-          Object.assign(accumulated, parsedRisk);
+          if (parsedRisk.risk_level != null) {
+            Object.assign(accumulated, parsedRisk);
+          }
         }
         
         // Affected scope detection
@@ -2521,10 +3343,16 @@ export function accumulateFieldsFromHistory(
         }
         
         // === DESCRIPTION detection from detailed questions (NLP-based) ===
-        if ((question.includes('me conte mais') || question.includes('descreva') || 
+        if ((question.includes('me conte mais') || question.includes('descreva') ||
              question.includes('mais detalhes') || question.includes('o que está acontecendo') ||
-             question.includes('qual o problema') || question.includes('qual é o problema')) && 
-            isValidDomainDescription(answer, 'urban') && !accumulated.description) {
+             question.includes('qual o problema') || question.includes('qual é o problema') ||
+             question.includes('sua dúvida') || question.includes('sua duvida') ||
+             question.includes('sua sugestão') || question.includes('sua sugestao') ||
+             question.includes('quer elogiar') || question.includes('funcionando bem') ||
+             question.includes('ideia de melhoria') || question.includes('conta o que')) &&
+            isValidDomainDescription(answer, 'urban') &&
+            !isBareUrbanReportNatureReply(answer) &&
+            !accumulated.description) {
           accumulated.description = answer;
         }
       }
@@ -2564,6 +3392,60 @@ export function accumulateFieldsFromHistory(
           } else {
             Object.assign(accumulated, parsedFields);
           }
+        }
+      }
+    }
+
+    // Método de localização + coordenadas GPS (InlineLocationMethodPicker — relato urbano)
+    {
+      const getContentU = (msg: { role: string; content: string | unknown }): string => {
+        const raw = msg.content;
+        if (typeof raw === 'string') return raw;
+        if (Array.isArray(raw)) {
+          const part = raw.find((p: Record<string, unknown>) => p?.type === 'text' && p?.text);
+          return part ? String((part as Record<string, unknown>).text) : '';
+        }
+        return '';
+      };
+      for (const msg of messages) {
+        if (msg.role !== 'user') continue;
+        const c = getContentU(msg).trim();
+        const cLower = c.toLowerCase();
+        if (!accumulated.location_method) {
+          if (/^usar endereço cadastrado$/i.test(c) || /^usar endereco cadastrado$/i.test(c)) {
+            accumulated.location_method = 'registered_address';
+          } else if (/^digitar cep ou endereço$/i.test(c) || /^digitar cep ou endereco$/i.test(c)) {
+            accumulated.location_method = 'manual';
+          } else if (/usar\s+(minha\s+)?localiza[cç][aã]o|localiza[cç][aã]o\s*gps:/i.test(cLower)) {
+            accumulated.location_method = 'gps';
+          }
+        }
+        const gpsMatch =
+          c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i) ||
+          ((cLower.includes('localização gps') || cLower.includes('localizacao gps')) &&
+            c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/));
+        if (gpsMatch && accumulated.user_lat == null) {
+          const lat = parseFloat(gpsMatch[1].trim());
+          const lon = parseFloat(gpsMatch[2].trim());
+          if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            accumulated.user_lat = lat;
+            accumulated.user_lon = lon;
+            if (!accumulated.location_method) accumulated.location_method = 'gps';
+          }
+        }
+      }
+    }
+
+    // Botões rápidos / resposta curta: reclamacao, elogio, sugestao, duvida
+    if (!accumulated.report_nature) {
+      for (const msg of messages) {
+        if (msg.role !== 'user') continue;
+        const t = msg.content.trim();
+        if (t.length > 48) continue;
+        const n = normalizeReportNature(t);
+        if (n) {
+          accumulated.report_nature = n;
+          break;
         }
       }
     }
@@ -2657,15 +3539,27 @@ export function accumulateFieldsFromHistory(
         }
       }
       
-      // Parse "Nota: X estrelas" format from InlineRatingPicker
+      const rdParsed = parseRatingDimensionsMarker(content);
+      if (rdParsed) {
+        accumulated.rating_dimensions = rdParsed;
+        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
+        console.log('[accumulateFields] Parsed rating_dimensions from marker');
+      }
+
+      // Parse "Nota: X estrelas" ou [RATING_SELECTED:N] (picker de avaliação geral)
+      const ratingSelectedTag = content.match(/\[RATING_SELECTED:([1-5])\]/);
+      if (ratingSelectedTag && !accumulated.rating_stars) {
+        accumulated.rating_stars = parseInt(ratingSelectedTag[1], 10);
+        console.log('[accumulateFields] Parsed rating_stars from RATING_SELECTED marker');
+      }
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
-      if (ratingMatch && !accumulated.rating_stars) {
+      if (ratingMatch && !accumulated.rating_stars && !accumulated.rating_dimensions) {
         accumulated.rating_stars = parseInt(ratingMatch[1]);
         console.log('[accumulateFields] Parsed rating_stars from picker:', accumulated.rating_stars);
       }
       
       // Also detect rating from natural language if not already captured
-      if (!accumulated.rating_stars) {
+      if (!accumulated.rating_stars && !accumulated.rating_dimensions) {
         const naturalRatingMatch = contentLower.match(/(\d)\s*(?:estrela|nota)/);
         if (naturalRatingMatch) {
           accumulated.rating_stars = parseInt(naturalRatingMatch[1]);
@@ -2735,10 +3629,24 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
+            case 'rating_dimensions': {
+              const rd = parseRatingDimensionsMarker(answer);
+              if (rd) {
+                accumulated.rating_dimensions = rd;
+                accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+              }
+              break;
+            }
             case 'rating_stars': {
-              const starsMatch = answer.match(/(\d)/);
-              if (starsMatch) {
-                accumulated.rating_stars = parseInt(starsMatch[1]);
+              const rdAns = parseRatingDimensionsMarker(answer);
+              if (rdAns) {
+                accumulated.rating_dimensions = rdAns;
+                accumulated.rating_stars = aggregateRatingDimensionsStars(rdAns);
+              } else {
+                const starsMatch = answer.match(/(\d)/);
+                if (starsMatch) {
+                  accumulated.rating_stars = parseInt(starsMatch[1]);
+                }
               }
               break;
             }
@@ -2926,12 +3834,202 @@ export function accumulateFieldsFromHistory(
       }
     }
   }
-  
+
+  if (collectionType === "service_rating" && accumulated.service_neighborhood != null) {
+    accumulated.service_neighborhood = normalizeServiceRatingNeighborhood(accumulated.service_neighborhood);
+  }
+
   return accumulated;
 }
 
 function capitalizeWords(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Remove tokens consecutivos duplicados (ex.: "Butantã Butantã") — bug de acúmulo / cópia do bairro */
+export function normalizeServiceRatingNeighborhood(raw: unknown): string {
+  const s = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!s) return "";
+  const parts = s.split(/\s+/);
+  const out: string[] = [];
+  for (const p of parts) {
+    if (out.length && out[out.length - 1].toLowerCase() === p.toLowerCase()) continue;
+    out.push(p);
+  }
+  return out.join(" ");
+}
+
+/** Nome do equipamento em PT para fluxo de avaliação (evita "Library", "library" no prompt) */
+export function getServiceRatingNounPt(serviceType: string | undefined): string {
+  const SERVICE_RATING_NOUN_PT: Record<string, string> = {
+    ubs: "UBS",
+    school: "escola",
+    hospital: "hospital",
+    ceu: "CEU",
+    library: "biblioteca",
+    sports_center: "centro esportivo",
+    street_market: "feira",
+    community_center: "centro comunitário",
+    daycare: "creche",
+    park: "parque",
+    market: "mercado",
+    city_market: "mercado municipal",
+    theater: "teatro",
+    museum: "museu",
+    social_assistance: "assistência social",
+    transit_station: "terminal/estação de transporte",
+    police_station: "delegacia",
+    cemetery: "cemitério",
+    accessibility: "serviço de acessibilidade",
+    recycling_point: "ponto de reciclagem",
+    fire_station: "Corpo de Bombeiros",
+    other: "serviço",
+  };
+  if (!serviceType) return "serviço";
+  return SERVICE_RATING_NOUN_PT[serviceType] || serviceType;
+}
+
+/** Remove acentos para comparar bairro digitado (Butantã) com cadastro (BUTANTA). */
+function foldAccentsForCompare(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Normaliza para comparar "Bibliotecas - X" com "biblioteca - X" (nome genérico vs chip) */
+export function normalizeGenericServiceRatingName(s: string): string {
+  return foldAccentsForCompare(
+    s
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/\bhospitais\b/g, "hospital")
+      .replace(/\bbibliotecas\b/g, "biblioteca")
+      .replace(/\bescolas\b/g, "escola")
+      .replace(/\bceus\b/g, "ceu")
+      .replace(/\bfeiras\b/g, "feira")
+      .replace(/\bparques\b/g, "parque")
+      .replace(/\bmercados\b/g, "mercado"),
+  );
+}
+
+/**
+ * Quando só existe `service_name` como "UBS - Butantã" (LLM/COLLECTION_PROGRESS) sem `service_neighborhood`,
+ * inferimos o trecho após "Tipo - " para comparar com o genérico e exibir SERVICE_PICKER.
+ */
+export function inferServiceRatingNeighborhoodFromCompositeName(
+  serviceName: unknown,
+  serviceType: string | undefined,
+): string | undefined {
+  const sn = String(serviceName ?? "").trim();
+  if (sn.length < 3) return undefined;
+  const noun = getServiceRatingNounPt(serviceType);
+  const escaped = noun.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^\\s*${escaped}\\s*-\\s*(.+)$`, "i");
+  const m = sn.match(re);
+  if (!m) return undefined;
+  const rest = m[1].trim();
+  return rest.length >= 2 ? rest : undefined;
+}
+
+/**
+ * true = ainda não há um equipamento concreto (só categoria, chip "Bibliotecas", etc.).
+ * Nesse caso devemos mostrar SERVICE_PICKER após o bairro, antes de confirmar endereço.
+ */
+export function isServiceRatingTypeOnlyEquipmentName(
+  serviceName: unknown,
+  serviceType: string | undefined,
+): boolean {
+  const raw = String(serviceName ?? "").trim();
+  if (raw.length < 2) return true;
+
+  const s = normalizeGenericServiceRatingName(raw);
+  const noun = normalizeGenericServiceRatingName(getServiceRatingNounPt(serviceType));
+  if (!s || s === noun) return true;
+
+  const TYPE_ONLY = new Set<string>([
+    "ubs",
+    "ceu",
+    "ceus",
+    "hospital",
+    "hospitais",
+    "escola",
+    "escolas",
+    "biblioteca",
+    "bibliotecas",
+    "feira",
+    "feiras",
+    "parque",
+    "parques",
+    "mercado",
+    "mercados",
+    "mercado municipal",
+    "creche",
+    "creches",
+    "teatro",
+    "teatros",
+    "museu",
+    "museus",
+    "centro esportivo",
+    "centro comunitário",
+    "delegacia",
+    "cemitério",
+    "esportes",
+    "outros",
+    "serviço",
+    "posto de saude",
+    "posto de saúde",
+    "assistência social",
+    "terminal/estação de transporte",
+    "corpo de bombeiros",
+    "ponto de reciclagem",
+    "acessibilidade",
+  ]);
+
+  if (TYPE_ONLY.has(s)) return true;
+
+  const eng = raw.toLowerCase();
+  if (
+    ["library", "school", "hospital", "park", "museum", "theater", "other", "daycare", "cemetery"].includes(
+      eng,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** Pergunta "Em qual bairro fica …?" com artigo correto em PT */
+export function buildServiceRatingBairroPrompt(serviceType: string | undefined): string {
+  const t = serviceType || "";
+  if (t === "ubs") {
+    return "Em qual **bairro** fica a **UBS** que você visitou?";
+  }
+  if (t === "ceu") {
+    return "Em qual **bairro** fica o **CEU** que você visitou?";
+  }
+  const noun = getServiceRatingNounPt(t);
+  const masculineArticleTypes = new Set([
+    "hospital",
+    "sports_center",
+    "community_center",
+    "park",
+    "market",
+    "city_market",
+    "theater",
+    "museum",
+    "cemetery",
+    "transit_station",
+    "police_station",
+    "fire_station",
+    "street_market",
+    "other",
+    "accessibility",
+    "recycling_point",
+  ]);
+  const art = masculineArticleTypes.has(t) ? "o" : "a";
+  return `Em qual **bairro** fica ${art} **${noun}** que você visitou?`;
 }
 
 // Extract service rating-specific fields
@@ -2956,15 +4054,9 @@ export function extractServiceFields(context: string): Record<string, unknown> {
   // Extract name/neighborhood from "UBS Butantã", "quero avaliar a UBS Butantã", etc.
   const typeNameMatch = context.match(/\b(ubs|hospital|escola|ceu|biblioteca|centro\s+esportivo)\s+([a-záàâãéèêíìóòôõúùç]+(?:\s+[a-záàâãéèêíìóòôõúùç]+)*?)(?=\s+que|\s*[.,!?]|$)/i);
   if (typeNameMatch) {
-    const typeKey = typeNameMatch[1].toLowerCase().replace(/\s+/, ' ');
     const namePart = typeNameMatch[2].trim();
     if (namePart.length >= 2 && namePart.length <= 50) {
-      const typeDisplay: Record<string, string> = {
-        ubs: 'UBS', hospital: 'Hospital', escola: 'Escola', ceu: 'CEU',
-        biblioteca: 'Biblioteca', 'centro esportivo': 'Centro esportivo',
-      };
-      const typeLabel = typeDisplay[typeKey] || capitalizeWords(typeKey);
-      fields.service_name = `${typeLabel} - ${capitalizeWords(namePart)}`;
+      // Só bairro/local — não preencher service_name com "UBS - X" (evita pular SERVICE_PICKER)
       fields.service_neighborhood = capitalizeWords(namePart);
     }
   }
@@ -3212,6 +4304,100 @@ export function isGeneralKnowledgeOutOfScope(userMessage: string): boolean {
   );
 }
 
+/** Mensagem padrão quando o cidadão pede opinião/avaliação sobre políticos (bloqueio determinístico). */
+export const POLITICIAN_EVALUATION_BLOCKED_MESSAGE =
+  'Não posso responder a perguntas sobre avaliação ou desempenho de políticos ou autoridades eleitas — isso foge do escopo deste canal.\n\n' +
+  'Posso ajudar com informações institucionais sobre a Câmara, serviços públicos, audiências, projetos de lei, relatos ou encaminhamentos previstos no app.\n\n' +
+  '[SHOW_SERVICES_CHIPS]';
+
+/**
+ * Perguntas diretas ou subjetivas sobre avaliação/desempenho de políticos (vereador, prefeito, etc.).
+ * Não bloqueia: avaliação de serviço público (UBS, escola…), relato/feedback estruturado (elogiar vereador, encaminhar…).
+ */
+export function isPoliticianPerformanceEvaluationQuestion(userMessage: string): boolean {
+  const m = userMessage.trim().toLowerCase();
+  if (!m) return false;
+
+  // Fluxos do app: relato urbano / encaminhamento (não confundir com "pedir opinião ao bot")
+  if (
+    /\bfeedback\s+sobre\s+vereador/i.test(m) ||
+    /\belogiar\s+(um\s+)?vereador/i.test(m) ||
+    /\bcr[ií]tica\s+ao\s+vereador/i.test(m) ||
+    /\bsugest[aã]o\s+para\s+(o\s+)?vereador/i.test(m) ||
+    /\belogio\s+ao\s+vereador/i.test(m) ||
+    /\bencaminhar.*vereador/i.test(m) ||
+    /\bquero\s+encaminhar.*vereador/i.test(m) ||
+    /\brelato.*vereador/i.test(m)
+  ) {
+    return false;
+  }
+
+  // Avaliação de serviço ou equipamento público (não pessoa)
+  if (
+    /\bavaliar\s+(um\s+)?(servi[cç]o|servi[cç]os\s+p[uú]blicos?|ubs|hospital|escola|ceu|biblioteca|posto\s+de\s+sa[uú]de|atendimento|equipamento|creche|parque)/i.test(
+      m,
+    ) ||
+    /\bnota\s+(para|pro)\s+(o\s+)?(servi[cç]o|atendimento|hospital|ubs|posto|escola)/i.test(m) ||
+    /\bfazer\s+uma\s+avalia[cç][aã]o\s+de\s+servi[cç]o/i.test(m) ||
+    /\bavalia[cç][aã]o\s+de\s+servi[cç]o\s+p[uú]blico/i.test(m)
+  ) {
+    return false;
+  }
+
+  const politico =
+    /vereador|vereadora|vereadores|vereadoras|prefeito|prefeita|deputad[oa]s?|pol[ií]ticos?|parlamentares?|presidente\s+da\s+c[iâ]mara|presidente\s+da\s+camara/i;
+  if (!politico.test(m)) return false;
+
+  // Comparação direta ("melhor vereador", "pior prefeito")
+  if (
+    /\b(melhor|pior|mais\s+corrupto|mais\s+honesto)\s+(vereador|vereadora|vereadores|prefeito|prefeita|deputad[oa]|pol[ií]tico)/i.test(
+      m,
+    )
+  ) {
+    return true;
+  }
+
+  // Subjetivo / comparação / opinião (com menção a político já garantida acima)
+  if (
+    /\b(o\s+que\s+voc[aê]|que\s+nota|qual\s+nota|d[aê]\s+nota|merece\s+(nota|voto|reelei[cç][aã]o))/i.test(m) ||
+    /\b(desempenho|performance|avalia[cç][aã]o|ranking)\b/i.test(m) ||
+    /\bopini[aã]o\s+(sobre|do|da|dos|das)/i.test(m) ||
+    /\bo\s+que\s+voc[aê]\s+acha/i.test(m) ||
+    /\b(gosta|gostam)\s+(do|da|dele|dela)\b/i.test(m) ||
+    /\b(trabalha|trabalham)\s+(bem|mal|horr[ií]vel)\b/i.test(m) ||
+    /\b(fazendo|fez|faz)\s+(um\s+)?(bom|ruim|ótimo|ótim[oa]|péssim[oa]|excelente)\s+trabalho/i.test(m) ||
+    /\b(bom|boa|ruim|r[uú]im|ótimo|ótim[oa]|péssim[oa]|excelente)\s+(trabalho|gest[aã]o)\b/i.test(m)
+  ) {
+    return true;
+  }
+
+  if (
+    /\bnota\s+(para|do|da|pro|pra)\s+(o\s+|a\s+)?(vereador|vereadora|prefeito|prefeita|deputad|presidente)\b/i.test(m)
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(avaliar|avalia)\s+(o\s+|a\s+|os\s+)?(vereador|vereadora|prefeito|prefeita|deputad|trabalho\s+do\s+vereador|gest[aã]o\s+do\s+prefeito)/i.test(
+      m,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(qual|quem)\s+(é\s+)?(o\s+|a\s+)?(melhor|pior)\s+(vereador|vereadora|prefeito|prefeita|deputad|pol[ií]tico)/i.test(m)
+  ) {
+    return true;
+  }
+
+  if (/\branking\s+(de|dos|das)?\s*(vereador|vereadora|prefeito|prefeita|deputad)/i.test(m)) {
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Perguntas informativas sobre vereador ou Câmara que não devem acionar coleta de relato (CEP).
  * Ex.: perfil da vereadora, frequência nas sessões, quem faltou, gastos da câmara, como falar com vereador.
@@ -3303,7 +4489,20 @@ export function detectCollectionIntent(
     'tem um buraco', 'poste apagado', 'lixo acumulado', 'quero abrir um chamado',
     'quero registrar um problema urbano', 'relatar problema urbano', 'fazer um relato urbano',
     'problema na rua', 'problema no bairro', 'problema de infraestrutura',
-    'quero falar de problema', 'quero falar sobre cidade', 'quero falar sobre problema'
+    'quero falar de problema', 'quero falar sobre cidade', 'quero falar sobre problema',
+    'quero fazer um elogio', 'quero elogiar', 'fazer um elogio', 'tenho um elogio',
+    'quero dar um elogio', 'elogio à cidade', 'elogio a cidade', 'elogio sobre a cidade',
+    'tenho uma sugestão', 'tenho uma sugestao', 'quero sugerir', 'sugestão para a cidade',
+    'sugestao para a cidade', 'ideia de melhoria', 'sugestão de melhoria', 'sugestao de melhoria',
+    'quero falar sobre a cidade',
+    'preciso falar sobre a cidade',
+    'preciso falar da cidade',
+    'quero falar da cidade',
+    'relato na cidade',
+    'falar com a cidade',
+    'quero abrir um relato',
+    'abrir um relato',
+    'quero registrar um relato',
     // REMOVED: 'quero relatar um problema' - too generic, matches transport!
   ];
   
@@ -3414,8 +4613,11 @@ export function detectCollectionIntent(
   const hasIntentChange = intentChangeIndicators.some(ind => fullUserContext.includes(ind));
   
   // === GENERIC "quero falar de X" PATTERN DETECTION ===
-  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'vereadores' | 'noticias';
-  const queroFalarMatch = msgLower.match(/(?:quero|vou|vamos)\s+falar\s+(?:de|do|da|sobre)\s+(\w+)/);
+  type ExplicitIntentType = 'service_rating' | 'urban_report' | 'transport_report' | 'services' | 'audiencias' | 'general' | 'history' | 'occupancy' | 'vereadores' | 'noticias';
+  // Inclui preciso/gostaria e "sobre a cidade" → tópico "cidade" (antes capturava só "a")
+  const queroFalarMatch = msgLower.match(
+    /(?:quero|vou|vamos|preciso|gostaria(?:\s+de)?)\s+falar\s+(?:de|do|da|sobre)\s+(?:a\s+)?(\w+)/i
+  );
   let genericTopicIntent: { type: ExplicitIntentType; boost: number } | null = null;
   if (queroFalarMatch) {
     const topic = queroFalarMatch[1].toLowerCase();
@@ -3433,6 +4635,9 @@ export function detectCollectionIntent(
       'serviço': 'service_rating',
       'servico': 'service_rating',
       'cidade': 'urban_report',
+      'elogio': 'urban_report',
+      'sugestão': 'urban_report',
+      'sugestao': 'urban_report',
       'problema': 'urban_report',
       'problemas': 'urban_report',
       'rua': 'urban_report',
@@ -3533,6 +4738,22 @@ export function detectCollectionIntent(
     scores.push({ type: 'general', score: 22, fields: {} });
   }
 
+  // Consulta de ocupação de equipamento (ex.: "A UBS X está cheia?") → general com tool de ocupação.
+  // Não deve cair em fluxo estruturado de avaliação.
+  const isEquipmentOccupancyQuery = (() => {
+    const m = msgLower;
+    const hasServiceEntity = /\b(ubs|hospital|escola|ceu|biblioteca|posto de sa[úu]de|centro esportivo|equipamento)\b/i.test(m);
+    const hasOccupancySignal =
+      /(ocup[aã]?[cç][aã]o|lota[cç][aã]o|movimenta[cç][aã]o|est[aá]\s+chei[oa]|t[aá]\s+chei[oa]|lotad[oa]|superlotad[oa])/.test(m);
+    const asksNow =
+      /(como est[aá]|agora|neste momento|nesse momento|nesse local|neste local|\best[aá]\b.*\?)/.test(m);
+    return hasServiceEntity && hasOccupancySignal && asksNow;
+  })();
+  if (isEquipmentOccupancyQuery) {
+    console.log('[detectCollectionIntent] Equipment occupancy query detected → occupancy tool, not service_rating');
+    scores.push({ type: 'occupancy', score: 28, fields: {} });
+  }
+
   // Transport scoring (relato de problema: atraso, lotação, etc.)
   const transportDomain = ['ônibus', 'onibus', 'metrô', 'metro', 'trem', 'cptm', 'estação', 'estacao', 'terminal', 'ponto de ônibus', 'transporte', 'transporte público', 'transporte publico'];
   const transportProblems = ['lotado', 'lotação', 'lotacao', 'atraso', 'atrasou', 'demora', 'não passou', 'nao passou', 'quebrou'];
@@ -3551,8 +4772,8 @@ export function detectCollectionIntent(
   }
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro'];
-  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'alagado', 'alagando'];
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem', 'incêndio', 'incendio', 'fogo', 'chamas', 'queimando', 'alagamento', 'alagando', 'enchente', 'inundando', 'chovendo', 'chuva forte', 'fios expostos', 'explosão', 'explosao', 'transformador', 'desabamento', 'atropelamento', 'prédio abandonado', 'predio abandonado'];
+  const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
   urbanProblems.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 2; });
@@ -3588,14 +4809,20 @@ export function detectCollectionIntent(
     serviceScore += 5; // Strong boost for explicit intent
     console.log('[detectCollectionIntent] Explicit rating intent detected');
   }
-  if (serviceScore > 0) {
+  const hasRatingSignal = ratingTerms.some(term => fullUserContext.includes(term));
+  // Evita confundir "UBS X está cheia?" com fluxo de avaliação.
+  if (isEquipmentOccupancyQuery) {
+    serviceScore = 0;
+  }
+  if (serviceScore > 0 && (hasRatingSignal || hasExplicitRatingIntent)) {
     scores.push({ type: 'service_rating', score: serviceScore, fields: extractServiceFields(fullUserContext) });
   }
   
   // Chamber feedback scoring - use user-only context
-  // Só dar chamber_feedback quando for intenção de DAR feedback (elogiar, reclamar, etc.), não quando for PERGUNTA factual
+  // IMPORTANTE: NÃO pontuar só com reclamacao/elogio/sugestao — são os mesmos termos dos botões de NATUREZA do relato urbano.
+  // Só é feedback à Câmara (vereador/legislativo) quando o cidadão menciona Câmara, vereador, gabinete, etc.
   const chamberDomain = ['vereador', 'vereadora', 'câmara', 'camara', 'parlamentar', 'gabinete', 'cmsp'];
-  const feedbackTerms = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
+  const feedbackTermsWhenChamberAnchored = ['elogiar', 'elogio', 'reclamar', 'reclamação', 'reclamacao', 'sugestão', 'sugestao', 'denunciar', 'agradecer', 'parabenizar'];
   const factualQuestionTerms = [
     'salário', 'salario', 'quanto ganha', 'remuneração', 'remuneracao', 'qual é o', 'qual e o', 'qual o ', 'qual a ',
     'quanto é', 'quanto e', 'quantos ', 'quantas ', 'valor do', 'atribuições', 'atribuicoes', 'função do', 'funcao do',
@@ -3611,8 +4838,12 @@ export function detectCollectionIntent(
     && fullUserContext.match(/vereador|vereadora|câmara|camara|municipal|legislativo|legislatura|sessão|sessao|audiência|audiencia|lei|projeto/i);
   let chamberScore = 0;
   chamberDomain.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 5; });
-  feedbackTerms.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
-  if (chamberScore > 0 && !isFactualQuestionAboutChamber) {
+  const chamberAnchored = chamberDomain.some(kw => fullUserContext.includes(kw));
+  // Só soma "elogio/reclamação/..." depois de âncora institucional — evita confundir relato de infraestrutura com feedback à Câmara
+  if (chamberAnchored) {
+    feedbackTermsWhenChamberAnchored.forEach(kw => { if (fullUserContext.includes(kw)) chamberScore += 4; });
+  }
+  if (chamberAnchored && chamberScore >= 5 && !isFactualQuestionAboutChamber) {
     scores.push({ type: 'chamber_feedback', score: chamberScore, fields: extractChamberFields(fullUserContext) });
   }
   
@@ -3725,8 +4956,7 @@ export function detectCollectionIntent(
     console.log('[detectCollectionIntent] Factual question about vereador/Câmara (salário, função, etc.) → boosting general for RAG');
   }
   // Apresentação da estrutura e funcionamento da Câmara (card ClickUp)
-  const isEstruturaFuncionamento = /(estrutura|funcionamento|apresenta[cç][aã]o)\s+(da\s+)?(câmara|camara)|conhecer\s+(a\s+)?(câmara|camara)|como\s+(a\s+)?(câmara|camara)\s+(é|e)\s+organizada|como\s+funciona\s+(a\s+)?(câmara|camara)/i.test(fullUserContext);
-  if (isEstruturaFuncionamento) {
+  if (isCamaraFuncionamentoInternoQuery(fullUserContext)) {
     knowledgeScore = Math.max(knowledgeScore, 8);
     console.log('[detectCollectionIntent] Estrutura/funcionamento da Câmara → boosting general for RAG');
   }
@@ -3875,7 +5105,7 @@ export function detectCollectionIntent(
     'urban_report': 3,      // Lower: catch natural complaints like "tem um buraco"
     'transport_report': 3,  // Lower: catch "ônibus lotado"
     'service_rating': 3,    // Lower: catch explicit "quero avaliar" - allows journey switch
-    'chamber_feedback': 5,  // Higher: needs explicit chamber reference
+    'chamber_feedback': 9,  // Câmara/vereador + termo de feedback (evita confundir com botões reclamacao/elogio do relato urbano)
     'services': 4,          // Medium: needs location question
     'audiencias': 4,        // Medium: needs audiencia reference
     'general': 4,           // Medium: needs knowledge question
@@ -3889,7 +5119,7 @@ export function detectCollectionIntent(
   // === UNIVERSAL JOURNEY SWITCH DETECTION ===
   // Detect switches between ANY journey types (structured or light)
   const allJourneyTypes = ['urban_report', 'transport_report', 'service_rating', 
-                           'services', 'audiencias', 'general', 'history',
+                           'services', 'audiencias', 'general', 'history', 'occupancy',
                            'vereadores', 'noticias'] as const;
   const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
   
@@ -3931,7 +5161,7 @@ export function detectCollectionIntent(
   
   // === PHASE 1: Check if we should maintain existing journey ===
   // If there's an existing structured journey and the new winner is a "light" type with LOW score, keep existing
-  const lightTypes = ['services', 'audiencias', 'general', 'history'];
+  const lightTypes = ['services', 'audiencias', 'general', 'history', 'occupancy'];
   if (existingJourney && isExistingStructured && lightTypes.includes(winner.type) && winner.score < 6) {
     console.log(`[detectCollectionIntent] Existing journey ${existingJourney} preserved (new intent was light with low score: ${winner.type}=${winner.score})`);
     const accumulatedFields = accumulateFieldsFromHistory(conversationHistory, existingJourney);
@@ -4219,16 +5449,23 @@ export function formatServicesWithContext(
   services: Record<string, unknown>[], 
   serviceType: string, 
   originalDistrict: string | null,
-  isExpanded: boolean
+  isExpanded: boolean,
+  /** Endereço ou referência legível da posição do cidadão (ex.: reverse geocode do GPS). */
+  referenceLocationText?: string | null,
 ): string {
   const withAddress = services.filter(hasValidAddress);
   if (withAddress.length === 0) {
     return ''; // caller will fallback
   }
   const typeName = getServiceTypeName(serviceType);
-  const header = isExpanded 
-    ? `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
-    : `Encontrei ${withAddress.length} ${typeName}:`;
+  const ref = (referenceLocationText || '').trim();
+  const header = isExpanded
+    ? ref
+      ? `Aqui estão as opções mais próximas de ${typeName} perto de ${ref}:`
+      : `Aqui estão as opções mais próximas de ${typeName}${originalDistrict && originalDistrict !== 'null' ? ` em ${originalDistrict}` : ' de você'}:`
+    : ref
+      ? `Encontrei ${withAddress.length} ${typeName} perto de ${ref}:`
+      : `Encontrei ${withAddress.length} ${typeName}:`;
   
   const list = withAddress.map((s: Record<string, unknown>, i: number) => {
     const districtInfo = isExpanded ? ` (${s.district})` : '';
@@ -4243,27 +5480,69 @@ export function formatServicesWithContext(
   return `${header}\n\n${list}${footer}`;
 }
 
+/** Perguntas sobre estrutura, órgãos e funcionamento legislativo da Câmara (evita depender só do RAG genérico). */
+export function isCamaraFuncionamentoInternoQuery(contextText: string): boolean {
+  const ctx = contextText.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+  const estruturaOuApresentacao =
+    /(estrutura|funcionamento|apresentacao)\s+(da\s+)?camara|conhecer\s+(a\s+)?camara|como\s+(a\s+)?camara\s+e\s+organizada|como\s+funciona\s+(a\s+)?camara|o\s+que\s+e\s+(a\s+)?camara\s+municipal/.test(ctx);
+  const orgaosOuProcesso =
+    /mesa\s+diretora|secretaria\s+da\s+mesa|procuradoria|regimento\s+interno|regimento|tramitacao|tramitar|sessao\s+plenaria|sessoes\s+plenarias|processo\s+legislativo|poder\s+legislativo|legislativo\s+municipal|comissoes?\s+(da\s+)?camara|comissoes?\s+permanentes|comissoes?\s+tecnicas|atribuicoes\s+das\s+comissoes/.test(ctx);
+  const mentionsChamber = /camara\s+municipal|\bcamara\b|vereador|vereadores|plen|comiss/.test(ctx);
+  const funcionamentoInterno = /funcionamento\s+interno/.test(ctx);
+  return estruturaOuApresentacao || funcionamentoInterno || (mentionsChamber && orgaosOuProcesso);
+}
+
+function sanitizeKbIlikeTerm(term: string): string {
+  return term.replace(/%/g, '').replace(/_/g, '').trim();
+}
+
 // Helper: Search knowledge base (with positive alternatives)
 export async function searchKnowledgeBase(supabase: SupabaseClient, query: string): Promise<string> {
-  let searchTerms = query.toLowerCase().split(' ').filter(t => t.length > 2).slice(0, 5);
+  let searchTerms = query
+    .toLowerCase()
+    .split(/\s+/)
+    .map(sanitizeKbIlikeTerm)
+    .filter(t => t.length > 2)
+    .slice(0, 5);
   // Para zoneamento/LPUOS/construir: garantir termos que existem no conteúdo (evitar falha por acento: construir vs construído)
   const zoneamentoBoost = ['zoneamento', 'lpuos', 'construir', 'construído', 'imóvel', 'imovel', 'siszon', 'geosampa'];
   const q = query.toLowerCase();
   if (zoneamentoBoost.some(k => q.includes(k))) {
-    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].filter(t => !searchTerms.includes(t));
+    const extra = ['zoneamento', 'lpuos', 'geosampa', 'siszon'].map(sanitizeKbIlikeTerm).filter(t => t.length > 2);
     searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 6);
+  }
+  // Funcionamento interno / estrutura da Câmara: termos que aparecem nas FAQs da KB
+  const camaraKbBoost = ['mesa', 'plenário', 'plenario', 'comissões', 'comissoes', 'regimento', 'tramitação', 'tramitacao', 'legislativo', 'câmara', 'camara', 'vereador', 'secretaria', 'procuradoria', 'estrutura', 'funcionamento'];
+  if (isCamaraFuncionamentoInternoQuery(query) || camaraKbBoost.some(k => q.includes(k))) {
+    const extra = ['mesa', 'plenário', 'comissões', 'regimento', 'tramitação', 'vereador', 'legislativo', 'câmara']
+      .map(sanitizeKbIlikeTerm)
+      .filter(t => t.length > 2);
+    searchTerms = [...new Set([...searchTerms, ...extra])].slice(0, 8);
   }
   if (searchTerms.length === 0) {
     return 'Posso te ajudar com informações sobre a Câmara Municipal, audiências públicas, vereadores e serviços da cidade. O que você gostaria de saber?';
   }
 
+  const orClause = searchTerms
+    .flatMap(term => [`content.ilike.%${term}%`, `title.ilike.%${term}%`])
+    .join(',');
+
   const { data, error } = await supabase
     .from('knowledge_base')
     .select('content, content_type, title')
-    .or(searchTerms.map(term => `content.ilike.%${term}%`).join(','))
-    .limit(5);
+    .or(orClause)
+    .limit(6);
+
+  const hitCount = data?.length ?? 0;
+  console.log('[searchKnowledgeBase]', JSON.stringify({
+    querySnippet: query.slice(0, 120),
+    termCount: searchTerms.length,
+    hits: hitCount,
+    dbError: !!error,
+  }));
 
   if (error || !data?.length) {
+    console.log('[searchKnowledgeBase] empty_or_error', JSON.stringify({ reason: error ? 'db_error' : 'no_rows', querySnippet: query.slice(0, 120) }));
     // NEVER NEGATIVE: Suggest alternatives instead of just saying "not found"
     const suggestions = [
       '• Como funciona a Câmara Municipal',
@@ -4421,7 +5700,8 @@ export async function findNearbyServices(
   userLon?: number | null,
   radiusMeters: number = 2000,
   minRating: number = 0,
-  searchQuery?: string | null
+  searchQuery?: string | null,
+  referenceLocationText?: string | null,
 ): Promise<string> {
   const typeName = getServiceTypeName(serviceType);
   const limitWithBuffer = Math.max(limit * 3, 15);
@@ -4467,7 +5747,7 @@ export async function findNearbyServices(
         .slice(0, limit);
     }
     if (ordered.length === 0) return '';
-    return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded) || '';
+    return formatServicesWithContext(ordered, serviceType, district ?? null, isExpanded, referenceLocationText) || '';
   };
 
   const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
@@ -4577,6 +5857,203 @@ export async function getServiceAddressByName(supabase: SupabaseClient, serviceN
   const addressLine = [first.address, first.district].filter(Boolean).join(', ');
   const phoneNote = first.phone ? `\n📞 ${first.phone}` : '';
   return `${first.name}\n📍 ${addressLine}${phoneNote}`;
+}
+
+type OccupancyServiceDisplay = {
+  name: string;
+  address?: string | null;
+  district?: string | null;
+};
+
+/** Formata texto de ocupação a partir do retorno da RPC (mesma política da UI cidadã). */
+function formatOccupancySummaryFromRpcResult(selected: OccupancyServiceDisplay, occRows: unknown): string {
+  const row = Array.isArray(occRows) ? occRows[0] : null;
+  const usersCount = Math.max(0, Number((row as { users_count?: unknown })?.users_count || 0));
+  const lastPingAt = row && typeof (row as { last_ping_at?: unknown }).last_ping_at === 'string'
+    ? String((row as { last_ping_at: string }).last_ping_at)
+    : null;
+  const MIN_SAMPLE = 3;
+
+  let movementLabel = 'Movimentação baixa';
+  let coverageLabel = 'Cobertura baixa';
+  if (usersCount >= 20) {
+    movementLabel = 'Movimentação alta';
+    coverageLabel = 'Cobertura alta';
+  } else if (usersCount >= 8) {
+    movementLabel = 'Movimentação média';
+    coverageLabel = 'Cobertura média';
+  }
+
+  const header = `📍 **${selected.name}**${selected.district ? ` (${selected.district})` : ''}`;
+  const address = selected.address ? `\nEndereço: ${selected.address}` : '';
+  const baseLine = `\nFonte: Visitas detectadas no app (sinais de presença agregados).`;
+  const lastPingLine = lastPingAt
+    ? `\nÚltimo ping: ${new Date(lastPingAt).toLocaleString('pt-BR')}.`
+    : '';
+  const transparencyLine = `\nIndicador estimado com base em interações de usuários do app (não é medição oficial da Prefeitura).`;
+
+  if (usersCount < MIN_SAMPLE) {
+    return `${header}${address}\n\n**Dados insuficientes** para estimar a movimentação agora (base abaixo da amostra mínima).${baseLine}${lastPingLine}${transparencyLine}`;
+  }
+
+  return `${header}${address}\n\n${movementLabel} nas últimas 2h.\n${coverageLabel}.\nBase: ${usersCount} pessoa${usersCount === 1 ? '' : 's'} com sinais recentes no app.${baseLine}${lastPingLine}${transparencyLine}`;
+}
+
+/**
+ * Ocupação por UUID (ex.: seleção no picker após pergunta de lotação).
+ */
+export async function getServiceOccupancyStatusByServiceId(
+  supabase: SupabaseClient,
+  serviceId: string
+): Promise<string> {
+  const idTrim = String(serviceId || '').trim();
+  if (!/^[a-f0-9-]{36}$/i.test(idTrim)) {
+    return 'Identificador do serviço inválido.';
+  }
+  const { data: svc, error } = await supabase
+    .from('public_services')
+    .select('id, name, address, district')
+    .eq('id', idTrim)
+    .maybeSingle();
+  if (error || !svc) {
+    return 'Não encontrei esse equipamento na base. Tente novamente ou escolha outro na lista.';
+  }
+  const selected: OccupancyServiceDisplay = {
+    name: String(svc.name),
+    address: (svc as { address?: string | null }).address ?? null,
+    district: (svc as { district?: string | null }).district ?? null,
+  };
+  const { data: occRows, error: occError } = await supabase.rpc('get_equipment_occupancy_summary_for_service', {
+    p_service_id: idTrim,
+    p_window_minutes: 120,
+  });
+  if (occError) {
+    console.warn('[getServiceOccupancyStatusByServiceId] occupancy rpc error:', occError.message);
+    return `Encontrei **${selected.name}**, mas não consegui consultar a ocupação neste momento.`;
+  }
+  return formatOccupancySummaryFromRpcResult(selected, occRows);
+}
+
+/**
+ * Retorna status de ocupação de um equipamento específico pelo nome.
+ * Usa a mesma política da UI cidadã: amostra mínima, nível de movimentação e transparência.
+ */
+export async function getServiceOccupancyStatusByName(
+  supabase: SupabaseClient,
+  serviceName: string,
+  district?: string
+): Promise<string> {
+  const nameTrim = String(serviceName || "").trim();
+  const districtTrim = String(district || "").trim();
+  if (nameTrim.length < 3) {
+    return 'Me diga o nome do equipamento com mais detalhe (ex.: "CEU Butantã" ou "UBS Vila Mariana").';
+  }
+
+  // Remove termos de pergunta para melhorar matching por nome real do equipamento.
+  const cleanedName = nameTrim
+    .replace(/\?/g, ' ')
+    .replace(/\b(como\s+est[aá]|est[aá]\s+chei[oa]|t[aá]\s+chei[oa]|lota[cç][aã]o|ocupa[cç][aã]o|agora)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const lookupTerm = cleanedName.length >= 3 ? cleanedName : nameTrim;
+
+  const inferServiceTypeForPicker = (text: string): string | null => {
+    const t = text.toLowerCase();
+    if (/\bubs\b|posto de sa[úu]de/.test(t)) return 'ubs';
+    if (/\bhospital\b/.test(t)) return 'hospital';
+    if (/\bescola\b|emef|emei|etec/.test(t)) return 'school';
+    if (/\bceu\b/.test(t)) return 'ceu';
+    if (/\bbiblioteca\b/.test(t)) return 'library';
+    if (/centro esportivo|esportivo/.test(t)) return 'sports_center';
+    return null;
+  };
+  const inferDistrictForPicker = (text: string): string | null => {
+    const t = text
+      .replace(/\b(ubs|hospital|escola|ceu|biblioteca|posto de sa[úu]de|centro esportivo)\b/gi, ' ')
+      .replace(/\b(como|est[aá]|agora|ocup[aã]?[cç][aã]o|lota[cç][aã]o|movimenta[cç][aã]o)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return t.length >= 3 ? t : null;
+  };
+  const pickerType = inferServiceTypeForPicker(lookupTerm);
+  const pickerDistrict = districtTrim || inferDistrictForPicker(lookupTerm) || '';
+  const pickerMarker = `[SERVICE_PICKER${pickerDistrict ? `:district=${encodeURIComponent(pickerDistrict)}` : ''}${pickerType ? `:type=${pickerType}` : ''}]`;
+
+  // Query mínima e resiliente (evita erro em ambientes com variações de colunas como district/neighborhood).
+  let { data: services, error: serviceError } = await supabase
+    .from('public_services')
+    .select('id, name')
+    .ilike('name', `%${lookupTerm}%`)
+    .limit(8);
+  if (serviceError) {
+    console.warn('[getServiceOccupancyStatusByName] service lookup error (table):', serviceError.message);
+    // Fallback robusto via RPC de busca (usada em outras jornadas do app).
+    const { data: rpcData, error: rpcError } = await supabase.rpc('search_public_services_fulltext', {
+      min_lat: null,
+      max_lat: null,
+      min_lng: null,
+      max_lng: null,
+      center_lat: null,
+      center_lng: null,
+      radius_meters: null,
+      search_query: lookupTerm,
+      service_types: null,
+      result_limit: 8,
+    });
+    if (rpcError) {
+      console.warn('[getServiceOccupancyStatusByName] service lookup error (rpc):', rpcError.message);
+      return 'Não consegui consultar a ocupação agora. Tente novamente em instantes.';
+    }
+    services = (Array.isArray(rpcData) ? rpcData : [])
+      .map((r: Record<string, unknown>) => ({ id: String(r.id || ''), name: String(r.name || '') }))
+      .filter((r) => r.id && r.name);
+  }
+  if (!services?.length) {
+    return `[OCCUPANCY_SERVICE_PICK][FIELD_REQUEST:service_name]Não encontrei exatamente esse equipamento${districtTrim ? ` em ${districtTrim}` : ''}. Selecione na lista abaixo (ou refine por nome/bairro).\n${pickerMarker}`;
+  }
+
+  // Tenta enriquecer com address/district; se falhar, segue sem esses campos.
+  let detailsById = new Map<string, { address?: string | null; district?: string | null }>();
+  const ids = services.map((s) => s.id).filter(Boolean);
+  if (ids.length > 0) {
+    const { data: detailsRows } = await supabase
+      .from('public_services')
+      .select('id, address, district')
+      .in('id', ids);
+    for (const row of (detailsRows || [])) {
+      detailsById.set(String(row.id), {
+        address: (row as { address?: string | null }).address ?? null,
+        district: (row as { district?: string | null }).district ?? null,
+      });
+    }
+  }
+
+  const ranked = services
+    .map((s) => {
+      const d = detailsById.get(String(s.id));
+      const scoreNameExact = s.name?.toLowerCase?.() === lookupTerm.toLowerCase() ? 4 : 0;
+      const scoreNameIncludes = s.name?.toLowerCase?.().includes(lookupTerm.toLowerCase()) ? 2 : 0;
+      const scoreDistrict = districtTrim && d?.district?.toLowerCase?.().includes(districtTrim.toLowerCase()) ? 3 : 0;
+      return { ...s, address: d?.address ?? null, district: d?.district ?? null, _score: scoreNameExact + scoreNameIncludes + scoreDistrict };
+    })
+    .sort((a, b) => b._score - a._score);
+
+  if (ranked.length > 1 && ranked[0]?._score === ranked[1]?._score) {
+    return `[OCCUPANCY_SERVICE_PICK][FIELD_REQUEST:service_name]Encontrei mais de um equipamento parecido. Selecione na lista abaixo para eu consultar a ocupação correta.\n${pickerMarker}`;
+  }
+
+  const selected = ranked[0];
+  const { data: occRows, error: occError } = await supabase.rpc('get_equipment_occupancy_summary_for_service', {
+    p_service_id: selected.id,
+    p_window_minutes: 120,
+  });
+
+  if (occError) {
+    console.warn('[getServiceOccupancyStatusByName] occupancy rpc error:', occError.message);
+    return `Encontrei **${selected.name}**, mas não consegui consultar a ocupação neste momento.`;
+  }
+
+  return formatOccupancySummaryFromRpcResult(selected, occRows);
 }
 
 // Helper: build tema filter (ilike on tema or titulo)
@@ -5003,7 +6480,7 @@ export async function getCitizenHistory(
   if (historyType === 'all' || historyType === 'urban_reports') {
     let query = supabase
       .from('urban_reports')
-      .select('id, category, subcategory, status, created_at, location_address, street, neighborhood')
+      .select('id, protocol_code, category, subcategory, status, created_at, location_address, street, neighborhood')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -5018,7 +6495,8 @@ export async function getCitizenHistory(
       data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         const location = r.street ? `${r.street}, ${r.neighborhood}` : r.location_address || 'Local não informado';
-        results.push(`${i+1}. ${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        const proto = r.protocol_code ? `**${r.protocol_code}** — ` : '';
+        results.push(`${i+1}. ${proto}${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -5042,7 +6520,8 @@ export async function getCitizenHistory(
       results.push('🚌 **Relatos de Transporte:**');
       data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
-        results.push(`${i+1}. ${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        const proto = r.protocol_code ? `**${r.protocol_code}** — ` : '';
+        results.push(`${i+1}. ${proto}${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -5168,6 +6647,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',
@@ -5334,8 +6814,33 @@ export async function executeTool(
       }
       
       case 'create_urban_report': {
+        /** Conversa + args da ferramenta: o modelo costuma omitir risk_level / afetação no JSON — a coleta está no histórico. */
+        const acc = (accumulatedFields || {}) as Record<string, unknown>;
+        const rawArgs = (args || {}) as Record<string, unknown>;
+        // Chaves explícitas `undefined` no objeto (ex.: toolArgs no index) não devem apagar valores vindos do histórico
+        const argsSanitized = Object.fromEntries(
+          Object.entries(rawArgs).filter(([, v]) => v !== undefined),
+        ) as Record<string, unknown>;
+        const eff: Record<string, unknown> = { ...acc, ...argsSanitized };
+
+        // JSON do modelo pode trazer `risk_level: null` e sobrescrever a coleta do histórico — preferir valor preenchido na conversa
+        const restoreEmptyFromAcc = (key: 'risk_level' | 'affected_scope' | 'urgency_reason') => {
+          const v = eff[key];
+          const fromAcc = acc[key];
+          const empty = v === undefined || v === null || v === '';
+          if (empty && fromAcc != null && fromAcc !== '') eff[key] = fromAcc;
+        };
+        restoreEmptyFromAcc('risk_level');
+        restoreEmptyFromAcc('affected_scope');
+        restoreEmptyFromAcc('urgency_reason');
+        const rtEff = eff.risk_types;
+        const rtAcc = acc.risk_types;
+        if ((!Array.isArray(rtEff) || rtEff.length === 0) && Array.isArray(rtAcc) && rtAcc.length > 0) {
+          eff.risk_types = rtAcc;
+        }
+
         // Validar abrangência: apenas município de São Paulo (Guarulhos e demais cidades não aceitos)
-        const reportCity = (args.city ?? accumulatedFields?.city) as string | undefined;
+        const reportCity = (eff.city ?? acc.city) as string | undefined;
         if (reportCity && !isCitySaoPaulo(reportCity)) {
           return {
             success: false,
@@ -5343,26 +6848,26 @@ export async function executeTool(
           };
         }
         // Validate category is provided
-        if (!args.category) {
+        if (!eff.category) {
           return {
             success: false,
-            message: 'Preciso saber a categoria do problema. É um problema de iluminação, buraco, esgoto, lixo...?'
+            message: 'Preciso saber a categoria do relato (iluminação, buraco, esgoto, lixo, área verde, etc.). Pode descrever melhor o local ou o tema?'
           };
         }
         
         // Validate category against enum
         const validCategories = VALID_URBAN_CATEGORIES;
-        if (!validCategories.includes(args.category)) {
-          console.error('[create_urban_report] Invalid category:', args.category);
+        if (!validCategories.includes(eff.category as (typeof validCategories)[number])) {
+          console.error('[create_urban_report] Invalid category:', eff.category);
           return {
             success: false,
-            message: `Categoria inválida: ${args.category}. Categorias válidas: ${validCategories.join(', ')}`
+            message: `Categoria inválida: ${eff.category}. Categorias válidas: ${validCategories.join(', ')}`
           };
         }
         
         // USE CENTRALIZED NLP FUNCTION for flexible description validation
         // Accepts: 8+ chars with keyword OR 20+ chars OR 15+ with keyword
-        const isValidDescription = args.description && isValidDomainDescription(args.description.trim(), 'urban');
+        const isValidDescription = eff.description && isValidDomainDescription(String(eff.description).trim(), 'urban');
         
         if (!isValidDescription) {
           return {
@@ -5372,37 +6877,40 @@ export async function executeTool(
         }
         
         // Validate required address fields
-        if (!args.street || !args.neighborhood) {
+        if (!eff.street || !eff.neighborhood) {
           return {
             success: false,
             message: 'Preciso saber a rua e o bairro para registrar o relato. Qual o CEP ou endereço do local?'
           };
         }
         
-        // === HARD VALIDATION FOR RISK CATEGORIES ===
-        const RISK_CATEGORIES = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'sinalizacao', 'drenagem'];
-        
-        if (RISK_CATEGORIES.includes(args.category)) {
-          // Require risk_level for risk categories
-          if (!args.risk_level) {
+        // === HARD VALIDATION: criticidade / risco (todas as categorias exceto feedback_camara) ===
+        if (URBAN_RISK_COLLECTION_CATEGORIES.includes(String(eff.category || ''))) {
+          if (!eff.risk_level) {
             const categoryLabels: Record<string, string> = {
               via_publica: 'via pública',
+              pavimentacao: 'pavimentação',
               iluminacao: 'iluminação',
               esgoto: 'esgoto/alagamento',
               area_verde: 'área verde',
+              calcada: 'calçada',
               sinalizacao: 'sinalização',
-              drenagem: 'drenagem'
+              drenagem: 'drenagem',
+              poluicao: 'poluição',
+              lixo: 'lixo/entulho',
+              higiene_urbana: 'higiene urbana',
+              animais: 'animais',
+              outro: 'outro tema',
             };
-            const label = categoryLabels[args.category] || args.category;
-            // Add FIELD_REQUEST marker for deterministic capture of risk_level
+            const label = categoryLabels[String(eff.category)] || eff.category;
             return {
               success: false,
-              message: `[FIELD_REQUEST:risk_level]Como seu relato é sobre **${label}**, preciso entender a gravidade.\n\nHá algum risco imediato? _(ex: fios expostos, via bloqueada, alagando)_`
+              message: `[FIELD_REQUEST:risk_level]Para registrar com **criticidade correta**, qual o **nível de gravidade**? Toque em uma opção abaixo (ou descreva em uma frase). _(Categoria: ${label})_[QUICK_REPLY:critical,moderate,low,none]`,
             };
           }
           
           // If risk is moderate or critical, require affected_scope
-          if (['critical', 'moderate'].includes(args.risk_level) && !args.affected_scope) {
+          if (['critical', 'moderate'].includes(String(eff.risk_level)) && !eff.affected_scope) {
             // Add FIELD_REQUEST marker for deterministic capture of affected_scope
             return {
               success: false,
@@ -5416,10 +6924,10 @@ export async function executeTool(
         
         // Build location_address from structured fields
         const locationParts = [];
-        if (args.street) locationParts.push(args.street);
-        if (args.street_number) locationParts.push(args.street_number);
-        if (args.reference_point) locationParts.push(`(${args.reference_point})`);
-        if (args.neighborhood) locationParts.push(`- ${args.neighborhood}`);
+        if (eff.street) locationParts.push(eff.street);
+        if (eff.street_number) locationParts.push(eff.street_number);
+        if (eff.reference_point) locationParts.push(`(${eff.reference_point})`);
+        if (eff.neighborhood) locationParts.push(`- ${eff.neighborhood}`);
         const location_address = locationParts.join(' ');
         
         // Generate protocol code atomically
@@ -5431,13 +6939,57 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        let derivedSeverity = mapUrbanRiskLevelToSeverity((eff.risk_level as string) || null);
+
+        // Geocode para coordenadas do relato (usado em proximidade e no registro)
+        let reportLat: number | null = null;
+        let reportLon: number | null = null;
+        let proximityAdjustment: { adjustedSeverity: string; proximityDetails: string[] } | null = null;
+
+        const addrForGeocode = {
+          street: (eff.street as string) || null,
+          street_number: (eff.street_number as string) || null,
+          neighborhood: (eff.neighborhood as string) || null,
+          cep: (eff.cep as string) || null,
+          city: (eff.city ?? acc.city) as string | null || 'São Paulo',
+        };
+        let coords = await geocodeAddressWithGoogle(supabase, addrForGeocode);
+        if (!coords) {
+          coords = await geocodeAddressToCoord(addrForGeocode);
+        }
+        if (coords) {
+          reportLat = coords.lat;
+          reportLon = coords.lon;
+          proximityAdjustment = await adjustSeverityForProximityToSensitiveEquipment(
+            supabase, reportLat, reportLon, derivedSeverity,
+          );
+          if (proximityAdjustment) {
+            derivedSeverity = proximityAdjustment.adjustedSeverity;
+          }
+        }
+
+        const reportNatureResolved =
+          normalizeReportNature((eff.report_nature as string) ?? (acc.report_nature as string)) ??
+          'reclamacao';
+
+        // Prioridade imediata: relatos críticos de segurança e saúde
+        const SAFETY_HEALTH_CATEGORIES = ['esgoto', 'via_publica', 'iluminacao', 'sinalizacao', 'drenagem', 'area_verde'];
+        const isCriticalSeverity = derivedSeverity === 'critical';
+        const isSafetyHealthWithRisk =
+          SAFETY_HEALTH_CATEGORIES.includes(String(eff.category)) &&
+          ['critical', 'moderate'].includes(String(eff.risk_level || ''));
+        const initialN8nPriority =
+          isCriticalSeverity || isSafetyHealthWithRisk ? 'critica' : null;
+
         console.log('[create_urban_report] Attempting to insert report:', {
           userId,
-          category: args.category,
-          hasDescription: !!args.description,
-          hasStreet: !!args.street,
-          hasNeighborhood: !!args.neighborhood,
-          location_address
+          category: eff.category,
+          report_nature: reportNatureResolved,
+          hasDescription: !!eff.description,
+          hasStreet: !!eff.street,
+          hasNeighborhood: !!eff.neighborhood,
+          location_address,
+          derivedSeverity,
         });
         
         const { data, error } = await supabase
@@ -5445,28 +6997,33 @@ export async function executeTool(
           .insert({
             user_id: userId,
             protocol_code: protocolCode,
-            category: args.category, // Use AI-classified category directly
-            subcategory: args.subcategory || null,
-            description: args.description,
+            category: eff.category, // Use AI-classified category directly
+            subcategory: eff.subcategory || null,
+            report_nature: reportNatureResolved,
+            description: eff.description,
             location_address: location_address,
-            cep: args.cep || null,
-            street: args.street || null,
-            street_number: args.street_number || null,
-            reference_point: args.reference_point || null,
-            neighborhood: args.neighborhood || null,
-            photos: Array.isArray(args.photos) && args.photos.length > 0 ? args.photos : null,
+            cep: eff.cep || null,
+            street: eff.street || null,
+            street_number: eff.street_number || null,
+            reference_point: eff.reference_point || null,
+            neighborhood: eff.neighborhood || null,
+            latitude: reportLat,
+            longitude: reportLon,
+            photos: Array.isArray(eff.photos) && eff.photos.length > 0 ? eff.photos : null,
             ai_classification: {
-              council_member_name: args.council_member_name || null,
-              council_member_party: args.council_member_party || null
+              council_member_name: eff.council_member_name || null,
+              council_member_party: eff.council_member_party || null
             },
             // Impact fields (new)
-            risk_level: args.risk_level || null,
-            risk_types: args.risk_types || [],
-            affected_scope: args.affected_scope || null,
-            affected_estimate: args.affected_estimate || null,
-            active_consequences: args.active_consequences || [],
-            urgency_reason: args.urgency_reason || null,
-            status: 'pending'
+            risk_level: eff.risk_level || null,
+            risk_types: eff.risk_types || [],
+            affected_scope: eff.affected_scope || null,
+            affected_estimate: eff.affected_estimate || null,
+            active_consequences: eff.active_consequences || [],
+            urgency_reason: eff.urgency_reason || null,
+            severity: derivedSeverity,
+            status: 'pending',
+            n8n_priority: initialN8nPriority
           })
           .select('id, protocol_code')
           .single();
@@ -5480,6 +7037,63 @@ export async function executeTool(
           id: data.id,
           protocol_code: data.protocol_code
         });
+
+        try {
+          await insertClassificationPredictionLog(supabase, {
+            userId,
+            reportId: data.id,
+            reportType: 'urban',
+            predictedCategory: String(eff.category),
+            predictedSubcategory: eff.subcategory ? String(eff.subcategory) : null,
+            classificationSource: inferUrbanClassificationSource(
+              accumulatedFields as Record<string, unknown> | undefined
+            ),
+          });
+        } catch (metricErr) {
+          console.warn('[create_urban_report] classification metric log failed:', metricErr);
+        }
+
+        if (eff.risk_level) {
+          const desc = String(eff.description || "").trim();
+          const snippet = desc.slice(0, 240);
+          const autoAgain = desc ? autoInferRisk(desc) : null;
+          const isAuto = String(eff.urgency_reason || "").startsWith("Auto-inferido");
+          const justification =
+            (eff.urgency_reason && String(eff.urgency_reason).trim()) ||
+            `Nível de risco registrado na coleta estruturada: ${eff.risk_level}.`;
+          await insertReportSeverityAuditLog(supabase, {
+            urban_report_id: data.id,
+            metric: "risk_level",
+            previous_value: null,
+            new_value: eff.risk_level,
+            justification,
+            source_snippet: snippet || null,
+            confidence: isAuto && autoAgain?.confidence != null ? autoAgain.confidence : null,
+            metadata: {
+              risk_types: eff.risk_types ?? [],
+              derived_severity: derivedSeverity,
+              category: eff.category,
+              auto_inferred: isAuto,
+            },
+          });
+        }
+
+        if (proximityAdjustment) {
+          const prevSev = mapUrbanRiskLevelToSeverity((eff.risk_level as string) || null);
+          await insertReportSeverityAuditLog(supabase, {
+            urban_report_id: data.id,
+            metric: "severity_proximity_adjustment",
+            previous_value: prevSev,
+            new_value: proximityAdjustment.adjustedSeverity,
+            justification: `Severidade elevada por proximidade a ${proximityAdjustment.proximityDetails.join(', ')} (até ${PROXIMITY_RADIUS_METERS}m).`,
+            source_snippet: null,
+            metadata: {
+              latitude: reportLat,
+              longitude: reportLon,
+              proximity_details: proximityAdjustment.proximityDetails,
+            },
+          });
+        }
         
         // Notify n8n
         try {
@@ -5488,7 +7102,7 @@ export async function executeTool(
               event_type: 'urban_report.created',
               entity_type: 'urban_report',
               entity_id: data.id,
-              payload: { ...args, user_id: userId }
+              payload: { ...eff, user_id: userId }
             }
           });
         } catch (n8nError) {
@@ -5499,6 +7113,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',
@@ -5511,7 +7126,7 @@ export async function executeTool(
           feedback_camara: 'Feedback Câmara',
           outro: 'Outro'
         };
-        const categoryLabel = categoryLabels[args.category] || args.category;
+        const categoryLabel = categoryLabels[String(eff.category)] || String(eff.category);
         
         const riskLabels: Record<string, string> = {
           critical: 'Crítico',
@@ -5522,10 +7137,13 @@ export async function executeTool(
         
         const scopeLabels: Record<string, string> = {
           individual: 'Apenas eu',
-          street: 'Rua toda',
+          local: 'Local (rua/quadra)',
+          street: 'Toda a rua',
           building: 'Meu prédio/vizinhança',
           block: 'Quadra inteira',
-          neighborhood: 'Bairro todo',
+          neighborhood: 'Bairro',
+          regional: 'Regional (bairro)',
+          citywide: 'Cidade toda',
           zone: 'Zona',
           city: 'Cidade toda'
         };
@@ -5557,36 +7175,67 @@ export async function executeTool(
         
         // Build address section
         const addressParts: string[] = [];
-        if (args.street) addressParts.push(args.street);
-        if (args.street_number) addressParts.push(args.street_number);
+        if (eff.street) addressParts.push(String(eff.street));
+        if (eff.street_number) addressParts.push(String(eff.street_number));
         const addressLine = addressParts.join(', ');
-        const neighborhoodLine = args.neighborhood || '';
-        const cepLine = args.cep ? `CEP ${args.cep}` : '';
-        
-        // Build impact section (only for risk categories)
-        let impactSection = '';
-        const riskCategories = ['via_publica', 'iluminacao', 'esgoto', 'area_verde', 'calcada', 'sinalizacao', 'drenagem'];
-        if (riskCategories.includes(args.category) && args.risk_level) {
-          const impactParts = [];
-          if (args.risk_level) impactParts.push(`- **Nível de risco:** ${riskLabels[args.risk_level] || args.risk_level}`);
-          if (args.risk_types?.length) {
-            const translatedTypes = args.risk_types.map((t: string) => riskTypeLabels[t] || t);
-            impactParts.push(`- **Tipo de risco:** ${translatedTypes.join(', ')}`);
+        const neighborhoodLine = String(eff.neighborhood || '');
+        const cepLine = eff.cep ? `CEP ${eff.cep}` : '';
+
+        /**
+         * Resumo pós-registro: `args` da ferramenta pode vir com risk_level undefined e apagar o merge —
+         * restoreEmptyFromAcc já corrige `eff`, mas reforçamos com `acc` (histórico) para o texto final.
+         */
+        const summaryRiskLevel = String(
+          eff.risk_level != null && eff.risk_level !== ''
+            ? eff.risk_level
+            : acc.risk_level != null && acc.risk_level !== ''
+              ? acc.risk_level
+              : '',
+        ).trim();
+        const summaryRiskTypes: string[] =
+          Array.isArray(eff.risk_types) && (eff.risk_types as unknown[]).length > 0
+            ? (eff.risk_types as string[])
+            : Array.isArray(acc.risk_types) && (acc.risk_types as unknown[]).length > 0
+              ? (acc.risk_types as string[])
+              : [];
+        const summaryAffected =
+          eff.affected_scope != null && eff.affected_scope !== ''
+            ? eff.affected_scope
+            : acc.affected_scope != null && acc.affected_scope !== ''
+              ? acc.affected_scope
+              : null;
+
+        /** Mesmo escopo que a coleta de criticidade (exclui feedback_camara). */
+        const hasUrbanSeverity =
+          URBAN_RISK_COLLECTION_CATEGORIES.includes(String(eff.category || '')) && summaryRiskLevel.length > 0;
+
+        // Linhas de gravidade no próprio resumo (alinhado ao preview e ao fluxo de transporte)
+        const urbanSeveritySummaryLines: string[] = [];
+        if (hasUrbanSeverity) {
+          urbanSeveritySummaryLines.push(
+            `⚠️ **Gravidade / criticidade:** ${riskLabels[summaryRiskLevel] || summaryRiskLevel}`,
+          );
+          if (summaryRiskTypes.length) {
+            const translatedTypes = summaryRiskTypes.map((t: string) => riskTypeLabels[t] || t);
+            urbanSeveritySummaryLines.push(`🔗 **Tipos de risco:** ${translatedTypes.join(', ')}`);
           }
-          if (args.affected_scope) impactParts.push(`- **Escopo:** ${scopeLabels[args.affected_scope] || args.affected_scope}`);
-          if (args.affected_estimate) impactParts.push(`- **Pessoas afetadas:** ~${args.affected_estimate}`);
-          if (args.active_consequences?.length) {
-            const translatedConseq = args.active_consequences.map((c: string) => consequenceLabels[c] || c);
-            impactParts.push(`- **Consequências:** ${translatedConseq.join(', ')}`);
+          if (summaryAffected != null && summaryAffected !== '') {
+            urbanSeveritySummaryLines.push(
+              `👥 **Afetação:** ${scopeLabels[String(summaryAffected)] || summaryAffected}`,
+            );
           }
-          
-          if (impactParts.length > 0) {
-            impactSection = `\n\n⚠️ **Avaliação de Impacto:**\n${impactParts.join('\n')}`;
+          if (eff.affected_estimate) {
+            urbanSeveritySummaryLines.push(`📊 **Pessoas afetadas (estimativa):** ~${eff.affected_estimate}`);
+          }
+          const acList = Array.isArray(eff.active_consequences) ? eff.active_consequences as string[] : [];
+          if (acList.length) {
+            const translatedConseq = acList.map((c: string) => consequenceLabels[c] || c);
+            urbanSeveritySummaryLines.push(`⚡ **Consequências ativas:** ${translatedConseq.join(', ')}`);
           }
         }
-        
-        const photosSection = Array.isArray(args.photos) && args.photos.length > 0
-          ? `\n\n📷 **Fotos anexadas:** ${args.photos.length} imagem(ns)\n`
+
+        const photosSection = Array.isArray(eff.photos) && eff.photos.length > 0
+          ? `\n\n📷 **Fotos anexadas:** ${eff.photos.length} imagem(ns)\n`
           : '';
 
         // Compose full message
@@ -5598,17 +7247,21 @@ export async function executeTool(
           data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : '',
           '**Resumo do seu relato:**',
           '',
-          `📋 **Categoria:** ${categoryLabel}${args.subcategory ? ` - ${args.subcategory}` : ''}`,
+          `📋 **Categoria:** ${categoryLabel}${eff.subcategory ? ` - ${eff.subcategory}` : ''}`,
           '',
-          `📝 **Descrição:** ${args.description}`,
+          `📝 **Descrição:** ${eff.description}`,
+          ...(urbanSeveritySummaryLines.length > 0 ? ['', ...urbanSeveritySummaryLines] : []),
           '',
           `📍 **Endereço:**`,
           addressLine ? `- ${addressLine}` : '',
           neighborhoodLine ? `- ${neighborhoodLine}` : '',
           cepLine ? `- ${cepLine}` : '',
-          args.reference_point ? `- Referência: ${args.reference_point}` : '',
+          eff.reference_point ? `- Referência: ${eff.reference_point}` : '',
           photosSection,
-          impactSection,
+          '',
+          '---',
+          '',
+          URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
           '',
           '---',
           '',
@@ -5621,7 +7274,7 @@ export async function executeTool(
         
         // Track emerging category patterns for NLP learning (async, non-blocking)
         try {
-          await detectEmergingCategory(args.description, args.category, supabase);
+          await detectEmergingCategory(String(eff.description || ''), String(eff.category || ''), supabase);
           console.log('[executeTool] Emerging category detection completed for urban report');
         } catch (detectError) {
           console.error('[executeTool] Emerging category detection failed:', detectError);
@@ -5766,6 +7419,16 @@ export async function executeTool(
         }
         const protocolCode = protocolData || null;
         
+        // Prioridade imediata: relatos críticos de segurança e saúde
+        const isTransportSafety = validReportType === 'seguranca';
+        const isTransportCritical = inferredSeverity === 'critica';
+        const isTransportHigh = inferredSeverity === 'alta';
+        const initialTransportPriority = isTransportSafety || isTransportCritical
+          ? 'critica'
+          : isTransportHigh
+            ? 'alta'
+            : null;
+
         console.log('[create_transport_report] Attempting to insert report:', {
           userId,
           report_type: validReportType,
@@ -5794,7 +7457,8 @@ export async function executeTool(
             severity: inferredSeverity,
             impact_description: args.impact_description || null,
             status: 'pending',
-            photos: photosArray
+            photos: photosArray,
+            n8n_priority: initialTransportPriority
           })
           .select('id, protocol_code')
           .single();
@@ -5807,6 +7471,41 @@ export async function executeTool(
         console.log('[create_transport_report] Report saved successfully:', {
           id: data.id,
           protocol_code: data.protocol_code
+        });
+
+        try {
+          await insertClassificationPredictionLog(supabase, {
+            userId,
+            reportId: data.id,
+            reportType: 'transport',
+            predictedCategory: String(validReportType),
+            predictedSubcategory: subcategoryLabel ? String(subcategoryLabel) : null,
+            classificationSource: inferTransportClassificationSource(
+              accumulatedFields as Record<string, unknown> | undefined
+            ),
+          });
+        } catch (metricErr) {
+          console.warn('[create_transport_report] classification metric log failed:', metricErr);
+        }
+
+        const transportSeverityJustification =
+          validReportType === "seguranca"
+            ? "Política: relato classificado como 'seguranca' → severidade 'alta'."
+            : args.severity
+              ? `Severidade informada na coleta: ${args.severity}.`
+              : "Severidade padrão 'media' (sem valor explícito na coleta).";
+
+        await insertReportSeverityAuditLog(supabase, {
+          transport_report_id: data.id,
+          metric: "severity",
+          previous_value: null,
+          new_value: inferredSeverity,
+          justification: transportSeverityJustification,
+          source_snippet: String(args.description || "").trim().slice(0, 240) || null,
+          metadata: {
+            report_type: validReportType,
+            user_provided_severity: args.severity ?? null,
+          },
         });
         
         // Notify n8n
@@ -5863,6 +7562,10 @@ export async function executeTool(
           '',
           '---',
           '',
+          TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
+          '',
+          '---',
+          '',
           '🔗 [Ver Meus Relatos](/transporte/meus-relatos) para acompanhar.',
           '',
           '**Quer que eu encaminhe esse relato para algum vereador?**',
@@ -5886,14 +7589,27 @@ export async function executeTool(
       }
       
       case 'create_service_rating': {
-        // 1. Validate rating_stars (CRITICAL: must be 1-5, never 0)
-        const stars = args.rating_stars;
+        // 1. Avaliação: preferir dimensões completas; senão rating_stars (legado)
+        const dimsMerged =
+          (args.rating_dimensions && isCompleteServiceRatingDimensions(args.rating_dimensions) ? args.rating_dimensions : null) ??
+          (accumulatedFields?.rating_dimensions && isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
+            ? accumulatedFields.rating_dimensions
+            : null);
+        let stars =
+          typeof args.rating_stars === 'number' && args.rating_stars >= 1 && args.rating_stars <= 5
+            ? args.rating_stars
+            : null;
+        if (dimsMerged && typeof dimsMerged === 'object') {
+          stars = aggregateRatingDimensionsStars(dimsMerged as Record<string, number>);
+        }
         if (!stars || stars < 1 || stars > 5) {
           return {
             success: false,
-            message: '[FIELD_REQUEST:rating_stars]**Qual nota de 1 a 5** você dá para o atendimento? [RATING_PICKER]'
+            message:
+              '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). [RATING_PICKER]',
           };
         }
+        const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
         
         // 2. Validate rating_text
         if (!args.rating_text || args.rating_text.trim().length < 5) {
@@ -6038,31 +7754,68 @@ export async function executeTool(
           return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
         }
         
+        const trimmedComment = args.rating_text.trim();
+        const { data: modStatus, error: modRpcError } = await supabase.rpc(
+          'compute_service_rating_publication_status',
+          { p_text: trimmedComment },
+        );
+        if (modRpcError) {
+          console.warn('[create_service_rating] moderation RPC error:', modRpcError.message);
+        }
+        const preModeration =
+          typeof modStatus === 'string' && ['published', 'pending_review', 'rejected'].includes(modStatus)
+            ? modStatus
+            : null;
+        if (preModeration === 'rejected') {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Remova links (http/https), evite palavrões ou insultos graves e tente de novo com um texto respeitoso sobre o atendimento.',
+          };
+        }
+
         console.log('[create_service_rating] Attempting to insert rating:', {
           userId,
           serviceId,
           visitId,
-          rating_stars: stars
+          rating_stars: stars,
+          moderation_preview: preModeration,
         });
-        
+
+        const insertRow: Record<string, unknown> = {
+          user_id: userId,
+          service_id: serviceId,
+          visit_id: visitId,
+          rating_stars: stars,
+          rating_text: trimmedComment,
+          sentiment: args.sentiment || 'neutral',
+        };
+        if (ratingDimensionsJson) {
+          insertRow.rating_dimensions = ratingDimensionsJson;
+        }
+
         const { data, error } = await supabase
           .from('service_ratings')
-          .insert({
-            user_id: userId,
-            service_id: serviceId,
-            visit_id: visitId,
-            rating_stars: stars,
-            rating_text: args.rating_text.trim(),
-            sentiment: args.sentiment || 'neutral'
-          })
-          .select('id')
+          .insert(insertRow)
+          .select('id, publication_status')
           .single();
-        
+
         if (error) {
           console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
           return {
             success: false,
             message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'
+          };
+        }
+
+        const publicationStatus = (data?.publication_status as string) || 'published';
+        if (publicationStatus === 'rejected') {
+          const { error: delErr } = await supabase.from('service_ratings').delete().eq('id', data.id);
+          if (delErr) console.warn('[create_service_rating] cleanup rejected row:', delErr.message);
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Ajuste o texto (sem links, linguagem adequada) e envie novamente.',
           };
         }
         
@@ -6074,13 +7827,23 @@ export async function executeTool(
         }
         
         console.log('[create_service_rating] Rating saved successfully:', {
-          id: data.id
+          id: data.id,
+          publication_status: publicationStatus,
         });
-        
-        return { 
-          success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
-          data: { id: data.id, type: 'rating' }
+
+        const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
+        const moderationNote =
+          publicationStatus === 'pending_review'
+            ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
+            : '';
+        const dimLine = ratingDimensionsJson
+          ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
+          : '';
+
+        return {
+          success: true,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }
       
@@ -6090,6 +7853,24 @@ export async function executeTool(
           success: true, 
           message: result || 'Não encontrei informações sobre isso. Tente reformular a pergunta.' 
         };
+      }
+
+      case 'get_service_occupancy_status': {
+        const serviceId = typeof args.service_id === 'string' ? args.service_id.trim() : '';
+        if (serviceId && /^[a-f0-9-]{36}$/i.test(serviceId)) {
+          const result = await getServiceOccupancyStatusByServiceId(supabase, serviceId);
+          return { success: true, message: result };
+        }
+        const serviceName = typeof args.service_name === 'string' ? args.service_name.trim() : '';
+        const district = typeof args.district === 'string' ? args.district.trim() : '';
+        if (!serviceName) {
+          return {
+            success: false,
+            message: 'Me diga o nome do equipamento para eu consultar a ocupação (ex.: "CEU Butantã").'
+          };
+        }
+        const result = await getServiceOccupancyStatusByName(supabase, serviceName, district || undefined);
+        return { success: true, message: result };
       }
       
       case 'find_nearby_services': {
@@ -6137,10 +7918,54 @@ export async function executeTool(
             }
           }
         }
+
+        /** Texto legível para "perto de …" (GPS → reverse geocoding; cadastrado/manual → endereço conhecido). */
+        let referenceLocationText: string | null = null;
+        if (userLat != null && userLon != null && Number.isFinite(userLat) && Number.isFinite(userLon)) {
+          const method = typeof accumulatedFields?.location_method === 'string' ? accumulatedFields.location_method : '';
+          const street = typeof accumulatedFields?.street === 'string' ? accumulatedFields.street.trim() : '';
+          const neighborhood = typeof accumulatedFields?.neighborhood === 'string' ? accumulatedFields.neighborhood.trim() : '';
+          const streetNumber = typeof accumulatedFields?.street_number === 'string' ? accumulatedFields.street_number.trim() : '';
+
+          if (street && neighborhood) {
+            referenceLocationText = streetNumber
+              ? `${street}, ${streetNumber} - ${neighborhood}`
+              : `${street} - ${neighborhood}`;
+          } else if (method === 'registered_address' && userId) {
+            const { data: addrRow } = await supabase
+              .from('user_addresses')
+              .select('street, number, neighborhood')
+              .eq('user_id', userId)
+              .eq('is_primary', true)
+              .maybeSingle();
+            const s = addrRow?.street?.trim();
+            const n = addrRow?.neighborhood?.trim();
+            const num = addrRow?.number?.trim();
+            if (s && n) {
+              referenceLocationText = num ? `${s}, ${num} - ${n}` : `${s} - ${n}`;
+            }
+          }
+          // GPS e demais casos só com lat/lon: converter coordenadas em endereço legível
+          if (!referenceLocationText) {
+            referenceLocationText = await reverseGeocodeLatLon(userLat, userLon);
+          }
+        }
+
         const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
         const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
         const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
-        const result = await findNearbyServices(supabase, args.service_type, args.district, args.limit || 10, userLat, userLon, radiusMeters, minRating, searchQuery);
+        const result = await findNearbyServices(
+          supabase,
+          args.service_type,
+          args.district,
+          args.limit || 10,
+          userLat,
+          userLon,
+          radiusMeters,
+          minRating,
+          searchQuery,
+          referenceLocationText,
+        );
         return { success: true, message: result };
       }
       
@@ -6337,6 +8162,7 @@ export async function executeTool(
         const categoryLabels: Record<string, string> = {
           iluminacao: 'Iluminação',
           via_publica: 'Via Pública',
+          pavimentacao: 'Pavimentação',
           calcada: 'Calçada',
           sinalizacao: 'Sinalização',
           drenagem: 'Drenagem',

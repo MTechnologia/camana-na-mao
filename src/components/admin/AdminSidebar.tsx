@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, LineChart } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const [openSubmenus, setOpenSubmenus] = useState<string[]>(['gestão', 'relatos', 'configuracoes']);
   const stats = useAdminStats();
   const { unreadCount } = useNotifications();
-  const { canManageUsers, canConfigureSystem, canViewAuditLogs } = useUserRole();
+  const { canManageUsers, canConfigureSystem, canViewAuditLogs, canModerateServiceCorrections } = useUserRole();
 
   const menuSections: MenuSection[] = [
     {
@@ -53,7 +53,18 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
+        { title: 'Acurácia da classificação', icon: Target, href: '/admin/classification-accuracy' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
+        ...(canModerateServiceCorrections
+          ? [
+              {
+                title: 'Correções de equipamentos',
+                icon: ClipboardList,
+                href: '/admin/service-corrections',
+                badge: stats.pendingServiceCorrections > 0 ? stats.pendingServiceCorrections : null,
+              },
+            ]
+          : []),
         ...(canManageUsers ? [{ title: 'Gestão de Usuários', icon: Users, href: '/admin/users' }] : []),
       ],
     },

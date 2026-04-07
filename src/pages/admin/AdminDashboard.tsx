@@ -9,8 +9,13 @@ import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useImpactAnalytics } from '@/hooks/useImpactAnalytics';
+import { useRoutesUsageAdminStats } from '@/hooks/useRoutesUsageAdminStats';
+import { useEquipmentOccupancyAdminStats } from '@/hooks/useEquipmentOccupancyAdminStats';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HeatmapChart } from '@/components/analytics/HeatmapChart';
+import { CompactBarChart } from '@/components/analytics/CompactBarChart';
 import { 
   BarChart3, 
   AlertTriangle, 
@@ -21,7 +26,10 @@ import {
   ChevronRight,
   MessageSquare,
   Users,
-  PieChart
+  PieChart,
+  Route,
+  Coins,
+  Layers
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -32,6 +40,8 @@ export default function AdminDashboard() {
   const { stats, isLoading, refresh } = useReportsAnalytics();
   const { stats: sentimentStats } = useSentimentAnalytics();
   const { stats: impactStats } = useImpactAnalytics();
+  const routesUsageStats = useRoutesUsageAdminStats();
+  const occupancyStats = useEquipmentOccupancyAdminStats();
 
   // Marcar como carregado após primeira carga completa
   useMemo(() => {
@@ -132,6 +142,101 @@ export default function AdminDashboard() {
             icon={CheckCircle2}
             className="border-green-500/30"
           />
+        </div>
+
+        {/* Routes cost monitoring (30d) */}
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Uso de Rotas (30 dias)</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KPICard
+              title="Eventos Matrix"
+              value={routesUsageStats.loading ? "..." : routesUsageStats.events30d}
+              icon={Route}
+              subtitle="execuções do cálculo de rotas"
+            />
+            <KPICard
+              title="Elements (origem x destino)"
+              value={routesUsageStats.loading ? "..." : routesUsageStats.elements30d}
+              icon={Layers}
+              subtitle="base para estimativa de custo"
+            />
+            <KPICard
+              title="Cache Hit"
+              value={routesUsageStats.loading ? "..." : `${routesUsageStats.cacheHitRate30d}%`}
+              icon={CheckCircle2}
+              subtitle="consultas reaproveitadas"
+            />
+            <KPICard
+              title="Custo Estimado (BRL)"
+              value={
+                routesUsageStats.loading
+                  ? "..."
+                  : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                      routesUsageStats.estimatedCost30dBrl
+                    )
+              }
+              icon={Coins}
+              subtitle="estimativa interna via elements"
+            />
+          </div>
+        </div>
+
+        {/* Equipment occupancy */}
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Ocupação de Equipamentos (último ping)</h2>
+
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              Subdividido por equipamento: selecione um para ver Heatmap (por hora) e gráfico diário.
+            </div>
+            <div className="w-full md:w-72">
+              <Select
+                value={occupancyStats.selectedServiceId || ""}
+                onValueChange={(v) => occupancyStats.setSelectedServiceId(v)}
+                disabled={occupancyStats.loadingTop}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={occupancyStats.loadingTop ? "Carregando..." : "Selecione"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {occupancyStats.topEquipments.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      {occupancyStats.loadingTop ? "Carregando..." : "Sem dados para exibir"}
+                    </SelectItem>
+                  ) : (
+                    occupancyStats.topEquipments.map((eq) => (
+                      <SelectItem key={eq.service_id} value={eq.service_id}>
+                        {eq.service_name ? eq.service_name : `Equipamento ${eq.service_id.slice(0, 6)}`}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+            <Card className="flex min-h-0 flex-col overflow-hidden p-4 md:p-6">
+              <h3 className="mb-4 shrink-0 text-md font-semibold">Por hora (últimos 7 dias)</h3>
+              <div className="min-h-0 min-w-0 w-full overflow-x-auto">
+                {occupancyStats.loadingCharts ? (
+                  <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground">Carregando...</div>
+                ) : (
+                  <HeatmapChart data={occupancyStats.heatmap} />
+                )}
+              </div>
+            </Card>
+            <Card className="flex min-h-0 flex-col overflow-hidden p-4 md:p-6">
+              <h3 className="mb-4 shrink-0 text-md font-semibold">Por dia (últimos 14 dias)</h3>
+              <div className="flex h-[420px] min-h-0 w-full min-w-0 flex-col md:h-[460px]">
+                {occupancyStats.loadingCharts ? (
+                  <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando...</div>
+                ) : (
+                  <CompactBarChart data={occupancyStats.dailyBars} total={occupancyStats.dailyTotal} />
+                )}
+              </div>
+            </Card>
+          </div>
         </div>
 
         {/* Quick Stats - 3 Cards */}

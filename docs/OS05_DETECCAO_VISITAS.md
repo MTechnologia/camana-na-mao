@@ -18,6 +18,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
   - Permanência mínima: 10 minutos
   - Verificação a cada 1 minuto
   - Cria `service_visit` automaticamente ao detectar
+  - Se o usuário se afasta (>50 m) de uma visita `pending` sem `departed_at`, preenche `departed_at` (duração ≈ `departed_at - created_at`)
   - Desativa em modo simulado (localização Centro SP)
 
 - **Integração em "Perto de Você"** (`src/pages/NearbyServicesPage.tsx`)
@@ -37,7 +38,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
 Implementado em background com `expo-location` e `expo-task-manager`:
 
 1. **Migration** `20260218140000_visit_detection_state.sql`: tabela `visit_detection_state` (user_id, service_id, first_seen_at)
-2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 50 m, permanência 10 min → cria `service_visit` e INSERT em `notifications`
+2. **Edge function** `detect-service-visit`: recebe `POST` com `Authorization: Bearer <jwt>` e `{ latitude, longitude }`; Haversine em public_services; geofence 50 m, permanência 10 min → cria `service_visit` e INSERT em `notifications`; para visitas `pending` sem `departed_at`, se a posição atual estiver >50 m do equipamento, preenche `departed_at`
 3. **Mobile** `src/tasks/visitDetectionTask.ts`: background task registrada com TaskManager; a cada atualização de localização chama a edge function
 4. **Bridge de auth**: `BackgroundAuthBridge` no web app envia `CAMARA_AUTH_STATE` ao native; o native armazena user_id e access_token em AsyncStorage para o background task
 5. **FrontendWebView**: trata `CAMARA_AUTH_STATE`, solicita permissões de localização (foreground e background), inicia `startLocationUpdatesAsync`

@@ -38,6 +38,8 @@ const categoryLabels: Record<string, string> = {
   calcada: "Calçada",
   limpeza: "Limpeza",
   sinalizacao: "Sinalização",
+  drenagem: "Drenagem",
+  via_publica: "Via Pública",
   vegetacao: "Vegetação",
   via: "Via Pública",
   lixo: "Lixo e Limpeza",

@@ -27,6 +27,14 @@ const translateError = (message: string): string => {
   if (normalized.toLowerCase().includes("email rate limit") || normalized.toLowerCase().includes("rate limit exceeded")) {
     return "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo";
   }
+  // Send Email Hook (Edge send-email) → SendGrid falhou; Supabase devolve texto com "hook" + código HTTP
+  if (
+    normalized.toLowerCase().includes("unexpected status code returned from hook") ||
+    (normalized.toLowerCase().includes("hook") &&
+      (normalized.includes("502") || normalized.includes("500") || normalized.includes("503")))
+  ) {
+    return "Não foi possível enviar o e-mail de recuperação (serviço de envio indisponível ou remetente não validado). Tente de novo em alguns minutos ou fale com o suporte.";
+  }
   return message;
 };
 

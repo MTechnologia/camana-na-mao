@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from "vite-plugin-pwa";
@@ -121,12 +120,5 @@ export default defineConfig(({ mode }) => ({
     },
     // Increase chunk size warning limit
     chunkSizeWarningLimit: 600,
-  },
-  test: {
-    globals: false,
-    environment: "jsdom",
-    setupFiles: "./src/test/setup.ts",
-    include: ["src/**/*.test.{ts,tsx}"],
-    css: true,
   },
 }));
