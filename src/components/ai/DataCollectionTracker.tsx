@@ -56,6 +56,11 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
     alta: 'Alta',
     critica: 'Crítica'
   },
+  direction: {
+    ida: 'Ida',
+    volta: 'Volta',
+    circular: 'Circular',
+  },
   category: {
     via_publica: 'Via Pública',
     iluminacao: 'Iluminação',
@@ -152,7 +157,8 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'subcategory', label: 'Detalhe', required: false },
       { key: 'description', label: 'Descrição', required: true },
       { key: 'occurrence_date', label: 'Data', required: true },
-      { key: 'occurrence_time', label: 'Horário', required: false },
+      { key: 'occurrence_time', label: 'Horário', required: true },
+      { key: 'direction', label: 'Sentido', required: true },
       { key: 'line_code', label: 'Linha', required: false },
       { key: 'location', label: 'Local', required: false },
       { key: 'severity', label: 'Gravidade', required: false },

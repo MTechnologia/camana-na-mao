@@ -1874,6 +1874,7 @@ export type Database = {
           ai_sentiment: string | null
           created_at: string | null
           description: string | null
+          direction: string | null
           first_response_time: unknown
           id: string
           impact_description: string | null
@@ -1904,6 +1905,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
+          direction?: string | null
           first_response_time?: unknown
           id?: string
           impact_description?: string | null
@@ -1934,6 +1936,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
+          direction?: string | null
           first_response_time?: unknown
           id?: string
           impact_description?: string | null

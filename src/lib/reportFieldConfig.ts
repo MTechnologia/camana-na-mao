@@ -50,7 +50,8 @@ export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'report_type', label: 'Tipo', required: true },
   { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
   { key: 'occurrence_date', label: 'Data', required: true },
-  { key: 'occurrence_time', label: 'Horário', required: false },
+  { key: 'occurrence_time', label: 'Horário', required: true },
+  { key: 'direction', label: 'Sentido', required: true },
   { key: 'line_code', label: 'Linha', required: false },
   { key: 'location', label: 'Local', required: false },
   { key: 'severity', label: 'Gravidade', required: false },

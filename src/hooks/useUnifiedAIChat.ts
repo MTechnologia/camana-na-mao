@@ -149,6 +149,37 @@ export const useUnifiedAIChat = (
   initialCollectionType?: CollectionType,
   evaluationContext?: EvaluationContext | null
 ) => {
+  const parseOccurrenceTime = (text: string): string | null => {
+    const raw = text.trim().toLowerCase();
+    if (!raw) return null;
+
+    const normalized = raw
+      .replace(/\s+/g, " ")
+      .replace(/horas?/g, "h")
+      .replace(/\bmeia noite\b/g, "00:00")
+      .replace(/\bmeio dia\b/g, "12:00")
+      .replace(/\bmeio-dia\b/g, "12:00");
+
+    const compact = normalized.replace(/\s+/g, "");
+    const hmMatch = compact.match(/\b([01]?\d|2[0-3])(?:h|:)([0-5]?\d)?\b/);
+    if (hmMatch) {
+      const hour = hmMatch[1].padStart(2, "0");
+      const minute = (hmMatch[2] || "00").padStart(2, "0");
+      return `${hour}:${minute}`;
+    }
+
+    const digits = compact.match(/\b([01]\d|2[0-3])([0-5]\d)\b/);
+    if (digits) {
+      return `${digits[1]}:${digits[2]}`;
+    }
+
+    const simple = compact.match(/\b([01]?\d|2[0-3])\b/);
+    if (simple && /\b(h|hora)\b/.test(normalized)) {
+      return `${simple[1].padStart(2, "0")}:00`;
+    }
+
+    return null;
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
@@ -355,6 +386,9 @@ export const useUnifiedAIChat = (
               
               const horaMatch = msg.content?.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
               if (horaMatch) reconstructedFields.occurrence_time = horaMatch[1].trim();
+
+              const directionMatch = msg.content?.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              if (directionMatch) reconstructedFields.direction = directionMatch[1].trim().toLowerCase();
               
               // Parse description
               const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
@@ -865,11 +899,18 @@ export const useUnifiedAIChat = (
       
       // Detectar horário
       if (!collectedFields.occurrence_time) {
-        const timeMatch = raw.match(/\b(\d{1,2})[h:](\d{2})?\b/i);
-        if (timeMatch) {
-          const hour = timeMatch[1].padStart(2, '0');
-          const minute = timeMatch[2] || '00';
-          setCollectedFields(prev => ({ ...prev, occurrence_time: `${hour}:${minute}` }));
+        const parsedTime = parseOccurrenceTime(raw);
+        if (parsedTime) setCollectedFields(prev => ({ ...prev, occurrence_time: parsedTime }));
+      }
+
+      // Detectar sentido (ida/volta/circular)
+      if (!collectedFields.direction) {
+        if (/\bida\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'ida' }));
+        } else if (/\bvolta\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'volta' }));
+        } else if (/\bcircular\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'circular' }));
         }
       }
       
@@ -1431,6 +1472,12 @@ export const useUnifiedAIChat = (
               
               const dataMatch = assistantMessage.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
               if (dataMatch) finalFields.occurrence_date = dataMatch[1].trim();
+
+              const timeMatch = assistantMessage.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
+              if (timeMatch) finalFields.occurrence_time = timeMatch[1].trim();
+
+              const directionMatch = assistantMessage.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              if (directionMatch) finalFields.direction = directionMatch[1].trim().toLowerCase();
               
               const sevMatch = assistantMessage.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
               if (sevMatch) {
@@ -1683,6 +1730,8 @@ export const useUnifiedAIChat = (
         { key: 'report_type', required: true },
         { key: 'description', required: true },
         { key: 'occurrence_date', required: true },
+        { key: 'occurrence_time', required: true },
+        { key: 'direction', required: true },
       ],
       service_rating: [
         { key: 'service_type', required: true },
@@ -1787,6 +1836,11 @@ export const useUnifiedAIChat = (
     sendMessage(`Horário: ${displayText}`);
   }, [sendMessage]);
 
+  const handleDirectionSelected = useCallback((direction: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, direction }));
+    sendMessage(`Sentido: ${displayText}`);
+  }, [sendMessage]);
+
   // Handle rating selection from inline picker
   const handleRatingSelected = useCallback((stars: number) => {
     setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
@@ -1857,6 +1911,7 @@ export const useUnifiedAIChat = (
     handleLineSelected,
     handleDateSelected,
     handleTimeSelected,
+    handleDirectionSelected,
     handleRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
