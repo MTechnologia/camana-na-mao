@@ -31,6 +31,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/perfil/endereco": "Endereço",
   "/perfil/preferencias": "Preferências",
   "/perfil/interesses": "Interesses",
+  "/perfil/visitas": "Histórico de visitas",
   // Configurações - PT
   "/configuracoes/acessibilidade": "Acessibilidade",
   // Cidadão - PT
