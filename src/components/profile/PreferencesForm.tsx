@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, CalendarDays, ArrowRight, Users, FileWarning } from "lucide-react";
+import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, CalendarDays, ArrowRight, Users, FileWarning, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -55,6 +55,8 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
     show_phone: false,
   });
 
+  const [visitDetectionEnabled, setVisitDetectionEnabled] = useState(true);
+
   const loadPreferences = useCallback(async () => {
     try {
       const { data: notifData, error: notifError } = await supabase
@@ -79,7 +81,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
 
       const { data: privData, error: privError } = await supabase
         .from('user_preferences')
-        .select('profile_visibility, show_email, show_phone, notify_new_users, notify_new_reports')
+        .select('profile_visibility, show_email, show_phone, notify_new_users, notify_new_reports, visit_detection_enabled')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -93,6 +95,9 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         });
         if (privData.notify_new_users !== undefined) setAdminNotifyNewUsers(privData.notify_new_users);
         if (privData.notify_new_reports !== undefined) setAdminNotifyNewReports(privData.notify_new_reports);
+        if (privData.visit_detection_enabled !== undefined && privData.visit_detection_enabled !== null) {
+          setVisitDetectionEnabled(privData.visit_detection_enabled);
+        }
       }
     } catch (error: unknown) {
       console.error("Error loading preferences:", error);
@@ -132,6 +137,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         email_notifications: notificationSettings.email_enabled,
         sms_notifications: false,
         newsletter: notificationSettings.newsletter_enabled,
+        visit_detection_enabled: visitDetectionEnabled,
       };
       if (isAdmin || isGestor) {
         privPayload.notify_new_users = adminNotifyNewUsers;
@@ -452,6 +458,27 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               onCheckedChange={(checked) =>
                 setPrivacySettings(prev => ({ ...prev, show_phone: checked }))
               }
+            />
+          </div>
+
+          <div className="flex items-center justify-between py-1 pt-2 border-t">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5 max-w-[min(100%,280px)] sm:max-w-md">
+                <Label htmlFor="visit-detection" className="text-sm font-medium">
+                  Detectar visitas a equipamentos públicos
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Quando ativado, após permanecer próximo a um equipamento (ex.: UBS, escola), o app pode registrar uma
+                  visita para você avaliar o serviço. Desative se não quiser esse monitoramento com base na sua
+                  localização.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="visit-detection"
+              checked={visitDetectionEnabled}
+              onCheckedChange={setVisitDetectionEnabled}
             />
           </div>
         </CardContent>

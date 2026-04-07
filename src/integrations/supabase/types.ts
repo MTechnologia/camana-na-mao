@@ -2377,6 +2377,7 @@ export type Database = {
           theme: string | null
           updated_at: string
           user_id: string
+          visit_detection_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -2396,6 +2397,7 @@ export type Database = {
           theme?: string | null
           updated_at?: string
           user_id: string
+          visit_detection_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -2415,6 +2417,7 @@ export type Database = {
           theme?: string | null
           updated_at?: string
           user_id?: string
+          visit_detection_enabled?: boolean
         }
         Relationships: [
           {

@@ -30,6 +30,8 @@ interface UseVisitDetectionProps {
   services: ServiceForVisit[];
   /** ID do usuário logado */
   userId: string | undefined;
+  /** Quando false (preferência no perfil), não monitora nem cria visitas. */
+  visitDetectionEnabled?: boolean;
 }
 
 interface DetectedVisit {
@@ -44,13 +46,14 @@ type OpenVisitMeta = { visitId: string; lat: number; lng: number };
  * por pelo menos 10 minutos, criando service_visit (um por equipamento sem visita em 24h)
  * e uma única notificação/toast para o mais próximo (RN-VISIT-002).
  * Quando o usuário se afasta (>50 m) de uma visita pending sem departed_at, preenche departed_at.
- * OS 05/06 — Detecção de visitas e múltiplos equipamentos.
+ * OS 05/06 — Detecção de visitas, múltiplos equipamentos e toggle de privacidade.
  */
 export function useVisitDetection({
   latitude,
   longitude,
   services,
   userId,
+  visitDetectionEnabled = true,
 }: UseVisitDetectionProps): {
   detectedVisit: DetectedVisit | null;
   onAcknowledged: () => void;
@@ -71,6 +74,12 @@ export function useVisitDetection({
     openPendingVisitsRef.current.set(serviceId, { visitId, lat, lng });
     createdVisitsRef.current.add(serviceId);
   }, []);
+
+  useEffect(() => {
+    if (!visitDetectionEnabled) {
+      dwellStartRef.current.clear();
+    }
+  }, [visitDetectionEnabled]);
 
   /** Hidrata visitas pending abertas do banco (ex.: após reload ou outra aba). */
   useEffect(() => {
@@ -194,6 +203,10 @@ export function useVisitDetection({
       return;
     }
 
+    if (!visitDetectionEnabled) {
+      return;
+    }
+
     await recordDeparturesIfOutside();
 
     if (!openVisitsHydrated) {
@@ -287,17 +300,26 @@ export function useVisitDetection({
     if (import.meta.env?.DEV && withinRadius > 0) {
       console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: MIN_DWELL_MINUTES });
     }
-  }, [latitude, longitude, userId, services, insertVisitRecord, recordDeparturesIfOutside, openVisitsHydrated]);
+  }, [
+    latitude,
+    longitude,
+    userId,
+    services,
+    insertVisitRecord,
+    recordDeparturesIfOutside,
+    openVisitsHydrated,
+    visitDetectionEnabled,
+  ]);
 
   useEffect(() => {
-    if (!latitude || !longitude || !userId) {
+    if (!latitude || !longitude || !userId || !visitDetectionEnabled) {
       return;
     }
 
     checkProximity();
     const interval = setInterval(checkProximity, CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [latitude, longitude, userId, services, checkProximity, openVisitsHydrated]);
+  }, [latitude, longitude, userId, services, checkProximity, openVisitsHydrated, visitDetectionEnabled]);
 
   return { detectedVisit, onAcknowledged, isChecking };
 }

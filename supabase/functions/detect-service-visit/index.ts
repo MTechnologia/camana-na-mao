@@ -114,6 +114,24 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const { data: prefRow } = await supabase
+      .from("user_preferences")
+      .select("visit_detection_enabled")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (prefRow?.visit_detection_enabled === false) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          visit_detection_disabled: true,
+          visit_id: null,
+          visit_ids_created: [],
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const now = new Date().toISOString();
 
     // Saída do geofence: pending sem departed_at e distância atual > 50 m do equipamento

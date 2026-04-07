@@ -20,6 +20,7 @@ import {
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
+import { useVisitDetectionEnabled } from "@/hooks/useVisitDetectionEnabled";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavoriteServiceIds } from "@/hooks/useServiceFavorites";
 import { Button } from "@/components/ui/button";
@@ -435,11 +436,14 @@ export default function NearbyServicesPage() {
     [servicesInBand]
   );
 
+  const visitDetectionEnabled = useVisitDetectionEnabled(user?.id);
+
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
     latitude: locationMode === "gps" ? latitude : null,
     longitude: locationMode === "gps" ? longitude : null,
     services: servicesForVisit,
     userId: user?.id,
+    visitDetectionEnabled,
   });
 
   const handleVisitAvaliar = useCallback(() => {
