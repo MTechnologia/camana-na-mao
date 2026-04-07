@@ -5,6 +5,10 @@ import {
   isOutsideServiceVisitGeofence,
   serviceVisitDistanceMeters,
 } from "@/lib/serviceVisitGeofence";
+import {
+  RECENT_SERVICE_VISIT_LOOKBACK_MS,
+  pickClosestByDistanceMeters,
+} from "@/lib/visitDetectionMulti";
 
 const MIN_DWELL_MINUTES = 10;
 const CHECK_INTERVAL_MS = 60_000; // 1 minuto
@@ -36,11 +40,11 @@ interface DetectedVisit {
 type OpenVisitMeta = { visitId: string; lat: number; lng: number };
 
 /**
- * Detecta quando o usuário permanece dentro do geofence (50m) de um serviço
- * por pelo menos 10 minutos, criando service_visit e disparando callback.
+ * Detecta quando o usuário permanece dentro do geofence (50m) de serviço(s)
+ * por pelo menos 10 minutos, criando service_visit (um por equipamento sem visita em 24h)
+ * e uma única notificação/toast para o mais próximo (RN-VISIT-002).
  * Quando o usuário se afasta (>50 m) de uma visita pending sem departed_at, preenche departed_at.
- * Estilo Google: "Você visitou [UBS X]. Deseja avaliar?"
- * OS 05 - Detecção de visitas a serviços.
+ * OS 05/06 — Detecção de visitas e múltiplos equipamentos.
  */
 export function useVisitDetection({
   latitude,
@@ -149,8 +153,9 @@ export function useVisitDetection({
     }
   }, [latitude, longitude, userId]);
 
-  const createVisit = useCallback(
-    async (serviceId: string, serviceName: string, svcLat: number, svcLng: number): Promise<string | null> => {
+  /** Insere visita e registra pending local; notificação/toast ficam para o ciclo (só o mais próximo). */
+  const insertVisitRecord = useCallback(
+    async (serviceId: string, svcLat: number, svcLng: number): Promise<string | null> => {
       if (!userId) return null;
       if (createdVisitsRef.current.has(serviceId)) return null;
 
@@ -176,21 +181,6 @@ export function useVisitDetection({
       if (visitId) {
         registerOpenVisit(serviceId, visitId, svcLat, svcLng);
       }
-
-      if (visitId) {
-        const { error: notifError } = await supabase.from("notifications").insert({
-          user_id: userId,
-          title: `Você visitou ${serviceName}`,
-          message: "Gostaria de avaliar este serviço?",
-          action_url: `/avaliar/${visitId}`,
-          type: "visita_servico",
-          priority: "default",
-        });
-        if (notifError) {
-          console.error("[useVisitDetection] Erro ao criar notificação:", notifError);
-        }
-      }
-
       return visitId;
     },
     [userId, registerOpenVisit]
@@ -218,6 +208,8 @@ export function useVisitDetection({
     const minDwellMs = MIN_DWELL_MINUTES * 60 * 1000;
     let withinRadius = 0;
     let maxElapsed = 0;
+    type Eligible = { svc: ServiceForVisit; distanceMeters: number };
+    const eligibleForInsert: Eligible[] = [];
 
     for (const svc of services) {
       const dist = serviceVisitDistanceMeters(latitude, longitude, svc.latitude, svc.longitude);
@@ -235,12 +227,59 @@ export function useVisitDetection({
       const elapsed = now - start;
       if (elapsed > maxElapsed) maxElapsed = elapsed;
       if (elapsed >= minDwellMs && !createdVisitsRef.current.has(svc.id)) {
+        eligibleForInsert.push({ svc, distanceMeters: dist });
+      }
+    }
+
+    if (eligibleForInsert.length > 0) {
+      const sinceIso = new Date(Date.now() - RECENT_SERVICE_VISIT_LOOKBACK_MS).toISOString();
+      const candidateIds = eligibleForInsert.map((e) => e.svc.id);
+      const { data: recentRows, error: recentErr } = await supabase
+        .from("service_visits")
+        .select("service_id")
+        .eq("user_id", userId)
+        .in("service_id", candidateIds)
+        .gte("visited_at", sinceIso);
+
+      if (recentErr) {
+        console.error("[useVisitDetection] Erro ao checar visitas recentes (24h):", recentErr);
+      } else {
+        const recentSet = new Set((recentRows ?? []).map((r) => r.service_id as string));
+        const newlyCreated: { visitId: string; serviceName: string; distanceMeters: number }[] = [];
+
         setIsChecking(true);
-        const visitId = await createVisit(svc.id, svc.displayName ?? svc.name, svc.latitude, svc.longitude);
-        dwellStartRef.current.delete(svc.id);
+        for (const { svc, distanceMeters } of eligibleForInsert) {
+          if (recentSet.has(svc.id)) {
+            dwellStartRef.current.delete(svc.id);
+            continue;
+          }
+          const visitId = await insertVisitRecord(svc.id, svc.latitude, svc.longitude);
+          dwellStartRef.current.delete(svc.id);
+          if (visitId) {
+            newlyCreated.push({
+              visitId,
+              serviceName: svc.displayName ?? svc.name,
+              distanceMeters,
+            });
+            recentSet.add(svc.id);
+          }
+        }
         setIsChecking(false);
-        if (visitId) {
-          setDetectedVisit({ visitId, serviceName: svc.displayName ?? svc.name });
+
+        const closest = pickClosestByDistanceMeters(newlyCreated);
+        if (closest) {
+          const { error: notifError } = await supabase.from("notifications").insert({
+            user_id: userId,
+            title: `Você visitou ${closest.serviceName}`,
+            message: "Gostaria de avaliar este serviço?",
+            action_url: `/avaliar/${closest.visitId}`,
+            type: "visita_servico",
+            priority: "default",
+          });
+          if (notifError) {
+            console.error("[useVisitDetection] Erro ao criar notificação:", notifError);
+          }
+          setDetectedVisit({ visitId: closest.visitId, serviceName: closest.serviceName });
         }
       }
     }
@@ -248,7 +287,7 @@ export function useVisitDetection({
     if (import.meta.env?.DEV && withinRadius > 0) {
       console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: MIN_DWELL_MINUTES });
     }
-  }, [latitude, longitude, userId, services, createVisit, recordDeparturesIfOutside, openVisitsHydrated]);
+  }, [latitude, longitude, userId, services, insertVisitRecord, recordDeparturesIfOutside, openVisitsHydrated]);
 
   useEffect(() => {
     if (!latitude || !longitude || !userId) {
