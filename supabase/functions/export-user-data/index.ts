@@ -165,6 +165,7 @@ serve(async (req) => {
         email_notifications: preferences.email_notifications,
         sms_notifications: preferences.sms_notifications,
         newsletter: preferences.newsletter,
+        visit_detection_enabled: preferences.visit_detection_enabled,
         updated_at: preferences.updated_at,
       };
     }
