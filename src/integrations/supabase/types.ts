@@ -1725,6 +1725,7 @@ export type Database = {
       service_visits: {
         Row: {
           created_at: string | null
+          departed_at: string | null
           detected_at: string
           expires_at: string
           id: string
@@ -1737,6 +1738,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          departed_at?: string | null
           detected_at?: string
           expires_at: string
           id?: string
@@ -1749,6 +1751,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          departed_at?: string | null
           detected_at?: string
           expires_at?: string
           id?: string

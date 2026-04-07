@@ -2,6 +2,10 @@
  * Background task para detecção de visitas a serviços (OS 05).
  * Usa expo-location + expo-task-manager.
  * O defineTask DEVE estar no escopo global (não em lifecycle React).
+ *
+ * A lógica de criação de visita, geofence 50 m, dwell 10 min e registro de
+ * `departed_at` ao sair do raio está na Edge Function `detect-service-visit`
+ * (este arquivo apenas envia lat/lng + JWT).
  */
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';

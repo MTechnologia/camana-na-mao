@@ -113,6 +113,39 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const now = new Date().toISOString();
+
+    // Saída do geofence: pending sem departed_at e distância atual > 50 m do equipamento
+    const { data: openVisits, error: openVisitsError } = await supabase
+      .from("service_visits")
+      .select("id, service_id, public_services(latitude, longitude)")
+      .eq("user_id", userId)
+      .eq("status", "pending")
+      .is("departed_at", null);
+
+    if (openVisitsError) {
+      console.error("[detect-service-visit] open visits:", openVisitsError);
+    } else {
+      for (const row of openVisits ?? []) {
+        const ps = row.public_services as { latitude: unknown; longitude: unknown } | null;
+        const slat = Number(ps?.latitude);
+        const slng = Number(ps?.longitude);
+        if (Number.isNaN(slat) || Number.isNaN(slng)) continue;
+        const distOpen = distanceMeters(lat, lng, slat, slng);
+        if (distOpen <= GEOFENCE_RADIUS_M) continue;
+        const { error: depErr } = await supabase
+          .from("service_visits")
+          .update({ departed_at: now })
+          .eq("id", row.id)
+          .eq("user_id", userId)
+          .eq("status", "pending")
+          .is("departed_at", null);
+        if (depErr) {
+          console.error("[detect-service-visit] departed_at update:", depErr);
+        }
+      }
+    }
+
     // Buscar serviços próximos (approx bounding box para performance, depois filtrar com Haversine)
     const degPerKm = 1 / 111; // ~1 grau ≈ 111km
     const delta = (GEOFENCE_RADIUS_M / 1000) * degPerKm * 2;
@@ -132,7 +165,6 @@ serve(async (req) => {
       );
     }
 
-    const now = new Date().toISOString();
     let visitId: string | null = null;
 
     for (const svc of services ?? []) {
