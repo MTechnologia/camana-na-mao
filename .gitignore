@@ -36,6 +36,9 @@ crawl-output/
 scripts/geosampa-layers.json
 
 
+# Test coverage
+coverage/
+
 # Editor directories and files
 .cursor/
 .vscode/*
