@@ -891,6 +891,12 @@ serve(async (req) => {
               picker: '[DIMENSION_RATING_PICKER:atendimento]',
               prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
             };
+          if (!('infraestrutura_score' in fields))
+            return {
+              field: 'infraestrutura',
+              picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+              prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
+            };
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
@@ -1000,6 +1006,12 @@ serve(async (req) => {
             field: 'atendimento',
             picker: '[DIMENSION_RATING_PICKER:atendimento]',
             prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+          };
+        if (!('infraestrutura_score' in fields))
+          return {
+            field: 'infraestrutura',
+            picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+            prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
           };
         
         // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
@@ -1368,6 +1380,10 @@ serve(async (req) => {
               toolArgs.wait_time_score = accumulatedFields.wait_time_score;
             if ('atendimento_score' in accumulatedFields)
               toolArgs.atendimento_score = accumulatedFields.atendimento_score;
+            if ('infraestrutura_score' in accumulatedFields) {
+              toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
+              toolArgs.limpeza_score = accumulatedFields.limpeza_score;
+            }
             if (accumulatedFields.visit_id) {
               toolArgs.visit_id = accumulatedFields.visit_id;
               if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;

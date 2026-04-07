@@ -2529,6 +2529,12 @@ export function accumulateFieldsFromHistory(
           const fieldKey = `${dimKey}_score`;
           accumulated[fieldKey] = dimScore;
           console.log(`[accumulateFields] Parsed ${fieldKey} from DIM_RATING marker:`, dimScore);
+
+          // === RN-IA-003: Replicar infraestrutura para limpeza ===
+          if (dimKey === 'infraestrutura') {
+            accumulated['limpeza_score'] = dimScore;
+            console.log('[accumulateFields] Replicating infraestrutura_score to limpeza_score');
+          }
         }
       }
 
@@ -2625,6 +2631,20 @@ export function accumulateFieldsFromHistory(
                 if (v === null || (v >= 2 && v <= 5)) {
                   accumulated.wait_time_score = v;
                   console.log('[accumulateFields] FIELD_REQUEST wait_time → wait_time_score:', v);
+                }
+              }
+
+              // Parse dimension ratings from FIELD_REQUEST (atendimento, infraestrutura)
+              const dimFieldMatch = answer.match(/\[DIM_RATING:(\w+):(\d)\]/i);
+              if (dimFieldMatch) {
+                const dKey = dimFieldMatch[1].toLowerCase();
+                const dScore = parseInt(dimFieldMatch[2], 10);
+                if (dScore >= 1 && dScore <= 5) {
+                  accumulated[`${dKey}_score`] = dScore;
+                  if (dKey === 'infraestrutura') {
+                    accumulated['limpeza_score'] = dScore;
+                  }
+                  console.log(`[accumulateFields] FIELD_REQUEST ${fieldType} → ${dKey}_score:`, dScore);
                 }
               }
               break;
@@ -5757,6 +5777,17 @@ export async function executeTool(
           sentiment: args.sentiment || 'neutral'
         };
         if (waitTimeStored !== undefined) insertPayload.wait_time_score = waitTimeStored;
+
+        // Save structured dimensions in JSONB (OS-06 Task 3)
+        const dimensions: Record<string, number> = {};
+        if (args.atendimento_score) dimensions.atendimento = Number(args.atendimento_score);
+        if (args.infraestrutura_score) {
+          dimensions.infraestrutura = Number(args.infraestrutura_score);
+          dimensions.limpeza = Number(args.infraestrutura_score); // Replicate (Task 3)
+        }
+        if (Object.keys(dimensions).length > 0) {
+          insertPayload.dimensions = dimensions;
+        }
 
         const { data, error } = await supabase
           .from('service_ratings')

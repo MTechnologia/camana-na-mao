@@ -25,6 +25,7 @@ import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
 import TestDimensionRating from "./pages/TestDimensionRating";
 import TestWaitTimePicker from "./pages/TestWaitTimePicker";
+import TestInfraRating from "./pages/TestInfraRating";
 
 // ============================================
 // AUTH PAGES - Lazy loaded (used before main app)
@@ -327,6 +328,7 @@ const AppContent = () => {
           <Route path="/debug/rbac" element={<DebugRBAC />} />
           <Route path="/test-dimension-rating" element={<TestDimensionRating />} />
           <Route path="/test-wait-time" element={<TestWaitTimePicker />} />
+          <Route path="/test-infra-rating" element={<TestInfraRating />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
