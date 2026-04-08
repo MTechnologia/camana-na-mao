@@ -136,6 +136,12 @@ export const NOTIFICATION_TYPES = {
     icon: '⏰',
     audience: 'citizen'
   },
+  evaluation_reminder: {
+    label: 'Lembrete de avaliação',
+    color: 'bg-green-500/10 text-green-600 border-green-500/20',
+    icon: '⭐',
+    audience: 'citizen'
+  },
   
   // Sistema
   info: { 

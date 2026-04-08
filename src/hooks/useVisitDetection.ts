@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   SERVICE_VISIT_GEOFENCE_RADIUS_M,
+  SERVICE_VISIT_MIN_DWELL_MINUTES,
   isOutsideServiceVisitGeofence,
   serviceVisitDistanceMeters,
 } from "@/lib/serviceVisitGeofence";
@@ -10,7 +11,6 @@ import {
   pickClosestByDistanceMeters,
 } from "@/lib/visitDetectionMulti";
 
-const MIN_DWELL_MINUTES = 10;
 const CHECK_INTERVAL_MS = 60_000; // 1 minuto
 
 interface ServiceForVisit {
@@ -42,10 +42,10 @@ interface DetectedVisit {
 type OpenVisitMeta = { visitId: string; lat: number; lng: number };
 
 /**
- * Detecta quando o usuário permanece dentro do geofence (50m) de serviço(s)
- * por pelo menos 10 minutos, criando service_visit (um por equipamento sem visita em 24h)
+ * Detecta quando o usuário permanece dentro do geofence (SERVICE_VISIT_GEOFENCE_RADIUS_M) de serviço(s)
+ * por pelo menos SERVICE_VISIT_MIN_DWELL_MINUTES, criando service_visit (um por equipamento sem visita em 24h)
  * e uma única notificação/toast para o mais próximo (RN-VISIT-002).
- * Quando o usuário se afasta (>50 m) de uma visita pending sem departed_at, preenche departed_at.
+ * Quando o usuário se afasta além do raio de uma visita pending sem departed_at, preenche departed_at.
  * OS 05/06 — Detecção de visitas, múltiplos equipamentos e toggle de privacidade.
  */
 export function useVisitDetection({
@@ -218,7 +218,7 @@ export function useVisitDetection({
     }
 
     const now = Date.now();
-    const minDwellMs = MIN_DWELL_MINUTES * 60 * 1000;
+    const minDwellMs = SERVICE_VISIT_MIN_DWELL_MINUTES * 60 * 1000;
     let withinRadius = 0;
     let maxElapsed = 0;
     type Eligible = { svc: ServiceForVisit; distanceMeters: number };
@@ -298,7 +298,7 @@ export function useVisitDetection({
     }
 
     if (import.meta.env?.DEV && withinRadius > 0) {
-      console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: MIN_DWELL_MINUTES });
+      console.debug("[useVisitDetection] checkProximity:", { withinRadius, maxElapsedMs: maxElapsed, maxElapsedMin: (maxElapsed / 60000).toFixed(1), needMin: SERVICE_VISIT_MIN_DWELL_MINUTES });
     }
   }, [
     latitude,

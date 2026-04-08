@@ -2,8 +2,8 @@
  * Detecta visita a serviço público com base em (user_id, latitude, longitude).
  * Usado pelo app mobile em background via expo-location + expo-task-manager.
  *
- * Lógica: Haversine para public_services; se dist < 50m, atualiza visit_detection_state;
- * após 10 min no mesmo serviço → pode criar várias service_visits (sem visita em 24h);
+ * Lógica: Haversine para public_services; se dist < raio, atualiza visit_detection_state;
+ * após dwell mínimo no mesmo serviço → pode criar várias service_visits (sem visita em 24h);
  * um único INSERT em notifications para o equipamento mais próximo (RN-VISIT-002).
  *
  * Autenticação: Authorization: Bearer <jwt> (decode do sub para user_id, igual save-expo-push-token).
@@ -17,6 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Manter alinhado a `src/lib/serviceVisitGeofence.ts` (50 m, 10 min). */
 const GEOFENCE_RADIUS_M = 50;
 const MIN_DWELL_MINUTES = 10;
 const MIN_DWELL_MS = MIN_DWELL_MINUTES * 60 * 1000;
@@ -134,7 +135,7 @@ serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // Saída do geofence: pending sem departed_at e distância atual > 50 m do equipamento
+    // Saída do geofence: pending sem departed_at e distância atual > GEOFENCE_RADIUS_M do equipamento
     const { data: openVisits, error: openVisitsError } = await supabase
       .from("service_visits")
       .select("id, service_id, public_services(latitude, longitude)")

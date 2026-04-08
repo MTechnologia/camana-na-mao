@@ -925,12 +925,17 @@ export type Database = {
         Row: {
           action_url: string | null
           created_at: string
+          delivered_in_app_only: boolean
+          discard_reason: string | null
+          discarded_at: string | null
           id: string
           is_read: boolean
           message: string
           metadata: Json | null
           priority: string
+          push_delivered_at: string | null
           read_at: string | null
+          scheduled_for: string | null
           title: string
           type: string
           user_id: string
@@ -938,12 +943,17 @@ export type Database = {
         Insert: {
           action_url?: string | null
           created_at?: string
+          delivered_in_app_only?: boolean
+          discard_reason?: string | null
+          discarded_at?: string | null
           id?: string
           is_read?: boolean
           message: string
           metadata?: Json | null
           priority?: string
+          push_delivered_at?: string | null
           read_at?: string | null
+          scheduled_for?: string | null
           title: string
           type?: string
           user_id: string
@@ -951,12 +961,17 @@ export type Database = {
         Update: {
           action_url?: string | null
           created_at?: string
+          delivered_in_app_only?: boolean
+          discard_reason?: string | null
+          discarded_at?: string | null
           id?: string
           is_read?: boolean
           message?: string
           metadata?: Json | null
           priority?: string
+          push_delivered_at?: string | null
           read_at?: string | null
+          scheduled_for?: string | null
           title?: string
           type?: string
           user_id?: string
@@ -1730,6 +1745,7 @@ export type Database = {
           expires_at: string
           id: string
           rating_requested_at: string | null
+          reminder_sent: boolean
           service_id: string
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string | null
@@ -1743,6 +1759,7 @@ export type Database = {
           expires_at: string
           id?: string
           rating_requested_at?: string | null
+          reminder_sent?: boolean
           service_id: string
           status?: Database["public"]["Enums"]["visit_status"]
           updated_at?: string | null
@@ -1756,6 +1773,7 @@ export type Database = {
           expires_at?: string
           id?: string
           rating_requested_at?: string | null
+          reminder_sent?: boolean
           service_id?: string
           status?: Database["public"]["Enums"]["visit_status"]
           updated_at?: string | null
@@ -2515,10 +2533,15 @@ export type Database = {
         Returns: { protocolo: number; id: string }[]
       }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
+      check_notification_daily_limit: {
+        Args: { p_user_id: string; p_tz?: string }
+        Returns: number
+      }
       compute_service_rating_publication_status: {
         Args: { p_text: string }
         Returns: string
       }
+      expire_pending_visits_over_48h: { Args: Record<PropertyKey, never>; Returns: number }
       search_public_services_fulltext: {
         Args: {
           center_lat: number
