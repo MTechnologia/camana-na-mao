@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, UserConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
@@ -6,6 +6,19 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    css: true,
+    include: ['src/hooks/**/*.test.ts', 'src/components/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/hooks/**'],
+      exclude: ['src/hooks/index.ts']
+    },
+  },
   // Allow exposing both VITE_* (default) and CAMARA_* env vars to the client bundle.
   // This enables the migration from VITE_SUPABASE_* → CAMARA_* without breaking local/dev setups.
   envPrefix: ["VITE_", "CAMARA_"],

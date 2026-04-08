@@ -101,7 +101,32 @@ This project is built with:
 - Deno (Edge Functions runtime)
 - API REST versionada (`/api/v1/`)
 
+**Testes:**
+- Vitest (Unitários)
+- React Testing Library
+- Playwright (E2E)
+
 📚 **Documentação Backend**: Veja [docs/api-rest-mobile/](./docs/api-rest-mobile/) para mais informações sobre a API REST.
+
+## Testes Unitários
+
+O projeto utiliza **Vitest** e **React Testing Library** para testes unitários dos hooks críticos de negócio.
+
+### Hooks Testados
+- `useVisitDetection`: Detecção de presença em geofences de serviços.
+- `useReportPatterns`: Identificação de padrões em relatos de transporte.
+- `useTransportReport`: Gestão de envio e listagem de relatos de transporte.
+- `usePendingRatings`: Gerenciamento de avaliações pendentes de usuários.
+
+### Como Executar
+```sh
+# Executar todos os testes unitários
+npm test
+
+# Executar testes com relatório de cobertura (coverage)
+npm run test:coverage
+```
+O relatório de cobertura será gerado na pasta `/coverage`. Para visualizar, abra `coverage/index.html` no navegador.
 
 ## Deploy (Render)
 
