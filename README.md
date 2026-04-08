@@ -108,25 +108,65 @@ This project is built with:
 
 📚 **Documentação Backend**: Veja [docs/api-rest-mobile/](./docs/api-rest-mobile/) para mais informações sobre a API REST.
 
-## Testes Unitários
+## Testes
 
-O projeto utiliza **Vitest** e **React Testing Library** para testes unitários dos hooks críticos de negócio.
+O projeto possui uma infraestrutura de testes dividida entre Front-end (React/Hooks) e Backend (Edge Functions).
 
-### Hooks Testados
-- `useVisitDetection`: Detecção de presença em geofences de serviços.
-- `useReportPatterns`: Identificação de padrões em relatos de transporte.
-- `useTransportReport`: Gestão de envio e listagem de relatos de transporte.
-- `usePendingRatings`: Gerenciamento de avaliações pendentes de usuários.
+### Testes de Front-end (Unitários)
 
-### Como Executar
+Utiliza **Vitest** e **React Testing Library** para validar a lógica de negócio dos hooks e componentes.
+
+- **Hooks Testados:** `useVisitDetection`, `useReportPatterns`, `useTransportReport`, `usePendingRatings`.
+- **Comandos:**
+  ```sh
+  # Executar testes de front-end
+  npm test
+  
+  # Executar com relatório de cobertura (coverage)
+  npm run test:coverage
+  ```
+  O relatório detalhado fica em `/coverage/index.html`.
+
+### Testes de Backend (Edge Functions)
+
+Utiliza o runtime **Deno** para validar as regras de negócio diretamente nas funções do Supabase.
+
+- **Módulos Testados:**
+  - `create_service_rating`: Validação de estrelas (RN-AVA-002) e campos obrigatórios (RN-AVA-003).
+  - `create_transport_report`: Persistência de campos e limites geográficos.
+  - `suggest-council-members`: Cálculo de score de afinidade e mapeamento de comissões.
+- **Comandos:**
+  ```sh
+  # Executar apenas os testes de Edge Functions
+  npm run test:edge
+  ```
+
+### Testes E2E (End-to-End)
+
+Utiliza **Playwright** para simular o comportamento do usuário real navegando no aplicativo (Login, Registro, Chat, etc.).
+
+- **Localização:** Pasta `tests/e2e/`.
+- **Módulos Cobertos:** `auth`, `ai-chat`, `audiencias`, `evaluation`, `transport`, `urban`.
+- **Relatórios:** Os relatórios de execução ficam em `playwright-report/` e os resultados temporários em `test-results/` (ambos ignorados pelo Git).
+- **Comandos:**
+  ```sh
+  # Instalar navegadores do Playwright (necessário na primeira vez)
+  npx playwright install
+
+  # Executar testes E2E (Requer servidor rodando)
+  npx playwright test
+
+  # Abrir o relatório interativo após a execução
+  npx playwright show-report
+  ```
+
+### Execução Completa
+
+Para garantir a integridade de todo o sistema (Front + Back) em um único comando:
 ```sh
-# Executar todos os testes unitários
-npm test
-
-# Executar testes com relatório de cobertura (coverage)
-npm run test:coverage
+npm run test:all
 ```
-O relatório de cobertura será gerado na pasta `/coverage`. Para visualizar, abra `coverage/index.html` no navegador.
+*(Nota: Este comando foca nos testes unitários e de integração de lógica, não incluindo os testes E2E por padrão devido à necessidade de ambiente rodando).*
 
 ## Deploy (Render)
 

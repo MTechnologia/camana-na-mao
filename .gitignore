@@ -12,6 +12,7 @@ node_modules
 bun.lockb
 dist
 dist-ssr
+dev-dist/
 *.local
 
 # Supabase local dev artifacts
@@ -38,6 +39,8 @@ scripts/geosampa-layers.json
 
 # Test coverage
 coverage/
+playwright-report/
+test-results/
 
 # Editor directories and files
 .cursor/
