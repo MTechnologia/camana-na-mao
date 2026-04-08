@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineDirectionPicker from "./InlineDirectionPicker";
+import InlineRecurrenceFrequencyPicker from "./InlineRecurrenceFrequencyPicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
@@ -110,6 +111,7 @@ interface ChatMessageBubbleProps {
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
   onDirectionSelected?: (direction: string, displayText: string) => void;
+  onRecurrenceFrequencySelected?: (frequency: string, displayText: string) => void;
   onRatingSelected?: (stars: number) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
@@ -121,7 +123,9 @@ interface ChatMessageBubbleProps {
   /** Aplicar filtros de raio/avaliação/busca no fluxo Perto de você (envia mensagem e re-busca). */
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
   /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string) => void | Promise<void>;
+  onChipSelect?: (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => void | Promise<void>;
+  onOpenDiscovery?: () => void;
   /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
   disableRegistrarUntilPhotosAttached?: boolean;
 }
@@ -136,6 +140,7 @@ const ChatMessageBubble = ({
   onDateSelected,
   onTimeSelected,
   onDirectionSelected,
+  onRecurrenceFrequencySelected,
   onRatingSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
@@ -158,6 +163,7 @@ const ChatMessageBubble = ({
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
   const [directionSelected, setDirectionSelected] = useState(false);
+  const [recurrenceFrequencySelected, setRecurrenceFrequencySelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
@@ -189,6 +195,7 @@ const ChatMessageBubble = ({
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
   const hasDirectionPicker = !isUser && message.content.includes('[DIRECTION_PICKER]');
+  const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
@@ -417,6 +424,23 @@ const ChatMessageBubble = ({
           content.includes('qual o sentido da viagem')))
     );
   }, [isUser, message.content, directionSelected, hasDirectionPicker, isLastAssistantMessage]);
+
+  const isAskingForRecurrenceFrequency = useMemo(() => {
+    if (isUser || recurrenceFrequencySelected || hasRecurrenceFrequencyPicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:recurrence_frequency]') ||
+      (isLastAssistantMessage &&
+        (content.includes('com qual frequência isso acontece') ||
+          content.includes('com qual frequencia isso acontece')))
+    );
+  }, [
+    isUser,
+    message.content,
+    recurrenceFrequencySelected,
+    hasRecurrenceFrequencyPicker,
+    isLastAssistantMessage,
+  ]);
   
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
@@ -629,6 +653,13 @@ const ChatMessageBubble = ({
     setDirectionSelected(true);
     if (onDirectionSelected) {
       onDirectionSelected(direction, displayText);
+    }
+  };
+
+  const handleRecurrenceFrequencySelected = (frequency: string, displayText: string) => {
+    setRecurrenceFrequencySelected(true);
+    if (onRecurrenceFrequencySelected) {
+      onRecurrenceFrequencySelected(frequency, displayText);
     }
   };
   
@@ -1008,6 +1039,12 @@ const ChatMessageBubble = ({
         {(hasDirectionPicker || isAskingForDirection) && !directionSelected && isLastAssistantMessage && (
           <InlineDirectionPicker onSelect={handleDirectionSelected} />
         )}
+
+        {(hasRecurrenceFrequencyPicker || isAskingForRecurrenceFrequency) &&
+          !recurrenceFrequencySelected &&
+          isLastAssistantMessage && (
+            <InlineRecurrenceFrequencyPicker onSelect={handleRecurrenceFrequencySelected} />
+          )}
         
         {/* Avaliação geral (1–5 estrelas) */}
         {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (

@@ -183,6 +183,11 @@ export const tools = [
             enum: ["ida", "volta", "circular"],
             description: "Sentido da viagem: ida, volta ou circular"
           },
+          recurrence_frequency: {
+            type: "string",
+            enum: ["primeira_vez", "algumas_vezes_mes", "toda_semana", "todos_os_dias"],
+            description: "Frequência de recorrência: primeira_vez, algumas_vezes_mes, toda_semana ou todos_os_dias"
+          },
           line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
           location: { type: "string", description: "Ponto, estação ou trecho" },
           severity: {
@@ -197,7 +202,7 @@ export const tools = [
             description: "URLs das fotos anexadas pelo usuário (até 3). Preenchido pelo sistema quando o usuário anexa imagens no chat."
           }
         },
-        required: ["report_type", "description", "occurrence_date", "occurrence_time", "direction"]
+        required: ["report_type", "description", "occurrence_date", "occurrence_time", "direction", "recurrence_frequency"]
       }
     }
   },
