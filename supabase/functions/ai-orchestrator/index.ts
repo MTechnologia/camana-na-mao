@@ -1165,6 +1165,14 @@ serve(async (req) => {
         // 6. Direction (REQUIRED - atomic collection)
         if (!fields.direction)
           return { field: 'direction', picker: '[DIRECTION_PICKER]', prompt: 'Qual era o **sentido** da viagem?' };
+
+        // 7. Recurrence frequency (REQUIRED - atomic collection)
+        if (!fields.recurrence_frequency)
+          return {
+            field: 'recurrence_frequency',
+            picker: '[RECURRENCE_FREQUENCY_PICKER]',
+            prompt: 'Com qual frequência isso acontece?',
+          };
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };
@@ -1979,6 +1987,13 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
+            if (!accumulatedFields.recurrence_frequency) {
+              const askRecurrenceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:recurrence_frequency]Com qual frequência isso acontece?[RECURRENCE_FREQUENCY_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askRecurrenceMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
             // Fluxo de fotos para transporte (conforme relato urbano): perguntar → anexar → preview → criar
             const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
             const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*registrar|envie\s+\*?registrar\*?/i.test(lastAssistantLower);
@@ -2004,11 +2019,18 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
             if (askedPhotoChoice && userSaidNo) {
+              const recurrenceLabelMap: Record<string, string> = {
+                primeira_vez: 'Primeira vez',
+                algumas_vezes_mes: 'Algumas vezes/mês',
+                toda_semana: 'Toda semana',
+                todos_os_dias: 'Todos os dias',
+              };
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
 • **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${accumulatedFields.line_code || 'Não informada'}
 • **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}
 • **Sentido:** ${accumulatedFields.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || '')] || accumulatedFields.recurrence_frequency || 'Não informada'}
 
 Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2020,12 +2042,19 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
             // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo Registrar criamos
             const showedPreviewAfterAttach = /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*registrar\s+para\s+finalizar/i.test(lastAssistantLower || '');
             if (askedToAttach && userConfirms && !showedPreviewAfterAttach) {
+              const recurrenceLabelMap: Record<string, string> = {
+                primeira_vez: 'Primeira vez',
+                algumas_vezes_mes: 'Algumas vezes/mês',
+                toda_semana: 'Toda semana',
+                todos_os_dias: 'Todos os dias',
+              };
               const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
 • **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${accumulatedFields.line_code || 'Não informada'}
 • **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}${photoLine}
 • **Sentido:** ${accumulatedFields.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || '')] || accumulatedFields.recurrence_frequency || 'Não informada'}
 
 Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2057,6 +2086,7 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
                 direction: accumulatedFields.direction,
+                recurrence_frequency: accumulatedFields.recurrence_frequency,
                 location: accumulatedFields.location,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
@@ -2068,12 +2098,19 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
             }
             if (askedToAttach && !userConfirms && !toolResult) {
+              const recurrenceLabelMap: Record<string, string> = {
+                primeira_vez: 'Primeira vez',
+                algumas_vezes_mes: 'Algumas vezes/mês',
+                toda_semana: 'Toda semana',
+                todos_os_dias: 'Todos os dias',
+              };
               const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
 • **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${accumulatedFields.line_code || 'Não informada'}
 • **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}${photoLine}
 • **Sentido:** ${accumulatedFields.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || '')] || accumulatedFields.recurrence_frequency || 'Não informada'}
 
 Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2090,6 +2127,7 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
                 direction: accumulatedFields.direction,
+                recurrence_frequency: accumulatedFields.recurrence_frequency,
                 location: accumulatedFields.location,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
@@ -2976,17 +3014,25 @@ ${empathyNote}
                 occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
                 occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
                 direction: toolArgs.direction ?? accumulatedFields.direction,
+                recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
                 location: toolArgs.location ?? accumulatedFields.location,
                 severity: toolArgs.severity ?? accumulatedFields.severity,
                 subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
               };
               if (merged.occurrence_time && merged.direction) {
+              const recurrenceLabelMap: Record<string, string> = {
+                primeira_vez: 'Primeira vez',
+                algumas_vezes_mes: 'Algumas vezes/mês',
+                toda_semana: 'Toda semana',
+                todos_os_dias: 'Todos os dias',
+              };
               const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${merged.line_code || 'Não informada'}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
@@ -3024,6 +3070,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.occurrence_date && { occurrence_date: toolArgs.occurrence_date }),
             ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
             ...(toolArgs.direction && { direction: toolArgs.direction }),
+            ...(toolArgs.recurrence_frequency && { recurrence_frequency: toolArgs.recurrence_frequency }),
             ...(toolArgs.severity && { severity: toolArgs.severity }),
             // Service rating fields
             ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
@@ -3145,17 +3192,25 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
             occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
             direction: toolArgs.direction ?? accumulatedFields.direction,
+            recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
             location: toolArgs.location ?? accumulatedFields.location,
             severity: toolArgs.severity ?? accumulatedFields.severity,
             subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
           };
           if (merged.occurrence_time && merged.direction) {
+          const recurrenceLabelMap: Record<string, string> = {
+            primeira_vez: 'Primeira vez',
+            algumas_vezes_mes: 'Algumas vezes/mês',
+            toda_semana: 'Toda semana',
+            todos_os_dias: 'Todos os dias',
+          };
           const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Linha:** ${merged.line_code || 'Não informada'}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
           const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });

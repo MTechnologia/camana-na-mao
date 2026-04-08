@@ -61,6 +61,12 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
     volta: 'Volta',
     circular: 'Circular',
   },
+  recurrence_frequency: {
+    primeira_vez: 'Primeira vez',
+    algumas_vezes_mes: 'Algumas vezes/mês',
+    toda_semana: 'Toda semana',
+    todos_os_dias: 'Todos os dias',
+  },
   category: {
     via_publica: 'Via Pública',
     iluminacao: 'Iluminação',
@@ -159,6 +165,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'occurrence_date', label: 'Data', required: true },
       { key: 'occurrence_time', label: 'Horário', required: true },
       { key: 'direction', label: 'Sentido', required: true },
+      { key: 'recurrence_frequency', label: 'Frequência', required: true },
       { key: 'line_code', label: 'Linha', required: false },
       { key: 'location', label: 'Local', required: false },
       { key: 'severity', label: 'Gravidade', required: false },

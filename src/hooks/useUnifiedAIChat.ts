@@ -389,6 +389,15 @@ export const useUnifiedAIChat = (
 
               const directionMatch = msg.content?.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
               if (directionMatch) reconstructedFields.direction = directionMatch[1].trim().toLowerCase();
+
+              const recurrenceMatch = msg.content?.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              if (recurrenceMatch) {
+                const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
+                if (recurrenceRaw.includes('primeira vez')) reconstructedFields.recurrence_frequency = 'primeira_vez';
+                else if (recurrenceRaw.includes('algumas vezes')) reconstructedFields.recurrence_frequency = 'algumas_vezes_mes';
+                else if (recurrenceRaw.includes('toda semana')) reconstructedFields.recurrence_frequency = 'toda_semana';
+                else if (recurrenceRaw.includes('todos os dias')) reconstructedFields.recurrence_frequency = 'todos_os_dias';
+              }
               
               // Parse description
               const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
@@ -931,6 +940,19 @@ export const useUnifiedAIChat = (
           if (askedForDescription || userMsgCount <= 2) {
             setCollectedFields(prev => ({ ...prev, description: raw }));
           }
+        }
+      }
+
+      // Detectar frequência de recorrência
+      if (!collectedFields.recurrence_frequency) {
+        if (/\bprimeira vez\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'primeira_vez' }));
+        } else if (/algumas vezes/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'algumas_vezes_mes' }));
+        } else if (/toda semana/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'toda_semana' }));
+        } else if (/todos os dias|todo dia/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'todos_os_dias' }));
         }
       }
     }
@@ -1478,6 +1500,15 @@ export const useUnifiedAIChat = (
 
               const directionMatch = assistantMessage.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
               if (directionMatch) finalFields.direction = directionMatch[1].trim().toLowerCase();
+
+              const recurrenceMatch = assistantMessage.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              if (recurrenceMatch) {
+                const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
+                if (recurrenceRaw.includes('primeira vez')) finalFields.recurrence_frequency = 'primeira_vez';
+                else if (recurrenceRaw.includes('algumas vezes')) finalFields.recurrence_frequency = 'algumas_vezes_mes';
+                else if (recurrenceRaw.includes('toda semana')) finalFields.recurrence_frequency = 'toda_semana';
+                else if (recurrenceRaw.includes('todos os dias')) finalFields.recurrence_frequency = 'todos_os_dias';
+              }
               
               const sevMatch = assistantMessage.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
               if (sevMatch) {
@@ -1732,6 +1763,7 @@ export const useUnifiedAIChat = (
         { key: 'occurrence_date', required: true },
         { key: 'occurrence_time', required: true },
         { key: 'direction', required: true },
+        { key: 'recurrence_frequency', required: true },
       ],
       service_rating: [
         { key: 'service_type', required: true },
@@ -1841,6 +1873,11 @@ export const useUnifiedAIChat = (
     sendMessage(`Sentido: ${displayText}`);
   }, [sendMessage]);
 
+  const handleRecurrenceFrequencySelected = useCallback((frequency: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, recurrence_frequency: frequency }));
+    sendMessage(`Frequência: ${displayText}`);
+  }, [sendMessage]);
+
   // Handle rating selection from inline picker
   const handleRatingSelected = useCallback((stars: number) => {
     setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
@@ -1912,6 +1949,7 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleDirectionSelected,
+    handleRecurrenceFrequencySelected,
     handleRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,

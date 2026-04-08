@@ -1892,6 +1892,7 @@ export type Database = {
           occurrence_time: string | null
           photos: string[] | null
           protocol_code: string | null
+          recurrence_frequency: string | null
           report_type: string
           responded_at: string | null
           severity: string
@@ -1923,6 +1924,7 @@ export type Database = {
           occurrence_time?: string | null
           photos?: string[] | null
           protocol_code?: string | null
+          recurrence_frequency?: string | null
           report_type: string
           responded_at?: string | null
           severity?: string
@@ -1954,6 +1956,7 @@ export type Database = {
           occurrence_time?: string | null
           photos?: string[] | null
           protocol_code?: string | null
+          recurrence_frequency?: string | null
           report_type?: string
           responded_at?: string | null
           severity?: string

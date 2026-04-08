@@ -64,6 +64,30 @@ export function parseFlexibleOccurrenceTime(input: string): string | null {
   return null;
 }
 
+export function normalizeTransportRecurrenceFrequency(input: string): string | null {
+  const raw = String(input || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (!raw) return null;
+
+  if (raw.includes("primeira vez")) return "primeira_vez";
+  if (raw.includes("algumas vezes") || raw.includes("vezes/mes") || raw.includes("vezes por mes")) {
+    return "algumas_vezes_mes";
+  }
+  if (raw.includes("toda semana") || raw.includes("todas as semanas") || raw.includes("semanal")) {
+    return "toda_semana";
+  }
+  if (raw.includes("todos os dias") || raw.includes("todo dia") || raw.includes("diario") || raw.includes("diária")) {
+    return "todos_os_dias";
+  }
+  if (raw === "primeira_vez" || raw === "algumas_vezes_mes" || raw === "toda_semana" || raw === "todos_os_dias") {
+    return raw;
+  }
+  return null;
+}
+
 export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
   const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
@@ -1150,6 +1174,12 @@ export function extractTransportFields(context: string): Record<string, unknown>
     fields.direction = 'volta';
   } else if (/\bcircular\b/.test(context)) {
     fields.direction = 'circular';
+  }
+
+  // Detect recurrence frequency
+  const recurrence = normalizeTransportRecurrenceFrequency(context);
+  if (recurrence) {
+    fields.recurrence_frequency = recurrence;
   }
   
   // Detect severity
@@ -2804,6 +2834,12 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       else if (/\bcircular\b/i.test(responseLower)) result.direction = 'circular';
       break;
     }
+
+    case 'recurrence_frequency': {
+      const normalized = normalizeTransportRecurrenceFrequency(response);
+      if (normalized) result.recurrence_frequency = normalized;
+      break;
+    }
       
     case 'active_consequences': {
       // Parse active consequences
@@ -3900,6 +3936,12 @@ export function accumulateFieldsFromHistory(
         if (directionRaw.includes('ida')) accumulated.direction = 'ida';
         else if (directionRaw.includes('volta')) accumulated.direction = 'volta';
         else if (directionRaw.includes('circular')) accumulated.direction = 'circular';
+      }
+
+      const recurrenceMatch = content.match(/frequ[êe]ncia:\s*([^\n]+)/i);
+      if (recurrenceMatch && !accumulated.recurrence_frequency) {
+        const normalized = normalizeTransportRecurrenceFrequency(recurrenceMatch[1]);
+        if (normalized) accumulated.recurrence_frequency = normalized;
       }
     }
   }
@@ -7475,6 +7517,17 @@ export async function executeTool(
           };
         }
         args.direction = String(args.direction).toLowerCase();
+
+        const normalizedRecurrence = normalizeTransportRecurrenceFrequency(
+          String(args.recurrence_frequency || accumulatedFields?.recurrence_frequency || "")
+        );
+        if (!normalizedRecurrence) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:recurrence_frequency]Com qual frequência isso acontece? [RECURRENCE_FREQUENCY_PICKER]'
+          };
+        }
+        args.recurrence_frequency = normalizedRecurrence;
         
         // Date confirmation check - args.date_confirmed is set by accumulateFieldsFromHistory
         // when user explicitly selects via picker or says "hoje"/"ontem"
@@ -7545,6 +7598,7 @@ export async function executeTool(
             occurrence_date: args.occurrence_date,
             occurrence_time: args.occurrence_time || null,
             direction: args.direction || null,
+            recurrence_frequency: args.recurrence_frequency || null,
             line_id: lineId,
             line_code_custom: args.line_code || null,
             location: args.location || null,
@@ -7634,6 +7688,13 @@ export async function executeTool(
           baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica'
         };
         const severityLabel = severityLabels[inferredSeverity] || inferredSeverity;
+        const recurrenceLabels: Record<string, string> = {
+          primeira_vez: 'Primeira vez',
+          algumas_vezes_mes: 'Algumas vezes/mês',
+          toda_semana: 'Toda semana',
+          todos_os_dias: 'Todos os dias',
+        };
+        const recurrenceLabel = recurrenceLabels[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
         
         // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
         const successMessage = [
@@ -7649,6 +7710,7 @@ export async function executeTool(
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
           args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : '',
+          recurrenceLabel ? `🔁 **Frequência:** ${recurrenceLabel}` : '',
           args.location ? `📍 **Local:** ${args.location}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
