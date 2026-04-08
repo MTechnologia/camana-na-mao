@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -52,6 +52,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       items: [
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
+        { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
+        { title: 'Mapa de calor', icon: Flame, href: '/admin/reports-heatmap' },
         { title: 'Acurácia da classificação', icon: Target, href: '/admin/classification-accuracy' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
         ...(canModerateServiceCorrections

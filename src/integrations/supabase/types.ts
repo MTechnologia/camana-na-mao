@@ -2580,6 +2580,21 @@ export type Database = {
         }
         Returns: Json
       }
+      get_reports_trend: {
+        Args: {
+          p_line_id?: string | null
+          p_period?: string
+          p_type?: string | null
+        }
+        Returns: Json
+      }
+      get_reports_heatmap_data: {
+        Args: {
+          p_period?: string
+          p_type?: string | null
+        }
+        Returns: Json
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]

@@ -1,0 +1,150 @@
+import { useMemo, useState } from 'react';
+import { AdminLayout } from '@/layouts/AdminLayout';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { TrendCategoryLineChart } from '@/components/admin/TrendCategoryLineChart';
+import {
+  useReportsTrend,
+  type ReportsTrendPeriod,
+  type ReportsTrendTypeFilter,
+} from '@/hooks/useReportsTrend';
+import { useTransportLines } from '@/hooks/useTransportLines';
+import { buildTrendChartRows } from '@/lib/buildTrendChartRows';
+import { LineChart as LineChartIcon, RefreshCw, AlertTriangle } from 'lucide-react';
+
+export default function TrendDashboardPage() {
+  const [typeFilter, setTypeFilter] = useState<ReportsTrendTypeFilter>('all');
+  const [lineId, setLineId] = useState<string | null>(null);
+  const [period, setPeriod] = useState<ReportsTrendPeriod>('30d');
+
+  const { lines, loading: linesLoading } = useTransportLines();
+  const { data, isLoading, error, refresh } = useReportsTrend({
+    typeFilter,
+    lineId,
+    period,
+  });
+
+  const { rows, categoryKeys } = useMemo(() => {
+    if (!data?.points.length) return { rows: [], categoryKeys: [] as string[] };
+    return buildTrendChartRows(data.points, data.granularity);
+  }, [data]);
+
+  const lineFilterVisible = typeFilter === 'all' || typeFilter === 'transport';
+
+  return (
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-primary/10 p-2">
+              <LineChartIcon className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Tendência temporal</h1>
+              <p className="text-sm text-muted-foreground">
+                Evolução de reclamações e avaliações por categoria, com filtros dinâmicos.
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
+
+        <Card className="p-4 md:p-6">
+          <div className="mb-6 grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="trend-type">Tipo</Label>
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => {
+                  setTypeFilter(v as ReportsTrendTypeFilter);
+                  if (v !== 'all' && v !== 'transport') setLineId(null);
+                }}
+              >
+                <SelectTrigger id="trend-type">
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="urban">Relatos urbanos</SelectItem>
+                  <SelectItem value="transport">Relatos de transporte</SelectItem>
+                  <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="trend-line">Linha (transporte)</Label>
+              <Select
+                value={lineId ?? '__all__'}
+                onValueChange={(v) => setLineId(v === '__all__' ? null : v)}
+                disabled={!lineFilterVisible || linesLoading}
+              >
+                <SelectTrigger id="trend-line">
+                  <SelectValue placeholder={linesLoading ? 'Carregando…' : 'Todas as linhas'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todas as linhas</SelectItem>
+                  {lines.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.line_code} — {l.line_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!lineFilterVisible && (
+                <p className="text-xs text-muted-foreground">Aplica-se a relatos de transporte.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="trend-period">Período</Label>
+              <Select value={period} onValueChange={(v) => setPeriod(v as ReportsTrendPeriod)}>
+                <SelectTrigger id="trend-period">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {isLoading && !data ? (
+            <Skeleton className="h-[360px] w-full rounded-lg" />
+          ) : (
+            <TrendCategoryLineChart data={rows} categoryKeys={categoryKeys} />
+          )}
+
+          {data && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Agregação: {data.granularity === 'day' ? 'por dia' : data.granularity === 'week' ? 'por semana' : 'por mês'}.
+              {data.start_at ? ` A partir de ${new Date(data.start_at).toLocaleString('pt-BR')}.` : ''}
+            </p>
+          )}
+        </Card>
+      </div>
+    </AdminLayout>
+  );
+}
