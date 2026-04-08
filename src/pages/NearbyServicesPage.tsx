@@ -52,6 +52,8 @@ const DEFAULT_NEARBY_SERVICE_TYPES: ServiceTypeFilterValue[] = [
 ];
 const MAX_REVERSE_GEOCODE_ITEMS = 24;
 
+type NearbyLocationMode = "unset" | "gps" | "profile_address" | "cep_lookup";
+
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -438,9 +440,15 @@ export default function NearbyServicesPage() {
 
   const visitDetectionEnabled = useVisitDetectionEnabled(user?.id);
 
+  /** Mesmo ponto usado pela lista (GPS, endereço do perfil ou CEP). Só GPS antes impedia detecção para quem abre com endereço cadastrado. */
+  const visitDetectionLat =
+    locationUiPhase === "locked" && searchLat != null && searchLng != null ? searchLat : null;
+  const visitDetectionLng =
+    locationUiPhase === "locked" && searchLat != null && searchLng != null ? searchLng : null;
+
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
-    latitude: locationMode === "gps" ? latitude : null,
-    longitude: locationMode === "gps" ? longitude : null,
+    latitude: visitDetectionLat,
+    longitude: visitDetectionLng,
     services: servicesForVisit,
     userId: user?.id,
     visitDetectionEnabled,

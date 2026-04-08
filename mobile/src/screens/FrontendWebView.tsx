@@ -31,6 +31,29 @@ function normalizeAndValidate(url: string): string | null {
 // Fallback: URL pública do Render (e ainda dá pra editar no próprio app).
 const DEFAULT_WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://camana-na-mao-767943602990.southamerica-east1.run.app/';
 
+let APP_LINK_HOST = '';
+try {
+  APP_LINK_HOST = new URL(DEFAULT_WEB_URL.trim()).hostname;
+} catch {
+  APP_LINK_HOST = '';
+}
+
+/** action_url relativo (ex. /avaliar/uuid) ou absoluto → URL do WebView */
+function resolveNotificationTargetUrl(pathOrUrl: string, baseWebUrl: string): string | null {
+  const trimmed = pathOrUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return normalizeAndValidate(trimmed);
+  }
+  try {
+    const base = baseWebUrl.replace(/\/$/, '');
+    const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return new URL(path, `${base}/`).href;
+  } catch {
+    return null;
+  }
+}
+
 const EXPO_PUSH_MESSAGE_TYPE = 'getExpoPushToken';
 const CAMARA_AUTH_STATE_TYPE = 'CAMARA_AUTH_STATE';
 
@@ -99,7 +122,7 @@ export function FrontendWebView() {
     const handleOpenUrl = (url: string | null) => {
       if (!url || !normalizeAndValidate(url)) return;
       const parsed = url.startsWith('http') ? url : `https://${url}`;
-      if (parsed.includes(APP_LINK_HOST)) {
+      if (APP_LINK_HOST && parsed.includes(APP_LINK_HOST)) {
         setDraftUrl(parsed);
         setActiveUrl(parsed);
         setReloadKey((k) => k + 1);
@@ -110,6 +133,35 @@ export function FrontendWebView() {
     const sub = Linking.addEventListener('url', (event) => handleOpenUrl(event.url));
     return () => sub.remove();
   }, []);
+
+  // Toque em notificação push (Expo): data.url vem de send-web-push (ex. /avaliar/:visitId)
+  const openFromNotificationData = useCallback(
+    (data: Record<string, unknown> | undefined) => {
+      const raw = data?.url;
+      if (typeof raw !== 'string') return;
+      const base = normalizedActive || DEFAULT_WEB_URL.trim();
+      const full = resolveNotificationTargetUrl(raw, base);
+      if (!full) return;
+      setDraftUrl(full);
+      setActiveUrl(full);
+      setReloadKey((k) => k + 1);
+    },
+    [normalizedActive],
+  );
+
+  useEffect(() => {
+    if (!Device.isDevice) return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      openFromNotificationData(
+        response.notification.request.content.data as Record<string, unknown>,
+      );
+    });
+    void Notifications.getLastNotificationResponseAsync().then((last) => {
+      const data = last?.notification?.request?.content?.data as Record<string, unknown> | undefined;
+      if (data) openFromNotificationData(data);
+    });
+    return () => sub.remove();
+  }, [openFromNotificationData]);
 
   // Background location para detecção de visitas (OS 05)
   useEffect(() => {

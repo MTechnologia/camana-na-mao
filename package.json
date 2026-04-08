@@ -20,7 +20,11 @@
     "test:e2e:report": "playwright show-report",
     "test:e2e:export-docx": "node scripts/export-test-results-to-docx.mjs",
     "playwright:install": "playwright install",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:quiet-hours": "deno test supabase/functions/_shared/quiet-hours_test.ts",
+    "test:daily-limit": "deno test supabase/functions/_shared/daily-limit_test.ts",
+    "test:notification-channels": "deno test supabase/functions/_shared/notification-channels_test.ts",
+    "test:visit-reminder": "deno test supabase/functions/_shared/visit-reminder-windows_test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
