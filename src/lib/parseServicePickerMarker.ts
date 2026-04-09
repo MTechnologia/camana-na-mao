@@ -1,7 +1,7 @@
 import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 
 /**
- * Extrai :district e :type de [SERVICE_PICKER:district=X:type=Y].
+ * Extrai :district, :type e :hideRatedToday de [SERVICE_PICKER:...].
  *
  * Os regex antigos em ChatMessageBubble falhavam: o padrão `\[SERVICE_PICKER[^\]]*:type=`
  * não encontrava nada porque `[^\]]*` (ganancioso) consumia todo o conteúdo até `]`,
@@ -11,6 +11,7 @@ import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 export function parseServicePickerMarker(content: string): {
   serviceType?: string;
   district?: string;
+  hideRatedToday?: boolean;
 } {
   const bracket = content.match(/\[SERVICE_PICKER([^\]]*)\]/);
   if (!bracket) return {};
@@ -18,6 +19,7 @@ export function parseServicePickerMarker(content: string): {
   const inner = bracket[1];
   const typeIdx = inner.indexOf(":type=");
   const distIdx = inner.indexOf(":district=");
+  const hideIdx = inner.indexOf(":hideRatedToday=");
 
   const decode = (s: string): string | undefined => {
     const t = s.trim();
@@ -29,19 +31,30 @@ export function parseServicePickerMarker(content: string): {
     }
   };
 
+  const endBeforeOptional = (fromIdx: number): number => {
+    const rest = [distIdx, typeIdx, hideIdx].filter((i) => i > fromIdx);
+    return rest.length ? Math.min(...rest) : inner.length;
+  };
+
   let district: string | undefined;
   let serviceType: string | undefined;
+  let hideRatedToday = false;
 
   if (distIdx >= 0) {
     const start = distIdx + ":district=".length;
-    const end = typeIdx > distIdx ? typeIdx : inner.length;
-    district = decode(inner.slice(start, end));
+    district = decode(inner.slice(start, endBeforeOptional(distIdx)));
   }
 
   if (typeIdx >= 0) {
-    const rawType = decode(inner.slice(typeIdx + ":type=".length));
+    const start = typeIdx + ":type=".length;
+    const rawType = decode(inner.slice(start, endBeforeOptional(typeIdx)));
     serviceType = normalizeServiceTypeToDbEnum(rawType) ?? rawType;
   }
 
-  return { serviceType, district };
+  if (hideIdx >= 0) {
+    const v = inner.slice(hideIdx + ":hideRatedToday=".length).trim();
+    hideRatedToday = v === "1" || v.toLowerCase() === "true";
+  }
+
+  return { serviceType, district, hideRatedToday };
 }

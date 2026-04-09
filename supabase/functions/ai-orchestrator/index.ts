@@ -1263,9 +1263,10 @@ serve(async (req) => {
           const districtHint = neighStr ? ` em **${neighStr}**` : '';
           const typeParam = fields.service_type ? ':type=' + encodeURIComponent(String(fields.service_type)) : '';
           const districtParam = neighStr ? ':district=' + encodeURIComponent(neighStr) : '';
+          const hideRatedParam = ':hideRatedToday=1';
           return {
             field: 'service_name',
-            picker: `[SERVICE_PICKER${districtParam}${typeParam}]`,
+            picker: `[SERVICE_PICKER${districtParam}${typeParam}${hideRatedParam}]`,
             prompt: `Qual **${labelQual}** você visitou${districtHint}? Selecione na lista abaixo.`,
           };
         }
@@ -2179,10 +2180,30 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
             });
           } else if (toolResult && !toolResult.success) {
+            // Regra de negócio / erro terminal (ex.: RN-AVA-003) sem campo a corrigir — não enviar ao LLM
+            // (senão o modelo inventa mensagem genérica tipo "não foi possível salvar").
+            const failMsg = toolResult.message || '';
+            const needsFieldFromTool = failMsg.includes('[FIELD_REQUEST:');
+            if (collectionIntent?.type === 'service_rating' && !needsFieldFromTool) {
+              let responseContent = failMsg;
+              if (lightJourneyMarker && !responseContent.includes('[LIGHT_JOURNEY:')) {
+                responseContent = lightJourneyMarker + responseContent;
+              }
+              if (!responseContent.includes('[COLLECTION_PROGRESS:')) {
+                responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:{}]${responseContent}`;
+              }
+              const ssePayload = JSON.stringify({
+                choices: [{ delta: { content: responseContent } }],
+              });
+              console.log(
+                '[ai-orchestrator] Auto-create service_rating terminal failure, returning tool message directly',
+              );
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
             // Tool validation failed - continue to LLM to ask for missing field
             console.log('[ai-orchestrator] Auto-create validation failed, continuing to LLM:', toolResult.message);
-            // Update nextFieldInfo to ask for the missing field
-            // The tool result message should contain [FIELD_REQUEST:...] markers
             nextFieldInfo = { field: null, picker: null, prompt: toolResult.message };
           }
         } catch (error) {

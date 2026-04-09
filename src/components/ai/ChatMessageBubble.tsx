@@ -709,11 +709,13 @@ const ChatMessageBubble = ({
   const servicePickerContext = useMemo(() => {
     let serviceType: string | undefined;
     let district: string | undefined;
+    let hideRatedToday = false;
 
     if (message.content.includes("[SERVICE_PICKER")) {
       const parsed = parseServicePickerMarker(message.content);
       serviceType = parsed.serviceType;
       district = parsed.district;
+      hideRatedToday = Boolean(parsed.hideRatedToday);
     }
     if (!serviceType) {
       const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
@@ -723,7 +725,7 @@ const ChatMessageBubble = ({
       const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
       if (neighMatch) district = neighMatch[1];
     }
-    return { serviceType, district };
+    return { serviceType, district, hideRatedToday };
   }, [message.content]);
   
   return (
@@ -1061,6 +1063,7 @@ const ChatMessageBubble = ({
           <InlineServicePicker
             serviceType={servicePickerContext.serviceType}
             district={servicePickerContext.district}
+            hideRatedToday={servicePickerContext.hideRatedToday}
             onSelect={handleServiceSelected}
           />
         )}
