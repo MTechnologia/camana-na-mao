@@ -33,6 +33,46 @@ export function parseRatingDimensionsMarker(content: string): Record<string, num
   }
 }
 
+/** Fuso para RN-AVA-003 (alinhado a idx_one_rating_per_service_per_day no PostgreSQL). */
+const SERVICE_RATING_DEDUP_TZ = 'America/Sao_Paulo';
+
+function zonedCalendarDayKey(timeZone: string, instantMs: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    new Date(instantMs),
+  );
+}
+
+/**
+ * Limites UTC [start, end) do dia civil em `timeZone` que contém `ref`.
+ * Equivale a filtrar linhas onde `(timezone(tz, created_at))::date = (timezone(tz, now()))::date`.
+ */
+export function getZonedDayUtcBoundsISO(timeZone: string, ref: Date = new Date()): { startIso: string; endExclusiveIso: string } {
+  const refMs = ref.getTime();
+  const dayKey = zonedCalendarDayKey(timeZone, refMs);
+  let lo = refMs - 26 * 3600000;
+  let hi = refMs + 26 * 3600000;
+  while (zonedCalendarDayKey(timeZone, lo) >= dayKey) lo -= 3600000;
+  while (zonedCalendarDayKey(timeZone, hi) < dayKey) hi += 3600000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (zonedCalendarDayKey(timeZone, mid) < dayKey) lo = mid;
+    else hi = mid;
+  }
+  const startMs = Math.ceil(hi);
+  let lo2 = startMs;
+  let hi2 = startMs + 40 * 3600000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo2 + hi2) / 2;
+    if (zonedCalendarDayKey(timeZone, mid) === dayKey) lo2 = mid;
+    else hi2 = mid;
+  }
+  const endExclusiveMs = Math.ceil(hi2);
+  return { startIso: new Date(startMs).toISOString(), endExclusiveIso: new Date(endExclusiveMs).toISOString() };
+}
+
+export const SERVICE_RATING_DUPLICATE_DAY_MESSAGE =
+  'Você já avaliou este serviço hoje. Só é permitida uma avaliação por dia para o mesmo equipamento — você pode avaliar outro serviço agora ou voltar amanhã para este.';
+
 export function parseFlexibleOccurrenceTime(input: string): string | null {
   const raw = (input || "").trim().toLowerCase();
   if (!raw) return null;
@@ -7831,12 +7871,38 @@ export async function executeTool(
           const serviceTypeArg = (args.service_type as string || '').toLowerCase();
           const neighborhood = (args.service_neighborhood || accumulatedFields?.service_neighborhood) as string | undefined;
 
+          const uuidFromPicker = (() => {
+            const raw = [args.service_id, accumulatedFields?.service_id].find(
+              (v) => typeof v === 'string' && /^[a-f0-9-]{36}$/i.test(String(v).trim()),
+            );
+            return raw ? String(raw).trim().toLowerCase() : '';
+          })();
+
+          if (uuidFromPicker) {
+            const { data: svcById } = await supabase
+              .from('public_services')
+              .select('id, name')
+              .eq('id', uuidFromPicker)
+              .maybeSingle();
+            if (svcById?.id) {
+              serviceId = svcById.id;
+              serviceNameForMessage = String(svcById.name || '');
+            }
+          }
+
           const tryFindService = async (
             typeFilter: string | null,
             namePattern: string
           ): Promise<{ id: string; name: string } | null> => {
             let q = supabase.from('public_services').select('id, name').ilike('name', namePattern).limit(5);
-            if (typeFilter) q = q.eq('service_type', typeFilter);
+            if (typeFilter) {
+              // GeoSampa/import: CAPS e equipamentos semelhantes costumam vir como `other`
+              if (typeFilter === 'hospital') {
+                q = q.in('service_type', ['hospital', 'other'] as string[]);
+              } else {
+                q = q.eq('service_type', typeFilter);
+              }
+            }
             const { data } = await q;
             if (data?.length) return data[0];
             return null;
@@ -7855,51 +7921,61 @@ export async function executeTool(
             return data?.length ? data[0] : null;
           };
 
-          // Extrai a parte distintiva: "CEU - Rosa Da China" -> "Rosa Da China" (o banco usa "CEU AT COMPL ROSA DA CHINA")
-          const partsAfterDash = serviceNameArg.split(/\s*[-–—]\s*/);
-          const distinctivePart = (partsAfterDash.length > 1 ? partsAfterDash[partsAfterDash.length - 1] : serviceNameArg).trim();
+          if (!serviceId) {
+            // Extrai a parte distintiva: "CEU - Rosa Da China" -> "Rosa Da China" (o banco usa "CEU AT COMPL ROSA DA CHINA")
+            const partsAfterDash = serviceNameArg.split(/\s*[-–—]\s*/);
+            const distinctivePart = (partsAfterDash.length > 1 ? partsAfterDash[partsAfterDash.length - 1] : serviceNameArg).trim();
 
-          let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
-          if (!found && distinctivePart.length >= 4) {
-            found = await tryFindService(serviceTypeArg, `%${distinctivePart}%`)
-              || await tryFindService(null, `%${distinctivePart}%`);
-          }
-          if (!found && serviceNameArg.length > 8) {
-            const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro|ceu)\s+(de\s+)?/i, '').trim();
-            if (withoutPrefix.length >= 4) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`)
-              || await tryFindService(null, `%${withoutPrefix}%`);
-          }
-          if (!found && distinctivePart.length >= 4) {
-            found = await tryFindByDistrict(distinctivePart);
-          }
-          if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
-          if (!found && distinctivePart.length >= 4) {
-            found = await tryFindService(null, `%${distinctivePart}%`);
-          }
-          if (!found && serviceTypeArg === 'ceu') {
-            found = await tryFindService('library', `%${serviceNameArg}%`)
-              || (distinctivePart.length >= 4 ? await tryFindService('library', `%${distinctivePart}%`) : null);
+            let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
+            if (!found && distinctivePart.length >= 4) {
+              found = await tryFindService(serviceTypeArg, `%${distinctivePart}%`)
+                || await tryFindService(null, `%${distinctivePart}%`);
+            }
+            if (!found && serviceNameArg.length > 8) {
+              const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro|ceu)\s+(de\s+)?/i, '').trim();
+              if (withoutPrefix.length >= 4) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`)
+                || await tryFindService(null, `%${withoutPrefix}%`);
+            }
+            if (!found && distinctivePart.length >= 4) {
+              found = await tryFindByDistrict(distinctivePart);
+            }
+            if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
+            if (!found && distinctivePart.length >= 4) {
+              found = await tryFindService(null, `%${distinctivePart}%`);
+            }
+            if (!found && serviceTypeArg === 'ceu') {
+              found = await tryFindService('library', `%${serviceNameArg}%`)
+                || (distinctivePart.length >= 4 ? await tryFindService('library', `%${distinctivePart}%`) : null);
+            }
+
+            if (found) {
+              serviceId = found.id;
+              serviceNameForMessage = found.name;
+            }
           }
 
-          if (found) {
-            serviceId = found.id;
-            serviceNameForMessage = found.name;
-          const expires = new Date();
-          expires.setDate(expires.getDate() + 7);
-          const { data: visitData, error: visitError } = await supabase
-            .from('service_visits')
-            .insert({
-              user_id: userId,
-              service_id: serviceId,
-              expires_at: expires.toISOString(),
-              status: 'completed'
-            })
-            .select('id')
-            .single();
+          if (serviceId && !visitId) {
+            const expires = new Date();
+            expires.setDate(expires.getDate() + 7);
+            const { data: visitData, error: visitError } = await supabase
+              .from('service_visits')
+              .insert({
+                user_id: userId,
+                service_id: serviceId,
+                expires_at: expires.toISOString(),
+                status: 'completed'
+              })
+              .select('id')
+              .single();
             if (!visitError && visitData) visitId = visitData.id;
           }
           if (!serviceId || !visitId) {
-            console.warn('[create_service_rating] Service not found in DB:', { serviceTypeArg, serviceNameArg, neighborhood });
+            console.warn('[create_service_rating] Service not found in DB:', {
+              serviceTypeArg,
+              serviceNameArg,
+              neighborhood,
+              hadServiceIdFromPicker: Boolean(uuidFromPicker),
+            });
             return {
               success: false,
               message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.',
@@ -7909,6 +7985,23 @@ export async function executeTool(
         
         if (!serviceId || !visitId) {
           return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
+        }
+
+        const { startIso, endExclusiveIso } = getZonedDayUtcBoundsISO(SERVICE_RATING_DEDUP_TZ);
+        const { data: existingToday, error: dupLookupErr } = await supabase
+          .from('service_ratings')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('service_id', serviceId)
+          .gte('created_at', startIso)
+          .lt('created_at', endExclusiveIso)
+          .limit(1)
+          .maybeSingle();
+
+        if (dupLookupErr) {
+          console.warn('[create_service_rating] duplicate check error:', dupLookupErr.message);
+        } else if (existingToday) {
+          return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
         }
         
         const trimmedComment = args.rating_text.trim();
@@ -7959,6 +8052,12 @@ export async function executeTool(
 
         if (error) {
           console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
+          const errText = String(error.message || '');
+          const isDupPerDayIdx =
+            String(error.code) === '23505' || errText.includes('idx_one_rating_per_service_per_day');
+          if (isDupPerDayIdx) {
+            return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
+          }
           return {
             success: false,
             message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'
