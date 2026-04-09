@@ -1,6 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { MapPin, RefreshCw, ChevronDown, Info, Clock } from "lucide-react";
+import { MapPin, RefreshCw, Info, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeSptransOlhoVivo } from "@/lib/sptransOlhoVivo";
@@ -17,11 +16,6 @@ import PageHeader from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -60,7 +54,6 @@ export default function LiveBusPage() {
   }, []);
 
   const [selectedLine, setSelectedLine] = useState<SelectedLine | null>(null);
-  const [codigoOverride, setCodigoOverride] = useState("");
   const [loading, setLoading] = useState(false);
   const [rawJson, setRawJson] = useState<unknown>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -328,7 +321,7 @@ export default function LiveBusPage() {
     setPositionSource(null);
     setPrevisaoText(null);
     try {
-      let codigo = await resolveCodigoLinha(selectedLine, codigoOverride);
+      let codigo = await resolveCodigoLinha(selectedLine, "");
       let rawFromPosicaoAgregada: unknown = null;
 
       if (codigo == null) {
@@ -354,7 +347,7 @@ export default function LiveBusPage() {
 
       if (codigo == null) {
         setFetchError(
-          "Não foi possível obter o código numérico (cl) na API Olho Vivo para esta linha. Preencha o campo «Código numérico Olho Vivo» abaixo (consulte em /debug/sptrans-olhovivo com path Linha/Buscar e termosBusca igual ao número da linha, ex.: 7000-10).",
+          "Não foi possível obter o código numérico da linha na API Olho Vivo. Tente outra denominação da linha ou volte a tentar mais tarde.",
         );
         return;
       }
@@ -395,11 +388,6 @@ export default function LiveBusPage() {
     <>
       <PageHeader title="Ônibus ao vivo" backTo="/relatos" />
       <div className="min-h-screen bg-background pt-[60px] pb-24 px-4 max-w-3xl mx-auto space-y-6">
-        <p className="text-sm text-muted-foreground">
-          Posições em tempo real via SPTrans (Olho Vivo). É necessário estar
-          autenticado; o mapa usa a chave Google Maps do app.
-        </p>
-
         <div className="space-y-2">
           <Label>Linha</Label>
           <LineSearchInput
@@ -415,29 +403,6 @@ export default function LiveBusPage() {
             }}
             allowCustom
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="codigo-olhovivo">
-            Código numérico Olho Vivo (opcional)
-          </Label>
-          <Input
-            id="codigo-olhovivo"
-            inputMode="numeric"
-            placeholder="Se vazio, tentamos resolver pelo código da linha"
-            value={codigoOverride}
-            onChange={(e) => setCodigoOverride(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            O código da linha no app nem sempre coincide com o{" "}
-            <code className="text-xs bg-muted px-1 rounded">codigoLinha</code>{" "}
-            da API. Se o mapa vier vazio, informe o número obtido na documentação
-            SPTrans ou no teste em{" "}
-            <Link to="/debug/sptrans-olhovivo" className="underline text-primary">
-              /debug/sptrans-olhovivo
-            </Link>
-            .
-          </p>
         </div>
 
         <LocationSearchCard
@@ -491,12 +456,6 @@ export default function LiveBusPage() {
             <Clock className="w-4 h-4" />
             Previsão de chegada (parada)
           </div>
-          <p className="text-xs text-muted-foreground">
-            Pesquise a parada (Olho Vivo) ou introduza o código numérico. A API usa{" "}
-            <code className="text-xs bg-muted px-1 rounded">codigoParada</code>{" "}
-            + <code className="text-xs bg-muted px-1 rounded">codigoLinha</code>{" "}
-            (linha já resolvida acima).
-          </p>
           <div className="space-y-2">
             <Label htmlFor="parada-busca">Parada</Label>
             <ParadaSearchInput
@@ -591,8 +550,7 @@ export default function LiveBusPage() {
 
         {!fetchError && rawJson && buses.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            Resposta recebida, mas não encontrámos coordenadas no JSON. Veja o
-            conteúdo bruto abaixo.
+            Resposta recebida, mas não encontrámos coordenadas válidas nos dados.
           </p>
         )}
 
@@ -602,20 +560,6 @@ export default function LiveBusPage() {
           <p className="text-sm text-muted-foreground">
             {buses.length} veículo(s) no mapa.
           </p>
-        )}
-
-        {rawJson != null && (
-          <Collapsible className="border rounded-lg">
-            <CollapsibleTrigger className="flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50">
-              Resposta JSON (detalhe)
-              <ChevronDown className="w-4 h-4" />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <pre className="text-xs p-3 pt-0 overflow-auto max-h-64 bg-muted/30 whitespace-pre-wrap break-all">
-                {JSON.stringify(rawJson, null, 2)}
-              </pre>
-            </CollapsibleContent>
-          </Collapsible>
         )}
       </div>
     </>
