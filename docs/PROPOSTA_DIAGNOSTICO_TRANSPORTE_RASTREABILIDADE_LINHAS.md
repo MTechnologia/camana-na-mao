@@ -58,9 +58,9 @@ Entregar um **fluxo completo de diagnóstico colaborativo de transporte via chat
 | **L1 — Trajeto (shape)** | Polilinha no mapa “por onde a linha passa” | **GTFS estático** (SPTrans / dados abertos, quando licenciados e atualizados) | Média: ingestão, cache, licença de uso |
 | **L2 — Horário programado** | Próximas partidas em parada (programado) | GTFS `stop_times` | Média: escolha de parada + timezone |
 | **L3 — Atraso / headway** | “Atrasado X min” ou frequência | **GTFS-RT** ou API operador | Alta: streaming, SLA, fallbacks |
-| **L4 — Posição do veículo** | Ícone se movendo no mapa | GTFS-RT VehiclePositions ou API proprietária | Muito alta: latência, bateria, custo, acordos |
+| **L4 — Posição do veículo** | Ícone se movendo no mapa | **API Olho Vivo (SPTrans)** ou GTFS-RT, conforme disponibilidade | Para ônibus municipais SPTrans, o **Olho Vivo** cobre posição e previsão; ver §13 |
 
-**Proposta de valor incremental:** entregar **L1 + L2** como **MVP de rastreabilidade percebida**, e desenhar **L3** como fase seguinte se houver fonte estável em SP. **L4** só com parceria/custo aceite.
+**Proposta de valor incremental:** entregar **L1 + L2** como **MVP de rastreabilidade percebida**; **L3/L4** para linhas SPTrans podem usar **Olho Vivo** (token já obtido via [API Store](https://apilib.prefeitura.sp.gov.br/store/apis/info?name=OlhoVivo&version=v2.1&provider=admin&tag=SPTrans#tab1)) em chamadas server-side.
 
 ---
 
@@ -118,7 +118,7 @@ flowchart LR
 | **F0** | Alinhar proposta | Este documento + revisão com produto/legais |
 | **F1 — MVP percepção** | L1 + deep link para mapa interno com shape da linha selecionada | Contrato de API interna, UX no `AgentChatArea` / página mapa |
 | **F2** | L2 horários programados | Parada + próximas partidas (GTFS estático) |
-| **F3** | L3 atrasos | Integração GTFS-RT ou fonte alternativa acordada |
+| **F3** | L3/L4 tempo real (ônibus SPTrans) | **Olho Vivo** via gateway APILib + `codigoLinha` / parada alinhados ao `LINE_PICKER`; fallback GTFS-RT se necessário |
 | **F4** | Analytics colaborativo | Cruzamento relatos × dados oficiais (painel gestão) |
 
 ---
@@ -148,4 +148,42 @@ flowchart LR
 
 ---
 
-*Documento vivo: atualizar após spike GTFS e decisão de fonte em tempo real.*
+## 13. API Olho Vivo (SPTrans) — gateway Prefeitura / API Store
+
+Com **subscrição e token** na [API Store — OlhoVivo v2.1](https://apilib.prefeitura.sp.gov.br/store/apis/info?name=OlhoVivo&version=v2.1&provider=admin&tag=SPTrans#tab1), o acesso passa pelo **gateway HTTPS** (recomendado em produção), com **Authorization: Bearer &lt;access_token&gt;** gerado para a aplicação.
+
+### 13.1 Base URL (produção)
+
+| Ambiente | Base URL |
+|----------|----------|
+| Gateway APILib (HTTPS) | `https://gateway.apilib.prefeitura.sp.gov.br/sptrans/olhovivo/v2.1` |
+
+*(Sandbox, se existir na Store, usa o mesmo host com política da subscrição — validar no painel.)*
+
+A documentação funcional detalhada (parâmetros, exemplos JSON) continua no guia oficial SPTrans: [Documentação API Olho Vivo](https://www.sptrans.com.br/desenvolvedores/api-do-olho-vivo-guia-de-referencia/documentacao-api/).
+
+### 13.2 Endpoints necessários para o produto (mapa + “onde está” + parada)
+
+Implementação no **backend** (Edge Function ou serviço): **nunca** expor o token no app.
+
+| Finalidade | Categoria na doc SPTrans | Uso no Câmara na Mão |
+|------------|---------------------------|----------------------|
+| Resolver texto → `codigoLinha` / linha oficial | **Linhas** (buscar por termo, sentido, etc.) | Alinhar escolha do `LINE_PICKER` ao código numérico da API |
+| **Posição dos veículos** (L4) | **Posição** — por linha e/ou visão agregada | Mapa com ícones; polling a cada 15–30 s (respeitar termos e carga) |
+| **Previsão na parada** (L3) | **Previsão** — parada + linha | “Próximo ônibus em X min” no ponto |
+| Paradas próximas / código de parada | **Paradas** | Escolher `codigoParada` para previsão |
+| Corredores (opcional) | **Corredores** | Contexto de mapa / filtros |
+
+Os **paths exatos** (ex.: sufixos após `/v2.1`) devem ser copiados do **Swagger** (`/swagger.json`) na API Store após login — a versão v2.1 mantém REST alinhado ao [guia de referência](https://www.sptrans.com.br/desenvolvedores/api-do-olho-vivo-guia-de-referencia/).
+
+### 13.3 Integração técnica (checklist)
+
+1. **Edge Function `sptrans-olhovivo`** (`supabase/functions/sptrans-olhovivo/`) — proxy com `SPTRANS_OLHOVIVO_BEARER_TOKEN`; cliente web: `src/lib/sptransOlhoVivo.ts` (`invokeSptransOlhoVivo`).
+2. Mapear `line_code` do relato ↔ **`codigoLinha`** retornado pela busca de linhas (testar homônimos e sentido).
+3. Cache curto + **degradação** se a API falhar (mensagem “dados indisponíveis”, sem inventar posição).
+4. **Rate limiting** próprio para não estourar cota/uso aceitável.
+5. LGPD: posição do **veículo** é dado público operacional; localização do **usuário** continua sujeita a consentimento no app.
+
+---
+
+*Documento vivo: atualizar após spike GTFS e integração Olho Vivo (primeiro `GET` com Bearer no Edge).*
