@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ThumbsUp, MapPin, Hash, ExternalLink } from "lucide-react";
+import { Heart, MapPin, Hash, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +35,7 @@ type Props = {
 };
 
 /**
- * Lista de relatos urbanos próximos (ordenados por distância no backend) com ação de apoiar (curtida).
+ * Lista de relatos urbanos próximos (ordenados por distância no backend) com curtida (coração).
  */
 export function SimilarUrbanReportsInChat({ payload, className }: Props) {
   const navigate = useNavigate();
@@ -52,7 +52,7 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
         toast({
           variant: "destructive",
           title: "Login necessário",
-          description: "Entre na sua conta para apoiar um relato.",
+          description: "Entre na sua conta para curtir um relato.",
         });
         return;
       }
@@ -64,20 +64,20 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
         });
         if (error) {
           if (error.code === "23505" || error.message?.includes("duplicate")) {
-            toast({ title: "Você já apoiou este relato." });
+            toast({ title: "Você já curtiu este relato." });
             setSupportedIds((s) => new Set(s).add(reportId));
           } else {
             throw error;
           }
         } else {
-          toast({ title: "Apoio registrado", description: "Obrigado por reforçar este relato." });
+          toast({ title: "Curtida registrada", description: "Obrigado por reforçar este relato." });
           setSupportedIds((s) => new Set(s).add(reportId));
         }
       } catch (e) {
         console.error(e);
         toast({
           variant: "destructive",
-          title: "Não foi possível apoiar",
+          title: "Não foi possível curtir",
           description: "Tente novamente em instantes.",
         });
       } finally {
@@ -146,8 +146,8 @@ export function SimilarUrbanReportsInChat({ payload, className }: Props) {
                   disabled={supported || loadingId === r.id}
                   onClick={() => apoiar(r.id)}
                 >
-                  <ThumbsUp className="h-3.5 w-3.5 mr-1.5" aria-hidden />
-                  {supported ? "Apoiado" : "Apoiar"}
+                  <Heart className={cn("h-3.5 w-3.5 mr-1.5", supported && "fill-current")} aria-hidden />
+                  {supported ? "Curtido" : "Curtir"}
                 </Button>
               </div>
             </li>

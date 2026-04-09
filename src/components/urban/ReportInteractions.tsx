@@ -12,7 +12,7 @@ export const ReportInteractions = ({ reportId, onCommentClick }: ReportInteracti
   const { likesCount, commentsCount, isLiked, toggleLike } = useUrbanReportInteractions(reportId);
 
   return (
-    <div className="flex items-center gap-4 pt-3 border-t border-border">
+    <div className="flex items-center gap-4">
       <Button
         variant="ghost"
         size="sm"

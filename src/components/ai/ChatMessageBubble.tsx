@@ -612,6 +612,20 @@ const ChatMessageBubble = ({
       duvida: 'Dúvida',
       sugestao: 'Sugestão',
       elogio: 'Elogio',
+      tipo: 'Tipo',
+      linha: 'Linha',
+      data: 'Data',
+      horário: 'Horário',
+      sentido: 'Sentido',
+      frequência: 'Frequência',
+      impacto: 'Impacto na rotina',
+      local: 'Local',
+      lotacao: 'Lotação',
+      seguranca: 'Segurança',
+      acessibilidade: 'Acessibilidade',
+      limpeza: 'Limpeza',
+      conducao: 'Condução',
+      outro: 'Outro',
     };
     return values.map((value) => ({
       value,
@@ -646,7 +660,7 @@ const ChatMessageBubble = ({
     !isUser &&
       transportPreviewParsed &&
       /resumo do relato de transporte/i.test(message.content) &&
-      /\[QUICK_REPLY:[^\]]*registrar/i.test(message.content),
+      /\[QUICK_REPLY:[^\]]*(?:registrar|confirmar|corrigir)/i.test(message.content),
   );
   const markdownAfterTransportCard = useMemo(() => {
     if (!showTransportPreviewCard) return cleanContent;
@@ -1231,13 +1245,13 @@ const ChatMessageBubble = ({
                 <Button
                   key={btn.value}
                   variant={isCorrigir ? "outline" : "default"}
-                  size={showUrbanPreviewCard ? "default" : "sm"}
+                  size={showUrbanPreviewCard || showTransportPreviewCard ? "default" : "sm"}
                   disabled={disabled}
                   onClick={() => !disabled && onSendMessage?.(btn.value)}
                   className={cn(
                     "rounded-lg",
-                    showUrbanPreviewCard && isConfirmar && "min-h-11 px-5",
-                    showUrbanPreviewCard && isCorrigir && "min-h-11 px-5",
+                    (showUrbanPreviewCard || showTransportPreviewCard) && isConfirmar && "min-h-11 px-5",
+                    (showUrbanPreviewCard || showTransportPreviewCard) && isCorrigir && "min-h-11 px-5",
                   )}
                 >
                   {btn.label}

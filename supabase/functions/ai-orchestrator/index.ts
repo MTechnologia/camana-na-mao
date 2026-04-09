@@ -38,6 +38,51 @@ function transportImpactSummaryLine(pi: unknown): string {
   return "Desconforto";
 }
 
+/** Resumo final + marcador JSON + Confirmar/Corrigir (paridade com relato urbano, HU-5.6). */
+function buildTransportFinalPreviewMessage(
+  accumulatedFields: Record<string, unknown>,
+  extraPhotoLine: string,
+): string {
+  const recurrenceLabelMap: Record<string, string> = {
+    primeira_vez: "Primeira vez",
+    algumas_vezes_mes: "Algumas vezes/mês",
+    toda_semana: "Toda semana",
+    todos_os_dias: "Todos os dias",
+  };
+  const typeLabels: Record<string, string> = {
+    atraso: "Atraso",
+    lotacao: "Lotação",
+    seguranca: "Segurança",
+    acessibilidade: "Acessibilidade",
+    limpeza: "Limpeza",
+    conducao: "Condução",
+    outro: "Outro",
+  };
+  const desc = (accumulatedFields.description || "").toString();
+  const rt = String(accumulatedFields.report_type || "").trim();
+  const typeHuman = rt ? typeLabels[rt] || rt : "Não informado";
+  const bullets = `**Resumo do relato de transporte**
+• **Problema:** ${desc.slice(0, 150)}${desc.length > 150 ? "..." : ""}
+• **Tipo:** ${typeHuman}
+• **Linha:** ${accumulatedFields.line_code || "Não informada"}
+• **Quando:** ${accumulatedFields.occurrence_date || ""}${
+    accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ""
+  }${extraPhotoLine}
+• **Sentido:** ${accumulatedFields.direction || "Não informado"}
+• **Frequência:** ${
+    recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || "")] ||
+    accumulatedFields.recurrence_frequency ||
+    "Não informada"
+  }
+• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}`;
+
+  return `${bullets}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.${transportPreviewJsonMarker(
+    accumulatedFields,
+  )}[QUICK_REPLY:confirmar,corrigir]`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: PREFLIGHT_CORS });
@@ -2054,10 +2099,149 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
+
+            const userWantsCorrectionTransport =
+              /^(corrigir|corrigir\s+relato|editar|ajustar)$/i.test(msgLower.trim());
+            const isTransportFinalPreview =
+              /resumo\s+do\s+relato\s+de\s+transporte/i.test(lastAssistantLower) &&
+              !/deseja\s+anexar\s+imagens/i.test(lastAssistantLower);
+            const showedPreviewAfterAttach =
+              /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*(?:registrar\s+para\s+finalizar|confirmar)/i.test(
+                lastAssistantLower || "",
+              );
+            const transportFieldReqMatch = lastAssistantMessage.match(/\[FIELD_REQUEST:(\w+)\]/);
+            const prevWasTransportFieldRequest =
+              /\[COLLECTION_PROGRESS:transport_report:/i.test(lastAssistantMessage) && !!transportFieldReqMatch;
+
+            // Markdown quebra substring contínua ("de **ajustar**"); normalizar * para o teste.
+            const lastAssistantPlain = lastAssistantLower.replace(/\*/g, "");
+            // `.*` não atravessa \n — o marcador fica após "Selecione…" na linha seguinte.
+            const askedTransportCorrectionMenu =
+              /o que voc[eê] gostaria de ajustar/i.test(lastAssistantPlain) &&
+              /\[QUICK_REPLY:[^\]]*descri/i.test(lastAssistantMessage);
+
+            const transportCorrectionMenuPick = msgLower.trim().toLowerCase();
+            const transportPickNorm = transportCorrectionMenuPick
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/ç/g, "c");
+
+            if (askedTransportCorrectionMenu) {
+              const progress = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]`;
+              let reply = "";
+              if (transportPickNorm === "descricao" || /^descri/.test(transportPickNorm)) {
+                reply =
+                  `${progress}[FIELD_REQUEST:description]Qual é a **descrição correta**? Reescreva o que aconteceu com mais detalhes.`;
+              } else if (transportPickNorm === "tipo") {
+                reply =
+                  `${progress}[FIELD_REQUEST:report_type]Qual o **tipo de problema** correto?[QUICK_REPLY:atraso,lotacao,seguranca,acessibilidade,limpeza,conducao,outro]`;
+              } else if (transportPickNorm === "linha") {
+                reply =
+                  `${progress}[FIELD_REQUEST:line_code]Qual a **linha ou estação** correta?[LINE_PICKER]`;
+              } else if (transportPickNorm === "data") {
+                reply =
+                  `${progress}[FIELD_REQUEST:occurrence_date]Qual a **data correta** da ocorrência?[DATE_PICKER]`;
+              } else if (transportPickNorm === "horario") {
+                reply =
+                  `${progress}[FIELD_REQUEST:occurrence_time]Qual o **horário correto** da ocorrência?[TIME_PICKER]`;
+              } else if (transportPickNorm === "sentido") {
+                reply =
+                  `${progress}[FIELD_REQUEST:direction]Qual o **sentido** correto da viagem?[DIRECTION_PICKER]`;
+              } else if (transportPickNorm === "frequencia") {
+                reply =
+                  `${progress}[FIELD_REQUEST:recurrence_frequency]Qual a **frequência** correta?[RECURRENCE_FREQUENCY_PICKER]`;
+              } else if (transportPickNorm === "impacto") {
+                reply =
+                  `${progress}[FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**? Escolha de novo.[IMPACT_PICKER]`;
+              } else if (transportPickNorm === "local") {
+                reply =
+                  `${progress}[FIELD_REQUEST:location]Qual o **local** ou ponto de referência correto? (parada, terminal, trecho)`;
+              }
+              if (reply) {
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+                console.log("[ai-orchestrator] Transport report: correction menu pick → field request");
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              }
+              const reaskMenu =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Não reconheci essa opção. **O que você gostaria de ajustar** no resumo?\n\n` +
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+              const sseReask = JSON.stringify({ choices: [{ delta: { content: reaskMenu } }] });
+              console.log("[ai-orchestrator] Transport report: correction menu — pick não reconhecido, reexibindo opções");
+              return new Response(`data: ${sseReask}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
+
+            const threadHadTransportSimilarOffer = messages.some((m: Record<string, unknown>) => {
+              if (m.role !== 'assistant') return false;
+              const t = getMessageText(m).toLowerCase();
+              return (
+                /\[similar_transport_reports_b64:/i.test(t) ||
+                /relatos\s+recentes\s+na\s+mesma\s+linha/i.test(t)
+              );
+            });
+            const skipTransportPreviewShortcutAfterFirstImpact =
+              transportFieldReqMatch?.[1] === 'personal_impact' && !threadHadTransportSimilarOffer;
+
+            if (
+              prevWasTransportFieldRequest &&
+              lastUserMessage.trim().length > 0 &&
+              !skipTransportPreviewShortcutAfterFirstImpact
+            ) {
+              const menuTokens = new Set([
+                "descrição",
+                "descricao",
+                "tipo",
+                "linha",
+                "data",
+                "horário",
+                "horario",
+                "sentido",
+                "frequência",
+                "frequencia",
+                "impacto",
+                "local",
+              ]);
+              const isMenuPick = menuTokens.has(transportCorrectionMenuPick);
+              if (
+                /^(confirmar|registrar|sim|ok|tudo\s+certo)$/i.test(msgLower.trim()) ||
+                (!isMenuPick && !/^(corrigir|editar|ajustar)$/i.test(msgLower.trim()))
+              ) {
+                const photoLine =
+                  attachmentUrls.length > 0
+                    ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)`
+                    : "";
+                const previewBody = buildTransportFinalPreviewMessage(
+                  accumulatedFields as Record<string, unknown>,
+                  photoLine,
+                );
+                const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+                console.log(
+                  "[ai-orchestrator] Transport report: after field correction → showing preview again",
+                );
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              }
+            }
+
+            if (isTransportFinalPreview && userWantsCorrectionTransport) {
+              const correctionOptions =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de **ajustar** no resumo?\n\n` +
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: correctionOptions } }] });
+              console.log("[ai-orchestrator] Transport report: user requested correction → menu");
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
+
             // Fluxo de fotos para transporte (conforme relato urbano): perguntar → anexar → preview → criar
             const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
             const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*registrar|envie\s+\*?registrar\*?/i.test(lastAssistantLower);
-            const showedPreview = /resumo\s+do\s+relato|se\s+estiver\s+tudo\s+certo|confirmar\s+e\s+registrar/i.test(lastAssistantLower);
             const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
             const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
             const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
@@ -2068,7 +2252,12 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             const userWantsNewAfterSimilarTransport =
               /^(novo_relato|novo\s+relato|registrar\s+novo|criar\s+novo|mesmo\s+assim)\b/i.test(msgLower.trim());
 
-            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+            const looksLikeTransportCorrectionMenuUi =
+              /selecione\s+uma\s+op[cç][aã]o\s+abaixo/i.test(lastAssistantLower) &&
+              /\[QUICK_REPLY:[^\]]*descri/i.test(lastAssistantMessage) &&
+              /gostaria\s+de\s+ajustar|ajustar\s+no\s+resumo/i.test(lastAssistantPlain);
+
+            if (!askedPhotoChoice && !askedToAttach && !isTransportFinalPreview && !looksLikeTransportCorrectionMenuUi) {
               if (showedSimilarTransport && userWantsNewAfterSimilarTransport) {
                 const photoChoiceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema de transporte?**[QUICK_REPLY:sim,não]`;
                 const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
@@ -2129,53 +2318,38 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
             if (askedPhotoChoice && userSaidNo) {
-              const recurrenceLabelMap: Record<string, string> = {
-                primeira_vez: 'Primeira vez',
-                algumas_vezes_mes: 'Algumas vezes/mês',
-                toda_semana: 'Toda semana',
-                todos_os_dias: 'Todos os dias',
-              };
-              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
-• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
-• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}
-• **Sentido:** ${accumulatedFields.direction || 'Não informado'}
-• **Frequência:** ${recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || '')] || accumulatedFields.recurrence_frequency || 'Não informada'}
-• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}
-
-Se estiver tudo certo, clique em **Registrar** para finalizar.${transportPreviewJsonMarker(accumulatedFields as Record<string, unknown>)}[QUICK_REPLY:registrar]`;
+              const previewBody = buildTransportFinalPreviewMessage(
+                accumulatedFields as Record<string, unknown>,
+                "",
+              );
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Transport report: user said no to photos, showing preview');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
-            // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo Registrar criamos
-            const showedPreviewAfterAttach = /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*registrar\s+para\s+finalizar/i.test(lastAssistantLower || '');
+            // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo passo (Confirmar) criamos
             if (askedToAttach && userConfirms && !showedPreviewAfterAttach) {
-              const recurrenceLabelMap: Record<string, string> = {
-                primeira_vez: 'Primeira vez',
-                algumas_vezes_mes: 'Algumas vezes/mês',
-                toda_semana: 'Toda semana',
-                todos_os_dias: 'Todos os dias',
-              };
-              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
-              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
-• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
-• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}${photoLine}
-• **Sentido:** ${accumulatedFields.direction || 'Não informado'}
-• **Frequência:** ${recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || '')] || accumulatedFields.recurrence_frequency || 'Não informada'}
-• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}
-
-Se estiver tudo certo, clique em **Registrar** para finalizar.${transportPreviewJsonMarker(accumulatedFields as Record<string, unknown>)}[QUICK_REPLY:registrar]`;
+              const photoLine =
+                attachmentUrls.length > 0
+                  ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)`
+                  : "";
+              const previewBody = buildTransportFinalPreviewMessage(
+                accumulatedFields as Record<string, unknown>,
+                photoLine,
+              );
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Transport report: showing preview before create (first Registrar)');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
-            if ((showedPreview || askedToAttach) && userConfirms && (showedPreview || showedPreviewAfterAttach)) {
+            if (
+              userConfirms &&
+              (showedPreviewAfterAttach || (isTransportFinalPreview && !askedToAttach))
+            ) {
               let photosToSave = attachmentUrls;
               if (photosToSave.length === 0 && conversationId) {
                 try {
@@ -2211,22 +2385,15 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.${transportPreview
               toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
             }
             if (askedToAttach && !userConfirms && !toolResult) {
-              const recurrenceLabelMap: Record<string, string> = {
-                primeira_vez: 'Primeira vez',
-                algumas_vezes_mes: 'Algumas vezes/mês',
-                toda_semana: 'Toda semana',
-                todos_os_dias: 'Todos os dias',
-              };
-              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
-              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
-• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
-• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ''}${photoLine}
-• **Sentido:** ${accumulatedFields.direction || 'Não informado'}
-• **Frequência:** ${recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || '')] || accumulatedFields.recurrence_frequency || 'Não informada'}
-• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}
-
-Se estiver tudo certo, clique em **Registrar** para finalizar.${transportPreviewJsonMarker(accumulatedFields as Record<string, unknown>)}[QUICK_REPLY:registrar]`;
+              const photoLine =
+                attachmentUrls.length > 0
+                  ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)`
+                  : "";
+              const previewBody = buildTransportFinalPreviewMessage(
+                accumulatedFields as Record<string, unknown>,
+                photoLine,
+              );
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Transport report: user sent Registrar (attach flow), showing preview, attachmentUrls:', attachmentUrls.length);
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -3140,6 +3307,8 @@ ${empathyNote}
           if (toolCallData.name === 'create_transport_report') {
             const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
             const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+            const alreadyShowedSimilarTransportIntercept =
+              /\[SIMILAR_TRANSPORT_REPORTS_B64:/i.test(lastAssistantLower || '');
             if (!alreadyAskedPhotos && !alreadyShowedPreview) {
               const merged = {
                 ...accumulatedFields,
@@ -3157,6 +3326,32 @@ ${empathyNote}
                 impact_description: toolArgs.impact_description ?? accumulatedFields.impact_description,
               };
               if (merged.occurrence_time && merged.direction && merged.personal_impact != null && merged.personal_impact !== "") {
+              if (!alreadyShowedSimilarTransportIntercept) {
+                try {
+                  const similarStream = await lib.fetchSimilarTransportReportsForSupport(
+                    supabase,
+                    merged as Record<string, unknown>,
+                    user.id,
+                    10,
+                  );
+                  if (similarStream.length > 0) {
+                    const payload = { reports: similarStream };
+                    const json = JSON.stringify(payload);
+                    const b64 = btoa(unescape(encodeURIComponent(json)));
+                    const intro =
+                      `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarStream.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                    const similarMsg =
+                      `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                    const sseSimilar = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                    console.log('[ai-orchestrator] Transport report: intercept – similar reports first, count:', similarStream.length);
+                    return new Response(`data: ${sseSimilar}\n\ndata: [DONE]\n\n`, {
+                      headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+                    });
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Transport intercept (stream) similar lookup failed:', e);
+                }
+              }
               const recurrenceLabelMap: Record<string, string> = {
                 primeira_vez: 'Primeira vez',
                 algumas_vezes_mes: 'Algumas vezes/mês',
@@ -3319,10 +3514,12 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         toolArgs.photos = attachmentUrls;
       }
 
-      // Intercept create_transport_report (non-stream): preview + pergunta de fotos antes de criar
+      // Intercept create_transport_report (non-stream): relatos similares → preview + pergunta de fotos antes de criar
       if (toolName === 'create_transport_report') {
         const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
         const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+        const alreadyShowedSimilarNs =
+          /\[SIMILAR_TRANSPORT_REPORTS_B64:/i.test(lastAssistantLower || '');
         if (!alreadyAskedPhotos && !alreadyShowedPreview) {
           const merged = {
             ...accumulatedFields,
@@ -3340,6 +3537,32 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             impact_description: toolArgs.impact_description ?? accumulatedFields.impact_description,
           };
           if (merged.occurrence_time && merged.direction && merged.personal_impact != null && merged.personal_impact !== "") {
+          if (!alreadyShowedSimilarNs) {
+            try {
+              const similarNs = await lib.fetchSimilarTransportReportsForSupport(
+                supabase,
+                merged as Record<string, unknown>,
+                user.id,
+                10,
+              );
+              if (similarNs.length > 0) {
+                const payload = { reports: similarNs };
+                const json = JSON.stringify(payload);
+                const b64 = btoa(unescape(encodeURIComponent(json)));
+                const intro =
+                  `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarNs.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                const similarMsg =
+                  `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                const sseSimilarNs = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                console.log('[ai-orchestrator] Transport report (non-stream): intercept – similar first, count:', similarNs.length);
+                return new Response(`data: ${sseSimilarNs}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+                });
+              }
+            } catch (e) {
+              console.warn('[ai-orchestrator] Transport intercept (non-stream) similar lookup failed:', e);
+            }
+          }
           const recurrenceLabelMap: Record<string, string> = {
             primeira_vez: 'Primeira vez',
             algumas_vezes_mes: 'Algumas vezes/mês',
