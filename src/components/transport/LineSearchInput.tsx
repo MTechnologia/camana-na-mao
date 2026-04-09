@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTransportLines } from '@/hooks/useTransportLines';
-import { cn } from '@/lib/utils';
 
 interface LineSearchInputProps {
   onSelectLine: (line: { id: string; line_code: string; line_name: string }) => void;
@@ -13,13 +12,8 @@ interface LineSearchInputProps {
 export const LineSearchInput = ({ onSelectLine, allowCustom = true }: LineSearchInputProps) => {
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
-  const { lines, searchLines } = useTransportLines();
-  const [filteredLines, setFilteredLines] = useState(lines);
-
-  useEffect(() => {
-    const results = searchLines(query);
-    setFilteredLines(results);
-  }, [query, searchLines]);
+  const { searchLines } = useTransportLines();
+  const filteredLines = useMemo(() => searchLines(query), [query, searchLines]);
 
   const handleSelect = (line: { id: string; line_code: string; line_name: string }) => {
     onSelectLine(line);

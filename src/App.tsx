@@ -98,6 +98,7 @@ const TransportReportPage = lazy(() => import("./pages/TransportReportPage"));
 const NewReportPage = lazy(() => import("./pages/transport/NewReportPage"));
 const PatternsPage = lazy(() => import("./pages/transport/PatternsPage"));
 const MyReportsPage = lazy(() => import("./pages/transport/MyReportsPage"));
+const LiveBusPage = lazy(() => import("./pages/transport/LiveBusPage"));
 
 // ============================================
 // URBAN REPORT PAGES - Lazy loaded
@@ -138,6 +139,7 @@ const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCor
 const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
 const DebugRBAC = lazy(() => import("./pages/debug/DebugRBAC"));
+const SptransOlhoVivoTestPage = lazy(() => import("./pages/debug/SptransOlhoVivoTestPage"));
 const ReportsHub = lazy(() => import("./pages/reports/ReportsHub"));
 
 
@@ -165,7 +167,7 @@ const RoutePrefetcher = () => {
       if (location.pathname === "/") {
         prefetchMultiple(["/busca", "/conversas"]);
       } else if (location.pathname.startsWith("/transporte")) {
-        prefetchMultiple(["/transporte/novo", "/transporte/historico"]);
+        prefetchMultiple(["/transporte/novo", "/transporte/historico", "/transporte/ao-vivo"]);
       } else if (location.pathname.startsWith("/institucional")) {
         prefetchMultiple([
           "/institucional/agenda",
@@ -275,6 +277,7 @@ const AppContent = () => {
             <Route path="/transporte/novo" element={<NewReportPage />} />
             <Route path="/transporte/padroes" element={<PatternsPage />} />
             <Route path="/transporte/historico" element={<MyReportsPage />} />
+            <Route path="/transporte/ao-vivo" element={<LiveBusPage />} />
             <Route path="/paineis" element={<AnalyticsDashboard />} />
             <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
             <Route path="/paineis/criar" element={<CreateDashboard />} />
@@ -304,6 +307,7 @@ const AppContent = () => {
             <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
             <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
             <Route path="/debug/rbac" element={<DebugRBAC />} />
+            <Route path="/debug/sptrans-olhovivo" element={<SptransOlhoVivoTestPage />} />
           </Route>
 
           {/* Catch-all - 404 (sem proteção para exibir página de não encontrado) */}
