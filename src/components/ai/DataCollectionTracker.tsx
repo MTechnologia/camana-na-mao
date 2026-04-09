@@ -16,6 +16,10 @@ function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boo
     const n = Number(fields.rating_stars);
     return Number.isInteger(n) && n >= 1 && n <= 5;
   }
+  if (fieldKey === "personal_impact") {
+    const n = Number(fields.personal_impact);
+    return Number.isInteger(n) && n >= 2 && n <= 5;
+  }
   if (fieldKey === "rating_dimensions") {
     return isCompleteServiceRatingDimensions(fields.rating_dimensions);
   }
@@ -166,6 +170,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'occurrence_time', label: 'Horário', required: true },
       { key: 'direction', label: 'Sentido', required: true },
       { key: 'recurrence_frequency', label: 'Frequência', required: true },
+      { key: 'personal_impact', label: 'Impacto na rotina', required: true },
       { key: 'line_code', label: 'Linha', required: false },
       { key: 'location', label: 'Local', required: false },
       { key: 'severity', label: 'Gravidade', required: false },
@@ -244,6 +249,13 @@ const formatFieldValue = (key: string, value: unknown): string => {
   
   if (key === 'rating_stars' && typeof value === 'number') {
     return `${'★'.repeat(value)}${'☆'.repeat(5 - value)} (${value}/5)`;
+  }
+
+  if (key === 'personal_impact' && typeof value === 'number') {
+    if (value >= 5) return 'Alto (compromisso ou não embarque)';
+    if (value >= 4) return 'Atraso > 30 min';
+    if (value >= 3) return 'Atraso < 30 min';
+    return 'Desconforto';
   }
 
   if (key === 'rating_dimensions' && value && typeof value === 'object' && !Array.isArray(value)) {

@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, RefreshCw, ChevronDown, Info, Clock } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeSptransOlhoVivo } from "@/lib/sptransOlhoVivo";
 import { parseBusPositionsFromOlhoVivo } from "@/lib/parseOlhoVivoPosicao";
@@ -25,6 +26,10 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/contexts/AuthContext";
+import type { CepCenter } from "@/components/map/CepSearchCard";
+import { LocationSearchCard, type NearbyLocationUiPhase } from "@/components/map/LocationSearchCard";
+import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 
 type SelectedLine = { id: string; line_code: string; line_name: string };
 
@@ -33,6 +38,7 @@ type PositionSource =
   | { kind: "agregada"; lineCode: string };
 
 const AUTO_REFRESH_MS = 25_000;
+type NearbyLocationMode = "unset" | "gps" | "profile_address" | "cep_lookup";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object";
@@ -45,6 +51,7 @@ function getInvokeErrorMessage(data: unknown, fallback: string): string | null {
 }
 
 export default function LiveBusPage() {
+  const { user } = useAuth();
   const [geoInsecureContext, setGeoInsecureContext] = useState(false);
   useEffect(() => {
     setGeoInsecureContext(
@@ -68,6 +75,11 @@ export default function LiveBusPage() {
   >(null);
   const [previsaoLoading, setPrevisaoLoading] = useState(false);
   const [previsaoText, setPrevisaoText] = useState<string | null>(null);
+  const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
+  const [locationMode, setLocationMode] = useState<NearbyLocationMode>("unset");
+  const [locationUiPhase, setLocationUiPhase] = useState<NearbyLocationUiPhase>("picking");
+  const [savedProfileCenter, setSavedProfileCenter] = useState<CepCenter | null>(null);
+  const [profileAddressLoading, setProfileAddressLoading] = useState(false);
 
   const {
     latitude: userLat,
@@ -80,10 +92,85 @@ export default function LiveBusPage() {
     maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS,
   });
 
+  const searchLat = locationMode === "gps" ? userLat : cepCenter?.latitude ?? null;
+  const searchLng = locationMode === "gps" ? userLng : cepCenter?.longitude ?? null;
   const userLocation =
-    userLat != null && userLng != null
-      ? { lat: userLat, lng: userLng }
+    searchLat != null && searchLng != null
+      ? { lat: searchLat, lng: searchLng }
       : null;
+
+  const lockedLabel = useMemo(() => {
+    if (locationUiPhase !== "locked") return null;
+    if (locationMode === "gps" && searchLat != null && searchLng != null) return "Minha localização atual";
+    return cepCenter?.label ?? null;
+  }, [locationUiPhase, locationMode, searchLat, searchLng, cepCenter]);
+
+  const handleAlterarLocal = useCallback(() => {
+    setLocationUiPhase("picking");
+    setLocationMode("unset");
+    setCepCenter(null);
+  }, []);
+
+  const handleRequestGps = useCallback(() => {
+    setLocationMode("gps");
+    setCepCenter(null);
+    refetchGeo();
+  }, [refetchGeo]);
+
+  const handleUseProfileAddress = useCallback(async () => {
+    if (savedProfileCenter) {
+      setCepCenter(savedProfileCenter);
+      setLocationMode("profile_address");
+      setLocationUiPhase("locked");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("Faça login para usar o endereço cadastrado.");
+      return;
+    }
+    setProfileAddressLoading(true);
+    try {
+      const result = await getUserPrimaryAddressCenter(user.id);
+      if (result.center) {
+        setSavedProfileCenter(result.center);
+        setCepCenter(result.center);
+        setLocationMode("profile_address");
+        setLocationUiPhase("locked");
+      } else if (result.reason === "not_found") {
+        toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
+      } else {
+        toast.error("Seu endereço cadastrado ainda não possui coordenadas. Atualize em Perfil → Endereço.");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao carregar endereço cadastrado");
+    } finally {
+      setProfileAddressLoading(false);
+    }
+  }, [savedProfileCenter, user?.id]);
+
+  const handleCepSearchComplete = useCallback((center: CepCenter) => {
+    setCepCenter(center);
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
+  }, []);
+
+  useEffect(() => {
+    if (locationMode !== "gps") return;
+    if (geoLoading) return;
+    if (userLat != null && userLng != null && !geoError) {
+      setLocationUiPhase("locked");
+    }
+  }, [locationMode, geoLoading, userLat, userLng, geoError]);
+
+  useEffect(() => {
+    if (locationMode !== "gps" || geoLoading) return;
+    if (geoError) {
+      toast.error(geoError);
+      setLocationMode("unset");
+      setLocationUiPhase("picking");
+    }
+  }, [locationMode, geoLoading, geoError]);
 
   const buses = useMemo(
     () => (rawJson ? parseBusPositionsFromOlhoVivo(rawJson) : []),
@@ -353,6 +440,18 @@ export default function LiveBusPage() {
           </p>
         </div>
 
+        <LocationSearchCard
+          phase={locationUiPhase}
+          lockedLabel={lockedLabel}
+          onAlterarLocal={handleAlterarLocal}
+          onRequestGps={handleRequestGps}
+          onUseProfileAddress={handleUseProfileAddress}
+          profileAddressLoading={profileAddressLoading}
+          onCepSearchComplete={handleCepSearchComplete}
+          geoLoading={geoLoading}
+          gpsError={locationUiPhase === "picking" ? geoError : null}
+        />
+
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex flex-wrap gap-2">
             <Button
@@ -368,15 +467,6 @@ export default function LiveBusPage() {
                   Atualizar posições
                 </>
               )}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => refetchGeo()}
-              disabled={geoLoading}
-            >
-              <MapPin className="w-4 h-4 mr-2" />
-              {geoLoading ? "Localização…" : "Minha posição no mapa"}
             </Button>
           </div>
           <div className="flex items-center gap-2 text-sm">

@@ -1885,6 +1885,35 @@ export type Database = {
           },
         ]
       }
+      transport_report_likes: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_report_likes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transport_reports: {
         Row: {
           ai_category: string | null
@@ -1908,6 +1937,7 @@ export type Database = {
           n8n_workflow_id: string | null
           occurrence_date: string
           occurrence_time: string | null
+          personal_impact: number | null
           photos: string[] | null
           protocol_code: string | null
           recurrence_frequency: string | null
@@ -1940,6 +1970,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date: string
           occurrence_time?: string | null
+          personal_impact?: number | null
           photos?: string[] | null
           protocol_code?: string | null
           recurrence_frequency?: string | null
@@ -1972,6 +2003,7 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date?: string
           occurrence_time?: string | null
+          personal_impact?: number | null
           photos?: string[] | null
           protocol_code?: string | null
           recurrence_frequency?: string | null

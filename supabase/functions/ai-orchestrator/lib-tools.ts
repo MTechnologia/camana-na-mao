@@ -162,7 +162,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_transport_report",
-      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (min 10 chars), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
+      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (mínimo 20 caracteres), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
       parameters: {
         type: "object",
         properties: {
@@ -175,7 +175,7 @@ export const tools = [
             type: "string",
             description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Veículo Lotado', 'Problema com Motorista', 'Veículo Não Parou', 'Porta com Defeito', etc."
           },
-          description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
+          description: { type: "string", description: "Descrição do problema (mínimo 20 caracteres)" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
           occurrence_time: { type: "string", description: "Horário exato HH:MM (aceitar formatos variados e normalizar)" },
           direction: {
@@ -189,13 +189,23 @@ export const tools = [
             description: "Frequência de recorrência: primeira_vez, algumas_vezes_mes, toda_semana ou todos_os_dias"
           },
           line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
+          line_id: {
+            type: "string",
+            description: "UUID da linha em transport_lines quando o usuário selecionou na lista ([LINE_SELECTED]). Opcional; se ausente, resolve-se por line_code.",
+          },
           location: { type: "string", description: "Ponto, estação ou trecho" },
           severity: {
             type: "string",
             enum: ["baixa", "media", "alta", "critica"],
             description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
           },
-          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" },
+          impact_description: { type: "string", description: "Como afetou a rotina do cidadão (texto livre; opcional se personal_impact vier do picker)" },
+          personal_impact: {
+            type: "integer",
+            description: "Impacto na rotina (2–5), normalmente preenchido pelo app via [IMPACT_SELECTED] após o ImpactPicker",
+            minimum: 2,
+            maximum: 5,
+          },
           photos: {
             type: "array",
             items: { type: "string" },
