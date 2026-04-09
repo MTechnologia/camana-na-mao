@@ -1446,6 +1446,100 @@ export async function fetchNearestUrbanReportsForSimilarity(
   return (data || []) as NearestUrbanReportRow[];
 }
 
+/** Relatos de transporte na mesma linha + tipo (HU-5.4), para apoio no chat. */
+export type SimilarTransportReportRow = {
+  id: string;
+  protocol_code: string | null;
+  report_type: string;
+  description: string | null;
+  occurrence_date: string;
+  occurrence_time: string | null;
+  location: string | null;
+  severity: string | null;
+  direction: string | null;
+  created_at: string;
+  line_code: string | null;
+  line_name: string | null;
+};
+
+/**
+ * Lista relatos recentes de outros usuários com a mesma linha (UUID ou código oficial) e mesmo report_type.
+ */
+export async function fetchSimilarTransportReportsForSupport(
+  supabase: SupabaseClient,
+  fields: Record<string, unknown>,
+  excludeUserId: string | undefined,
+  limit = 10,
+): Promise<SimilarTransportReportRow[]> {
+  const reportType = String(fields.report_type || "").trim();
+  if (!reportType) return [];
+
+  const lineIdRaw = fields.line_id != null ? String(fields.line_id).trim() : "";
+  const lineCodeRaw = fields.line_code != null ? String(fields.line_code).trim() : "";
+  const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lineIdRaw);
+
+  let query = supabase
+    .from("transport_reports")
+    .select(
+      "id, protocol_code, report_type, description, occurrence_date, occurrence_time, location, severity, direction, created_at, line_id, line_code_custom, transport_lines ( line_code, line_name )",
+    )
+    .eq("report_type", reportType)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (excludeUserId) {
+    query = query.neq("user_id", excludeUserId);
+  }
+
+  if (uuidOk) {
+    query = query.eq("line_id", lineIdRaw);
+  } else if (lineCodeRaw.length > 0) {
+    const { data: lineRows, error: lineErr } = await supabase
+      .from("transport_lines")
+      .select("id")
+      .ilike("line_code", lineCodeRaw)
+      .limit(25);
+    if (lineErr) {
+      console.error("[fetchSimilarTransportReportsForSupport] line lookup", lineErr);
+    }
+    const ids = (lineRows || []).map((r: { id: string }) => r.id);
+    if (ids.length > 0) {
+      query = query.in("line_id", ids);
+    } else {
+      query = query.eq("line_code_custom", lineCodeRaw);
+    }
+  } else {
+    return [];
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[fetchSimilarTransportReportsForSupport]", error);
+    return [];
+  }
+
+  const rows = (data || []) as Record<string, unknown>[];
+  return rows.map((r) => {
+    const tl = r.transport_lines as { line_code?: string; line_name?: string } | null;
+    const lineCode = tl?.line_code ?? (r.line_code_custom as string | null) ?? null;
+    const lineName = tl?.line_name ?? null;
+    return {
+      id: String(r.id),
+      protocol_code: (r.protocol_code as string | null) ?? null,
+      report_type: String(r.report_type),
+      description: (r.description as string | null) ?? null,
+      occurrence_date: String(r.occurrence_date),
+      occurrence_time: (r.occurrence_time as string | null) ?? null,
+      location: (r.location as string | null) ?? null,
+      severity: (r.severity as string | null) ?? null,
+      direction: (r.direction as string | null) ?? null,
+      created_at: String(r.created_at),
+      line_code: lineCode,
+      line_name: lineName,
+    };
+  });
+}
+
 /** Monta linha curta a partir do objeto address do Nominatim (reverse). */
 function formatNominatimReverseAddress(addr: Record<string, string | undefined> | undefined): string | null {
   if (!addr) return null;
@@ -2875,6 +2969,42 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       break;
     }
 
+    case 'line_code': {
+      const sel = response.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (sel) result.line_id = sel[1];
+      const dash =
+        response.match(/linha:\s*(\S+)\s*[-\u2013\u2014\u2212]\s*(.+?)\s*\[LINE_SELECTED:/i) ||
+        response.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (dash) result.line_code = dash[1].trim();
+      else if (sel) {
+        const linhaCodeOnly = response.match(/linha:\s*(\S+)/i);
+        if (linhaCodeOnly) result.line_code = linhaCodeOnly[1].trim();
+      }
+      const leg = response.match(/linha selecionada:\s*(\S+)/i);
+      if (leg && !result.line_code) result.line_code = leg[1];
+      const cust =
+        response.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        response.match(/linha não listada:\s*(.+)/i);
+      if (cust && !result.line_code) result.line_code = cust[1].trim();
+      if (!result.line_code && response.length >= 1) {
+        result.line_code = response.trim();
+      }
+      break;
+    }
+
+    case 'personal_impact': {
+      const labelM = response.match(/^Impacto:\s*(.+?)\s*\[IMPACT_SELECTED:/i);
+      if (labelM) result.impact_description = labelM[1].trim();
+      const impactM = response.match(/\[IMPACT_SELECTED:(\d+)\]/);
+      if (impactM) {
+        const n = parseInt(impactM[1], 10);
+        if (n >= 2 && n <= 5) result.personal_impact = n;
+      }
+      break;
+    }
+
     case 'recurrence_frequency': {
       const normalized = normalizeTransportRecurrenceFrequency(response);
       if (normalized) result.recurrence_frequency = normalized;
@@ -3111,17 +3241,28 @@ export function accumulateFieldsFromHistory(
     return {};
   }
   const accumulated: Record<string, unknown> = {};
+
+  const getMsgText = (msg: { role: string; content: unknown }): string => {
+    const raw = msg.content;
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw)) {
+      const part = (raw as Record<string, unknown>[]).find((p) => p?.type === 'text' && p?.text);
+      return part ? String((part as { text?: string }).text) : '';
+    }
+    return '';
+  };
   
   // Check for fields already collected via [COLLECTION_PROGRESS] markers
   for (const msg of messages) {
-    if (msg.role === 'assistant' && msg.content.includes('[COLLECTION_PROGRESS:')) {
-      const match = msg.content.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
-      if (match) {
-        try {
-          const fields = JSON.parse(match[1]);
-          Object.assign(accumulated, fields);
-        } catch { /* ignore parse errors */ }
-      }
+    if (msg.role !== 'assistant') continue;
+    const aText = getMsgText(msg);
+    if (!aText.includes('[COLLECTION_PROGRESS:')) continue;
+    const match = aText.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
+    if (match) {
+      try {
+        const fields = JSON.parse(match[1]);
+        Object.assign(accumulated, fields);
+      } catch { /* ignore parse errors */ }
     }
   }
   
@@ -3860,7 +4001,7 @@ export function accumulateFieldsFromHistory(
     // This ensures natural language responses like "atraso de ônibus" are properly parsed
     for (const msg of messages) {
       if (msg.role === 'user') {
-        const contentLower = msg.content.toLowerCase();
+        const contentLower = getMsgText(msg).toLowerCase();
         const contextFields = extractTransportFields(contentLower);
         
         // Merge extracted fields (only if not already set by more explicit parsing)
@@ -3889,31 +4030,33 @@ export function accumulateFieldsFromHistory(
       for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i];
         if (msg.role === 'user') {
-          const contentLower = msg.content.toLowerCase();
-          const hasKeyword = hasTransportKeywords(msg.content);
+          const text = getMsgText(msg);
+          const contentLower = text.toLowerCase();
+          const hasKeyword = hasTransportKeywords(text);
           
           // Skip structured messages (picker selections)
           const isStructured = 
             contentLower.includes('linha selecionada:') ||
+            /\[LINE_SELECTED:/i.test(text) ||
             contentLower.includes('data:') ||
             contentLower.includes('horário:') ||
             contentLower.includes('horario:');
           
           // Skip generic intent messages that don't describe a problem
-          const isGeneric = isGenericIntentText(msg.content);
+          const isGeneric = isGenericIntentText(text);
           
           // VERY FLEXIBLE THRESHOLD:
           // - >= 5 chars with transport keyword = valid (e.g., "atraso", "lotado", "metro sujo")
           // - >= 15 chars without keyword = also valid (longer descriptions)
           const isValidDescription = !isGeneric && !isStructured && 
-            ((msg.content.length >= 5 && hasKeyword) || msg.content.length >= 15);
+            ((text.length >= 5 && hasKeyword) || text.length >= 15);
           
           if (isValidDescription) {
-            accumulated.description = msg.content.trim();
+            accumulated.description = text.trim();
             console.log('[accumulateFields] Auto-detected transport description:', {
-              length: msg.content.length,
+              length: text.length,
               hasKeyword,
-              preview: msg.content.substring(0, 50)
+              preview: text.substring(0, 50)
             });
             break;
           }
@@ -3924,13 +4067,60 @@ export function accumulateFieldsFromHistory(
     // Parse structured messages from inline pickers
     for (const msg of messages) {
       if (msg.role !== 'user') continue;
-      const content = msg.content;
+      const content = getMsgText(msg);
+      if (!content) continue;
       
-      // Parse "Linha selecionada: XXX (Nome)" format from InlineLinePicker
+      // [LINE_SELECTED:uuid] — escolha na lista (HU-5.2); última mensagem com marcador prevalece
+      const lineSelectedUuid = content.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (lineSelectedUuid) {
+        accumulated.line_id = lineSelectedUuid[1];
+        console.log('[accumulateFields] Parsed line_id from LINE_SELECTED:', accumulated.line_id);
+      }
+
+      // "Linha: CODE - Nome [LINE_SELECTED:...]" — hífen ASCII ou tipográfico (en/em dash)
+      const lineDashPick =
+        content.match(/linha:\s*(\S+)\s*[-\u2013\u2014\u2212]\s*(.+?)\s*\[LINE_SELECTED:/i) ||
+        content.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (lineDashPick) {
+        accumulated.line_code = lineDashPick[1].trim();
+        console.log('[accumulateFields] Parsed line_code from Linha: … [LINE_SELECTED]:', accumulated.line_code);
+      } else if (lineSelectedUuid) {
+        const linhaCodeOnly = content.match(/linha:\s*(\S+)/i);
+        if (linhaCodeOnly) {
+          accumulated.line_code = linhaCodeOnly[1].trim();
+          console.log('[accumulateFields] Parsed line_code from Linha: (fallback antes de [LINE_SELECTED]):', accumulated.line_code);
+        }
+      }
+
+      // Parse "Linha selecionada: XXX (Nome)" — legado
       const lineMatch = content.match(/linha selecionada:\s*(\S+)/i);
       if (lineMatch && !accumulated.line_code) {
         accumulated.line_code = lineMatch[1];
-        console.log('[accumulateFields] Parsed line_code from picker:', accumulated.line_code);
+        console.log('[accumulateFields] Parsed line_code from picker (legacy):', accumulated.line_code);
+      }
+
+      // Linha digitada fora da lista (sem id de transport_lines)
+      const lineCustom =
+        content.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        content.match(/linha não listada:\s*(.+)/i);
+      if (lineCustom && !accumulated.line_code) {
+        accumulated.line_code = lineCustom[1].trim();
+        console.log('[accumulateFields] Parsed line_code (custom / not listed):', accumulated.line_code);
+      }
+
+      const impactSel = content.match(/\[IMPACT_SELECTED:(\d+)\]/);
+      if (impactSel && accumulated.personal_impact == null) {
+        const n = parseInt(impactSel[1], 10);
+        if (n >= 2 && n <= 5) {
+          accumulated.personal_impact = n;
+          console.log('[accumulateFields] Parsed personal_impact:', n);
+        }
+      }
+      const impactLabelM = content.match(/^Impacto:\s*(.+?)\s*\[IMPACT_SELECTED:/im);
+      if (impactLabelM && !accumulated.impact_description) {
+        accumulated.impact_description = impactLabelM[1].trim();
       }
       
       // Parse "Data: DD/MM/YYYY" format from InlineDatePicker - always mark as confirmed
@@ -6761,6 +6951,25 @@ export async function getCitizenHistory(
   return results.join('\n');
 }
 
+const TRANSPORT_SEVERITY_ORDER = ['baixa', 'media', 'alta', 'critica'] as const;
+type TransportSeverityStep = (typeof TRANSPORT_SEVERITY_ORDER)[number];
+
+/** HU-5.3: reforça severidade conforme impacto pessoal (2–5). */
+export function applyPersonalImpactToSeverity(
+  baseSeverity: string,
+  personalImpactScore: number,
+): TransportSeverityStep {
+  const normalized = String(baseSeverity || 'media').toLowerCase();
+  let idx = TRANSPORT_SEVERITY_ORDER.indexOf(normalized as TransportSeverityStep);
+  if (idx < 0) idx = 1;
+  let bump = 0;
+  if (personalImpactScore >= 5) bump = 2;
+  else if (personalImpactScore >= 4) bump = 1;
+  else if (personalImpactScore >= 3) bump = 1;
+  const next = Math.min(TRANSPORT_SEVERITY_ORDER.length - 1, idx + bump);
+  return TRANSPORT_SEVERITY_ORDER[next];
+}
+
 // Execute tool
 export async function executeTool(
   name: string, 
@@ -7447,6 +7656,18 @@ export async function executeTool(
         if (accumulatedFields?.occurrence_date && !args.occurrence_date) {
           args.occurrence_date = accumulatedFields.occurrence_date;
         }
+        if (accumulatedFields?.line_code && !args.line_code) {
+          args.line_code = accumulatedFields.line_code;
+        }
+        if (accumulatedFields?.line_id && !args.line_id) {
+          args.line_id = accumulatedFields.line_id;
+        }
+        if (accumulatedFields?.personal_impact != null && args.personal_impact == null) {
+          args.personal_impact = accumulatedFields.personal_impact;
+        }
+        if (accumulatedFields?.impact_description && !args.impact_description) {
+          args.impact_description = accumulatedFields.impact_description;
+        }
         
         // === VALIDAÇÃO ESTRITA (coleta sequencial obrigatória) ===
         // Helper: inferir report_type de forma robusta (dicionário expandido)
@@ -7487,11 +7708,18 @@ export async function executeTool(
         };
         
         // === COLETA SEQUENCIAL OBRIGATÓRIA ===
-        // 1. DESCRIÇÃO (obrigatória, validada via NLP)
-        if (!args.description || !isValidDomainDescription(args.description.trim(), 'transport')) {
+        // 1. DESCRIÇÃO (obrigatória, mínimo 20 caracteres — HU-5.1)
+        const descTrimmed = String(args.description ?? "").trim();
+        if (!descTrimmed || !isValidDomainDescription(descTrimmed, 'transport')) {
           return {
             success: false,
             message: '[FIELD_REQUEST:description]**O que aconteceu?** Me conta o problema com mais detalhes.'
+          };
+        }
+        if (descTrimmed.length < 20) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:description]Para registrar com qualidade, preciso de **pelo menos 20 caracteres**: o que aconteceu, em qual trecho ou parada, e como isso te afetou?'
           };
         }
         
@@ -7517,13 +7745,27 @@ export async function executeTool(
           subcategoryLabel = getTransportTypeLabel(validReportType);
         }
         
-        // 3. LINHA (obrigatória)
-        if (!args.line_code) {
+        // 3. LINHA (obrigatória): código OU line_id (UUID) com resolução em transport_lines
+        let effectiveLineCode = String(args.line_code ?? "").trim();
+        const rawLineIdForLine = typeof args.line_id === "string" ? args.line_id.trim() : "";
+        if (
+          !effectiveLineCode &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawLineIdForLine)
+        ) {
+          const { data: tlHydrate } = await supabase
+            .from("transport_lines")
+            .select("line_code")
+            .eq("id", rawLineIdForLine)
+            .maybeSingle();
+          if (tlHydrate?.line_code) effectiveLineCode = String(tlHydrate.line_code).trim();
+        }
+        if (!effectiveLineCode) {
           return {
             success: false,
             message: '[FIELD_REQUEST:line_code]**Qual linha ou estação** teve o problema?'
           };
         }
+        args.line_code = effectiveLineCode;
         
         // 4. DATA (obrigatória - modelo DEVE ter coletado explicitamente, NUNCA assumir)
         // O modelo PRECISA ter perguntado e o usuário respondido "hoje", "ontem" ou data específica
@@ -7531,6 +7773,15 @@ export async function executeTool(
           return {
             success: false,
             message: '[FIELD_REQUEST:occurrence_date]**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)'
+          };
+        }
+
+        const todayYmd = new Date().toISOString().split('T')[0];
+        const occYmd = String(args.occurrence_date).trim().match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+        if (occYmd && occYmd > todayYmd) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_date]A data da ocorrência **não pode ser no futuro**. Quando isso aconteceu (hoje, ontem ou a data correta)?'
           };
         }
 
@@ -7568,10 +7819,23 @@ export async function executeTool(
           };
         }
         args.recurrence_frequency = normalizedRecurrence;
+
+        const piRaw = args.personal_impact ?? accumulatedFields?.personal_impact;
+        const personalImpactScore =
+          typeof piRaw === 'number' && Number.isFinite(piRaw)
+            ? piRaw
+            : parseInt(String(piRaw ?? ''), 10);
+        if (!Number.isFinite(personalImpactScore) || personalImpactScore < 2 || personalImpactScore > 5) {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**? Toque em uma opção abaixo. [IMPACT_PICKER]',
+          };
+        }
         
         // Date confirmation check - args.date_confirmed is set by accumulateFieldsFromHistory
         // when user explicitly selects via picker or says "hoje"/"ontem"
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayYmd;
         if (args.occurrence_date === today && !args.date_confirmed) {
           console.log('[create_transport_report] Date is today but not explicitly confirmed, asking user');
           return {
@@ -7582,19 +7846,32 @@ export async function executeTool(
         
         // === PROCESSAMENTO APÓS VALIDAÇÃO ===
         
-        // Get line_id if line_code provided
-        let lineId = null;
-        if (args.line_code) {
-          const { data: lineData } = await supabase
+        // line_id: prefer [LINE_SELECTED:uuid] (accumulated / args); fallback lookup por line_code
+        let lineId: string | null = null;
+        const rawLineId = typeof args.line_id === "string" ? args.line_id.trim() : "";
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawLineId)) {
+          const { data: byId } = await supabase
+            .from("transport_lines")
+            .select("id")
+            .eq("id", rawLineId)
+            .maybeSingle();
+          lineId = byId?.id ?? null;
+        }
+        if (!lineId && args.line_code) {
+          const { data: lineRows } = await supabase
             .from('transport_lines')
             .select('id')
-            .ilike('line_code', args.line_code)
-            .single();
-          lineId = lineData?.id || null;
+            .ilike('line_code', String(args.line_code).trim())
+            .limit(1);
+          lineId = lineRows?.[0]?.id ?? null;
         }
         
-        // Inferir severidade para incidentes de segurança
-        const inferredSeverity = validReportType === 'seguranca' ? 'alta' : (args.severity || 'media');
+        // Inferir severidade para incidentes de segurança + HU-5.3 (impacto pessoal)
+        let baseSeverity = validReportType === 'seguranca' ? 'alta' : String(args.severity || 'media').toLowerCase();
+        if (!TRANSPORT_SEVERITY_ORDER.includes(baseSeverity as TransportSeverityStep)) {
+          baseSeverity = 'media';
+        }
+        const inferredSeverity = applyPersonalImpactToSeverity(baseSeverity, personalImpactScore);
         
         // Generate protocol code atomically
         const { data: protocolData, error: protocolError } = await supabase
@@ -7643,6 +7920,7 @@ export async function executeTool(
             line_code_custom: args.line_code || null,
             location: args.location || null,
             severity: inferredSeverity,
+            personal_impact: personalImpactScore,
             impact_description: args.impact_description || null,
             status: 'pending',
             photos: photosArray,
@@ -7678,21 +7956,23 @@ export async function executeTool(
 
         const transportSeverityJustification =
           validReportType === "seguranca"
-            ? "Política: relato classificado como 'seguranca' → severidade 'alta'."
+            ? "Política: relato classificado como 'seguranca' → severidade base 'alta'."
             : args.severity
               ? `Severidade informada na coleta: ${args.severity}.`
               : "Severidade padrão 'media' (sem valor explícito na coleta).";
+        const impactNote = ` Impacto na rotina (HU-5.3): escala ${personalImpactScore}/5 aplicada sobre a severidade base.`;
 
         await insertReportSeverityAuditLog(supabase, {
           transport_report_id: data.id,
           metric: "severity",
           previous_value: null,
           new_value: inferredSeverity,
-          justification: transportSeverityJustification,
+          justification: transportSeverityJustification + impactNote,
           source_snippet: String(args.description || "").trim().slice(0, 240) || null,
           metadata: {
             report_type: validReportType,
             user_provided_severity: args.severity ?? null,
+            personal_impact: personalImpactScore,
           },
         });
         

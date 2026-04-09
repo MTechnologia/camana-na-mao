@@ -11,6 +11,7 @@ import {
 } from "@/lib/serviceRatingDimensions";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
+import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -417,6 +418,11 @@ export const useUnifiedAIChat = (
               // Parse location
               const localMatch = msg.content?.match(/Local:[*]?[*]?\s*([^\n•*]+)/i);
               if (localMatch) reconstructedFields.location = localMatch[1].trim();
+
+              const transportPreview = parseTransportReportPreviewJson(msg.content || "");
+              if (transportPreview?.personal_impact != null) {
+                reconstructedFields.personal_impact = transportPreview.personal_impact;
+              }
               
               console.log('[useUnifiedAIChat] Reconstructed transport tracker:', reconstructedFields);
               setCollectedFields(reconstructedFields);
@@ -876,8 +882,26 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // Detectar linha de ônibus/metrô
-      if (!collectedFields.line_code) {
+      // Linha com UUID da base (lista) — HU-5.2
+      const lineSelUuid = raw.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (lineSelUuid) {
+        setCollectedFields((prev) => ({ ...prev, line_id: lineSelUuid[1] }));
+      }
+      const lineFromListMsg = raw.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (lineFromListMsg) {
+        setCollectedFields((prev) => ({ ...prev, line_code: lineFromListMsg[1].trim() }));
+      }
+      const lineCustomMsg =
+        raw.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        raw.match(/linha não listada:\s*(.+)/i);
+      if (lineCustomMsg) {
+        setCollectedFields((prev) => ({ ...prev, line_code: lineCustomMsg[1].trim(), line_id: undefined }));
+      }
+
+      // Detectar linha de ônibus/metrô (texto livre) — não sobrescrever escolha estruturada desta mensagem
+      if (!lineFromListMsg && !lineCustomMsg && !collectedFields.line_code) {
         const lineMatch = raw.match(/\b(\d{3,4}[A-Za-z]?-?\d*|[A-Z]{1,3}\d{1,2})\b/i);
         if (lineMatch) {
           setCollectedFields(prev => ({ ...prev, line_code: lineMatch[1].toUpperCase() }));
@@ -954,6 +978,12 @@ export const useUnifiedAIChat = (
         } else if (/todos os dias|todo dia/i.test(rawLower)) {
           setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'todos_os_dias' }));
         }
+      }
+
+      const impactSelectedTag = raw.match(/\[IMPACT_SELECTED:([2-5])\]/);
+      if (impactSelectedTag) {
+        const score = parseInt(impactSelectedTag[1], 10);
+        setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
       }
     }
     
@@ -1518,6 +1548,11 @@ export const useUnifiedAIChat = (
                 };
                 finalFields.severity = sevMap[sevMatch[1].toLowerCase()] || sevMatch[1];
               }
+
+              const transportPreviewDone = parseTransportReportPreviewJson(assistantMessage);
+              if (transportPreviewDone?.personal_impact != null) {
+                finalFields.personal_impact = transportPreviewDone.personal_impact;
+              }
               
               setCollectedFields(finalFields);
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
@@ -1764,6 +1799,7 @@ export const useUnifiedAIChat = (
         { key: 'occurrence_time', required: true },
         { key: 'direction', required: true },
         { key: 'recurrence_frequency', required: true },
+        { key: 'personal_impact', required: true },
       ],
       service_rating: [
         { key: 'service_type', required: true },
@@ -1784,6 +1820,9 @@ export const useUnifiedAIChat = (
       if (field.key === 'rating_stars') {
         const n = Number(collectedFields.rating_stars);
         if (Number.isInteger(n) && n >= 1 && n <= 5) continue;
+      } else if (field.key === 'personal_impact') {
+        const n = Number(collectedFields.personal_impact);
+        if (Number.isInteger(n) && n >= 2 && n <= 5) continue;
       } else if (collectedFields[field.key]) {
         continue;
       }
@@ -1851,9 +1890,18 @@ export const useUnifiedAIChat = (
   }, [sendMessage]);
 
   // Handle line selection from inline picker
-  const handleLineSelected = useCallback((lineCode: string, lineName: string) => {
-    setCollectedFields(prev => ({ ...prev, line_code: lineCode }));
-    sendMessage(`Linha selecionada: ${lineCode}${lineName !== lineCode ? ` (${lineName})` : ''}`);
+  const handleLineSelected = useCallback((lineCode: string, lineName: string, lineId?: string) => {
+    setCollectedFields((prev) => {
+      const next: CollectedFields = { ...prev, line_code: lineCode };
+      if (lineId) next.line_id = lineId;
+      else delete next.line_id;
+      return next;
+    });
+    if (lineId) {
+      sendMessage(`Linha: ${lineCode} - ${lineName} [LINE_SELECTED:${lineId}]`);
+    } else {
+      sendMessage(`Linha informada (fora da lista): ${lineCode}`);
+    }
   }, [sendMessage]);
 
   // Handle date selection from inline picker
@@ -1876,6 +1924,11 @@ export const useUnifiedAIChat = (
   const handleRecurrenceFrequencySelected = useCallback((frequency: string, displayText: string) => {
     setCollectedFields(prev => ({ ...prev, recurrence_frequency: frequency }));
     sendMessage(`Frequência: ${displayText}`);
+  }, [sendMessage]);
+
+  const handleImpactSelected = useCallback((score: number, label: string) => {
+    setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
+    sendMessage(`Impacto: ${label} [IMPACT_SELECTED:${score}]`);
   }, [sendMessage]);
 
   // Handle rating selection from inline picker
@@ -1950,6 +2003,7 @@ export const useUnifiedAIChat = (
     handleTimeSelected,
     handleDirectionSelected,
     handleRecurrenceFrequencySelected,
+    handleImpactSelected,
     handleRatingSelected,
     handleLocationMethodSelected,
     handleServiceTypeSelected,

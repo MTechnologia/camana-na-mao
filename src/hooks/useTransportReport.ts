@@ -96,7 +96,8 @@ export const useTransportReport = () => {
         n8n_priority,
         n8n_validated_category,
         n8n_tags,
-        line:transport_lines(line_code, line_name, line_type)
+        line:transport_lines(line_code, line_name, line_type),
+        transport_report_likes(count)
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });

@@ -75,6 +75,8 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[TIME_PICKER\]/g, '')
     .replace(/\[DIRECTION_PICKER\]/g, '')
     .replace(/\[RECURRENCE_FREQUENCY_PICKER\]/g, '')
+    .replace(/\[IMPACT_PICKER\]/g, '')
+    .replace(/\[TRANSPORT_PREVIEW_JSON:[^\]]+\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
     .replace(/\[RATING_SELECTED:[1-5]\]/g, '')
     .replace(/\[MULTI_DIMENSION_RATING_PICKER\]/g, '')
@@ -90,6 +92,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
     .replace(/\[QUICK_REPLY:[^\]]+\]/g, '')
     .replace(/\[SIMILAR_URBAN_REPORTS_B64:[^\]]+\]/g, '')
+    .replace(/\[SIMILAR_TRANSPORT_REPORTS_B64:[^\]]+\]/g, '')
     .replace(/\[APP_ACTIONS:audiencias\]/g, '')
     // Hide raw DB timeout text when leaked by backend/provider.
     .replace(/canceling statement due to statement timeout/gi, '');
