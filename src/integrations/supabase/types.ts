@@ -2566,6 +2566,14 @@ export type Database = {
         }
         Returns: Json
       }
+      get_worst_services_by_dimension: {
+        Args: {
+          p_dimension: string
+          p_limit?: number
+          p_period?: string
+        }
+        Returns: Json
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"][]
