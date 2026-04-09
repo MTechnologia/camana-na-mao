@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ThumbsUp, Bus, Hash, ExternalLink } from "lucide-react";
+import { Heart, Bus, Hash, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +58,7 @@ export function parseSimilarTransportReportsB64(content: string): SimilarTranspo
 }
 
 /**
- * HU-5.4: relatos de transporte na mesma linha/tipo com ação de apoiar.
+ * HU-5.4: relatos de transporte na mesma linha/tipo com curtida (coração).
  */
 export function SimilarTransportReportsInChat({ payload, className }: Props) {
   const navigate = useNavigate();
@@ -75,7 +75,7 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
         toast({
           variant: "destructive",
           title: "Login necessário",
-          description: "Entre na sua conta para apoiar um relato.",
+          description: "Entre na sua conta para curtir um relato.",
         });
         return;
       }
@@ -87,20 +87,20 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
         });
         if (error) {
           if (error.code === "23505" || error.message?.includes("duplicate")) {
-            toast({ title: "Você já apoiou este relato." });
+            toast({ title: "Você já curtiu este relato." });
             setSupportedIds((s) => new Set(s).add(reportId));
           } else {
             throw error;
           }
         } else {
-          toast({ title: "Apoio registrado", description: "Obrigado por reforçar este relato." });
+          toast({ title: "Curtida registrada", description: "Obrigado por reforçar este relato." });
           setSupportedIds((s) => new Set(s).add(reportId));
         }
       } catch (e) {
         console.error(e);
         toast({
           variant: "destructive",
-          title: "Não foi possível apoiar",
+          title: "Não foi possível curtir",
           description: "Tente novamente em instantes.",
         });
       } finally {
@@ -173,7 +173,7 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
                   size="sm"
                   className="w-full sm:w-auto"
                   onClick={() =>
-                    navigate(`/transporte/historico?reportId=${encodeURIComponent(r.id)}`)
+                    navigate(`/transporte/meus-relatos?reportId=${encodeURIComponent(r.id)}`)
                   }
                 >
                   <ExternalLink className="h-3.5 w-3.5 mr-1.5" aria-hidden />
@@ -187,8 +187,8 @@ export function SimilarTransportReportsInChat({ payload, className }: Props) {
                   disabled={supported || loadingId === r.id}
                   onClick={() => apoiar(r.id)}
                 >
-                  <ThumbsUp className="h-3.5 w-3.5 mr-1.5" aria-hidden />
-                  {supported ? "Apoiado" : "Apoiar"}
+                  <Heart className={cn("h-3.5 w-3.5 mr-1.5", supported && "fill-current")} aria-hidden />
+                  {supported ? "Curtido" : "Curtir"}
                 </Button>
               </div>
             </li>

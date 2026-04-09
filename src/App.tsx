@@ -275,6 +275,8 @@ const AppContent = () => {
             <Route path="/transporte/novo" element={<NewReportPage />} />
             <Route path="/transporte/padroes" element={<PatternsPage />} />
             <Route path="/transporte/historico" element={<MyReportsPage />} />
+            {/* Alias usado em deep links (notificações, mensagem pós-registro no chat, docs) */}
+            <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
             <Route path="/transporte/ao-vivo" element={<LiveBusPage />} />
             <Route path="/paineis" element={<AnalyticsDashboard />} />
             <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
