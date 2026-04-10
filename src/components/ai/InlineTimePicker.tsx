@@ -14,9 +14,9 @@ export const InlineTimePicker = ({ onSelect }: InlineTimePickerProps) => {
 
   const handleQuickSelect = (period: 'manha' | 'tarde' | 'noite') => {
     const timeMap = {
-      manha: { time: '08:00', display: 'Manhã (6h-12h)' },
-      tarde: { time: '14:00', display: 'Tarde (12h-18h)' },
-      noite: { time: '19:00', display: 'Noite (18h-00h)' }
+      manha: { time: '08:00', display: 'Manhã (~08:00)' },
+      tarde: { time: '14:00', display: 'Tarde (~14:00)' },
+      noite: { time: '19:00', display: 'Noite (~19:00)' }
     };
     const { time, display } = timeMap[period];
     setSelected(true);
@@ -47,7 +47,7 @@ export const InlineTimePicker = ({ onSelect }: InlineTimePickerProps) => {
     <div className="mt-2 w-full">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        <span>Que horas mais ou menos?</span>
+        <span>Qual foi o horário exato?</span>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button

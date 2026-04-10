@@ -9,6 +9,121 @@ const PREFLIGHT_CORS: Record<string, string> = {
   'Access-Control-Max-Age': '86400',
 };
 
+function transportPreviewJsonMarker(fields: Record<string, unknown>): string {
+  const payload = {
+    description: fields.description ?? null,
+    report_type: fields.report_type ?? null,
+    sub_category: fields.sub_category ?? null,
+    line_code: fields.line_code ?? null,
+    occurrence_date: fields.occurrence_date ?? null,
+    occurrence_time: fields.occurrence_time ?? null,
+    direction: fields.direction ?? null,
+    recurrence_frequency: fields.recurrence_frequency ?? null,
+    personal_impact: fields.personal_impact ?? null,
+    location: fields.location ?? null,
+  };
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return `\n\n[TRANSPORT_PREVIEW_JSON:${b64}]`;
+  } catch {
+    return "";
+  }
+}
+
+function transportImpactSummaryLine(pi: unknown): string {
+  const n =
+    typeof pi === "number" && Number.isFinite(pi)
+      ? pi
+      : parseInt(String(pi ?? "").trim(), 10);
+  if (!Number.isFinite(n)) return "Não informado";
+  if (n >= 5) return "Alto (compromisso / não embarcou)";
+  if (n >= 4) return "Atraso relevante (>30 min)";
+  if (n >= 3) return "Atraso moderado (<30 min)";
+  return "Desconforto";
+}
+
+function transportTypeWithSubcategory(fields: Record<string, unknown>): string {
+  const typeLabels: Record<string, string> = {
+    atraso: "Atraso",
+    lotacao: "Lotação",
+    seguranca: "Segurança",
+    acessibilidade: "Acessibilidade",
+    limpeza: "Limpeza",
+    conducao: "Condução",
+    outro: "Outro",
+  };
+  const subLabels: Record<string, string> = {
+    nao_passou: "Não passou",
+    atraso_maior_30: "Veio com mais de 30 min de atraso",
+    atraso_menor_30: "Veio com menos de 30 min de atraso",
+    intervalo_irregular: "Intervalo irregular",
+    superlotado: "Veículo superlotado",
+    nao_conseguiu_embarcar: "Não consegui embarcar",
+    fila_excessiva: "Fila excessiva no ponto/estação",
+    ar_condicionado_inoperante: "Ar-condicionado inoperante",
+    assedio: "Assédio/Importunação",
+    furto_roubo: "Furto/Roubo",
+    agressao_ameaca: "Agressão/Ameaça",
+    briga_confusao: "Briga/Confusão",
+    elevador_escada: "Elevador/Escada rolante indisponível",
+    rampa_bloqueada: "Rampa bloqueada/inacessível",
+    veiculo_sem_acessibilidade: "Veículo sem acessibilidade",
+    falta_assistencia: "Falta de assistência para embarque",
+    veiculo_sujo: "Veículo sujo",
+    mau_cheiro: "Mau cheiro",
+    lixo_acumulado: "Lixo acumulado",
+    presenca_pragas: "Presença de pragas/insetos",
+    freada_brusca: "Freada brusca",
+    aceleracao_excessiva: "Aceleração excessiva",
+    motorista_imprudente: "Condução imprudente do motorista",
+    nao_parou_ponto: "Não parou no ponto",
+    outro: "Outro (descrever)",
+  };
+
+  const reportType = String(fields.report_type || "").trim().toLowerCase();
+  const subCategory = String(fields.sub_category || "").trim().toLowerCase();
+  const typeLabel = reportType ? typeLabels[reportType] || reportType : "Não informado";
+  if (!subCategory) return typeLabel;
+  const subLabel = subLabels[subCategory];
+  return subLabel ? `${typeLabel} — ${subLabel}` : typeLabel;
+}
+
+/** Resumo final + marcador JSON + Confirmar/Corrigir (paridade com relato urbano, HU-5.6). */
+function buildTransportFinalPreviewMessage(
+  accumulatedFields: Record<string, unknown>,
+  extraPhotoLine: string,
+  typeLine?: string,
+): string {
+  const recurrenceLabelMap: Record<string, string> = {
+    primeira_vez: "Primeira vez",
+    algumas_vezes_mes: "Algumas vezes/mês",
+    toda_semana: "Toda semana",
+    todos_os_dias: "Todos os dias",
+  };
+  const desc = (accumulatedFields.description || "").toString();
+  const typeHuman = typeLine || transportTypeWithSubcategory(accumulatedFields);
+  const bullets = `**Resumo do relato de transporte**
+• **Problema:** ${desc.slice(0, 150)}${desc.length > 150 ? "..." : ""}
+• **Tipo:** ${typeHuman}
+• **Linha:** ${accumulatedFields.line_code || "Não informada"}
+• **Quando:** ${accumulatedFields.occurrence_date || ""}${
+    accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ""
+  }${extraPhotoLine}
+• **Sentido:** ${accumulatedFields.direction || "Não informado"}
+• **Frequência:** ${
+    recurrenceLabelMap[String(accumulatedFields.recurrence_frequency || "")] ||
+    accumulatedFields.recurrence_frequency ||
+    "Não informada"
+  }
+• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}`;
+
+  return `${bullets}
+
+Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir** para alterar algo.${transportPreviewJsonMarker(
+    accumulatedFields,
+  )}[QUICK_REPLY:confirmar,corrigir]`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: PREFLIGHT_CORS });
@@ -1126,22 +1241,21 @@ serve(async (req) => {
             );
           }
         }
+
+        // Sempre inferir report_type ANTES de pedir subcategoria (picker alinhado ao tipo real).
         if (!fields.report_type) {
-          // First try the new fuzzy inference
           const fuzzyInferredType = lib.inferTransportTypeFromText(description);
           if (fuzzyInferredType) {
             fields.report_type = fuzzyInferredType;
             fields._transport_classification_route = 'fuzzy_text';
             console.log('[getNextMissingField] Fuzzy-inferred transport report_type:', fields.report_type);
           } else {
-            // Fallback to extractTransportFields for exact matching
             const inferredFields = lib.extractTransportFields(description.toLowerCase());
             if (inferredFields.report_type) {
               fields.report_type = inferredFields.report_type;
               fields._transport_classification_route = 'keyword_extract';
               console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
             } else {
-              // FALLBACK: Can't infer - use 'outro' and continue (NEVER ASK, NEVER BLOCK)
               fields.report_type = 'outro';
               fields._fallback_report_type = true;
               fields._transport_classification_route = 'fallback_outro';
@@ -1149,14 +1263,62 @@ serve(async (req) => {
             }
           }
         }
+
+        if (!fields.sub_category) {
+          const reportType = String(fields.report_type || "outro").toLowerCase();
+          return {
+            field: "sub_category",
+            picker: `[SUBCATEGORY_PICKER:${reportType}]`,
+            prompt: "Qual detalhe descreve melhor esse problema?",
+          };
+        }
         
-        // 3. Line/station - GO HERE DIRECTLY if we have description + type
-        if (!fields.line_code)
+        // 3. Linha/estação — line_id do picker conta; hidratar line_code a partir do banco se faltar
+        if (!fields.line_code && fields.line_id) {
+          const lid = String(fields.line_id).trim();
+          const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lid);
+          if (uuidOk) {
+            const { data: tlRow } = await supabaseClient
+              .from('transport_lines')
+              .select('line_code')
+              .eq('id', lid)
+              .maybeSingle();
+            if (tlRow?.line_code) {
+              fields.line_code = String(tlRow.line_code).trim();
+              console.log('[getNextMissingField] Hydrated line_code from transport_lines by line_id:', fields.line_code);
+            }
+          }
+        }
+        if (!fields.line_code && !fields.line_id) {
           return { field: 'line_code', picker: '[LINE_PICKER]', prompt: 'Qual **linha ou estação** teve o problema?' };
+        }
         
         // 4. Date (REQUIRED - user must confirm)
         if (!fields.occurrence_date)
           return { field: 'occurrence_date', picker: '[DATE_PICKER]', prompt: '**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)' };
+
+        // 5. Time (REQUIRED - atomic collection)
+        if (!fields.occurrence_time)
+          return { field: 'occurrence_time', picker: '[TIME_PICKER]', prompt: 'Qual foi o **horário exato** da ocorrência?' };
+
+        // 6. Direction (REQUIRED - atomic collection)
+        if (!fields.direction)
+          return { field: 'direction', picker: '[DIRECTION_PICKER]', prompt: 'Qual era o **sentido** da viagem?' };
+
+        // 7. Recurrence frequency (REQUIRED - atomic collection)
+        if (!fields.recurrence_frequency)
+          return {
+            field: 'recurrence_frequency',
+            picker: '[RECURRENCE_FREQUENCY_PICKER]',
+            prompt: 'Com qual frequência isso acontece?',
+          };
+
+        if (fields.personal_impact == null || fields.personal_impact === "")
+          return {
+            field: "personal_impact",
+            picker: "[IMPACT_PICKER]",
+            prompt: "Como isso afetou **sua rotina**?",
+          };
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };
@@ -1278,9 +1440,10 @@ serve(async (req) => {
           const districtHint = neighStr ? ` em **${neighStr}**` : '';
           const typeParam = fields.service_type ? ':type=' + encodeURIComponent(String(fields.service_type)) : '';
           const districtParam = neighStr ? ':district=' + encodeURIComponent(neighStr) : '';
+          const hideRatedParam = ':hideRatedToday=1';
           return {
             field: 'service_name',
-            picker: `[SERVICE_PICKER${districtParam}${typeParam}]`,
+            picker: `[SERVICE_PICKER${districtParam}${typeParam}${hideRatedParam}]`,
             prompt: `Qual **${labelQual}** você visitou${districtHint}? Selecione na lista abaixo.`,
           };
         }
@@ -1546,7 +1709,7 @@ serve(async (req) => {
         let originForUrl = '';
         if (assistantAskedStreetNumber && userMessagesOrdered.length >= 2) {
           const streetNumberCandidate = originCandidate.trim();
-          const looksLikeNumber = /^[\d\s\-]+$/.test(streetNumberCandidate) || /^(casa|n[°º]?|n[uú]mero)\s*[\d\-]+$/i.test(streetNumberCandidate);
+          const looksLikeNumber = /^[\d\s-]+$/.test(streetNumberCandidate) || /^(casa|n[°º]?|n[uú]mero)\s*[\d-]+$/i.test(streetNumberCandidate);
           if (looksLikeNumber) {
             const prevAddress = getMessageText(userMessagesOrdered[userMessagesOrdered.length - 2]).trim();
             const prevAddressRaw = prevAddress.replace(/^Endere[cç]o\s+selecionado\s*:\s*/i, '').trim();
@@ -2018,15 +2181,246 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
           } else if (collectionIntent.type === 'transport_report') {
+            if (!accumulatedFields.sub_category) {
+              const reportType = String(accumulatedFields.report_type || "outro").toLowerCase();
+              const askSubcategoryMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${reportType}]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askSubcategoryMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (!accumulatedFields.occurrence_time) {
+              const askTimeMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:occurrence_time]Qual foi o **horário exato** da ocorrência?[TIME_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askTimeMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (!accumulatedFields.direction) {
+              const askDirectionMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:direction]Qual era o **sentido** da viagem?[DIRECTION_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askDirectionMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (!accumulatedFields.recurrence_frequency) {
+              const askRecurrenceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:recurrence_frequency]Com qual frequência isso acontece?[RECURRENCE_FREQUENCY_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askRecurrenceMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+            if (accumulatedFields.personal_impact == null || accumulatedFields.personal_impact === "") {
+              const askImpactMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**?[IMPACT_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askImpactMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            const userWantsCorrectionTransport =
+              /^(corrigir|corrigir\s+relato|editar|ajustar)$/i.test(msgLower.trim());
+            const isTransportFinalPreview =
+              /resumo\s+do\s+relato\s+de\s+transporte/i.test(lastAssistantLower) &&
+              !/deseja\s+anexar\s+imagens/i.test(lastAssistantLower);
+            const showedPreviewAfterAttach =
+              /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*(?:registrar\s+para\s+finalizar|confirmar)/i.test(
+                lastAssistantLower || "",
+              );
+            const transportFieldReqMatch = lastAssistantMessage.match(/\[FIELD_REQUEST:(\w+)\]/);
+            const prevWasTransportFieldRequest =
+              /\[COLLECTION_PROGRESS:transport_report:/i.test(lastAssistantMessage) && !!transportFieldReqMatch;
+
+            // Markdown quebra substring contínua ("de **ajustar**"); normalizar * para o teste.
+            const lastAssistantPlain = lastAssistantLower.replace(/\*/g, "");
+            // `.*` não atravessa \n — o marcador fica após "Selecione…" na linha seguinte.
+            const askedTransportCorrectionMenu =
+              /o que voc[eê] gostaria de ajustar/i.test(lastAssistantPlain) &&
+              /\[QUICK_REPLY:[^\]]*descri/i.test(lastAssistantMessage);
+
+            const transportCorrectionMenuPick = msgLower.trim().toLowerCase();
+            const transportPickNorm = transportCorrectionMenuPick
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/ç/g, "c");
+
+            if (askedTransportCorrectionMenu) {
+              const progress = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]`;
+              let reply = "";
+              if (transportPickNorm === "descricao" || /^descri/.test(transportPickNorm)) {
+                reply =
+                  `${progress}[FIELD_REQUEST:description]Qual é a **descrição correta**? Reescreva o que aconteceu com mais detalhes.`;
+              } else if (transportPickNorm === "tipo") {
+                reply =
+                  `${progress}[FIELD_REQUEST:report_type]Qual o **tipo de problema** correto?[QUICK_REPLY:atraso,lotacao,seguranca,acessibilidade,limpeza,conducao,outro]`;
+              } else if (transportPickNorm === "linha") {
+                reply =
+                  `${progress}[FIELD_REQUEST:line_code]Qual a **linha ou estação** correta?[LINE_PICKER]`;
+              } else if (transportPickNorm === "data") {
+                reply =
+                  `${progress}[FIELD_REQUEST:occurrence_date]Qual a **data correta** da ocorrência?[DATE_PICKER]`;
+              } else if (transportPickNorm === "horario") {
+                reply =
+                  `${progress}[FIELD_REQUEST:occurrence_time]Qual o **horário correto** da ocorrência?[TIME_PICKER]`;
+              } else if (transportPickNorm === "sentido") {
+                reply =
+                  `${progress}[FIELD_REQUEST:direction]Qual o **sentido** correto da viagem?[DIRECTION_PICKER]`;
+              } else if (transportPickNorm === "frequencia") {
+                reply =
+                  `${progress}[FIELD_REQUEST:recurrence_frequency]Qual a **frequência** correta?[RECURRENCE_FREQUENCY_PICKER]`;
+              } else if (transportPickNorm === "impacto") {
+                reply =
+                  `${progress}[FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**? Escolha de novo.[IMPACT_PICKER]`;
+              } else if (transportPickNorm === "local") {
+                reply =
+                  `${progress}[FIELD_REQUEST:location]Qual o **local** ou ponto de referência correto? (parada, terminal, trecho)`;
+              }
+              if (reply) {
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+                console.log("[ai-orchestrator] Transport report: correction menu pick → field request");
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              }
+              const reaskMenu =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Não reconheci essa opção. **O que você gostaria de ajustar** no resumo?\n\n` +
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+              const sseReask = JSON.stringify({ choices: [{ delta: { content: reaskMenu } }] });
+              console.log("[ai-orchestrator] Transport report: correction menu — pick não reconhecido, reexibindo opções");
+              return new Response(`data: ${sseReask}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
+
+            const threadHadTransportSimilarOffer = messages.some((m: Record<string, unknown>) => {
+              if (m.role !== 'assistant') return false;
+              const t = getMessageText(m).toLowerCase();
+              return (
+                /\[similar_transport_reports_b64:/i.test(t) ||
+                /relatos\s+recentes\s+na\s+mesma\s+linha/i.test(t)
+              );
+            });
+            const skipTransportPreviewShortcutAfterFirstImpact =
+              transportFieldReqMatch?.[1] === 'personal_impact' && !threadHadTransportSimilarOffer;
+
+            if (
+              prevWasTransportFieldRequest &&
+              lastUserMessage.trim().length > 0 &&
+              !skipTransportPreviewShortcutAfterFirstImpact
+            ) {
+              const menuTokens = new Set([
+                "descrição",
+                "descricao",
+                "tipo",
+                "linha",
+                "data",
+                "horário",
+                "horario",
+                "sentido",
+                "frequência",
+                "frequencia",
+                "impacto",
+                "local",
+              ]);
+              const isMenuPick = menuTokens.has(transportCorrectionMenuPick);
+              if (
+                /^(confirmar|registrar|sim|ok|tudo\s+certo)$/i.test(msgLower.trim()) ||
+                (!isMenuPick && !/^(corrigir|editar|ajustar)$/i.test(msgLower.trim()))
+              ) {
+                const photoLine =
+                  attachmentUrls.length > 0
+                    ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)`
+                    : "";
+                const previewBody = buildTransportFinalPreviewMessage(
+                  accumulatedFields as Record<string, unknown>,
+                  photoLine,
+                  lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
+                );
+                const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+                console.log(
+                  "[ai-orchestrator] Transport report: after field correction → showing preview again",
+                );
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              }
+            }
+
+            if (isTransportFinalPreview && userWantsCorrectionTransport) {
+              const correctionOptions =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de **ajustar** no resumo?\n\n` +
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: correctionOptions } }] });
+              console.log("[ai-orchestrator] Transport report: user requested correction → menu");
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
+
             // Fluxo de fotos para transporte (conforme relato urbano): perguntar → anexar → preview → criar
             const askedPhotoChoice = /deseja\s+anexar\s+imagens|quer\s+anexar\s+fotos/i.test(lastAssistantLower);
             const askedToAttach = /pode\s+anexar\s+at[eé]\s*3\s+fotos|quando\s+terminar.*registrar|envie\s+\*?registrar\*?/i.test(lastAssistantLower);
-            const showedPreview = /resumo\s+do\s+relato|se\s+estiver\s+tudo\s+certo|confirmar\s+e\s+registrar/i.test(lastAssistantLower);
             const userSaidYes = /^(sim|quero|quero\s+sim|yes|pode\s+ser|pode|desejo)$/i.test(msgLower);
             const userSaidNo = /^(n[aã]o|nao|no|n[aã]o\s+quero|n[aã]o\s+desejo)$/i.test(msgLower);
             const userConfirms = /^(sim|confirmar|registrar|ok|tudo\s+certo)$/i.test(msgLower);
 
-            if (!askedPhotoChoice && !askedToAttach && !showedPreview) {
+            const showedSimilarTransport =
+              /\[SIMILAR_TRANSPORT_REPORTS_B64:/i.test(lastAssistantLower) ||
+              /relatos\s+recentes\s+na\s+mesma\s+linha/i.test(lastAssistantLower);
+            const userWantsNewAfterSimilarTransport =
+              /^(novo_relato|novo\s+relato|registrar\s+novo|criar\s+novo|mesmo\s+assim)\b/i.test(msgLower.trim());
+
+            const looksLikeTransportCorrectionMenuUi =
+              /selecione\s+uma\s+op[cç][aã]o\s+abaixo/i.test(lastAssistantLower) &&
+              /\[QUICK_REPLY:[^\]]*descri/i.test(lastAssistantMessage) &&
+              /gostaria\s+de\s+ajustar|ajustar\s+no\s+resumo/i.test(lastAssistantPlain);
+
+            if (!askedPhotoChoice && !askedToAttach && !isTransportFinalPreview && !looksLikeTransportCorrectionMenuUi) {
+              if (showedSimilarTransport && userWantsNewAfterSimilarTransport) {
+                const photoChoiceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema de transporte?**[QUICK_REPLY:sim,não]`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
+                console.log('[ai-orchestrator] Transport report: similar list acknowledged → asking photo choice');
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                });
+              }
+              if (
+                showedSimilarTransport &&
+                !userWantsNewAfterSimilarTransport &&
+                lastUserMessage.trim().length > 0
+              ) {
+                const hint = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Para **seguir com um novo relato** (fotos e confirmação), use **Registrar novo relato**. Você pode **apoiar** um dos relatos listados acima.[QUICK_REPLY:novo_relato]`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: hint } }] });
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                });
+              }
+              if (!showedSimilarTransport) {
+                try {
+                  const similarT = await lib.fetchSimilarTransportReportsForSupport(
+                    supabase,
+                    accumulatedFields as Record<string, unknown>,
+                    user.id,
+                    10,
+                  );
+                  if (similarT.length > 0) {
+                    const payload = { reports: similarT };
+                    const json = JSON.stringify(payload);
+                    const b64 = btoa(unescape(encodeURIComponent(json)));
+                    const intro =
+                      `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarT.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                    const similarMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                    const ssePayload = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                    console.log('[ai-orchestrator] Transport report: showing similar reports, count:', similarT.length);
+                    return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                      headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                    });
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Transport similar reports lookup failed:', e);
+                }
+              }
               const photoChoiceMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Ótimo, já tenho todas as informações. **Você deseja anexar imagens quanto ao problema de transporte?**[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: photoChoiceMsg } }] });
               console.log('[ai-orchestrator] Transport report: asking photo choice');
@@ -2043,35 +2437,40 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
             if (askedPhotoChoice && userSaidNo) {
-              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
-• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
-• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}
-
-Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const previewBody = buildTransportFinalPreviewMessage(
+                accumulatedFields as Record<string, unknown>,
+                "",
+                lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
+              );
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Transport report: user said no to photos, showing preview');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
-            // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo Registrar criamos
-            const showedPreviewAfterAttach = /resumo\s+do\s+relato\s+de\s+transporte[\s\S]*se\s+estiver\s+tudo\s+certo[\s\S]*registrar\s+para\s+finalizar/i.test(lastAssistantLower || '');
+            // Preview antes de criar: após "Pode anexar... Registrar", ao clicar Registrar mostramos o resumo; só no segundo passo (Confirmar) criamos
             if (askedToAttach && userConfirms && !showedPreviewAfterAttach) {
-              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
-              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
-• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
-• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
-
-Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const photoLine =
+                attachmentUrls.length > 0
+                  ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)`
+                  : "";
+              const previewBody = buildTransportFinalPreviewMessage(
+                accumulatedFields as Record<string, unknown>,
+                photoLine,
+                lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
+              );
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Transport report: showing preview before create (first Registrar)');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
-            if ((showedPreview || askedToAttach) && userConfirms && (showedPreview || showedPreviewAfterAttach)) {
+            if (
+              userConfirms &&
+              (showedPreviewAfterAttach || (isTransportFinalPreview && !askedToAttach))
+            ) {
               let photosToSave = attachmentUrls;
               if (photosToSave.length === 0 && conversationId) {
                 try {
@@ -2090,13 +2489,17 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               const toolArgs: Record<string, unknown> = {
                 description: accumulatedFields.description,
                 report_type: accumulatedFields.report_type,
+                sub_category: accumulatedFields.sub_category,
                 line_code: accumulatedFields.line_code,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
+                direction: accumulatedFields.direction,
+                recurrence_frequency: accumulatedFields.recurrence_frequency,
                 location: accumulatedFields.location,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
-                subcategory_label: accumulatedFields.subcategory_label
+                subcategory_label: accumulatedFields.subcategory_label,
+                personal_impact: accumulatedFields.personal_impact,
               };
               if (photosToSave.length > 0) {
                 toolArgs.photos = photosToSave;
@@ -2104,13 +2507,16 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
             }
             if (askedToAttach && !userConfirms && !toolResult) {
-              const photoLine = attachmentUrls.length > 0 ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)\n` : '';
-              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]**Resumo do relato de transporte**
-• **Problema:** ${(accumulatedFields.description || '').toString().slice(0, 150)}${(accumulatedFields.description || '').toString().length > 150 ? '...' : ''}
-• **Linha:** ${accumulatedFields.line_code || 'Não informada'}
-• **Quando:** ${accumulatedFields.occurrence_date || ''}${photoLine}
-
-Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:registrar]`;
+              const photoLine =
+                attachmentUrls.length > 0
+                  ? `\n• **Fotos anexadas:** ${attachmentUrls.length} imagem(ns)`
+                  : "";
+              const previewBody = buildTransportFinalPreviewMessage(
+                accumulatedFields as Record<string, unknown>,
+                photoLine,
+                lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
+              );
+              const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Transport report: user sent Registrar (attach flow), showing preview, attachmentUrls:', attachmentUrls.length);
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -2121,13 +2527,17 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               const toolArgs: Record<string, unknown> = {
                 description: accumulatedFields.description,
                 report_type: accumulatedFields.report_type,
+                sub_category: accumulatedFields.sub_category,
                 line_code: accumulatedFields.line_code,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
+                direction: accumulatedFields.direction,
+                recurrence_frequency: accumulatedFields.recurrence_frequency,
                 location: accumulatedFields.location,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
-                subcategory_label: accumulatedFields.subcategory_label
+                subcategory_label: accumulatedFields.subcategory_label,
+                personal_impact: accumulatedFields.personal_impact,
               };
               toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
             }
@@ -2183,10 +2593,30 @@ Se estiver tudo certo, clique em **Registrar** para finalizar.[QUICK_REPLY:regis
               headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
             });
           } else if (toolResult && !toolResult.success) {
+            // Regra de negócio / erro terminal (ex.: RN-AVA-003) sem campo a corrigir — não enviar ao LLM
+            // (senão o modelo inventa mensagem genérica tipo "não foi possível salvar").
+            const failMsg = toolResult.message || '';
+            const needsFieldFromTool = failMsg.includes('[FIELD_REQUEST:');
+            if (collectionIntent?.type === 'service_rating' && !needsFieldFromTool) {
+              let responseContent = failMsg;
+              if (lightJourneyMarker && !responseContent.includes('[LIGHT_JOURNEY:')) {
+                responseContent = lightJourneyMarker + responseContent;
+              }
+              if (!responseContent.includes('[COLLECTION_PROGRESS:')) {
+                responseContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:{}]${responseContent}`;
+              }
+              const ssePayload = JSON.stringify({
+                choices: [{ delta: { content: responseContent } }],
+              });
+              console.log(
+                '[ai-orchestrator] Auto-create service_rating terminal failure, returning tool message directly',
+              );
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
             // Tool validation failed - continue to LLM to ask for missing field
             console.log('[ai-orchestrator] Auto-create validation failed, continuing to LLM:', toolResult.message);
-            // Update nextFieldInfo to ask for the missing field
-            // The tool result message should contain [FIELD_REQUEST:...] markers
             nextFieldInfo = { field: null, picker: null, prompt: toolResult.message };
           }
         } catch (error) {
@@ -3009,30 +3439,75 @@ ${empathyNote}
           if (toolCallData.name === 'create_transport_report') {
             const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
             const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+            const alreadyShowedSimilarTransportIntercept =
+              /\[SIMILAR_TRANSPORT_REPORTS_B64:/i.test(lastAssistantLower || '');
             if (!alreadyAskedPhotos && !alreadyShowedPreview) {
               const merged = {
                 ...accumulatedFields,
                 description: toolArgs.description ?? accumulatedFields.description,
                 report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+                sub_category: toolArgs.sub_category ?? accumulatedFields.sub_category,
                 line_code: toolArgs.line_code ?? accumulatedFields.line_code,
                 occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
                 occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+                direction: toolArgs.direction ?? accumulatedFields.direction,
+                recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
                 location: toolArgs.location ?? accumulatedFields.location,
                 severity: toolArgs.severity ?? accumulatedFields.severity,
-                subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
+                subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label,
+                personal_impact: toolArgs.personal_impact ?? accumulatedFields.personal_impact,
+                impact_description: toolArgs.impact_description ?? accumulatedFields.impact_description,
+              };
+              if (merged.occurrence_time && merged.direction && merged.personal_impact != null && merged.personal_impact !== "") {
+              if (!alreadyShowedSimilarTransportIntercept) {
+                try {
+                  const similarStream = await lib.fetchSimilarTransportReportsForSupport(
+                    supabase,
+                    merged as Record<string, unknown>,
+                    user.id,
+                    10,
+                  );
+                  if (similarStream.length > 0) {
+                    const payload = { reports: similarStream };
+                    const json = JSON.stringify(payload);
+                    const b64 = btoa(unescape(encodeURIComponent(json)));
+                    const intro =
+                      `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarStream.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                    const similarMsg =
+                      `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                    const sseSimilar = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                    console.log('[ai-orchestrator] Transport report: intercept – similar reports first, count:', similarStream.length);
+                    return new Response(`data: ${sseSimilar}\n\ndata: [DONE]\n\n`, {
+                      headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+                    });
+                  }
+                } catch (e) {
+                  console.warn('[ai-orchestrator] Transport intercept (stream) similar lookup failed:', e);
+                }
+              }
+              const recurrenceLabelMap: Record<string, string> = {
+                primeira_vez: 'Primeira vez',
+                algumas_vezes_mes: 'Algumas vezes/mês',
+                toda_semana: 'Toda semana',
+                todos_os_dias: 'Todos os dias',
               };
               const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
-• **Quando:** ${merged.occurrence_date || ''}
+• **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
+• **Sentido:** ${merged.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
+• **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}
 
-Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
+Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?${transportPreviewJsonMarker(merged)}[QUICK_REPLY:sim,não]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
               console.log('[ai-orchestrator] Transport report: intercept – showing preview + photo choice before creating');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
+              }
             }
           }
 
@@ -3058,10 +3533,15 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.active_consequences && { active_consequences: toolArgs.active_consequences }),
             // Transport fields
             ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+            ...(toolArgs.sub_category && { sub_category: toolArgs.sub_category }),
             ...(toolArgs.line_code && { line_code: toolArgs.line_code }),
             ...(toolArgs.occurrence_date && { occurrence_date: toolArgs.occurrence_date }),
             ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
+            ...(toolArgs.direction && { direction: toolArgs.direction }),
+            ...(toolArgs.recurrence_frequency && { recurrence_frequency: toolArgs.recurrence_frequency }),
             ...(toolArgs.severity && { severity: toolArgs.severity }),
+            ...(toolArgs.personal_impact != null && toolArgs.personal_impact !== "" && { personal_impact: toolArgs.personal_impact }),
+            ...(toolArgs.impact_description && { impact_description: toolArgs.impact_description }),
             // Service rating fields
             ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
             ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
@@ -3169,34 +3649,79 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         toolArgs.photos = attachmentUrls;
       }
 
-      // Intercept create_transport_report (non-stream): preview + pergunta de fotos antes de criar
+      // Intercept create_transport_report (non-stream): relatos similares → preview + pergunta de fotos antes de criar
       if (toolName === 'create_transport_report') {
         const alreadyAskedPhotos = /deseja\s+anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte|anexar\s+imagens\s+quanto\s+ao\s+problema\s+de\s+transporte/i.test(lastAssistantLower || '');
         const alreadyShowedPreview = /resumo\s+do\s+relato\s+de\s+transporte|se\s+estiver\s+tudo\s+certo.*registrar/i.test(lastAssistantLower || '');
+        const alreadyShowedSimilarNs =
+          /\[SIMILAR_TRANSPORT_REPORTS_B64:/i.test(lastAssistantLower || '');
         if (!alreadyAskedPhotos && !alreadyShowedPreview) {
           const merged = {
             ...accumulatedFields,
             description: toolArgs.description ?? accumulatedFields.description,
             report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+            sub_category: toolArgs.sub_category ?? accumulatedFields.sub_category,
             line_code: toolArgs.line_code ?? accumulatedFields.line_code,
             occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
             occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
+            direction: toolArgs.direction ?? accumulatedFields.direction,
+            recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
             location: toolArgs.location ?? accumulatedFields.location,
             severity: toolArgs.severity ?? accumulatedFields.severity,
-            subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label
+            subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label,
+            personal_impact: toolArgs.personal_impact ?? accumulatedFields.personal_impact,
+            impact_description: toolArgs.impact_description ?? accumulatedFields.impact_description,
+          };
+          if (merged.occurrence_time && merged.direction && merged.personal_impact != null && merged.personal_impact !== "") {
+          if (!alreadyShowedSimilarNs) {
+            try {
+              const similarNs = await lib.fetchSimilarTransportReportsForSupport(
+                supabase,
+                merged as Record<string, unknown>,
+                user.id,
+                10,
+              );
+              if (similarNs.length > 0) {
+                const payload = { reports: similarNs };
+                const json = JSON.stringify(payload);
+                const b64 = btoa(unescape(encodeURIComponent(json)));
+                const intro =
+                  `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarNs.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                const similarMsg =
+                  `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                const sseSimilarNs = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                console.log('[ai-orchestrator] Transport report (non-stream): intercept – similar first, count:', similarNs.length);
+                return new Response(`data: ${sseSimilarNs}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+                });
+              }
+            } catch (e) {
+              console.warn('[ai-orchestrator] Transport intercept (non-stream) similar lookup failed:', e);
+            }
+          }
+          const recurrenceLabelMap: Record<string, string> = {
+            primeira_vez: 'Primeira vez',
+            algumas_vezes_mes: 'Algumas vezes/mês',
+            toda_semana: 'Toda semana',
+            todos_os_dias: 'Todos os dias',
           };
           const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
-• **Quando:** ${merged.occurrence_date || ''}
+• **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
+• **Sentido:** ${merged.direction || 'Não informado'}
+• **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
+• **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}
 
-Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?[QUICK_REPLY:sim,não]`;
+Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?${transportPreviewJsonMarker(merged)}[QUICK_REPLY:sim,não]`;
           const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
           console.log('[ai-orchestrator] Transport report (non-stream): intercept – preview + photo choice');
           return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
             headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
           });
+          }
         }
       }
 
@@ -3216,6 +3741,9 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         ...(toolArgs.risk_types && { risk_types: toolArgs.risk_types }),
         ...(toolArgs.affected_scope && { affected_scope: toolArgs.affected_scope }),
         ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+        ...(toolArgs.sub_category && { sub_category: toolArgs.sub_category }),
+        ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
+        ...(toolArgs.direction && { direction: toolArgs.direction }),
         ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
         ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
         ...(toolArgs.rating_dimensions && { rating_dimensions: toolArgs.rating_dimensions }),

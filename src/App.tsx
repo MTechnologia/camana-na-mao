@@ -102,6 +102,7 @@ const TransportReportPage = lazy(() => import("./pages/TransportReportPage"));
 const NewReportPage = lazy(() => import("./pages/transport/NewReportPage"));
 const PatternsPage = lazy(() => import("./pages/transport/PatternsPage"));
 const MyReportsPage = lazy(() => import("./pages/transport/MyReportsPage"));
+const LiveBusPage = lazy(() => import("./pages/transport/LiveBusPage"));
 
 // ============================================
 // URBAN REPORT PAGES - Lazy loaded
@@ -123,6 +124,8 @@ const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
 const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPage"));
+const TrendDashboardPage = lazy(() => import("./pages/admin/TrendDashboardPage"));
+const ReportsHeatmapPage = lazy(() => import("./pages/admin/ReportsHeatmapPage"));
 const ClassificationAccuracyPage = lazy(() => import("./pages/admin/ClassificationAccuracyPage"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
@@ -140,6 +143,7 @@ const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCor
 const PublicDocumentationPage = lazy(() => import("./pages/docs/PublicDocumentationPage"));
 const AccessibilityPage = lazy(() => import("./pages/settings/AccessibilityPage"));
 const DebugRBAC = lazy(() => import("./pages/debug/DebugRBAC"));
+const SptransOlhoVivoTestPage = lazy(() => import("./pages/debug/SptransOlhoVivoTestPage"));
 const ReportsHub = lazy(() => import("./pages/reports/ReportsHub"));
 
 
@@ -167,7 +171,7 @@ const RoutePrefetcher = () => {
       if (location.pathname === "/") {
         prefetchMultiple(["/busca", "/conversas"]);
       } else if (location.pathname.startsWith("/transporte")) {
-        prefetchMultiple(["/transporte/novo", "/transporte/historico"]);
+        prefetchMultiple(["/transporte/novo", "/transporte/historico", "/transporte/ao-vivo"]);
       } else if (location.pathname.startsWith("/institucional")) {
         prefetchMultiple([
           "/institucional/agenda",
@@ -287,6 +291,9 @@ const AppContent = () => {
             <Route path="/transporte/novo" element={<NewReportPage />} />
             <Route path="/transporte/padroes" element={<PatternsPage />} />
             <Route path="/transporte/historico" element={<MyReportsPage />} />
+            {/* Alias usado em deep links (notificações, mensagem pós-registro no chat, docs) */}
+            <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
+            <Route path="/transporte/ao-vivo" element={<LiveBusPage />} />
             <Route path="/paineis" element={<AnalyticsDashboard />} />
             <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
             <Route path="/paineis/criar" element={<CreateDashboard />} />
@@ -299,6 +306,8 @@ const AppContent = () => {
             <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
             <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
             <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/trends" element={<ProtectedAdminRoute><TrendDashboardPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/reports-heatmap" element={<ProtectedAdminRoute><ReportsHeatmapPage /></ProtectedAdminRoute>} />
             <Route path="/admin/classification-accuracy" element={<ProtectedAdminRoute><ClassificationAccuracyPage /></ProtectedAdminRoute>} />
             <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
@@ -314,6 +323,7 @@ const AppContent = () => {
             <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
             <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
             <Route path="/debug/rbac" element={<DebugRBAC />} />
+            <Route path="/debug/sptrans-olhovivo" element={<SptransOlhoVivoTestPage />} />
           </Route>
 
           {/* Catch-all - 404 (sem proteção para exibir página de não encontrado) */}

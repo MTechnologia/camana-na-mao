@@ -83,3 +83,15 @@ verify_jwt = false
 
 [functions.sync-app-suggestions]
 verify_jwt = false
+
+[functions.process-scheduled-notifications]
+verify_jwt = false
+
+[functions.process-audiencia-topic-alerts]
+verify_jwt = false
+
+[functions.process-pending-visits]
+verify_jwt = false
+
+[functions.sptrans-olhovivo]
+verify_jwt = false

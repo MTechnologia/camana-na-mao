@@ -925,12 +925,17 @@ export type Database = {
         Row: {
           action_url: string | null
           created_at: string
+          delivered_in_app_only: boolean
+          discard_reason: string | null
+          discarded_at: string | null
           id: string
           is_read: boolean
           message: string
           metadata: Json | null
           priority: string
+          push_delivered_at: string | null
           read_at: string | null
+          scheduled_for: string | null
           title: string
           type: string
           user_id: string
@@ -938,12 +943,17 @@ export type Database = {
         Insert: {
           action_url?: string | null
           created_at?: string
+          delivered_in_app_only?: boolean
+          discard_reason?: string | null
+          discarded_at?: string | null
           id?: string
           is_read?: boolean
           message: string
           metadata?: Json | null
           priority?: string
+          push_delivered_at?: string | null
           read_at?: string | null
+          scheduled_for?: string | null
           title: string
           type?: string
           user_id: string
@@ -951,12 +961,17 @@ export type Database = {
         Update: {
           action_url?: string | null
           created_at?: string
+          delivered_in_app_only?: boolean
+          discard_reason?: string | null
+          discarded_at?: string | null
           id?: string
           is_read?: boolean
           message?: string
           metadata?: Json | null
           priority?: string
+          push_delivered_at?: string | null
           read_at?: string | null
+          scheduled_for?: string | null
           title?: string
           type?: string
           user_id?: string
@@ -1733,6 +1748,7 @@ export type Database = {
           expires_at: string
           id: string
           rating_requested_at: string | null
+          reminder_sent: boolean
           service_id: string
           status: Database["public"]["Enums"]["visit_status"]
           updated_at: string | null
@@ -1746,6 +1762,7 @@ export type Database = {
           expires_at: string
           id?: string
           rating_requested_at?: string | null
+          reminder_sent?: boolean
           service_id: string
           status?: Database["public"]["Enums"]["visit_status"]
           updated_at?: string | null
@@ -1759,6 +1776,7 @@ export type Database = {
           expires_at?: string
           id?: string
           rating_requested_at?: string | null
+          reminder_sent?: boolean
           service_id?: string
           status?: Database["public"]["Enums"]["visit_status"]
           updated_at?: string | null
@@ -1870,6 +1888,70 @@ export type Database = {
           },
         ]
       }
+      transport_report_likes: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_report_likes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transport_report_comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          id: string
+          report_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          id?: string
+          report_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_report_comments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transport_reports: {
         Row: {
           ai_category: string | null
@@ -1877,6 +1959,7 @@ export type Database = {
           ai_sentiment: string | null
           created_at: string | null
           description: string | null
+          direction: string | null
           first_response_time: unknown
           id: string
           impact_description: string | null
@@ -1892,12 +1975,15 @@ export type Database = {
           n8n_workflow_id: string | null
           occurrence_date: string
           occurrence_time: string | null
+          personal_impact: number | null
           photos: string[] | null
           protocol_code: string | null
+          recurrence_frequency: string | null
           report_type: string
           responded_at: string | null
           severity: string
           status: string
+          sub_category: string | null
           updated_at: string | null
           user_id: string
         }
@@ -1907,6 +1993,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
+          direction?: string | null
           first_response_time?: unknown
           id?: string
           impact_description?: string | null
@@ -1922,12 +2009,15 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date: string
           occurrence_time?: string | null
+          personal_impact?: number | null
           photos?: string[] | null
           protocol_code?: string | null
+          recurrence_frequency?: string | null
           report_type: string
           responded_at?: string | null
           severity?: string
           status?: string
+          sub_category?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -1937,6 +2027,7 @@ export type Database = {
           ai_sentiment?: string | null
           created_at?: string | null
           description?: string | null
+          direction?: string | null
           first_response_time?: unknown
           id?: string
           impact_description?: string | null
@@ -1952,12 +2043,15 @@ export type Database = {
           n8n_workflow_id?: string | null
           occurrence_date?: string
           occurrence_time?: string | null
+          personal_impact?: number | null
           photos?: string[] | null
           protocol_code?: string | null
+          recurrence_frequency?: string | null
           report_type?: string
           responded_at?: string | null
           severity?: string
           status?: string
+          sub_category?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -2518,10 +2612,15 @@ export type Database = {
         Returns: { protocolo: number; id: string }[]
       }
       generate_protocol_code: { Args: { p_type: string }; Returns: string }
+      check_notification_daily_limit: {
+        Args: { p_user_id: string; p_tz?: string }
+        Returns: number
+      }
       compute_service_rating_publication_status: {
         Args: { p_text: string }
         Returns: string
       }
+      expire_pending_visits_over_48h: { Args: Record<PropertyKey, never>; Returns: number }
       search_public_services_fulltext: {
         Args: {
           center_lat: number
@@ -2551,6 +2650,21 @@ export type Database = {
           p_report_type?: string
           p_social_class?: string
           p_start_date?: string
+        }
+        Returns: Json
+      }
+      get_reports_trend: {
+        Args: {
+          p_line_id?: string | null
+          p_period?: string
+          p_type?: string | null
+        }
+        Returns: Json
+      }
+      get_reports_heatmap_data: {
+        Args: {
+          p_period?: string
+          p_type?: string | null
         }
         Returns: Json
       }

@@ -14,6 +14,53 @@ export interface ReportConfig {
   fields: FieldConfig[];
 }
 
+export interface TransportSubcategoryOption {
+  value: string;
+  label: string;
+}
+
+export const TRANSPORT_SUBCATEGORIES: Readonly<Record<string, readonly TransportSubcategoryOption[]>> = {
+  atraso: [
+    { value: "nao_passou", label: "Não passou" },
+    { value: "atraso_maior_30", label: "Veio com mais de 30 min de atraso" },
+    { value: "atraso_menor_30", label: "Veio com menos de 30 min de atraso" },
+    { value: "intervalo_irregular", label: "Intervalo irregular" },
+  ],
+  lotacao: [
+    { value: "superlotado", label: "Veículo superlotado" },
+    { value: "nao_conseguiu_embarcar", label: "Não consegui embarcar" },
+    { value: "fila_excessiva", label: "Fila excessiva no ponto/estação" },
+    { value: "ar_condicionado_inoperante", label: "Ar-condicionado inoperante" },
+  ],
+  seguranca: [
+    { value: "assedio", label: "Assédio/Importunação" },
+    { value: "furto_roubo", label: "Furto/Roubo" },
+    { value: "agressao_ameaca", label: "Agressão/Ameaça" },
+    { value: "briga_confusao", label: "Briga/Confusão" },
+  ],
+  acessibilidade: [
+    { value: "elevador_escada", label: "Elevador/Escada rolante indisponível" },
+    { value: "rampa_bloqueada", label: "Rampa bloqueada/inacessível" },
+    { value: "veiculo_sem_acessibilidade", label: "Veículo sem acessibilidade" },
+    { value: "falta_assistencia", label: "Falta de assistência para embarque" },
+  ],
+  limpeza: [
+    { value: "veiculo_sujo", label: "Veículo sujo" },
+    { value: "mau_cheiro", label: "Mau cheiro" },
+    { value: "lixo_acumulado", label: "Lixo acumulado" },
+    { value: "presenca_pragas", label: "Presença de pragas/insetos" },
+  ],
+  conducao: [
+    { value: "freada_brusca", label: "Freada brusca" },
+    { value: "aceleracao_excessiva", label: "Aceleração excessiva" },
+    { value: "motorista_imprudente", label: "Condução imprudente do motorista" },
+    { value: "nao_parou_ponto", label: "Não parou no ponto" },
+  ],
+  outro: [
+    { value: "outro", label: "Outro (descrever)" },
+  ],
+};
+
 /**
  * Categorias urbanas com coleta de gravidade/criticidade (risk_level).
  * Exclui feedback_camara. Manter alinhado a `URBAN_RISK_COLLECTION_CATEGORIES` em supabase/functions/ai-orchestrator/lib.ts
@@ -48,9 +95,11 @@ export const URBAN_REPORT_FIELDS: FieldConfig[] = [
 
 export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'report_type', label: 'Tipo', required: true },
+  { key: 'sub_category', label: 'Detalhe do problema', required: true, requiredWhen: { field: 'report_type', values: ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'] } },
   { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
   { key: 'occurrence_date', label: 'Data', required: true },
-  { key: 'occurrence_time', label: 'Horário', required: false },
+  { key: 'occurrence_time', label: 'Horário', required: true },
+  { key: 'direction', label: 'Sentido', required: true },
   { key: 'line_code', label: 'Linha', required: false },
   { key: 'location', label: 'Local', required: false },
   { key: 'severity', label: 'Gravidade', required: false },

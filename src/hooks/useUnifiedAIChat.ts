@@ -11,6 +11,7 @@ import {
 } from "@/lib/serviceRatingDimensions";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
+import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -149,6 +150,39 @@ export const useUnifiedAIChat = (
   initialCollectionType?: CollectionType,
   evaluationContext?: EvaluationContext | null
 ) => {
+  const parseOccurrenceTime = (text: string): string | null => {
+    const raw = text.trim().toLowerCase();
+    if (!raw) return null;
+
+    const normalized = raw
+      .replace(/\s+/g, " ")
+      .replace(/horas?/g, "h")
+      .replace(/\bmeia noite\b/g, "00:00")
+      .replace(/\bmeio dia\b/g, "12:00")
+      .replace(/\bmeio-dia\b/g, "12:00");
+
+    const compact = normalized.replace(/\s+/g, "");
+    const hmMatch = compact.match(/\b([01]?\d|2[0-3])(?:h|:)([0-5]?\d)?\b/);
+    if (hmMatch) {
+      const hour = hmMatch[1].padStart(2, "0");
+      const minute = (hmMatch[2] || "00").padStart(2, "0");
+      return `${hour}:${minute}`;
+    }
+
+    if (/^([01]\d|2[0-3])([0-5]\d)$/.test(compact)) {
+      const digits = compact.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+      if (digits) {
+        return `${digits[1]}:${digits[2]}`;
+      }
+    }
+
+    const simple = compact.match(/\b([01]?\d|2[0-3])\b/);
+    if (simple && /\b(h|hora)\b/.test(normalized)) {
+      return `${simple[1].padStart(2, "0")}:00`;
+    }
+
+    return null;
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
@@ -355,6 +389,18 @@ export const useUnifiedAIChat = (
               
               const horaMatch = msg.content?.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
               if (horaMatch) reconstructedFields.occurrence_time = horaMatch[1].trim();
+
+              const directionMatch = msg.content?.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              if (directionMatch) reconstructedFields.direction = directionMatch[1].trim().toLowerCase();
+
+              const recurrenceMatch = msg.content?.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              if (recurrenceMatch) {
+                const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
+                if (recurrenceRaw.includes('primeira vez')) reconstructedFields.recurrence_frequency = 'primeira_vez';
+                else if (recurrenceRaw.includes('algumas vezes')) reconstructedFields.recurrence_frequency = 'algumas_vezes_mes';
+                else if (recurrenceRaw.includes('toda semana')) reconstructedFields.recurrence_frequency = 'toda_semana';
+                else if (recurrenceRaw.includes('todos os dias')) reconstructedFields.recurrence_frequency = 'todos_os_dias';
+              }
               
               // Parse description
               const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
@@ -374,6 +420,11 @@ export const useUnifiedAIChat = (
               // Parse location
               const localMatch = msg.content?.match(/Local:[*]?[*]?\s*([^\n•*]+)/i);
               if (localMatch) reconstructedFields.location = localMatch[1].trim();
+
+              const transportPreview = parseTransportReportPreviewJson(msg.content || "");
+              if (transportPreview?.personal_impact != null) {
+                reconstructedFields.personal_impact = transportPreview.personal_impact;
+              }
               
               console.log('[useUnifiedAIChat] Reconstructed transport tracker:', reconstructedFields);
               setCollectedFields(reconstructedFields);
@@ -833,8 +884,26 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // Detectar linha de ônibus/metrô
-      if (!collectedFields.line_code) {
+      // Linha com UUID da base (lista) — HU-5.2
+      const lineSelUuid = raw.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (lineSelUuid) {
+        setCollectedFields((prev) => ({ ...prev, line_id: lineSelUuid[1] }));
+      }
+      const lineFromListMsg = raw.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (lineFromListMsg) {
+        setCollectedFields((prev) => ({ ...prev, line_code: lineFromListMsg[1].trim() }));
+      }
+      const lineCustomMsg =
+        raw.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        raw.match(/linha não listada:\s*(.+)/i);
+      if (lineCustomMsg) {
+        setCollectedFields((prev) => ({ ...prev, line_code: lineCustomMsg[1].trim(), line_id: undefined }));
+      }
+
+      // Detectar linha de ônibus/metrô (texto livre) — não sobrescrever escolha estruturada desta mensagem
+      if (!lineFromListMsg && !lineCustomMsg && !collectedFields.line_code) {
         const lineMatch = raw.match(/\b(\d{3,4}[A-Za-z]?-?\d*|[A-Z]{1,3}\d{1,2})\b/i);
         if (lineMatch) {
           setCollectedFields(prev => ({ ...prev, line_code: lineMatch[1].toUpperCase() }));
@@ -865,11 +934,18 @@ export const useUnifiedAIChat = (
       
       // Detectar horário
       if (!collectedFields.occurrence_time) {
-        const timeMatch = raw.match(/\b(\d{1,2})[h:](\d{2})?\b/i);
-        if (timeMatch) {
-          const hour = timeMatch[1].padStart(2, '0');
-          const minute = timeMatch[2] || '00';
-          setCollectedFields(prev => ({ ...prev, occurrence_time: `${hour}:${minute}` }));
+        const parsedTime = parseOccurrenceTime(raw);
+        if (parsedTime) setCollectedFields(prev => ({ ...prev, occurrence_time: parsedTime }));
+      }
+
+      // Detectar sentido (ida/volta/circular)
+      if (!collectedFields.direction) {
+        if (/\bida\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'ida' }));
+        } else if (/\bvolta\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'volta' }));
+        } else if (/\bcircular\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'circular' }));
         }
       }
       
@@ -891,6 +967,25 @@ export const useUnifiedAIChat = (
             setCollectedFields(prev => ({ ...prev, description: raw }));
           }
         }
+      }
+
+      // Detectar frequência de recorrência
+      if (!collectedFields.recurrence_frequency) {
+        if (/\bprimeira vez\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'primeira_vez' }));
+        } else if (/algumas vezes/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'algumas_vezes_mes' }));
+        } else if (/toda semana/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'toda_semana' }));
+        } else if (/todos os dias|todo dia/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'todos_os_dias' }));
+        }
+      }
+
+      const impactSelectedTag = raw.match(/\[IMPACT_SELECTED:([2-5])\]/);
+      if (impactSelectedTag) {
+        const score = parseInt(impactSelectedTag[1], 10);
+        setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
       }
     }
     
@@ -1455,6 +1550,21 @@ export const useUnifiedAIChat = (
               
               const dataMatch = assistantMessage.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
               if (dataMatch) finalFields.occurrence_date = dataMatch[1].trim();
+
+              const timeMatch = assistantMessage.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
+              if (timeMatch) finalFields.occurrence_time = timeMatch[1].trim();
+
+              const directionMatch = assistantMessage.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              if (directionMatch) finalFields.direction = directionMatch[1].trim().toLowerCase();
+
+              const recurrenceMatch = assistantMessage.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              if (recurrenceMatch) {
+                const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
+                if (recurrenceRaw.includes('primeira vez')) finalFields.recurrence_frequency = 'primeira_vez';
+                else if (recurrenceRaw.includes('algumas vezes')) finalFields.recurrence_frequency = 'algumas_vezes_mes';
+                else if (recurrenceRaw.includes('toda semana')) finalFields.recurrence_frequency = 'toda_semana';
+                else if (recurrenceRaw.includes('todos os dias')) finalFields.recurrence_frequency = 'todos_os_dias';
+              }
               
               const sevMatch = assistantMessage.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
               if (sevMatch) {
@@ -1463,6 +1573,11 @@ export const useUnifiedAIChat = (
                   'média': 'medium', 'media': 'medium', 'baixa': 'low'
                 };
                 finalFields.severity = sevMap[sevMatch[1].toLowerCase()] || sevMatch[1];
+              }
+
+              const transportPreviewDone = parseTransportReportPreviewJson(assistantMessage);
+              if (transportPreviewDone?.personal_impact != null) {
+                finalFields.personal_impact = transportPreviewDone.personal_impact;
               }
               
               setCollectedFields(finalFields);
@@ -1705,8 +1820,13 @@ export const useUnifiedAIChat = (
       ],
       transport_report: [
         { key: 'report_type', required: true },
+        { key: 'sub_category', required: true },
         { key: 'description', required: true },
         { key: 'occurrence_date', required: true },
+        { key: 'occurrence_time', required: true },
+        { key: 'direction', required: true },
+        { key: 'recurrence_frequency', required: true },
+        { key: 'personal_impact', required: true },
       ],
       service_rating: [
         { key: 'service_type', required: true },
@@ -1725,14 +1845,12 @@ export const useUnifiedAIChat = (
     const missing: string[] = [];
     
     for (const field of fields) {
-<<<<<<< HEAD
-      if (field.key === 'wait_time_score') {
-        if ('wait_time_score' in collectedFields) continue;
-=======
       if (field.key === 'rating_stars') {
         const n = Number(collectedFields.rating_stars);
         if (Number.isInteger(n) && n >= 1 && n <= 5) continue;
->>>>>>> main
+      } else if (field.key === 'personal_impact') {
+        const n = Number(collectedFields.personal_impact);
+        if (Number.isInteger(n) && n >= 2 && n <= 5) continue;
       } else if (collectedFields[field.key]) {
         continue;
       }
@@ -1800,9 +1918,18 @@ export const useUnifiedAIChat = (
   }, [sendMessage]);
 
   // Handle line selection from inline picker
-  const handleLineSelected = useCallback((lineCode: string, lineName: string) => {
-    setCollectedFields(prev => ({ ...prev, line_code: lineCode }));
-    sendMessage(`Linha selecionada: ${lineCode}${lineName !== lineCode ? ` (${lineName})` : ''}`);
+  const handleLineSelected = useCallback((lineCode: string, lineName: string, lineId?: string) => {
+    setCollectedFields((prev) => {
+      const next: CollectedFields = { ...prev, line_code: lineCode };
+      if (lineId) next.line_id = lineId;
+      else delete next.line_id;
+      return next;
+    });
+    if (lineId) {
+      sendMessage(`Linha: ${lineCode} - ${lineName} [LINE_SELECTED:${lineId}]`);
+    } else {
+      sendMessage(`Linha informada (fora da lista): ${lineCode}`);
+    }
   }, [sendMessage]);
 
   // Handle date selection from inline picker
@@ -1815,6 +1942,28 @@ export const useUnifiedAIChat = (
   const handleTimeSelected = useCallback((time: string, displayText: string) => {
     setCollectedFields(prev => ({ ...prev, occurrence_time: time }));
     sendMessage(`Horário: ${displayText}`);
+  }, [sendMessage]);
+
+  const handleDirectionSelected = useCallback((direction: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, direction }));
+    sendMessage(`Sentido: ${displayText}`);
+  }, [sendMessage]);
+
+  const handleSubcategorySelected = useCallback((value: string, label: string, reportType: string) => {
+    setCollectedFields((prev) => ({ ...prev, sub_category: value }));
+    sendMessage(
+      `Subcategoria: ${label} [SUBCATEGORY_SELECTED:${value}] [SUBCATEGORY_REPORT_TYPE:${reportType}]`
+    );
+  }, [sendMessage]);
+
+  const handleRecurrenceFrequencySelected = useCallback((frequency: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, recurrence_frequency: frequency }));
+    sendMessage(`Frequência: ${displayText}`);
+  }, [sendMessage]);
+
+  const handleImpactSelected = useCallback((score: number, label: string) => {
+    setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
+    sendMessage(`Impacto: ${label} [IMPACT_SELECTED:${score}]`);
   }, [sendMessage]);
 
   // Handle rating selection from inline picker
@@ -1901,6 +2050,10 @@ export const useUnifiedAIChat = (
     handleLineSelected,
     handleDateSelected,
     handleTimeSelected,
+    handleDirectionSelected,
+    handleSubcategorySelected,
+    handleRecurrenceFrequencySelected,
+    handleImpactSelected,
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,

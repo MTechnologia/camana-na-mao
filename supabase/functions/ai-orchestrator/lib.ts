@@ -33,6 +33,103 @@ export function parseRatingDimensionsMarker(content: string): Record<string, num
   }
 }
 
+/** Fuso para RN-AVA-003 (alinhado a idx_one_rating_per_service_per_day no PostgreSQL). */
+const SERVICE_RATING_DEDUP_TZ = 'America/Sao_Paulo';
+
+function zonedCalendarDayKey(timeZone: string, instantMs: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    new Date(instantMs),
+  );
+}
+
+/**
+ * Limites UTC [start, end) do dia civil em `timeZone` que contém `ref`.
+ * Equivale a filtrar linhas onde `(timezone(tz, created_at))::date = (timezone(tz, now()))::date`.
+ */
+export function getZonedDayUtcBoundsISO(timeZone: string, ref: Date = new Date()): { startIso: string; endExclusiveIso: string } {
+  const refMs = ref.getTime();
+  const dayKey = zonedCalendarDayKey(timeZone, refMs);
+  let lo = refMs - 26 * 3600000;
+  let hi = refMs + 26 * 3600000;
+  while (zonedCalendarDayKey(timeZone, lo) >= dayKey) lo -= 3600000;
+  while (zonedCalendarDayKey(timeZone, hi) < dayKey) hi += 3600000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (zonedCalendarDayKey(timeZone, mid) < dayKey) lo = mid;
+    else hi = mid;
+  }
+  const startMs = Math.ceil(hi);
+  let lo2 = startMs;
+  let hi2 = startMs + 40 * 3600000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo2 + hi2) / 2;
+    if (zonedCalendarDayKey(timeZone, mid) === dayKey) lo2 = mid;
+    else hi2 = mid;
+  }
+  const endExclusiveMs = Math.ceil(hi2);
+  return { startIso: new Date(startMs).toISOString(), endExclusiveIso: new Date(endExclusiveMs).toISOString() };
+}
+
+export const SERVICE_RATING_DUPLICATE_DAY_MESSAGE =
+  'Você já avaliou este serviço hoje. Só é permitida uma avaliação por dia para o mesmo equipamento — você pode avaliar outro serviço agora ou voltar amanhã para este.';
+
+export function parseFlexibleOccurrenceTime(input: string): string | null {
+  const raw = (input || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  const normalized = raw
+    .replace(/\s+/g, " ")
+    .replace(/horas?/g, "h")
+    .replace(/\bmeia noite\b/g, "00:00")
+    .replace(/\bmeio dia\b/g, "12:00")
+    .replace(/\bmeio-dia\b/g, "12:00");
+
+  const compact = normalized.replace(/\s+/g, "");
+
+  const hm = compact.match(/\b([01]?\d|2[0-3])(?:h|:)([0-5]?\d)?\b/);
+  if (hm) {
+    const hour = hm[1].padStart(2, "0");
+    const minute = (hm[2] || "00").padStart(2, "0");
+    return `${hour}:${minute}`;
+  }
+
+  if (/^([01]\d|2[0-3])([0-5]\d)$/.test(compact)) {
+    const digits = compact.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+    if (digits) return `${digits[1]}:${digits[2]}`;
+  }
+
+  const hourOnly = compact.match(/\b([01]?\d|2[0-3])\b/);
+  if (hourOnly && /\b(h|hora)\b/.test(normalized)) {
+    return `${hourOnly[1].padStart(2, "0")}:00`;
+  }
+
+  return null;
+}
+
+export function normalizeTransportRecurrenceFrequency(input: string): string | null {
+  const raw = String(input || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (!raw) return null;
+
+  if (raw.includes("primeira vez")) return "primeira_vez";
+  if (raw.includes("algumas vezes") || raw.includes("vezes/mes") || raw.includes("vezes por mes")) {
+    return "algumas_vezes_mes";
+  }
+  if (raw.includes("toda semana") || raw.includes("todas as semanas") || raw.includes("semanal")) {
+    return "toda_semana";
+  }
+  if (raw.includes("todos os dias") || raw.includes("todo dia") || raw.includes("diario") || raw.includes("diária")) {
+    return "todos_os_dias";
+  }
+  if (raw === "primeira_vez" || raw === "algumas_vezes_mes" || raw === "toda_semana" || raw === "todos_os_dias") {
+    return raw;
+  }
+  return null;
+}
+
 export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
   const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
@@ -236,7 +333,10 @@ export function extractImplicitData(
     }
     
     // Time inference
-    if (/manhã|de manhã|cedo|logo cedo/i.test(lower)) {
+    const parsedTime = parseFlexibleOccurrenceTime(userMessage);
+    if (parsedTime) {
+      extracted.occurrence_time = parsedTime;
+    } else if (/manhã|de manhã|cedo|logo cedo/i.test(lower)) {
       extracted.occurrence_time = '08:00';
     } else if (/tarde|de tarde|após almoço|depois do almoço/i.test(lower)) {
       extracted.occurrence_time = '14:00';
@@ -865,7 +965,23 @@ export function levenshteinDistance(a: string, b: string): number {
 const TRANSPORT_TYPE_KEYWORDS: Record<string, string[]> = {
   'atraso': ['atraso', 'atrasado', 'atrasou', 'demora', 'demorou', 'esperando', 'espera', 'nao passou', 'nunca chega'],
   'lotacao': ['lotado', 'lotacao', 'cheio', 'superlotado', 'apertado', 'sem espaco', 'nao coube'],
-  'seguranca': ['seguranca', 'assalto', 'roubo', 'assedio', 'perigo', 'medo', 'ameaca', 'briga', 'agressao'],
+  'seguranca': [
+    'seguranca',
+    'assalto',
+    'roubo',
+    'assedio',
+    'importunacao',
+    'importunação',
+    'importunou',
+    'importunar',
+    'insegura',
+    'inseguro',
+    'perigo',
+    'medo',
+    'ameaca',
+    'briga',
+    'agressao',
+  ],
   'limpeza': ['sujo', 'sujeira', 'limpeza', 'fedendo', 'fedor', 'nojento', 'imundo', 'lixo', 'vomito'],
   'acessibilidade': ['acessibilidade', 'cadeirante', 'elevador', 'rampa', 'deficiente', 'muleta', 'pcd', 'mobilidade'],
   'conducao': ['motorista', 'cobrador', 'rude', 'grosso', 'mal educado', 'nao parou', 'conducao', 'freada', 'perigoso'],
@@ -1061,8 +1177,10 @@ export function extractTransportFields(context: string): Record<string, unknown>
              context.includes('apertado') || context.includes('nao coube') || context.includes('não coube') ||
              context.includes('sem espaco') || context.includes('sem espaço') || context.includes('lotação')) {
     fields.report_type = 'lotacao';
-  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') || 
+  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') ||
              context.includes('roubo') || context.includes('assedio') || context.includes('assédio') ||
+             context.includes('importun') ||
+             context.includes('insegur') ||
              context.includes('perigo') || context.includes('medo') || context.includes('ameaca') || context.includes('ameaça') ||
              context.includes('briga') || context.includes('agressao') || context.includes('agressão')) {
     fields.report_type = 'seguranca';
@@ -1098,15 +1216,30 @@ export function extractTransportFields(context: string): Record<string, unknown>
   }
   
   // Detect time
-  const timeMatch = context.match(/(\d{1,2})[h:](\d{2})?/);
-  if (timeMatch) {
-    fields.occurrence_time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2] || '00'}`;
+  const parsedTime = parseFlexibleOccurrenceTime(context);
+  if (parsedTime) {
+    fields.occurrence_time = parsedTime;
   } else if (context.includes('manhã') || context.includes('cedo')) {
     fields.occurrence_time = '08:00';
   } else if (context.includes('tarde')) {
     fields.occurrence_time = '14:00';
   } else if (context.includes('noite')) {
     fields.occurrence_time = '19:00';
+  }
+
+  // Detect direction
+  if (/\bida\b/.test(context)) {
+    fields.direction = 'ida';
+  } else if (/\bvolta\b/.test(context)) {
+    fields.direction = 'volta';
+  } else if (/\bcircular\b/.test(context)) {
+    fields.direction = 'circular';
+  }
+
+  // Detect recurrence frequency
+  const recurrence = normalizeTransportRecurrenceFrequency(context);
+  if (recurrence) {
+    fields.recurrence_frequency = recurrence;
   }
   
   // Detect severity
@@ -1121,6 +1254,15 @@ export function extractTransportFields(context: string): Record<string, unknown>
   }
   
   return fields;
+}
+
+/** Texto de escolha de linha (picker) — não é descrição do problema; não deve ir em `description`. */
+export function isTransportLinePickerPayload(text: string): boolean {
+  const t = String(text ?? '').trim();
+  if (!t) return false;
+  if (/\[LINE_SELECTED:/i.test(t)) return true;
+  if (/^linha:\s*\S+/i.test(t) && /\[LINE_SELECTED:/i.test(t)) return true;
+  return false;
 }
 
 /** Verifica se o nome da cidade corresponde ao município de São Paulo (capital). */
@@ -1331,6 +1473,100 @@ export async function fetchNearestUrbanReportsForSimilarity(
     return [];
   }
   return (data || []) as NearestUrbanReportRow[];
+}
+
+/** Relatos de transporte na mesma linha + tipo (HU-5.4), para apoio no chat. */
+export type SimilarTransportReportRow = {
+  id: string;
+  protocol_code: string | null;
+  report_type: string;
+  description: string | null;
+  occurrence_date: string;
+  occurrence_time: string | null;
+  location: string | null;
+  severity: string | null;
+  direction: string | null;
+  created_at: string;
+  line_code: string | null;
+  line_name: string | null;
+};
+
+/**
+ * Lista relatos recentes de outros usuários com a mesma linha (UUID ou código oficial) e mesmo report_type.
+ */
+export async function fetchSimilarTransportReportsForSupport(
+  supabase: SupabaseClient,
+  fields: Record<string, unknown>,
+  excludeUserId: string | undefined,
+  limit = 10,
+): Promise<SimilarTransportReportRow[]> {
+  const reportType = String(fields.report_type || "").trim();
+  if (!reportType) return [];
+
+  const lineIdRaw = fields.line_id != null ? String(fields.line_id).trim() : "";
+  const lineCodeRaw = fields.line_code != null ? String(fields.line_code).trim() : "";
+  const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lineIdRaw);
+
+  let query = supabase
+    .from("transport_reports")
+    .select(
+      "id, protocol_code, report_type, description, occurrence_date, occurrence_time, location, severity, direction, created_at, line_id, line_code_custom, transport_lines ( line_code, line_name )",
+    )
+    .eq("report_type", reportType)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (excludeUserId) {
+    query = query.neq("user_id", excludeUserId);
+  }
+
+  if (uuidOk) {
+    query = query.eq("line_id", lineIdRaw);
+  } else if (lineCodeRaw.length > 0) {
+    const { data: lineRows, error: lineErr } = await supabase
+      .from("transport_lines")
+      .select("id")
+      .ilike("line_code", lineCodeRaw)
+      .limit(25);
+    if (lineErr) {
+      console.error("[fetchSimilarTransportReportsForSupport] line lookup", lineErr);
+    }
+    const ids = (lineRows || []).map((r: { id: string }) => r.id);
+    if (ids.length > 0) {
+      query = query.in("line_id", ids);
+    } else {
+      query = query.eq("line_code_custom", lineCodeRaw);
+    }
+  } else {
+    return [];
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[fetchSimilarTransportReportsForSupport]", error);
+    return [];
+  }
+
+  const rows = (data || []) as Record<string, unknown>[];
+  return rows.map((r) => {
+    const tl = r.transport_lines as { line_code?: string; line_name?: string } | null;
+    const lineCode = tl?.line_code ?? (r.line_code_custom as string | null) ?? null;
+    const lineName = tl?.line_name ?? null;
+    return {
+      id: String(r.id),
+      protocol_code: (r.protocol_code as string | null) ?? null,
+      report_type: String(r.report_type),
+      description: (r.description as string | null) ?? null,
+      occurrence_date: String(r.occurrence_date),
+      occurrence_time: (r.occurrence_time as string | null) ?? null,
+      location: (r.location as string | null) ?? null,
+      severity: (r.severity as string | null) ?? null,
+      direction: (r.direction as string | null) ?? null,
+      created_at: String(r.created_at),
+      line_code: lineCode,
+      line_name: lineName,
+    };
+  });
 }
 
 /** Monta linha curta a partir do objeto address do Nominatim (reverse). */
@@ -2113,6 +2349,90 @@ export function getTransportTypeLabel(reportType: string): string {
   return labels[reportType] || 'Problema no Transporte';
 }
 
+export const TRANSPORT_SUBCATEGORIES: Record<string, Array<{ value: string; label: string }>> = {
+  atraso: [
+    { value: "nao_passou", label: "Não passou" },
+    { value: "atraso_maior_30", label: "Veio com mais de 30 min de atraso" },
+    { value: "atraso_menor_30", label: "Veio com menos de 30 min de atraso" },
+    { value: "intervalo_irregular", label: "Intervalo irregular" },
+  ],
+  lotacao: [
+    { value: "superlotado", label: "Veículo superlotado" },
+    { value: "nao_conseguiu_embarcar", label: "Não consegui embarcar" },
+    { value: "fila_excessiva", label: "Fila excessiva no ponto/estação" },
+    { value: "ar_condicionado_inoperante", label: "Ar-condicionado inoperante" },
+  ],
+  seguranca: [
+    { value: "assedio", label: "Assédio/Importunação" },
+    { value: "furto_roubo", label: "Furto/Roubo" },
+    { value: "agressao_ameaca", label: "Agressão/Ameaça" },
+    { value: "briga_confusao", label: "Briga/Confusão" },
+  ],
+  acessibilidade: [
+    { value: "elevador_escada", label: "Elevador/Escada rolante indisponível" },
+    { value: "rampa_bloqueada", label: "Rampa bloqueada/inacessível" },
+    { value: "veiculo_sem_acessibilidade", label: "Veículo sem acessibilidade" },
+    { value: "falta_assistencia", label: "Falta de assistência para embarque" },
+  ],
+  limpeza: [
+    { value: "veiculo_sujo", label: "Veículo sujo" },
+    { value: "mau_cheiro", label: "Mau cheiro" },
+    { value: "lixo_acumulado", label: "Lixo acumulado" },
+    { value: "presenca_pragas", label: "Presença de pragas/insetos" },
+  ],
+  conducao: [
+    { value: "freada_brusca", label: "Freada brusca" },
+    { value: "aceleracao_excessiva", label: "Aceleração excessiva" },
+    { value: "motorista_imprudente", label: "Condução imprudente do motorista" },
+    { value: "nao_parou_ponto", label: "Não parou no ponto" },
+  ],
+  outro: [{ value: "outro", label: "Outro (descrever)" }],
+};
+
+export function normalizeTransportSubcategory(raw: string): string {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export function isValidTransportSubcategory(reportType: string, subCategory: string): boolean {
+  const type = String(reportType || "").trim().toLowerCase();
+  const normalized = normalizeTransportSubcategory(subCategory);
+  const options = TRANSPORT_SUBCATEGORIES[type] || TRANSPORT_SUBCATEGORIES.outro;
+  return options.some((o) => normalizeTransportSubcategory(o.value) === normalized);
+}
+
+export function getTransportSubcategoryLabel(reportType: string, subCategory: string): string | null {
+  const type = String(reportType || "").trim().toLowerCase();
+  const normalized = normalizeTransportSubcategory(subCategory);
+  const options = TRANSPORT_SUBCATEGORIES[type] || TRANSPORT_SUBCATEGORIES.outro;
+  const found = options.find((o) => normalizeTransportSubcategory(o.value) === normalized);
+  return found?.label ?? null;
+}
+
+/** Linha única de resumo: tipo + detalhe (subcategoria), alinhado ao texto pós-registro. */
+export function formatTransportPreviewTypeLine(fields: Record<string, unknown>): string {
+  const shortType: Record<string, string> = {
+    atraso: "Atraso",
+    lotacao: "Lotação",
+    seguranca: "Segurança",
+    acessibilidade: "Acessibilidade",
+    limpeza: "Limpeza",
+    conducao: "Condução",
+    outro: "Outro",
+  };
+  const rt = String(fields.report_type || "").trim().toLowerCase();
+  const sub = String(fields.sub_category || "").trim();
+  const typeLabel = shortType[rt] || getTransportTypeLabel(rt);
+  if (!sub) return typeLabel;
+  const subLabel = getTransportSubcategoryLabel(rt, sub);
+  return subLabel ? `${typeLabel} — ${subLabel}` : typeLabel;
+}
+
 // ============= SEMANTIC LABEL TO CATEGORY MAPPING =============
 // Maps AI-generated labels or short descriptions to known categories
 export function mapLabelToCategory(label: string): string | null {
@@ -2746,6 +3066,98 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       }
       break;
     }
+
+    case 'occurrence_time': {
+      const parsed = parseFlexibleOccurrenceTime(response);
+      if (parsed) {
+        result.occurrence_time = parsed;
+      }
+      break;
+    }
+
+    case 'direction': {
+      if (/\bida\b/i.test(responseLower)) result.direction = 'ida';
+      else if (/\bvolta\b/i.test(responseLower)) result.direction = 'volta';
+      else if (/\bcircular\b/i.test(responseLower)) result.direction = 'circular';
+      break;
+    }
+
+    case 'line_code': {
+      const sel = response.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (sel) result.line_id = sel[1];
+      const dash =
+        response.match(/linha:\s*(\S+)\s*[-\u2013\u2014\u2212]\s*(.+?)\s*\[LINE_SELECTED:/i) ||
+        response.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (dash) result.line_code = dash[1].trim();
+      else if (sel) {
+        const linhaCodeOnly = response.match(/linha:\s*(\S+)/i);
+        if (linhaCodeOnly) result.line_code = linhaCodeOnly[1].trim();
+      }
+      const leg = response.match(/linha selecionada:\s*(\S+)/i);
+      if (leg && !result.line_code) result.line_code = leg[1];
+      const cust =
+        response.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        response.match(/linha não listada:\s*(.+)/i);
+      if (cust && !result.line_code) result.line_code = cust[1].trim();
+      if (!result.line_code && response.length >= 1) {
+        result.line_code = response.trim();
+      }
+      break;
+    }
+
+    case 'report_type': {
+      const reportTypeMap: Record<string, string> = {
+        atraso: "atraso",
+        lotacao: "lotacao",
+        lotação: "lotacao",
+        seguranca: "seguranca",
+        segurança: "seguranca",
+        acessibilidade: "acessibilidade",
+        limpeza: "limpeza",
+        conducao: "conducao",
+        condução: "conducao",
+        outro: "outro",
+      };
+      const normalized = normalizeTransportSubcategory(responseLower);
+      if (reportTypeMap[normalized]) {
+        result.report_type = reportTypeMap[normalized];
+      }
+      break;
+    }
+
+    case 'sub_category': {
+      const marker = response.match(/\[SUBCATEGORY_SELECTED:([a-z0-9_]+)\]/i);
+      const reportTypeMarker = response.match(/\[SUBCATEGORY_REPORT_TYPE:([a-z_]+)\]/i);
+      const reportTypeText = reportTypeMarker?.[1] || "";
+      const selectedRaw = marker?.[1] || responseLower;
+      const selected = normalizeTransportSubcategory(selectedRaw);
+      if (selected) {
+        result.sub_category = selected;
+      }
+      if (reportTypeText) {
+        result.report_type = normalizeTransportSubcategory(reportTypeText);
+      }
+      break;
+    }
+
+    case 'personal_impact': {
+      const labelM = response.match(/^Impacto:\s*(.+?)\s*\[IMPACT_SELECTED:/i);
+      if (labelM) result.impact_description = labelM[1].trim();
+      const impactM = response.match(/\[IMPACT_SELECTED:(\d+)\]/);
+      if (impactM) {
+        const n = parseInt(impactM[1], 10);
+        if (n >= 2 && n <= 5) result.personal_impact = n;
+      }
+      break;
+    }
+
+    case 'recurrence_frequency': {
+      const normalized = normalizeTransportRecurrenceFrequency(response);
+      if (normalized) result.recurrence_frequency = normalized;
+      break;
+    }
       
     case 'active_consequences': {
       // Parse active consequences
@@ -2774,6 +3186,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     }
       
     case 'description': {
+      if (isTransportLinePickerPayload(response)) {
+        break;
+      }
       // USE CENTRALIZED NLP FUNCTION - accepts 8+ chars with keyword
       if (isValidDomainDescription(response, 'urban')) {
         result.description = response;
@@ -2977,17 +3392,34 @@ export function accumulateFieldsFromHistory(
     return {};
   }
   const accumulated: Record<string, unknown> = {};
+
+  const getMsgText = (msg: { role: string; content: unknown }): string => {
+    const raw = msg.content;
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw)) {
+      const part = (raw as Record<string, unknown>[]).find((p) => p?.type === 'text' && p?.text);
+      return part ? String((part as { text?: string }).text) : '';
+    }
+    return '';
+  };
+
+  /** Último [FIELD_REQUEST:x] na mensagem. JSON em COLLECTION_PROGRESS pode incluir essa substring no texto do cidadão. */
+  const getLastFieldRequestType = (text: string): string | null => {
+    const matches = [...text.matchAll(/\[FIELD_REQUEST:(\w+)\]/g)];
+    return matches.length ? (matches[matches.length - 1][1] ?? null) : null;
+  };
   
   // Check for fields already collected via [COLLECTION_PROGRESS] markers
   for (const msg of messages) {
-    if (msg.role === 'assistant' && msg.content.includes('[COLLECTION_PROGRESS:')) {
-      const match = msg.content.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
-      if (match) {
-        try {
-          const fields = JSON.parse(match[1]);
-          Object.assign(accumulated, fields);
-        } catch { /* ignore parse errors */ }
-      }
+    if (msg.role !== 'assistant') continue;
+    const aText = getMsgText(msg);
+    if (!aText.includes('[COLLECTION_PROGRESS:')) continue;
+    const match = aText.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
+    if (match) {
+      try {
+        const fields = JSON.parse(match[1]);
+        Object.assign(accumulated, fields);
+      } catch { /* ignore parse errors */ }
     }
   }
   
@@ -3067,6 +3499,7 @@ export function accumulateFieldsFromHistory(
           /^digitar cep ou endereço$/i.test(msg.content.trim()) ||
           /^digitar cep ou endereco$/i.test(msg.content.trim()) ||
           contentLower.includes('linha selecionada:') ||
+          /\[LINE_SELECTED:/i.test(msg.content) ||
           contentLower.includes('nota:') ||
           contentLower.includes('data:') ||
           /^\d+$/.test(msg.content.trim());
@@ -3202,14 +3635,13 @@ export function accumulateFieldsFromHistory(
       }
       
       if (msg.role === 'assistant' && nextMsg?.role === 'user') {
-        const rawQuestion = msg.content;
+        const rawQuestion = getMsgText(msg);
         const question = normalizeTextForMatching(rawQuestion); // Use normalized text for matching
-        const answer = nextMsg.content.trim();
+        const answer = getMsgText(nextMsg).trim();
         
         // === Deterministic field capture via [FIELD_REQUEST:...] markers ===
-        const fieldRequestMatch = rawQuestion.match(/\[FIELD_REQUEST:(\w+)\]/);
-        if (fieldRequestMatch) {
-          const fieldType = fieldRequestMatch[1];
+        const fieldType = getLastFieldRequestType(rawQuestion);
+        if (fieldType) {
           const parsedFields = parseFieldResponse(fieldType, answer);
           
           // === CRITICAL: Handle category confirmation logic ===
@@ -3364,10 +3796,10 @@ export function accumulateFieldsFromHistory(
     if (messages[lastMsgIdx]?.role === 'user' && lastMsgIdx > 0) {
       const prevMsg = messages[lastMsgIdx - 1];
       if (prevMsg?.role === 'assistant') {
-        const fieldRequestMatch = prevMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
-        if (fieldRequestMatch) {
-          const fieldType = fieldRequestMatch[1];
-          const answer = messages[lastMsgIdx].content.trim();
+        const prevAssistantText = getMsgText(prevMsg);
+        const fieldType = getLastFieldRequestType(prevAssistantText);
+        if (fieldType) {
+          const answer = getMsgText(messages[lastMsgIdx]).trim();
           const parsedFields = parseFieldResponse(fieldType, answer);
           
           // === CRITICAL: Handle category confirmation logic for last message ===
@@ -3617,10 +4049,10 @@ export function accumulateFieldsFromHistory(
     if (messages[lastMsgIdx]?.role === 'user' && lastMsgIdx > 0) {
       const prevMsg = messages[lastMsgIdx - 1];
       if (prevMsg?.role === 'assistant') {
-        const fieldRequestMatch = prevMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
-        if (fieldRequestMatch) {
-          const fieldType = fieldRequestMatch[1];
-          const answer = messages[lastMsgIdx].content.trim();
+        const prevAssistantTextSvc = getMsgText(prevMsg);
+        const fieldType = getLastFieldRequestType(prevAssistantTextSvc);
+        if (fieldType) {
+          const answer = getMsgText(messages[lastMsgIdx]).trim();
           
           // Service-specific field parsing
           switch (fieldType) {
@@ -3651,7 +4083,7 @@ export function accumulateFieldsFromHistory(
               }
               break;
             }
-            case 'service_name':
+            case 'service_name': {
               // Aceitar "Serviço: NOME - Bairro\nEndereço: ..." (regex sem $ para multilinha)
               const nameMatch = answer.match(/serviço:\s*(.+?)(?:\s*-\s*([^\n]*))?(?:\n|$)/i);
               if (nameMatch) {
@@ -3661,6 +4093,7 @@ export function accumulateFieldsFromHistory(
                 accumulated.service_name = answer.trim();
               }
               break;
+            }
             case 'rating_dimensions': {
               const rd = parseRatingDimensionsMarker(answer);
               if (rd) {
@@ -3786,11 +4219,16 @@ export function accumulateFieldsFromHistory(
   
   // ========== TRANSPORT_REPORT SPECIFIC PARSING ==========
   if (collectionType === 'transport_report') {
+    if (typeof accumulated.description === 'string' && isTransportLinePickerPayload(accumulated.description)) {
+      delete accumulated.description;
+      console.log('[accumulateFields] transport: removed line-picker text wrongly stored as description');
+    }
+
     // === CRITICAL: Extract transport fields from ALL user messages using extractTransportFields ===
     // This ensures natural language responses like "atraso de ônibus" are properly parsed
     for (const msg of messages) {
       if (msg.role === 'user') {
-        const contentLower = msg.content.toLowerCase();
+        const contentLower = getMsgText(msg).toLowerCase();
         const contextFields = extractTransportFields(contentLower);
         
         // Merge extracted fields (only if not already set by more explicit parsing)
@@ -3806,7 +4244,10 @@ export function accumulateFieldsFromHistory(
     // === Detect description from transport-related user messages ===
     // VERY FLEXIBLE: Accept short but informative responses (>= 5 chars with keyword)
     // Allow overwriting if current description is generic (e.g., "Quero relatar um problema...")
-    const shouldDetectDescription = !accumulated.description || isGenericIntentText(accumulated.description);
+    const shouldDetectDescription =
+      !accumulated.description ||
+      isGenericIntentText(String(accumulated.description)) ||
+      isTransportLinePickerPayload(String(accumulated.description));
     
     console.log('[accumulateFields] Transport description check:', {
       currentDescription: accumulated.description?.substring(0, 40),
@@ -3819,31 +4260,35 @@ export function accumulateFieldsFromHistory(
       for (let i = messages.length - 1; i >= 0; i--) {
         const msg = messages[i];
         if (msg.role === 'user') {
-          const contentLower = msg.content.toLowerCase();
-          const hasKeyword = hasTransportKeywords(msg.content);
+          const text = getMsgText(msg);
+          const contentLower = text.toLowerCase();
+          const hasKeyword = hasTransportKeywords(text);
           
           // Skip structured messages (picker selections)
           const isStructured = 
             contentLower.includes('linha selecionada:') ||
+            /\[LINE_SELECTED:/i.test(text) ||
+            /^subcategoria:/im.test(text) ||
+            /\[SUBCATEGORY_SELECTED:/i.test(text) ||
             contentLower.includes('data:') ||
             contentLower.includes('horário:') ||
             contentLower.includes('horario:');
           
           // Skip generic intent messages that don't describe a problem
-          const isGeneric = isGenericIntentText(msg.content);
+          const isGeneric = isGenericIntentText(text);
           
           // VERY FLEXIBLE THRESHOLD:
           // - >= 5 chars with transport keyword = valid (e.g., "atraso", "lotado", "metro sujo")
           // - >= 15 chars without keyword = also valid (longer descriptions)
           const isValidDescription = !isGeneric && !isStructured && 
-            ((msg.content.length >= 5 && hasKeyword) || msg.content.length >= 15);
+            ((text.length >= 5 && hasKeyword) || text.length >= 15);
           
           if (isValidDescription) {
-            accumulated.description = msg.content.trim();
+            accumulated.description = text.trim();
             console.log('[accumulateFields] Auto-detected transport description:', {
-              length: msg.content.length,
+              length: text.length,
               hasKeyword,
-              preview: msg.content.substring(0, 50)
+              preview: text.substring(0, 50)
             });
             break;
           }
@@ -3854,13 +4299,96 @@ export function accumulateFieldsFromHistory(
     // Parse structured messages from inline pickers
     for (const msg of messages) {
       if (msg.role !== 'user') continue;
-      const content = msg.content;
+      const content = getMsgText(msg);
+      if (!content) continue;
+
+      // Subcategoria (picker de transporte): não depende de [FIELD_REQUEST:sub_category] na assistente
+      const subPickSel = content.match(/\[SUBCATEGORY_SELECTED:([a-z0-9_]+)\]/i);
+      if (subPickSel) {
+        accumulated.sub_category = normalizeTransportSubcategory(subPickSel[1]);
+        console.log('[accumulateFields] Parsed sub_category from SUBCATEGORY_SELECTED:', accumulated.sub_category);
+      }
+      const subPickRt = content.match(/\[SUBCATEGORY_REPORT_TYPE:([a-z_]+)\]/i);
+      if (subPickRt) {
+        accumulated.report_type = normalizeTransportSubcategory(subPickRt[1]);
+        console.log('[accumulateFields] Parsed report_type from SUBCATEGORY_REPORT_TYPE:', accumulated.report_type);
+      }
+      // Fallback: só rótulo "Subcategoria: …" (ex.: marcadores ausentes) — casa com labels do tipo atual
+      if (!subPickSel) {
+        const subLabelM = content.match(/^subcategoria:\s*(.+?)(?:\s*\[|$)/im);
+        if (subLabelM) {
+          const labelNorm = subLabelM[1]
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+          const rtype = String(accumulated.report_type || 'outro').toLowerCase();
+          const opts = TRANSPORT_SUBCATEGORIES[rtype] || TRANSPORT_SUBCATEGORIES.outro;
+          const found = opts.find((o) => {
+            const ln = o.label
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '');
+            return ln === labelNorm || labelNorm.includes(ln) || ln.includes(labelNorm);
+          });
+          if (found) {
+            accumulated.sub_category = normalizeTransportSubcategory(found.value);
+            console.log('[accumulateFields] Parsed sub_category from Subcategoria: label fallback:', found.value);
+          }
+        }
+      }
       
-      // Parse "Linha selecionada: XXX (Nome)" format from InlineLinePicker
+      // [LINE_SELECTED:uuid] — escolha na lista (HU-5.2); última mensagem com marcador prevalece
+      const lineSelectedUuid = content.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (lineSelectedUuid) {
+        accumulated.line_id = lineSelectedUuid[1];
+        console.log('[accumulateFields] Parsed line_id from LINE_SELECTED:', accumulated.line_id);
+      }
+
+      // "Linha: CODE - Nome [LINE_SELECTED:...]" — hífen ASCII ou tipográfico (en/em dash)
+      const lineDashPick =
+        content.match(/linha:\s*(\S+)\s*[-\u2013\u2014\u2212]\s*(.+?)\s*\[LINE_SELECTED:/i) ||
+        content.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (lineDashPick) {
+        accumulated.line_code = lineDashPick[1].trim();
+        console.log('[accumulateFields] Parsed line_code from Linha: … [LINE_SELECTED]:', accumulated.line_code);
+      } else if (lineSelectedUuid) {
+        const linhaCodeOnly = content.match(/linha:\s*(\S+)/i);
+        if (linhaCodeOnly) {
+          accumulated.line_code = linhaCodeOnly[1].trim();
+          console.log('[accumulateFields] Parsed line_code from Linha: (fallback antes de [LINE_SELECTED]):', accumulated.line_code);
+        }
+      }
+
+      // Parse "Linha selecionada: XXX (Nome)" — legado
       const lineMatch = content.match(/linha selecionada:\s*(\S+)/i);
       if (lineMatch && !accumulated.line_code) {
         accumulated.line_code = lineMatch[1];
-        console.log('[accumulateFields] Parsed line_code from picker:', accumulated.line_code);
+        console.log('[accumulateFields] Parsed line_code from picker (legacy):', accumulated.line_code);
+      }
+
+      // Linha digitada fora da lista (sem id de transport_lines)
+      const lineCustom =
+        content.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        content.match(/linha não listada:\s*(.+)/i);
+      if (lineCustom && !accumulated.line_code) {
+        accumulated.line_code = lineCustom[1].trim();
+        console.log('[accumulateFields] Parsed line_code (custom / not listed):', accumulated.line_code);
+      }
+
+      const impactSel = content.match(/\[IMPACT_SELECTED:(\d+)\]/);
+      if (impactSel && accumulated.personal_impact == null) {
+        const n = parseInt(impactSel[1], 10);
+        if (n >= 2 && n <= 5) {
+          accumulated.personal_impact = n;
+          console.log('[accumulateFields] Parsed personal_impact:', n);
+        }
+      }
+      const impactLabelM = content.match(/^Impacto:\s*(.+?)\s*\[IMPACT_SELECTED:/im);
+      if (impactLabelM && !accumulated.impact_description) {
+        accumulated.impact_description = impactLabelM[1].trim();
       }
       
       // Parse "Data: DD/MM/YYYY" format from InlineDatePicker - always mark as confirmed
@@ -3891,11 +4419,50 @@ export function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed occurrence_date from picker:', accumulated.occurrence_date, '(confirmed)');
       }
       
-      // Parse "Horário: XX:XX" format from InlineTimePicker
-      const timeMatch = content.match(/horário:\s*(\d{1,2}:\d{2})/i);
-      if (timeMatch && !accumulated.occurrence_time) {
-        accumulated.occurrence_time = timeMatch[1];
-        console.log('[accumulateFields] Parsed occurrence_time from picker:', accumulated.occurrence_time);
+      // Parse "Horário:/Horario:" (picker) — sobrescreve inferências anteriores (ex.: modelo/JSON com hora errada)
+      const timeMatch = content.match(/hor[aá]rio:\s*([^\n]+)/i);
+      if (timeMatch) {
+        const parsed = parseFlexibleOccurrenceTime(timeMatch[1]);
+        if (parsed) {
+          accumulated.occurrence_time = parsed;
+          console.log('[accumulateFields] Parsed occurrence_time from picker (override ok):', accumulated.occurrence_time);
+        }
+      }
+
+      // Parse "Sentido: Ida|Volta|Circular" from InlineDirectionPicker
+      const directionMatch = content.match(/sentido:\s*([^\n]+)/i);
+      if (directionMatch && !accumulated.direction) {
+        const directionRaw = directionMatch[1].trim().toLowerCase();
+        if (directionRaw.includes('ida')) accumulated.direction = 'ida';
+        else if (directionRaw.includes('volta')) accumulated.direction = 'volta';
+        else if (directionRaw.includes('circular')) accumulated.direction = 'circular';
+      }
+
+      const recurrenceMatch = content.match(/frequ[êe]ncia:\s*([^\n]+)/i);
+      if (recurrenceMatch && !accumulated.recurrence_frequency) {
+        const normalized = normalizeTransportRecurrenceFrequency(recurrenceMatch[1]);
+        if (normalized) accumulated.recurrence_frequency = normalized;
+      }
+    }
+
+    // Última troca usuário/assistente com [FIELD_REQUEST:*] (correção de descrição, etc.) — antes só existia no bloco urbano
+    {
+      const lastIdx = messages.length - 1;
+      if (messages[lastIdx]?.role === 'user' && lastIdx > 0) {
+        const prevA = messages[lastIdx - 1];
+        if (prevA?.role === 'assistant') {
+          const rawPrev = getMsgText(prevA);
+          const fieldRequestMatch = rawPrev.match(/\[FIELD_REQUEST:(\w+)\]/);
+          if (fieldRequestMatch) {
+            const fieldType = fieldRequestMatch[1];
+            const answer = getMsgText(messages[lastIdx]).trim();
+            const parsed = parseFieldResponse(fieldType, answer);
+            if (Object.keys(parsed).length > 0) {
+              Object.assign(accumulated, parsed);
+              console.log('[accumulateFields] transport: FIELD_REQUEST from last exchange:', fieldType);
+            }
+          }
+        }
       }
     }
   }
@@ -6675,6 +7242,25 @@ export async function getCitizenHistory(
   return results.join('\n');
 }
 
+const TRANSPORT_SEVERITY_ORDER = ['baixa', 'media', 'alta', 'critica'] as const;
+type TransportSeverityStep = (typeof TRANSPORT_SEVERITY_ORDER)[number];
+
+/** HU-5.3: reforça severidade conforme impacto pessoal (2–5). */
+export function applyPersonalImpactToSeverity(
+  baseSeverity: string,
+  personalImpactScore: number,
+): TransportSeverityStep {
+  const normalized = String(baseSeverity || 'media').toLowerCase();
+  let idx = TRANSPORT_SEVERITY_ORDER.indexOf(normalized as TransportSeverityStep);
+  if (idx < 0) idx = 1;
+  let bump = 0;
+  if (personalImpactScore >= 5) bump = 2;
+  else if (personalImpactScore >= 4) bump = 1;
+  else if (personalImpactScore >= 3) bump = 1;
+  const next = Math.min(TRANSPORT_SEVERITY_ORDER.length - 1, idx + bump);
+  return TRANSPORT_SEVERITY_ORDER[next];
+}
+
 // Execute tool
 export async function executeTool(
   name: string, 
@@ -7361,6 +7947,29 @@ export async function executeTool(
         if (accumulatedFields?.occurrence_date && !args.occurrence_date) {
           args.occurrence_date = accumulatedFields.occurrence_date;
         }
+        if (accumulatedFields?.line_code && !args.line_code) {
+          args.line_code = accumulatedFields.line_code;
+        }
+        if (accumulatedFields?.line_id && !args.line_id) {
+          args.line_id = accumulatedFields.line_id;
+        }
+        if (accumulatedFields?.personal_impact != null && args.personal_impact == null) {
+          args.personal_impact = accumulatedFields.personal_impact;
+        }
+        if (accumulatedFields?.impact_description && !args.impact_description) {
+          args.impact_description = accumulatedFields.impact_description;
+        }
+        const accDescRaw =
+          typeof accumulatedFields?.description === 'string' ? String(accumulatedFields.description).trim() : '';
+        const argDescRaw = String(args.description ?? '').trim();
+        if (
+          accDescRaw &&
+          !isTransportLinePickerPayload(accDescRaw) &&
+          (!argDescRaw || isTransportLinePickerPayload(argDescRaw))
+        ) {
+          args.description = accDescRaw;
+          console.log('[create_transport_report] Using narrative description from accumulatedFields (tool args had line picker or empty)');
+        }
         
         // === VALIDAÇÃO ESTRITA (coleta sequencial obrigatória) ===
         // Helper: inferir report_type de forma robusta (dicionário expandido)
@@ -7368,7 +7977,7 @@ export async function executeTool(
           const desc = description.toLowerCase();
           
           // SEGURANÇA (prioridade - termos graves)
-          if (/ass[ée]dio|encox|importunação|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest/i.test(desc)) {
+          if (/ass[ée]dio|encox|importun|importuna[cç][aã]o|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest|insegur/i.test(desc)) {
             return 'seguranca';
           }
           
@@ -7401,17 +8010,26 @@ export async function executeTool(
         };
         
         // === COLETA SEQUENCIAL OBRIGATÓRIA ===
-        // 1. DESCRIÇÃO (obrigatória, validada via NLP)
-        if (!args.description || !isValidDomainDescription(args.description.trim(), 'transport')) {
+        // 1. DESCRIÇÃO (obrigatória, mínimo 20 caracteres — HU-5.1)
+        const descTrimmed = String(args.description ?? "").trim();
+        if (!descTrimmed || !isValidDomainDescription(descTrimmed, 'transport')) {
           return {
             success: false,
             message: '[FIELD_REQUEST:description]**O que aconteceu?** Me conta o problema com mais detalhes.'
+          };
+        }
+        if (descTrimmed.length < 20) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:description]Para registrar com qualidade, preciso de **pelo menos 20 caracteres**: o que aconteceu, em qual trecho ou parada, e como isso te afetou?'
           };
         }
         
         // 2. REPORT_TYPE (obrigatório, inferido da descrição, fallback para 'outro' com label)
         let validReportType = args.report_type;
         let subcategoryLabel = args.subcategory_label || null;
+        const rawSubCategory = args.sub_category ?? accumulatedFields?.sub_category;
+        let validSubCategory = rawSubCategory ? normalizeTransportSubcategory(String(rawSubCategory)) : "";
         
         if (!validReportType || validReportType === 'outro') {
           const inferred = inferReportTypeFromDesc(args.description);
@@ -7426,18 +8044,48 @@ export async function executeTool(
           }
         }
         
+        if (!validSubCategory) {
+          return {
+            success: false,
+            message: `[FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${String(validReportType).toLowerCase()}]`,
+          };
+        }
+        if (!isValidTransportSubcategory(String(validReportType), validSubCategory)) {
+          return {
+            success: false,
+            message: `[FIELD_REQUEST:sub_category]Escolha uma opção da lista para detalhar o problema.[SUBCATEGORY_PICKER:${String(validReportType).toLowerCase()}]`,
+          };
+        }
+        args.sub_category = validSubCategory;
+
         // Se ainda não tem subcategory_label, gerar um
         if (!subcategoryLabel && validReportType !== 'outro') {
-          subcategoryLabel = getTransportTypeLabel(validReportType);
+          subcategoryLabel =
+            getTransportSubcategoryLabel(String(validReportType), validSubCategory) ||
+            getTransportTypeLabel(validReportType);
         }
         
-        // 3. LINHA (obrigatória)
-        if (!args.line_code) {
+        // 3. LINHA (obrigatória): código OU line_id (UUID) com resolução em transport_lines
+        let effectiveLineCode = String(args.line_code ?? "").trim();
+        const rawLineIdForLine = typeof args.line_id === "string" ? args.line_id.trim() : "";
+        if (
+          !effectiveLineCode &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawLineIdForLine)
+        ) {
+          const { data: tlHydrate } = await supabase
+            .from("transport_lines")
+            .select("line_code")
+            .eq("id", rawLineIdForLine)
+            .maybeSingle();
+          if (tlHydrate?.line_code) effectiveLineCode = String(tlHydrate.line_code).trim();
+        }
+        if (!effectiveLineCode) {
           return {
             success: false,
             message: '[FIELD_REQUEST:line_code]**Qual linha ou estação** teve o problema?'
           };
         }
+        args.line_code = effectiveLineCode;
         
         // 4. DATA (obrigatória - modelo DEVE ter coletado explicitamente, NUNCA assumir)
         // O modelo PRECISA ter perguntado e o usuário respondido "hoje", "ontem" ou data específica
@@ -7447,10 +8095,67 @@ export async function executeTool(
             message: '[FIELD_REQUEST:occurrence_date]**Quando isso aconteceu?** (hoje, ontem, ou me diz a data)'
           };
         }
+
+        const todayYmd = new Date().toISOString().split('T')[0];
+        const occYmd = String(args.occurrence_date).trim().match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+        if (occYmd && occYmd > todayYmd) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_date]A data da ocorrência **não pode ser no futuro**. Quando isso aconteceu (hoje, ontem ou a data correta)?'
+          };
+        }
+
+        if (!args.occurrence_time) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_time]Qual foi o **horário exato** da ocorrência? [TIME_PICKER]'
+          };
+        }
+
+        const normalizedTime = parseFlexibleOccurrenceTime(String(args.occurrence_time || ""));
+        if (!normalizedTime) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:occurrence_time]Não consegui entender o horário. Pode informar no formato **HH:MM**? [TIME_PICKER]'
+          };
+        }
+        args.occurrence_time = normalizedTime;
+
+        if (!args.direction || !['ida', 'volta', 'circular'].includes(String(args.direction).toLowerCase())) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:direction]Qual era o **sentido** da viagem? [DIRECTION_PICKER]'
+          };
+        }
+        args.direction = String(args.direction).toLowerCase();
+
+        const normalizedRecurrence = normalizeTransportRecurrenceFrequency(
+          String(args.recurrence_frequency || accumulatedFields?.recurrence_frequency || "")
+        );
+        if (!normalizedRecurrence) {
+          return {
+            success: false,
+            message: '[FIELD_REQUEST:recurrence_frequency]Com qual frequência isso acontece? [RECURRENCE_FREQUENCY_PICKER]'
+          };
+        }
+        args.recurrence_frequency = normalizedRecurrence;
+
+        const piRaw = args.personal_impact ?? accumulatedFields?.personal_impact;
+        const personalImpactScore =
+          typeof piRaw === 'number' && Number.isFinite(piRaw)
+            ? piRaw
+            : parseInt(String(piRaw ?? ''), 10);
+        if (!Number.isFinite(personalImpactScore) || personalImpactScore < 2 || personalImpactScore > 5) {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**? Toque em uma opção abaixo. [IMPACT_PICKER]',
+          };
+        }
         
         // Date confirmation check - args.date_confirmed is set by accumulateFieldsFromHistory
         // when user explicitly selects via picker or says "hoje"/"ontem"
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayYmd;
         if (args.occurrence_date === today && !args.date_confirmed) {
           console.log('[create_transport_report] Date is today but not explicitly confirmed, asking user');
           return {
@@ -7461,19 +8166,32 @@ export async function executeTool(
         
         // === PROCESSAMENTO APÓS VALIDAÇÃO ===
         
-        // Get line_id if line_code provided
-        let lineId = null;
-        if (args.line_code) {
-          const { data: lineData } = await supabase
+        // line_id: prefer [LINE_SELECTED:uuid] (accumulated / args); fallback lookup por line_code
+        let lineId: string | null = null;
+        const rawLineId = typeof args.line_id === "string" ? args.line_id.trim() : "";
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawLineId)) {
+          const { data: byId } = await supabase
+            .from("transport_lines")
+            .select("id")
+            .eq("id", rawLineId)
+            .maybeSingle();
+          lineId = byId?.id ?? null;
+        }
+        if (!lineId && args.line_code) {
+          const { data: lineRows } = await supabase
             .from('transport_lines')
             .select('id')
-            .ilike('line_code', args.line_code)
-            .single();
-          lineId = lineData?.id || null;
+            .ilike('line_code', String(args.line_code).trim())
+            .limit(1);
+          lineId = lineRows?.[0]?.id ?? null;
         }
         
-        // Inferir severidade para incidentes de segurança
-        const inferredSeverity = validReportType === 'seguranca' ? 'alta' : (args.severity || 'media');
+        // Inferir severidade para incidentes de segurança + HU-5.3 (impacto pessoal)
+        let baseSeverity = validReportType === 'seguranca' ? 'alta' : String(args.severity || 'media').toLowerCase();
+        if (!TRANSPORT_SEVERITY_ORDER.includes(baseSeverity as TransportSeverityStep)) {
+          baseSeverity = 'media';
+        }
+        const inferredSeverity = applyPersonalImpactToSeverity(baseSeverity, personalImpactScore);
         
         // Generate protocol code atomically
         const { data: protocolData, error: protocolError } = await supabase
@@ -7516,10 +8234,14 @@ export async function executeTool(
             description: args.description,
             occurrence_date: args.occurrence_date,
             occurrence_time: args.occurrence_time || null,
+            direction: args.direction || null,
+            recurrence_frequency: args.recurrence_frequency || null,
             line_id: lineId,
             line_code_custom: args.line_code || null,
+            sub_category: validSubCategory,
             location: args.location || null,
             severity: inferredSeverity,
+            personal_impact: personalImpactScore,
             impact_description: args.impact_description || null,
             status: 'pending',
             photos: photosArray,
@@ -7555,21 +8277,23 @@ export async function executeTool(
 
         const transportSeverityJustification =
           validReportType === "seguranca"
-            ? "Política: relato classificado como 'seguranca' → severidade 'alta'."
+            ? "Política: relato classificado como 'seguranca' → severidade base 'alta'."
             : args.severity
               ? `Severidade informada na coleta: ${args.severity}.`
               : "Severidade padrão 'media' (sem valor explícito na coleta).";
+        const impactNote = ` Impacto na rotina (HU-5.3): escala ${personalImpactScore}/5 aplicada sobre a severidade base.`;
 
         await insertReportSeverityAuditLog(supabase, {
           transport_report_id: data.id,
           metric: "severity",
           previous_value: null,
           new_value: inferredSeverity,
-          justification: transportSeverityJustification,
+          justification: transportSeverityJustification + impactNote,
           source_snippet: String(args.description || "").trim().slice(0, 240) || null,
           metadata: {
             report_type: validReportType,
             user_provided_severity: args.severity ?? null,
+            personal_impact: personalImpactScore,
           },
         });
         
@@ -7597,14 +8321,21 @@ export async function executeTool(
           outro: 'Outro'
         };
         
-        // Use subcategoryLabel or fallback to type label
-        const displayLabel = subcategoryLabel || reportTypeLabels[validReportType] || validReportType;
         const typeLabel = reportTypeLabels[validReportType] || validReportType;
+        const subDetailLabel =
+          getTransportSubcategoryLabel(String(validReportType), validSubCategory) || subcategoryLabel || "";
         
         const severityLabels: Record<string, string> = {
           baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica'
         };
         const severityLabel = severityLabels[inferredSeverity] || inferredSeverity;
+        const recurrenceLabels: Record<string, string> = {
+          primeira_vez: 'Primeira vez',
+          algumas_vezes_mes: 'Algumas vezes/mês',
+          toda_semana: 'Toda semana',
+          todos_os_dias: 'Todos os dias',
+        };
+        const recurrenceLabel = recurrenceLabels[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
         
         // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
         const successMessage = [
@@ -7615,10 +8346,12 @@ export async function executeTool(
           data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : '',
           '**Resumo do seu relato:**',
           '',
-          `📋 **Tipo:** ${typeLabel}${subcategoryLabel ? ` - ${subcategoryLabel}` : ''}`,
+          `📋 **Tipo:** ${typeLabel}${subDetailLabel ? ` - ${subDetailLabel}` : ""}`,
           `🚌 **Linha:** ${args.line_code || 'Não informada'}`,
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
+          args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : '',
+          recurrenceLabel ? `🔁 **Frequência:** ${recurrenceLabel}` : '',
           args.location ? `📍 **Local:** ${args.location}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
@@ -7739,12 +8472,38 @@ export async function executeTool(
           const serviceTypeArg = (args.service_type as string || '').toLowerCase();
           const neighborhood = (args.service_neighborhood || accumulatedFields?.service_neighborhood) as string | undefined;
 
+          const uuidFromPicker = (() => {
+            const raw = [args.service_id, accumulatedFields?.service_id].find(
+              (v) => typeof v === 'string' && /^[a-f0-9-]{36}$/i.test(String(v).trim()),
+            );
+            return raw ? String(raw).trim().toLowerCase() : '';
+          })();
+
+          if (uuidFromPicker) {
+            const { data: svcById } = await supabase
+              .from('public_services')
+              .select('id, name')
+              .eq('id', uuidFromPicker)
+              .maybeSingle();
+            if (svcById?.id) {
+              serviceId = svcById.id;
+              serviceNameForMessage = String(svcById.name || '');
+            }
+          }
+
           const tryFindService = async (
             typeFilter: string | null,
             namePattern: string
           ): Promise<{ id: string; name: string } | null> => {
             let q = supabase.from('public_services').select('id, name').ilike('name', namePattern).limit(5);
-            if (typeFilter) q = q.eq('service_type', typeFilter);
+            if (typeFilter) {
+              // GeoSampa/import: CAPS e equipamentos semelhantes costumam vir como `other`
+              if (typeFilter === 'hospital') {
+                q = q.in('service_type', ['hospital', 'other'] as string[]);
+              } else {
+                q = q.eq('service_type', typeFilter);
+              }
+            }
             const { data } = await q;
             if (data?.length) return data[0];
             return null;
@@ -7763,51 +8522,61 @@ export async function executeTool(
             return data?.length ? data[0] : null;
           };
 
-          // Extrai a parte distintiva: "CEU - Rosa Da China" -> "Rosa Da China" (o banco usa "CEU AT COMPL ROSA DA CHINA")
-          const partsAfterDash = serviceNameArg.split(/\s*[-–—]\s*/);
-          const distinctivePart = (partsAfterDash.length > 1 ? partsAfterDash[partsAfterDash.length - 1] : serviceNameArg).trim();
+          if (!serviceId) {
+            // Extrai a parte distintiva: "CEU - Rosa Da China" -> "Rosa Da China" (o banco usa "CEU AT COMPL ROSA DA CHINA")
+            const partsAfterDash = serviceNameArg.split(/\s*[-–—]\s*/);
+            const distinctivePart = (partsAfterDash.length > 1 ? partsAfterDash[partsAfterDash.length - 1] : serviceNameArg).trim();
 
-          let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
-          if (!found && distinctivePart.length >= 4) {
-            found = await tryFindService(serviceTypeArg, `%${distinctivePart}%`)
-              || await tryFindService(null, `%${distinctivePart}%`);
-          }
-          if (!found && serviceNameArg.length > 8) {
-            const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro|ceu)\s+(de\s+)?/i, '').trim();
-            if (withoutPrefix.length >= 4) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`)
-              || await tryFindService(null, `%${withoutPrefix}%`);
-          }
-          if (!found && distinctivePart.length >= 4) {
-            found = await tryFindByDistrict(distinctivePart);
-          }
-          if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
-          if (!found && distinctivePart.length >= 4) {
-            found = await tryFindService(null, `%${distinctivePart}%`);
-          }
-          if (!found && serviceTypeArg === 'ceu') {
-            found = await tryFindService('library', `%${serviceNameArg}%`)
-              || (distinctivePart.length >= 4 ? await tryFindService('library', `%${distinctivePart}%`) : null);
+            let found = await tryFindService(serviceTypeArg, `%${serviceNameArg}%`);
+            if (!found && distinctivePart.length >= 4) {
+              found = await tryFindService(serviceTypeArg, `%${distinctivePart}%`)
+                || await tryFindService(null, `%${distinctivePart}%`);
+            }
+            if (!found && serviceNameArg.length > 8) {
+              const withoutPrefix = serviceNameArg.replace(/^(biblioteca|ubs|emef|hospital|centro|ceu)\s+(de\s+)?/i, '').trim();
+              if (withoutPrefix.length >= 4) found = await tryFindService(serviceTypeArg, `%${withoutPrefix}%`)
+                || await tryFindService(null, `%${withoutPrefix}%`);
+            }
+            if (!found && distinctivePart.length >= 4) {
+              found = await tryFindByDistrict(distinctivePart);
+            }
+            if (!found) found = await tryFindService(null, `%${serviceNameArg}%`);
+            if (!found && distinctivePart.length >= 4) {
+              found = await tryFindService(null, `%${distinctivePart}%`);
+            }
+            if (!found && serviceTypeArg === 'ceu') {
+              found = await tryFindService('library', `%${serviceNameArg}%`)
+                || (distinctivePart.length >= 4 ? await tryFindService('library', `%${distinctivePart}%`) : null);
+            }
+
+            if (found) {
+              serviceId = found.id;
+              serviceNameForMessage = found.name;
+            }
           }
 
-          if (found) {
-            serviceId = found.id;
-            serviceNameForMessage = found.name;
-          const expires = new Date();
-          expires.setDate(expires.getDate() + 7);
-          const { data: visitData, error: visitError } = await supabase
-            .from('service_visits')
-            .insert({
-              user_id: userId,
-              service_id: serviceId,
-              expires_at: expires.toISOString(),
-              status: 'completed'
-            })
-            .select('id')
-            .single();
+          if (serviceId && !visitId) {
+            const expires = new Date();
+            expires.setDate(expires.getDate() + 7);
+            const { data: visitData, error: visitError } = await supabase
+              .from('service_visits')
+              .insert({
+                user_id: userId,
+                service_id: serviceId,
+                expires_at: expires.toISOString(),
+                status: 'completed'
+              })
+              .select('id')
+              .single();
             if (!visitError && visitData) visitId = visitData.id;
           }
           if (!serviceId || !visitId) {
-            console.warn('[create_service_rating] Service not found in DB:', { serviceTypeArg, serviceNameArg, neighborhood });
+            console.warn('[create_service_rating] Service not found in DB:', {
+              serviceTypeArg,
+              serviceNameArg,
+              neighborhood,
+              hadServiceIdFromPicker: Boolean(uuidFromPicker),
+            });
             return {
               success: false,
               message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.',
@@ -7817,6 +8586,23 @@ export async function executeTool(
         
         if (!serviceId || !visitId) {
           return { success: false, message: 'Não encontrei esse serviço na base cadastrada. Tente informar apenas o nome principal (ex: "CEU Rosa da China"). Se o serviço não estiver cadastrado, entre em contato com o suporte.' };
+        }
+
+        const { startIso, endExclusiveIso } = getZonedDayUtcBoundsISO(SERVICE_RATING_DEDUP_TZ);
+        const { data: existingToday, error: dupLookupErr } = await supabase
+          .from('service_ratings')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('service_id', serviceId)
+          .gte('created_at', startIso)
+          .lt('created_at', endExclusiveIso)
+          .limit(1)
+          .maybeSingle();
+
+        if (dupLookupErr) {
+          console.warn('[create_service_rating] duplicate check error:', dupLookupErr.message);
+        } else if (existingToday) {
+          return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
         }
         
 <<<<<<< HEAD
@@ -7907,6 +8693,12 @@ export async function executeTool(
 
         if (error) {
           console.error('[create_service_rating] Database insert error:', error.code, error.message, error.details);
+          const errText = String(error.message || '');
+          const isDupPerDayIdx =
+            String(error.code) === '23505' || errText.includes('idx_one_rating_per_service_per_day');
+          if (isDupPerDayIdx) {
+            return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
+          }
           return {
             success: false,
             message: 'Não foi possível salvar sua avaliação no momento. Por favor, tente novamente. Se o problema continuar, entre em contato com o suporte.'

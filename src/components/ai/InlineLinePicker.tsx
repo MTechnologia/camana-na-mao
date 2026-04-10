@@ -13,7 +13,8 @@ interface TransportLine {
 }
 
 interface InlineLinePickerProps {
-  onSelect: (lineCode: string, lineName: string) => void;
+  /** lineId definido quando a linha veio da tabela transport_lines (HU-5.2). */
+  onSelect: (lineCode: string, lineName: string, lineId?: string) => void;
 }
 
 export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
@@ -55,13 +56,14 @@ export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
 
   const handleSelect = (line: TransportLine) => {
     setSelected(true);
-    onSelect(line.line_code, line.line_name);
+    onSelect(line.line_code, line.line_name, line.id);
   };
 
   const handleCustomLine = () => {
     if (query.trim()) {
       setSelected(true);
-      onSelect(query.toUpperCase(), query.toUpperCase());
+      const code = query.trim().toUpperCase();
+      onSelect(code, code);
     }
   };
 
@@ -117,15 +119,18 @@ export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
               </div>
             </ScrollArea>
           ) : !isLoading ? (
-            <div className="p-3">
-              <p className="text-sm text-muted-foreground mb-2">Linha não encontrada</p>
+            <div className="p-3 space-y-2">
+              <p className="text-sm font-medium text-foreground">Minha linha não está na lista</p>
+              <p className="text-xs text-muted-foreground">
+                Registramos o código que você digitou; a linha pode não constar no cadastro atual.
+              </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCustomLine}
                 className="w-full"
               >
-                Usar "{query.toUpperCase()}"
+                Usar código digitado: {query.toUpperCase()}
               </Button>
             </div>
           ) : null}

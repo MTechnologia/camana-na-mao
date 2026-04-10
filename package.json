@@ -12,6 +12,8 @@
     "format": "prettier --write . --ignore-path prettierignore",
     "format:check": "prettier --check . --ignore-path prettierignore",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "crawl:camara": "node scripts/crawl-camara-site.mjs",
     "import:geosampa": "node scripts/import-geosampa-education.mjs",
     "rag:upload": "node scripts/upload-crawl-to-rag.mjs",
@@ -19,15 +21,12 @@
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:report": "npx playwright show-report",
     "test:e2e:export-docx": "node scripts/export-test-results-to-docx.mjs",
-<<<<<<< HEAD
-    "playwright:install": "npx playwright install"
-=======
     "playwright:install": "playwright install",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:edge": "npx deno test --no-check --allow-net=false supabase/functions/",
-    "test:all": "npm test -- --run && npm run test:edge"
->>>>>>> main
+    "test:unit": "vitest run",
+    "test:quiet-hours": "deno test supabase/functions/_shared/quiet-hours_test.ts",
+    "test:daily-limit": "deno test supabase/functions/_shared/daily-limit_test.ts",
+    "test:notification-channels": "deno test supabase/functions/_shared/notification-channels_test.ts",
+    "test:visit-reminder": "deno test supabase/functions/_shared/visit-reminder-windows_test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -115,6 +114,9 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "jsdom": "^25.0.1",
     "vite": "^5.4.19",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.3"

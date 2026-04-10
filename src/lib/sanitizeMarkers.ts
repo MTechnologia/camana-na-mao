@@ -73,6 +73,12 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[LINE_PICKER\]/g, '')
     .replace(/\[DATE_PICKER\]/g, '')
     .replace(/\[TIME_PICKER\]/g, '')
+    .replace(/\[DIRECTION_PICKER\]/g, '')
+    .replace(/\[SUBCATEGORY_PICKER:[a-z_]+\]/gi, '')
+    .replace(/\[RECURRENCE_FREQUENCY_PICKER\]/g, '')
+    .replace(/\[IMPACT_PICKER\]/g, '')
+    .replace(/\[IMPACT_SELECTED:[2-5]\]/g, '')
+    .replace(/\[TRANSPORT_PREVIEW_JSON:[^\]]+\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
 <<<<<<< HEAD
     .replace(/\[WAIT_TIME_PICKER\]/g, '')
@@ -89,12 +95,15 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[SERVICE_PICKER(?::[^\]]+)?\]/g, '')
     .replace(/\[SERVICE_ADDRESS_CONFIRM:[^\]]+\]/g, '')
     .replace(/\[SERVICE_ID:[a-f0-9-]+\]/g, '')
+    .replace(/\[SUBCATEGORY_SELECTED:[a-z0-9_]+\]/gi, '')
+    .replace(/\[SUBCATEGORY_REPORT_TYPE:[a-z_]+\]/gi, '')
     .replace(/\[JOURNEY_SWITCH_PROMPT:\w+:\w+\]/g, '')
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
     .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
     .replace(/\[QUICK_REPLY:[^\]]+\]/g, '')
     .replace(/\[SIMILAR_URBAN_REPORTS_B64:[^\]]+\]/g, '')
+    .replace(/\[SIMILAR_TRANSPORT_REPORTS_B64:[^\]]+\]/g, '')
     .replace(/\[APP_ACTIONS:audiencias\]/g, '')
     // Hide raw DB timeout text when leaked by backend/provider.
     .replace(/canceling statement due to statement timeout/gi, '');

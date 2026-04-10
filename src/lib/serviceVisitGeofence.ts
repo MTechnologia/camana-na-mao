@@ -1,6 +1,9 @@
 /** Raio de geofence para visita a equipamento público (alinhado a useVisitDetection / detect-service-visit). */
 export const SERVICE_VISIT_GEOFENCE_RADIUS_M = 50;
 
+/** Permanência mínima dentro do raio antes de registrar visita. */
+export const SERVICE_VISIT_MIN_DWELL_MINUTES = 10;
+
 /**
  * Distância em metros entre dois pontos WGS84 (Haversine).
  */

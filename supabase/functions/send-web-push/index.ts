@@ -9,6 +9,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as webpush from "jsr:@negrel/webpush@0.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  effectiveDailyLimit,
+  shouldDiscardForDailyLimit,
+} from "../_shared/daily-limit.ts";
+import { resolveChannelFlags } from "../_shared/notification-channels.ts";
+import {
+  computeNextSendAfterQuietHours,
+  DEFAULT_QUIET_HOURS_TZ,
+  isCriticalNotification,
+  isInQuietHours,
+} from "../_shared/quiet-hours.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +38,8 @@ interface WebhookPayload {
     type?: string;
     action_url?: string | null;
     priority?: string;
+    scheduled_for?: string | null;
+    push_delivered_at?: string | null;
   };
   old_record: unknown;
 }
@@ -65,19 +78,150 @@ serve(async (req) => {
       );
     }
 
+    const scheduledForRaw = record.scheduled_for;
+    if (scheduledForRaw) {
+      const t = new Date(scheduledForRaw).getTime();
+      if (!Number.isNaN(t) && t > Date.now()) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: "scheduled_for_future",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: settings } = await supabase
       .from("notification_settings")
-      .select("push_enabled, email_enabled, sms_enabled")
+      .select(
+        "push_enabled, email_enabled, sms_enabled, quiet_hours_start, quiet_hours_end, max_daily_notifications",
+      )
       .eq("user_id", userId)
       .maybeSingle();
 
-    const pushEnabled = settings?.push_enabled !== false;
-    const emailEnabled = settings?.email_enabled === true;
-    const smsEnabled = settings?.sms_enabled === true;
+    const tz = Deno.env.get("NOTIFICATION_QUIET_HOURS_TZ")?.trim() || DEFAULT_QUIET_HOURS_TZ;
+    if (!isCriticalNotification(record.priority) && record.id) {
+      const qs = settings?.quiet_hours_start;
+      const qe = settings?.quiet_hours_end;
+      if (qs != null && qe != null && String(qs).trim() !== "" && String(qe).trim() !== "") {
+        const now = new Date();
+        if (isInQuietHours({ now, tz, startStr: String(qs), endStr: String(qe) })) {
+          const nextIso = computeNextSendAfterQuietHours({
+            now,
+            tz,
+            startStr: String(qs),
+            endStr: String(qe),
+          });
+          if (nextIso) {
+            const { error: deferErr } = await supabase
+              .from("notifications")
+              .update({ scheduled_for: nextIso })
+              .eq("id", record.id);
+            if (deferErr) {
+              console.error("[send-web-push] quiet_hours reschedule:", deferErr);
+              return new Response(JSON.stringify({ success: false, error: deferErr.message }), {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+            return new Response(
+              JSON.stringify({
+                success: true,
+                deferred: true,
+                reason: "quiet_hours",
+                scheduled_for: nextIso,
+                push: 0,
+                expo: 0,
+                email: 0,
+                sms: 0,
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+    }
+
+    if (!isCriticalNotification(record.priority) && record.id) {
+      const limit = effectiveDailyLimit(settings?.max_daily_notifications ?? null);
+      const { data: dailyCnt, error: dailyRpcErr } = await supabase.rpc(
+        "check_notification_daily_limit",
+        { p_user_id: userId, p_tz: tz },
+      );
+      if (dailyRpcErr) {
+        console.error("[send-web-push] check_notification_daily_limit:", dailyRpcErr);
+      } else {
+        const c = typeof dailyCnt === "number" ? dailyCnt : 0;
+        if (shouldDiscardForDailyLimit(c, limit, false)) {
+          const { error: dErr } = await supabase
+            .from("notifications")
+            .update({
+              discarded_at: new Date().toISOString(),
+              discard_reason: "daily_limit",
+            })
+            .eq("id", record.id);
+          if (dErr) {
+            console.error("[send-web-push] daily_limit discard:", dErr);
+            return new Response(JSON.stringify({ success: false, error: dErr.message }), {
+              status: 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          return new Response(
+            JSON.stringify({
+              success: true,
+              discarded: true,
+              reason: "daily_limit",
+              push: 0,
+              expo: 0,
+              email: 0,
+              sms: 0,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    const ch = resolveChannelFlags(settings);
+    if (!ch.anyExternalChannelEnabled && ch.hasSettingsRow && record.id) {
+      const iso = new Date().toISOString();
+      const { error: inAppErr } = await supabase
+        .from("notifications")
+        .update({
+          push_delivered_at: iso,
+          delivered_in_app_only: true,
+        })
+        .eq("id", record.id);
+      if (inAppErr) {
+        console.error("[send-web-push] delivered_in_app_only:", inAppErr);
+        return new Response(JSON.stringify({ success: false, error: inAppErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          delivered_in_app_only: true,
+          push: 0,
+          expo: 0,
+          email: 0,
+          sms: 0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const pushEnabled = ch.pushEnabled;
+    const emailEnabled = ch.emailEnabled;
+    const smsEnabled = ch.smsEnabled;
 
     let userEmail: string | null = null;
     let userPhone: string | null = null;
@@ -149,7 +293,14 @@ serve(async (req) => {
 
       // --- Push (app mobile Expo) — aparece na bandeja do celular ---
       if (!expoPushToken || !expoPushToken.startsWith("ExponentPushToken")) {
-        if (pushEnabled && (record.type === "audiencia_lembrete_1h" || record.type === "audiencia_lembrete_1min" || record.type === "audiencia_lembrete_d1")) {
+        if (
+          pushEnabled &&
+          (record.type === "audiencia_lembrete_1h" ||
+            record.type === "audiencia_lembrete_1min" ||
+            record.type === "audiencia_lembrete_d1" ||
+            record.type === "visita_avaliacao_pos_saida" ||
+            record.type === "evaluation_reminder")
+        ) {
           console.warn("[notification-delivery] Push na bandeja não enviado: expo_push_token ausente ou inválido no perfil. Usuário deve abrir o app ao menos uma vez (com permissão de notificação) para o token ser salvo.", { user_id: userId, type: record.type });
         }
       } else {
@@ -302,9 +453,27 @@ serve(async (req) => {
       }
     }
 
+    if (record.id) {
+      const { error: pdErr } = await supabase
+        .from("notifications")
+        .update({
+          push_delivered_at: new Date().toISOString(),
+          delivered_in_app_only: false,
+        })
+        .eq("id", record.id);
+      if (pdErr) {
+        console.error("[send-web-push] push_delivered_at:", pdErr);
+        return new Response(JSON.stringify({ success: false, error: pdErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
+        delivered_in_app_only: false,
         push: pushSent,
         expo: expoSent,
         email: emailSent,

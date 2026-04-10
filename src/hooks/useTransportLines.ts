@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TransportLine {
@@ -35,16 +35,16 @@ export const useTransportLines = () => {
     }
   };
 
-  const searchLines = (query: string): TransportLine[] => {
+  const searchLines = useCallback((query: string): TransportLine[] => {
     if (!query) return lines;
-    
+
     const lowerQuery = query.toLowerCase();
     return lines.filter(
-      line =>
+      (line) =>
         line.line_code.toLowerCase().includes(lowerQuery) ||
         line.line_name.toLowerCase().includes(lowerQuery)
     );
-  };
+  }, [lines]);
 
   return { lines, loading, error, searchLines };
 };

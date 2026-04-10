@@ -86,8 +86,12 @@ export const useTransportReport = () => {
         description,
         occurrence_date,
         occurrence_time,
+        direction,
+        recurrence_frequency,
+        personal_impact,
         location,
         impact_description,
+        photos,
         status,
         created_at,
         updated_at,
@@ -96,7 +100,8 @@ export const useTransportReport = () => {
         n8n_priority,
         n8n_validated_category,
         n8n_tags,
-        line:transport_lines(line_code, line_name, line_type)
+        line:transport_lines(line_code, line_name, line_type),
+        transport_report_likes(count)
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });

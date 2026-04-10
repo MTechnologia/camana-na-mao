@@ -12,7 +12,7 @@ node_modules
 bun.lockb
 dist
 dist-ssr
-dev-dist/
+dev-dist
 *.local
 
 # Supabase local dev artifacts
