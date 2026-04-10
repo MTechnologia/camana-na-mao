@@ -17,6 +17,12 @@ Deno.test("parseFlexibleOccurrenceTime: normaliza formatos variados para HH:MM",
   assertEquals(parseFlexibleOccurrenceTime("meia noite"), "00:00");
 });
 
+Deno.test("parseFlexibleOccurrenceTime: não confunde número de linha (ex. 1233) com horário 12:33", () => {
+  assertEquals(parseFlexibleOccurrenceTime("Linha informada (fora da lista): 1233"), null);
+  assertEquals(parseFlexibleOccurrenceTime("linha não listada: 1233"), null);
+  assertEquals(parseFlexibleOccurrenceTime("1233"), "12:33");
+});
+
 Deno.test("parseFieldResponse: occurrence_time aceita texto livre e normaliza", () => {
   assertEquals(parseFieldResponse("occurrence_time", "foi 7h5"), { occurrence_time: "07:05" });
   assertEquals(parseFieldResponse("occurrence_time", "às 19:45"), { occurrence_time: "19:45" });

@@ -93,8 +93,10 @@ export function parseFlexibleOccurrenceTime(input: string): string | null {
     return `${hour}:${minute}`;
   }
 
-  const digits = compact.match(/\b([01]\d|2[0-3])([0-5]\d)\b/);
-  if (digits) return `${digits[1]}:${digits[2]}`;
+  if (/^([01]\d|2[0-3])([0-5]\d)$/.test(compact)) {
+    const digits = compact.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+    if (digits) return `${digits[1]}:${digits[2]}`;
+  }
 
   const hourOnly = compact.match(/\b([01]?\d|2[0-3])\b/);
   if (hourOnly && /\b(h|hora)\b/.test(normalized)) {

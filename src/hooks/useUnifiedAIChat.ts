@@ -169,9 +169,11 @@ export const useUnifiedAIChat = (
       return `${hour}:${minute}`;
     }
 
-    const digits = compact.match(/\b([01]\d|2[0-3])([0-5]\d)\b/);
-    if (digits) {
-      return `${digits[1]}:${digits[2]}`;
+    if (/^([01]\d|2[0-3])([0-5]\d)$/.test(compact)) {
+      const digits = compact.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+      if (digits) {
+        return `${digits[1]}:${digits[2]}`;
+      }
     }
 
     const simple = compact.match(/\b([01]?\d|2[0-3])\b/);
