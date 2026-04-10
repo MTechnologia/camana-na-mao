@@ -36,6 +36,7 @@ import InlineRatingPicker from "./InlineRatingPicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
+import InlineSubcategoryPicker from "./InlineSubcategoryPicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import NearbyServicesFiltersInline, { type NearbyFiltersValues } from "./NearbyServicesFiltersInline";
 import PromptChips, { CollectionTypePreset } from "./PromptChips";
@@ -120,6 +121,7 @@ interface ChatMessageBubbleProps {
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
   onDirectionSelected?: (direction: string, displayText: string) => void;
+  onSubcategorySelected?: (value: string, label: string, reportType: string) => void;
   onRecurrenceFrequencySelected?: (frequency: string, displayText: string) => void;
   onImpactSelected?: (score: number, label: string) => void;
   onRatingSelected?: (stars: number) => void;
@@ -150,6 +152,7 @@ const ChatMessageBubble = ({
   onDateSelected,
   onTimeSelected,
   onDirectionSelected,
+  onSubcategorySelected,
   onRecurrenceFrequencySelected,
   onImpactSelected,
   onRatingSelected,
@@ -174,6 +177,7 @@ const ChatMessageBubble = ({
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
   const [directionSelected, setDirectionSelected] = useState(false);
+  const [subcategorySelected, setSubcategorySelected] = useState(false);
   const [recurrenceFrequencySelected, setRecurrenceFrequencySelected] = useState(false);
   const [impactSelected, setImpactSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
@@ -207,6 +211,9 @@ const ChatMessageBubble = ({
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
   const hasDirectionPicker = !isUser && message.content.includes('[DIRECTION_PICKER]');
+  const subcategoryPickerMatch = !isUser ? message.content.match(/\[SUBCATEGORY_PICKER:([a-z_]+)\]/i) : null;
+  const subcategoryPickerReportType = subcategoryPickerMatch?.[1]?.toLowerCase() || null;
+  const hasSubcategoryPicker = !isUser && !!subcategoryPickerReportType;
   const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
   const hasImpactPicker = !isUser && message.content.includes('[IMPACT_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
@@ -715,6 +722,13 @@ const ChatMessageBubble = ({
     }
   };
 
+  const handleSubcategorySelected = (value: string, label: string, reportType: string) => {
+    setSubcategorySelected(true);
+    if (onSubcategorySelected) {
+      onSubcategorySelected(value, label, reportType);
+    }
+  };
+
   const handleRecurrenceFrequencySelected = (frequency: string, displayText: string) => {
     setRecurrenceFrequencySelected(true);
     if (onRecurrenceFrequencySelected) {
@@ -1167,6 +1181,17 @@ const ChatMessageBubble = ({
         {(hasDirectionPicker || isAskingForDirection) && !directionSelected && isLastAssistantMessage && (
           <InlineDirectionPicker onSelect={handleDirectionSelected} />
         )}
+
+        {hasSubcategoryPicker &&
+          !subcategorySelected &&
+          isLastAssistantMessage &&
+          subcategoryPickerReportType &&
+          onSubcategorySelected && (
+            <InlineSubcategoryPicker
+              reportType={subcategoryPickerReportType}
+              onSelect={handleSubcategorySelected}
+            />
+          )}
 
         {(hasRecurrenceFrequencyPicker || isAskingForRecurrenceFrequency) &&
           !recurrenceFrequencySelected &&

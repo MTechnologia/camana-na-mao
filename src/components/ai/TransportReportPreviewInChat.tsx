@@ -1,4 +1,5 @@
 import type { ParsedTransportReportPreview } from "@/lib/parseTransportReportPreview";
+import { TRANSPORT_SUBCATEGORIES } from "@/lib/reportFieldConfig";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bus } from "lucide-react";
 
@@ -27,6 +28,13 @@ function impactLabel(score: number | null): string {
   return "Desconforto";
 }
 
+function subcategoryLabel(reportType: string | null, value: string | null): string | null {
+  if (!reportType || !value) return null;
+  const opts = TRANSPORT_SUBCATEGORIES[reportType] ?? TRANSPORT_SUBCATEGORIES.outro;
+  const found = opts.find((o) => o.value === value);
+  return found?.label ?? null;
+}
+
 type Props = { preview: ParsedTransportReportPreview };
 
 export function TransportReportPreviewInChat({ preview }: Props) {
@@ -49,9 +57,13 @@ export function TransportReportPreviewInChat({ preview }: Props) {
         {row("Problema", (preview.description || "").slice(0, 280))}
         {row(
           "Tipo",
-          preview.report_type
-            ? REPORT_TYPE_LABELS[preview.report_type] || preview.report_type
-            : "—",
+          (() => {
+            const base =
+              preview.report_type && (REPORT_TYPE_LABELS[preview.report_type] || preview.report_type);
+            const sub = subcategoryLabel(preview.report_type, preview.sub_category);
+            if (base && sub) return `${base} — ${sub}`;
+            return base || sub || "—";
+          })(),
         )}
         {row("Linha", preview.line_code || "—")}
         {row(

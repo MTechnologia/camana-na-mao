@@ -175,6 +175,10 @@ export const tools = [
             type: "string",
             description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Veículo Lotado', 'Problema com Motorista', 'Veículo Não Parou', 'Porta com Defeito', etc."
           },
+          sub_category: {
+            type: "string",
+            description: "Subcategoria estruturada do transporte, escolhida pelo usuário no picker [SUBCATEGORY_PICKER:report_type]. Ex.: nao_passou, superlotado, assedio."
+          },
           description: { type: "string", description: "Descrição do problema (mínimo 20 caracteres)" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
           occurrence_time: { type: "string", description: "Horário exato HH:MM (aceitar formatos variados e normalizar)" },
@@ -212,7 +216,7 @@ export const tools = [
             description: "URLs das fotos anexadas pelo usuário (até 3). Preenchido pelo sistema quando o usuário anexa imagens no chat."
           }
         },
-        required: ["report_type", "description", "occurrence_date", "occurrence_time", "direction", "recurrence_frequency"]
+        required: ["report_type", "sub_category", "description", "occurrence_date", "occurrence_time", "direction", "recurrence_frequency"]
       }
     }
   },

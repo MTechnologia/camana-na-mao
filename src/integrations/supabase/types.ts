@@ -1945,6 +1945,7 @@ export type Database = {
           responded_at: string | null
           severity: string
           status: string
+          sub_category: string | null
           updated_at: string | null
           user_id: string
         }
@@ -1978,6 +1979,7 @@ export type Database = {
           responded_at?: string | null
           severity?: string
           status?: string
+          sub_category?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -2011,6 +2013,7 @@ export type Database = {
           responded_at?: string | null
           severity?: string
           status?: string
+          sub_category?: string | null
           updated_at?: string | null
           user_id?: string
         }

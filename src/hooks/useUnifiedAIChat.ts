@@ -1794,6 +1794,7 @@ export const useUnifiedAIChat = (
       ],
       transport_report: [
         { key: 'report_type', required: true },
+        { key: 'sub_category', required: true },
         { key: 'description', required: true },
         { key: 'occurrence_date', required: true },
         { key: 'occurrence_time', required: true },
@@ -1921,6 +1922,13 @@ export const useUnifiedAIChat = (
     sendMessage(`Sentido: ${displayText}`);
   }, [sendMessage]);
 
+  const handleSubcategorySelected = useCallback((value: string, label: string, reportType: string) => {
+    setCollectedFields((prev) => ({ ...prev, sub_category: value }));
+    sendMessage(
+      `Subcategoria: ${label} [SUBCATEGORY_SELECTED:${value}] [SUBCATEGORY_REPORT_TYPE:${reportType}]`
+    );
+  }, [sendMessage]);
+
   const handleRecurrenceFrequencySelected = useCallback((frequency: string, displayText: string) => {
     setCollectedFields(prev => ({ ...prev, recurrence_frequency: frequency }));
     sendMessage(`Frequência: ${displayText}`);
@@ -2002,6 +2010,7 @@ export const useUnifiedAIChat = (
     handleDateSelected,
     handleTimeSelected,
     handleDirectionSelected,
+    handleSubcategorySelected,
     handleRecurrenceFrequencySelected,
     handleImpactSelected,
     handleRatingSelected,
