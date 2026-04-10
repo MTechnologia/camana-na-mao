@@ -230,7 +230,6 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-<<<<<<< HEAD
   // Detect dimension rating picker: [DIMENSION_RATING_PICKER:atendimento]
   const dimensionRatingMatch = useMemo(() => {
     if (isUser) return null;
@@ -239,10 +238,7 @@ const ChatMessageBubble = ({
   }, [isUser, message.content]);
   const hasDimensionRatingPicker = dimensionRatingMatch !== null;
 
-  // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
-=======
-  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5".
->>>>>>> main
+  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5"; não em texto institucional que só menciona "audiências".
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
@@ -794,7 +790,6 @@ const ChatMessageBubble = ({
     }
   };
 
-<<<<<<< HEAD
   const handleWaitTimeSelected = (displayLabel: string, score: number | null) => {
     setWaitTimeSelected(true);
     onWaitTimeSelected?.(displayLabel, score);
@@ -806,9 +801,7 @@ const ChatMessageBubble = ({
       onDimensionRatingSelected(dimensionRatingMatch, stars);
     }
   };
-  
-=======
->>>>>>> main
+
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
     setLocationMethodSelected(true);
     if (onLocationMethodSelected) {

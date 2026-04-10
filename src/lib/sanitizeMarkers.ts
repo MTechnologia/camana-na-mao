@@ -80,16 +80,13 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[IMPACT_SELECTED:[2-5]\]/g, '')
     .replace(/\[TRANSPORT_PREVIEW_JSON:[^\]]+\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
-<<<<<<< HEAD
     .replace(/\[WAIT_TIME_PICKER\]/g, '')
     .replace(/\[WAIT_TIME:[^\]]+\]/g, '')
     .replace(/\[DIMENSION_RATING_PICKER:\w+\]/g, '')
     .replace(/\[DIM_RATING:\w+:\d\]/g, '')
-=======
     .replace(/\[RATING_SELECTED:[1-5]\]/g, '')
     .replace(/\[MULTI_DIMENSION_RATING_PICKER\]/g, '')
     .replace(/\[RATING_DIMENSIONS:\{[^}]+\}\]/g, '')
->>>>>>> main
     .replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '')
     .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
     .replace(/\[SERVICE_PICKER(?::[^\]]+)?\]/g, '')
