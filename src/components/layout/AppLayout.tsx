@@ -54,6 +54,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/transporte/padroes": "Padrões de Relatos",
   "/transporte/historico": "Contribuições de Transporte",
   "/transporte/meus-relatos": "Contribuições de Transporte",
+  "/transporte/ao-vivo": "Ônibus ao vivo",
   "/relato-urbano": "Relato Urbano",
   "/relato-urbano/manual": "Novo Relato",
   "/relato-urbano/historico": "Histórico",

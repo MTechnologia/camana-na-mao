@@ -178,7 +178,7 @@ Os **paths exatos** (ex.: sufixos após `/v2.1`) devem ser copiados do **Swagger
 
 ### 13.3 Integração técnica (checklist)
 
-1. **Proxy server-side (ex.: Edge Function)** com `SPTRANS_OLHOVIVO_BEARER_TOKEN` — *a implementar quando houver alinhamento contratual e de produto*; não expor o token no cliente.
+1. **Edge Function `sptrans-olhovivo`** (`supabase/functions/sptrans-olhovivo/`) — proxy com `SPTRANS_OLHOVIVO_BEARER_TOKEN`; cliente web: `src/lib/sptransOlhoVivo.ts` (`invokeSptransOlhoVivo`).
 2. Mapear `line_code` do relato ↔ **`codigoLinha`** retornado pela busca de linhas (testar homônimos e sentido).
 3. Cache curto + **degradação** se a API falhar (mensagem “dados indisponíveis”, sem inventar posição).
 4. **Rate limiting** próprio para não estourar cota/uso aceitável.
