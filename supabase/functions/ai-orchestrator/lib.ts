@@ -3,6 +3,16 @@ import {
   TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
   URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
 } from "./lib-urban-tramite.ts";
+import {
+  SERVICE_RATING_VISIT_DEADLINE_EXPIRED_MESSAGE,
+  isVisitRatingWindowClosed,
+} from "../_shared/service-visit-rating-deadline.ts";
+
+export {
+  SERVICE_RATING_VISIT_DEADLINE_EXPIRED_MESSAGE,
+  isPastVisitRating48hDeadline,
+  isVisitRatingWindowClosed,
+} from "../_shared/service-visit-rating-deadline.ts";
 
 // ========== SERVICE RATING: DIMENSÕES (alinhado a src/lib/serviceRatingDimensions.ts) ==========
 export const SERVICE_RATING_DIMENSION_KEYS = ['atendimento', 'limpeza', 'infraestrutura', 'tempo_espera'] as const;
@@ -8157,7 +8167,7 @@ export async function executeTool(
         if (args.visit_id) {
           const { data: visitData, error: visitLoadError } = await supabase
             .from('service_visits')
-            .select('id, service_id')
+            .select('id, service_id, created_at, expires_at, status')
             .eq('id', args.visit_id)
             .eq('user_id', userId)
             .single();
@@ -8165,6 +8175,38 @@ export async function executeTool(
           if (visitLoadError || !visitData) {
             console.error('[create_service_rating] Visit not found or access denied:', args.visit_id);
             return { success: false, message: 'Visita não encontrada. Tente acessar novamente pela notificação.' };
+          }
+
+          const visitStatus = String(visitData.status || '');
+          if (visitStatus === 'completed') {
+            return { success: false, message: 'Esta visita já foi avaliada.' };
+          }
+          if (visitStatus === 'skipped') {
+            return { success: false, message: 'Esta visita não está mais disponível para avaliação.' };
+          }
+          if (visitStatus === 'expired') {
+            return { success: false, message: SERVICE_RATING_VISIT_DEADLINE_EXPIRED_MESSAGE };
+          }
+
+          const nowMs = Date.now();
+          if (
+            visitStatus === 'pending' &&
+            isVisitRatingWindowClosed(String(visitData.created_at), String(visitData.expires_at), nowMs)
+          ) {
+            const { error: expireErr } = await supabase
+              .from('service_visits')
+              .update({ status: 'expired', updated_at: new Date(nowMs).toISOString() })
+              .eq('id', visitData.id)
+              .eq('user_id', userId)
+              .eq('status', 'pending');
+            if (expireErr) {
+              console.warn('[create_service_rating] Could not mark visit expired:', expireErr.message);
+            }
+            return { success: false, message: SERVICE_RATING_VISIT_DEADLINE_EXPIRED_MESSAGE };
+          }
+
+          if (visitStatus !== 'pending') {
+            return { success: false, message: 'Esta visita não está mais disponível para avaliação.' };
           }
 
           visitId = visitData.id;
