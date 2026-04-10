@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, TrendingUp, FileText, MessageSquare, Radio } from 'lucide-react';
+import { Bus, TrendingUp, FileText, MessageSquare } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import PageHeader from '@/components/ui/page-header';
 
@@ -15,15 +15,6 @@ export default function TransportReportPage() {
       color: 'text-purple-500',
       bgColor: 'bg-purple-50',
       path: '/?journey=transport',
-    },
-    {
-      id: 'live-buses',
-      title: 'Ônibus ao vivo',
-      description: 'Mapa com posição dos veículos (Olho Vivo / SPTrans)',
-      icon: Radio,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      path: '/transporte/ao-vivo',
     },
     {
       id: 'new-report',

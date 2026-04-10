@@ -92,6 +92,3 @@ verify_jwt = false
 
 [functions.process-pending-visits]
 verify_jwt = false
-
-[functions.sptrans-olhovivo]
-verify_jwt = false

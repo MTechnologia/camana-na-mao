@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck, Radio } from 'lucide-react';
+import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -42,25 +42,6 @@ export default function ReportsHub() {
                 <div className="flex-1">
                   <h3 className="font-semibold">Novo relato urbano</h3>
                   <p className="text-sm text-muted-foreground">Conversar com a IA ou preencher formulário manual (com foto)</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99] border-emerald-100 bg-emerald-50/50"
-            onClick={() => navigate('/transporte/ao-vivo')}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <Radio className="w-6 h-6 text-emerald-700" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold">Ônibus ao vivo</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Mapa com posição dos veículos (SPTrans / Olho Vivo)
-                  </p>
                 </div>
               </div>
             </CardContent>
