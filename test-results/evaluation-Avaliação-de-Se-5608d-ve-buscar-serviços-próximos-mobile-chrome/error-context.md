@@ -1,0 +1,337 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - button "Voltar" [ref=e5] [cursor=pointer]:
+        - img [ref=e6]
+      - heading "Serviços Próximos" [level=1] [ref=e8]
+  - generic [ref=e10]:
+    - banner [ref=e11]:
+      - generic [ref=e12]:
+        - button "Voltar" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - heading "Perto de Você" [level=1] [ref=e16]
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - img [ref=e19]
+        - generic [ref=e21]:
+          - paragraph [ref=e22]: Modo Demonstração
+          - paragraph [ref=e23]: Usando localização simulada (Centro de São Paulo) com os serviços cadastrados no sistema
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - img [ref=e26]
+          - generic [ref=e29]: 7 serviços encontrados
+        - generic [ref=e30]:
+          - generic [ref=e31]: "Ordenar:"
+          - combobox "Ordenar:" [ref=e32] [cursor=pointer]:
+            - generic: Mais perto primeiro
+            - img [ref=e33]
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - img [ref=e38]
+          - generic [ref=e41]: Onde buscar serviços?
+        - generic [ref=e42]:
+          - button "Usar minha localização" [ref=e43] [cursor=pointer]:
+            - img
+            - generic [ref=e44]: Usar minha localização
+          - button "Usar endereço de cadastro" [ref=e45] [cursor=pointer]:
+            - img
+            - generic [ref=e46]: Usar endereço de cadastro
+          - button "Digitar CEP" [ref=e47] [cursor=pointer]:
+            - img
+            - generic [ref=e48]: Digitar CEP
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - img [ref=e52]
+          - generic [ref=e55]: "Raio de busca: 2km"
+        - slider [ref=e60]
+        - generic [ref=e61]:
+          - button "2km" [ref=e62] [cursor=pointer]
+          - button "1km" [ref=e63] [cursor=pointer]
+          - button "5km" [ref=e64] [cursor=pointer]
+          - button "10km" [ref=e65] [cursor=pointer]
+          - button "500m" [ref=e66] [cursor=pointer]
+      - button "Tipos de serviço" [ref=e67] [cursor=pointer]:
+        - img
+        - text: Tipos de serviço
+        - img
+      - generic [ref=e69]:
+        - img [ref=e70]
+        - generic [ref=e72]: "Avaliação mínima:"
+        - generic [ref=e73]:
+          - generic [ref=e74] [cursor=pointer]: Todas
+          - generic [ref=e75] [cursor=pointer]: 4+ estrelas
+          - generic [ref=e76] [cursor=pointer]: 3+ estrelas
+          - generic [ref=e77] [cursor=pointer]: 2+ estrelas
+      - generic [ref=e79]:
+        - img [ref=e80]
+        - generic [ref=e83]: "Horário:"
+        - generic [ref=e84] [cursor=pointer]: Com horário informado
+      - generic [ref=e85]:
+        - img [ref=e86]
+        - searchbox "Buscar por nome, endereço ou bairro" [ref=e89]
+      - generic [ref=e90]:
+        - tablist [ref=e91]:
+          - tab "Lista" [selected] [ref=e92] [cursor=pointer]:
+            - img [ref=e93]
+            - text: Lista
+          - tab "Mapa" [ref=e94] [cursor=pointer]:
+            - img [ref=e95]
+            - text: Mapa
+        - tabpanel "Lista" [ref=e97]:
+          - generic [ref=e98]:
+            - generic [ref=e101] [cursor=pointer]:
+              - img [ref=e103]
+              - generic [ref=e106]:
+                - generic [ref=e107]:
+                  - heading "AV. DA ACLIMAÇÃO , 120" [level=3] [ref=e108]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e109]: 2.0km (em linha reta)
+                - paragraph [ref=e110]: Outro
+                - generic [ref=e111]:
+                  - img [ref=e112]
+                  - generic [ref=e115]: UA URANO, São Paulo
+                - link "Como chegar" [ref=e116]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.568159,-46.633387&travelmode=walking
+                  - img [ref=e117]
+                  - text: Como chegar
+                - generic [ref=e122]:
+                  - group "Avaliação por estrelas" [ref=e123]:
+                    - button "1 estrela" [disabled] [ref=e124]:
+                      - img [ref=e125]
+                    - button "2 estrelas" [disabled] [ref=e127]:
+                      - img [ref=e128]
+                    - button "3 estrelas" [disabled] [ref=e130]:
+                      - img [ref=e131]
+                    - button "4 estrelas" [disabled] [ref=e133]:
+                      - img [ref=e134]
+                    - button "5 estrelas" [disabled] [ref=e136]:
+                      - img [ref=e137]
+                  - generic [ref=e139]: (0)
+            - generic [ref=e142] [cursor=pointer]:
+              - img [ref=e144]
+              - generic [ref=e147]:
+                - generic [ref=e148]:
+                  - heading "calcada.160121" [level=3] [ref=e149]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e150]: 2.0km (em linha reta)
+                - paragraph [ref=e151]: Outro
+                - generic [ref=e152]:
+                  - img [ref=e153]
+                  - generic [ref=e156]: Localização no mapa · São Paulo
+                - link "Como chegar" [ref=e157]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.5682301,-46.6334605&travelmode=walking
+                  - img [ref=e158]
+                  - text: Como chegar
+                - generic [ref=e163]:
+                  - group "Avaliação por estrelas" [ref=e164]:
+                    - button "1 estrela" [disabled] [ref=e165]:
+                      - img [ref=e166]
+                    - button "2 estrelas" [disabled] [ref=e168]:
+                      - img [ref=e169]
+                    - button "3 estrelas" [disabled] [ref=e171]:
+                      - img [ref=e172]
+                    - button "4 estrelas" [disabled] [ref=e174]:
+                      - img [ref=e175]
+                    - button "5 estrelas" [disabled] [ref=e177]:
+                      - img [ref=e178]
+                  - generic [ref=e180]: (0)
+            - generic [ref=e183] [cursor=pointer]:
+              - img [ref=e185]
+              - generic [ref=e188]:
+                - generic [ref=e189]:
+                  - heading "hierarquia_pedestre.22" [level=3] [ref=e190]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e191]: 2.0km (em linha reta)
+                - paragraph [ref=e192]: Outro
+                - generic [ref=e193]:
+                  - img [ref=e194]
+                  - generic [ref=e197]: Localização no mapa · São Paulo
+                - link "Como chegar" [ref=e198]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.5681447,-46.6353628&travelmode=walking
+                  - img [ref=e199]
+                  - text: Como chegar
+                - generic [ref=e204]:
+                  - group "Avaliação por estrelas" [ref=e205]:
+                    - button "1 estrela" [disabled] [ref=e206]:
+                      - img [ref=e207]
+                    - button "2 estrelas" [disabled] [ref=e209]:
+                      - img [ref=e210]
+                    - button "3 estrelas" [disabled] [ref=e212]:
+                      - img [ref=e213]
+                    - button "4 estrelas" [disabled] [ref=e215]:
+                      - img [ref=e216]
+                    - button "5 estrelas" [disabled] [ref=e218]:
+                      - img [ref=e219]
+                  - generic [ref=e221]: (0)
+            - generic [ref=e224] [cursor=pointer]:
+              - img [ref=e226]
+              - generic [ref=e229]:
+                - generic [ref=e230]:
+                  - heading "calcada.157800" [level=3] [ref=e231]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e232]: 2.0km (em linha reta)
+                - paragraph [ref=e233]: Outro
+                - generic [ref=e234]:
+                  - img [ref=e235]
+                  - generic [ref=e238]: Localização no mapa · São Paulo
+                - link "Como chegar" [ref=e239]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.5682198,-46.6317401&travelmode=walking
+                  - img [ref=e240]
+                  - text: Como chegar
+                - generic [ref=e245]:
+                  - group "Avaliação por estrelas" [ref=e246]:
+                    - button "1 estrela" [disabled] [ref=e247]:
+                      - img [ref=e248]
+                    - button "2 estrelas" [disabled] [ref=e250]:
+                      - img [ref=e251]
+                    - button "3 estrelas" [disabled] [ref=e253]:
+                      - img [ref=e254]
+                    - button "4 estrelas" [disabled] [ref=e256]:
+                      - img [ref=e257]
+                    - button "5 estrelas" [disabled] [ref=e259]:
+                      - img [ref=e260]
+                  - generic [ref=e262]: (0)
+            - generic [ref=e265] [cursor=pointer]:
+              - img [ref=e267]
+              - generic [ref=e270]:
+                - generic [ref=e271]:
+                  - heading "calcada.164373" [level=3] [ref=e272]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e273]: 2.0km (em linha reta)
+                - paragraph [ref=e274]: Outro
+                - generic [ref=e275]:
+                  - img [ref=e276]
+                  - generic [ref=e279]: Localização no mapa · São Paulo
+                - link "Como chegar" [ref=e280]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.5683622,-46.6318136&travelmode=walking
+                  - img [ref=e281]
+                  - text: Como chegar
+                - generic [ref=e286]:
+                  - group "Avaliação por estrelas" [ref=e287]:
+                    - button "1 estrela" [disabled] [ref=e288]:
+                      - img [ref=e289]
+                    - button "2 estrelas" [disabled] [ref=e291]:
+                      - img [ref=e292]
+                    - button "3 estrelas" [disabled] [ref=e294]:
+                      - img [ref=e295]
+                    - button "4 estrelas" [disabled] [ref=e297]:
+                      - img [ref=e298]
+                    - button "5 estrelas" [disabled] [ref=e300]:
+                      - img [ref=e301]
+                  - generic [ref=e303]: (0)
+            - generic [ref=e306] [cursor=pointer]:
+              - img [ref=e308]
+              - generic [ref=e311]:
+                - generic [ref=e312]:
+                  - heading "calcada.163776" [level=3] [ref=e313]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e314]: 2.0km (em linha reta)
+                - paragraph [ref=e315]: Outro
+                - generic [ref=e316]:
+                  - img [ref=e317]
+                  - generic [ref=e320]: Localização no mapa · São Paulo
+                - link "Como chegar" [ref=e321]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.5684235,-46.6345782&travelmode=walking
+                  - img [ref=e322]
+                  - text: Como chegar
+                - generic [ref=e327]:
+                  - group "Avaliação por estrelas" [ref=e328]:
+                    - button "1 estrela" [disabled] [ref=e329]:
+                      - img [ref=e330]
+                    - button "2 estrelas" [disabled] [ref=e332]:
+                      - img [ref=e333]
+                    - button "3 estrelas" [disabled] [ref=e335]:
+                      - img [ref=e336]
+                    - button "4 estrelas" [disabled] [ref=e338]:
+                      - img [ref=e339]
+                    - button "5 estrelas" [disabled] [ref=e341]:
+                      - img [ref=e342]
+                  - generic [ref=e344]: (0)
+            - generic [ref=e347] [cursor=pointer]:
+              - img [ref=e349]
+              - generic [ref=e353]:
+                - generic [ref=e354]:
+                  - heading "Aclimacao" [level=3] [ref=e355]
+                  - generic "Distância em linha reta. A rota no mapa pode ser maior." [ref=e356]: 2.0km (em linha reta)
+                - paragraph [ref=e357]: Feira
+                - generic [ref=e358]:
+                  - img [ref=e359]
+                  - generic [ref=e362]: RUA LOUREIRO DA CRUZ C/ URANO,1, São Paulo - São Paulo, SP, São Paulo
+                - generic [ref=e363]:
+                  - img [ref=e364]
+                  - generic [ref=e366]: SEM TIPO
+                - link "Como chegar" [ref=e367]:
+                  - /url: https://www.google.com/maps/dir/?api=1&origin=-23.5505,-46.6333&destination=-23.5683853,-46.6352099&travelmode=walking
+                  - img [ref=e368]
+                  - text: Como chegar
+                - generic [ref=e373]:
+                  - group "Avaliação por estrelas" [ref=e374]:
+                    - button "1 estrela" [disabled] [ref=e375]:
+                      - img [ref=e376]
+                    - button "2 estrelas" [disabled] [ref=e378]:
+                      - img [ref=e379]
+                    - button "3 estrelas" [disabled] [ref=e381]:
+                      - img [ref=e382]
+                    - button "4 estrelas" [disabled] [ref=e384]:
+                      - img [ref=e385]
+                    - button "5 estrelas" [disabled] [ref=e387]:
+                      - img [ref=e388]
+                  - generic [ref=e390]: (0)
+  - generic [ref=e391]:
+    - generic [ref=e392]:
+      - button "Fechar menu" [ref=e393] [cursor=pointer]:
+        - img [ref=e394]
+      - generic [ref=e397]:
+        - generic [ref=e399]: FD
+        - generic [ref=e400]:
+          - heading "Felipe de Melo Souza" [level=2] [ref=e401]
+          - paragraph [ref=e402]: Bom dia!
+    - generic [ref=e403]:
+      - generic [ref=e404]:
+        - heading "Minha Conta" [level=3] [ref=e405]
+        - button "Meu Perfil" [ref=e406] [cursor=pointer]:
+          - img [ref=e408]
+          - generic [ref=e411]: Meu Perfil
+        - button "Conversas" [ref=e412] [cursor=pointer]:
+          - img [ref=e414]
+          - generic [ref=e416]: Conversas
+        - button "Perto de Você" [ref=e417] [cursor=pointer]:
+          - img [ref=e419]
+          - generic [ref=e422]: Perto de Você
+        - button "Minhas inscrições em audiências" [ref=e423] [cursor=pointer]:
+          - img [ref=e425]
+          - generic [ref=e428]: Minhas inscrições em audiências
+      - generic [ref=e430]:
+        - heading "Navegação Institucional" [level=3] [ref=e431]
+        - button "Agenda da Câmara" [ref=e432] [cursor=pointer]:
+          - img [ref=e434]
+          - generic [ref=e436]: Agenda da Câmara
+        - button "Audiências Públicas" [ref=e437] [cursor=pointer]:
+          - img [ref=e439]
+          - generic [ref=e443]: Audiências Públicas
+        - button "Vereadores" [ref=e444] [cursor=pointer]:
+          - img [ref=e446]
+          - generic [ref=e451]: Vereadores
+        - button "Conheça a Câmara" [ref=e452] [cursor=pointer]:
+          - img [ref=e454]
+          - generic [ref=e458]: Conheça a Câmara
+        - button "Comissões" [ref=e459] [cursor=pointer]:
+          - img [ref=e461]
+          - generic [ref=e464]: Comissões
+        - button "Câmara Explica" [ref=e465] [cursor=pointer]:
+          - img [ref=e467]
+          - generic [ref=e469]: Câmara Explica
+        - button "Escola do Parlamento" [ref=e470] [cursor=pointer]:
+          - img [ref=e472]
+          - generic [ref=e475]: Escola do Parlamento
+        - button "Notícias" [ref=e476] [cursor=pointer]:
+          - img [ref=e478]
+          - generic [ref=e481]: Notícias
+    - generic [ref=e482]:
+      - button "Política de privacidade" [ref=e483] [cursor=pointer]:
+        - img [ref=e485]
+        - generic [ref=e487]: Política de privacidade
+      - button "Sair" [ref=e488] [cursor=pointer]:
+        - img [ref=e490]
+        - generic [ref=e493]: Sair
+```

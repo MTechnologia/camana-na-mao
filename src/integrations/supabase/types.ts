@@ -1660,6 +1660,7 @@ export type Database = {
           updated_at: string | null
           user_id: string
           visit_id: string
+          wait_time_score: number | null
         }
         Insert: {
           anonymized_at?: string | null
@@ -1675,6 +1676,7 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           visit_id: string
+          wait_time_score?: number | null
         }
         Update: {
           anonymized_at?: string | null
@@ -1690,6 +1692,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           visit_id?: string
+          wait_time_score?: number | null
         }
         Relationships: [
           {

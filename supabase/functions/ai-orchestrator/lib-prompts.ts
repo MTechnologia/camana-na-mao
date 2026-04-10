@@ -331,6 +331,9 @@ AVALIAÇÃO:
 - "[FIELD_REQUEST:rating_stars]Que nota você dá (1-5)?[RATING_PICKER]"
 - "[FIELD_REQUEST:rating_stars]Como você avalia (1-5)?[RATING_PICKER]"
 
+3bª Tempo de espera (pergunta separada após a nota; RN-IA-003 / RN-EVAL-001):
+- "[FIELD_REQUEST:wait_time]Quanto tempo você esperou para ser atendido?[WAIT_TIME_PICKER]"
+
 4ª Comentário: Use variações:
 - "[FIELD_REQUEST:rating_text]Como foi?"
 - "[FIELD_REQUEST:rating_text]Pode me contar como foi?"

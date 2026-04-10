@@ -183,8 +183,13 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'service_type', label: 'Tipo', required: true },
       { key: 'service_name', label: 'Serviço', required: true },
       { key: 'service_neighborhood', label: 'Bairro', required: false },
+<<<<<<< HEAD
+      { key: 'rating_stars', label: 'Nota', required: true },
+      { key: 'wait_time_score', label: 'Tempo de espera', required: true },
+=======
       { key: 'service_address_confirmed', label: 'Endereço confirmado', required: true },
       { key: 'rating_stars', label: 'Avaliação geral (1–5)', required: true },
+>>>>>>> main
       { key: 'rating_text', label: 'Comentário', required: true },
     ]
   }
@@ -235,8 +240,21 @@ const FieldIndicator = ({ label, isCollected, isRequired, isCurrent }: {
   </span>
 );
 
+/** wait_time_score pode ser null (Não se aplica) e ainda assim estar coletado. */
+const isCollectedField = (key: string, collectedFields: CollectedFields): boolean => {
+  if (key === 'wait_time_score') return 'wait_time_score' in collectedFields;
+  return !!collectedFields[key];
+};
+
 // Format field value for display
 const formatFieldValue = (key: string, value: unknown): string => {
+  if (key === 'wait_time_score' && value === null) {
+    return 'Não se aplica';
+  }
+  if (key === 'wait_time_score' && typeof value === 'number') {
+    return `Faixa → nota ${value}`;
+  }
+
   if (value === null || value === undefined) return '';
   
   if (VALUE_LABELS[key] && VALUE_LABELS[key][String(value)]) {
@@ -274,6 +292,9 @@ const formatFieldValue = (key: string, value: unknown): string => {
 
 // Get label for a field key
 const getFieldLabel = (key: string, fields: FieldConfig[]): string => {
+  if (key === 'wait_time') {
+    return fields.find(f => f.key === 'wait_time_score')?.label ?? 'Tempo de espera';
+  }
   const field = fields.find(f => f.key === key);
   return field?.label || key;
 };
@@ -326,6 +347,14 @@ const DataCollectionTracker = ({
   const requiredFields = config.fields.filter(f => f.required);
   const optionalFields = config.fields.filter(f => !f.required);
   const totalFields = config.fields.length;
+<<<<<<< HEAD
+  const collectedCount = config.fields.filter(f => isCollectedField(f.key, collectedFields)).length;
+  const missingRequiredCount = requiredFields.filter(f => !isCollectedField(f.key, collectedFields)).length;
+  const allRequiredCollected = missingRequiredCount === 0;
+  const progress = Math.round((collectedCount / totalFields) * 100);
+  const hasOptional = optionalFields.length > 0;
+  const collectedOptionalCount = optionalFields.filter(f => isCollectedField(f.key, collectedFields)).length;
+=======
   const collectedCount = config.fields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).length;
   const missingRequiredCount = requiredFields.filter((f) => !isTrackerFieldCollected(f.key, collectedFields)).length;
   const allRequiredCollected = missingRequiredCount === 0;
@@ -338,6 +367,7 @@ const DataCollectionTracker = ({
   const currentStep = totalRequiredCount > 0
     ? Math.min(completedRequiredCount + (allRequiredCollected ? 0 : 1), totalRequiredCount)
     : 0;
+>>>>>>> main
 
   const Icon = config.icon;
 
@@ -528,9 +558,13 @@ const DataCollectionTracker = ({
               <FieldIndicator
                 key={field.key}
                 label={field.label}
+<<<<<<< HEAD
+                isCollected={isCollectedField(field.key, collectedFields)}
+=======
                 isCollected={isTrackerFieldCollected(field.key, collectedFields)}
+>>>>>>> main
                 isRequired={true}
-                isCurrent={currentField === field.key}
+                isCurrent={currentField === field.key || (field.key === 'wait_time_score' && currentField === 'wait_time')}
               />
             ))}
           </div>
@@ -578,9 +612,13 @@ const DataCollectionTracker = ({
                   <FieldIndicator
                     key={field.key}
                     label={field.label}
+<<<<<<< HEAD
+                    isCollected={isCollectedField(field.key, collectedFields)}
+=======
                     isCollected={isTrackerFieldCollected(field.key, collectedFields)}
+>>>>>>> main
                     isRequired={false}
-                    isCurrent={currentField === field.key}
+                    isCurrent={currentField === field.key || (field.key === 'wait_time_score' && currentField === 'wait_time')}
                   />
                 ))}
               </div>
@@ -616,7 +654,11 @@ const DataCollectionTracker = ({
                     transition={{ duration: 0.15 }}
                     className="mt-2 bg-background/60 rounded-md p-2 border border-border/30 space-y-1"
                   >
+<<<<<<< HEAD
+                    {config.fields.filter(f => isCollectedField(f.key, collectedFields)).map(field => (
+=======
                     {config.fields.filter((f) => isTrackerFieldCollected(f.key, collectedFields)).map(field => (
+>>>>>>> main
                       <div key={field.key} className="flex items-start gap-2 text-xs">
                         <span className="text-muted-foreground shrink-0 min-w-[70px]">
                           {field.label}:

@@ -1332,6 +1332,36 @@ serve(async (req) => {
 
         // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
         if (fields.visit_id) {
+<<<<<<< HEAD
+          if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
+            return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+          if (!('wait_time_score' in fields))
+            return {
+              field: 'wait_time',
+              picker: '[WAIT_TIME_PICKER]',
+              prompt: '**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.'
+            };
+          if (!('atendimento_score' in fields))
+            return {
+              field: 'atendimento',
+              picker: '[DIMENSION_RATING_PICKER:atendimento]',
+              prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+            };
+          if (!('infraestrutura_score' in fields))
+            return {
+              field: 'infraestrutura',
+              picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+              prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
+            };
+          if (!fields._rating_text_skipped) {
+            if (fields.rating_text === undefined) {
+              return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+            }
+            if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
+              return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+            }
+          }
+=======
           const rs = fields.rating_stars;
           if (typeof rs !== 'number' || rs < 1 || rs > 5) {
             return {
@@ -1344,6 +1374,7 @@ serve(async (req) => {
           const textLen = (fields.rating_text || '').length;
           if (textLen < 5)
             return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
+>>>>>>> main
           return { field: null, picker: null, prompt: null };
         }
         
@@ -1466,6 +1497,30 @@ serve(async (req) => {
           };
         }
         
+<<<<<<< HEAD
+        // 4. Rating stars (REQUIRED 1-5)
+        if (!fields.rating_stars || fields.rating_stars < 1 || fields.rating_stars > 5)
+          return { field: 'rating_stars', picker: '[RATING_PICKER]', prompt: 'Qual **nota de 1 a 5** você dá para o atendimento?' };
+
+        if (!('wait_time_score' in fields))
+          return {
+            field: 'wait_time',
+            picker: '[WAIT_TIME_PICKER]',
+            prompt: '**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.'
+          };
+        if (!('atendimento_score' in fields))
+          return {
+            field: 'atendimento',
+            picker: '[DIMENSION_RATING_PICKER:atendimento]',
+            prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+          };
+        if (!('infraestrutura_score' in fields))
+          return {
+            field: 'infraestrutura',
+            picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+            prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
+          };
+=======
         // 4. Avaliação geral (1–5)
         const rsFree = fields.rating_stars;
         if (typeof rsFree !== 'number' || rsFree < 1 || rsFree > 5) {
@@ -1476,11 +1531,17 @@ serve(async (req) => {
               '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
           };
         }
+>>>>>>> main
         
-        // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
-        const textLen = (fields.rating_text || '').length;
-        if (textLen < 5)
-          return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
+        // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
+        if (!fields._rating_text_skipped) {
+          if (fields.rating_text === undefined) {
+            return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+          }
+          if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
+            return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+          }
+        }
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };
@@ -2491,6 +2552,14 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               rating_text: accumulatedFields.rating_text,
               sentiment: accumulatedFields.sentiment || 'neutral'
             };
+            if ('wait_time_score' in accumulatedFields)
+              toolArgs.wait_time_score = accumulatedFields.wait_time_score;
+            if ('atendimento_score' in accumulatedFields)
+              toolArgs.atendimento_score = accumulatedFields.atendimento_score;
+            if ('infraestrutura_score' in accumulatedFields) {
+              toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
+              toolArgs.limpeza_score = accumulatedFields.limpeza_score;
+            }
             if (accumulatedFields.visit_id) {
               toolArgs.visit_id = accumulatedFields.visit_id;
               if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;

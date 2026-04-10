@@ -33,6 +33,7 @@ import InlineRecurrenceFrequencyPicker from "./InlineRecurrenceFrequencyPicker";
 import InlineImpactPicker from "./InlineImpactPicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
+import { WaitTimePicker } from "./WaitTimePicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
@@ -125,6 +126,8 @@ interface ChatMessageBubbleProps {
   onRecurrenceFrequencySelected?: (frequency: string, displayText: string) => void;
   onImpactSelected?: (score: number, label: string) => void;
   onRatingSelected?: (stars: number) => void;
+  onWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
+  onDimensionRatingSelected?: (dimensionKey: string, stars: number) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
@@ -156,6 +159,8 @@ const ChatMessageBubble = ({
   onRecurrenceFrequencySelected,
   onImpactSelected,
   onRatingSelected,
+  onWaitTimeSelected,
+  onDimensionRatingSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
@@ -181,6 +186,8 @@ const ChatMessageBubble = ({
   const [recurrenceFrequencySelected, setRecurrenceFrequencySelected] = useState(false);
   const [impactSelected, setImpactSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
+  const [waitTimeSelected, setWaitTimeSelected] = useState(false);
+  const [dimensionRatingSelected, setDimensionRatingSelected] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
@@ -217,12 +224,25 @@ const ChatMessageBubble = ({
   const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
   const hasImpactPicker = !isUser && message.content.includes('[IMPACT_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
+  const hasWaitTimePicker = !isUser && message.content.includes('[WAIT_TIME_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
+<<<<<<< HEAD
+  // Detect dimension rating picker: [DIMENSION_RATING_PICKER:atendimento]
+  const dimensionRatingMatch = useMemo(() => {
+    if (isUser) return null;
+    const match = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
+    return match ? match[1] : null;
+  }, [isUser, message.content]);
+  const hasDimensionRatingPicker = dimensionRatingMatch !== null;
+
+  // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
+=======
   // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5".
+>>>>>>> main
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
@@ -488,6 +508,16 @@ const ChatMessageBubble = ({
       ((content.includes('que nota') || content.includes('de 1 a 5')) && isLastAssistantMessage)
     );
   }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
+
+  const isAskingForWaitTime = useMemo(() => {
+    if (isUser || waitTimeSelected || hasWaitTimePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:wait_time]') ||
+      ((content.includes('tempo você esperou') || content.includes('quanto tempo você esperou')) &&
+        isLastAssistantMessage)
+    );
+  }, [isUser, message.content, waitTimeSelected, hasWaitTimePicker, isLastAssistantMessage]);
   
   // Detect service type question
   const isAskingForServiceType = useMemo(() => {
@@ -764,6 +794,21 @@ const ChatMessageBubble = ({
     }
   };
 
+<<<<<<< HEAD
+  const handleWaitTimeSelected = (displayLabel: string, score: number | null) => {
+    setWaitTimeSelected(true);
+    onWaitTimeSelected?.(displayLabel, score);
+  };
+
+  const handleDimensionRatingSelected = (stars: number) => {
+    setDimensionRatingSelected(true);
+    if (dimensionRatingMatch && onDimensionRatingSelected) {
+      onDimensionRatingSelected(dimensionRatingMatch, stars);
+    }
+  };
+  
+=======
+>>>>>>> main
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
     setLocationMethodSelected(true);
     if (onLocationMethodSelected) {
@@ -1224,6 +1269,24 @@ const ChatMessageBubble = ({
         {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
+
+        {(hasWaitTimePicker || isAskingForWaitTime) &&
+          !waitTimeSelected &&
+          isLastAssistantMessage &&
+          onWaitTimeSelected && (
+            <WaitTimePicker onSelect={handleWaitTimeSelected} />
+          )}
+
+        {/* Dimension Rating Picker (atendimento, infraestrutura, etc.) */}
+        {hasDimensionRatingPicker &&
+          !dimensionRatingSelected &&
+          isLastAssistantMessage &&
+          onDimensionRatingSelected && (
+            <InlineRatingPicker
+              dimensionKey={dimensionRatingMatch!}
+              onSelect={handleDimensionRatingSelected}
+            />
+          )}
         
         {/* Inline Service Type Picker */}
         {(hasServiceTypePicker || isAskingForServiceType) && !serviceTypeSelected && isLastAssistantMessage && (

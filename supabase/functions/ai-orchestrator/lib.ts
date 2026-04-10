@@ -3971,6 +3971,37 @@ export function accumulateFieldsFromHistory(
         }
       }
       
+<<<<<<< HEAD
+      const waitTimeMarker = content.match(/\[WAIT_TIME:(\d+|null)\]/i);
+      if (waitTimeMarker) {
+        const rawWt = waitTimeMarker[1].toLowerCase();
+        const parsedWt = rawWt === 'null' ? null : parseInt(waitTimeMarker[1], 10);
+        if (parsedWt === null || (parsedWt >= 2 && parsedWt <= 5)) {
+          accumulated.wait_time_score = parsedWt;
+          console.log('[accumulateFields] Parsed wait_time_score from marker:', accumulated.wait_time_score);
+        }
+      }
+
+      // Parse dimension rating markers: [DIM_RATING:atendimento:4]
+      const dimRatingMarker = content.match(/\[DIM_RATING:(\w+):(\d)\]/i);
+      if (dimRatingMarker) {
+        const dimKey = dimRatingMarker[1].toLowerCase();
+        const dimScore = parseInt(dimRatingMarker[2], 10);
+        if (dimScore >= 1 && dimScore <= 5) {
+          const fieldKey = `${dimKey}_score`;
+          accumulated[fieldKey] = dimScore;
+          console.log(`[accumulateFields] Parsed ${fieldKey} from DIM_RATING marker:`, dimScore);
+
+          // === RN-IA-003: Replicar infraestrutura para limpeza ===
+          if (dimKey === 'infraestrutura') {
+            accumulated['limpeza_score'] = dimScore;
+            console.log('[accumulateFields] Replicating infraestrutura_score to limpeza_score');
+          }
+        }
+      }
+
+      // Parse "Nota: X estrelas" format from InlineRatingPicker
+=======
       const rdParsed = parseRatingDimensionsMarker(content);
       if (rdParsed) {
         accumulated.rating_dimensions = rdParsed;
@@ -3984,6 +4015,7 @@ export function accumulateFieldsFromHistory(
         accumulated.rating_stars = parseInt(ratingSelectedTag[1], 10);
         console.log('[accumulateFields] Parsed rating_stars from RATING_SELECTED marker');
       }
+>>>>>>> main
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
       if (ratingMatch && !accumulated.rating_stars && !accumulated.rating_dimensions) {
         accumulated.rating_stars = parseInt(ratingMatch[1]);
@@ -4083,8 +4115,41 @@ export function accumulateFieldsFromHistory(
               }
               break;
             }
+            case 'wait_time': {
+              const waitMarker = answer.match(/\[WAIT_TIME:(\d+|null)\]/i);
+              if (waitMarker) {
+                const rawW = waitMarker[1].toLowerCase();
+                const v = rawW === 'null' ? null : parseInt(waitMarker[1], 10);
+                if (v === null || (v >= 2 && v <= 5)) {
+                  accumulated.wait_time_score = v;
+                  console.log('[accumulateFields] FIELD_REQUEST wait_time → wait_time_score:', v);
+                }
+              }
+
+              // Parse dimension ratings from FIELD_REQUEST (atendimento, infraestrutura)
+              const dimFieldMatch = answer.match(/\[DIM_RATING:(\w+):(\d)\]/i);
+              if (dimFieldMatch) {
+                const dKey = dimFieldMatch[1].toLowerCase();
+                const dScore = parseInt(dimFieldMatch[2], 10);
+                if (dScore >= 1 && dScore <= 5) {
+                  accumulated[`${dKey}_score`] = dScore;
+                  if (dKey === 'infraestrutura') {
+                    accumulated['limpeza_score'] = dScore;
+                  }
+                  console.log(`[accumulateFields] FIELD_REQUEST ${fieldType} → ${dKey}_score:`, dScore);
+                }
+              }
+              break;
+            }
             case 'rating_text': {
-              if (answer.length >= 5) {
+              const lowerAns = answer.toLowerCase().trim();
+              if (/^(pular|n[aã]o|pr[oó]ximo|nenhuma|nada)$/i.test(lowerAns)) {
+                accumulated.rating_text = null;
+                accumulated._rating_text_skipped = true;
+                console.log('[accumulateFields] FIELD_REQUEST: rating_text skipped by user');
+              } else if (answer.length >= 5) {
+                accumulated.rating_text = answer;
+              } else {
                 accumulated.rating_text = answer;
               }
               break;
@@ -8540,6 +8605,16 @@ export async function executeTool(
           return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
         }
         
+<<<<<<< HEAD
+        const argsRec = args as Record<string, unknown>;
+        let waitTimeStored: number | null | undefined;
+        if (argsRec.wait_time_score !== undefined) {
+          waitTimeStored = argsRec.wait_time_score as number | null;
+        } else if (accumulatedFields && 'wait_time_score' in accumulatedFields) {
+          waitTimeStored = accumulatedFields.wait_time_score as number | null;
+        } else {
+          waitTimeStored = undefined;
+=======
         const trimmedComment = args.rating_text.trim();
         const { data: modStatus, error: modRpcError } = await supabase.rpc(
           'compute_service_rating_publication_status',
@@ -8558,6 +8633,7 @@ export async function executeTool(
             message:
               '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Remova links (http/https), evite palavrões ou insultos graves e tente de novo com um texto respeitoso sobre o atendimento.',
           };
+>>>>>>> main
         }
 
         console.log('[create_service_rating] Attempting to insert rating:', {
@@ -8565,25 +8641,54 @@ export async function executeTool(
           serviceId,
           visitId,
           rating_stars: stars,
+<<<<<<< HEAD
+          wait_time_score: waitTimeStored
+        });
+
+        const insertPayload: Record<string, unknown> = {
+=======
           moderation_preview: preModeration,
         });
 
         const insertRow: Record<string, unknown> = {
+>>>>>>> main
           user_id: userId,
           service_id: serviceId,
           visit_id: visitId,
           rating_stars: stars,
+<<<<<<< HEAD
+          rating_text: args.rating_text.trim(),
+          sentiment: args.sentiment || 'neutral'
+        };
+        if (waitTimeStored !== undefined) insertPayload.wait_time_score = waitTimeStored;
+
+        // Save structured dimensions in JSONB (OS-06 Task 3)
+        const dimensions: Record<string, number> = {};
+        if (args.atendimento_score) dimensions.atendimento = Number(args.atendimento_score);
+        if (args.infraestrutura_score) {
+          dimensions.infraestrutura = Number(args.infraestrutura_score);
+          dimensions.limpeza = Number(args.infraestrutura_score); // Replicate (Task 3)
+        }
+        if (Object.keys(dimensions).length > 0) {
+          insertPayload.dimensions = dimensions;
+=======
           rating_text: trimmedComment,
           sentiment: args.sentiment || 'neutral',
         };
         if (ratingDimensionsJson) {
           insertRow.rating_dimensions = ratingDimensionsJson;
+>>>>>>> main
         }
 
         const { data, error } = await supabase
           .from('service_ratings')
+<<<<<<< HEAD
+          .insert(insertPayload)
+          .select('id')
+=======
           .insert(insertRow)
           .select('id, publication_status')
+>>>>>>> main
           .single();
 
         if (error) {
@@ -8623,6 +8728,19 @@ export async function executeTool(
           publication_status: publicationStatus,
         });
 
+<<<<<<< HEAD
+        const waitLine =
+          waitTimeStored === undefined
+            ? ''
+            : waitTimeStored === null
+              ? '\n⏱ **Tempo de espera:** Não se aplica'
+              : `\n⏱ **Tempo de espera (faixa):** nota ${waitTimeStored}`;
+        
+        return { 
+          success: true, 
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${waitLine}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          data: { id: data.id, type: 'rating' }
+=======
         const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
         const moderationNote =
           publicationStatus === 'pending_review'
@@ -8636,6 +8754,7 @@ export async function executeTool(
           success: true,
           message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
+>>>>>>> main
         };
       }
       

@@ -24,6 +24,10 @@ import Home from "./pages/Home";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
+import TestDimensionRating from "./pages/TestDimensionRating";
+import TestWaitTimePicker from "./pages/TestWaitTimePicker";
+import TestInfraRating from "./pages/TestInfraRating";
+import TestTask4 from "./pages/TestTask4";
 
 // ============================================
 // AUTH PAGES - Lazy loaded (used before main app)
@@ -225,6 +229,16 @@ const AppContent = () => {
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
 
+<<<<<<< HEAD
+          {/* Debug */}
+          <Route path="/debug/rbac" element={<DebugRBAC />} />
+          <Route path="/test-dimension-rating" element={<TestDimensionRating />} />
+          <Route path="/test-wait-time" element={<TestWaitTimePicker />} />
+          <Route path="/test-infra-rating" element={<TestInfraRating />} />
+          <Route path="/test-task-4" element={<TestTask4 />} />
+          
+          {/* Catch-all */}
+=======
           {/* Rotas protegidas - redirecionam para /welcome se não logado */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
@@ -313,6 +327,7 @@ const AppContent = () => {
           </Route>
 
           {/* Catch-all - 404 (sem proteção para exibir página de não encontrado) */}
+>>>>>>> main
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>

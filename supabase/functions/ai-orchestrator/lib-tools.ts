@@ -238,6 +238,15 @@ export const tools = [
           service_name: { type: "string", description: "Nome do serviço. Obrigatório APENAS quando visit_id NÃO for informado." },
           service_neighborhood: { type: "string", description: "Bairro (ajuda a localizar quando sem visit_id)" },
           service_address_confirmed: { type: "boolean", description: "Confirmação do endereço. Obrigatório APENAS quando visit_id NÃO for informado." },
+<<<<<<< HEAD
+          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO: Nota 1-5 estrelas. NUNCA usar 0!" },
+          wait_time_score: {
+            type: "integer",
+            minimum: 2,
+            maximum: 5,
+            description: "Opcional: nota da faixa de tempo de espera (RN-EVAL-001: só 2–5). N/A (null) vem dos campos acumulados na conversa, não precisa repetir aqui."
+          },
+=======
           rating_dimensions: {
             type: "object",
             description: "Opcional (legado): notas 1-5 por dimensão; preferir rating_stars",
@@ -249,6 +258,7 @@ export const tools = [
             },
           },
           rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Avaliação geral 1-5 (obrigatória se não houver rating_dimensions completas)" },
+>>>>>>> main
           rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
             type: "string",
