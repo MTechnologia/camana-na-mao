@@ -76,6 +76,7 @@ export function ConversationalEvaluation({
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,
+    handleMultiDimensionRatingComplete,
     handleServiceSelected,
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
@@ -194,6 +195,7 @@ export function ConversationalEvaluation({
                 onRatingSelected={handleRatingSelected}
                 onWaitTimeSelected={handleWaitTimeSelected}
                 onDimensionRatingSelected={handleDimensionRatingSelected}
+                onMultiDimensionRatingComplete={handleMultiDimensionRatingComplete}
                 onServiceSelected={handleServiceSelected}
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}

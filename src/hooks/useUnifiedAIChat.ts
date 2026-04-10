@@ -1,13 +1,17 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase, supabaseAnonKey } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 import {
   aggregateServiceRatingStars,
+  buildServiceRatingDimensionsUserMessage,
   isCompleteServiceRatingDimensions,
   parseRatingDimensionsFromMessage,
+  SERVICE_RATING_DIMENSION_KEYS,
+  type ServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
@@ -130,6 +134,28 @@ interface Message {
   source?: string;
   /** URLs de fotos anexadas (apenas mensagens do usuário no fluxo de relato urbano) */
   attachmentUrls?: string[];
+}
+
+function messageFromSavedRow(msg: Record<string, unknown>): Message {
+  const role: Message["role"] =
+    msg.role === "assistant" || msg.role === "user" ? msg.role : "user";
+  const id = typeof msg.id === "string" && msg.id.trim() ? msg.id : crypto.randomUUID();
+  const content = typeof msg.content === "string" ? msg.content : "";
+  const timestamp = typeof msg.timestamp === "string" ? msg.timestamp : "";
+  const source = typeof msg.source === "string" ? msg.source : undefined;
+  const rawUrls = msg.attachmentUrls;
+  const attachmentUrls =
+    Array.isArray(rawUrls) && rawUrls.every((u) => typeof u === "string")
+      ? (rawUrls as string[])
+      : undefined;
+  return {
+    id,
+    role,
+    content,
+    timestamp,
+    ...(source !== undefined ? { source } : {}),
+    ...(attachmentUrls !== undefined ? { attachmentUrls } : {}),
+  };
 }
 
 interface CreatedReport {
@@ -296,18 +322,17 @@ export const useUnifiedAIChat = (
         } else {
           // CRITICAL FIX: Preserve RAW content (with markers) for backend correlation
           // Sanitization happens ONLY in ChatMessageBubble for display
-          const messagesWithTimestamp = savedMessages.map(msg => ({
-            ...msg,
-            content: msg.content || '', // Keep raw content WITH markers
-            timestamp: msg.timestamp || ''
-          }));
-          
+          const messagesWithTimestamp: Message[] = savedMessages.map((row) =>
+            messageFromSavedRow(row),
+          );
+
           // Replace state with the loaded conversation messages (no cross-conversation merging).
           setMessages(messagesWithTimestamp);
           
           // Check for report markers in history AND reconstruct tracker state
           for (const msg of savedMessages) {
-            const urbanMatch = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
+            const text = typeof msg.content === "string" ? msg.content : "";
+            const urbanMatch = text.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch) {
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
               
@@ -318,32 +343,32 @@ export const useUnifiedAIChat = (
               const reconstructedFields: CollectedFields = {};
               
               // Parse category
-              const catMatch = msg.content?.match(/Categoria:[*]?[*]?\s*([^\n•*]+)/i);
+              const catMatch = text.match(/Categoria:[*]?[*]?\s*([^\n•*]+)/i);
               if (catMatch) {
                 reconstructedFields.category = catMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
               }
               
               // Parse description (from previous user message or summary)
-              const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
+              const descMatch = text.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
               if (descMatch) {
                 reconstructedFields.description = descMatch[1].trim();
               }
               
               // Parse address fields
-              const ruaMatch = msg.content?.match(/Rua:[*]?[*]?\s*([^\n•*]+)/i);
+              const ruaMatch = text.match(/Rua:[*]?[*]?\s*([^\n•*]+)/i);
               if (ruaMatch) reconstructedFields.street = ruaMatch[1].trim();
               
-              const bairroMatch = msg.content?.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
+              const bairroMatch = text.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
               if (bairroMatch) reconstructedFields.neighborhood = bairroMatch[1].trim();
               
-              const cepMatch = msg.content?.match(/CEP:[*]?[*]?\s*(\d{5}-?\d{3})/i);
+              const cepMatch = text.match(/CEP:[*]?[*]?\s*(\d{5}-?\d{3})/i);
               if (cepMatch) reconstructedFields.cep = cepMatch[1].replace('-', '');
               
-              const numMatch = msg.content?.match(/Número:[*]?[*]?\s*([^\n•*]+)/i);
+              const numMatch = text.match(/Número:[*]?[*]?\s*([^\n•*]+)/i);
               if (numMatch) reconstructedFields.street_number = numMatch[1].trim();
               
               // Parse risk fields
-              const riskMatch = msg.content?.match(/Nível de risco:[*]?[*]?\s*(\w+)/i);
+              const riskMatch = text.match(/Nível de risco:[*]?[*]?\s*(\w+)/i);
               if (riskMatch) {
                 const riskMap: Record<string, string> = {
                   'crítico': 'critical', 'critico': 'critical',
@@ -352,7 +377,7 @@ export const useUnifiedAIChat = (
                 reconstructedFields.risk_level = riskMap[riskMatch[1].toLowerCase()] || riskMatch[1];
               }
               
-              const scopeMatch = msg.content?.match(/Escopo[^:]*:[*]?[*]?\s*([^\n•*]+)/i);
+              const scopeMatch = text.match(/Escopo[^:]*:[*]?[*]?\s*([^\n•*]+)/i);
               if (scopeMatch) {
                 const scopeMap: Record<string, string> = {
                   'bairro todo': 'neighborhood', 'bairro': 'neighborhood',
@@ -367,7 +392,7 @@ export const useUnifiedAIChat = (
               setCollectedFields(reconstructedFields);
               break;
             }
-            const transportMatch = msg.content?.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
+            const transportMatch = text.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
               setCollectionType('transport_report');
@@ -376,24 +401,24 @@ export const useUnifiedAIChat = (
               const reconstructedFields: CollectedFields = {};
               
               // Parse report type
-              const tipoMatch = msg.content?.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
+              const tipoMatch = text.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
               if (tipoMatch) reconstructedFields.report_type = tipoMatch[1].trim();
               
               // Parse line
-              const linhaMatch = msg.content?.match(/Linha:[*]?[*]?\s*([^\n•*]+)/i);
+              const linhaMatch = text.match(/Linha:[*]?[*]?\s*([^\n•*]+)/i);
               if (linhaMatch) reconstructedFields.line_code = linhaMatch[1].trim();
               
               // Parse date/time
-              const dataMatch = msg.content?.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
+              const dataMatch = text.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
               if (dataMatch) reconstructedFields.occurrence_date = dataMatch[1].trim();
               
-              const horaMatch = msg.content?.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
+              const horaMatch = text.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
               if (horaMatch) reconstructedFields.occurrence_time = horaMatch[1].trim();
 
-              const directionMatch = msg.content?.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              const directionMatch = text.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
               if (directionMatch) reconstructedFields.direction = directionMatch[1].trim().toLowerCase();
 
-              const recurrenceMatch = msg.content?.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              const recurrenceMatch = text.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
               if (recurrenceMatch) {
                 const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
                 if (recurrenceRaw.includes('primeira vez')) reconstructedFields.recurrence_frequency = 'primeira_vez';
@@ -403,11 +428,11 @@ export const useUnifiedAIChat = (
               }
               
               // Parse description
-              const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
+              const descMatch = text.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
               if (descMatch) reconstructedFields.description = descMatch[1].trim();
               
               // Parse severity
-              const sevMatch = msg.content?.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
+              const sevMatch = text.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
               if (sevMatch) {
                 const sevMap: Record<string, string> = {
                   'alta': 'high', 'crítica': 'critical', 'critica': 'critical',
@@ -418,10 +443,10 @@ export const useUnifiedAIChat = (
               }
               
               // Parse location
-              const localMatch = msg.content?.match(/Local:[*]?[*]?\s*([^\n•*]+)/i);
+              const localMatch = text.match(/Local:[*]?[*]?\s*([^\n•*]+)/i);
               if (localMatch) reconstructedFields.location = localMatch[1].trim();
 
-              const transportPreview = parseTransportReportPreviewJson(msg.content || "");
+              const transportPreview = parseTransportReportPreviewJson(text);
               if (transportPreview?.personal_impact != null) {
                 reconstructedFields.personal_impact = transportPreview.personal_impact;
               }
@@ -430,7 +455,7 @@ export const useUnifiedAIChat = (
               setCollectedFields(reconstructedFields);
               break;
             }
-            const ratingMatch = msg.content?.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
+            const ratingMatch = text.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
               setCollectionType('service_rating');
@@ -439,7 +464,7 @@ export const useUnifiedAIChat = (
               const reconstructedFields: CollectedFields = {};
               
               // Parse service type
-              const tipoMatch = msg.content?.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
+              const tipoMatch = text.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
               if (tipoMatch) {
                 const typeMap: Record<string, string> = {
                   'ubs': 'ubs', 'posto de saúde': 'ubs', 'unidade básica': 'ubs',
@@ -452,19 +477,19 @@ export const useUnifiedAIChat = (
               }
               
               // Parse service name
-              const nomeMatch = msg.content?.match(/Serviço:[*]?[*]?\s*([^\n•*]+)/i);
+              const nomeMatch = text.match(/Serviço:[*]?[*]?\s*([^\n•*]+)/i);
               if (nomeMatch) reconstructedFields.service_name = nomeMatch[1].trim();
               
               // Parse neighborhood
-              const bairroMatch = msg.content?.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
+              const bairroMatch = text.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
               if (bairroMatch) reconstructedFields.service_neighborhood = bairroMatch[1].trim();
               
               // Parse rating (stars)
-              const notaMatch = msg.content?.match(/Nota:[*]?[*]?\s*(\d)/i);
+              const notaMatch = text.match(/Nota:[*]?[*]?\s*(\d)/i);
               if (notaMatch) reconstructedFields.rating_stars = parseInt(notaMatch[1]);
               
               // Parse comment
-              const comentarioMatch = msg.content?.match(/Comentário:[*]?[*]?\s*([^\n•*]+)/i);
+              const comentarioMatch = text.match(/Comentário:[*]?[*]?\s*([^\n•*]+)/i);
               if (comentarioMatch) reconstructedFields.rating_text = comentarioMatch[1].trim();
               
               console.log('[useUnifiedAIChat] Reconstructed rating tracker:', reconstructedFields);
@@ -1197,7 +1222,7 @@ export const useUnifiedAIChat = (
           await supabase
             .from('ai_conversations')
             .update({
-              messages: updatedMessages,
+              messages: updatedMessages as Json,
               last_message_at: new Date().toISOString(),
               title: currentConv.title || trimmedContent.slice(0, 50),
             })
@@ -1744,7 +1769,7 @@ export const useUnifiedAIChat = (
             await supabase
               .from('ai_conversations')
               .update({
-                messages: updatedMessages,
+                messages: updatedMessages as Json,
                 last_message_at: new Date().toISOString(),
               })
               .eq('id', conversationIdRef.current);
@@ -1841,7 +1866,8 @@ export const useUnifiedAIChat = (
     const fields = configs[collectionType];
     if (!fields) return [];
     
-    const category = collectedFields.category;
+    const category =
+      typeof collectedFields.category === "string" ? collectedFields.category : undefined;
     const missing: string[] = [];
     
     for (const field of fields) {
@@ -1865,7 +1891,10 @@ export const useUnifiedAIChat = (
       // Check conditional requirements (requiredWhen)
       if (!isRequired && field.requiredWhen) {
         const dependentValue = collectedFields[field.requiredWhen.field];
-        if (dependentValue && field.requiredWhen.values.includes(dependentValue)) {
+        if (
+          typeof dependentValue === "string" &&
+          field.requiredWhen.values.includes(dependentValue)
+        ) {
           isRequired = true;
         }
       }
@@ -1986,6 +2015,28 @@ export const useUnifiedAIChat = (
     sendMessage(`${dimLabel}: ${stars} estrelas [DIM_RATING:${dimensionKey}:${stars}]`);
   }, [sendMessage]);
 
+  /**
+   * `ChatMessageBubble` + `MultiDimensionRatingPicker` → uma mensagem com `[RATING_DIMENSIONS:{...}]`.
+   * O caminho de parsing no mesmo hook permanece em `sendMessage` (heurística `service_rating` +
+   * `parseRatingDimensionsFromMessage` quando a mensagem do usuário chega de volta).
+   */
+  const handleMultiDimensionRatingComplete = useCallback((dims: ServiceRatingDimensions) => {
+    const perDimFields = SERVICE_RATING_DIMENSION_KEYS.reduce(
+      (acc, k) => {
+        acc[`${k}_score`] = dims[k];
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+    setCollectedFields((prev) => ({
+      ...prev,
+      ...perDimFields,
+      rating_dimensions: dims,
+      rating_stars: aggregateServiceRatingStars(dims),
+    }));
+    sendMessage(buildServiceRatingDimensionsUserMessage(dims));
+  }, [sendMessage]);
+
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
   const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
     sendMessage(messageToSend);
@@ -2057,6 +2108,7 @@ export const useUnifiedAIChat = (
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,
+    handleMultiDimensionRatingComplete,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,

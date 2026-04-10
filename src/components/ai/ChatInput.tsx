@@ -4,8 +4,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 
 interface ChatInputProps {
-  /** Retorne `false` para manter o texto no campo (ex.: abrir revisão antes de enviar). */
-  onSendMessage: (message: string) => void | boolean;
+  /** Retorne `false` para manter o texto no campo (ex.: abrir revisão antes de enviar). Pode ser async. */
+  onSendMessage: (message: string) => void | boolean | Promise<void | boolean>;
   disabled?: boolean;
   placeholder?: string;
   onFocus?: () => void;
@@ -180,15 +180,17 @@ const ChatInput = ({
   const handleSend = () => {
     if (inputValue.trim() && !disabled) {
       const trimmed = inputValue.trim();
-      const keepDraft = onSendMessage(trimmed) === false;
-      if (!keepDraft) {
-        setInputValue("");
-        try {
-          sessionStorage.removeItem(draftStorageKey);
-        } catch {
-          // ignore
+      void Promise.resolve(onSendMessage(trimmed)).then((r) => {
+        const keepDraft = r === false;
+        if (!keepDraft) {
+          setInputValue("");
+          try {
+            sessionStorage.removeItem(draftStorageKey);
+          } catch {
+            // ignore
+          }
         }
-      }
+      });
     }
   };
 
