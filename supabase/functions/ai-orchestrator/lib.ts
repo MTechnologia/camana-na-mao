@@ -963,7 +963,23 @@ export function levenshteinDistance(a: string, b: string): number {
 const TRANSPORT_TYPE_KEYWORDS: Record<string, string[]> = {
   'atraso': ['atraso', 'atrasado', 'atrasou', 'demora', 'demorou', 'esperando', 'espera', 'nao passou', 'nunca chega'],
   'lotacao': ['lotado', 'lotacao', 'cheio', 'superlotado', 'apertado', 'sem espaco', 'nao coube'],
-  'seguranca': ['seguranca', 'assalto', 'roubo', 'assedio', 'perigo', 'medo', 'ameaca', 'briga', 'agressao'],
+  'seguranca': [
+    'seguranca',
+    'assalto',
+    'roubo',
+    'assedio',
+    'importunacao',
+    'importunação',
+    'importunou',
+    'importunar',
+    'insegura',
+    'inseguro',
+    'perigo',
+    'medo',
+    'ameaca',
+    'briga',
+    'agressao',
+  ],
   'limpeza': ['sujo', 'sujeira', 'limpeza', 'fedendo', 'fedor', 'nojento', 'imundo', 'lixo', 'vomito'],
   'acessibilidade': ['acessibilidade', 'cadeirante', 'elevador', 'rampa', 'deficiente', 'muleta', 'pcd', 'mobilidade'],
   'conducao': ['motorista', 'cobrador', 'rude', 'grosso', 'mal educado', 'nao parou', 'conducao', 'freada', 'perigoso'],
@@ -1159,8 +1175,10 @@ export function extractTransportFields(context: string): Record<string, unknown>
              context.includes('apertado') || context.includes('nao coube') || context.includes('não coube') ||
              context.includes('sem espaco') || context.includes('sem espaço') || context.includes('lotação')) {
     fields.report_type = 'lotacao';
-  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') || 
+  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') ||
              context.includes('roubo') || context.includes('assedio') || context.includes('assédio') ||
+             context.includes('importun') ||
+             context.includes('insegur') ||
              context.includes('perigo') || context.includes('medo') || context.includes('ameaca') || context.includes('ameaça') ||
              context.includes('briga') || context.includes('agressao') || context.includes('agressão')) {
     fields.report_type = 'seguranca';
@@ -7892,7 +7910,7 @@ export async function executeTool(
           const desc = description.toLowerCase();
           
           // SEGURANÇA (prioridade - termos graves)
-          if (/ass[ée]dio|encox|importunação|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest/i.test(desc)) {
+          if (/ass[ée]dio|encox|importun|importuna[cç][aã]o|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest|insegur/i.test(desc)) {
             return 'seguranca';
           }
           
