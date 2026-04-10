@@ -13,6 +13,7 @@ function transportPreviewJsonMarker(fields: Record<string, unknown>): string {
   const payload = {
     description: fields.description ?? null,
     report_type: fields.report_type ?? null,
+    sub_category: fields.sub_category ?? null,
     line_code: fields.line_code ?? null,
     occurrence_date: fields.occurrence_date ?? null,
     occurrence_time: fields.occurrence_time ?? null,
@@ -30,25 +31,18 @@ function transportPreviewJsonMarker(fields: Record<string, unknown>): string {
 }
 
 function transportImpactSummaryLine(pi: unknown): string {
-  const n = typeof pi === "number" ? pi : parseInt(String(pi ?? ""), 10);
+  const n =
+    typeof pi === "number" && Number.isFinite(pi)
+      ? pi
+      : parseInt(String(pi ?? "").trim(), 10);
   if (!Number.isFinite(n)) return "Não informado";
-  if (n >= 5) return "Alto (compromisso ou não embarque)";
-  if (n >= 4) return "Atraso > 30 min";
-  if (n >= 3) return "Atraso < 30 min";
+  if (n >= 5) return "Alto (compromisso / não embarcou)";
+  if (n >= 4) return "Atraso relevante (>30 min)";
+  if (n >= 3) return "Atraso moderado (<30 min)";
   return "Desconforto";
 }
 
-/** Resumo final + marcador JSON + Confirmar/Corrigir (paridade com relato urbano, HU-5.6). */
-function buildTransportFinalPreviewMessage(
-  accumulatedFields: Record<string, unknown>,
-  extraPhotoLine: string,
-): string {
-  const recurrenceLabelMap: Record<string, string> = {
-    primeira_vez: "Primeira vez",
-    algumas_vezes_mes: "Algumas vezes/mês",
-    toda_semana: "Toda semana",
-    todos_os_dias: "Todos os dias",
-  };
+function transportTypeWithSubcategory(fields: Record<string, unknown>): string {
   const typeLabels: Record<string, string> = {
     atraso: "Atraso",
     lotacao: "Lotação",
@@ -58,9 +52,56 @@ function buildTransportFinalPreviewMessage(
     conducao: "Condução",
     outro: "Outro",
   };
+  const subLabels: Record<string, string> = {
+    nao_passou: "Não passou",
+    atraso_maior_30: "Veio com mais de 30 min de atraso",
+    atraso_menor_30: "Veio com menos de 30 min de atraso",
+    intervalo_irregular: "Intervalo irregular",
+    superlotado: "Veículo superlotado",
+    nao_conseguiu_embarcar: "Não consegui embarcar",
+    fila_excessiva: "Fila excessiva no ponto/estação",
+    ar_condicionado_inoperante: "Ar-condicionado inoperante",
+    assedio: "Assédio/Importunação",
+    furto_roubo: "Furto/Roubo",
+    agressao_ameaca: "Agressão/Ameaça",
+    briga_confusao: "Briga/Confusão",
+    elevador_escada: "Elevador/Escada rolante indisponível",
+    rampa_bloqueada: "Rampa bloqueada/inacessível",
+    veiculo_sem_acessibilidade: "Veículo sem acessibilidade",
+    falta_assistencia: "Falta de assistência para embarque",
+    veiculo_sujo: "Veículo sujo",
+    mau_cheiro: "Mau cheiro",
+    lixo_acumulado: "Lixo acumulado",
+    presenca_pragas: "Presença de pragas/insetos",
+    freada_brusca: "Freada brusca",
+    aceleracao_excessiva: "Aceleração excessiva",
+    motorista_imprudente: "Condução imprudente do motorista",
+    nao_parou_ponto: "Não parou no ponto",
+    outro: "Outro (descrever)",
+  };
+
+  const reportType = String(fields.report_type || "").trim().toLowerCase();
+  const subCategory = String(fields.sub_category || "").trim().toLowerCase();
+  const typeLabel = reportType ? typeLabels[reportType] || reportType : "Não informado";
+  if (!subCategory) return typeLabel;
+  const subLabel = subLabels[subCategory];
+  return subLabel ? `${typeLabel} — ${subLabel}` : typeLabel;
+}
+
+/** Resumo final + marcador JSON + Confirmar/Corrigir (paridade com relato urbano, HU-5.6). */
+function buildTransportFinalPreviewMessage(
+  accumulatedFields: Record<string, unknown>,
+  extraPhotoLine: string,
+  typeLine?: string,
+): string {
+  const recurrenceLabelMap: Record<string, string> = {
+    primeira_vez: "Primeira vez",
+    algumas_vezes_mes: "Algumas vezes/mês",
+    toda_semana: "Toda semana",
+    todos_os_dias: "Todos os dias",
+  };
   const desc = (accumulatedFields.description || "").toString();
-  const rt = String(accumulatedFields.report_type || "").trim();
-  const typeHuman = rt ? typeLabels[rt] || rt : "Não informado";
+  const typeHuman = typeLine || transportTypeWithSubcategory(accumulatedFields);
   const bullets = `**Resumo do relato de transporte**
 • **Problema:** ${desc.slice(0, 150)}${desc.length > 150 ? "..." : ""}
 • **Tipo:** ${typeHuman}
@@ -1200,28 +1241,36 @@ serve(async (req) => {
             );
           }
         }
+
+        // Sempre inferir report_type ANTES de pedir subcategoria (picker alinhado ao tipo real).
         if (!fields.report_type) {
-          // First try the new fuzzy inference
           const fuzzyInferredType = lib.inferTransportTypeFromText(description);
           if (fuzzyInferredType) {
             fields.report_type = fuzzyInferredType;
             fields._transport_classification_route = 'fuzzy_text';
             console.log('[getNextMissingField] Fuzzy-inferred transport report_type:', fields.report_type);
           } else {
-            // Fallback to extractTransportFields for exact matching
             const inferredFields = lib.extractTransportFields(description.toLowerCase());
             if (inferredFields.report_type) {
               fields.report_type = inferredFields.report_type;
               fields._transport_classification_route = 'keyword_extract';
               console.log('[getNextMissingField] Auto-inferred transport report_type:', fields.report_type);
             } else {
-              // FALLBACK: Can't infer - use 'outro' and continue (NEVER ASK, NEVER BLOCK)
               fields.report_type = 'outro';
               fields._fallback_report_type = true;
               fields._transport_classification_route = 'fallback_outro';
               console.log('[getNextMissingField] Fallback transport report_type to outro');
             }
           }
+        }
+
+        if (!fields.sub_category) {
+          const reportType = String(fields.report_type || "outro").toLowerCase();
+          return {
+            field: "sub_category",
+            picker: `[SUBCATEGORY_PICKER:${reportType}]`,
+            prompt: "Qual detalhe descreve melhor esse problema?",
+          };
         }
         
         // 3. Linha/estação — line_id do picker conta; hidratar line_code a partir do banco se faltar
@@ -2071,6 +2120,14 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
           } else if (collectionIntent.type === 'transport_report') {
+            if (!accumulatedFields.sub_category) {
+              const reportType = String(accumulatedFields.report_type || "outro").toLowerCase();
+              const askSubcategoryMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${reportType}]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askSubcategoryMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
             if (!accumulatedFields.occurrence_time) {
               const askTimeMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:occurrence_time]Qual foi o **horário exato** da ocorrência?[TIME_PICKER]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: askTimeMsg } }] });
@@ -2216,6 +2273,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 const previewBody = buildTransportFinalPreviewMessage(
                   accumulatedFields as Record<string, unknown>,
                   photoLine,
+                  lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
                 );
                 const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
                 const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2321,6 +2379,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const previewBody = buildTransportFinalPreviewMessage(
                 accumulatedFields as Record<string, unknown>,
                 "",
+                lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
               );
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2338,6 +2397,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const previewBody = buildTransportFinalPreviewMessage(
                 accumulatedFields as Record<string, unknown>,
                 photoLine,
+                lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
               );
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2368,6 +2428,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const toolArgs: Record<string, unknown> = {
                 description: accumulatedFields.description,
                 report_type: accumulatedFields.report_type,
+                sub_category: accumulatedFields.sub_category,
                 line_code: accumulatedFields.line_code,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
@@ -2392,6 +2453,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const previewBody = buildTransportFinalPreviewMessage(
                 accumulatedFields as Record<string, unknown>,
                 photoLine,
+                lib.formatTransportPreviewTypeLine(accumulatedFields as Record<string, unknown>),
               );
               const preview = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]${previewBody}`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
@@ -2404,6 +2466,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               const toolArgs: Record<string, unknown> = {
                 description: accumulatedFields.description,
                 report_type: accumulatedFields.report_type,
+                sub_category: accumulatedFields.sub_category,
                 line_code: accumulatedFields.line_code,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
@@ -3314,6 +3377,7 @@ ${empathyNote}
                 ...accumulatedFields,
                 description: toolArgs.description ?? accumulatedFields.description,
                 report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+                sub_category: toolArgs.sub_category ?? accumulatedFields.sub_category,
                 line_code: toolArgs.line_code ?? accumulatedFields.line_code,
                 occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
                 occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
@@ -3361,6 +3425,7 @@ ${empathyNote}
               const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
@@ -3399,6 +3464,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.active_consequences && { active_consequences: toolArgs.active_consequences }),
             // Transport fields
             ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+            ...(toolArgs.sub_category && { sub_category: toolArgs.sub_category }),
             ...(toolArgs.line_code && { line_code: toolArgs.line_code }),
             ...(toolArgs.occurrence_date && { occurrence_date: toolArgs.occurrence_date }),
             ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
@@ -3525,6 +3591,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...accumulatedFields,
             description: toolArgs.description ?? accumulatedFields.description,
             report_type: toolArgs.report_type ?? accumulatedFields.report_type,
+            sub_category: toolArgs.sub_category ?? accumulatedFields.sub_category,
             line_code: toolArgs.line_code ?? accumulatedFields.line_code,
             occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
             occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
@@ -3572,6 +3639,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
           const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
+• **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
@@ -3604,6 +3672,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
         ...(toolArgs.risk_types && { risk_types: toolArgs.risk_types }),
         ...(toolArgs.affected_scope && { affected_scope: toolArgs.affected_scope }),
         ...(toolArgs.report_type && { report_type: toolArgs.report_type }),
+        ...(toolArgs.sub_category && { sub_category: toolArgs.sub_category }),
         ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
         ...(toolArgs.direction && { direction: toolArgs.direction }),
         ...(toolArgs.service_type && { service_type: toolArgs.service_type }),

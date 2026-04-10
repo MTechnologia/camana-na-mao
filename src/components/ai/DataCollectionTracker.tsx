@@ -164,7 +164,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     icon: Bus,
     fields: [
       { key: 'report_type', label: 'Tipo', required: true },
-      { key: 'subcategory', label: 'Detalhe', required: false },
+      { key: 'sub_category', label: 'Detalhe', required: true },
       { key: 'description', label: 'Descrição', required: true },
       { key: 'occurrence_date', label: 'Data', required: true },
       { key: 'occurrence_time', label: 'Horário', required: true },

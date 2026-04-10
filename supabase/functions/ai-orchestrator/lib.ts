@@ -93,8 +93,10 @@ export function parseFlexibleOccurrenceTime(input: string): string | null {
     return `${hour}:${minute}`;
   }
 
-  const digits = compact.match(/\b([01]\d|2[0-3])([0-5]\d)\b/);
-  if (digits) return `${digits[1]}:${digits[2]}`;
+  if (/^([01]\d|2[0-3])([0-5]\d)$/.test(compact)) {
+    const digits = compact.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+    if (digits) return `${digits[1]}:${digits[2]}`;
+  }
 
   const hourOnly = compact.match(/\b([01]?\d|2[0-3])\b/);
   if (hourOnly && /\b(h|hora)\b/.test(normalized)) {
@@ -963,7 +965,23 @@ export function levenshteinDistance(a: string, b: string): number {
 const TRANSPORT_TYPE_KEYWORDS: Record<string, string[]> = {
   'atraso': ['atraso', 'atrasado', 'atrasou', 'demora', 'demorou', 'esperando', 'espera', 'nao passou', 'nunca chega'],
   'lotacao': ['lotado', 'lotacao', 'cheio', 'superlotado', 'apertado', 'sem espaco', 'nao coube'],
-  'seguranca': ['seguranca', 'assalto', 'roubo', 'assedio', 'perigo', 'medo', 'ameaca', 'briga', 'agressao'],
+  'seguranca': [
+    'seguranca',
+    'assalto',
+    'roubo',
+    'assedio',
+    'importunacao',
+    'importunação',
+    'importunou',
+    'importunar',
+    'insegura',
+    'inseguro',
+    'perigo',
+    'medo',
+    'ameaca',
+    'briga',
+    'agressao',
+  ],
   'limpeza': ['sujo', 'sujeira', 'limpeza', 'fedendo', 'fedor', 'nojento', 'imundo', 'lixo', 'vomito'],
   'acessibilidade': ['acessibilidade', 'cadeirante', 'elevador', 'rampa', 'deficiente', 'muleta', 'pcd', 'mobilidade'],
   'conducao': ['motorista', 'cobrador', 'rude', 'grosso', 'mal educado', 'nao parou', 'conducao', 'freada', 'perigoso'],
@@ -1159,8 +1177,10 @@ export function extractTransportFields(context: string): Record<string, unknown>
              context.includes('apertado') || context.includes('nao coube') || context.includes('não coube') ||
              context.includes('sem espaco') || context.includes('sem espaço') || context.includes('lotação')) {
     fields.report_type = 'lotacao';
-  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') || 
+  } else if (context.includes('seguranca') || context.includes('segurança') || context.includes('assalto') ||
              context.includes('roubo') || context.includes('assedio') || context.includes('assédio') ||
+             context.includes('importun') ||
+             context.includes('insegur') ||
              context.includes('perigo') || context.includes('medo') || context.includes('ameaca') || context.includes('ameaça') ||
              context.includes('briga') || context.includes('agressao') || context.includes('agressão')) {
     fields.report_type = 'seguranca';
@@ -2329,6 +2349,90 @@ export function getTransportTypeLabel(reportType: string): string {
   return labels[reportType] || 'Problema no Transporte';
 }
 
+export const TRANSPORT_SUBCATEGORIES: Record<string, Array<{ value: string; label: string }>> = {
+  atraso: [
+    { value: "nao_passou", label: "Não passou" },
+    { value: "atraso_maior_30", label: "Veio com mais de 30 min de atraso" },
+    { value: "atraso_menor_30", label: "Veio com menos de 30 min de atraso" },
+    { value: "intervalo_irregular", label: "Intervalo irregular" },
+  ],
+  lotacao: [
+    { value: "superlotado", label: "Veículo superlotado" },
+    { value: "nao_conseguiu_embarcar", label: "Não consegui embarcar" },
+    { value: "fila_excessiva", label: "Fila excessiva no ponto/estação" },
+    { value: "ar_condicionado_inoperante", label: "Ar-condicionado inoperante" },
+  ],
+  seguranca: [
+    { value: "assedio", label: "Assédio/Importunação" },
+    { value: "furto_roubo", label: "Furto/Roubo" },
+    { value: "agressao_ameaca", label: "Agressão/Ameaça" },
+    { value: "briga_confusao", label: "Briga/Confusão" },
+  ],
+  acessibilidade: [
+    { value: "elevador_escada", label: "Elevador/Escada rolante indisponível" },
+    { value: "rampa_bloqueada", label: "Rampa bloqueada/inacessível" },
+    { value: "veiculo_sem_acessibilidade", label: "Veículo sem acessibilidade" },
+    { value: "falta_assistencia", label: "Falta de assistência para embarque" },
+  ],
+  limpeza: [
+    { value: "veiculo_sujo", label: "Veículo sujo" },
+    { value: "mau_cheiro", label: "Mau cheiro" },
+    { value: "lixo_acumulado", label: "Lixo acumulado" },
+    { value: "presenca_pragas", label: "Presença de pragas/insetos" },
+  ],
+  conducao: [
+    { value: "freada_brusca", label: "Freada brusca" },
+    { value: "aceleracao_excessiva", label: "Aceleração excessiva" },
+    { value: "motorista_imprudente", label: "Condução imprudente do motorista" },
+    { value: "nao_parou_ponto", label: "Não parou no ponto" },
+  ],
+  outro: [{ value: "outro", label: "Outro (descrever)" }],
+};
+
+export function normalizeTransportSubcategory(raw: string): string {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export function isValidTransportSubcategory(reportType: string, subCategory: string): boolean {
+  const type = String(reportType || "").trim().toLowerCase();
+  const normalized = normalizeTransportSubcategory(subCategory);
+  const options = TRANSPORT_SUBCATEGORIES[type] || TRANSPORT_SUBCATEGORIES.outro;
+  return options.some((o) => normalizeTransportSubcategory(o.value) === normalized);
+}
+
+export function getTransportSubcategoryLabel(reportType: string, subCategory: string): string | null {
+  const type = String(reportType || "").trim().toLowerCase();
+  const normalized = normalizeTransportSubcategory(subCategory);
+  const options = TRANSPORT_SUBCATEGORIES[type] || TRANSPORT_SUBCATEGORIES.outro;
+  const found = options.find((o) => normalizeTransportSubcategory(o.value) === normalized);
+  return found?.label ?? null;
+}
+
+/** Linha única de resumo: tipo + detalhe (subcategoria), alinhado ao texto pós-registro. */
+export function formatTransportPreviewTypeLine(fields: Record<string, unknown>): string {
+  const shortType: Record<string, string> = {
+    atraso: "Atraso",
+    lotacao: "Lotação",
+    seguranca: "Segurança",
+    acessibilidade: "Acessibilidade",
+    limpeza: "Limpeza",
+    conducao: "Condução",
+    outro: "Outro",
+  };
+  const rt = String(fields.report_type || "").trim().toLowerCase();
+  const sub = String(fields.sub_category || "").trim();
+  const typeLabel = shortType[rt] || getTransportTypeLabel(rt);
+  if (!sub) return typeLabel;
+  const subLabel = getTransportSubcategoryLabel(rt, sub);
+  return subLabel ? `${typeLabel} — ${subLabel}` : typeLabel;
+}
+
 // ============= SEMANTIC LABEL TO CATEGORY MAPPING =============
 // Maps AI-generated labels or short descriptions to known categories
 export function mapLabelToCategory(label: string): string | null {
@@ -3003,6 +3107,41 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       break;
     }
 
+    case 'report_type': {
+      const reportTypeMap: Record<string, string> = {
+        atraso: "atraso",
+        lotacao: "lotacao",
+        lotação: "lotacao",
+        seguranca: "seguranca",
+        segurança: "seguranca",
+        acessibilidade: "acessibilidade",
+        limpeza: "limpeza",
+        conducao: "conducao",
+        condução: "conducao",
+        outro: "outro",
+      };
+      const normalized = normalizeTransportSubcategory(responseLower);
+      if (reportTypeMap[normalized]) {
+        result.report_type = reportTypeMap[normalized];
+      }
+      break;
+    }
+
+    case 'sub_category': {
+      const marker = response.match(/\[SUBCATEGORY_SELECTED:([a-z0-9_]+)\]/i);
+      const reportTypeMarker = response.match(/\[SUBCATEGORY_REPORT_TYPE:([a-z_]+)\]/i);
+      const reportTypeText = reportTypeMarker?.[1] || "";
+      const selectedRaw = marker?.[1] || responseLower;
+      const selected = normalizeTransportSubcategory(selectedRaw);
+      if (selected) {
+        result.sub_category = selected;
+      }
+      if (reportTypeText) {
+        result.report_type = normalizeTransportSubcategory(reportTypeText);
+      }
+      break;
+    }
+
     case 'personal_impact': {
       const labelM = response.match(/^Impacto:\s*(.+?)\s*\[IMPACT_SELECTED:/i);
       if (labelM) result.impact_description = labelM[1].trim();
@@ -3263,6 +3402,12 @@ export function accumulateFieldsFromHistory(
     }
     return '';
   };
+
+  /** Último [FIELD_REQUEST:x] na mensagem. JSON em COLLECTION_PROGRESS pode incluir essa substring no texto do cidadão. */
+  const getLastFieldRequestType = (text: string): string | null => {
+    const matches = [...text.matchAll(/\[FIELD_REQUEST:(\w+)\]/g)];
+    return matches.length ? (matches[matches.length - 1][1] ?? null) : null;
+  };
   
   // Check for fields already collected via [COLLECTION_PROGRESS] markers
   for (const msg of messages) {
@@ -3490,14 +3635,13 @@ export function accumulateFieldsFromHistory(
       }
       
       if (msg.role === 'assistant' && nextMsg?.role === 'user') {
-        const rawQuestion = msg.content;
+        const rawQuestion = getMsgText(msg);
         const question = normalizeTextForMatching(rawQuestion); // Use normalized text for matching
-        const answer = nextMsg.content.trim();
+        const answer = getMsgText(nextMsg).trim();
         
         // === Deterministic field capture via [FIELD_REQUEST:...] markers ===
-        const fieldRequestMatch = rawQuestion.match(/\[FIELD_REQUEST:(\w+)\]/);
-        if (fieldRequestMatch) {
-          const fieldType = fieldRequestMatch[1];
+        const fieldType = getLastFieldRequestType(rawQuestion);
+        if (fieldType) {
           const parsedFields = parseFieldResponse(fieldType, answer);
           
           // === CRITICAL: Handle category confirmation logic ===
@@ -3652,10 +3796,10 @@ export function accumulateFieldsFromHistory(
     if (messages[lastMsgIdx]?.role === 'user' && lastMsgIdx > 0) {
       const prevMsg = messages[lastMsgIdx - 1];
       if (prevMsg?.role === 'assistant') {
-        const fieldRequestMatch = prevMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
-        if (fieldRequestMatch) {
-          const fieldType = fieldRequestMatch[1];
-          const answer = messages[lastMsgIdx].content.trim();
+        const prevAssistantText = getMsgText(prevMsg);
+        const fieldType = getLastFieldRequestType(prevAssistantText);
+        if (fieldType) {
+          const answer = getMsgText(messages[lastMsgIdx]).trim();
           const parsedFields = parseFieldResponse(fieldType, answer);
           
           // === CRITICAL: Handle category confirmation logic for last message ===
@@ -3873,10 +4017,10 @@ export function accumulateFieldsFromHistory(
     if (messages[lastMsgIdx]?.role === 'user' && lastMsgIdx > 0) {
       const prevMsg = messages[lastMsgIdx - 1];
       if (prevMsg?.role === 'assistant') {
-        const fieldRequestMatch = prevMsg.content.match(/\[FIELD_REQUEST:(\w+)\]/);
-        if (fieldRequestMatch) {
-          const fieldType = fieldRequestMatch[1];
-          const answer = messages[lastMsgIdx].content.trim();
+        const prevAssistantTextSvc = getMsgText(prevMsg);
+        const fieldType = getLastFieldRequestType(prevAssistantTextSvc);
+        if (fieldType) {
+          const answer = getMsgText(messages[lastMsgIdx]).trim();
           
           // Service-specific field parsing
           switch (fieldType) {
@@ -4059,6 +4203,8 @@ export function accumulateFieldsFromHistory(
           const isStructured = 
             contentLower.includes('linha selecionada:') ||
             /\[LINE_SELECTED:/i.test(text) ||
+            /^subcategoria:/im.test(text) ||
+            /\[SUBCATEGORY_SELECTED:/i.test(text) ||
             contentLower.includes('data:') ||
             contentLower.includes('horário:') ||
             contentLower.includes('horario:');
@@ -4090,6 +4236,42 @@ export function accumulateFieldsFromHistory(
       if (msg.role !== 'user') continue;
       const content = getMsgText(msg);
       if (!content) continue;
+
+      // Subcategoria (picker de transporte): não depende de [FIELD_REQUEST:sub_category] na assistente
+      const subPickSel = content.match(/\[SUBCATEGORY_SELECTED:([a-z0-9_]+)\]/i);
+      if (subPickSel) {
+        accumulated.sub_category = normalizeTransportSubcategory(subPickSel[1]);
+        console.log('[accumulateFields] Parsed sub_category from SUBCATEGORY_SELECTED:', accumulated.sub_category);
+      }
+      const subPickRt = content.match(/\[SUBCATEGORY_REPORT_TYPE:([a-z_]+)\]/i);
+      if (subPickRt) {
+        accumulated.report_type = normalizeTransportSubcategory(subPickRt[1]);
+        console.log('[accumulateFields] Parsed report_type from SUBCATEGORY_REPORT_TYPE:', accumulated.report_type);
+      }
+      // Fallback: só rótulo "Subcategoria: …" (ex.: marcadores ausentes) — casa com labels do tipo atual
+      if (!subPickSel) {
+        const subLabelM = content.match(/^subcategoria:\s*(.+?)(?:\s*\[|$)/im);
+        if (subLabelM) {
+          const labelNorm = subLabelM[1]
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+          const rtype = String(accumulated.report_type || 'outro').toLowerCase();
+          const opts = TRANSPORT_SUBCATEGORIES[rtype] || TRANSPORT_SUBCATEGORIES.outro;
+          const found = opts.find((o) => {
+            const ln = o.label
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '');
+            return ln === labelNorm || labelNorm.includes(ln) || ln.includes(labelNorm);
+          });
+          if (found) {
+            accumulated.sub_category = normalizeTransportSubcategory(found.value);
+            console.log('[accumulateFields] Parsed sub_category from Subcategoria: label fallback:', found.value);
+          }
+        }
+      }
       
       // [LINE_SELECTED:uuid] — escolha na lista (HU-5.2); última mensagem com marcador prevalece
       const lineSelectedUuid = content.match(
@@ -4172,12 +4354,14 @@ export function accumulateFieldsFromHistory(
         console.log('[accumulateFields] Parsed occurrence_date from picker:', accumulated.occurrence_date, '(confirmed)');
       }
       
-      // Parse "Horário: XX:XX" format from InlineTimePicker
-      const timeMatch = content.match(/horário:\s*([^\n]+)/i);
-      if (timeMatch && !accumulated.occurrence_time) {
+      // Parse "Horário:/Horario:" (picker) — sobrescreve inferências anteriores (ex.: modelo/JSON com hora errada)
+      const timeMatch = content.match(/hor[aá]rio:\s*([^\n]+)/i);
+      if (timeMatch) {
         const parsed = parseFlexibleOccurrenceTime(timeMatch[1]);
-        if (parsed) accumulated.occurrence_time = parsed;
-        console.log('[accumulateFields] Parsed occurrence_time from picker:', accumulated.occurrence_time);
+        if (parsed) {
+          accumulated.occurrence_time = parsed;
+          console.log('[accumulateFields] Parsed occurrence_time from picker (override ok):', accumulated.occurrence_time);
+        }
       }
 
       // Parse "Sentido: Ida|Volta|Circular" from InlineDirectionPicker
@@ -7728,7 +7912,7 @@ export async function executeTool(
           const desc = description.toLowerCase();
           
           // SEGURANÇA (prioridade - termos graves)
-          if (/ass[ée]dio|encox|importunação|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest/i.test(desc)) {
+          if (/ass[ée]dio|encox|importun|importuna[cç][aã]o|abuso|agress|ameaç|roubo|furto|assalto|arma|facão|faca|briga|violên|estup|molest|insegur/i.test(desc)) {
             return 'seguranca';
           }
           
@@ -7779,6 +7963,8 @@ export async function executeTool(
         // 2. REPORT_TYPE (obrigatório, inferido da descrição, fallback para 'outro' com label)
         let validReportType = args.report_type;
         let subcategoryLabel = args.subcategory_label || null;
+        const rawSubCategory = args.sub_category ?? accumulatedFields?.sub_category;
+        let validSubCategory = rawSubCategory ? normalizeTransportSubcategory(String(rawSubCategory)) : "";
         
         if (!validReportType || validReportType === 'outro') {
           const inferred = inferReportTypeFromDesc(args.description);
@@ -7793,9 +7979,25 @@ export async function executeTool(
           }
         }
         
+        if (!validSubCategory) {
+          return {
+            success: false,
+            message: `[FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${String(validReportType).toLowerCase()}]`,
+          };
+        }
+        if (!isValidTransportSubcategory(String(validReportType), validSubCategory)) {
+          return {
+            success: false,
+            message: `[FIELD_REQUEST:sub_category]Escolha uma opção da lista para detalhar o problema.[SUBCATEGORY_PICKER:${String(validReportType).toLowerCase()}]`,
+          };
+        }
+        args.sub_category = validSubCategory;
+
         // Se ainda não tem subcategory_label, gerar um
         if (!subcategoryLabel && validReportType !== 'outro') {
-          subcategoryLabel = getTransportTypeLabel(validReportType);
+          subcategoryLabel =
+            getTransportSubcategoryLabel(String(validReportType), validSubCategory) ||
+            getTransportTypeLabel(validReportType);
         }
         
         // 3. LINHA (obrigatória): código OU line_id (UUID) com resolução em transport_lines
@@ -7971,6 +8173,7 @@ export async function executeTool(
             recurrence_frequency: args.recurrence_frequency || null,
             line_id: lineId,
             line_code_custom: args.line_code || null,
+            sub_category: validSubCategory,
             location: args.location || null,
             severity: inferredSeverity,
             personal_impact: personalImpactScore,
@@ -8053,9 +8256,9 @@ export async function executeTool(
           outro: 'Outro'
         };
         
-        // Use subcategoryLabel or fallback to type label
-        const displayLabel = subcategoryLabel || reportTypeLabels[validReportType] || validReportType;
         const typeLabel = reportTypeLabels[validReportType] || validReportType;
+        const subDetailLabel =
+          getTransportSubcategoryLabel(String(validReportType), validSubCategory) || subcategoryLabel || "";
         
         const severityLabels: Record<string, string> = {
           baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica'
@@ -8078,7 +8281,7 @@ export async function executeTool(
           data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : '',
           '**Resumo do seu relato:**',
           '',
-          `📋 **Tipo:** ${typeLabel}${subcategoryLabel ? ` - ${subcategoryLabel}` : ''}`,
+          `📋 **Tipo:** ${typeLabel}${subDetailLabel ? ` - ${subDetailLabel}` : ""}`,
           `🚌 **Linha:** ${args.line_code || 'Não informada'}`,
           `📅 **Data:** ${args.occurrence_date}`,
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
