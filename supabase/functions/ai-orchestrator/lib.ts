@@ -960,6 +960,20 @@ export const INTENT_KEYWORDS = [
   'falar sobre a cidade',
   'abrir um relato',
   'relato na cidade',
+  // Incidentes urbanos / segurança (primeira mensagem sem "quero relatar")
+  'incêndio',
+  'incendio',
+  'pegando fogo',
+  'em chamas',
+  'alagamento',
+  'alagando',
+  'enchente',
+  'chovendo',
+  'chuva forte',
+  'fios expostos',
+  'desabamento',
+  'desmoron',
+  'atropelamento',
   
   // === Verbos de ação explícitos ===
   'quero reclamar', 'preciso relatar', 'quero reportar', 'aconteceu',
@@ -1507,6 +1521,23 @@ export function isBareUrbanReportNatureReply(text: string): boolean {
   return normalizeReportNature(t) !== null;
 }
 
+/** Relato que descreve fato grave na cidade — atalho para entrar no fluxo urbano até "como informar o local". */
+const URBAN_INCIDENT_STARTER_PATTERNS: RegExp[] = [
+  /inc[eê]ndio|incendio|pegando\s*fogo|em\s*chamas|queimando/i,
+  /alagando|alagada|alagado|alagamento|rua\s+alag|enchente|inundando|inundada|inundado|inundou|água\s*subindo|agua\s*subindo|chovendo\s*(muito\s*)?(forte|pesad)|chuva\s*(muito\s*)?(forte|pesad)/i,
+  /fios?\s*expostos|cabos?\s*soltos|choque\s*el[eé]tric/i,
+  /explos[aã]o|transformador/i,
+  /desabamento|desmoron|risco\s*de\s*desab/i,
+  /acidente|atropelamento/i,
+  /armado|tirote|viol[eê]ncia|tr[aá]fico\s*de\s*droga|drogas?\s*na\s*rua/i,
+];
+
+export function messageLooksLikeUrbanIncidentStarter(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 8) return false;
+  return URBAN_INCIDENT_STARTER_PATTERNS.some((p) => p.test(t));
+}
+
 // State to track if category has been classified via AI for current conversation
 export const classifiedCategories = new Map<string, { category: string; confidence: number; user_confirmed: boolean }>();
 
@@ -1638,6 +1669,7 @@ export function autoClassifyCategory(description: string): {
   
   // Label mapping: more specific patterns → intuitive labels
   const labelPatterns: Array<{ pattern: RegExp; label: string }> = [
+    { pattern: /inc[eê]ndio|pegando\s*fogo|em\s*chamas|pr[eé]dio.*(fogo|chamas|inc[eê]ndio)/i, label: 'Incêndio / Fogo' },
     // Poluição: distinguir sonora × ambiental (ordem importa — sonora antes de fumaça/atmosfera)
     {
       pattern:
@@ -1734,6 +1766,12 @@ export function autoClassifyCategory(description: string): {
   }
   
   const patterns: Array<{ keywords: RegExp; category: string; weight: number }> = [
+    // === INCÊNDIO / FOGO (alta prioridade — categorias oficiais não têm "bombeiros"; fica em "outro" com rótulo claro) ===
+    {
+      keywords: /inc[eê]ndio|incendio|pegando\s*fogo|em\s*chamas|queimando|pr[eé]dio\s*(abandonad\w*\s*)?(em\s*)?(chamas|fogo|inc[eê]ndio)|fogo\s*(no|na|em)\s*pr[eé]dio/i,
+      category: 'outro',
+      weight: 9.5,
+    },
     // === ESGOTO / ALAGAMENTO (HIGHEST priority) ===
     { keywords: /vazamento|alagamento|alagad[oa]|água\s*na\s*rua|bueiro\s*(entupido|transbordando|aberto|tampa)|esgoto|córrego|valeta|enchente|inundad?[oa]?|transbord/i, category: 'esgoto', weight: 10 },
     
@@ -2170,6 +2208,10 @@ export function autoInferRisk(description: string): {
     // Structural
     { pattern: /desab|caindo|cedendo|rachando|tombou|caiu|desmoron/, weight: 0.9, type: 'structural', reason: 'risco estrutural' },
     { pattern: /afundando|cratera\s*grande/, weight: 0.85, type: 'structural', reason: 'afundamento' },
+    
+    // Fire / incêndio
+    { pattern: /inc[eê]ndio|pegando?\s*fogo|em\s*chamas|fuma[cç]a\s*(preta|densa)|explos[aã]o/, weight: 0.98, type: 'fire', reason: 'incêndio ou fogo ativo' },
+    { pattern: /pr[eé]dio\s*abandonado.*(fogo|chamas|inc[eê]ndio)|fogo.*pr[eé]dio/, weight: 1.0, type: 'fire', reason: 'incêndio em edificação' },
     
     // Emergency language
     { pattern: /emergência|urgente|urgência|gravíssimo|muito\s*grave|muito\s*perigoso/, weight: 0.9, reason: 'urgência declarada' },
@@ -2616,6 +2658,8 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         'completamente alagad', 'totalmente alagad', 'muito alagad',
         // Structural
         'desabando', 'caindo', 'desmoronando', 'desabou', 'caiu', 'tombou', 'rachando', 'cedendo',
+        // Fire / incêndio
+        'incêndio', 'incendio', 'fogo', 'chamas', 'pegando fogo', 'fumaça preta', 'fumaca preta', 'explosão', 'explosao',
         // Emergency/urgency
         'risco imediato', 'emergência', 'urgente', 'urgência', 'gravíssimo', 'muito grave', 'muito perigoso',
         // Injury/health immediate
@@ -2646,6 +2690,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
         if (rl.includes('alagad') || rl.includes('inundad') || rl.includes('água') || rl.includes('agua') || rl.includes('enchente')) riskTypes.push('flooding');
         if (rl.includes('caindo') || rl.includes('desab') || rl.includes('tomb') || rl.includes('rachando')) riskTypes.push('structural');
         if (rl.includes('tóxic') || rl.includes('toxic') || rl.includes('contamina') || rl.includes('cheiro') || rl.includes('fedor') || rl.includes('fumaça') || rl.includes('fumaca') || rl.includes('gás')) riskTypes.push('health');
+        if (rl.includes('incêndio') || rl.includes('incendio') || rl.includes('fogo') || rl.includes('chamas') || rl.includes('explosão') || rl.includes('explosao')) riskTypes.push('fire');
         if (riskTypes.length > 0) result.risk_types = riskTypes;
       } else if (moderateKeywords.some(k => rl.includes(k))) {
         result.risk_level = 'moderate';
@@ -2988,6 +3033,14 @@ export function accumulateFieldsFromHistory(
         cep: accumulated.cep,
         city: accumulated.city
       });
+      // "Rua X, 1477" antes do hífen do bairro → separar número (evita pedir de novo só o número)
+      if (accumulated.street && !accumulated.street_number) {
+        const sm = String(accumulated.street).match(/^(.+),\s*(\d+[A-Za-z]?)\s*$/);
+        if (sm) {
+          accumulated.street = sm[1].trim();
+          accumulated.street_number = sm[2].trim();
+        }
+      }
     }
   }
   
@@ -3260,9 +3313,11 @@ export function accumulateFieldsFromHistory(
         // === NEW: Heuristic parsing for impact fields (as fallback) ===
         // Risk level: reaplicar quando o cidadão corrige gravidade (já havia risk_level)
         const riskQuestionHeuristic =
+          /\[FIELD_REQUEST:risk_level\]/i.test(rawQuestion) ||
           /\[QUICK_REPLY:\s*critical\b/i.test(rawQuestion) ||
           /\bnova\s+gravidade\b/i.test(question) ||
           /\bqual\s+a\s+nova\s+gravidade\b/i.test(question) ||
+          /\bn[ií]vel\s+de\s+gravidade\b/i.test(question) ||
           (/\bgravidade\s+do\s+problema\b/i.test(question) &&
             /escolha|op(ç|c)[aã]o|risco\s+ou\s+impacto|uma\s+frase|descreva/i.test(question)) ||
           (/\bhá\s+algum\s+risco\b/i.test(question) || /\brisco\s+imediat/i.test(question));
@@ -4717,7 +4772,7 @@ export function detectCollectionIntent(
   }
   
   // Urban scoring - using USER-ONLY context to prevent assistant contamination
-  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem'];
+  const urbanDomain = ['buraco', 'poste', 'iluminação', 'iluminacao', 'lixo', 'entulho', 'calçada', 'calcada', 'esgoto', 'pavimentação', 'pavimentacao', 'recape', 'asfaltamento', 'sinalização', 'sinalizacao', 'semáforo', 'semaforo', 'placa', 'faixa de pedestre', 'drenagem', 'sarjeta', 'pluvial', 'água pluvial', 'agua pluvial', 'árvore', 'arvore', 'poda', 'fedor', 'fedido', 'bicho morto', 'animal morto', 'rato', 'bueiro', 'vazamento', 'sujeira', 'fedendo', 'cheiro', 'elogio', 'elogiar', 'sugestão', 'sugestao', 'parabéns', 'parabens', 'agradeço', 'agradeco', 'melhorar a cidade', 'funcionou bem', 'incêndio', 'incendio', 'fogo', 'chamas', 'queimando', 'alagamento', 'alagando', 'enchente', 'inundando', 'chovendo', 'chuva forte', 'fios expostos', 'explosão', 'explosao', 'transformador', 'desabamento', 'atropelamento', 'prédio abandonado', 'predio abandonado'];
   const urbanProblems = ['quebrado', 'apagado', 'acumulado', 'vazando', 'caindo', 'fedendo', 'fedido', 'entupido', 'entupida', 'entupidas', 'entupidos', 'alagado', 'alagando'];
   let urbanScore = 0;
   urbanDomain.forEach(kw => { if (fullUserContext.includes(kw)) urbanScore += 4; });
@@ -6850,7 +6905,7 @@ export async function executeTool(
             const label = categoryLabels[String(eff.category)] || eff.category;
             return {
               success: false,
-              message: `[FIELD_REQUEST:risk_level]Para registrar com **criticidade correta**, preciso saber: há **risco ou impacto imediato**? _(ex.: fios expostos, via bloqueada, alagamento, contaminação, foco de saúde pública)_\n\nResponda **sim** ou **não**, ou descreva em uma frase. _(Categoria: ${label})_`,
+              message: `[FIELD_REQUEST:risk_level]Para registrar com **criticidade correta**, qual o **nível de gravidade**? Toque em uma opção abaixo (ou descreva em uma frase). _(Categoria: ${label})_[QUICK_REPLY:critical,moderate,low,none]`,
             };
           }
           

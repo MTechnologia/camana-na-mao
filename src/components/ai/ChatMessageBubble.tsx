@@ -291,6 +291,46 @@ const ChatMessageBubble = ({
     });
     return [...filtered].sort((a, b) => (a.data || "").localeCompare(b.data || "")).slice(0, 5);
   }, [audienciasData, audienciaChatTema, audienciaChatRegiao, audienciaChatDateFrom, audienciaChatDateTo]);
+
+  /**
+   * Backend/LLM às vezes pergunta só "Qual o CEP do local?" antes do passo correto (GPS / cadastrado / digitar).
+   * Nesse caso mostramos o picker de método — não o autocomplete de endereço.
+   */
+  const treatCepQuestionAsUrbanLocationStep = useMemo(() => {
+    if (isUser || !isLastAssistantMessage || addressSelected || locationMethodSelected) return false;
+    const raw = message.content;
+    const content = raw.toLowerCase();
+    const asksCepLoose =
+      content.includes("cep do local") ||
+      /\bqual\s+o\s+cep\b/i.test(content) ||
+      /\bqual\s+é\s+o\s+cep\b/i.test(content);
+    if (!asksCepLoose) return false;
+    if (raw.includes("[FIELD_REQUEST:cep]") || raw.includes("[ADDRESS_PICKER]")) return false;
+    if (/\[\s*LOCATION_METHOD_PICKER\s*\]/i.test(raw) || raw.includes("[FIELD_REQUEST:location_method]")) {
+      return false;
+    }
+    const urbanProgress = /\[COLLECTION_PROGRESS:urban_report:/i.test(raw);
+    const urgentTone =
+      content.includes("perigoso") ||
+      content.includes("urgente") ||
+      content.includes("incêndio") ||
+      content.includes("incendio") ||
+      content.includes("fogo") ||
+      content.includes("queimando") ||
+      /registrar\s+urgent/i.test(content);
+    // Água / drenagem: a LLM costuma pular para CEP; mesmo fluxo que GPS/cadastrado/digitar
+    const waterOrDrainageUrban =
+      content.includes("drenagem") ||
+      content.includes("alag") ||
+      content.includes("enchent") ||
+      content.includes("inunda") ||
+      content.includes("chovendo") ||
+      content.includes("chuva forte") ||
+      content.includes("bueiro") ||
+      content.includes("água na rua") ||
+      content.includes("agua na rua");
+    return urbanProgress || urgentTone || waterOrDrainageUrban;
+  }, [isUser, isLastAssistantMessage, message.content, addressSelected, locationMethodSelected]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -300,6 +340,8 @@ const ChatMessageBubble = ({
     
     // Check for explicit field request marker
     if (message.content.includes('[FIELD_REQUEST:cep]')) return true;
+
+    if (treatCepQuestionAsUrbanLocationStep) return false;
     
     // Check for CEP question patterns
     const cepPatterns = [
@@ -326,7 +368,7 @@ const ChatMessageBubble = ({
     const isAddressQuestion = addressPatterns.some(p => content.includes(p));
     
     return (isCepQuestion || isAddressQuestion) && isLastAssistantMessage;
-  }, [isUser, message.content, addressSelected, isLastAssistantMessage]);
+  }, [isUser, message.content, addressSelected, isLastAssistantMessage, treatCepQuestionAsUrbanLocationStep]);
   
   // Detect line question without explicit marker
   const isAskingForLine = useMemo(() => {
@@ -393,6 +435,7 @@ const ChatMessageBubble = ({
   // Detect "como informar localização" so we show the 3 buttons even if backend didn't send the marker
   const isAskingForLocationMethod = useMemo(() => {
     if (isUser || locationMethodSelected || hasLocationMethodPicker) return false;
+    if (treatCepQuestionAsUrbanLocationStep) return true;
     const content = message.content.toLowerCase();
     return (
       (content.includes('como você quer informar sua localização') ||
@@ -405,7 +448,14 @@ const ChatMessageBubble = ({
         (content.includes('endereço cadastrado') && content.includes('digitar cep'))) &&
       isLastAssistantMessage
     );
-  }, [isUser, message.content, locationMethodSelected, hasLocationMethodPicker, isLastAssistantMessage]);
+  }, [
+    isUser,
+    message.content,
+    locationMethodSelected,
+    hasLocationMethodPicker,
+    isLastAssistantMessage,
+    treatCepQuestionAsUrbanLocationStep,
+  ]);
 
   // Clean content: remove ALL markers so they never show as text (LOCATION_METHOD_PICKER etc.)
   const cleanContent = useMemo(() => {
@@ -482,10 +532,10 @@ const ChatMessageBubble = ({
       afetacao: 'Afetação',
       cep: 'CEP',
       natureza: 'Natureza',
-      critical: 'Crítica',
-      moderate: 'Moderada',
-      low: 'Baixa',
-      none: 'Sem risco imediato',
+      critical: 'Crítico',
+      moderate: 'Moderado',
+      low: 'Baixo',
+      none: 'Nenhum',
       reclamacao: 'Reclamação',
       duvida: 'Dúvida',
       sugestao: 'Sugestão',
