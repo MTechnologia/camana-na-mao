@@ -36,6 +36,15 @@ Deno.test("create_service_rating: consulta encontra avaliação no mesmo dia →
   const serviceId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const userId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
+  const now = Date.now();
+  const visitRow = {
+    id: visitId,
+    service_id: serviceId,
+    created_at: new Date(now - 3600000).toISOString(),
+    expires_at: new Date(now + 7 * 24 * 3600000).toISOString(),
+    status: "pending",
+  };
+
   // deno-lint-ignore no-explicit-any
   const mockSupabase: any = {
     from(table: string) {
@@ -45,7 +54,7 @@ Deno.test("create_service_rating: consulta encontra avaliação no mesmo dia →
             eq: () => ({
               eq: () => ({
                 single: async () => ({
-                  data: { id: visitId, service_id: serviceId },
+                  data: visitRow,
                   error: null,
                 }),
               }),
@@ -98,6 +107,15 @@ Deno.test("create_service_rating: corrida no insert (23505) → mesma mensagem a
   const serviceId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
   const userId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
+  const now2 = Date.now();
+  const visitRow2 = {
+    id: visitId,
+    service_id: serviceId,
+    created_at: new Date(now2 - 3600000).toISOString(),
+    expires_at: new Date(now2 + 7 * 24 * 3600000).toISOString(),
+    status: "pending",
+  };
+
   // deno-lint-ignore no-explicit-any
   const mockSupabase: any = {
     from(table: string) {
@@ -107,7 +125,7 @@ Deno.test("create_service_rating: corrida no insert (23505) → mesma mensagem a
             eq: () => ({
               eq: () => ({
                 single: async () => ({
-                  data: { id: visitId, service_id: serviceId },
+                  data: visitRow2,
                   error: null,
                 }),
               }),
