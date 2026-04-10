@@ -3971,7 +3971,13 @@ export function accumulateFieldsFromHistory(
         }
       }
       
-<<<<<<< HEAD
+      const rdParsed = parseRatingDimensionsMarker(content);
+      if (rdParsed) {
+        accumulated.rating_dimensions = rdParsed;
+        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
+        console.log('[accumulateFields] Parsed rating_dimensions from marker');
+      }
+
       const waitTimeMarker = content.match(/\[WAIT_TIME:(\d+|null)\]/i);
       if (waitTimeMarker) {
         const rawWt = waitTimeMarker[1].toLowerCase();
@@ -4000,22 +4006,14 @@ export function accumulateFieldsFromHistory(
         }
       }
 
-      // Parse "Nota: X estrelas" format from InlineRatingPicker
-=======
-      const rdParsed = parseRatingDimensionsMarker(content);
-      if (rdParsed) {
-        accumulated.rating_dimensions = rdParsed;
-        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
-        console.log('[accumulateFields] Parsed rating_dimensions from marker');
-      }
-
       // Parse "Nota: X estrelas" ou [RATING_SELECTED:N] (picker de avaliação geral)
       const ratingSelectedTag = content.match(/\[RATING_SELECTED:([1-5])\]/);
       if (ratingSelectedTag && !accumulated.rating_stars) {
         accumulated.rating_stars = parseInt(ratingSelectedTag[1], 10);
         console.log('[accumulateFields] Parsed rating_stars from RATING_SELECTED marker');
       }
->>>>>>> main
+
+      // Parse "Nota: X estrelas" format from InlineRatingPicker
       const ratingMatch = content.match(/nota:\s*(\d)\s*estrelas?/i);
       if (ratingMatch && !accumulated.rating_stars && !accumulated.rating_dimensions) {
         accumulated.rating_stars = parseInt(ratingMatch[1]);
@@ -8604,17 +8602,7 @@ export async function executeTool(
         } else if (existingToday) {
           return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
         }
-        
-<<<<<<< HEAD
-        const argsRec = args as Record<string, unknown>;
-        let waitTimeStored: number | null | undefined;
-        if (argsRec.wait_time_score !== undefined) {
-          waitTimeStored = argsRec.wait_time_score as number | null;
-        } else if (accumulatedFields && 'wait_time_score' in accumulatedFields) {
-          waitTimeStored = accumulatedFields.wait_time_score as number | null;
-        } else {
-          waitTimeStored = undefined;
-=======
+
         const trimmedComment = args.rating_text.trim();
         const { data: modStatus, error: modRpcError } = await supabase.rpc(
           'compute_service_rating_publication_status',
@@ -8633,7 +8621,16 @@ export async function executeTool(
             message:
               '[FIELD_REQUEST:rating_text]**Não foi possível enviar este comentário.** Remova links (http/https), evite palavrões ou insultos graves e tente de novo com um texto respeitoso sobre o atendimento.',
           };
->>>>>>> main
+        }
+
+        const argsRec = args as Record<string, unknown>;
+        let waitTimeStored: number | null | undefined;
+        if (argsRec.wait_time_score !== undefined) {
+          waitTimeStored = argsRec.wait_time_score as number | null;
+        } else if (accumulatedFields && 'wait_time_score' in accumulatedFields) {
+          waitTimeStored = accumulatedFields.wait_time_score as number | null;
+        } else {
+          waitTimeStored = undefined;
         }
 
         console.log('[create_service_rating] Attempting to insert rating:', {
@@ -8641,54 +8638,27 @@ export async function executeTool(
           serviceId,
           visitId,
           rating_stars: stars,
-<<<<<<< HEAD
-          wait_time_score: waitTimeStored
-        });
-
-        const insertPayload: Record<string, unknown> = {
-=======
+          wait_time_score: waitTimeStored,
           moderation_preview: preModeration,
         });
 
         const insertRow: Record<string, unknown> = {
->>>>>>> main
           user_id: userId,
           service_id: serviceId,
           visit_id: visitId,
           rating_stars: stars,
-<<<<<<< HEAD
-          rating_text: args.rating_text.trim(),
-          sentiment: args.sentiment || 'neutral'
-        };
-        if (waitTimeStored !== undefined) insertPayload.wait_time_score = waitTimeStored;
-
-        // Save structured dimensions in JSONB (OS-06 Task 3)
-        const dimensions: Record<string, number> = {};
-        if (args.atendimento_score) dimensions.atendimento = Number(args.atendimento_score);
-        if (args.infraestrutura_score) {
-          dimensions.infraestrutura = Number(args.infraestrutura_score);
-          dimensions.limpeza = Number(args.infraestrutura_score); // Replicate (Task 3)
-        }
-        if (Object.keys(dimensions).length > 0) {
-          insertPayload.dimensions = dimensions;
-=======
           rating_text: trimmedComment,
           sentiment: args.sentiment || 'neutral',
         };
         if (ratingDimensionsJson) {
           insertRow.rating_dimensions = ratingDimensionsJson;
->>>>>>> main
         }
+        if (waitTimeStored !== undefined) insertRow.wait_time_score = waitTimeStored;
 
         const { data, error } = await supabase
           .from('service_ratings')
-<<<<<<< HEAD
-          .insert(insertPayload)
-          .select('id')
-=======
           .insert(insertRow)
           .select('id, publication_status')
->>>>>>> main
           .single();
 
         if (error) {
@@ -8728,33 +8698,25 @@ export async function executeTool(
           publication_status: publicationStatus,
         });
 
-<<<<<<< HEAD
+        const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
+        const moderationNote =
+          publicationStatus === 'pending_review'
+            ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
+            : '';
         const waitLine =
           waitTimeStored === undefined
             ? ''
             : waitTimeStored === null
               ? '\n⏱ **Tempo de espera:** Não se aplica'
               : `\n⏱ **Tempo de espera (faixa):** nota ${waitTimeStored}`;
-        
-        return { 
-          success: true, 
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota:** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${waitLine}\n📝 **Comentário:** ${args.rating_text.substring(0, 80)}${args.rating_text.length > 80 ? '...' : ''}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
-          data: { id: data.id, type: 'rating' }
-=======
-        const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
-        const moderationNote =
-          publicationStatus === 'pending_review'
-            ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
-            : '';
         const dimLine = ratingDimensionsJson
           ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
           : '';
 
         return {
           success: true,
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
->>>>>>> main
         };
       }
       

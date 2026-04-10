@@ -54,15 +54,11 @@ export const InlineRatingPicker = ({
     return (
       <div className="mt-2 flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
         <Star className="h-3 w-3 fill-current" />
-<<<<<<< HEAD
         <span>
           {dimensionKey
             ? `${dimensionKey.charAt(0).toUpperCase() + dimensionKey.slice(1)}: ${selectedRating} estrelas (${selLabel}) ✓`
             : `Nota ${selectedRating} selecionada ✓`}
         </span>
-=======
-        <span>Avaliação geral: {selectedRating}/5 ✓</span>
->>>>>>> main
       </div>
     );
   }
@@ -71,13 +67,7 @@ export const InlineRatingPicker = ({
     <div className="mt-2 w-full">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
         <Star className="h-3 w-3" />
-<<<<<<< HEAD
         <span>{effectivePrompt}</span>
-=======
-        <span>
-          <strong className="text-foreground">Avaliação geral</strong> — de 1 a 5 (1 = muito ruim, 5 = excelente)
-        </span>
->>>>>>> main
       </div>
       <div className="flex gap-1" role="group" aria-label={dimensionKey ? `Avaliação de ${dimensionKey}` : "Avaliação por estrelas"}>
         {[1, 2, 3, 4, 5].map((star) => {
@@ -105,7 +95,6 @@ export const InlineRatingPicker = ({
           );
         })}
       </div>
-<<<<<<< HEAD
       {/* Label dinâmico no hover ou extremos fixos */}
       {dimensionKey && activeLabel ? (
         <div className="mt-1 text-center text-xs font-medium text-amber-600 dark:text-amber-400 min-h-[1.25rem]">
@@ -117,12 +106,6 @@ export const InlineRatingPicker = ({
           <span>{effectiveLabels[4] || "Excelente"}</span>
         </div>
       )}
-=======
-      <div className="mt-1 flex justify-between text-xs text-muted-foreground px-1">
-        <span>Muito ruim</span>
-        <span>Excelente</span>
-      </div>
->>>>>>> main
     </div>
   );
 };

@@ -229,16 +229,6 @@ const AppContent = () => {
           <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
           <Route path="/docs/overview" element={<PublicDocumentationPage />} />
 
-<<<<<<< HEAD
-          {/* Debug */}
-          <Route path="/debug/rbac" element={<DebugRBAC />} />
-          <Route path="/test-dimension-rating" element={<TestDimensionRating />} />
-          <Route path="/test-wait-time" element={<TestWaitTimePicker />} />
-          <Route path="/test-infra-rating" element={<TestInfraRating />} />
-          <Route path="/test-task-4" element={<TestTask4 />} />
-          
-          {/* Catch-all */}
-=======
           {/* Rotas protegidas - redirecionam para /welcome se não logado */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
@@ -324,10 +314,13 @@ const AppContent = () => {
             <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
             <Route path="/debug/rbac" element={<DebugRBAC />} />
             <Route path="/debug/sptrans-olhovivo" element={<SptransOlhoVivoTestPage />} />
+            <Route path="/test-dimension-rating" element={<TestDimensionRating />} />
+            <Route path="/test-wait-time" element={<TestWaitTimePicker />} />
+            <Route path="/test-infra-rating" element={<TestInfraRating />} />
+            <Route path="/test-task-4" element={<TestTask4 />} />
           </Route>
 
           {/* Catch-all - 404 (sem proteção para exibir página de não encontrado) */}
->>>>>>> main
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>
