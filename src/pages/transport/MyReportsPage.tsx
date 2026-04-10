@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Clock, Bus, Info, Hash, ThumbsUp } from 'lucide-react';
+import { Clock, Bus, Info, Hash, Calendar, MapPin, Search, Plus, AlertCircle, Heart, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PageHeader from '@/components/ui/page-header';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,20 +13,23 @@ import { formatShortDate } from '@/lib/dateUtils';
 import { transportProblems } from '@/data/transportProblems';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CitizenSeverityBadge } from '@/components/citizen/CitizenSeverityBadge';
+import { CitizenReportStatusBadge } from '@/components/citizen/CitizenReportStatusBadge';
 import { ReferralDialog } from '@/components/referral/ReferralDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from '@/lib/citizenProtocol';
+import { formatTransportReportDescriptionForDisplay } from '@/lib/parseTransportReportPreview';
+import { embeddedRelationCount } from '@/lib/citizenReportStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-
-const TRANSPORT_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pendente',
-  in_progress: 'Em andamento',
-  resolved: 'Resolvido',
-  rejected: 'Rejeitado',
-};
+import { TransportReportInteractions } from '@/components/transport/TransportReportInteractions';
+import { TransportReportComments } from '@/components/transport/TransportReportComments';
+import {
+  TransportReportFilters,
+  type TransportReportFiltersState,
+} from '@/components/transport/TransportReportFilters';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const RECURRENCE_LABELS: Record<string, string> = {
   primeira_vez: 'Primeira vez',
@@ -39,12 +44,6 @@ const DIRECTION_LABELS: Record<string, string> = {
   circular: 'Circular',
 };
 
-function transportApoiosCount(report: Record<string, unknown>): number {
-  const raw = report.transport_report_likes as { count?: number }[] | undefined;
-  const n = raw?.[0]?.count;
-  return typeof n === 'number' && Number.isFinite(n) ? n : 0;
-}
-
 function personalImpactLabel(pi: unknown): string {
   const n = typeof pi === 'number' ? pi : parseInt(String(pi ?? ''), 10);
   if (!Number.isInteger(n) || n < 2) return '—';
@@ -54,16 +53,34 @@ function personalImpactLabel(pi: unknown): string {
   return 'Desconforto';
 }
 
+function transportTypeLabel(reportType: unknown): string {
+  const id = String(reportType ?? '');
+  const p = transportProblems.find((x) => x.id === id);
+  if (p) return p.label;
+  if (id === 'conducao') return 'Condução';
+  return id || 'Tipo não informado';
+}
+
+type TransportListRow = Record<string, unknown> & {
+  profiles?: { full_name: string; avatar_url: string | null };
+};
+
 export default function MyReportsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightReportId = searchParams.get('reportId');
   const { user } = useAuth();
-  const { toast } = useToast();
   const { getMyReports } = useTransportReport();
   const { canReferToCouncilMember } = useUserRole();
-  const [reports, setReports] = useState<Record<string, unknown>[]>([]);
+  const [reports, setReports] = useState<TransportListRow[]>([]);
+  const [allTransportReports, setAllTransportReports] = useState<TransportListRow[]>([]);
+  const [transportFilters, setTransportFilters] = useState<TransportReportFiltersState>({
+    report_type: null,
+    severity: null,
+    status: null,
+  });
   const [loading, setLoading] = useState(true);
+  const [loadingAll, setLoadingAll] = useState(true);
   const [referralDialogOpen, setReferralDialogOpen] = useState(false);
   const [referralReport, setReferralReport] = useState<{
     id: string;
@@ -79,15 +96,100 @@ export default function MyReportsPage() {
   const [otherReport, setOtherReport] = useState<Record<string, unknown> | null>(null);
   const [otherLoading, setOtherLoading] = useState(false);
   const [otherError, setOtherError] = useState(false);
-  const [communityApoiado, setCommunityApoiado] = useState(false);
+  const [selectedTransportForComments, setSelectedTransportForComments] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [transportDetailReport, setTransportDetailReport] = useState<TransportListRow | null>(null);
+  const [transportInteractionNonce, setTransportInteractionNonce] = useState<Record<string, number>>(
+    {},
+  );
+
+  const bumpTransportInteractions = useCallback((reportId: string) => {
+    setTransportInteractionNonce((prev) => ({
+      ...prev,
+      [reportId]: (prev[reportId] ?? 0) + 1,
+    }));
+  }, []);
+
+  const loadAllTransportReports = useCallback(async () => {
+    if (!user) {
+      setAllTransportReports([]);
+      setLoadingAll(false);
+      return;
+    }
+    setLoadingAll(true);
+    try {
+      let query = supabase
+        .from('transport_reports')
+        .select(
+          `
+          id,
+          protocol_code,
+          line_id,
+          line_code_custom,
+          report_type,
+          severity,
+          description,
+          occurrence_date,
+          occurrence_time,
+          location,
+          status,
+          created_at,
+          photos,
+          user_id,
+          line:transport_lines(line_code, line_name, line_type),
+          transport_report_likes(count)
+        `,
+        )
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (transportFilters.report_type) {
+        query = query.eq('report_type', transportFilters.report_type);
+      }
+      if (transportFilters.severity) {
+        query = query.eq('severity', transportFilters.severity);
+      }
+      if (transportFilters.status) {
+        query = query.eq('status', transportFilters.status);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const userIds = [...new Set((data ?? []).map((r) => r.user_id).filter(Boolean))] as string[];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', userIds);
+
+      const profilesMap = new Map(profilesData?.map((p) => [p.id, p]));
+      const withProfiles: TransportListRow[] =
+        (data ?? []).map((row) => ({
+          ...row,
+          profiles: profilesMap.get(row.user_id as string),
+        })) ?? [];
+
+      setAllTransportReports(withProfiles);
+    } catch (e) {
+      console.error('Erro ao carregar contribuições de transporte:', e);
+      setAllTransportReports([]);
+    } finally {
+      setLoadingAll(false);
+    }
+  }, [user, transportFilters]);
 
   useEffect(() => {
-    loadReports();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+    void loadReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount
   }, []);
 
   useEffect(() => {
-    setCommunityApoiado(false);
+    void loadAllTransportReports();
+  }, [loadAllTransportReports]);
+
+  useEffect(() => {
     if (!highlightReportId || !user) {
       setOtherReport(null);
       setOtherError(false);
@@ -158,7 +260,9 @@ export default function MyReportsPage() {
   useEffect(() => {
     if (!highlightReportId || loading || otherLoading || otherReport) return;
     if (otherError) return;
-    const mine = reports.some((r) => r.id === highlightReportId);
+    const mine =
+      reports.some((r) => r.id === highlightReportId) ||
+      allTransportReports.some((r) => r.id === highlightReportId);
     if (!mine) return;
     const el = document.querySelector(
       `[data-transport-report-card="${CSS.escape(highlightReportId)}"]`,
@@ -168,12 +272,20 @@ export default function MyReportsPage() {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     }
-  }, [highlightReportId, reports, loading, otherReport, otherLoading, otherError]);
+  }, [
+    highlightReportId,
+    reports,
+    allTransportReports,
+    loading,
+    otherReport,
+    otherLoading,
+    otherError,
+  ]);
 
   const loadReports = async () => {
     try {
       const data = await getMyReports();
-      setReports(data);
+      setReports((data ?? []) as TransportListRow[]);
     } catch (err) {
       console.error('Error loading reports:', err);
     } finally {
@@ -187,41 +299,174 @@ export default function MyReportsPage() {
     setOtherError(false);
   }, [setSearchParams]);
 
-  const apoiarCommunityReport = useCallback(async () => {
-    if (!user || !otherReport?.id) return;
-    try {
-      const { error } = await supabase.from('transport_report_likes').insert({
-        report_id: otherReport.id as string,
-        user_id: user.id,
-      });
-      if (error) {
-        if (error.code === '23505' || error.message?.includes('duplicate')) {
-          toast({ title: 'Você já apoiou este relato.' });
-          setCommunityApoiado(true);
-        } else {
-          throw error;
-        }
-      } else {
-        toast({ title: 'Apoio registrado', description: 'Obrigado por reforçar este relato.' });
-        setCommunityApoiado(true);
-        setOtherReport((prev) => {
-          if (!prev) return prev;
-          const cur = transportApoiosCount(prev);
-          return {
-            ...prev,
-            transport_report_likes: [{ count: cur + 1 }],
-          };
-        });
-      }
-    } catch (e) {
-      console.error(e);
-      toast({
-        variant: 'destructive',
-        title: 'Não foi possível apoiar',
-        description: 'Tente novamente em instantes.',
-      });
-    }
-  }, [user, otherReport, toast]);
+  const renderTransportListCard = (report: TransportListRow, showAuthor: boolean, isHighlighted: boolean) => {
+    const problem = transportProblems.find((p) => p.id === report.report_type);
+    const citizenProtocol = formatCitizenProtocolForDisplay(
+      report.protocol_code as string | null | undefined,
+    );
+    const reportIdStr = String(report.id);
+    const apoiosCount = embeddedRelationCount(report as Record<string, unknown>, 'transport_report_likes');
+    const photosMine = Array.isArray(report.photos) ? (report.photos as string[]) : [];
+    const lineRow = report.line as { line_code?: string; line_name?: string } | undefined;
+    const typeLabel = transportTypeLabel(report.report_type);
+    const narrativeDesc = formatTransportReportDescriptionForDisplay(report.description as string | undefined);
+
+    return (
+      <Card
+        key={reportIdStr}
+        data-transport-report-card={reportIdStr}
+        className={cn(
+          'hover:shadow-md transition-shadow border-border',
+          isHighlighted && 'ring-2 ring-primary border-primary/50',
+        )}
+        data-testid="report-card"
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <Bus className="w-4 h-4 text-primary shrink-0" />
+              <span className="font-medium">
+                {lineRow?.line_code || report.line_code_custom || 'Linha não informada'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <CitizenReportStatusBadge status={report.status as string | null | undefined} />
+              {apoiosCount > 0 ? (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Apoios">
+                  <Heart className="w-3.5 h-3.5 text-red-500/80" aria-hidden />
+                  {apoiosCount}
+                </span>
+              ) : null}
+              <span className="text-xs text-muted-foreground">
+                {formatShortDate(report.created_at as string)}
+              </span>
+            </div>
+          </div>
+
+          {showAuthor && report.profiles?.full_name ? (
+            <p className="text-xs text-muted-foreground mb-2">Por {report.profiles.full_name}</p>
+          ) : null}
+
+          {citizenProtocol ? (
+            <p className="text-xs font-mono font-medium text-primary mb-2 flex items-center gap-1.5">
+              <Hash className="w-3 h-3 shrink-0" aria-hidden />
+              {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
+            </p>
+          ) : null}
+
+          <div className="space-y-2 mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {problem ? (
+                <problem.icon className={cn('w-4 h-4 shrink-0', problem.color)} aria-hidden />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden />
+              )}
+              <p className="text-sm font-medium">{typeLabel}</p>
+              {report.severity ? (
+                <CitizenSeverityBadge severity={report.severity as string} size="sm" />
+              ) : null}
+            </div>
+
+            {narrativeDesc ? (
+              <p className="text-sm text-muted-foreground line-clamp-2">{narrativeDesc}</p>
+            ) : null}
+          </div>
+
+          {photosMine.length > 0 ? (
+            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+              {photosMine.slice(0, 5).map((url, i) => (
+                <a
+                  key={`${url}-${i}`}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border bg-muted"
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </a>
+              ))}
+              {photosMine.length > 5 ? (
+                <span className="flex-shrink-0 text-xs text-muted-foreground self-center">
+                  +{photosMine.length - 5}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="space-y-1 mb-3">
+            {report.location ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3 shrink-0" aria-hidden />
+                <span className="line-clamp-2">{String(report.location)}</span>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Calendar className="w-3 h-3 shrink-0" aria-hidden />
+              <span>
+                {format(new Date(report.created_at as string), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", {
+                  locale: ptBR,
+                })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Clock className="w-3 h-3 shrink-0" aria-hidden />
+              <span>
+                Ocorrência:{' '}
+                {report.occurrence_date ? formatShortDate(report.occurrence_date as string) : '—'}
+                {report.occurrence_time ? ` às ${report.occurrence_time}` : ''}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-border/50">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => setTransportDetailReport(report)}
+              >
+                <FileText className="w-3.5 h-3.5 mr-1.5" aria-hidden />
+                Ver detalhes
+              </Button>
+              <TransportReportInteractions
+                reportId={reportIdStr}
+                refreshNonce={transportInteractionNonce[reportIdStr] ?? 0}
+                onCommentClick={() => setSelectedTransportForComments(report)}
+              />
+              {canReferToCouncilMember ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const title =
+                      lineRow?.line_code || report.line_code_custom || typeLabel || 'Relato de transporte';
+
+                    setReferralReport({
+                      id: reportIdStr,
+                      type: 'transport',
+                      title,
+                      description: report.description ? String(report.description) : undefined,
+                      location:
+                        (report as { location_address?: string }).location_address ||
+                        (report.location ? String(report.location) : undefined),
+                      date: report.created_at as string,
+                      report_type: report.report_type ? String(report.report_type) : undefined,
+                      severity: report.severity ? String(report.severity) : undefined,
+                    });
+                    setReferralDialogOpen(true);
+                  }}
+                >
+                  Encaminhar para vereador
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderCommunityCard = () => {
     if (!otherReport) return null;
@@ -229,10 +474,9 @@ export default function MyReportsPage() {
     const citizenProtocol = formatCitizenProtocolForDisplay(
       otherReport.protocol_code as string | null | undefined,
     );
-    const statusKey = typeof otherReport.status === 'string' ? otherReport.status : 'pending';
-    const statusLabel = TRANSPORT_STATUS_LABELS[statusKey] || statusKey;
-    const apoios = transportApoiosCount(otherReport);
     const line = otherReport.line as { line_code?: string; line_name?: string } | null | undefined;
+    const otherApoios = embeddedRelationCount(otherReport as Record<string, unknown>, 'transport_report_likes');
+    const otherId = String(otherReport.id);
     const photos = Array.isArray(otherReport.photos) ? (otherReport.photos as string[]) : [];
     const recurrenceRaw = otherReport.recurrence_frequency
       ? String(otherReport.recurrence_frequency)
@@ -241,6 +485,10 @@ export default function MyReportsPage() {
     const dirLabel = otherReport.direction
       ? DIRECTION_LABELS[String(otherReport.direction)] || String(otherReport.direction)
       : null;
+    const otherTypeLabel = transportTypeLabel(otherReport.report_type);
+    const otherNarrativeDesc = formatTransportReportDescriptionForDisplay(
+      otherReport.description as string | undefined,
+    );
 
     return (
       <Card className="border-primary/40 ring-1 ring-primary/20">
@@ -262,9 +510,13 @@ export default function MyReportsPage() {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap justify-end">
-              <Badge variant="outline" className="text-xs font-normal">
-                {statusLabel}
-              </Badge>
+              <CitizenReportStatusBadge status={otherReport.status as string | null | undefined} />
+              {otherApoios > 0 ? (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Apoios">
+                  <Heart className="w-3.5 h-3.5 text-red-500/80" aria-hidden />
+                  {otherApoios}
+                </span>
+              ) : null}
               <span className="text-xs text-muted-foreground">
                 {otherReport.created_at ? formatShortDate(otherReport.created_at as string) : ''}
               </span>
@@ -282,14 +534,16 @@ export default function MyReportsPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {problem ? (
                 <problem.icon className={cn('w-4 h-4 shrink-0', problem.color)} aria-hidden />
-              ) : null}
-              <p className="text-sm font-medium">{problem?.label || String(otherReport.report_type)}</p>
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 text-muted-foreground" aria-hidden />
+              )}
+              <p className="text-sm font-medium">{otherTypeLabel}</p>
               {otherReport.severity ? (
                 <CitizenSeverityBadge severity={otherReport.severity as string} size="sm" />
               ) : null}
             </div>
-            {otherReport.description ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{otherReport.description}</p>
+            {otherNarrativeDesc ? (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{otherNarrativeDesc}</p>
             ) : null}
           </div>
 
@@ -323,10 +577,6 @@ export default function MyReportsPage() {
                 <span className="font-medium text-foreground/80">Local:</span> {String(otherReport.location)}
               </li>
             ) : null}
-            <li className="inline-flex items-center gap-1 text-foreground/80">
-              <ThumbsUp className="w-3 h-3 shrink-0" aria-hidden />
-              {apoios === 0 ? 'Nenhum apoio ainda' : `${apoios} apoio${apoios === 1 ? '' : 's'}`}
-            </li>
           </ul>
 
           {photos.length > 0 ? (
@@ -345,16 +595,23 @@ export default function MyReportsPage() {
             </div>
           ) : null}
 
-          <Button
-            type="button"
-            variant={communityApoiado ? 'secondary' : 'default'}
-            size="sm"
-            disabled={communityApoiado}
-            onClick={() => void apoiarCommunityReport()}
-          >
-            <ThumbsUp className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-            {communityApoiado ? 'Apoiado' : 'Apoiar este relato'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/50">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setTransportDetailReport(otherReport as TransportListRow)}
+            >
+              <FileText className="w-3.5 h-3.5 mr-1.5" aria-hidden />
+              Ver detalhes
+            </Button>
+            <TransportReportInteractions
+              reportId={otherId}
+              refreshNonce={transportInteractionNonce[otherId] ?? 0}
+              onCommentClick={() => setSelectedTransportForComments(otherReport)}
+            />
+          </div>
         </CardContent>
       </Card>
     );
@@ -363,23 +620,41 @@ export default function MyReportsPage() {
   const showLoginHint = Boolean(highlightReportId && !user);
   const showEmptyMine = !loading && reports.length === 0 && !otherReport && !otherLoading && !showLoginHint;
 
+  const listSkeletons = (
+    <>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Card key={i} className="border-border">
+          <CardContent className="p-4">
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  );
+
+  const selectedCommentNarrative = selectedTransportForComments
+    ? formatTransportReportDescriptionForDisplay(
+        selectedTransportForComments.description as string | undefined,
+      )
+    : undefined;
+
   return (
     <>
-      <PageHeader title="Minhas Contribuições" backTo="/relatos" />
+      <PageHeader title="Contribuições de Transporte" backTo="/relatos" />
       <div className="min-h-screen bg-background pt-[60px] pb-24">
         <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
           <Alert className="bg-primary/5 border-primary/20">
             <Info className="h-4 w-4 text-primary" />
             <AlertDescription className="text-sm text-muted-foreground">
-              Suas contribuições sobre transporte público são analisadas em conjunto com outras experiências
-              para identificar padrões e subsidiar políticas públicas.
+              As contribuições sobre transporte público são analisadas em conjunto com outras experiências para
+              identificar padrões e subsidiar políticas públicas.
             </AlertDescription>
           </Alert>
 
           {showLoginHint ? (
             <Alert>
               <AlertDescription className="text-sm">
-                Entre na sua conta para ver o detalhe deste relato ou apoiar.
+                Entre na sua conta para ver o detalhe deste relato, curtir ou comentar.
                 <Button type="button" variant="link" className="px-2 h-auto" onClick={() => navigate('/login')}>
                   Fazer login
                 </Button>
@@ -399,7 +674,12 @@ export default function MyReportsPage() {
             <Alert variant="destructive">
               <AlertDescription className="text-sm">
                 Não foi possível carregar este relato. O link pode estar incorreto ou o relato foi removido.
-                <Button type="button" variant="link" className="text-destructive px-2 h-auto" onClick={closeCommunityView}>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-destructive px-2 h-auto"
+                  onClick={closeCommunityView}
+                >
                   Voltar
                 </Button>
               </AlertDescription>
@@ -408,128 +688,257 @@ export default function MyReportsPage() {
 
           {user && otherReport && !otherLoading ? renderCommunityCard() : null}
 
-          {loading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="border-border">
-                <CardContent className="p-4">
-                  <Skeleton className="h-24 w-full" />
-                </CardContent>
-              </Card>
-            ))
-          ) : showEmptyMine ? (
-            <div className="text-center py-12">
-              <Bus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-2">Nenhuma contribuição registrada ainda</p>
-              <Button onClick={() => navigate('/ia')}>Compartilhar experiência</Button>
-            </div>
-          ) : (
-            reports.map((report) => {
-              const problem = transportProblems.find((p) => p.id === report.report_type);
-              const citizenProtocol = formatCitizenProtocolForDisplay(
-                report.protocol_code as string | null | undefined,
-              );
+          <Tabs defaultValue="my-reports" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="my-reports">Minhas Contribuições</TabsTrigger>
+              <TabsTrigger value="all-reports">Todas as Contribuições</TabsTrigger>
+            </TabsList>
 
-              const statusKey = typeof report.status === 'string' ? report.status : 'pending';
-              const statusLabel = TRANSPORT_STATUS_LABELS[statusKey] || statusKey;
-              const apoios = transportApoiosCount(report);
-              const isHighlighted = highlightReportId === report.id;
+            <TabsContent value="my-reports" className="space-y-4">
+              {loading ? (
+                listSkeletons
+              ) : showEmptyMine ? (
+                <div className="text-center py-12">
+                  <Bus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="font-semibold text-foreground mb-1">Nenhuma contribuição encontrada</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Compartilhe experiências sobre transporte para ajudar a melhorar a mobilidade na cidade
+                  </p>
+                  <Button onClick={() => navigate('/ia')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Compartilhar experiência
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reports.map((report) =>
+                    renderTransportListCard(report, false, highlightReportId === report.id),
+                  )}
+                </div>
+              )}
+            </TabsContent>
 
-              return (
-                <Card
-                  key={report.id as string}
-                  data-transport-report-card={report.id as string}
-                  className={`hover:shadow-md transition-shadow border-border ${
-                    isHighlighted ? 'ring-2 ring-primary border-primary/50' : ''
-                  }`}
-                  data-testid="report-card"
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3 gap-2 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <Bus className="w-4 h-4 text-primary" />
-                        <span className="font-medium">
-                          {report.line?.line_code || report.line_code_custom || 'Linha não informada'}
-                        </span>
+            <TabsContent value="all-reports" className="space-y-4">
+              {!user ? (
+                <Alert>
+                  <AlertDescription className="text-sm">
+                    Entre na sua conta para ver relatos de outros cidadãos e interagir com curtidas e comentários.
+                    <Button type="button" variant="link" className="px-2 h-auto" onClick={() => navigate('/login')}>
+                      Fazer login
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <TransportReportFilters filters={transportFilters} onFilterChange={setTransportFilters} />
+
+                  {loadingAll ? (
+                    listSkeletons
+                  ) : allTransportReports.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="mb-3 flex justify-center" aria-hidden>
+                        <Search className="h-12 w-12 text-muted-foreground" />
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
-                        <Badge variant="outline" className="text-xs font-normal">
-                          {statusLabel}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatShortDate(report.created_at as string)}
-                        </span>
-                      </div>
+                      <h3 className="font-semibold text-foreground mb-1">Nenhuma contribuição encontrada</h3>
+                      <p className="text-sm text-muted-foreground">Tente ajustar os filtros</p>
                     </div>
-
-                    {citizenProtocol ? (
-                      <p className="text-xs font-mono font-medium text-primary mb-3 flex items-center gap-1.5">
-                        <Hash className="w-3 h-3 shrink-0" aria-hidden />
-                        {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
-                      </p>
-                    ) : null}
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {problem ? <problem.icon className={`w-4 h-4 ${problem.color}`} /> : null}
-                        <p className="text-sm font-medium">{problem?.label || report.report_type}</p>
-                        {report.severity ? (
-                          <CitizenSeverityBadge severity={report.severity as string} size="sm" />
-                        ) : null}
-                      </div>
-
-                      {report.description ? (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{report.description}</p>
-                      ) : null}
+                  ) : (
+                    <div className="space-y-3">
+                      {allTransportReports.map((report) =>
+                        renderTransportListCard(report, true, highlightReportId === report.id),
+                      )}
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-4 pt-3 border-t border-border/50">
-                      <span className="inline-flex items-center gap-1">
-                        <Clock className="w-3 h-3 shrink-0" aria-hidden />
-                        {report.occurrence_date && formatShortDate(report.occurrence_date as string)}
-                        {report.occurrence_time && ` às ${report.occurrence_time}`}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-foreground/80">
-                        <ThumbsUp className="w-3 h-3 shrink-0" aria-hidden />
-                        {apoios === 0 ? 'Nenhum apoio ainda' : `${apoios} apoio${apoios === 1 ? '' : 's'}`}
-                      </span>
-                    </div>
-
-                    {canReferToCouncilMember ? (
-                      <div className="mt-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const title =
-                              report.line?.line_code ||
-                              report.line_code_custom ||
-                              problem?.label ||
-                              'Relato de transporte';
-
-                            setReferralReport({
-                              id: report.id as string,
-                              type: 'transport',
-                              title,
-                              description: report.description || undefined,
-                              location: report.location_address || report.location || undefined,
-                              date: report.created_at as string,
-                              report_type: report.report_type || undefined,
-                              severity: report.severity as string | undefined,
-                            });
-                            setReferralDialogOpen(true);
-                          }}
-                        >
-                          Encaminhar para vereador
-                        </Button>
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              );
-            })
-          )}
+                  )}
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
+
+      <Dialog
+        open={!!selectedTransportForComments}
+        onOpenChange={(open) => {
+          if (open) return;
+          setSelectedTransportForComments(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Comentários</DialogTitle>
+          </DialogHeader>
+          {selectedTransportForComments ? (
+            <div className="space-y-4">
+              <div className="pb-4 border-b border-border">
+                <h4 className="font-semibold mb-1">
+                  {(selectedTransportForComments.line as { line_code?: string } | undefined)?.line_code ||
+                    (selectedTransportForComments.line_code_custom as string) ||
+                    'Linha não informada'}
+                </h4>
+                {formatCitizenProtocolForDisplay(
+                  selectedTransportForComments.protocol_code as string | null | undefined,
+                ) ? (
+                  <p className="text-xs font-mono text-primary mb-2">
+                    {CITIZEN_PROTOCOL_LABEL}:{' '}
+                    {formatCitizenProtocolForDisplay(
+                      selectedTransportForComments.protocol_code as string | null | undefined,
+                    )}
+                  </p>
+                ) : null}
+                {selectedCommentNarrative ? (
+                  <p className="text-sm text-muted-foreground">{selectedCommentNarrative}</p>
+                ) : null}
+              </div>
+              <TransportReportComments
+                reportId={String(selectedTransportForComments.id)}
+                onThreadChanged={() =>
+                  bumpTransportInteractions(String(selectedTransportForComments!.id))
+                }
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!transportDetailReport}
+        onOpenChange={(open) => {
+          if (!open) setTransportDetailReport(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhe do relato</DialogTitle>
+          </DialogHeader>
+          {transportDetailReport ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <CitizenReportStatusBadge status={transportDetailReport.status as string | null | undefined} />
+                {embeddedRelationCount(transportDetailReport as Record<string, unknown>, 'transport_report_likes') >
+                0 ? (
+                  <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                    <Heart className="w-4 h-4 text-red-500/80 shrink-0" aria-hidden />
+                    {embeddedRelationCount(
+                      transportDetailReport as Record<string, unknown>,
+                      'transport_report_likes',
+                    )}{' '}
+                    apoio(s)
+                  </span>
+                ) : null}
+              </div>
+              <div className="space-y-2 text-sm border-b border-border pb-4">
+                <p>
+                  <span className="text-muted-foreground">Linha: </span>
+                  <span className="font-medium">
+                    {(transportDetailReport.line as { line_code?: string } | undefined)?.line_code ||
+                      transportDetailReport.line_code_custom ||
+                      '—'}
+                  </span>
+                </p>
+                {formatCitizenProtocolForDisplay(
+                  transportDetailReport.protocol_code as string | null | undefined,
+                ) ? (
+                  <p className="font-mono text-xs text-primary">
+                    {CITIZEN_PROTOCOL_LABEL}:{' '}
+                    {formatCitizenProtocolForDisplay(
+                      transportDetailReport.protocol_code as string | null | undefined,
+                    )}
+                  </p>
+                ) : null}
+                <p>
+                  <span className="text-muted-foreground">Tipo: </span>
+                  {transportTypeLabel(transportDetailReport.report_type)}
+                </p>
+                {transportDetailReport.severity ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-muted-foreground">Gravidade: </span>
+                    <CitizenSeverityBadge severity={transportDetailReport.severity as string} size="sm" />
+                  </div>
+                ) : null}
+                {formatTransportReportDescriptionForDisplay(
+                  transportDetailReport.description as string | undefined,
+                ) ? (
+                  <p>
+                    <span className="text-muted-foreground">Descrição: </span>
+                    <span className="text-foreground">
+                      {formatTransportReportDescriptionForDisplay(
+                        transportDetailReport.description as string | undefined,
+                      )}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="text-muted-foreground">
+                  <Calendar className="w-3.5 h-3.5 inline mr-1 align-text-bottom" aria-hidden />
+                  Registrado em{' '}
+                  {format(new Date(transportDetailReport.created_at as string), "dd/MM/yyyy 'às' HH:mm", {
+                    locale: ptBR,
+                  })}
+                </p>
+                <p className="text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5 inline mr-1 align-text-bottom" aria-hidden />
+                  Ocorrência:{' '}
+                  {transportDetailReport.occurrence_date
+                    ? formatShortDate(transportDetailReport.occurrence_date as string)
+                    : '—'}
+                  {transportDetailReport.occurrence_time
+                    ? ` às ${transportDetailReport.occurrence_time}`
+                    : ''}
+                </p>
+                {transportDetailReport.direction ? (
+                  <p>
+                    <span className="text-muted-foreground">Sentido: </span>
+                    {DIRECTION_LABELS[String(transportDetailReport.direction)] ||
+                      String(transportDetailReport.direction)}
+                  </p>
+                ) : null}
+                {transportDetailReport.recurrence_frequency ? (
+                  <p>
+                    <span className="text-muted-foreground">Frequência: </span>
+                    {RECURRENCE_LABELS[String(transportDetailReport.recurrence_frequency)] ||
+                      String(transportDetailReport.recurrence_frequency)}
+                  </p>
+                ) : null}
+                <p>
+                  <span className="text-muted-foreground">Impacto na rotina: </span>
+                  {personalImpactLabel(transportDetailReport.personal_impact)}
+                </p>
+                {transportDetailReport.location ? (
+                  <p>
+                    <span className="text-muted-foreground">Local: </span>
+                    {String(transportDetailReport.location)}
+                  </p>
+                ) : null}
+              </div>
+              {Array.isArray(transportDetailReport.photos) &&
+              (transportDetailReport.photos as string[]).length > 0 ? (
+                <div>
+                  <p className="text-sm font-medium mb-2">Fotos</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(transportDetailReport.photos as string[]).slice(0, 6).map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-20 h-20 rounded-lg overflow-hidden border bg-muted"
+                      >
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div>
+                <p className="text-sm font-medium mb-2">Comentários</p>
+                <TransportReportComments
+                  reportId={String(transportDetailReport.id)}
+                  onThreadChanged={() => bumpTransportInteractions(String(transportDetailReport.id))}
+                />
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <ReferralDialog
         open={referralDialogOpen}

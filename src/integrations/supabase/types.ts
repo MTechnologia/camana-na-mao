@@ -1914,6 +1914,41 @@ export type Database = {
           },
         ]
       }
+      transport_report_comments: {
+        Row: {
+          comment_text: string
+          created_at: string
+          id: string
+          report_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string
+          id?: string
+          report_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transport_report_comments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "transport_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transport_reports: {
         Row: {
           ai_category: string | null

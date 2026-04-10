@@ -1,4 +1,7 @@
-import type { ParsedTransportReportPreview } from "@/lib/parseTransportReportPreview";
+import {
+  type ParsedTransportReportPreview,
+  formatTransportReportDescriptionForDisplay,
+} from "@/lib/parseTransportReportPreview";
 import { TRANSPORT_SUBCATEGORIES } from "@/lib/reportFieldConfig";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bus } from "lucide-react";
@@ -54,7 +57,10 @@ export function TransportReportPreviewInChat({ preview }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1.5 pb-4 px-4">
-        {row("Problema", (preview.description || "").slice(0, 280))}
+        {row(
+          "Problema",
+          (formatTransportReportDescriptionForDisplay(preview.description) || "—").slice(0, 280),
+        )}
         {row(
           "Tipo",
           (() => {

@@ -1236,6 +1236,15 @@ export function extractTransportFields(context: string): Record<string, unknown>
   return fields;
 }
 
+/** Texto de escolha de linha (picker) — não é descrição do problema; não deve ir em `description`. */
+export function isTransportLinePickerPayload(text: string): boolean {
+  const t = String(text ?? '').trim();
+  if (!t) return false;
+  if (/\[LINE_SELECTED:/i.test(t)) return true;
+  if (/^linha:\s*\S+/i.test(t) && /\[LINE_SELECTED:/i.test(t)) return true;
+  return false;
+}
+
 /** Verifica se o nome da cidade corresponde ao município de São Paulo (capital). */
 export function isCitySaoPaulo(city: string | undefined | null): boolean {
   if (!city || typeof city !== 'string') return false;
@@ -3157,6 +3166,9 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     }
       
     case 'description': {
+      if (isTransportLinePickerPayload(response)) {
+        break;
+      }
       // USE CENTRALIZED NLP FUNCTION - accepts 8+ chars with keyword
       if (isValidDomainDescription(response, 'urban')) {
         result.description = response;
@@ -3467,6 +3479,7 @@ export function accumulateFieldsFromHistory(
           /^digitar cep ou endereço$/i.test(msg.content.trim()) ||
           /^digitar cep ou endereco$/i.test(msg.content.trim()) ||
           contentLower.includes('linha selecionada:') ||
+          /\[LINE_SELECTED:/i.test(msg.content) ||
           contentLower.includes('nota:') ||
           contentLower.includes('data:') ||
           /^\d+$/.test(msg.content.trim());
@@ -4121,6 +4134,11 @@ export function accumulateFieldsFromHistory(
   
   // ========== TRANSPORT_REPORT SPECIFIC PARSING ==========
   if (collectionType === 'transport_report') {
+    if (typeof accumulated.description === 'string' && isTransportLinePickerPayload(accumulated.description)) {
+      delete accumulated.description;
+      console.log('[accumulateFields] transport: removed line-picker text wrongly stored as description');
+    }
+
     // === CRITICAL: Extract transport fields from ALL user messages using extractTransportFields ===
     // This ensures natural language responses like "atraso de ônibus" are properly parsed
     for (const msg of messages) {
@@ -4141,7 +4159,10 @@ export function accumulateFieldsFromHistory(
     // === Detect description from transport-related user messages ===
     // VERY FLEXIBLE: Accept short but informative responses (>= 5 chars with keyword)
     // Allow overwriting if current description is generic (e.g., "Quero relatar um problema...")
-    const shouldDetectDescription = !accumulated.description || isGenericIntentText(accumulated.description);
+    const shouldDetectDescription =
+      !accumulated.description ||
+      isGenericIntentText(String(accumulated.description)) ||
+      isTransportLinePickerPayload(String(accumulated.description));
     
     console.log('[accumulateFields] Transport description check:', {
       currentDescription: accumulated.description?.substring(0, 40),
@@ -4336,6 +4357,27 @@ export function accumulateFieldsFromHistory(
       if (recurrenceMatch && !accumulated.recurrence_frequency) {
         const normalized = normalizeTransportRecurrenceFrequency(recurrenceMatch[1]);
         if (normalized) accumulated.recurrence_frequency = normalized;
+      }
+    }
+
+    // Última troca usuário/assistente com [FIELD_REQUEST:*] (correção de descrição, etc.) — antes só existia no bloco urbano
+    {
+      const lastIdx = messages.length - 1;
+      if (messages[lastIdx]?.role === 'user' && lastIdx > 0) {
+        const prevA = messages[lastIdx - 1];
+        if (prevA?.role === 'assistant') {
+          const rawPrev = getMsgText(prevA);
+          const fieldRequestMatch = rawPrev.match(/\[FIELD_REQUEST:(\w+)\]/);
+          if (fieldRequestMatch) {
+            const fieldType = fieldRequestMatch[1];
+            const answer = getMsgText(messages[lastIdx]).trim();
+            const parsed = parseFieldResponse(fieldType, answer);
+            if (Object.keys(parsed).length > 0) {
+              Object.assign(accumulated, parsed);
+              console.log('[accumulateFields] transport: FIELD_REQUEST from last exchange:', fieldType);
+            }
+          }
+        }
       }
     }
   }
@@ -7831,6 +7873,17 @@ export async function executeTool(
         }
         if (accumulatedFields?.impact_description && !args.impact_description) {
           args.impact_description = accumulatedFields.impact_description;
+        }
+        const accDescRaw =
+          typeof accumulatedFields?.description === 'string' ? String(accumulatedFields.description).trim() : '';
+        const argDescRaw = String(args.description ?? '').trim();
+        if (
+          accDescRaw &&
+          !isTransportLinePickerPayload(accDescRaw) &&
+          (!argDescRaw || isTransportLinePickerPayload(argDescRaw))
+        ) {
+          args.description = accDescRaw;
+          console.log('[create_transport_report] Using narrative description from accumulatedFields (tool args had line picker or empty)');
         }
         
         // === VALIDAÇÃO ESTRITA (coleta sequencial obrigatória) ===
