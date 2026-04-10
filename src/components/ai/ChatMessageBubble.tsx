@@ -33,6 +33,8 @@ import InlineRecurrenceFrequencyPicker from "./InlineRecurrenceFrequencyPicker";
 import InlineImpactPicker from "./InlineImpactPicker";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
+import MultiDimensionRatingPicker from "./MultiDimensionRatingPicker";
+import type { ServiceRatingDimensions } from "@/lib/serviceRatingDimensions";
 import { WaitTimePicker } from "./WaitTimePicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
@@ -128,6 +130,8 @@ interface ChatMessageBubbleProps {
   onRatingSelected?: (stars: number) => void;
   onWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
   onDimensionRatingSelected?: (dimensionKey: string, stars: number) => void;
+  /** Avaliação 4 dimensões de uma vez → `useUnifiedAIChat` envia `[RATING_DIMENSIONS:{...}]`. */
+  onMultiDimensionRatingComplete?: (dims: ServiceRatingDimensions) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
@@ -161,6 +165,7 @@ const ChatMessageBubble = ({
   onRatingSelected,
   onWaitTimeSelected,
   onDimensionRatingSelected,
+  onMultiDimensionRatingComplete,
   onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
@@ -188,6 +193,7 @@ const ChatMessageBubble = ({
   const [ratingSelected, setRatingSelected] = useState(false);
   const [waitTimeSelected, setWaitTimeSelected] = useState(false);
   const [dimensionRatingSelected, setDimensionRatingSelected] = useState(false);
+  const [multiDimensionRatingSubmitted, setMultiDimensionRatingSubmitted] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
@@ -224,6 +230,8 @@ const ChatMessageBubble = ({
   const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
   const hasImpactPicker = !isUser && message.content.includes('[IMPACT_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
+  const hasMultiDimensionRatingPicker =
+    !isUser && message.content.includes("[MULTI_DIMENSION_RATING_PICKER]");
   const hasWaitTimePicker = !isUser && message.content.includes('[WAIT_TIME_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
@@ -232,10 +240,10 @@ const ChatMessageBubble = ({
 
   // Detect dimension rating picker: [DIMENSION_RATING_PICKER:atendimento]
   const dimensionRatingMatch = useMemo(() => {
-    if (isUser) return null;
+    if (isUser || hasMultiDimensionRatingPicker) return null;
     const match = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
     return match ? match[1] : null;
-  }, [isUser, message.content]);
+  }, [isUser, message.content, hasMultiDimensionRatingPicker]);
   const hasDimensionRatingPicker = dimensionRatingMatch !== null;
 
   // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5"; não em texto institucional que só menciona "audiências".
@@ -286,7 +294,7 @@ const ChatMessageBubble = ({
           .order("data", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
-        const page = (data || []) as typeof all;
+        const page = (data || []) as unknown as typeof all;
         all.push(...page);
         if (page.length < pageSize) break;
         offset += pageSize;
@@ -802,6 +810,11 @@ const ChatMessageBubble = ({
     }
   };
 
+  const handleMultiDimensionRatingComplete = (dims: ServiceRatingDimensions) => {
+    setMultiDimensionRatingSubmitted(true);
+    onMultiDimensionRatingComplete?.(dims);
+  };
+
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
     setLocationMethodSelected(true);
     if (onLocationMethodSelected) {
@@ -1262,6 +1275,13 @@ const ChatMessageBubble = ({
         {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
+
+        {hasMultiDimensionRatingPicker &&
+          !multiDimensionRatingSubmitted &&
+          isLastAssistantMessage &&
+          onMultiDimensionRatingComplete && (
+            <MultiDimensionRatingPicker onComplete={handleMultiDimensionRatingComplete} />
+          )}
 
         {(hasWaitTimePicker || isAskingForWaitTime) &&
           !waitTimeSelected &&
