@@ -2650,7 +2650,14 @@ export function accumulateFieldsFromHistory(
               break;
             }
             case 'rating_text': {
-              if (answer.length >= 5) {
+              const lowerAns = answer.toLowerCase().trim();
+              if (/^(pular|n[aã]o|pr[oó]ximo|nenhuma|nada)$/i.test(lowerAns)) {
+                accumulated.rating_text = null;
+                accumulated._rating_text_skipped = true;
+                console.log('[accumulateFields] FIELD_REQUEST: rating_text skipped by user');
+              } else if (answer.length >= 5) {
+                accumulated.rating_text = answer;
+              } else {
                 accumulated.rating_text = answer;
               }
               break;

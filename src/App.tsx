@@ -26,6 +26,7 @@ import Notifications from "./pages/Notifications";
 import TestDimensionRating from "./pages/TestDimensionRating";
 import TestWaitTimePicker from "./pages/TestWaitTimePicker";
 import TestInfraRating from "./pages/TestInfraRating";
+import TestTask4 from "./pages/TestTask4";
 
 // ============================================
 // AUTH PAGES - Lazy loaded (used before main app)
@@ -329,6 +330,7 @@ const AppContent = () => {
           <Route path="/test-dimension-rating" element={<TestDimensionRating />} />
           <Route path="/test-wait-time" element={<TestWaitTimePicker />} />
           <Route path="/test-infra-rating" element={<TestInfraRating />} />
+          <Route path="/test-task-4" element={<TestTask4 />} />
           
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

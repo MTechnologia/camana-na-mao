@@ -897,9 +897,14 @@ serve(async (req) => {
               picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
               prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
             };
-          const textLen = (fields.rating_text || '').length;
-          if (textLen < 5)
-            return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
+          if (!fields._rating_text_skipped) {
+            if (fields.rating_text === undefined) {
+              return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+            }
+            if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
+              return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+            }
+          }
           return { field: null, picker: null, prompt: null };
         }
         
@@ -1014,10 +1019,15 @@ serve(async (req) => {
             prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
           };
         
-        // 5. Rating text (mín. 5 chars para aceitar "Ótimo", "Excelente", etc.)
-        const textLen = (fields.rating_text || '').length;
-        if (textLen < 5)
-          return { field: 'rating_text', picker: null, prompt: 'Pode **descrever sua experiência**? Como foi o atendimento?' };
+        // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
+        if (!fields._rating_text_skipped) {
+          if (fields.rating_text === undefined) {
+            return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+          }
+          if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
+            return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+          }
+        }
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };

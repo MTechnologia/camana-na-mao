@@ -2,7 +2,7 @@ import { useState } from "react";
 import { InlineRatingPicker } from "@/components/ai/InlineRatingPicker";
 import { Card } from "@/components/ui/card";
 
-// [TestInfraRating.tsx] - Lógica principal de teste do picker
+// [TestInfraRating.tsx] - LÃ³gica principal de teste do picker
 const TestInfraRating = () => {
   const [selected, setSelected] = useState<number | null>(null);
 
@@ -11,7 +11,7 @@ const TestInfraRating = () => {
     console.log("Infraestrutura selecionada:", score);
   };
   
-  // Renderiza o componente de picker dinâmico para infraestrutura
+  // Renderiza o componente de picker dinï¿½mico para infraestrutura
   return (
     <InlineRatingPicker
       dimensionKey="infraestrutura"
