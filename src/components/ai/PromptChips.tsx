@@ -11,6 +11,7 @@ import {
   CalendarCheck,
   Newspaper,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,10 +39,17 @@ interface PromptChipsProps {
 const chips: PromptChip[] = [
   {
     id: "urban",
-    label: "Problema na cidade",
-    message: "Quero relatar um problema na cidade",
+    label: "Relato Urbano",
+    message: "Quero falar sobre a cidade",
     icon: Building2,
     collectionType: "urban_report",
+  },
+  {
+    id: "manual_report",
+    label: "Formulário manual (com foto)",
+    message: "[OPEN_MANUAL_REPORT]",
+    icon: FileText,
+    collectionType: null,
   },
   {
     id: "transport",
@@ -108,8 +116,8 @@ const chips: PromptChip[] = [
   },
 ];
 
-/** IDs dos 5 chips principais exibidos sempre; o restante fica no dropdown "Ver todos" */
-const PRIMARY_CHIP_IDS = ["urban", "evaluate", "services", "audiencias", "estrutura"];
+/** IDs dos chips principais exibidos sempre; o restante fica no dropdown "Ver todos" */
+const PRIMARY_CHIP_IDS = ["urban", "manual_report", "evaluate", "services", "audiencias", "estrutura"];
 
 const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
   const primaryChips = chips.filter((c) => PRIMARY_CHIP_IDS.includes(c.id));
@@ -119,6 +127,7 @@ const PromptChips = ({ onSelect, onOpenDiscovery }: PromptChipsProps) => {
     const IconComponent = chip.icon;
     return (
       <motion.button
+        type="button"
         key={chip.id}
         onClick={() => onSelect(chip.message, chip.collectionType)}
         className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full bg-secondary/80 hover:bg-secondary border border-border hover:border-primary/30 text-xs sm:text-sm font-medium text-foreground hover:text-primary transition-all duration-200 flex-shrink-0 min-w-fit"

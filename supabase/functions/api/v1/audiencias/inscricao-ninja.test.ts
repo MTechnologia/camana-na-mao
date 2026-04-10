@@ -100,7 +100,7 @@ Deno.test("submitNinjaForm: monta POST e trata resposta de sucesso (mock)", asyn
     assertEquals(formData.form_id, 2);
     assertEquals(formData.fields["7"], "Fulano");
     assertEquals(formData.fields["9"], "fulano@email.com");
-    assertEquals(formData.fields["10"], "(11) 99999-8888");
+    assertEquals(formData.fields["10"], "(11)+99999-8888");
     assertEquals(formData.fields["19"], "FIN02-26-02-2026");
     assertEquals(formData.fields["94"], 1);
   } finally {

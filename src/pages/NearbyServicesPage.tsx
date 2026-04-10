@@ -4,101 +4,274 @@ import PageHeader from "@/components/ui/page-header";
 import { toast } from "sonner";
 
 import { ServiceCard } from "@/components/evaluation/ServiceCard";
-import { ServiceTypeFilter, type ServiceTypeFilterValue } from "@/components/evaluation/ServiceTypeFilter";
+import {
+  ServiceTypeFilter,
+  type ServiceTypeFilterValue,
+} from "@/components/evaluation/ServiceTypeFilter";
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
+import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { useNearbyServices } from "@/hooks/useNearbyServices";
-import { useWalkingDistancesMatrix } from "@/hooks/useWalkingDistancesMatrix";
-import { useMapboxToken } from "@/hooks/useMapboxToken";
+import {
+  useNearbyServices,
+  NEARBY_FULLTEXT_MIN_LENGTH,
+  type NearbyService,
+} from "@/hooks/useNearbyServices";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
 import { useVisitDetection } from "@/hooks/useVisitDetection";
+import { useVisitDetectionEnabled } from "@/hooks/useVisitDetectionEnabled";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFavoriteServiceIds } from "@/hooks/useServiceFavorites";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, AlertCircle, Map, List, Search, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Loader2 } from "lucide-react";
 import { MapView } from "@/components/map/MapView";
 import { RadiusSelector } from "@/components/map/RadiusSelector";
-import { LocationSearchCard } from "@/components/map/LocationSearchCard";
+import { LocationSearchCard, type NearbyLocationUiPhase } from "@/components/map/LocationSearchCard";
+import { NearbyEquipmentSearchInput } from "@/components/map/NearbyEquipmentSearchInput";
 import type { CepCenter } from "@/components/map/CepSearchCard";
-import { getServiceDisplayName, getOpeningHoursText } from "@/lib/mapUtils";
+import { getServiceDisplayName, getOpeningHoursTextWithDefault, parseOpeningHoursToRange } from "@/lib/mapUtils";
+import { textMatchesSearchQuery } from "@/lib/searchTextMatch";
+import { clampNearbyRadiusMeters, getNearbyDistanceBand } from "@/lib/nearbyRadiusBands";
+import { MAX_GPS_ACCURACY_NEARBY_UI_METERS } from "@/lib/gpsAccuracy";
+import { getUserPrimaryAddressCenter } from "@/lib/userPrimaryAddressCenter";
 import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey } from "@/lib/googleMapsKey";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+/** Tipos pré-selecionados ao abrir Perto de Você (UBS, CEU, escolas, hospitais, esportes). */
+const DEFAULT_NEARBY_SERVICE_TYPES: ServiceTypeFilterValue[] = [
+  "ubs",
+  "ceu",
+  "school",
+  "hospital",
+  "sports_center",
+];
+const MAX_REVERSE_GEOCODE_ITEMS = 24;
+
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>([]);
-  const [radiusMeters, setRadiusMeters] = useState(2000);
+  const { user, loading: authLoading } = useAuth();
+  const { favoriteIds, toggleFavorite } = useFavoriteServiceIds();
+  const [favoriteBusyId, setFavoriteBusyId] = useState<string | null>(null);
+  const [operationalStatusFilter, setOperationalStatusFilter] = useState<"all" | "open" | "closed" | "maintenance">("all");
+  const [selectedTypes, setSelectedTypes] = useState<ServiceTypeFilterValue[]>(
+    () => [...DEFAULT_NEARBY_SERVICE_TYPES],
+  );
+  const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
+  const [locationMode, setLocationMode] = useState<NearbyLocationMode>("unset");
+  const [locationUiPhase, setLocationUiPhase] = useState<NearbyLocationUiPhase>("picking");
+  const [savedProfileCenter, setSavedProfileCenter] = useState<CepCenter | null>(null);
+  const [profileAddressLoading, setProfileAddressLoading] = useState(false);
+  /** Logado: aguarda tentativa de carregar endereço primário antes da busca */
+  const [addressBootstrapDone, setAddressBootstrapDone] = useState(false);
   const [searchByName, setSearchByName] = useState("");
   const [onlyWithOpeningHours, setOnlyWithOpeningHours] = useState(false);
+  const [openingTimeFilter, setOpeningTimeFilter] = useState<string>("");
+  const [closingTimeFilter, setClosingTimeFilter] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
 
   const PAGE_SIZE = 20;
 
-  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation, isSimulated } = useGeolocation();
-  const searchLat = cepCenter?.latitude ?? latitude;
-  const searchLng = cepCenter?.longitude ?? longitude;
+  const { latitude, longitude, loading: geoLoading, error: geoError, refetch: refetchLocation } =
+    useGeolocation({ autoRequest: false, maxAccuracyMeters: MAX_GPS_ACCURACY_NEARBY_UI_METERS });
+  const searchLat = locationMode === "gps" ? latitude : cepCenter?.latitude ?? null;
+  const searchLng = locationMode === "gps" ? longitude : cepCenter?.longitude ?? null;
 
-  const mapboxToken = useMapboxToken();
-  const hasMapboxToken = !!(mapboxToken && mapboxToken.startsWith("pk."));
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user?.id) {
+      setAddressBootstrapDone(true);
+      setLocationUiPhase("picking");
+      setLocationMode("unset");
+      setCepCenter(null);
+      setSavedProfileCenter(null);
+      return;
+    }
+    let cancelled = false;
+    setAddressBootstrapDone(false);
+    void (async () => {
+      try {
+        const result = await getUserPrimaryAddressCenter(user.id);
+        if (cancelled) return;
+        if (result.center) {
+          setSavedProfileCenter(result.center);
+          setCepCenter(result.center);
+          setLocationMode("profile_address");
+          setLocationUiPhase("locked");
+        } else {
+          setSavedProfileCenter(null);
+          setCepCenter(null);
+          setLocationMode("unset");
+          setLocationUiPhase("picking");
+        }
+      } finally {
+        if (!cancelled) setAddressBootstrapDone(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
 
-  const { services, loading: servicesLoading } = useNearbyServices({
+  const skipNearbyFetch =
+    authLoading ||
+    (!!user?.id && !addressBootstrapDone) ||
+    searchLat == null ||
+    searchLng == null;
+
+  const lockedLabel = useMemo(() => {
+    if (locationUiPhase !== "locked") return null;
+    if (locationMode === "gps" && latitude != null && longitude != null) return "Minha localização atual";
+    if (cepCenter?.label) return cepCenter.label;
+    return null;
+  }, [locationUiPhase, locationMode, latitude, longitude, cepCenter]);
+
+  const handleAlterarLocal = useCallback(() => {
+    setLocationUiPhase("picking");
+    setLocationMode("unset");
+    setCepCenter(null);
+  }, []);
+
+  const handleRequestGps = useCallback(() => {
+    setLocationMode("gps");
+    setCepCenter(null);
+    refetchLocation();
+  }, [refetchLocation]);
+
+  const handleUseProfileAddress = useCallback(async () => {
+    if (savedProfileCenter) {
+      setCepCenter(savedProfileCenter);
+      setLocationMode("profile_address");
+      setLocationUiPhase("locked");
+      return;
+    }
+    if (!user?.id) {
+      toast.error("Faça login para usar o endereço cadastrado.");
+      return;
+    }
+    setProfileAddressLoading(true);
+    try {
+      const result = await getUserPrimaryAddressCenter(user.id);
+      if (result.center) {
+        setSavedProfileCenter(result.center);
+        setCepCenter(result.center);
+        setLocationMode("profile_address");
+        setLocationUiPhase("locked");
+      } else {
+        if (result.reason === "not_found") {
+          toast.error("Você ainda não tem endereço cadastrado. Cadastre em Perfil → Endereço.");
+        } else {
+          toast.error("Seu endereço cadastrado ainda não possui coordenadas. Atualize o endereço em Perfil → Endereço.");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao carregar endereço cadastrado");
+    } finally {
+      setProfileAddressLoading(false);
+    }
+  }, [savedProfileCenter, user?.id]);
+
+  const handleCepSearchComplete = useCallback((center: CepCenter) => {
+    setCepCenter(center);
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
+  }, []);
+
+  useEffect(() => {
+    if (locationMode !== "gps") return;
+    if (geoLoading) return;
+    if (latitude != null && longitude != null && !geoError) {
+      setLocationUiPhase("locked");
+    }
+  }, [locationMode, geoLoading, latitude, longitude, geoError]);
+
+  useEffect(() => {
+    if (locationMode !== "gps" || geoLoading) return;
+    if (geoError) {
+      toast.error(geoError);
+      setLocationMode("unset");
+      setLocationUiPhase("picking");
+    }
+  }, [locationMode, geoLoading, geoError]);
+
+  const { isOnline } = useNetworkStatus();
+
+  const distanceBand = useMemo(() => getNearbyDistanceBand(radiusMeters), [radiusMeters]);
+  /** Mínimo da faixa em anel para a RPC (0 = não envia). Sempre que a faixa tiver mínimo > 0. */
+  const minRadiusForHook = distanceBand.min > 0 ? distanceBand.min : undefined;
+
+  const { services, loading: servicesLoading, loadingMore: servicesLoadingMore, error: servicesError } = useNearbyServices({
     latitude: searchLat,
     longitude: searchLng,
     radiusMeters,
-    serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined
+    serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
+    fullTextQuery: searchByName,
+    minRadiusMeters: minRadiusForHook,
+    skipFetch: skipNearbyFetch,
   });
+  const isCacheOrOfflineMessage = servicesError != null && (
+    servicesError.includes("cache") || servicesError.includes("Sem conexão")
+  );
+  /** Faixa em anel conforme o preset (independente de filtro de tipo). */
+  const servicesInBand = useMemo(() => {
+    return services.filter((s) => {
+      const d = s.distance ?? 0;
+      return d >= distanceBand.min && d <= distanceBand.max;
+    });
+  }, [services, distanceBand.min, distanceBand.max]);
 
   const filteredByRating = minRating === "all"
-    ? services
-    : services.filter((s) => (s.average_rating ?? 0) >= minRating);
+    ? servicesInBand
+    : servicesInBand.filter((s) => (s.average_rating ?? 0) >= minRating);
 
-  const sortedServicesByHaversine = useMemo(
+  // Em raio grande, resolver endereço para muitos itens pode ficar lento (várias chamadas de geocoding).
+  // Priorizamos os mais próximos para manter a lista responsiva.
+  const servicesForAddressResolution = useMemo(
     () =>
-      [...filteredByRating].sort((a, b) => {
-        if (sortBy === "rating") {
-          const ra = a.average_rating ?? 0;
-          const rb = b.average_rating ?? 0;
-          if (rb !== ra) return rb - ra;
-        }
-        return (a.distance ?? 0) - (b.distance ?? 0);
-      }),
-    [filteredByRating, sortBy]
+      [...filteredByRating]
+        .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
+        .slice(0, MAX_REVERSE_GEOCODE_ITEMS),
+    [filteredByRating]
+  );
+
+  // Antes do filtro textual: equipamentos tipo "Outro" (e similares) costumam vir sem address no banco.
+  const resolvedAddresses = useReverseGeocodeForServices(servicesForAddressResolution, {
+    apiKey: getGoogleMapsApiKey(),
+    throttleMs: 200,
+    maxConcurrent: 2,
+  });
+
+  /** Base de ordenação por distância em linha reta (Haversine). */
+  const sortedServicesByHaversine = useMemo(
+    () => [...filteredByRating].sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0)),
+    [filteredByRating]
   );
 
   const mapCenter = searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null;
-  const { walkingDistances, loading: walkingLoading } = useWalkingDistancesMatrix(
-    mapCenter,
-    sortedServicesByHaversine,
-    hasMapboxToken ? mapboxToken : null,
-    "walking"
+  /** Referência estável para o mapa (evita reexecução desnecessária de efeitos no GoogleMap). */
+  const stableMapUserLocation = useMemo(
+    () =>
+      searchLat != null && searchLng != null ? { latitude: searchLat, longitude: searchLng } : null,
+    [searchLat, searchLng],
   );
 
-  const { sortedServices, routeFilterFallback } = useMemo(() => {
-    const hasRouteData = walkingDistances && walkingDistances.size > 0;
-    const withRouteDistance = hasRouteData
-      ? sortedServicesByHaversine.map((s) => ({
-          ...s,
-          distance: walkingDistances.get(s.id) ?? s.distance,
-        }))
-      : sortedServicesByHaversine.map((s) => ({ ...s }));
+  const [equipmentMapFocusKey, setEquipmentMapFocusKey] = useState(0);
+  const [equipmentMapFocusCoords, setEquipmentMapFocusCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
-    let withinRadius = withRouteDistance.filter((s) => (s.distance ?? 0) <= radiusMeters);
-
-    // Sem filtro de tipo há muitos serviços; após rota a pé quase todos ficam > raio e a lista zera. Fallback: mostrar por linha reta.
-    const fallback =
-      hasRouteData && withinRadius.length === 0 && sortedServicesByHaversine.length > 0;
-    if (fallback) {
-      withinRadius = sortedServicesByHaversine.filter((s) => (s.distance ?? 0) <= radiusMeters);
-    }
+  const sortedServices = useMemo(() => {
+    const inBand = (d: number) => d >= distanceBand.min && d <= distanceBand.max;
+    const withinRadius = sortedServicesByHaversine.filter((s) => inBand(s.distance ?? 0));
 
     const sorted = [...withinRadius].sort((a, b) => {
       if (sortBy === "rating") {
@@ -108,28 +281,136 @@ export default function NearbyServicesPage() {
       }
       return (a.distance ?? 0) - (b.distance ?? 0);
     });
-    return { sortedServices: sorted, routeFilterFallback: fallback };
-  }, [sortedServicesByHaversine, walkingDistances, sortBy, radiusMeters]);
+    return sorted;
+  }, [sortedServicesByHaversine, sortBy, distanceBand.min, distanceBand.max]);
 
-  const useRouteDistance = !!(walkingDistances && walkingDistances.size > 0);
-  const distanceLabelMode = useRouteDistance && !routeFilterFallback ? "walking" : "straight";
+  const distanceLabelMode = "straight" as const;
 
+  const filteredByOperationalStatus = useMemo(() => {
+    if (operationalStatusFilter === "all") return sortedServices;
+    return sortedServices.filter((s) => s.operational_status === operationalStatusFilter);
+  }, [sortedServices, operationalStatusFilter]);
+
+  // Filtro de horário é independente do tipo: aplicado a todos os serviços já listados (por tipo, raio, etc.).
+  // "Abertura a partir de X" = equipamentos que já estão abertos naquele horário (abrem ≤ X e fecham ≥ X).
   const filteredByOpeningHours = useMemo(() => {
-    if (!onlyWithOpeningHours) return sortedServices;
-    return sortedServices.filter((s) => getOpeningHoursText(s.opening_hours) != null);
-  }, [sortedServices, onlyWithOpeningHours]);
+    let list = filteredByOperationalStatus;
+    if (onlyWithOpeningHours) {
+      list = list.filter((s) => getOpeningHoursTextWithDefault(s.opening_hours, s.service_type) != null);
+    }
+    const openFilterMinutes = openingTimeFilter
+      ? (() => {
+          const [h, m] = openingTimeFilter.split(":").map(Number);
+          return h * 60 + (m ?? 0);
+        })()
+      : null;
+    const closeFilterMinutes =
+      closingTimeFilter && closingTimeFilter.trim() !== "" && closingTimeFilter !== "00:00"
+        ? (() => {
+            const [h, m] = closingTimeFilter.split(":").map(Number);
+            return h * 60 + (m ?? 0);
+          })()
+        : null;
+    if (openFilterMinutes == null && closeFilterMinutes == null) return list;
+    return list.filter((s) => {
+      const text = getOpeningHoursTextWithDefault(s.opening_hours, s.service_type);
+      const { openMinutes, closeMinutes } = parseOpeningHoursToRange(text);
+      if (openFilterMinutes != null) {
+        if (openMinutes == null || closeMinutes == null) return false;
+        if (openMinutes > openFilterMinutes) return false;
+        if (closeMinutes < openFilterMinutes) return false;
+      }
+      if (closeFilterMinutes != null) {
+        if (closeMinutes == null) return false;
+        if (closeMinutes < closeFilterMinutes) return false;
+        if (openMinutes != null && openMinutes > closeFilterMinutes) return false;
+      }
+      return true;
+    });
+  }, [filteredByOperationalStatus, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   const filteredByName = useMemo(() => {
-    const q = searchByName.trim().toLowerCase();
+    const qRaw = searchByName.trim();
     const base = filteredByOpeningHours;
-    if (!q) return base;
+    if (!qRaw) return base;
+    // Online + 2+ caracteres: lista já veio filtrada por FTS/ILIKE no banco; refinamos por palavras no cliente.
+    if (qRaw.length >= NEARBY_FULLTEXT_MIN_LENGTH && isOnline) {
+      return base.filter((s) => {
+        const haystack = [
+          s.name,
+          s.address,
+          s.district,
+          resolvedAddresses[s.id] ?? "",
+          s.services_offered ?? "",
+        ].join(" ");
+        return textMatchesSearchQuery(haystack, qRaw);
+      });
+    }
     return base.filter((s) => {
-      const name = (s.name ?? "").toLowerCase();
-      const address = (s.address ?? "").toLowerCase();
-      const district = (s.district ?? "").toLowerCase();
-      return name.includes(q) || address.includes(q) || district.includes(q);
+      const haystack = [
+        s.name,
+        s.address,
+        s.district,
+        resolvedAddresses[s.id] ?? "",
+        s.services_offered ?? "",
+      ].join(" ");
+      return textMatchesSearchQuery(haystack, qRaw);
     });
-  }, [filteredByOpeningHours, searchByName]);
+  }, [filteredByOpeningHours, searchByName, resolvedAddresses, isOnline]);
+
+  const focusMapOnEquipment = useCallback((s: NearbyService) => {
+    setCepCenter({
+      latitude: s.latitude,
+      longitude: s.longitude,
+      label: getServiceDisplayName({
+        name: s.name,
+        address: s.address,
+        district: s.district,
+        service_type: s.service_type,
+      }),
+    });
+    setLocationMode("cep_lookup");
+    setLocationUiPhase("locked");
+    setEquipmentMapFocusCoords({ lat: s.latitude, lng: s.longitude });
+    setEquipmentMapFocusKey((k) => k + 1);
+    setViewMode("map");
+  }, []);
+
+  /** Um único equipamento após filtro textual: centralizar mapa após debounce (usuário ainda digitando). */
+  const loneTextFilterMatch = useMemo(() => {
+    const q = searchByName.trim();
+    if (q.length < 3 || filteredByName.length !== 1) return null;
+    return filteredByName[0];
+  }, [searchByName, filteredByName]);
+
+  useEffect(() => {
+    if (!searchByName.trim()) {
+      setEquipmentMapFocusCoords(null);
+    }
+  }, [searchByName]);
+
+  useEffect(() => {
+    if (!loneTextFilterMatch) return;
+    const t = window.setTimeout(() => {
+      setEquipmentMapFocusCoords({ lat: loneTextFilterMatch.latitude, lng: loneTextFilterMatch.longitude });
+      setEquipmentMapFocusKey((k) => k + 1);
+    }, 450);
+    return () => clearTimeout(t);
+    // Só reagir quando o único resultado possível mudar (id), não a cada novo array filteredByName
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loneTextFilterMatch.id é o gatilho desejado
+  }, [loneTextFilterMatch?.id]);
+
+  const mapFocusPayload = useMemo(
+    () =>
+      equipmentMapFocusCoords
+        ? {
+            latitude: equipmentMapFocusCoords.lat,
+            longitude: equipmentMapFocusCoords.lng,
+            focusKey: equipmentMapFocusKey,
+          }
+        : null,
+    [equipmentMapFocusCoords, equipmentMapFocusKey],
+  );
 
   const totalFiltered = filteredByName.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
@@ -140,34 +421,29 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, onlyWithOpeningHours]);
-
-  // Usar lista que já tem dados (filteredByRating), não sortedServices que pode estar vazio por raio/distância a pé
-  const resolvedAddresses = useReverseGeocodeForServices(filteredByRating, {
-    apiKey: getGoogleMapsApiKey(),
-    throttleMs: 200,
-    maxConcurrent: 2,
-  });
+  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, operationalStatusFilter, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
     () =>
-      services.map((s) => ({
+      servicesInBand.map((s) => ({
         id: s.id,
         name: s.name,
         displayName: getServiceDisplayName({ name: s.name, address: s.address, district: s.district, service_type: s.service_type }),
         latitude: s.latitude,
         longitude: s.longitude,
       })),
-    [services]
+    [servicesInBand]
   );
 
+  const visitDetectionEnabled = useVisitDetectionEnabled(user?.id);
+
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
-    latitude: latitude ?? undefined,
-    longitude: longitude ?? undefined,
+    latitude: locationMode === "gps" ? latitude : null,
+    longitude: locationMode === "gps" ? longitude : null,
     services: servicesForVisit,
     userId: user?.id,
-    isSimulated,
+    visitDetectionEnabled,
   });
 
   const handleVisitAvaliar = useCallback(() => {
@@ -191,43 +467,49 @@ export default function NearbyServicesPage() {
       }
     );
   }, [detectedVisit, handleVisitAvaliar]);
-  const isLoading = servicesLoading && services.length === 0;
+  const isInitialLoading = servicesLoading && services.length === 0;
+  const isListRefreshing =
+    (servicesLoading && services.length > 0) || servicesLoadingMore;
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
       <PageHeader title="Perto de Você" />
       
       <div className="max-w-screen-xl mx-auto p-4 lg:p-6 space-y-4">
-        {isSimulated && (
-          <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
+        {!isOnline && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
+            <WifiOff className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground mb-1">
-                Modo Demonstração
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Você está offline
               </p>
               <p className="text-xs text-muted-foreground">
-                Usando localização simulada (Centro de São Paulo) com os serviços cadastrados no sistema
+                Os dados exibidos podem ser do último acesso. Ative a internet para atualizar a lista.
               </p>
             </div>
           </div>
         )}
 
-        {geoError && !isSimulated && (
+        {isOnline && isCacheOrOfflineMessage && (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
+            <Database className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Dados em cache
+              </p>
+              <p className="text-xs text-muted-foreground">{servicesError}</p>
+            </div>
+          </div>
+        )}
+
+        {isOnline && servicesError != null && !isCacheOrOfflineMessage && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-destructive mb-1">
-                Não foi possível obter sua localização
-              </p>
-              <p className="text-xs text-muted-foreground mb-2">{geoError}</p>
-              <Button size="sm" variant="outline" onClick={refetchLocation}>
-                Tentar novamente
-              </Button>
-            </div>
+            <p className="text-sm text-destructive">{servicesError}</p>
           </div>
         )}
 
-        {(searchLat != null && searchLng != null) && !geoError && (
+        {(searchLat != null && searchLng != null) && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -240,33 +522,66 @@ export default function NearbyServicesPage() {
               </div>
               <ServiceSortSelect value={sortBy} onValueChange={setSortBy} />
             </div>
-            {user && !isSimulated && services.length > 0 && (
+            {(onlyWithOpeningHours || openingTimeFilter || closingTimeFilter) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                <span>Filtros de horário ativos podem reduzir os resultados dentro do raio selecionado.</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    setOnlyWithOpeningHours(false);
+                    setOpeningTimeFilter("");
+                    setClosingTimeFilter("");
+                  }}
+                >
+                  Limpar filtros de horário
+                </Button>
+              </div>
+            )}
+            {user && locationMode === "gps" && services.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 Detecção de visitas ativa: permaneça 10 min perto de um serviço para receber o aviso de avaliação.
-              </p>
-            )}
-            {hasMapboxToken && walkingLoading && sortedServices.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Atualizando distâncias a pé…
-              </p>
-            )}
-            {routeFilterFallback && (
-              <p className="text-xs text-amber-600 dark:text-amber-500">
-                Exibindo distâncias em linha reta; rota a pé indisponível para todos neste raio.
               </p>
             )}
           </>
         )}
 
-        <LocationSearchCard cepCenter={cepCenter} onCepCenterChange={setCepCenter} disabled={!!geoError} />
-        <RadiusSelector radius={radiusMeters} onRadiusChange={setRadiusMeters} />
+        <LocationSearchCard
+          phase={locationUiPhase}
+          lockedLabel={lockedLabel}
+          onAlterarLocal={handleAlterarLocal}
+          onRequestGps={handleRequestGps}
+          onUseProfileAddress={handleUseProfileAddress}
+          profileAddressLoading={profileAddressLoading}
+          onCepSearchComplete={handleCepSearchComplete}
+          geoLoading={geoLoading}
+          gpsError={locationUiPhase === "picking" ? geoError : null}
+        />
+        <RadiusSelector
+          radius={radiusMeters}
+          onRadiusChange={(r) => setRadiusMeters(clampNearbyRadiusMeters(r))}
+          showBandHint
+        />
 
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
 
         <RatingFilter value={minRating} onChange={setMinRating} />
 
-        <div className="overflow-x-auto pb-2 -mx-4 px-4">
-          <div className="flex items-center gap-2 min-w-max">
+        <div className="space-y-2">
+          <OperationalStatusFilterChips
+            value={operationalStatusFilter}
+            onChange={setOperationalStatusFilter}
+            label="Status operacional:"
+          />
+          <p className="text-xs text-muted-foreground">
+            Exibe apenas serviços com status operacional identificado no GeoSampa.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden />
             <span className="text-sm text-muted-foreground shrink-0">Horário:</span>
             <Badge
@@ -276,22 +591,86 @@ export default function NearbyServicesPage() {
                 onlyWithOpeningHours ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
               )}
               onClick={() => setOnlyWithOpeningHours((v) => !v)}
+              title={onlyWithOpeningHours ? "Exibir todos (remover filtro)" : "Mostrar apenas equipamentos com horário de funcionamento cadastrado"}
             >
               Com horário informado
             </Badge>
+            <span className="text-xs text-muted-foreground">
+              (não precisa selecionar tipo; vale para todos os equipamentos)
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label htmlFor="opening-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+                Abertura a partir de
+              </label>
+              <Input
+                id="opening-time-filter"
+                type="time"
+                value={openingTimeFilter}
+                onChange={(e) => setOpeningTimeFilter(e.target.value)}
+                className="w-[8rem]"
+                title="Mostrar equipamentos que abrem ou já estão abertos neste horário (vale para todos os tipos selecionados)"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="closing-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
+                Fechamento até
+              </label>
+              <Input
+                id="closing-time-filter"
+                type="time"
+                value={closingTimeFilter}
+                onChange={(e) => setClosingTimeFilter(e.target.value)}
+                className="w-[8rem]"
+                title="Mostrar equipamentos que ainda estão abertos neste horário (vale para todos os tipos selecionados)"
+              />
+            </div>
+            {(openingTimeFilter || closingTimeFilter) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpeningTimeFilter("");
+                  setClosingTimeFilter("");
+                }}
+              >
+                Limpar horários
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar por nome, endereço ou bairro"
-            value={searchByName}
-            onChange={(e) => setSearchByName(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <NearbyEquipmentSearchInput
+          value={searchByName}
+          onChange={setSearchByName}
+          servicesInArea={filteredByOpeningHours}
+          resolvedAddresses={resolvedAddresses}
+          searchCenterLat={searchLat}
+          searchCenterLng={searchLng}
+          serviceTypesFilter={selectedTypes.length > 0 ? selectedTypes : undefined}
+          onPlaceCenterSelected={(center) => {
+            setCepCenter(center);
+            setLocationMode("cep_lookup");
+            setLocationUiPhase("locked");
+            setSearchByName("");
+          }}
+          onEquipmentMapFocus={focusMapOnEquipment}
+        />
+
+        {isListRefreshing && (
+          <div
+            className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            {servicesLoadingMore && !servicesLoading
+              ? "Ampliando resultados até o raio selecionado…"
+              : "Atualizando equipamentos conforme o filtro…"}
+          </div>
+        )}
 
         <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "map")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
@@ -306,7 +685,7 @@ export default function NearbyServicesPage() {
           </TabsList>
 
           <TabsContent value="list" className="mt-0">
-            {isLoading ? (
+            {isInitialLoading ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                 {[...Array(6)].map((_, i) => (
                   <Skeleton key={i} className="h-32 w-full" />
@@ -321,8 +700,10 @@ export default function NearbyServicesPage() {
                 <p className="text-sm text-muted-foreground">
                   {searchByName.trim()
                     ? "Tente outro termo de busca ou relaxe os filtros."
-                    : onlyWithOpeningHours
-                      ? "Nenhum serviço com horário informado neste raio. Tente aumentar o raio, desativar o filtro \"Com horário informado\" ou outro tipo de serviço."
+                    : operationalStatusFilter !== "all"
+                      ? "Nenhum serviço com esse status operacional neste raio. Tente outro status ou aumente o raio."
+                      : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
+                      ? "Nenhum serviço atende aos filtros de horário neste raio. Tente aumentar o raio, ajustar ou limpar os horários de abertura/fechamento."
                       : "Tente aumentar o raio de busca, selecionar outro tipo de serviço ou relaxar o filtro de avaliação"}
                 </p>
               </div>
@@ -348,7 +729,29 @@ export default function NearbyServicesPage() {
                     userLongitude={searchLng ?? undefined}
                     openingHours={service.opening_hours}
                     servicesOffered={service.services_offered}
-                    onClick={() => navigate(`/servico/${service.id}`)}
+                    operationalStatus={service.operational_status}
+                    isFavorite={user ? favoriteIds.has(service.id) : false}
+                    favoriteDisabled={favoriteBusyId === service.id}
+                    onFavoriteClick={async () => {
+                      if (!user) {
+                        toast.error("Faça login para usar favoritos.");
+                        return;
+                      }
+                      setFavoriteBusyId(service.id);
+                      try {
+                        await toggleFavorite(service.id);
+                      } finally {
+                        setFavoriteBusyId(null);
+                      }
+                    }}
+                    onClick={() =>
+                      navigate(`/servico/${service.id}`, {
+                        state: {
+                          originLat: searchLat ?? null,
+                          originLng: searchLng ?? null,
+                        },
+                      })
+                    }
                   />
                 ))}
               </div>
@@ -382,14 +785,34 @@ export default function NearbyServicesPage() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-0">
-            {isLoading ? (
+            <div className="sticky top-[64px] z-20 mb-3">
+              <div className="rounded-lg border bg-background/95 backdrop-blur p-2">
+                <OperationalStatusFilterChips
+                  value={operationalStatusFilter}
+                  onChange={setOperationalStatusFilter}
+                  label="Status:"
+                  compact
+                />
+              </div>
+            </div>
+            {!isOnline ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-8 text-center">
+                <WifiOff className="mx-auto h-12 w-12 text-amber-600 dark:text-amber-400 mb-3" aria-hidden />
+                <h3 className="font-semibold text-foreground mb-1">Mapa indisponível offline</h3>
+                <p className="text-sm text-muted-foreground">
+                  O mapa precisa de conexão para carregar. Use a aba <strong>Lista</strong> para ver os equipamentos em cache.
+                </p>
+              </div>
+            ) : isInitialLoading ? (
               <Skeleton className="h-[500px] w-full rounded-lg" />
             ) : mapCenter ? (
               <MapView
-                userLocation={mapCenter}
+                userLocation={stableMapUserLocation}
                 services={filteredByName}
                 onServiceClick={(serviceId) => navigate(`/servico/${serviceId}`)}
                 distanceLabel={distanceLabelMode}
+                activeServiceTypes={selectedTypes}
+                focusOnService={mapFocusPayload}
               />
             ) : (
               <div className="text-center py-12">

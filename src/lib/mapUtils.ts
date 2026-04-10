@@ -39,6 +39,98 @@ export const getOpeningHoursText = (openingHours: unknown): string | null => {
   return typeof text === "string" && text.trim() ? text.trim() : null;
 };
 
+/**
+ * Horário padrão quando a fonte (GeoSampa) não fornece `opening_hours.text`.
+ * Mantém compatibilidade com o que já é exibido em `ServiceDetailPage`.
+ */
+export const DEFAULT_OPENING_HOURS_BY_TYPE: Record<string, string> = {
+  ubs: "Segunda a sexta, 7h às 19h (horário padrão das UBS em SP). Confirme na unidade.",
+  hospital: "Atendimento 24h ou conforme unidade. Confirme pelo telefone.",
+  library: "Segunda a sexta, em geral 9h às 18h. Confirme na unidade.",
+  school: "Conforme calendário escolar. Confirme na unidade.",
+  ceu: "Conforme programação. Confirme na unidade.",
+  sports_center: "Varía por unidade. Confirme no local.",
+};
+
+/**
+ * Retorna o texto de opening_hours se existir; caso contrário retorna um fallback
+ * baseado no `serviceType` (para filtros de horário no NearbyServicesPage).
+ */
+export const getOpeningHoursTextWithDefault = (
+  openingHours: unknown,
+  serviceType?: string | null
+): string | null => {
+  const extracted = getOpeningHoursText(openingHours);
+  if (extracted) return extracted;
+  if (!serviceType) return null;
+  return DEFAULT_OPENING_HOURS_BY_TYPE[serviceType] ?? null;
+};
+
+/**
+ * Interpreta um texto de opening_hours (ex.: "08:00 - 17:00", "08h às 17h")
+ * e retorna o intervalo em minutos desde 00:00.
+ *
+ * Retorna { openMinutes: null, closeMinutes: null } quando não for possível identificar.
+ *
+ * Obs.: esta função existe para manter compatibilidade com fluxos/filters que
+ * comparam horários em minutos (ex.: filtros de "abre a partir de"/"fecha até").
+ */
+export const parseOpeningHoursToRange = (
+  openingHoursText: string | null | undefined
+): { openMinutes: number | null; closeMinutes: number | null } => {
+  if (!openingHoursText) return { openMinutes: null, closeMinutes: null };
+
+  const text = openingHoursText.toString().replace(/\s+/g, " ").trim();
+
+  const toMinutes = (hRaw: string, mRaw: string) => {
+    const h = Number(hRaw);
+    const m = Number(mRaw);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    if (h < 0 || h > 23) return null;
+    if (m < 0 || m > 59) return null;
+    return h * 60 + m;
+  };
+
+  // Extração robusta de horários em diferentes formatos:
+  // - HH:MM (ex.: 07:00)
+  // - HhMM (ex.: 07h00)
+  // - Hh (ex.: 07h)  => assume minutos=00
+  //
+  // Depois pegamos as 2 primeiras ocorrências como (abertura, fechamento).
+  const times: number[] = [];
+  const timeRegex =
+    /(\d{1,2})\s*:\s*(\d{2})\b|(\d{1,2})\s*h\s*(\d{2})\b|(\d{1,2})\s*h\b/gi;
+
+  for (const match of text.matchAll(timeRegex)) {
+    // match[1], match[2] => HH:MM
+    if (match[1] != null && match[2] != null) {
+      const v = toMinutes(match[1], match[2]);
+      if (v != null) times.push(v);
+      continue;
+    }
+    // match[3], match[4] => HhMM
+    if (match[3] != null && match[4] != null) {
+      const v = toMinutes(match[3], match[4]);
+      if (v != null) times.push(v);
+      continue;
+    }
+    // match[5] => Hh
+    if (match[5] != null) {
+      const v = toMinutes(match[5], "00");
+      if (v != null) times.push(v);
+    }
+  }
+
+  if (times.length >= 2) {
+    return { openMinutes: times[0], closeMinutes: times[1] };
+  }
+  if (times.length === 1) {
+    return { openMinutes: times[0], closeMinutes: null };
+  }
+
+  return { openMinutes: null, closeMinutes: null };
+};
+
 /** Retorna texto para exibição de endereço; trata "Endereço não informado" e vazio. */
 export const getAddressDisplay = (address: string | undefined | null, district?: string | undefined | null): string => {
   const addr = (address ?? "").trim();
@@ -56,10 +148,9 @@ export const formatDistance = (meters: number): string => {
   return `${(meters / 1000).toFixed(1)}km`;
 };
 
-/** Formata distância em linha reta e deixa explícito para o usuário (evita confusão com distância da rota no Maps). */
+/** Formata distância quando não há rota (Haversine). Exibimos só o valor, sem "(em linha reta)", por decisão de produto. */
 export const formatDistanceStraightLine = (meters: number): string => {
-  const value = formatDistance(meters);
-  return `${value} (em linha reta)`;
+  return formatDistance(meters);
 };
 
 export const formatDuration = (seconds: number): string => {

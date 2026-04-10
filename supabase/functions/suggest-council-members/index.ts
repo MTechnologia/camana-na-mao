@@ -109,7 +109,7 @@ interface SuggestionResult {
 }
 
 // Calcula score de match entre vereador e relato
-function calculateMatchScore(vereador: VereadorData, report: ReportData): { score: number; reasons: string[] } {
+export function calculateMatchScore(vereador: VereadorData, report: ReportData): { score: number; reasons: string[] } {
   let score = 0;
   const reasons: string[] = [];
   
@@ -200,7 +200,8 @@ function calculateMatchScore(vereador: VereadorData, report: ReportData): { scor
   return { score: Math.min(100, score), reasons };
 }
 
-serve(async (req) => {
+if (import.meta.main) {
+  serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -324,3 +325,4 @@ serve(async (req) => {
     );
   }
 });
+}

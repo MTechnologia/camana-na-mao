@@ -6,6 +6,7 @@ interface AdminStats {
   pendingTransportReports: number;
   pendingReports: number; // Combined urban + transport
   pendingReferrals: number;
+  pendingServiceCorrections: number;
   loading: boolean;
 }
 
@@ -15,6 +16,7 @@ export const useAdminStats = () => {
     pendingTransportReports: 0,
     pendingReports: 0,
     pendingReferrals: 0,
+    pendingServiceCorrections: 0,
     loading: true,
   });
 
@@ -39,6 +41,11 @@ export const useAdminStats = () => {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending');
 
+        const { count: correctionsCount } = await supabase
+          .from('service_corrections')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+
         const urban = urbanCount || 0;
         const transport = transportCount || 0;
 
@@ -47,6 +54,7 @@ export const useAdminStats = () => {
           pendingTransportReports: transport,
           pendingReports: urban + transport,
           pendingReferrals: referralCount || 0,
+          pendingServiceCorrections: correctionsCount || 0,
           loading: false,
         });
       } catch (error) {
@@ -72,9 +80,17 @@ export const useAdminStats = () => {
       })
       .subscribe();
 
+    const correctionsChannel = supabase
+      .channel('service_corrections_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_corrections' }, () => {
+        fetchStats();
+      })
+      .subscribe();
+
     return () => {
       urbanChannel.unsubscribe();
       transportChannel.unsubscribe();
+      correctionsChannel.unsubscribe();
     };
   }, []);
 

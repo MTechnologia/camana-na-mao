@@ -1,8 +1,13 @@
 import { cn } from "@/lib/utils";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
+import { UserChatBubbleText } from "./UserChatBubbleText";
+import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/parseUrbanReportPreview";
+import { UrbanReportPreviewInChat } from "./UrbanReportPreviewInChat";
+import { SimilarUrbanReportsInChat, parseSimilarUrbanReportsB64 } from "./SimilarUrbanReportsInChat";
+import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
@@ -10,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
-import { extrairEmailDeMaisInformacoes, normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { extrairEmailDeMaisInformacoes, parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import InlineDatePicker from "./InlineDatePicker";
@@ -53,6 +58,8 @@ interface ChatMessage {
   content: string;
   timestamp?: string | Date;
   source?: string;
+  /** URLs públicas de imagens anexadas na mensagem do usuário. */
+  attachmentUrls?: string[];
 }
 
 const formatTimestamp = (timestamp: string | Date | undefined): string => {
@@ -116,6 +123,8 @@ interface ChatMessageBubbleProps {
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
   /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
   onSendMessage?: (message: string) => void;
+  /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
+  disableRegistrarUntilPhotosAttached?: boolean;
 }
 
 const ChatMessageBubble = ({ 
@@ -140,8 +149,10 @@ const ChatMessageBubble = ({
   onRequestAudienciasWithFilters,
   onApplyNearbyFilters,
   onSendMessage,
+  disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
+  const attachmentUrls = isUser ? (Array.isArray(message.attachmentUrls) ? message.attachmentUrls : []) : [];
   const navigate = useNavigate();
   const [addressSelected, setAddressSelected] = useState(false);
   const [decisionMade, setDecisionMade] = useState(false);
@@ -187,6 +198,7 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
+<<<<<<< HEAD
   // Detect dimension rating picker: [DIMENSION_RATING_PICKER:atendimento]
   const dimensionRatingMatch = useMemo(() => {
     if (isUser) return null;
@@ -196,17 +208,23 @@ const ChatMessageBubble = ({
   const hasDimensionRatingPicker = dimensionRatingMatch !== null;
 
   // Botões de audiências (Inscrever-se, Abrir Audiências, Buscar outras): apenas quando a resposta for sobre listagem/agenda de audiências, não quando for texto institucional que só menciona "audiências" (ex.: estrutura da Câmara).
+=======
+  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5".
+>>>>>>> main
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
-    const mentionsAudiencias = content.includes('audiên') || content.includes('audienc');
+    const mentionsAudiencias = content.includes("audiên") || content.includes("audienc");
     const isListingAudiencias =
-      content.includes('próximas audiências') ||
-      content.includes('proximas audiencias') ||
-      content.includes('audiências públicas agendadas') ||
-      content.includes('audiencias publicas agendadas') ||
-      content.includes('quer saber mais sobre alguma ou inscrever-se') ||
-      (content.includes('inscrever-se') && (content.includes('agendadas') || content.includes('próximas')));
+      content.includes("próximas audiências") ||
+      content.includes("proximas audiencias") ||
+      content.includes("audiências públicas agendadas") ||
+      content.includes("audiencias publicas agendadas") ||
+      content.includes("quer saber mais sobre alguma ou inscrever-se") ||
+      content.includes("este ano ainda não foram realizadas") ||
+      content.includes("últimas 5 realizadas") ||
+      content.includes("quer buscar outras audiências ou outro tema") ||
+      (content.includes("inscrever-se") && (content.includes("agendadas") || content.includes("próximas")));
     return mentionsAudiencias && isListingAudiencias;
   }, [isUser, isLastAssistantMessage, message.content]);
 
@@ -214,13 +232,29 @@ const ChatMessageBubble = ({
   const { data: audienciasData = [] } = useQuery({
     queryKey: ["audiencias-chat"],
     queryFn: async () => {
-      const all: { id: string; titulo: string; descricao: string | null; data: string; hora: string | null; local: string; tema: string; status: string; comissao: string | null; convidados: string | null; projeto_referencia: string | null; link_transmissao: string | null; mais_informacoes: string | null }[] = [];
+      const all: {
+        id: string;
+        titulo: string;
+        descricao: string | null;
+        data: string;
+        hora: string | null;
+        local: string;
+        tema: string;
+        status: string;
+        comissao: string | null;
+        convidados: string | null;
+        projeto_referencia: string | null;
+        link_transmissao: string | null;
+        mais_informacoes: string | null;
+        inscricoes_abertas: boolean | null;
+        vagas_disponiveis: number | null;
+      }[] = [];
       let offset = 0;
       const pageSize = 500;
       while (true) {
         const { data, error } = await supabase
           .from("audiencias")
-          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados, projeto_referencia, link_transmissao, mais_informacoes")
+          .select("id, titulo, descricao, data, hora, local, tema, status, comissao, convidados, projeto_referencia, link_transmissao, mais_informacoes, inscricoes_abertas, vagas_disponiveis")
           .order("data", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
@@ -234,6 +268,23 @@ const ChatMessageBubble = ({
     staleTime: 5 * 60 * 1000,
     enabled: shouldShowAudienciasCta,
   });
+
+  // Verifica se existe pelo menos uma audiência futura com inscrições abertas (dados estruturados).
+  const hasFutureOpenAudiencia = useMemo(() => {
+    if (!shouldShowAudienciasCta || !audienciasData.length) return false;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return audienciasData.some((a) => {
+      const dataStr = (a.data || "").slice(0, 10);
+      return (a.inscricoes_abertas ?? false) && dataStr >= todayStr;
+    });
+  }, [shouldShowAudienciasCta, audienciasData]);
+
+  // Inscrições abertas: se houver audiência futura aberta (preferência), ou se a resposta textual mencionar isso (fallback).
+  const hasInscricoesAbertas = useMemo(() => {
+    if (!shouldShowAudienciasCta) return false;
+    if (hasFutureOpenAudiencia) return true;
+    return message.content.includes("Inscrições abertas") || message.content.includes("🎫");
+  }, [shouldShowAudienciasCta, hasFutureOpenAudiencia, message.content]);
 
   const audienciasFiltradasNoChat = useMemo(() => {
     if (!audienciasData.length) return [];
@@ -260,6 +311,46 @@ const ChatMessageBubble = ({
     });
     return [...filtered].sort((a, b) => (a.data || "").localeCompare(b.data || "")).slice(0, 5);
   }, [audienciasData, audienciaChatTema, audienciaChatRegiao, audienciaChatDateFrom, audienciaChatDateTo]);
+
+  /**
+   * Backend/LLM às vezes pergunta só "Qual o CEP do local?" antes do passo correto (GPS / cadastrado / digitar).
+   * Nesse caso mostramos o picker de método — não o autocomplete de endereço.
+   */
+  const treatCepQuestionAsUrbanLocationStep = useMemo(() => {
+    if (isUser || !isLastAssistantMessage || addressSelected || locationMethodSelected) return false;
+    const raw = message.content;
+    const content = raw.toLowerCase();
+    const asksCepLoose =
+      content.includes("cep do local") ||
+      /\bqual\s+o\s+cep\b/i.test(content) ||
+      /\bqual\s+é\s+o\s+cep\b/i.test(content);
+    if (!asksCepLoose) return false;
+    if (raw.includes("[FIELD_REQUEST:cep]") || raw.includes("[ADDRESS_PICKER]")) return false;
+    if (/\[\s*LOCATION_METHOD_PICKER\s*\]/i.test(raw) || raw.includes("[FIELD_REQUEST:location_method]")) {
+      return false;
+    }
+    const urbanProgress = /\[COLLECTION_PROGRESS:urban_report:/i.test(raw);
+    const urgentTone =
+      content.includes("perigoso") ||
+      content.includes("urgente") ||
+      content.includes("incêndio") ||
+      content.includes("incendio") ||
+      content.includes("fogo") ||
+      content.includes("queimando") ||
+      /registrar\s+urgent/i.test(content);
+    // Água / drenagem: a LLM costuma pular para CEP; mesmo fluxo que GPS/cadastrado/digitar
+    const waterOrDrainageUrban =
+      content.includes("drenagem") ||
+      content.includes("alag") ||
+      content.includes("enchent") ||
+      content.includes("inunda") ||
+      content.includes("chovendo") ||
+      content.includes("chuva forte") ||
+      content.includes("bueiro") ||
+      content.includes("água na rua") ||
+      content.includes("agua na rua");
+    return urbanProgress || urgentTone || waterOrDrainageUrban;
+  }, [isUser, isLastAssistantMessage, message.content, addressSelected, locationMethodSelected]);
   
   // Detect if the message is asking for CEP or address (for inline autocomplete)
   const isAskingForAddress = useMemo(() => {
@@ -269,6 +360,8 @@ const ChatMessageBubble = ({
     
     // Check for explicit field request marker
     if (message.content.includes('[FIELD_REQUEST:cep]')) return true;
+
+    if (treatCepQuestionAsUrbanLocationStep) return false;
     
     // Check for CEP question patterns
     const cepPatterns = [
@@ -295,7 +388,7 @@ const ChatMessageBubble = ({
     const isAddressQuestion = addressPatterns.some(p => content.includes(p));
     
     return (isCepQuestion || isAddressQuestion) && isLastAssistantMessage;
-  }, [isUser, message.content, addressSelected, isLastAssistantMessage]);
+  }, [isUser, message.content, addressSelected, isLastAssistantMessage, treatCepQuestionAsUrbanLocationStep]);
   
   // Detect line question without explicit marker
   const isAskingForLine = useMemo(() => {
@@ -372,14 +465,27 @@ const ChatMessageBubble = ({
   // Detect "como informar localização" so we show the 3 buttons even if backend didn't send the marker
   const isAskingForLocationMethod = useMemo(() => {
     if (isUser || locationMethodSelected || hasLocationMethodPicker) return false;
+    if (treatCepQuestionAsUrbanLocationStep) return true;
     const content = message.content.toLowerCase();
     return (
       (content.includes('como você quer informar sua localização') ||
-       content.includes('como quer informar sua localização') ||
-       content.includes('informar sua localização para buscar')) &&
+        content.includes('como quer informar sua localização') ||
+        content.includes('informar sua localização para buscar') ||
+        content.includes('onde fica** o problema') ||
+        content.includes('onde fica o problema') ||
+        content.includes('como você quer informar **onde fica**') ||
+        (content.includes('toque em') && content.includes('usar minha localização')) ||
+        (content.includes('endereço cadastrado') && content.includes('digitar cep'))) &&
       isLastAssistantMessage
     );
-  }, [isUser, message.content, locationMethodSelected, hasLocationMethodPicker, isLastAssistantMessage]);
+  }, [
+    isUser,
+    message.content,
+    locationMethodSelected,
+    hasLocationMethodPicker,
+    isLastAssistantMessage,
+    treatCepQuestionAsUrbanLocationStep,
+  ]);
 
   // Clean content: remove ALL markers so they never show as text (LOCATION_METHOD_PICKER etc.)
   const cleanContent = useMemo(() => {
@@ -392,7 +498,13 @@ const ChatMessageBubble = ({
   }, [message.content]);
 
   const isLongContent = cleanContent.length > 450;
-  const showVerMais = !isUser && isLongContent;
+
+  /** Relato/avaliação já registrados: mostrar texto completo (gravidade, trâmite, links) sem line-clamp. */
+  const isRegisteredReportSuccessMessage =
+    !isUser &&
+    (message.content.includes("[REPORT_CREATED:") ||
+      message.content.includes("[TRANSPORT_CREATED:") ||
+      message.content.includes("[RATING_CREATED:"));
 
   // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
   const appActions = useMemo(
@@ -424,6 +536,64 @@ const ChatMessageBubble = ({
 
   // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
   const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
+
+  // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
+  const quickReplyButtons = useMemo(() => {
+    if (isUser || !onSendMessage) return [];
+    const match = message.content.match(/\[QUICK_REPLY:([^\]]+)\]/);
+    if (!match) return [];
+    const values = match[1].split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+    const labels: Record<string, string> = {
+      sim: 'Sim',
+      não: 'Não',
+      nao: 'Não',
+      registrar: 'Registrar',
+      novo_relato: 'Registrar novo relato',
+      confirmar: 'Confirmar',
+      corrigir: 'Corrigir',
+      descrição: 'Descrição',
+      endereco: 'Endereço',
+      endereço: 'Endereço',
+      categoria: 'Categoria',
+      tipo_detalhe: 'Tipo / detalhe',
+      gravidade: 'Gravidade',
+      tipos_de_risco: 'Tipos de risco',
+      afetação: 'Afetação',
+      afetacao: 'Afetação',
+      cep: 'CEP',
+      natureza: 'Natureza',
+      critical: 'Crítico',
+      moderate: 'Moderado',
+      low: 'Baixo',
+      none: 'Nenhum',
+      reclamacao: 'Reclamação',
+      duvida: 'Dúvida',
+      sugestao: 'Sugestão',
+      elogio: 'Elogio',
+    };
+    return values.map((value) => ({
+      value,
+      label: labels[value] || value.charAt(0).toUpperCase() + value.slice(1),
+    }));
+  }, [isUser, message.content, onSendMessage]);
+
+  /** Relatos próximos (RPC) embutidos em Base64 no texto da assistente. */
+  const similarUrbanReportsPayload = useMemo(
+    () => (!isUser ? parseSimilarUrbanReportsB64(message.content) : null),
+    [isUser, message.content]
+  );
+
+  /** Preview estruturado do relato urbano (PO: melhor UX que parágrafo denso em markdown). */
+  const urbanReportPreviewParsed = useMemo(() => parseUrbanReportPreview(cleanContent), [cleanContent]);
+  const showUrbanPreviewCard =
+    !isUser &&
+    !!urbanReportPreviewParsed &&
+    isUrbanConfirmCorrectQuickReply(message.content) &&
+    audienciaContentSplit.contentAfter === null;
+
+  /** Card urbano já é legível; evita "Ver mais" sem sentido se o texto bruto for longo. */
+  const showVerMais =
+    !isUser && isLongContent && !showUrbanPreviewCard && !isRegisteredReportSuccessMessage;
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
@@ -474,6 +644,7 @@ const ChatMessageBubble = ({
     }
   };
 
+<<<<<<< HEAD
   const handleWaitTimeSelected = (displayLabel: string, score: number | null) => {
     setWaitTimeSelected(true);
     onWaitTimeSelected?.(displayLabel, score);
@@ -486,6 +657,8 @@ const ChatMessageBubble = ({
     }
   };
   
+=======
+>>>>>>> main
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
     setLocationMethodSelected(true);
     if (onLocationMethodSelected) {
@@ -521,29 +694,26 @@ const ChatMessageBubble = ({
     return match ? match[1] : null;
   }, [hasServiceAddressConfirm, message.content]);
 
-  // Extract serviceType e district para InlineServicePicker (dropdown pré-preenchido por bairro)
+  // Extract serviceType e district para InlineServicePicker (lista filtrada por bairro + tipo)
   const servicePickerContext = useMemo(() => {
-    if (!hasServicePicker) return { serviceType: undefined, district: undefined };
     let serviceType: string | undefined;
     let district: string | undefined;
-    const typeInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:type=([^:\]]+)/);
-    if (typeInMarker) {
-      try { serviceType = decodeURIComponent(typeInMarker[1]); } catch { serviceType = typeInMarker[1]; }
+
+    if (message.content.includes("[SERVICE_PICKER")) {
+      const parsed = parseServicePickerMarker(message.content);
+      serviceType = parsed.serviceType;
+      district = parsed.district;
     }
     if (!serviceType) {
       const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
       if (typeMatch) serviceType = typeMatch[1];
-    }
-    const districtInMarker = message.content.match(/\[SERVICE_PICKER[^\]]*:district=([^:\]]+)/);
-    if (districtInMarker) {
-      try { district = decodeURIComponent(districtInMarker[1]); } catch { district = districtInMarker[1]; }
     }
     if (!district) {
       const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
       if (neighMatch) district = neighMatch[1];
     }
     return { serviceType, district };
-  }, [hasServicePicker, message.content]);
+  }, [message.content]);
   
   return (
     <div
@@ -582,9 +752,12 @@ const ChatMessageBubble = ({
           )}
         >
           {isUser ? (
-            <p className="text-sm whitespace-pre-wrap">{sanitizeMessageContent(message.content)}</p>
+            <UserChatBubbleText content={message.content} />
           ) : (
             <div className="w-full">
+              {showUrbanPreviewCard && urbanReportPreviewParsed ? (
+                <UrbanReportPreviewInChat preview={urbanReportPreviewParsed} />
+              ) : (
               <div
                 className={cn(
                   "prose prose-sm dark:prose-invert max-w-none",
@@ -638,6 +811,7 @@ const ChatMessageBubble = ({
                     : withStepLineBreaks(audienciaContentSplit.contentBefore)}
                 </ReactMarkdown>
               </div>
+              )}
               {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
               {audienciaContentSplit.contentAfter !== null && !isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
@@ -651,20 +825,16 @@ const ChatMessageBubble = ({
                           </p>
                         )}
                         {a.convidados?.trim() && (() => {
-                          const textoNorm = normalizarConvidadosParaExibicao(a.convidados);
-                          const itens = textoNorm
-                            .split(/\s*;\s*/)
-                            .map((s) => s.replace(/^\s*-\s*/, "").trim())
-                            .filter(Boolean);
+                          const itens = parseConvidadosItens(a.convidados);
                           if (itens.length === 0) return null;
                           return (
                             <div className="space-y-1 text-muted-foreground">
-                              <p className="font-semibold text-foreground text-xs">Convidados:</p>
+                              <p className="font-semibold text-foreground text-xs">Foram convidados para a Audiência Pública:</p>
                               <ul className="list-none space-y-0.5 pl-0 text-xs">
                                 {itens.map((item, i) => (
-                                  <li key={i} className="flex gap-2">
-                                    <span className="shrink-0">–</span>
-                                    <span>{item.endsWith(".") ? item : `${item};`}</span>
+                                  <li key={i} className="space-y-0.5">
+                                    <span className="block">- {item.nome}</span>
+                                    {item.cargo ? <span className="block">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
                                   </li>
                                 ))}
                               </ul>
@@ -687,7 +857,7 @@ const ChatMessageBubble = ({
                                 <div className="space-y-0.5">
                                   <p className="font-medium text-foreground text-xs">Transmissão ao vivo</p>
                                   <a
-                                    href={a.link_transmissao}
+                                    href="https://www.youtube.com/user/camarasaopaulo"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-primary underline underline-offset-2 text-xs block"
@@ -781,44 +951,35 @@ const ChatMessageBubble = ({
                   )}
                 </button>
               )}
-              {/* RAG sobre audiências: opção de trazer próximas audiências no chat ou ir ao módulo */}
-              {appActions.audiencias && (
-                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                  <p className="text-xs text-muted-foreground">Você também pode:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {onRequestAudienciasWithFilters && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() =>
-                          onRequestAudienciasWithFilters({
-                            tema: '',
-                            regiao: '',
-                            dateFrom: '',
-                            dateTo: '',
-                          })
-                        }
-                      >
-                        Ver próximas audiências no chat
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => navigate('/audiencias')}
-                    >
-                      Ver no módulo Audiências
-                    </Button>
-                  </div>
-                </div>
+              {!isUser && similarUrbanReportsPayload && (
+                <SimilarUrbanReportsInChat payload={similarUrbanReportsPayload} className="mt-3" />
               )}
             </div>
           )}
         </div>
+
+        {/* Preview das fotos anexadas no chat (após upload). */}
+        {isUser && attachmentUrls.length > 0 && (
+          <div className="w-full max-w-[320px] grid grid-cols-3 gap-2 mt-1">
+            {attachmentUrls.slice(0, 3).map((url, index) => (
+              <a
+                key={`${message.id}-attachment-${index}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-lg overflow-hidden border border-primary/30 bg-primary/10 hover:opacity-90 transition-opacity"
+                aria-label={`Abrir imagem anexada ${index + 1}`}
+              >
+                <img
+                  src={url}
+                  alt={`Imagem anexada ${index + 1}`}
+                  className="w-full h-24 object-cover"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        )}
         
         {/* Inline Address Autocomplete - shown when asking for CEP/address */}
         {(isAskingForAddress || hasAddressPicker) && !addressSelected && (
@@ -863,8 +1024,8 @@ const ChatMessageBubble = ({
           <InlineTimePicker onSelect={handleTimeSelected} />
         )}
         
-        {/* Inline Rating Picker */}
-        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && (
+        {/* Avaliação geral (1–5 estrelas) */}
+        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
 
@@ -918,6 +1079,34 @@ const ChatMessageBubble = ({
           />
         )}
         
+        {/* Botões de resposta rápida (Sim/Não, Registrar, Confirmar/Corrigir) */}
+        {quickReplyButtons.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {quickReplyButtons.map((btn) => {
+              const isRegistrar = btn.value === "registrar";
+              const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
+              const isCorrigir = btn.value === "corrigir";
+              const isConfirmar = btn.value === "confirmar";
+              return (
+                <Button
+                  key={btn.value}
+                  variant={isCorrigir ? "outline" : "default"}
+                  size={showUrbanPreviewCard ? "default" : "sm"}
+                  disabled={disabled}
+                  onClick={() => !disabled && onSendMessage?.(btn.value)}
+                  className={cn(
+                    "rounded-lg",
+                    showUrbanPreviewCard && isConfirmar && "min-h-11 px-5",
+                    showUrbanPreviewCard && isCorrigir && "min-h-11 px-5",
+                  )}
+                >
+                  {btn.label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Botão Encaminhar para vereador (após relato registrado) */}
         {hasEncaminharVereadorCta && onSendMessage && (
           <div className="mt-3 w-full max-w-[280px]">
@@ -957,18 +1146,25 @@ const ChatMessageBubble = ({
           </div>
         )}
 
-        {/* Audiências: os 3 botões sempre visíveis (ordem: Inscrever-se, Abrir, Buscar outras); "Buscar outras" abre o bloco de filtros */}
+        {/* Audiências: Inscrever-se (ou Inscrições encerradas), Abrir Audiências, Buscar outras; "Buscar outras" abre o bloco de filtros */}
         {shouldShowAudienciasCta && (
           <div className="mt-3 flex flex-col gap-3 w-full max-w-[320px]">
             <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
-                className="w-full justify-center min-h-[40px]"
-              >
-                {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
-              </Button>
+              {hasInscricoesAbertas ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAudienciaInscricaoInline((v) => !v)}
+                  className="w-full justify-center min-h-[40px]"
+                >
+                  {showAudienciaInscricaoInline ? "Ocultar formulário" : "Inscrever-se aqui no chat"}
+                </Button>
+              ) : (
+                <Button disabled className="w-full bg-muted text-muted-foreground cursor-default min-h-[40px]">
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Inscrições encerradas
+                </Button>
+              )}
               <Button
                 variant="default"
                 size="sm"
@@ -996,7 +1192,7 @@ const ChatMessageBubble = ({
                 {showAudienciasFilters ? "Ocultar filtros" : "Buscar outras audiências públicas"}
               </Button>
             </div>
-            {showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
+            {hasInscricoesAbertas && showAudienciaInscricaoInline && <AudienciaInscricaoInline />}
 
             {showAudienciasFilters && (
               <>

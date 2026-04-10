@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, Bell, Video, FileText, MapPin } from "lucide-react";
-import { normalizarConvidadosParaExibicao } from "@/lib/audienciaDisplay";
+import { parseConvidadosItens } from "@/lib/audienciaDisplay";
+import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
 
 const BAIRROS_SP = [
   "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
@@ -46,9 +47,11 @@ interface AudienciaOption {
   titulo: string;
   data: string;
   local: string | null;
+  comissao: string | null;
   slug: string | null;
   ap_code: string | null;
   convidados: string | null;
+  permite_inscricao_videoconferencia?: boolean | null;
 }
 
 export function AudienciaInscricaoInline() {
@@ -66,7 +69,10 @@ export function AudienciaInscricaoInline() {
   const [receivePush, setReceivePush] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [protocolo, setProtocolo] = useState<number | null>(null);
   const [inscritoVideoconferencia, setInscritoVideoconferencia] = useState(false);
+  /** Prefill do e-mail só ao entrar com outro usuário ou no 1º load; não reseta o que foi digitado na mesma sessão. */
+  const prefillEmailForUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +80,7 @@ export function AudienciaInscricaoInline() {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from("audiencias")
-        .select("id, titulo, data, local, slug, ap_code, convidados")
+        .select("id, titulo, data, local, comissao, slug, ap_code, convidados, permite_inscricao_videoconferencia")
         .eq("inscricoes_abertas", true)
         .gte("data", today)
         .order("data", { ascending: true })
@@ -98,9 +104,27 @@ export function AudienciaInscricaoInline() {
     return () => { cancelled = true; };
   }, []);
 
+  const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
+  const permiteVideoNaAudiencia = selectedAudiencia?.permite_inscricao_videoconferencia !== false;
+
   useEffect(() => {
-    if (user?.email) setEmail(user.email);
-  }, [user?.email]);
+    const a = audiencias.find((x) => x.id === audienciaId);
+    if (!a) return;
+    if (a.permite_inscricao_videoconferencia === false) {
+      setTipoParticipacao((prev) => (prev === "videoconferencia" ? "escrito" : prev));
+    }
+  }, [audienciaId, audiencias]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      prefillEmailForUserIdRef.current = null;
+      return;
+    }
+    if (!user.email) return;
+    if (prefillEmailForUserIdRef.current === user.id) return;
+    prefillEmailForUserIdRef.current = user.id;
+    setEmail(user.email);
+  }, [user?.id, user?.email]);
 
   useEffect(() => {
     if (!user?.id || !audienciaId) {
@@ -121,10 +145,12 @@ export function AudienciaInscricaoInline() {
     return () => { cancelled = true; };
   }, [user?.id, audienciaId]);
 
-  const selectedAudiencia = audiencias.find((a) => a.id === audienciaId);
-
   const handleSubmit = async () => {
     if (tipoParticipacao === "presencial") return;
+    if (tipoParticipacao === "videoconferencia" && !permiteVideoNaAudiencia) {
+      toast.error("Esta audiência não aceita inscrição por videoconferência.");
+      return;
+    }
 
     if (tipoParticipacao === "escrito") {
       if (!nome.trim()) { toast.error("Preencha o nome completo."); return; }
@@ -144,29 +170,61 @@ export function AudienciaInscricaoInline() {
       if (!audienciaId) { toast.error("Escolha uma audiência."); return; }
     }
 
+    if (!user?.id) {
+      toast.error("Faça login para se inscrever em audiências.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("audiencia_participacoes").insert({
-        audiencia_id: audienciaId,
-        tipo: tipoParticipacao,
-        user_id: user?.id ?? null,
-        nome: nome.trim(),
-        email: email.trim(),
-        telefone: telefone.trim(),
-        entidade: null,
-        funcao: null,
-        bairro: tipoParticipacao === "escrito" ? bairro : null,
-        sugestao: tipoParticipacao === "escrito" ? sugestao.trim() : null,
-        consent: true,
+      const { data: rpcData, error } = await supabase.rpc("insert_audiencia_participacao", {
+        p_audiencia_id: audienciaId,
+        p_tipo: tipoParticipacao,
+        p_user_id: user.id,
+        p_nome: nome.trim(),
+        p_email: email.trim(),
+        p_telefone: telefone.trim(),
+        p_entidade: null,
+        p_funcao: null,
+        p_bairro: tipoParticipacao === "escrito" ? bairro || null : null,
+        p_sugestao: tipoParticipacao === "escrito" ? sugestao.trim() || null : null,
+        p_consent: true,
       });
       if (error) throw error;
 
-      toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
+      const protocoloNum = Array.isArray(rpcData) && rpcData[0]?.protocolo != null ? rpcData[0].protocolo : null;
+      setProtocolo(protocoloNum);
+
+      if (selectedAudiencia?.slug && selectedAudiencia?.ap_code) {
+        const cmspResult = await submitInscricaoToCmsp({
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim(),
+          apCode: selectedAudiencia.ap_code,
+          slug: selectedAudiencia.slug,
+        });
+        if (!cmspResult.ok) {
+          console.warn("[AudienciaInscricaoInline] Inscrição CMSP:", cmspResult.error);
+        }
+      }
+
+      if (protocoloNum != null) {
+        toast.success(`Inscrição realizada! Protocolo: ${protocoloNum}`);
+      } else {
+        toast.success(tipoParticipacao === "escrito" ? "Proposta enviada!" : "Inscrição registrada no app!");
+      }
       setSuccess(true);
       if (tipoParticipacao === "videoconferencia") setInscritoVideoconferencia(true);
     } catch (e) {
       console.error(e);
-      toast.error("Não foi possível enviar. Tente novamente.");
+      const msg = (e as { message?: string })?.message;
+      toast.error(
+        msg && msg.includes("já está inscrito")
+          ? "Você já está inscrito nesta audiência."
+          : msg && msg.includes("não aceita inscrição para videoconferência")
+            ? "Esta audiência não aceita inscrição por videoconferência."
+            : "Não foi possível enviar. Tente novamente.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -194,6 +252,11 @@ export function AudienciaInscricaoInline() {
           <span className="font-medium">{successTitle}</span>
         </div>
         <p className="text-sm text-green-600 dark:text-green-400">{successMsg}</p>
+        {protocolo != null && (
+          <p className="text-sm font-medium text-green-700 dark:text-green-300">
+            Protocolo: {protocolo}
+          </p>
+        )}
       </div>
     );
   }
@@ -233,10 +296,12 @@ export function AudienciaInscricaoInline() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {permiteVideoNaAudiencia ? (
             <SelectItem value="videoconferencia" className="text-sm flex items-center gap-2">
               <Video className="h-3.5 w-3.5" />
               Videoconferência
             </SelectItem>
+            ) : null}
             <SelectItem value="escrito" className="text-sm flex items-center gap-2">
               <FileText className="h-3.5 w-3.5" />
               Manifestação por escrito
@@ -254,32 +319,49 @@ export function AudienciaInscricaoInline() {
           <SelectTrigger className="h-9 text-sm">
             <SelectValue placeholder="Escolha a audiência" />
           </SelectTrigger>
-          <SelectContent>
-            {audiencias.map((a) => (
-              <SelectItem key={a.id} value={a.id} className="text-sm">
-                {a.titulo.length > 50 ? a.titulo.slice(0, 50) + "…" : a.titulo} • {a.data}
-              </SelectItem>
-            ))}
+          <SelectContent
+            position="item-aligned"
+            className="max-w-[min(calc(100vw-2rem),28rem)]"
+          >
+            {audiencias.map((a) => {
+              const nomeAudiencia = (a.comissao && a.comissao.trim())
+                ? `Audiência pública: ${a.comissao.trim()}`
+                : (a.titulo && a.titulo.trim()) ? a.titulo.trim() : "Audiência pública";
+              const label = nomeAudiencia.length > 80 ? nomeAudiencia.slice(0, 80) + "…" : nomeAudiencia;
+              const dataPtBr =
+                /^\d{4}-\d{2}-\d{2}$/.test(a.data || "")
+                  ? new Date(a.data + "T12:00:00").toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })
+                  : a.data;
+              return (
+                <SelectItem
+                  key={a.id}
+                  value={a.id}
+                  className="text-sm whitespace-normal break-words py-2"
+                >
+                  {label} • {dataPtBr}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
 
-      {/* Convidados da audiência selecionada */}
+      {/* Convidados da audiência selecionada: nome em uma linha, cargo na seguinte */}
       {selectedAudiencia?.convidados?.trim() && (() => {
-        const textoNorm = normalizarConvidadosParaExibicao(selectedAudiencia.convidados);
-        const itens = textoNorm
-          .split(/\s*;\s*/)
-          .map((s) => s.replace(/^\s*-\s*/, "").trim())
-          .filter(Boolean);
+        const itens = parseConvidadosItens(selectedAudiencia.convidados);
         if (itens.length === 0) return null;
         return (
           <div className="space-y-1 text-xs text-muted-foreground rounded-md border border-border/60 bg-muted/20 p-2">
-            <p className="font-semibold text-foreground">Convidados:</p>
+            <p className="font-semibold text-foreground">Foram convidados para a Audiência Pública:</p>
             <ul className="list-none space-y-0.5 pl-0">
               {itens.map((item, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="shrink-0">–</span>
-                  <span>{item.endsWith(".") ? item : `${item};`}</span>
+                <li key={i} className="space-y-0.5">
+                  <span className="block">- {item.nome}</span>
+                  {item.cargo ? <span className="block">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
                 </li>
               ))}
             </ul>
@@ -333,14 +415,18 @@ export function AudienciaInscricaoInline() {
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">E-mail *</Label>
+            <Label className="text-xs">E-mail para contato nesta inscrição *</Label>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
+              autoComplete="email"
               className="h-9 text-sm"
             />
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Pode ser diferente do e-mail do seu cadastro no app. Usaremos este endereço para comunicações sobre esta audiência.
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs">Telefone/WhatsApp *</Label>

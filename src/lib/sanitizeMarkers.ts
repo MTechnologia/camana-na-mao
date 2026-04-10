@@ -74,10 +74,16 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[DATE_PICKER\]/g, '')
     .replace(/\[TIME_PICKER\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
+<<<<<<< HEAD
     .replace(/\[WAIT_TIME_PICKER\]/g, '')
     .replace(/\[WAIT_TIME:[^\]]+\]/g, '')
     .replace(/\[DIMENSION_RATING_PICKER:\w+\]/g, '')
     .replace(/\[DIM_RATING:\w+:\d\]/g, '')
+=======
+    .replace(/\[RATING_SELECTED:[1-5]\]/g, '')
+    .replace(/\[MULTI_DIMENSION_RATING_PICKER\]/g, '')
+    .replace(/\[RATING_DIMENSIONS:\{[^}]+\}\]/g, '')
+>>>>>>> main
     .replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '')
     .replace(/\[SERVICE_TYPE_PICKER\]/g, '')
     .replace(/\[SERVICE_PICKER(?::[^\]]+)?\]/g, '')
@@ -87,7 +93,11 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[JOURNEY_SWITCHED:\w+\]/g, '')
     .replace(/\[JOURNEY_DECLINED:\w+\]/g, '')
     .replace(/\[LIGHT_JOURNEY:\w+\]/g, '')
-  .replace(/\[APP_ACTIONS:audiencias\]/g, '');
+    .replace(/\[QUICK_REPLY:[^\]]+\]/g, '')
+    .replace(/\[SIMILAR_URBAN_REPORTS_B64:[^\]]+\]/g, '')
+    .replace(/\[APP_ACTIONS:audiencias\]/g, '')
+    // Hide raw DB timeout text when leaked by backend/provider.
+    .replace(/canceling statement due to statement timeout/gi, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
   result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
   

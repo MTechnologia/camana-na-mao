@@ -18,6 +18,7 @@ import {
   MessageSquare,
   MapPin,
   CalendarCheck,
+  Bookmark,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useProfile } from "@/hooks/useProfile";
@@ -75,18 +76,24 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: MapPin,
       route: "/servicos-proximos"
     },
+    {
+      id: 2.25,
+      label: "Meus Favoritos",
+      icon: Bookmark,
+      route: "/servicos/favoritos",
+    },
     { 
       id: 2.3, 
       label: "Minhas inscrições em audiências", 
       icon: CalendarCheck,
       route: "/audiencias/minhas-inscricoes"
     },
-    ...(canReferToCouncilMember ? [{
+    { 
       id: 2.5,
       label: "Relatos",
       icon: FileText,
       route: "/relatos",
-    }] : []),
+    },
     ...(canViewDashboards ? [{
       id: 3,
       label: "Painéis Analíticos",

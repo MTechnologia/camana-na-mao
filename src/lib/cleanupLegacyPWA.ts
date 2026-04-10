@@ -6,8 +6,17 @@
 
 const CLEANUP_KEY = '__cmsp_pwa_cleanup_v2__';
 
+/** Script URLs do PWA atual (vite-plugin-pwa) — não desregistrar. */
+const KEEP_SW_PATTERNS = [/workbox/i, /dev-sw\.js/i, /sw\.js/i];
+
+function shouldKeepRegistration(registration: ServiceWorkerRegistration): boolean {
+  const scriptUrl = registration.active?.scriptURL ?? registration.installing?.scriptURL ?? registration.waiting?.scriptURL ?? "";
+  if (!scriptUrl) return true;
+  return KEEP_SW_PATTERNS.some((p) => p.test(scriptUrl));
+}
+
 /**
- * Desregistra todos os Service Workers
+ * Desregistra Service Workers legados (mantém o do vite-plugin-pwa para cache offline).
  */
 async function unregisterServiceWorkers(): Promise<number> {
   let count = 0;
@@ -15,6 +24,7 @@ async function unregisterServiceWorkers(): Promise<number> {
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (const registration of registrations) {
+        if (shouldKeepRegistration(registration)) continue;
         await registration.unregister();
         console.info(`[PWA Cleanup] SW desregistrado: ${registration.scope}`);
         count++;

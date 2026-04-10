@@ -14,9 +14,9 @@ import {
   CheckCircle2, 
   MapPin, 
   Calendar,
-  AlertTriangle,
   FileText
 } from 'lucide-react';
+import { CitizenSeverityBadge } from '@/components/citizen/CitizenSeverityBadge';
 
 interface ReportSummary {
   id: string;
@@ -82,16 +82,6 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
     setSubmitting(false);
   };
 
-  const getSeverityBadge = (severity?: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-      low: { variant: 'secondary', label: 'Baixa' },
-      medium: { variant: 'default', label: 'Média' },
-      high: { variant: 'destructive', label: 'Alta' },
-      critical: { variant: 'destructive', label: 'Crítica' }
-    };
-    return variants[severity || 'medium'] || variants.medium;
-  };
-
   const renderStep = () => {
     switch (step) {
       case 'review':
@@ -114,9 +104,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
                     )}
                   </div>
                   {report.severity && (
-                    <Badge variant={getSeverityBadge(report.severity).variant}>
-                      {getSeverityBadge(report.severity).label}
-                    </Badge>
+                    <CitizenSeverityBadge severity={report.severity} />
                   )}
                 </div>
 

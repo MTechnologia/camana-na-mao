@@ -27,6 +27,14 @@ const translateError = (message: string): string => {
   if (normalized.toLowerCase().includes("email rate limit") || normalized.toLowerCase().includes("rate limit exceeded")) {
     return "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo";
   }
+  // Send Email Hook (Edge send-email) → SendGrid falhou; Supabase devolve texto com "hook" + código HTTP
+  if (
+    normalized.toLowerCase().includes("unexpected status code returned from hook") ||
+    (normalized.toLowerCase().includes("hook") &&
+      (normalized.includes("502") || normalized.includes("500") || normalized.includes("503")))
+  ) {
+    return "Não foi possível enviar o e-mail de recuperação (serviço de envio indisponível ou remetente não validado). Tente de novo em alguns minutos ou fale com o suporte.";
+  }
   return message;
 };
 
@@ -99,17 +107,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.success("Conta criada com sucesso!");
       return { data: { user: data.user }, error: null };
     } catch (error: unknown) {
-      // Log do erro real para depuração (ex.: 422 com mensagem exata do Supabase)
-      if (import.meta.env.DEV || import.meta.env.MODE === "development") {
+      const msg = getErrorMessage(error);
+      const isEmailExists = (msg.trim() === "User already registered" || msg.trim() === "email_exists");
+      // Só loga erros inesperados em dev (evita ruído quando e-mail já cadastrado)
+      if ((import.meta.env.DEV || import.meta.env.MODE === "development") && !isEmailExists) {
         const err = error as { message?: string; status?: number };
         console.warn("[Auth] signUp error:", { message: err?.message, status: err?.status });
       }
-      const translatedMessage = translateError(getErrorMessage(error));
-      const msg = getErrorMessage(error);
-      const isEmailExists = (msg.trim() === "User already registered" || msg.trim() === "email_exists");
+      const translatedMessage = translateError(msg);
       toast.error(translatedMessage || "Erro ao criar conta");
       if (isEmailExists) {
-        toast.info("Use «Esqueci a senha» na tela de login ou verifique seu e-mail para confirmar a conta.");
+        toast.info("Faça login na tela de entrada ou use «Esqueci a senha» para redefinir.");
       }
       return { data: null, error };
     }

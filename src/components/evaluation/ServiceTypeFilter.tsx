@@ -4,11 +4,10 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Filter, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ServiceTypeIcon } from "@/components/icons";
 
 export type ServiceTypeFilterValue =
   | "ubs"
@@ -27,6 +26,8 @@ export type ServiceTypeFilterValue =
   | "museum"
   | "social_assistance"
   | "transit_station"
+  | "bicycle"
+  | "subprefeitura"
   | "police_station"
   | "cemetery"
   | "accessibility"
@@ -38,28 +39,30 @@ interface ServiceTypeFilterProps {
   onTypesChange: (types: ServiceTypeFilterValue[]) => void;
 }
 
-const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string; icon: string }[] = [
-  { value: "ubs", label: "UBS", icon: "🏥" },
-  { value: "school", label: "Escolas", icon: "🏫" },
-  { value: "ceu", label: "CEUs", icon: "🎭" },
-  { value: "hospital", label: "Hospitais", icon: "🏥" },
-  { value: "library", label: "Bibliotecas", icon: "📚" },
-  { value: "sports_center", label: "Esportes", icon: "⚽" },
-  { value: "street_market", label: "Feiras", icon: "🛒" },
-  { value: "community_center", label: "Centros Comunitários", icon: "🏘️" },
-  { value: "daycare", label: "Creches", icon: "🍼" },
-  { value: "park", label: "Parques", icon: "🌳" },
-  { value: "market", label: "Mercados", icon: "🛒" },
-  { value: "city_market", label: "Mercados Municipais", icon: "🏪" },
-  { value: "theater", label: "Teatro/Cinema", icon: "🎬" },
-  { value: "museum", label: "Museus", icon: "🏛️" },
-  { value: "social_assistance", label: "Assistência Social", icon: "🤝" },
-  { value: "transit_station", label: "Transporte", icon: "🚌" },
-  { value: "police_station", label: "Delegacia/Polícia", icon: "🚔" },
-  { value: "cemetery", label: "Cemitério", icon: "🪦" },
-  { value: "accessibility", label: "Acessibilidade", icon: "♿" },
-  { value: "recycling_point", label: "Reciclagem/Limpeza", icon: "♻️" },
-  { value: "fire_station", label: "Bombeiros", icon: "🚒" },
+const SERVICE_TYPES: { value: ServiceTypeFilterValue; label: string }[] = [
+  { value: "ubs", label: "UBS" },
+  { value: "school", label: "Escolas" },
+  { value: "ceu", label: "CEUs" },
+  { value: "hospital", label: "Hospitais" },
+  { value: "library", label: "Bibliotecas" },
+  { value: "sports_center", label: "Esportes" },
+  { value: "street_market", label: "Feiras" },
+  { value: "community_center", label: "Centros Comunitários" },
+  { value: "daycare", label: "Creches" },
+  { value: "park", label: "Parques" },
+  { value: "market", label: "Mercados" },
+  { value: "city_market", label: "Mercados Municipais" },
+  { value: "theater", label: "Teatro/Cinema" },
+  { value: "museum", label: "Museus" },
+  { value: "social_assistance", label: "Assistência Social" },
+  { value: "transit_station", label: "Transporte" },
+  { value: "bicycle", label: "Bicicletários" },
+  { value: "subprefeitura", label: "Subprefeituras" },
+  { value: "police_station", label: "Delegacia/Polícia" },
+  { value: "cemetery", label: "Cemitério" },
+  { value: "accessibility", label: "Acessibilidade" },
+  { value: "recycling_point", label: "Reciclagem/Limpeza" },
+  { value: "fire_station", label: "Bombeiros" },
 ];
 
 export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeFilterProps) => {
@@ -88,7 +91,24 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto min-w-[380px]">
-        <DropdownMenuLabel>Filtrar por tipo (multiseleção)</DropdownMenuLabel>
+        <div className="flex items-start justify-between gap-2 px-2 py-1.5">
+          <span className="text-sm font-semibold leading-tight pr-1">
+            Filtrar por tipo (multiseleção)
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 shrink-0 px-2 text-xs"
+            disabled={selectedTypes.length === 0}
+            onClick={(e) => {
+              e.preventDefault();
+              onTypesChange([]);
+            }}
+          >
+            Limpar filtros
+          </Button>
+        </div>
         <DropdownMenuSeparator />
         <div className="grid grid-cols-2 gap-0 p-1">
           {SERVICE_TYPES.map((type) => (
@@ -98,9 +118,7 @@ export const ServiceTypeFilter = ({ selectedTypes, onTypesChange }: ServiceTypeF
               onCheckedChange={(checked) => toggle(type.value, !!checked)}
               onSelect={(e) => e.preventDefault()}
             >
-              <span className="mr-2" aria-hidden="true">
-                {type.icon}
-              </span>
+              <ServiceTypeIcon serviceType={type.value} className="mr-2 text-foreground" size={20} />
               {type.label}
             </DropdownMenuCheckboxItem>
           ))}

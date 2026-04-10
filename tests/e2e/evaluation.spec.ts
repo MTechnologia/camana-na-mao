@@ -38,10 +38,28 @@ test.describe('Avaliação de Serviços', () => {
 
   test('deve avaliar serviço pendente', async ({ page }) => {
     test.setTimeout(90000);
+<<<<<<< HEAD
     await enterPendingEvaluationChat(page);
 
     // Com contexto de visita, o app envia saudação automática; aguarda a IA.
     await page.waitForTimeout(5000);
+=======
+    await page.goto('/avaliar');
+    if (page.url().includes('/login')) {
+      await e2eLogin(page);
+      await page.goto('/avaliar');
+    }
+    await dismissOnboardingIfVisible(page);
+
+    await expect(page.getByRole('heading', { name: /Avaliar Serviço/i }).first()).toBeVisible({ timeout: 10000 });
+
+    const textarea = page.getByPlaceholder(/Digite sua mensagem|mensagem/i).first();
+    await textarea.waitFor({ state: 'visible', timeout: 10000 });
+    await textarea.fill('Quero avaliar a UBS do Centro');
+    await page.getByRole('button', { name: /Enviar mensagem|Enviar/i }).click();
+    // aguarda resposta da IA e o input ficar disponível novamente
+    await expect(textarea).toBeEnabled({ timeout: 30000 });
+>>>>>>> main
 
     const sendIfAsked = async (regex: RegExp, answer: string) => {
       const el = page.getByText(regex);
@@ -50,7 +68,7 @@ test.describe('Avaliação de Serviços', () => {
         await expect(box).toBeEnabled({ timeout: 10000 });
         await box.fill(answer);
         await page.getByRole('button', { name: /Enviar mensagem|Enviar/i }).click();
-        await page.waitForTimeout(5000);
+        await expect(box).toBeEnabled({ timeout: 30000 });
       }
     };
     await sendIfAsked(/nome do serviço|qual serviço|que serviço/i, 'UBS Central do Centro');
@@ -61,6 +79,7 @@ test.describe('Avaliação de Serviços', () => {
     await star5.waitFor({ state: 'visible', timeout: 60000 });
 
     await star5.click();
+<<<<<<< HEAD
     await page.waitForTimeout(2500);
 
     // Tempo de espera (picker inline após a nota)
@@ -69,6 +88,8 @@ test.describe('Avaliação de Serviços', () => {
     await page.getByRole('button', { name: /Menos de 15 minutos/i }).click();
     await page.waitForTimeout(2500);
 
+=======
+>>>>>>> main
     const textareaComment = page.getByPlaceholder(/Digite sua mensagem|mensagem/i).first();
     await textareaComment.waitFor({ state: 'visible', timeout: 10000 });
     await expect(textareaComment).toBeEnabled({ timeout: 10000 });
@@ -80,8 +101,25 @@ test.describe('Avaliação de Serviços', () => {
 
   test('deve encaminhar avaliação para vereador', async ({ page }) => {
     test.setTimeout(90000);
+<<<<<<< HEAD
     await enterPendingEvaluationChat(page);
     await page.waitForTimeout(5000);
+=======
+    await page.goto('/avaliar');
+    if (page.url().includes('/login')) {
+      await e2eLogin(page);
+      await page.goto('/avaliar');
+    }
+    await dismissOnboardingIfVisible(page);
+
+    await expect(page.getByRole('heading', { name: /Avaliar Serviço/i }).first()).toBeVisible({ timeout: 10000 });
+
+    const textarea = page.getByPlaceholder(/Digite sua mensagem|mensagem/i).first();
+    await textarea.waitFor({ state: 'visible', timeout: 10000 });
+    await textarea.fill('Quero avaliar a UBS do Centro');
+    await page.getByRole('button', { name: /Enviar mensagem|Enviar/i }).click();
+    await expect(textarea).toBeEnabled({ timeout: 30000 });
+>>>>>>> main
     const sendIfAsked = async (regex: RegExp, answer: string) => {
       const el = page.getByText(regex);
       if (await el.isVisible().catch(() => false)) {
@@ -89,7 +127,7 @@ test.describe('Avaliação de Serviços', () => {
         await expect(box).toBeEnabled({ timeout: 10000 });
         await box.fill(answer);
         await page.getByRole('button', { name: /Enviar mensagem|Enviar/i }).click();
-        await page.waitForTimeout(5000);
+        await expect(box).toBeEnabled({ timeout: 30000 });
       }
     };
     await sendIfAsked(/nome do serviço|qual serviço|que serviço/i, 'UBS Central do Centro');
@@ -98,7 +136,6 @@ test.describe('Avaliação de Serviços', () => {
     const star5 = page.locator('[data-star="5"]');
     await star5.waitFor({ state: 'visible', timeout: 60000 });
     await star5.click();
-    await page.waitForTimeout(2500);
 
     const waitTimeGroup2 = page.getByRole('group', { name: /tempo de espera/i });
     await waitTimeGroup2.waitFor({ state: 'visible', timeout: 30000 });
@@ -111,7 +148,8 @@ test.describe('Avaliação de Serviços', () => {
     await textareaComment.fill('Atendimento excelente');
     await page.getByRole('button', { name: /Enviar mensagem|Enviar/i }).click();
 
-    await page.waitForTimeout(3000); // aguarda conclusão da avaliação
+    // aguarda conclusão da avaliação e exibição de ações seguintes (se existirem)
+    await expect(textareaComment).toBeEnabled({ timeout: 30000 });
 
     const encaminharBtn = page.getByText(/Encaminhar/i);
     if (await encaminharBtn.isVisible().catch(() => false)) {

@@ -1,10 +1,24 @@
-import { defineConfig } from "vite";
+import { defineConfig, UserConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    css: true,
+    include: ['src/hooks/**/*.test.ts', 'src/components/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/hooks/**'],
+      exclude: ['src/hooks/index.ts']
+    },
+  },
   // Allow exposing both VITE_* (default) and CAMARA_* env vars to the client bundle.
   // This enables the migration from VITE_SUPABASE_* → CAMARA_* without breaking local/dev setups.
   envPrefix: ["VITE_", "CAMARA_"],
@@ -36,11 +50,10 @@ export default defineConfig(({ mode }) => ({
     },
     hmr: process.env.VITE_HMR_CLIENT_PORT
       ? {
-          // Em Docker: host expõe 8080→5173, cliente deve conectar na 8080
           clientPort: parseInt(process.env.VITE_HMR_CLIENT_PORT, 10),
           protocol: "ws",
         }
-      : true, // Localmente: usa a mesma porta do servidor (5173)
+      : true,
     watch: {
       // Evitar problemas com volumes montados no Docker
       usePolling: false,
@@ -50,6 +63,28 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === 'development' && componentTagger(),
+    VitePWA({
+      registerType: "autoUpdate",
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "supabase-api",
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+      devOptions: {
+        enabled: true,
+        type: "module",
+      },
+    }),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -92,7 +127,6 @@ export default defineConfig(({ mode }) => ({
           
           // Feature chunks
           'charts': ['recharts'],
-          'maps': ['mapbox-gl'],
           'markdown': ['react-markdown', 'remark-gfm', 'mermaid'],
         },
       },

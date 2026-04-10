@@ -9,7 +9,13 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { tituloCardAudiencia, descricaoParaDetalhe, normalizarConvidadosParaExibicao, extrairEmailDeMaisInformacoes } from "@/lib/audienciaDisplay";
+import {
+  tituloCardAudiencia,
+  descricaoParaDetalhe,
+  parseConvidadosItens,
+  extrairEmailDeMaisInformacoes,
+  observacaoParaDetalheAudiencia,
+} from "@/lib/audienciaDisplay";
 
 /** URLs oficiais do portal da Câmara (não vêm na API). */
 const CMSP_AUDITORIOS_ONLINE_URL = "https://www.saopaulo.sp.leg.br/transparencia/auditorios-online/";
@@ -66,6 +72,8 @@ interface Audiencia {
   mais_informacoes: string | null;
   vagas_disponiveis: number | null;
   inscricoes_abertas: boolean | null;
+  /** false = não oferecer inscrição para falar por videoconferência (ex.: audiência somente presencial na CMSP). */
+  permite_inscricao_videoconferencia?: boolean | null;
   link_transmissao: string | null;
   projeto_referencia: string | null;
   projeto_autores: string | null;
@@ -215,6 +223,8 @@ const AudienciaDetailPage = () => {
 
   const tituloExibicao = tituloCardAudiencia(audiencia.comissao ?? null, audiencia.titulo, audiencia.descricao, audiencia.tema);
   const hoje = new Date().toISOString().slice(0, 10);
+  const permiteInscricaoVideo = audiencia.permite_inscricao_videoconferencia !== false;
+  const observacaoExibida = observacaoParaDetalheAudiencia(audiencia.observacao, permiteInscricaoVideo);
   const isAudienciaFutura = audiencia.data >= hoje;
   const isAudienciaFinalizada =
     !isAudienciaFutura ||
@@ -315,7 +325,7 @@ const AudienciaDetailPage = () => {
                   <div className="space-y-1">
                     <p className="font-medium text-foreground">Transmissão ao vivo</p>
                     <a
-                      href={audiencia.link_transmissao!}
+                      href={CMSP_YOUTUBE_URL}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary underline underline-offset-2 text-sm"
@@ -381,24 +391,18 @@ const AudienciaDetailPage = () => {
           );
         })()}
 
-        {/* Convidados (lista com marcadores, padrão do site oficial; hífens duplicados normalizados) */}
+        {/* Convidados: nome em uma linha, cargo na seguinte ( – cargo) */}
         {audiencia.convidados?.trim() && (() => {
-          const textoNorm = normalizarConvidadosParaExibicao(audiencia.convidados);
-          const itens = textoNorm
-            .split(/\s*;\s*/)
-            .map((s) => s.replace(/^\s*-\s*/, "").trim())
-            .filter(Boolean);
+          const itens = parseConvidadosItens(audiencia.convidados);
           if (itens.length === 0) return null;
           return (
             <div className="space-y-1 text-sm text-muted-foreground">
-              <p className="font-semibold text-foreground">Convidados:</p>
-              <ul className="list-none space-y-1 pl-0">
+              <p className="font-semibold text-foreground">Foram convidados para a Audiência Pública:</p>
+              <ul className="list-none space-y-1.5 pl-0">
                 {itens.map((item, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="shrink-0">–</span>
-                    <span>
-                      {item.endsWith(".") ? item : `${item};`}
-                    </span>
+                  <li key={i} className="space-y-0.5">
+                    <span className="block">- {item.nome}</span>
+                    {item.cargo ? <span className="block text-muted-foreground">– {item.cargo}{i < itens.length - 1 ? ";" : ""}</span> : null}
                   </li>
                 ))}
               </ul>
@@ -407,10 +411,10 @@ const AudienciaDetailPage = () => {
         })()}
 
         {/* Observação (Mais informações está em Documentos e materiais de referência) */}
-        {audiencia.observacao?.trim() && (
+        {observacaoExibida?.trim() && (
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              <strong className="text-foreground">Observação:</strong> {audiencia.observacao.trim()}
+            <p className="whitespace-pre-line">
+              <strong className="text-foreground">Observação:</strong> {observacaoExibida.trim()}
             </p>
           </div>
         )}
@@ -474,14 +478,24 @@ const AudienciaDetailPage = () => {
             <User className="h-4 w-4 text-primary" />
             Como participar
           </h4>
-          <p className="text-sm text-muted-foreground">
-            As audiências públicas são abertas a todos os cidadãos. Ao se inscrever você receberá:
-          </p>
-          <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-            <li>• Link de acesso à audiência</li>
-            <li>• Materiais de apoio</li>
-            <li>• Lembrete do evento</li>
-          </ul>
+          {permiteInscricaoVideo ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                As audiências públicas são abertas a todos os cidadãos. Ao se inscrever você receberá:
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
+                <li>• Link de acesso à audiência</li>
+                <li>• Materiais de apoio</li>
+                <li>• Lembrete do evento</li>
+              </ul>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Esta audiência é com <strong className="text-foreground">participação somente presencial</strong> para
+              discursar no local. Não há inscrição por videoconferência. Você pode enviar manifestação por escrito pelo
+              botão abaixo e acompanhar a transmissão ao vivo pelos canais oficiais da Câmara quando indicado.
+            </p>
+          )}
         </div>
 
         {/* Localização da Câmara: comparecer no local ou protocolar na secretaria (padrão site oficial) */}
@@ -596,20 +610,22 @@ const AudienciaDetailPage = () => {
             </div>
           ) : (
             <>
-              {inscritoVideoconferencia ? (
-                <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
-                  <CheckCircle2 className="h-5 w-5 shrink-0" />
-                  <span>Já inscrito nesta audiência</span>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
-                  className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <User className="h-4 w-4 shrink-0" />
-                  Inscrição para manifestar-se durante a videoconferência
-                </Button>
-              )}
+              {permiteInscricaoVideo ? (
+                inscritoVideoconferencia ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground text-sm">
+                    <CheckCircle2 className="h-5 w-5 shrink-0" />
+                    <span>Já inscrito nesta audiência</span>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => navigate(`/audiencias/${id}/participar?tipo=videoconferencia`)}
+                    className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <User className="h-4 w-4 shrink-0" />
+                    Inscrição para manifestar-se durante a videoconferência
+                  </Button>
+                )
+              ) : null}
               <Button
                 variant="outline"
                 onClick={() => navigate(`/audiencias/${id}/participar?tipo=escrito`)}

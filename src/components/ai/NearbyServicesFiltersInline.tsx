@@ -2,15 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MapPin, Star, Search } from "lucide-react";
+import { NEARBY_RADIUS_PRESETS } from "@/lib/nearbyRadiusBands";
 
-// Padrão 2 km para todos os serviços; 500m por último para evitar resultado vazio
-const RADIUS_OPTIONS = [
-  { value: 2000, label: "2km" },
-  { value: 1000, label: "1km" },
-  { value: 5000, label: "5km" },
-  { value: 10000, label: "10km" },
-  { value: 500, label: "500m" },
-] as const;
+// Ordem igual ao módulo Perto de você: 500m, 1km, 2km, 5km
+const RADIUS_OPTIONS = NEARBY_RADIUS_PRESETS.map((value) => ({
+  value,
+  label: value < 1000 ? `${value}m` : `${value / 1000}km`,
+})) as readonly { value: number; label: string }[];
 
 const RATING_OPTIONS = [
   { value: "all" as const, label: "Todas" },

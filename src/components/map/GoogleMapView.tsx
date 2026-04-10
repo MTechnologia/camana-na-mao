@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
 import { Card } from '@/components/ui/card';
 import { Navigation, MapPin } from 'lucide-react';
 import { useLoadGoogleMaps } from '@/hooks/useLoadGoogleMaps';
@@ -11,7 +11,18 @@ import {
   GEOSAMPA_WMS_LAYER_IMAGEAMENTO,
   buildWmsGetMapUrl,
 } from '@/config/geosampa-wms-imageamento';
-import { getServiceTypeBalloonIconUrl } from '@/components/icons';
+import {
+  getServiceTypeBalloonIconUrl,
+  getServiceTypeLabel,
+  getServiceTypeMapColor,
+  SERVICE_BALLOON_MARKER_LAYOUT,
+  ServiceTypeIcon,
+} from '@/components/icons';
+import {
+  getUserLocationMarkerIconDataUrl,
+  USER_LOCATION_MARKER_LAYOUT,
+} from '@/lib/mapUserMarkerIcon';
+import { needsVerificationForLowAverageRating } from '@/lib/serviceRatingVerification';
 
 interface Service {
   id: string;
@@ -22,17 +33,30 @@ interface Service {
   distance?: number;
   address?: string;
   district?: string;
+  average_rating?: number;
+  total_ratings?: number;
 }
+
+/** Centralizar câmera no equipamento (busca / seleção). `focusKey` incrementa a cada novo foco. */
+export type MapFocusOnService = {
+  latitude: number;
+  longitude: number;
+  focusKey: number;
+};
 
 interface GoogleMapViewProps {
   userLocation: { latitude: number; longitude: number } | null;
   services: Service[];
   onServiceClick: (serviceId: string) => void;
   distanceLabel?: 'walking' | 'driving' | 'straight';
+  /** Tipos de serviço ativos no filtro – a legenda do mapa lista estes com ícone e cor (OS-05). */
+  activeServiceTypes?: string[];
   /** Camadas overlay GeoSampa (WFS GeoJSON) */
   overlayLayers?: Record<string, GeoSampaOverlayState>;
   /** Exibir camada WMS de imageamento (fotos aéreas GeoSampa) */
   wmsImageamentoEnabled?: boolean;
+  /** Ao buscar/selecionar equipamento: aproximar o mapa neste ponto (não move o marcador "você está aqui"). */
+  focusOnService?: MapFocusOnService | null;
 }
 
 export const GoogleMapView = ({
@@ -40,8 +64,10 @@ export const GoogleMapView = ({
   services,
   onServiceClick,
   distanceLabel = 'straight',
+  activeServiceTypes = [],
   overlayLayers = {},
   wmsImageamentoEnabled = false,
+  focusOnService = null,
 }: GoogleMapViewProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -57,23 +83,55 @@ export const GoogleMapView = ({
   useEffect(() => {
     if (!isLoaded || !mapRef.current || !window.google?.maps) return;
 
-    const center = userLocation
-      ? { lat: userLocation.latitude, lng: userLocation.longitude }
-      : { lat: -23.5505, lng: -46.6333 };
+    let cancelled = false;
+    let mapForCleanup: google.maps.Map | null = null;
 
-    const map = new google.maps.Map(mapRef.current, {
-      center,
-      zoom: 14,
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true,
-      zoomControl: true,
-    });
+    const initMap = async () => {
+      const center = userLocation
+        ? { lat: userLocation.latitude, lng: userLocation.longitude }
+        : { lat: -23.5505, lng: -46.6333 };
 
-    mapInstanceRef.current = map;
+      let mapCtor: (new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map) | null =
+        typeof window.google?.maps?.Map === 'function'
+          ? (window.google.maps.Map as new (el: HTMLElement, opts?: google.maps.MapOptions) => google.maps.Map)
+          : null;
+
+      if (!mapCtor && typeof (window.google.maps as any)?.importLibrary === 'function') {
+        try {
+          const mapsLib = await (window.google.maps as any).importLibrary('maps');
+          mapCtor = mapsLib?.Map ?? null;
+        } catch (e) {
+          console.error('[GoogleMapView] importLibrary("maps") falhou:', e);
+        }
+      }
+
+      if (!mapCtor) {
+        if (!cancelled) {
+          setLoadError('Google Maps carregou incompleto. Recarregue a página.');
+        }
+        return;
+      }
+
+      const map = new mapCtor(mapRef.current!, {
+        center,
+        zoom: 14,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+      });
+
+      if (cancelled) return;
+      mapForCleanup = map;
+      mapInstanceRef.current = map;
+    };
+
+    void initMap();
 
     return () => {
-      if (wmsOverlayRef.current && map.overlayMapTypes) {
+      cancelled = true;
+      const map = mapForCleanup ?? mapInstanceRef.current;
+      if (map && wmsOverlayRef.current && map.overlayMapTypes) {
         const arr = map.overlayMapTypes.getArray();
         const idx = arr.indexOf(wmsOverlayRef.current);
         if (idx >= 0) map.overlayMapTypes.removeAt(idx);
@@ -146,19 +204,31 @@ export const GoogleMapView = ({
       map: mapInstanceRef.current,
       title: 'Você está aqui',
       icon: {
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: '#3b82f6',
-        fillOpacity: 1,
-        strokeColor: '#fff',
-        strokeWeight: 3,
+        url: getUserLocationMarkerIconDataUrl(),
+        scaledSize: new google.maps.Size(
+          USER_LOCATION_MARKER_LAYOUT.width,
+          USER_LOCATION_MARKER_LAYOUT.height,
+        ),
+        anchor: new google.maps.Point(
+          USER_LOCATION_MARKER_LAYOUT.anchorX,
+          USER_LOCATION_MARKER_LAYOUT.anchorY,
+        ),
       },
     });
 
-    mapInstanceRef.current.setCenter({ lat: userLocation.latitude, lng: userLocation.longitude });
-
     return () => marker.setMap(null);
-  }, [isLoaded, userLocation]);
+  }, [isLoaded, userLocation?.latitude, userLocation?.longitude]);
+
+  // Centralizar no equipamento encontrado (busca com um resultado ou seleção no dropdown)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !focusOnService || !window.google?.maps) return;
+    const { latitude: lat, longitude: lng } = focusOnService;
+    if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) return;
+    map.panTo({ lat, lng });
+    const z = map.getZoom() ?? 14;
+    if (z < 15) map.setZoom(15);
+  }, [focusOnService]);
 
   // Service markers com clustering (evita sobreposição quando há muitos equipamentos)
   useEffect(() => {
@@ -182,8 +252,14 @@ export const GoogleMapView = ({
         title: displayName,
         icon: {
           url: getServiceTypeBalloonIconUrl(service.service_type),
-          scaledSize: new google.maps.Size(36, 36),
-          anchor: new google.maps.Point(18, 36),
+          scaledSize: new google.maps.Size(
+            SERVICE_BALLOON_MARKER_LAYOUT.width,
+            SERVICE_BALLOON_MARKER_LAYOUT.height,
+          ),
+          anchor: new google.maps.Point(
+            SERVICE_BALLOON_MARKER_LAYOUT.anchorX,
+            SERVICE_BALLOON_MARKER_LAYOUT.anchorY,
+          ),
         },
       });
 
@@ -193,10 +269,16 @@ export const GoogleMapView = ({
       const distanceText = service.distance != null
         ? (distanceLabel === 'straight' ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance))
         : '';
+      const lowRatingFlag = needsVerificationForLowAverageRating(service.average_rating, service.total_ratings);
       const infoContent = `
         <div style="padding:8px;min-width:180px;">
           <p style="font-weight:600;margin:0 0 4px;">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
           ${distanceText ? `<p style="font-size:12px;color:#666;">${distanceText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : ''}
+          ${
+            lowRatingFlag
+              ? `<p style="font-size:11px;color:#b45309;margin:8px 0 0;line-height:1.35;font-weight:500;">⚠ Média abaixo de 2★ — sinalizado para verificação</p>`
+              : ''
+          }
           <a href="${mapsUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#1976d2;margin-top:6px;display:inline-block;">Como chegar</a>
         </div>
       `;
@@ -215,10 +297,20 @@ export const GoogleMapView = ({
       clustererRef.current = new MarkerClusterer({
         map: mapInstanceRef.current,
         markers,
-        // Renderer padrão: círculos com contagem; ao dar zoom os clusters se separam em marcadores individuais
+        /** Zoom acima disso: pins individuais com ícone do tipo (evita só “bolinhas” vermelhas cedo demais). */
+        algorithm: new SuperClusterAlgorithm({
+          maxZoom: 15,
+          radius: 52,
+        }),
       });
     }
-  }, [isLoaded, services, onServiceClick, userLocation]);
+  }, [
+    isLoaded,
+    services,
+    onServiceClick,
+    userLocation?.latitude,
+    userLocation?.longitude,
+  ]);
 
   // Overlay layers (GeoSampa WFS GeoJSON)
   const overlayLayersKey = JSON.stringify(
@@ -320,15 +412,44 @@ export const GoogleMapView = ({
       <div className="relative w-full h-[500px] rounded-lg overflow-hidden">
         <div ref={mapRef} className="absolute inset-0 w-full h-full" />
 
-        <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10">
+        <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-            <div className="w-3 h-3 bg-primary rounded-full" />
+            <img
+              src={getUserLocationMarkerIconDataUrl()}
+              alt=""
+              width={22}
+              height={26}
+              className="shrink-0 object-contain drop-shadow-sm"
+              aria-hidden
+            />
             <span>Você está aqui</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <MapPin className="w-3 h-3" />
-            <span>Serviços públicos</span>
-          </div>
+          {activeServiceTypes.length > 0 ? (
+            <div className="space-y-1.5">
+              {activeServiceTypes.map((type) => {
+                const color = getServiceTypeMapColor(type);
+                return (
+                  <div key={type} className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm"
+                      style={{
+                        boxShadow: color ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)` : undefined,
+                      }}
+                      aria-hidden
+                    >
+                      <ServiceTypeIcon serviceType={type} size={16} />
+                    </div>
+                    <span className="truncate">{getServiceTypeLabel(type)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span>Serviços públicos</span>
+            </div>
+          )}
         </Card>
 
         {userLocation && (

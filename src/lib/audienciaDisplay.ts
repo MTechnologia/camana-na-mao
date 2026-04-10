@@ -147,9 +147,55 @@ export function normalizarConvidadosParaExibicao(texto: string | null | undefine
     .trim();
 }
 
+/** Parses convidados into items with nome and cargo on separate lines (nome - cargo). */
+export function parseConvidadosItens(texto: string | null | undefined): Array<{ nome: string; cargo: string }> {
+  if (!texto || !texto.trim()) return [];
+  const norm = normalizarConvidadosParaExibicao(texto);
+  return norm
+    .split(/\s*;\s*/)
+    .map((s) => s.replace(/^\s*-\s*/, "").trim())
+    .filter(Boolean)
+    .map((seg) => {
+      const idx = seg.indexOf(" - ");
+      if (idx >= 0) return { nome: seg.slice(0, idx).trim(), cargo: seg.slice(idx + 3).trim() };
+      return { nome: seg, cargo: "" };
+    });
+}
+
 /** Extrai o primeiro e-mail de texto "Mais informações: ..." para usar em mailto:. */
 export function extrairEmailDeMaisInformacoes(texto: string | null | undefined): string | null {
   if (!texto || !texto.trim()) return null;
   const match = texto.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/);
   return match ? match[0] : null;
+}
+
+/** Alinhado ao site da CMSP quando não há inscrição por videoconferência. */
+export const OBSERVACAO_SOMENTE_PRESENCIAL_AUDIENCIA =
+  "Audiência pública com participação somente presencial. Não é possível se inscrever para participar por videoconferência desta Audiência Pública. Compareça ao evento e contribua presencialmente.";
+
+/** Detecta o texto gerado automaticamente para prazo de inscrição virtual (não vale para audiência somente presencial). */
+export function observacaoEhPrazoInscricaoVirtualGerado(texto: string | null | undefined): boolean {
+  const t = (texto ?? "").trim().toLowerCase();
+  if (!t) return false;
+  return (
+    /inscri[cç][oõ]es?\s+para\s+participa[cç][aã]o\s+na\s+audi[eê]ncia\s+de\s+forma\s+virtual/i.test(t) &&
+    /encerra(m|r[aã]o)?\s+(\u00e0s|as)\s+19h/i.test(t)
+  );
+}
+
+/**
+ * Evita exibir prazo de inscrição virtual quando `permite_inscricao_videoconferencia` é false (dados antigos ou sync pendente).
+ */
+export function observacaoParaDetalheAudiencia(
+  observacao: string | null | undefined,
+  permiteInscricaoVideoconferencia: boolean,
+): string | null {
+  if (permiteInscricaoVideoconferencia) {
+    const o = observacao?.trim();
+    return o || null;
+  }
+  if (!observacao?.trim() || observacaoEhPrazoInscricaoVirtualGerado(observacao)) {
+    return OBSERVACAO_SOMENTE_PRESENCIAL_AUDIENCIA;
+  }
+  return observacao.trim();
 }

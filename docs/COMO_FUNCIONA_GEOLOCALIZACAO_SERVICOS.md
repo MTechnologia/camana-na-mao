@@ -227,6 +227,10 @@ async function findNearbyServices(supabase, serviceType, district) {
 }
 ```
 
+### 4. Chatbot (GPS) — endereço legível na resposta
+
+Quando o munícipe envia **Localização GPS: lat,lon**, a tool `find_nearby_services` ordena por distância usando essas coordenadas. Para a mensagem não parecer “lista sem contexto”, o orchestrator chama **`reverseGeocodeLatLon`** em `lib.ts`: tenta **Google Geocoding** (`GOOGLE_MAPS_API_KEY` no Edge) e, se necessário, **Nominatim (OSM)**. O texto entra no cabeçalho da lista, por exemplo: *Encontrei 5 UBS perto de Rua Augusta, 1200 - Bela Vista, São Paulo*.
+
 ## 🗄️ Estrutura do Banco de Dados
 
 ### Tabela `public_services`

@@ -11,7 +11,7 @@ export default function UrbanReportPage() {
     {
       id: 1,
       title: "Conversar com IA",
-      description: "Relate problemas urbanos com ajuda inteligente da IA",
+      description: "Reclamações, dúvidas, sugestões ou elogios sobre a cidade, com ajuda da IA",
       icon: MessageSquare,
       color: "text-purple-500",
       bgColor: "bg-purple-50",
@@ -39,7 +39,7 @@ export default function UrbanReportPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Relatos Urbanos" />
+      <PageHeader title="Relatos Urbanos" backTo="/relatos" />
       
       <div className="p-4">
         {/* Hero Section */}

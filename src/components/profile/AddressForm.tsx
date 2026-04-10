@@ -100,7 +100,12 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         return null;
       }
 
-      const placeId = autocompleteData.predictions[0].place_id;
+      const firstPrediction = autocompleteData.predictions[0];
+      const placeId = firstPrediction?.placeId ?? firstPrediction?.place_id;
+      if (!placeId) {
+        console.log('No placeId in first prediction:', firstPrediction);
+        return null;
+      }
       
       const { data: detailsData, error: detailsError } = await supabase.functions.invoke(
         'google-places-details',
@@ -112,10 +117,11 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         return null;
       }
 
-      if (detailsData?.structuredAddress?.latitude && detailsData?.structuredAddress?.longitude) {
+      const detailsAddress = detailsData?.structuredAddress ?? detailsData?.address;
+      if (detailsAddress?.latitude && detailsAddress?.longitude) {
         const coords: Coordinates = {
-          latitude: detailsData.structuredAddress.latitude,
-          longitude: detailsData.structuredAddress.longitude,
+          latitude: detailsAddress.latitude,
+          longitude: detailsAddress.longitude,
         };
         setCoordinates(coords);
         return coords;
@@ -204,6 +210,18 @@ const AddressForm = ({ userId }: AddressFormProps) => {
 
       setLoading(true);
 
+      // Se não temos coordenadas, tentar geocodificar (rua + número + bairro...) para salvar lat/lon
+      // e que "Usar endereço cadastrado" traga serviços ordenados por proximidade
+      let coordsToSave = coordinates;
+      if (!coordsToSave?.latitude && !coordsToSave?.longitude && (street || neighborhood)) {
+        const fullAddress = [street, number, neighborhood, city, state, "Brasil"].filter(Boolean).join(", ");
+        const geocoded = fullAddress ? await geocodeAddress(fullAddress) : null;
+        if (geocoded) {
+          coordsToSave = geocoded;
+          setCoordinates(geocoded);
+        }
+      }
+
       const addressData = {
         zip_code: validated.zipCode,
         street: validated.street,
@@ -213,8 +231,8 @@ const AddressForm = ({ userId }: AddressFormProps) => {
         city: validated.city,
         state: validated.state,
         is_primary: validated.isPrimary,
-        latitude: coordinates?.latitude || null,
-        longitude: coordinates?.longitude || null,
+        latitude: coordsToSave?.latitude ?? null,
+        longitude: coordsToSave?.longitude ?? null,
       };
 
       if (addressId) {

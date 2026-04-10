@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logManualClassificationPrediction } from '@/lib/classificationPredictionLog';
 
 interface ReportData {
   line_id?: string;
@@ -12,6 +13,7 @@ interface ReportData {
   occurrence_time?: string;
   location?: string;
   impact_description?: string;
+  photos?: string[] | null;
 }
 
 export const useTransportReport = () => {
@@ -29,6 +31,7 @@ export const useTransportReport = () => {
         ...reportData,
         severity: reportData.severity || 'pending',
         user_id: user.id,
+        photos: Array.isArray(reportData.photos) && reportData.photos.length > 0 ? reportData.photos.slice(0, 3) : null,
       };
       if (insertData.line_id === '') {
         delete insertData.line_id;
@@ -40,6 +43,14 @@ export const useTransportReport = () => {
         .single();
 
       if (error) throw error;
+
+      await logManualClassificationPrediction(supabase, {
+        userId: user.id,
+        reportId: data.id,
+        reportType: 'transport',
+        predictedCategory: reportData.report_type,
+        predictedSubcategory: null,
+      });
 
       toast({
         title: 'Relato enviado!',

@@ -19,7 +19,15 @@
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:report": "npx playwright show-report",
     "test:e2e:export-docx": "node scripts/export-test-results-to-docx.mjs",
+<<<<<<< HEAD
     "playwright:install": "npx playwright install"
+=======
+    "playwright:install": "playwright install",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:edge": "npx deno test --no-check --allow-net=false supabase/functions/",
+    "test:all": "npm test -- --run && npm run test:edge"
+>>>>>>> main
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -59,7 +67,6 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.462.0",
-    "mapbox-gl": "^3.16.0",
     "mermaid": "^11.12.2",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
@@ -81,10 +88,14 @@
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.16",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
+    "@vitest/coverage-v8": "^4.1.3",
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.10.0",
     "cheerio": "^1.0.0",
@@ -95,6 +106,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "jsdom": "^29.0.2",
     "lovable-tagger": "^1.1.13",
     "postcss": "^8.5.6",
     "prettier": "^3.7.4",
@@ -103,6 +115,8 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.1.3"
   }
 }

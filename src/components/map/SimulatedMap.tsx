@@ -1,8 +1,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation } from "lucide-react";
-import { ServiceTypeIcon } from "@/components/icons";
+import { MapPin } from "lucide-react";
+import { ServiceTypeIcon, getServiceTypeLabel, getServiceTypeMapColor } from "@/components/icons";
+import { getUserLocationMarkerIconDataUrl } from "@/lib/mapUserMarkerIcon";
 import { formatDistance, formatDistanceStraightLine, getServiceDisplayName } from "@/lib/mapUtils";
+import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 
 interface Service {
   id: string;
@@ -20,6 +22,8 @@ interface SimulatedMapProps {
   services: Service[];
   onServiceClick: (serviceId: string) => void;
   distanceLabel?: "walking" | "driving" | "straight";
+  /** Tipos de serviço ativos no filtro – a legenda lista estes (OS-05). */
+  activeServiceTypes?: string[];
 }
 
 /** Agrupa serviços por proximidade (grid ~200m) para reduzir sobreposição visual. */
@@ -46,7 +50,7 @@ function clusterServicesByProximity(services: Service[], maxItems: number): { ty
   return result;
 }
 
-export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceLabel = "straight" }: SimulatedMapProps) => {
+export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceLabel = "straight", activeServiceTypes = [] }: SimulatedMapProps) => {
   const displayItems = clusterServicesByProximity(services, 8);
 
   return (
@@ -60,29 +64,61 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
         backgroundSize: '30px 30px'
       }} />
 
-      {/* Demo banner + instrução Google Maps */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2 text-center px-4">
-        <Badge variant="secondary" className="shadow-lg">
-          <Navigation className="w-3 h-3 mr-1" />
-          Mapa de Demonstração
-        </Badge>
-        <p className="text-xs text-muted-foreground max-w-xs">
-          Para ver o mapa com ruas: em <strong>desenvolvimento</strong>, configure{" "}
-          <code className="text-[10px] bg-muted px-1 rounded">VITE_GOOGLE_MAPS_API_KEY</code> no{" "}
-          <code className="text-[10px] bg-muted px-1 rounded">.env</code> e reinicie{" "}
-          <code className="text-[10px] bg-muted px-1 rounded">npm run dev</code>. Em{" "}
-          <strong>build/deploy</strong>, defina a variável no momento do build (ex.: variáveis de substituição do Cloud Build).
-        </p>
-      </div>
+      {/* Legenda (alinhada ao GoogleMapView – OS-05) */}
+      <Card className="absolute bottom-4 left-4 p-3 shadow-lg z-10 max-w-[200px]">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+          <img
+            src={getUserLocationMarkerIconDataUrl()}
+            alt=""
+            width={22}
+            height={26}
+            className="shrink-0 object-contain drop-shadow-sm"
+            aria-hidden
+          />
+          <span>Você está aqui</span>
+        </div>
+        {activeServiceTypes.length > 0 ? (
+          <div className="space-y-1.5">
+            {activeServiceTypes.map((type) => {
+              const color = getServiceTypeMapColor(type);
+              return (
+                <div key={type} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background shadow-sm"
+                    style={{
+                      boxShadow: color ? `0 0 0 2px ${color}40, 0 1px 2px rgb(0 0 0 / 0.06)` : undefined,
+                    }}
+                    aria-hidden
+                  >
+                    <ServiceTypeIcon serviceType={type} size={16} />
+                  </div>
+                  <span className="truncate">{getServiceTypeLabel(type)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span>Serviços públicos</span>
+          </div>
+        )}
+      </Card>
 
       {/* User location marker */}
       {userLocation && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20">
-          <div className="relative">
-            <div className="w-12 h-12 bg-primary rounded-full shadow-xl flex items-center justify-center animate-pulse">
-              <MapPin className="w-6 h-6 text-primary-foreground" />
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-20">
+          <div className="relative flex flex-col items-center">
+            <div className="rounded-full bg-background/90 p-1 shadow-lg ring-2 ring-primary/15 animate-pulse">
+              <img
+                src={getUserLocationMarkerIconDataUrl()}
+                alt="Sua localização"
+                width={40}
+                height={48}
+                className="object-contain drop-shadow-md"
+              />
             </div>
-            <Badge variant="default" className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap shadow-md">
+            <Badge variant="default" className="mt-2 whitespace-nowrap shadow-md">
               Você está aqui
             </Badge>
           </div>
@@ -94,6 +130,7 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
         {displayItems.map((item, index) => {
           if (item.type === "single") {
             const service = item.service;
+            const lowRating = needsVerificationForLowAverageRating(service.average_rating, service.total_ratings);
             return (
               <Card
                 key={service.id}
@@ -112,6 +149,11 @@ export const SimulatedMap = ({ userLocation, services, onServiceClick, distanceL
                     {service.distance != null && (
                       <p className="text-xs text-muted-foreground">
                         {distanceLabel === "straight" ? formatDistanceStraightLine(service.distance) : formatDistance(service.distance)}
+                      </p>
+                    )}
+                    {lowRating && (
+                      <p className="text-[11px] text-amber-800 dark:text-amber-200 mt-1 font-medium line-clamp-2">
+                        ⚠ Média abaixo de 2★ — verificação
                       </p>
                     )}
                   </div>

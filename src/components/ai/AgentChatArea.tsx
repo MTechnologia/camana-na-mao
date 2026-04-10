@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUnifiedAIChat } from "@/hooks/useUnifiedAIChat";
 import { useAIConversations } from "@/hooks/useAIConversations";
@@ -15,7 +16,9 @@ import TypingIndicator from "./TypingIndicator";
 import DataCollectionTracker from "./DataCollectionTracker";
 import CapabilitiesOverlay from "./CapabilitiesOverlay";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ImageIcon, X, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import type { CollectionType } from "./DataCollectionTracker";
 import type { StructuredAddress } from "@/components/address";
 
@@ -33,7 +36,10 @@ const contentVariants = {
   }
 };
 
+const OPEN_MANUAL_REPORT_MESSAGE = "[OPEN_MANUAL_REPORT]";
+
 const AgentChatArea = () => {
+  const navigate = useNavigate();
   const { activeConversationId, setActiveConversationId } = useAIJourney();
   const { profile, getInitials } = useProfile();
   const hasCleared = useRef(false);
@@ -41,6 +47,11 @@ const AgentChatArea = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
   const [presetCollectionType, setPresetCollectionType] = useState<CollectionType>(null);
+  const MAX_CHAT_PHOTOS = 3;
+  const MAX_CHAT_PHOTO_MB = 50;
+  const [chatPhotoFiles, setChatPhotoFiles] = useState<File[]>([]);
+  const [chatPhotoPreviews, setChatPhotoPreviews] = useState<string[]>([]);
+  const { toast } = useToast();
 
   const { 
     messages, 
@@ -82,6 +93,26 @@ const AgentChatArea = () => {
     
     return undefined;
   }, [messages]);
+
+  // Mostrar botões de anexar fotos apenas após "Você deseja anexar imagens?" e usuário ter respondido Sim (backend envia "Pode anexar até 3 fotos")
+  const hasReachedAttachPhotosStep = useMemo(() => {
+    return messages.some(
+      (m) =>
+        m.role === "assistant" && m.content.includes("Pode anexar até 3 fotos")
+    );
+  }, [messages]);
+
+  const showUrbanAttachmentUI = useMemo(() => {
+    return (
+      (collectionType === "urban_report" || collectionType === "transport_report") &&
+      hasReachedAttachPhotosStep
+    );
+  }, [collectionType, hasReachedAttachPhotosStep]);
+
+  // Registrar habilitado só após anexar fotos quando estamos no passo "Pode anexar até 3 fotos"
+  const disableRegistrarUntilPhotosAttached = useMemo(() => {
+    return hasReachedAttachPhotosStep && chatPhotoPreviews.length === 0;
+  }, [hasReachedAttachPhotosStep, chatPhotoPreviews.length]);
 
   // Força re-render após hydration completa
   useEffect(() => {
@@ -133,7 +164,7 @@ const AgentChatArea = () => {
   const userInitials = profile?.full_name ? getInitials(profile.full_name) : "?";
 
   const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() && !chatPhotoFiles.length) return;
 
     if (!activeConversationId) {
       // Guardar mensagem para enviar após conversa criada
@@ -146,7 +177,54 @@ const AgentChatArea = () => {
       return;
     }
 
-    sendMessage(content.trim());
+    const text = content.trim();
+    const opts = chatPhotoFiles.length
+      ? { attachmentFiles: chatPhotoFiles.slice(0, MAX_CHAT_PHOTOS) }
+      : undefined;
+    sendMessage(text || " ", opts);
+    // Limpar anexos após enviar
+    chatPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setChatPhotoFiles([]);
+    setChatPhotoPreviews([]);
+  };
+
+  const handleChatPhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
+    const remaining = MAX_CHAT_PHOTOS - chatPhotoFiles.length;
+    if (remaining <= 0) {
+      toast({
+        title: `Máximo de ${MAX_CHAT_PHOTOS} fotos`,
+        description: "Remova uma para adicionar outra.",
+        variant: "destructive",
+      });
+      e.target.value = "";
+      return;
+    }
+    const maxBytes = MAX_CHAT_PHOTO_MB * 1024 * 1024;
+    const toAdd: File[] = [];
+    for (let i = 0; i < files.length && toAdd.length < remaining; i++) {
+      if (files[i].size > maxBytes) {
+        toast({
+          title: "Foto muito grande",
+          description: `Máximo ${MAX_CHAT_PHOTO_MB}MB por imagem. "${files[i].name}" ignorada.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+      toAdd.push(files[i]);
+    }
+    if (toAdd.length) {
+      setChatPhotoFiles((prev) => [...prev, ...toAdd].slice(0, MAX_CHAT_PHOTOS));
+      setChatPhotoPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))].slice(0, MAX_CHAT_PHOTOS));
+    }
+    e.target.value = "";
+  };
+
+  const removeChatPhoto = (index: number) => {
+    URL.revokeObjectURL(chatPhotoPreviews[index]);
+    setChatPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setChatPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleNewReport = () => {
@@ -158,6 +236,11 @@ const AgentChatArea = () => {
 
   const handleStartConversation = async (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => {
     setIsDiscoveryOpen(false);
+
+    if (initialMessage === OPEN_MANUAL_REPORT_MESSAGE) {
+      navigate("/relato-urbano/manual");
+      return;
+    }
 
     if (collectionTypePreset) {
       setPresetCollectionType(collectionTypePreset as CollectionType);
@@ -188,13 +271,21 @@ const AgentChatArea = () => {
     setIsDiscoveryOpen(true);
   };
 
-  // Handle address selection from Google Places picker
+  // Handle address selection from Google Places picker (or ViaCEP when coords available)
   const handleAddressSelected = useCallback((address: StructuredAddress) => {
     // Format address as a structured message that the AI can understand
     const addressMessage = `Endereço selecionado: ${address.street}${address.streetNumber ? `, ${address.streetNumber}` : ''} - ${address.neighborhood}, ${address.city}${address.cep ? ` - CEP: ${address.cep}` : ''}`;
-    
-    // Send the address as a user message
-    sendMessage(addressMessage);
+    // When we have coordinates (e.g. from Google Place Details), send them so the backend
+    // uses the same point for "nearby" search as with GPS, avoiding wrong results from CEP-only geocoding.
+    const hasValidCoords =
+      typeof address.latitude === 'number' &&
+      typeof address.longitude === 'number' &&
+      Math.abs(address.latitude) > 1e-6 &&
+      Math.abs(address.longitude) > 1e-6;
+    const message = hasValidCoords
+      ? `${addressMessage}\nLocalização GPS: ${address.latitude},${address.longitude}`
+      : addressMessage;
+    sendMessage(message);
   }, [sendMessage]);
 
   // Pedir à IA que traga audiências com os filtros selecionados no bloco do chat
@@ -324,6 +415,7 @@ const AgentChatArea = () => {
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                         onApplyNearbyFilters={handleApplyNearbyFilters}
                         onSendMessage={handleSendMessage}
+                        disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
                       />
                     </motion.div>
                   );
@@ -354,7 +446,95 @@ const AgentChatArea = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.3 }}
       >
-        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto">
+        <div className="max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto space-y-2">
+          {collectionType === "urban_report" && (
+            <p className="text-xs text-muted-foreground text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/relato-urbano/manual")}
+                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+              >
+                Preferir formulário manual (com foto)
+              </button>
+            </p>
+          )}
+          {collectionType === "transport_report" && (
+            <p className="text-xs text-muted-foreground text-center">
+              <button
+                type="button"
+                onClick={() => navigate("/transporte/novo")}
+                className="underline hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+              >
+                Preferir formulário manual (passo a passo)
+              </button>
+            </p>
+          )}
+          {/* Anexar fotos: relato urbano ou de transporte, após "Deseja anexar imagens?" e usuário dizer sim */}
+          {showUrbanAttachmentUI && (
+            <div className="space-y-1.5">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={handleChatPhotoCapture}
+                className="hidden"
+                id="chat-photo-camera"
+              />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleChatPhotoCapture}
+                className="hidden"
+                id="chat-photo-gallery"
+              />
+              {chatPhotoPreviews.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {chatPhotoPreviews.map((preview, index) => (
+                    <div key={index} className="relative rounded-lg overflow-hidden border w-14 h-14 shrink-0">
+                      <img src={preview} alt="" className="w-full h-full object-cover" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-0 right-0 h-5 w-5"
+                        onClick={() => removeChatPhoto(index)}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {chatPhotoPreviews.length < MAX_CHAT_PHOTOS && (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("chat-photo-camera")?.click()}
+                    disabled={isLoading}
+                    className="text-xs"
+                  >
+                    <Camera className="w-3.5 h-3.5 mr-1.5" />
+                    Câmera
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("chat-photo-gallery")?.click()}
+                    disabled={isLoading}
+                    className="text-xs"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 mr-1.5" />
+                    Galeria ({MAX_CHAT_PHOTOS - chatPhotoPreviews.length})
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <ChatInput
             onSendMessage={handleSendMessage}
             disabled={isLoading}

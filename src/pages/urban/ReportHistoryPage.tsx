@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, Plus, Trash2, Info, FileText, Search } from "lucide-react";
+import { Calendar, Hash, MapPin, Plus, Trash2, Info, FileText, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -20,10 +20,13 @@ import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 import { toast } from "@/hooks/use-toast";
+import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
 
 interface Report {
   id: string;
+  protocol_code?: string | null;
   category: string;
   subcategory: string | null;
   description: string | null;
@@ -58,15 +61,10 @@ const categoryLabels: Record<string, string> = {
   outro: "Outro"
 };
 
-const severityLabels: Record<string, string> = {
-  low: "Baixa",
-  medium: "Média",
-  high: "Alta",
-  critical: "Crítica"
-};
-
 export default function ReportHistoryPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reportIdFromQuery = searchParams.get("reportId");
   const { user } = useAuth();
   const { canReferToCouncilMember } = useUserRole();
   const [myReports, setMyReports] = useState<Report[]>([]);
@@ -102,13 +100,43 @@ export default function ReportHistoryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllReports runs when filters change
   }, [filters]);
 
+  useEffect(() => {
+    const reportId = reportIdFromQuery;
+    if (!reportId) return;
+
+    const reportFromLists =
+      myReports.find((report) => report.id === reportId) ||
+      allReports.find((report) => report.id === reportId);
+
+    if (reportFromLists) {
+      setSelectedReport(reportFromLists);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("urban_reports")
+        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .eq("id", reportId)
+        .maybeSingle();
+
+      if (cancelled || error || !data) return;
+      setSelectedReport(data as Report);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reportIdFromQuery, myReports, allReports]);
+
   const loadReports = async () => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("id, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -139,7 +167,7 @@ export default function ReportHistoryPage() {
     try {
       let query = supabase
         .from("urban_reports")
-        .select("id, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -226,6 +254,7 @@ export default function ReportHistoryPage() {
   ) => {
     const canShowReferralAction =
       canReferToCouncilMember && !!user && report.user_id === user.id;
+    const citizenProtocol = formatCitizenProtocolForDisplay(report.protocol_code);
 
     return (
       <Card key={report.id} className="hover:shadow-md transition-shadow" data-testid="report-card">
@@ -245,8 +274,16 @@ export default function ReportHistoryPage() {
               )}
 
               {report.severity && (
-                <p className="text-xs text-muted-foreground">
-                  Gravidade: {severityLabels[report.severity]}
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <CitizenSeverityBadge severity={report.severity} size="sm" />
+                </div>
+              )}
+              {citizenProtocol && (
+                <p className="text-xs font-mono font-medium text-primary mt-1 flex items-center gap-1.5">
+                  <Hash className="w-3 h-3 shrink-0" aria-hidden />
+                  <span>
+                    {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
+                  </span>
                 </p>
               )}
             </div>
@@ -274,6 +311,25 @@ export default function ReportHistoryPage() {
             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
               {report.description}
             </p>
+          )}
+
+          {report.photos && report.photos.length > 0 && (
+            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
+              {report.photos.slice(0, 5).map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-border bg-muted"
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </a>
+              ))}
+              {report.photos.length > 5 && (
+                <span className="flex-shrink-0 text-xs text-muted-foreground self-center">+{report.photos.length - 5}</span>
+              )}
+            </div>
           )}
 
           <div className="space-y-1 mb-3">
@@ -410,7 +466,16 @@ export default function ReportHistoryPage() {
       </div>
 
       {/* Dialog de Comentários */}
-      <Dialog open={!!selectedReport} onOpenChange={(open) => !open && setSelectedReport(null)}>
+      <Dialog
+        open={!!selectedReport}
+        onOpenChange={(open) => {
+          if (open) return;
+          setSelectedReport(null);
+          const params = new URLSearchParams(searchParams);
+          params.delete("reportId");
+          setSearchParams(params, { replace: true });
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Comentários</DialogTitle>
@@ -421,6 +486,11 @@ export default function ReportHistoryPage() {
                 <h4 className="font-semibold mb-1">
                   {categoryLabels[selectedReport.category] || selectedReport.category}
                 </h4>
+                {formatCitizenProtocolForDisplay(selectedReport.protocol_code) && (
+                  <p className="text-xs font-mono text-primary mb-2">
+                    {CITIZEN_PROTOCOL_LABEL}: {formatCitizenProtocolForDisplay(selectedReport.protocol_code)}
+                  </p>
+                )}
                 {selectedReport.description && (
                   <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
                 )}

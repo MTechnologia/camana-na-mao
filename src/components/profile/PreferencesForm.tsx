@@ -7,10 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, CalendarDays, ArrowRight } from "lucide-react";
+import { Bell, Lock, Eye, MessageSquare, Mail, Smartphone, CalendarDays, ArrowRight, Users, FileWarning, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { NOTIFICATION_CATEGORIES } from "@/constants/notificationTypes";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface PreferencesFormProps {
   userId: string;
@@ -35,6 +36,9 @@ interface PrivacySettings {
 const PreferencesForm = ({ userId }: PreferencesFormProps) => {
   const [loading, setLoading] = useState(false);
   const { subscribe, supported: pushSupported } = usePushNotifications();
+  const { isAdmin, isGestor } = useUserRole();
+  const [adminNotifyNewUsers, setAdminNotifyNewUsers] = useState(true);
+  const [adminNotifyNewReports, setAdminNotifyNewReports] = useState(true);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     push_enabled: true,
     email_enabled: true,
@@ -50,6 +54,8 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
     show_email: false,
     show_phone: false,
   });
+
+  const [visitDetectionEnabled, setVisitDetectionEnabled] = useState(true);
 
   const loadPreferences = useCallback(async () => {
     try {
@@ -75,7 +81,7 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
 
       const { data: privData, error: privError } = await supabase
         .from('user_preferences')
-        .select('profile_visibility, show_email, show_phone')
+        .select('profile_visibility, show_email, show_phone, notify_new_users, notify_new_reports, visit_detection_enabled')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -87,6 +93,11 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
           show_email: privData.show_email,
           show_phone: privData.show_phone,
         });
+        if (privData.notify_new_users !== undefined) setAdminNotifyNewUsers(privData.notify_new_users);
+        if (privData.notify_new_reports !== undefined) setAdminNotifyNewReports(privData.notify_new_reports);
+        if (privData.visit_detection_enabled !== undefined && privData.visit_detection_enabled !== null) {
+          setVisitDetectionEnabled(privData.visit_detection_enabled);
+        }
       }
     } catch (error: unknown) {
       console.error("Error loading preferences:", error);
@@ -117,20 +128,24 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
 
       if (notifError) throw notifError;
 
+      const privPayload: Record<string, unknown> = {
+        user_id: userId,
+        profile_visibility: privacySettings.profile_visibility,
+        show_email: privacySettings.show_email,
+        show_phone: privacySettings.show_phone,
+        push_notifications: notificationSettings.push_enabled,
+        email_notifications: notificationSettings.email_enabled,
+        sms_notifications: false,
+        newsletter: notificationSettings.newsletter_enabled,
+        visit_detection_enabled: visitDetectionEnabled,
+      };
+      if (isAdmin || isGestor) {
+        privPayload.notify_new_users = adminNotifyNewUsers;
+        privPayload.notify_new_reports = adminNotifyNewReports;
+      }
       const { error: privError } = await supabase
         .from('user_preferences')
-        .upsert({
-          user_id: userId,
-          profile_visibility: privacySettings.profile_visibility,
-          show_email: privacySettings.show_email,
-          show_phone: privacySettings.show_phone,
-          push_notifications: notificationSettings.push_enabled,
-          email_notifications: notificationSettings.email_enabled,
-          sms_notifications: false,
-          newsletter: notificationSettings.newsletter_enabled,
-        }, {
-          onConflict: 'user_id'
-        });
+        .upsert(privPayload, { onConflict: 'user_id' });
 
       if (privError) throw privError;
 
@@ -279,6 +294,59 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
         </CardContent>
       </Card>
 
+      {/* Card: Notificações para administradores (apenas admin/gestor) */}
+      {(isAdmin || isGestor) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bell className="h-4 w-4 text-primary" />
+              Notificações para administradores
+            </CardTitle>
+            <CardDescription>
+              Escolha se deseja receber alertas de novas ações na plataforma
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-3">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <Label htmlFor="admin-notify-new-users" className="text-sm font-medium">
+                    Novos usuários cadastrados
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Receber notificação quando um cidadão se cadastrar
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="admin-notify-new-users"
+                checked={adminNotifyNewUsers}
+                onCheckedChange={setAdminNotifyNewUsers}
+              />
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-3">
+                <FileWarning className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <Label htmlFor="admin-notify-new-reports" className="text-sm font-medium">
+                    Novos relatos (urbano e transporte)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Receber notificação quando um cidadão abrir um relato
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="admin-notify-new-reports"
+                checked={adminNotifyNewReports}
+                onCheckedChange={setAdminNotifyNewReports}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Card: Lembretes de audiências */}
       <Card>
         <CardHeader className="pb-3">
@@ -390,6 +458,27 @@ const PreferencesForm = ({ userId }: PreferencesFormProps) => {
               onCheckedChange={(checked) =>
                 setPrivacySettings(prev => ({ ...prev, show_phone: checked }))
               }
+            />
+          </div>
+
+          <div className="flex items-center justify-between py-1 pt-2 border-t">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5 max-w-[min(100%,280px)] sm:max-w-md">
+                <Label htmlFor="visit-detection" className="text-sm font-medium">
+                  Detectar visitas a equipamentos públicos
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Quando ativado, após permanecer próximo a um equipamento (ex.: UBS, escola), o app pode registrar uma
+                  visita para você avaliar o serviço. Desative se não quiser esse monitoramento com base na sua
+                  localização.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="visit-detection"
+              checked={visitDetectionEnabled}
+              onCheckedChange={setVisitDetectionEnabled}
             />
           </div>
         </CardContent>
