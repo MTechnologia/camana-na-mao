@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION,
   URBAN_REPORT_TRAMITE_AFTER_REGISTRATION,
@@ -143,6 +143,45 @@ export function normalizeTransportRecurrenceFrequency(input: string): string | n
 export function aggregateRatingDimensionsStars(dim: Record<string, number>): number {
   const vals = SERVICE_RATING_DIMENSION_KEYS.map((k) => Number(dim[k]));
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+}
+
+/**
+ * Monta JSON de dimensões (1–5) a partir do fluxo conversacional com nota geral + WAIT_TIME + DIM_RATING.
+ * `wait_time_score === null` (Não se aplica) → tempo_espera = 3 (neutro) para manter JSON completo.
+ */
+export function buildServiceRatingDimensionsFromWizardScores(
+  args: Record<string, unknown>,
+  accumulated: Record<string, unknown> | null | undefined,
+): Record<string, number> | null {
+  const get = (k: string): unknown => {
+    if (args && k in args && args[k] !== undefined) return args[k];
+    if (accumulated && k in accumulated && (accumulated as Record<string, unknown>)[k] !== undefined) {
+      return (accumulated as Record<string, unknown>)[k];
+    }
+    return undefined;
+  };
+  const att = get("atendimento_score");
+  const inf = get("infraestrutura_score");
+  const limRaw = get("limpeza_score");
+  const wt = get("wait_time_score");
+
+  if (typeof att !== "number" || typeof inf !== "number") return null;
+  if (!Number.isInteger(att) || att < 1 || att > 5) return null;
+  if (!Number.isInteger(inf) || inf < 1 || inf > 5) return null;
+
+  const lim = typeof limRaw === "number" && Number.isInteger(limRaw) && limRaw >= 1 && limRaw <= 5 ? limRaw : inf;
+
+  let tempo: number;
+  if (wt === null) {
+    tempo = 3;
+  } else if (typeof wt === "number" && Number.isInteger(wt) && wt >= 2 && wt <= 5) {
+    tempo = wt;
+  } else {
+    return null;
+  }
+
+  const out = { atendimento: att, limpeza: lim, infraestrutura: inf, tempo_espera: tempo };
+  return isCompleteServiceRatingDimensions(out) ? (out as Record<string, number>) : null;
 }
 
 // ========== NLP: BRAZILIAN PORTUGUESE PATTERNS (CENTRALIZED) ==========
@@ -571,9 +610,11 @@ Exemplos:
         temperature: 0.3
       })
     });
-    
-    const data = await response.json();
-    const label = data.choices?.[0]?.message?.content?.trim() || '';
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    const label = (data.choices?.[0]?.message?.content ?? '').trim() || '';
     
     if (label && label.length <= 50 && label.length >= 3) {
       console.log('[generateIntelligentLabel] AI generated:', label);
@@ -1304,12 +1345,18 @@ export async function lookupCEP(cep: string): Promise<{
   
   try {
     const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
-    const data = await response.json();
-    
+    const data = (await response.json()) as {
+      erro?: boolean;
+      logradouro?: string;
+      bairro?: string;
+      localidade?: string;
+      uf?: string;
+    };
+
     if (data.erro) {
       return { valid: false };
     }
-    
+
     return {
       valid: true,
       street: data.logradouro || '',
@@ -1603,7 +1650,11 @@ export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<st
     try {
       const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${key}&language=pt-BR`;
       const res = await fetch(url);
-      const data = await res.json();
+      const data = (await res.json()) as {
+        status?: string;
+        results?: Array<{ formatted_address?: string }>;
+        error_message?: string;
+      };
       if (data.status === 'OK' && data.results?.[0]?.formatted_address) {
         return String(data.results[0].formatted_address).trim();
       }
@@ -1625,10 +1676,12 @@ export async function reverseGeocodeLatLon(lat: number, lon: number): Promise<st
       headers: { 'User-Agent': 'CamaraNaMao-SP/1.0 (participacao@camara.sp.gov.br)' },
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    const fromAddr = formatNominatimReverseAddress(data.address);
+    const json = (await res.json()) as Record<string, unknown>;
+    const fromAddr = formatNominatimReverseAddress(
+      json.address as Record<string, string | undefined> | undefined,
+    );
     if (fromAddr) return fromAddr;
-    const dn = typeof data.display_name === 'string' ? data.display_name.trim() : '';
+    const dn = typeof json.display_name === 'string' ? json.display_name.trim() : '';
     if (dn) {
       const parts = dn.split(',').map((p: string) => p.trim()).filter(Boolean);
       return parts.slice(0, 4).join(', ') || dn;
@@ -3659,7 +3712,7 @@ export function accumulateFieldsFromHistory(
             if (parsedFields._category_confirmed && accumulated._pending_category) {
               // User confirmed the pending category
               accumulated.category = accumulated._pending_category;
-              accumulated.subcategory = accumulated._pending_subcategory || generateLabelFromDescription(accumulated.description || '');
+              accumulated.subcategory = accumulated._pending_subcategory || generateLabelFromDescription(String(accumulated.description ?? ''));
               delete accumulated._pending_category;
               delete accumulated._pending_subcategory;
               console.log('[accumulateFields] Category confirmed:', accumulated.category, 'subcategory:', accumulated.subcategory);
@@ -3817,7 +3870,7 @@ export function accumulateFieldsFromHistory(
             if (parsedFields._category_confirmed && accumulated._pending_category) {
               // User confirmed the pending category
               accumulated.category = accumulated._pending_category;
-              accumulated.subcategory = accumulated._pending_subcategory || generateLabelFromDescription(accumulated.description || '');
+              accumulated.subcategory = accumulated._pending_subcategory || generateLabelFromDescription(String(accumulated.description ?? ''));
               delete accumulated._pending_category;
               delete accumulated._pending_subcategory;
               console.log('[accumulateFields] Last msg: Category confirmed:', accumulated.category, 'subcategory:', accumulated.subcategory);
@@ -4133,18 +4186,27 @@ export function accumulateFieldsFromHistory(
                   console.log('[accumulateFields] FIELD_REQUEST wait_time → wait_time_score:', v);
                 }
               }
-
-              // Parse dimension ratings from FIELD_REQUEST (atendimento, infraestrutura)
-              const dimFieldMatch = answer.match(/\[DIM_RATING:(\w+):(\d)\]/i);
-              if (dimFieldMatch) {
-                const dKey = dimFieldMatch[1].toLowerCase();
-                const dScore = parseInt(dimFieldMatch[2], 10);
+              break;
+            }
+            case 'atendimento': {
+              const dm = answer.match(/\[DIM_RATING:atendimento:(\d)\]/i);
+              if (dm) {
+                const dScore = parseInt(dm[1], 10);
                 if (dScore >= 1 && dScore <= 5) {
-                  accumulated[`${dKey}_score`] = dScore;
-                  if (dKey === 'infraestrutura') {
-                    accumulated['limpeza_score'] = dScore;
-                  }
-                  console.log(`[accumulateFields] FIELD_REQUEST ${fieldType} → ${dKey}_score:`, dScore);
+                  accumulated.atendimento_score = dScore;
+                  console.log('[accumulateFields] FIELD_REQUEST atendimento → atendimento_score:', dScore);
+                }
+              }
+              break;
+            }
+            case 'infraestrutura': {
+              const dm = answer.match(/\[DIM_RATING:infraestrutura:(\d)\]/i);
+              if (dm) {
+                const dScore = parseInt(dm[1], 10);
+                if (dScore >= 1 && dScore <= 5) {
+                  accumulated.infraestrutura_score = dScore;
+                  accumulated.limpeza_score = dScore;
+                  console.log('[accumulateFields] FIELD_REQUEST infraestrutura → infraestrutura_score:', dScore);
                 }
               }
               break;
@@ -4192,7 +4254,8 @@ export function accumulateFieldsFromHistory(
                 const typeLabels: Record<string, string> = { ceu: 'CEU', ubs: 'UBS', hospital: 'Hospital', school: 'Escola', library: 'Biblioteca', sports_center: 'Centro esportivo' };
                 const tl = typeLabels[String(accumulated.service_type || '')] || '';
                 const generic = tl ? `${tl} - ${answer.trim()}` : '';
-                if (accumulated.service_name === generic || !accumulated.service_name || accumulated.service_name.length < 5) {
+                const serviceNameStr = String(accumulated.service_name ?? '');
+                if (serviceNameStr === generic || serviceNameStr.length < 5) {
                   accumulated.service_name = undefined;
                 }
                 console.log('[accumulateFields] FIELD_REQUEST: Service neighborhood captured:', answer);
@@ -4257,9 +4320,10 @@ export function accumulateFieldsFromHistory(
       isGenericIntentText(String(accumulated.description)) ||
       isTransportLinePickerPayload(String(accumulated.description));
     
+    const descForLog = String(accumulated.description ?? '');
     console.log('[accumulateFields] Transport description check:', {
-      currentDescription: accumulated.description?.substring(0, 40),
-      isCurrentGeneric: accumulated.description ? isGenericIntentText(accumulated.description) : 'N/A',
+      currentDescription: descForLog.substring(0, 40),
+      isCurrentGeneric: descForLog ? isGenericIntentText(descForLog) : 'N/A',
       shouldDetectDescription
     });
     
@@ -4842,9 +4906,9 @@ export function detectExistingJourney(
     if (msg.role === 'assistant') {
       const progressMatch = msg.content.match(/\[COLLECTION_PROGRESS:(\w+):/);
       if (progressMatch) {
-        const type = progressMatch[1] as string;
-        if (STRUCTURED_JOURNEY_TYPES.includes(type)) {
-          return type;
+        const type = progressMatch[1];
+        if ((STRUCTURED_JOURNEY_TYPES as readonly string[]).includes(type)) {
+          return type as (typeof STRUCTURED_JOURNEY_TYPES)[number];
         }
       }
       // Check for creation markers (journey completed)
@@ -5993,7 +6057,7 @@ export async function olhoVivoGetStopsByLine(codigoLinha: number): Promise<{ suc
 /** Previsão de chegada na parada para uma linha. codigoParada e codigoLinha = códigos da API. */
 export async function olhoVivoPrevisao(codigoParada: number, codigoLinha: number): Promise<{
   success: boolean;
-  parada?: { np: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> };
+  parada?: { np?: string; l?: Array<{ c: string; cl: number; lt0: string; lt1: string; vs: Array<{ p: string; t?: string; a?: boolean }> }> };
   error?: string;
 }> {
   const { ok, data, status } = await olhoVivoGet(`/Previsao?codigoParada=${codigoParada}&codigoLinha=${codigoLinha}`);
@@ -6197,10 +6261,10 @@ export async function searchKnowledgeBase(supabase: SupabaseClient, query: strin
   return data.map((doc: Record<string, unknown>, i: number) => {
     const source = doc.content_type === 'noticia' ? 'Notícia' : 
                    doc.content_type === 'audiencia' ? 'Audiência' : 'Info';
-    const text = doc.content?.trim() || '';
+    const text = `${doc.content ?? ''}`.trim();
     const showMore = text.length > SNIPPET_LEN;
     const snippet = showMore ? `${text.slice(0, SNIPPET_LEN)}...` : text;
-    return `[${i+1}] ${doc.title || source}: ${snippet}`;
+    return `[${i+1}] ${String(doc.title ?? '') || source}: ${snippet}`;
   }).join('\n\n');
 }
 
@@ -6401,19 +6465,20 @@ export async function findNearbyServices(
       .eq('service_type', serviceType)
       .limit(fetchSize);
     if (!error && data?.length) {
-      let out = sortAndFormat(data, !district);
+      const rows = data as unknown as Record<string, unknown>[];
+      let out = sortAndFormat(rows, !district);
       if (out) {
         console.log('[findNearbyServices] Sorted by distance from user');
         return out;
       }
       // Nenhum resultado no raio pedido: tentar com raio maior (20 km) para sempre mostrar opções quando existirem no DB
-      out = sortAndFormat(data, !district, 20000);
+      out = sortAndFormat(rows, !district, 20000);
       if (out) {
         console.log('[findNearbyServices] No results in radius, showing within 20km');
         return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out}`;
       }
       // Ainda zero (ex.: todos além de 20 km ou registros sem lat/lon): sem filtro de distância (raio muito grande)
-      out = sortAndFormat(data, !district, 1e9);
+      out = sortAndFormat(rows, !district, 1e9);
       if (out) {
         console.log('[findNearbyServices] Showing first N without distance filter');
         return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${out}`;
@@ -6431,7 +6496,7 @@ export async function findNearbyServices(
       .limit(limitWithBuffer);
     
     if (!error && data?.length) {
-      const out = tryFormat(data, false);
+      const out = tryFormat(data as unknown as Record<string, unknown>[], false);
       if (out) return out;
     }
     
@@ -6442,7 +6507,7 @@ export async function findNearbyServices(
       .limit(limitWithBuffer);
     
     if (!cityError && cityWide?.length) {
-      const out = tryFormat(cityWide, true);
+      const out = tryFormat(cityWide as unknown as Record<string, unknown>[], true);
       if (out) return out;
     }
   } else {
@@ -6453,7 +6518,7 @@ export async function findNearbyServices(
       .limit(limitWithBuffer);
     
     if (!error && data?.length) {
-      const out = tryFormat(data, false);
+      const out = tryFormat(data as unknown as Record<string, unknown>[], false);
       if (out) return out;
     }
   }
@@ -6697,10 +6762,10 @@ export async function getServiceOccupancyStatusByName(
 }
 
 // Helper: build tema filter (ilike on tema or titulo)
-function audienciasTemaFilter(supabase: SupabaseClient, base: { or?: (a: string, b: string) => unknown }, tema: string) {
+function audienciasTemaFilter<B>(base: B, tema: string): B {
   const t = tema.trim().replace(/%/g, '');
   if (!t) return base;
-  return base.or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
+  return (base as B & { or: (filters: string) => B }).or(`tema.ilike.%${t}%,titulo.ilike.%${t}%`);
 }
 
 // Zonas de São Paulo para filtro por região (espelho de audienciaZonas no front)
@@ -6849,7 +6914,9 @@ export async function searchAudiencias(
   const limitBase = regiaoNorm ? 20 : 5; // fetch more when filtering by region in memory
   const hasExplicitDateRange = !!(dataInicio?.trim() || dataFim?.trim());
 
-  const applyDateFilters = (q: { gte?: (a: string, b: string) => unknown; lte?: (a: string, b: string) => unknown }) => {
+  const applyDateFilters = <Q extends { gte: (column: string, value: string) => Q; lte: (column: string, value: string) => Q }>(
+    q: Q,
+  ): Q => {
     let out = q.gte('data', dataMin);
     if (dataMax) out = out.lte('data', dataMax);
     return out;
@@ -6864,20 +6931,21 @@ export async function searchAudiencias(
       .order('data', { ascending: false })
       .limit(regiaoNorm ? 40 : 15);
     if (dataMax) rangeQ = rangeQ.lte('data', dataMax);
-    if (temaNorm) rangeQ = audienciasTemaFilter(supabase, rangeQ, temaNorm);
+    if (temaNorm) rangeQ = audienciasTemaFilter(rangeQ, temaNorm);
     const { data: rawRange } = await rangeQ;
     const inRange = filterByRegiao(rawRange || [], regiaoNorm).slice(0, 10);
     if (inRange?.length) {
       const formatted = inRange.map((a: Record<string, unknown>, i: number) => {
-        const statusText = formatAudienciaStatus(a.status);
+        const statusText = formatAudienciaStatus(String(a.status ?? ''));
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctx = truncateDescricaoForContext(String(a.descricao ?? ''));
         const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
         const ctxBlock = ctx
           ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
           : convidadosBlock;
-        const docsBlock = formatDocumentosLine(a);
-        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+        const row = a as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+        const docsBlock = formatDocumentosLine(row);
+        return formatAudienciaLine(row, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
       const periodo = dataMax ? `de ${formatDatePtBr(dataMin)} a ${formatDatePtBr(dataMax)}` : `a partir de ${formatDatePtBr(dataMin)}`;
       const intro = temaNorm
@@ -6898,21 +6966,22 @@ export async function searchAudiencias(
         .lt('data', startOfCurrentYear)
         .order('data', { ascending: false })
         .limit(regiaoNorm ? 20 : 10);
-      const histWithTema = audienciasTemaFilter(supabase, histQ, temaNorm);
+      const histWithTema = audienciasTemaFilter(histQ, temaNorm);
       const { data: rawUltimas } = await histWithTema;
       const ultimas5 = filterByRegiao(rawUltimas || [], regiaoNorm).slice(0, 5);
       const temaLabel = temaNorm.charAt(0).toUpperCase() + temaNorm.slice(1).toLowerCase();
       let msg = `Este ano ainda não foram realizadas audiências públicas com este tema (**${temaLabel}**).\n\n`;
       if (ultimas5?.length) {
         const formatted = ultimas5.map((a: Record<string, unknown>, i: number) => {
-          const statusText = formatAudienciaStatus(a.status);
-          const ctx = truncateDescricaoForContext(a.descricao);
+          const statusText = formatAudienciaStatus(String(a.status ?? ''));
+          const ctx = truncateDescricaoForContext(String(a.descricao ?? ''));
           const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
           const ctxBlock = ctx
             ? `\n\n   **Explicação simplificada do que foi discutido:**\n\n   ${ctx}${convidadosBlock}`
             : convidadosBlock;
-          const docsBlock = formatDocumentosLine(a);
-          return formatAudienciaLine(a, i, statusText, '', ctxBlock, docsBlock);
+          const row = a as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+          const docsBlock = formatDocumentosLine(row);
+          return formatAudienciaLine(row, i, statusText, '', ctxBlock, docsBlock);
         }).join('\n\n');
         msg += `Segue abaixo as últimas audiências realizadas para este tema:\n\n${formatted}`;
       } else {
@@ -6938,15 +7007,16 @@ export async function searchAudiencias(
 
     if (proximas?.length) {
       const formatted = proximas.map((a: Record<string, unknown>, i: number) => {
-        const statusText = formatAudienciaStatus(a.status);
+        const statusText = formatAudienciaStatus(String(a.status ?? ''));
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctx = truncateDescricaoForContext(String(a.descricao ?? ''));
         const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
         const ctxBlock = ctx
           ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
           : convidadosBlock;
-        const docsBlock = formatDocumentosLine(a);
-        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+        const row = a as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+        const docsBlock = formatDocumentosLine(row);
+        return formatAudienciaLine(row, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n---\n\n');
       const filtros = [regiaoNorm && `região ${regiaoNorm}`, dataInicio && (dataFim ? `de ${formatDatePtBr(dataMin)} a ${formatDatePtBr(dataMax!)}`
         : `a partir de ${formatDatePtBr(dataMin)}`)].filter(Boolean);
@@ -6963,14 +7033,15 @@ export async function searchAudiencias(
       .limit(1);
     const ultima = filterByRegiao(ultimas || [], regiaoNorm)[0] as Record<string, unknown> | undefined;
     if (ultima) {
-      const statusText = formatAudienciaStatus(ultima.status);
-      const ctx = truncateDescricaoForContext(ultima.descricao);
+      const statusText = formatAudienciaStatus(String(ultima.status ?? ''));
+      const ctx = truncateDescricaoForContext(String(ultima.descricao ?? ''));
       const convidadosBlock = formatConvidadosBlock((ultima as any).convidados as string | null | undefined);
       const ctxBlock = ctx
         ? `\n\n   **Resumo do que foi discutido:**\n\n   ${ctx}${convidadosBlock}`
         : convidadosBlock;
-      const docsBlock = formatDocumentosLine(ultima);
-      const linha = formatAudienciaLine(ultima, 0, statusText, '', ctxBlock, docsBlock);
+      const row = ultima as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+      const docsBlock = formatDocumentosLine(row);
+      const linha = formatAudienciaLine(row, 0, statusText, '', ctxBlock, docsBlock);
       return `Não há audiências públicas futuras agendadas no momento.\n\nA última audiência pública foi:\n\n${linha}\n\nPosso buscar outras audiências por tema, período ou região, se você quiser.`;
     }
   }
@@ -6984,7 +7055,7 @@ export async function searchAudiencias(
     .limit(limitBase);
   query = applyDateFilters(query);
   if (temaNorm) {
-    query = audienciasTemaFilter(supabase, query, temaNorm);
+    query = audienciasTemaFilter(query, temaNorm);
   }
   if (status) {
     query = query.eq('status', status);
@@ -6998,15 +7069,16 @@ export async function searchAudiencias(
 
   if (!error && data?.length) {
     return data.map((a: Record<string, unknown>, i: number) => {
-      const statusText = formatAudienciaStatus(a.status);
+      const statusText = formatAudienciaStatus(String(a.status ?? ''));
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas (${a.vagas_disponiveis || '?'} vagas)` : '';
-      const ctx = truncateDescricaoForContext(a.descricao);
+      const ctx = truncateDescricaoForContext(String(a.descricao ?? ''));
       const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
       const ctxBlock = ctx
         ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
         : convidadosBlock;
-      const docsBlock = formatDocumentosLine(a);
-      return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+      const row = a as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+      const docsBlock = formatDocumentosLine(row);
+      return formatAudienciaLine(row, i, statusText, inscricao, ctxBlock, docsBlock);
     }).join('\n\n');
   }
 
@@ -7019,20 +7091,21 @@ export async function searchAudiencias(
       .limit(regiaoNorm ? 30 : 10);
     if (dataMin) histQuery = histQuery.gte('data', dataMin);
     if (dataMax) histQuery = histQuery.lte('data', dataMax);
-    histQuery = audienciasTemaFilter(supabase, histQuery, temaNorm);
+    histQuery = audienciasTemaFilter(histQuery, temaNorm);
     const { data: rawHist } = await histQuery;
     const historico = filterByRegiao(rawHist || [], regiaoNorm).slice(0, 10);
     if (historico?.length) {
       const formatted = historico.map((a: Record<string, unknown>, i: number) => {
-        const statusText = formatAudienciaStatus(a.status);
+        const statusText = formatAudienciaStatus(String(a.status ?? ''));
         const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-        const ctx = truncateDescricaoForContext(a.descricao);
+        const ctx = truncateDescricaoForContext(String(a.descricao ?? ''));
         const convidadosBlock = formatConvidadosBlock((a as any).convidados as string | null | undefined);
         const ctxBlock = ctx
           ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}${convidadosBlock}`
           : convidadosBlock;
-        const docsBlock = formatDocumentosLine(a);
-        return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+        const row = a as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+        const docsBlock = formatDocumentosLine(row);
+        return formatAudienciaLine(row, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
       return `Audiências sobre **${temaNorm}** (histórico e agendadas):\n\n${formatted}\n\nQuer saber sobre outro tema ou inscrever-se em alguma?`;
     }
@@ -7051,12 +7124,13 @@ export async function searchAudiencias(
     
     if (upcoming?.length) {
     const formattedUpcoming = upcoming.map((a: Record<string, unknown>, i: number) => {
-      const statusText = formatAudienciaStatus(a.status);
+      const statusText = formatAudienciaStatus(String(a.status ?? ''));
       const inscricao = a.inscricoes_abertas ? ` 🎫 Inscrições abertas` : '';
-      const ctx = truncateDescricaoForContext(a.descricao);
+      const ctx = truncateDescricaoForContext(String(a.descricao ?? ''));
       const ctxBlock = ctx ? `\n\n   **Explicação simplificada do que será discutido:**\n\n   ${ctx}` : '';
-      const docsBlock = formatDocumentosLine(a);
-      return formatAudienciaLine(a, i, statusText, inscricao, ctxBlock, docsBlock);
+      const row = a as Parameters<typeof formatAudienciaLine>[0] & Parameters<typeof formatDocumentosLine>[0];
+      const docsBlock = formatDocumentosLine(row);
+      return formatAudienciaLine(row, i, statusText, inscricao, ctxBlock, docsBlock);
       }).join('\n\n');
     const temaText = temaNorm ? `sobre "${temaNorm}"` : 'com esses critérios';
     return `Não encontrei audiências ${temaText} no momento, mas aqui estão as próximas agendadas:\n\n${formattedUpcoming}\n\nQuer que eu te avise quando houver audiências sobre ${temaNorm || 'seu tema de interesse'}?`;
@@ -7136,7 +7210,7 @@ export async function getCitizenHistory(
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         const location = r.street ? `${r.street}, ${r.neighborhood}` : r.location_address || 'Local não informado';
         const proto = r.protocol_code ? `**${r.protocol_code}** — ` : '';
-        results.push(`${i+1}. ${proto}${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        results.push(`${i+1}. ${proto}${r.subcategory || r.category} - ${location}\n   ${statusEmoji} ${r.status} | ${new Date(String(r.created_at ?? '')).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -7161,7 +7235,7 @@ export async function getCitizenHistory(
       data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'in_progress' ? '🔄' : r.status === 'resolved' ? '✅' : '❌';
         const proto = r.protocol_code ? `**${r.protocol_code}** — ` : '';
-        results.push(`${i+1}. ${proto}${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        results.push(`${i+1}. ${proto}${r.report_type} ${r.line_code_custom ? `- Linha ${r.line_code_custom}` : ''}\n   ${statusEmoji} ${r.status} | ${new Date(String(r.created_at ?? '')).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -7179,9 +7253,12 @@ export async function getCitizenHistory(
       if (results.length) results.push('');
       results.push('⭐ **Avaliações de Serviços:**');
       data.forEach((r: Record<string, unknown>, i: number) => {
-        const stars = '⭐'.repeat(r.rating_stars);
-        const serviceName = r.service?.name || 'Serviço';
-        results.push(`${i+1}. ${serviceName} - ${stars}\n   ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        const n = Number(r.rating_stars);
+        const starCount = Number.isFinite(n) ? Math.max(0, Math.min(5, Math.floor(n))) : 0;
+        const stars = '⭐'.repeat(starCount);
+        const service = r.service as { name?: string } | null | undefined;
+        const serviceName = service?.name || 'Serviço';
+        results.push(`${i+1}. ${serviceName} - ${stars}\n   ${new Date(String(r.created_at ?? '')).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -7199,7 +7276,10 @@ export async function getCitizenHistory(
       if (results.length) results.push('');
       results.push('🎫 **Inscrições para lembretes de audiências:**');
       inscricoesData.forEach((r: Record<string, unknown>, i: number) => {
-        const audiencia = r.audiencia;
+        const audiencia = r.audiencia as
+          | { titulo?: string; data?: string; status?: string }
+          | null
+          | undefined;
         const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
         results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'}\n   ${statusEmoji} ${audiencia?.data || ''}`);
       });
@@ -7216,10 +7296,13 @@ export async function getCitizenHistory(
       if (results.length) results.push('');
       results.push('🎤 **Inscrições para participar (videoconferência/escrito):**');
       participacoesData.forEach((r: Record<string, unknown>, i: number) => {
-        const audiencia = r.audiencia;
+        const audiencia = r.audiencia as
+          | { titulo?: string; data?: string; status?: string }
+          | null
+          | undefined;
         const tipoLabel = r.tipo === 'videoconferencia' ? 'Videoconferência' : r.tipo === 'escrito' ? 'Manifestação escrita' : String(r.tipo || '');
         const statusEmoji = audiencia?.status === 'finished' ? '✅' : '📅';
-        results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'} (${tipoLabel})\n   ${statusEmoji} ${audiencia?.data || ''} | ${new Date(r.created_at as string).toLocaleDateString('pt-BR')}`);
+        results.push(`${i+1}. ${audiencia?.titulo || 'Audiência'} (${tipoLabel})\n   ${statusEmoji} ${audiencia?.data || ''} | ${new Date(String(r.created_at ?? '')).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -7238,7 +7321,7 @@ export async function getCitizenHistory(
       results.push('📨 **Encaminhamentos a Vereadores:**');
       data.forEach((r: Record<string, unknown>, i: number) => {
         const statusEmoji = r.status === 'pending' ? '⏳' : r.status === 'sent' ? '📤' : r.status === 'acknowledged' ? '👀' : '✅';
-        results.push(`${i+1}. ${r.council_member_name} (${r.council_member_party})\n   ${statusEmoji} ${r.status} | ${new Date(r.created_at).toLocaleDateString('pt-BR')}`);
+        results.push(`${i+1}. ${r.council_member_name} (${r.council_member_party})\n   ${statusEmoji} ${r.status} | ${new Date(String(r.created_at ?? '')).toLocaleDateString('pt-BR')}`);
       });
     }
   }
@@ -7285,7 +7368,8 @@ export async function executeTool(
       case 'classify_report_category': {
         // Validate category against enum
         const validCategories = VALID_URBAN_CATEGORIES;
-        if (!validCategories.includes(args.category)) {
+        const category = String(args.category ?? '');
+        if (!(validCategories as readonly string[]).includes(category)) {
           console.error('[classify_report_category] Invalid category:', args.category);
           return {
             success: false,
@@ -7295,7 +7379,7 @@ export async function executeTool(
         
         // Log classification for audit
         console.log('[classify_report_category] Classification:', {
-          category: args.category,
+          category,
           confidence: args.confidence,
           reasoning: args.reasoning,
           user_confirmed: args.user_confirmed,
@@ -7319,19 +7403,22 @@ export async function executeTool(
           feedback_camara: 'Feedback Câmara',
           outro: 'Outro'
         };
-        const categoryLabel = categoryLabels[args.category] || args.category;
+        const categoryLabel = categoryLabels[category] || category;
         
         // If low confidence and not user confirmed, suggest alternatives
-        if (args.confidence < 0.8 && !args.user_confirmed && args.alternative_categories?.length) {
+        const catConf =
+          typeof args.confidence === 'number' ? args.confidence : Number(args.confidence);
+        const catConfN = Number.isFinite(catConf) ? catConf : 0;
+        if (catConfN < 0.8 && !args.user_confirmed && Array.isArray(args.alternative_categories) && args.alternative_categories.length) {
           const alternatives = args.alternative_categories
-            .map((cat: string) => categoryLabels[cat] || cat)
+            .map((cat: unknown) => categoryLabels[String(cat)] || String(cat))
             .join(', ');
           
           return {
             success: true,
             message: `Não tenho certeza da categoria. É mais um problema de **${categoryLabel}** ou de **${alternatives}**?`,
             data: { 
-              category: args.category, 
+              category, 
               confidence: args.confidence, 
               user_confirmed: false,
               needs_confirmation: true
@@ -7341,7 +7428,7 @@ export async function executeTool(
         
         // Classification confirmed (high confidence or user confirmed)
         const progressData = { 
-          category: args.category,
+          category,
           category_confidence: args.confidence,
           category_user_confirmed: args.user_confirmed
         };
@@ -7355,7 +7442,7 @@ export async function executeTool(
           success: true,
           message: `${progressMarker}${confirmationText}\n\nQual o **CEP** do local?\n\n_Se não souber, me diz a rua e bairro._`,
           data: { 
-            category: args.category, 
+            category, 
             confidence: args.confidence, 
             user_confirmed: args.user_confirmed 
           }
@@ -7365,7 +7452,8 @@ export async function executeTool(
       case 'classify_transport_type': {
         // Validate report_type against enum
         const validTransportTypes = ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'];
-        if (!validTransportTypes.includes(args.report_type)) {
+        const reportType = String(args.report_type ?? '');
+        if (!(validTransportTypes as readonly string[]).includes(reportType)) {
           return {
             success: false,
             message: `Tipo inválido. Tipos válidos: ${validTransportTypes.join(', ')}`
@@ -7374,7 +7462,7 @@ export async function executeTool(
         
         // Log classification for audit
         console.log('[classify_transport_type] Classification:', {
-          report_type: args.report_type,
+          report_type: reportType,
           subcategory_label: args.subcategory_label,
           confidence: args.confidence,
           reasoning: args.reasoning,
@@ -7392,19 +7480,22 @@ export async function executeTool(
           conducao: 'Condução',
           outro: 'Outro'
         };
-        const typeLabel = transportTypeLabels[args.report_type] || args.report_type;
+        const typeLabel = transportTypeLabels[reportType] || reportType;
         
         // If low confidence and not user confirmed, suggest alternatives
-        if (args.confidence < 0.8 && !args.user_confirmed && args.alternative_types?.length) {
+        const conf =
+          typeof args.confidence === 'number' ? args.confidence : Number(args.confidence);
+        const confN = Number.isFinite(conf) ? conf : 0;
+        if (confN < 0.8 && !args.user_confirmed && Array.isArray(args.alternative_types) && args.alternative_types.length) {
           const alternatives = args.alternative_types
-            .map((t: string) => transportTypeLabels[t] || t)
+            .map((t: unknown) => transportTypeLabels[String(t)] || String(t))
             .join(', ');
           
           return {
             success: true,
             message: `Não tenho certeza do tipo. É mais um problema de **${typeLabel}** ou de **${alternatives}**?`,
             data: { 
-              report_type: args.report_type, 
+              report_type: reportType, 
               subcategory_label: args.subcategory_label,
               confidence: args.confidence, 
               user_confirmed: false,
@@ -7415,7 +7506,7 @@ export async function executeTool(
         
         // Classification confirmed (high confidence or user confirmed)
         const transportProgressData = { 
-          report_type: args.report_type,
+          report_type: reportType,
           subcategory_label: args.subcategory_label,
           type_confidence: args.confidence,
           type_user_confirmed: args.user_confirmed
@@ -7430,7 +7521,7 @@ export async function executeTool(
           success: true,
           message: `${transportProgressMarker}${transportConfirmationText}\n\n**Qual linha ou estação** teve o problema?`,
           data: { 
-            report_type: args.report_type, 
+            report_type: reportType, 
             subcategory_label: args.subcategory_label,
             confidence: args.confidence, 
             user_confirmed: args.user_confirmed 
@@ -7439,7 +7530,8 @@ export async function executeTool(
       }
       
       case 'validate_cep': {
-        const result = await lookupCEP(args.cep);
+        const cepStr = String(args.cep ?? '');
+        const result = await lookupCEP(cepStr);
         if (result.valid) {
           if (!isCitySaoPaulo(result.city)) {
             return {
@@ -7448,7 +7540,7 @@ export async function executeTool(
             };
           }
           // Include COLLECTION_PROGRESS marker with validated address data
-          const cleanCep = args.cep.replace(/\D/g, '');
+          const cleanCep = cepStr.replace(/\D/g, '');
           const addressData = { 
             cep: cleanCep,
             street: result.street, 
@@ -7724,7 +7816,7 @@ export async function executeTool(
             urban_report_id: data.id,
             metric: "risk_level",
             previous_value: null,
-            new_value: eff.risk_level,
+            new_value: String(eff.risk_level),
             justification,
             source_snippet: snippet || null,
             confidence: isAuto && autoAgain?.confidence != null ? autoAgain.confidence : null,
@@ -8040,14 +8132,14 @@ export async function executeTool(
         let validSubCategory = rawSubCategory ? normalizeTransportSubcategory(String(rawSubCategory)) : "";
         
         if (!validReportType || validReportType === 'outro') {
-          const inferred = inferReportTypeFromDesc(args.description);
+          const inferred = inferReportTypeFromDesc(descTrimmed);
           if (inferred) {
             validReportType = inferred;
             console.log('[create_transport_report] Inferred report_type:', validReportType, 'from description');
           } else {
             // FALLBACK: Não conseguiu inferir - usar 'outro' com label gerado
             validReportType = 'outro';
-            subcategoryLabel = generateTransportLabelFromDescription(args.description);
+            subcategoryLabel = generateTransportLabelFromDescription(descTrimmed);
             console.log('[create_transport_report] Fallback to outro with label:', subcategoryLabel);
           }
         }
@@ -8068,9 +8160,10 @@ export async function executeTool(
 
         // Se ainda não tem subcategory_label, gerar um
         if (!subcategoryLabel && validReportType !== 'outro') {
+          const reportTypeStr = String(validReportType);
           subcategoryLabel =
-            getTransportSubcategoryLabel(String(validReportType), validSubCategory) ||
-            getTransportTypeLabel(validReportType);
+            getTransportSubcategoryLabel(reportTypeStr, validSubCategory) ||
+            getTransportTypeLabel(reportTypeStr);
         }
         
         // 3. LINHA (obrigatória): código OU line_id (UUID) com resolução em transport_lines
@@ -8329,14 +8422,17 @@ export async function executeTool(
           outro: 'Outro'
         };
         
-        const typeLabel = reportTypeLabels[validReportType] || validReportType;
+        const reportTypeKey = String(validReportType ?? '');
+        const typeLabel = reportTypeLabels[reportTypeKey] || reportTypeKey;
         const subDetailLabel =
-          getTransportSubcategoryLabel(String(validReportType), validSubCategory) || subcategoryLabel || "";
+          getTransportSubcategoryLabel(reportTypeKey, String(validSubCategory ?? '')) ||
+          String(subcategoryLabel ?? '') ||
+          '';
         
         const severityLabels: Record<string, string> = {
           baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica'
         };
-        const severityLabel = severityLabels[inferredSeverity] || inferredSeverity;
+        const severityLabel = severityLabels[String(inferredSeverity)] || String(inferredSeverity);
         const recurrenceLabels: Record<string, string> = {
           primeira_vez: 'Primeira vez',
           algumas_vezes_mes: 'Algumas vezes/mês',
@@ -8344,6 +8440,7 @@ export async function executeTool(
           todos_os_dias: 'Todos os dias',
         };
         const recurrenceLabel = recurrenceLabels[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
+        const descPreview = String(args.description ?? '');
         
         // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
         const successMessage = [
@@ -8364,7 +8461,7 @@ export async function executeTool(
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
           '',
-          `📝 **Descrição:** ${args.description.substring(0, 100)}${args.description.length > 100 ? '...' : ''}`,
+          `📝 **Descrição:** ${descPreview.substring(0, 100)}${descPreview.length > 100 ? '...' : ''}`,
           '',
           '---',
           '',
@@ -8381,7 +8478,7 @@ export async function executeTool(
         
         // Track emerging patterns for NLP learning (async, non-blocking)
         try {
-          await detectEmergingCategory(args.description, validReportType, supabase);
+          await detectEmergingCategory(String(args.description ?? ''), String(validReportType), supabase);
           console.log('[executeTool] Emerging category detection completed for transport report');
         } catch (detectError) {
           console.error('[executeTool] Transport emerging pattern detection failed:', detectError);
@@ -8395,12 +8492,17 @@ export async function executeTool(
       }
       
       case 'create_service_rating': {
-        // 1. Avaliação: preferir dimensões completas; senão rating_stars (legado)
-        const dimsMerged =
+        // 1. Avaliação: marker/LLM completo OU síntese a partir do wizard (scores) → média arredondada em rating_stars
+        const argsRec = args as Record<string, unknown>;
+        let dimsMerged =
           (args.rating_dimensions && isCompleteServiceRatingDimensions(args.rating_dimensions) ? args.rating_dimensions : null) ??
           (accumulatedFields?.rating_dimensions && isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
             ? accumulatedFields.rating_dimensions
             : null);
+        if (!dimsMerged) {
+          const built = buildServiceRatingDimensionsFromWizardScores(argsRec, accumulatedFields ?? undefined);
+          if (built) dimsMerged = built;
+        }
         let stars =
           typeof args.rating_stars === 'number' && args.rating_stars >= 1 && args.rating_stars <= 5
             ? args.rating_stars
@@ -8418,7 +8520,8 @@ export async function executeTool(
         const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
         
         // 2. Validate rating_text
-        if (!args.rating_text || args.rating_text.trim().length < 5) {
+        const ratingTextTrimmed = String(args.rating_text ?? '').trim();
+        if (ratingTextTrimmed.length < 5) {
           return {
             success: false,
             message: '[FIELD_REQUEST:rating_text]**Pode descrever sua experiência?** Me conta como foi o atendimento. (mínimo 5 caracteres)'
@@ -8487,7 +8590,8 @@ export async function executeTool(
             message: '[FIELD_REQUEST:service_type]**Qual tipo de serviço** você quer avaliar? (UBS, escola, hospital, CEU, biblioteca, centro esportivo) [SERVICE_TYPE_PICKER]'
           };
         }
-        if (!args.service_name || args.service_name.trim().length < 3) {
+        const serviceNameCheck = String(args.service_name ?? '').trim();
+        if (!serviceNameCheck || serviceNameCheck.length < 3) {
           return {
             success: false,
             message: '[FIELD_REQUEST:service_name]**Qual o nome** do serviço que você visitou? (ex: UBS Vila Madalena, EMEF João XXIII) [SERVICE_PICKER]'
@@ -8645,10 +8749,9 @@ export async function executeTool(
           return { success: false, message: SERVICE_RATING_DUPLICATE_DAY_MESSAGE };
         }
 
-        const trimmedComment = args.rating_text.trim();
         const { data: modStatus, error: modRpcError } = await supabase.rpc(
           'compute_service_rating_publication_status',
-          { p_text: trimmedComment },
+          { p_text: ratingTextTrimmed },
         );
         if (modRpcError) {
           console.warn('[create_service_rating] moderation RPC error:', modRpcError.message);
@@ -8665,7 +8768,6 @@ export async function executeTool(
           };
         }
 
-        const argsRec = args as Record<string, unknown>;
         let waitTimeStored: number | null | undefined;
         if (argsRec.wait_time_score !== undefined) {
           waitTimeStored = argsRec.wait_time_score as number | null;
@@ -8689,7 +8791,7 @@ export async function executeTool(
           service_id: serviceId,
           visit_id: visitId,
           rating_stars: stars,
-          rating_text: trimmedComment,
+          rating_text: ratingTextTrimmed,
           sentiment: args.sentiment || 'neutral',
         };
         if (ratingDimensionsJson) {
@@ -8740,7 +8842,7 @@ export async function executeTool(
           publication_status: publicationStatus,
         });
 
-        const commentPreview = trimmedComment.substring(0, 80) + (trimmedComment.length > 80 ? '...' : '');
+        const commentPreview = ratingTextTrimmed.substring(0, 80) + (ratingTextTrimmed.length > 80 ? '...' : '');
         const moderationNote =
           publicationStatus === 'pending_review'
             ? '\n\n⏳ **Seu comentário passará por revisão** antes de aparecer publicamente para outros cidadãos. A nota já foi registrada.'
@@ -8763,7 +8865,8 @@ export async function executeTool(
       }
       
       case 'search_knowledge_base': {
-        const result = await searchKnowledgeBase(supabase, args.query);
+        const query = typeof args.query === 'string' ? args.query.trim() : String(args.query ?? '');
+        const result = await searchKnowledgeBase(supabase, query);
         return { 
           success: true, 
           message: result || 'Não encontrei informações sobre isso. Tente reformular a pergunta.' 
@@ -8869,11 +8972,20 @@ export async function executeTool(
         const radiusMeters = typeof args.radius_meters === 'number' ? args.radius_meters : 2000;
         const minRating = typeof args.min_rating === 'number' ? args.min_rating : 0;
         const searchQuery = typeof args.search_query === 'string' ? args.search_query : null;
+        const serviceTypeArg = String(args.service_type ?? '');
+        const districtArg =
+          args.district != null && String(args.district).trim() !== '' ? String(args.district).trim() : undefined;
+        const rawLimit = args.limit;
+        const limitParsed =
+          typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+            ? Math.floor(rawLimit)
+            : parseInt(String(rawLimit ?? '10'), 10);
+        const limitArg = Number.isFinite(limitParsed) && limitParsed > 0 ? limitParsed : 10;
         const result = await findNearbyServices(
           supabase,
-          args.service_type,
-          args.district,
-          args.limit || 10,
+          serviceTypeArg,
+          districtArg,
+          limitArg,
           userLat,
           userLon,
           radiusMeters,
@@ -8885,14 +8997,28 @@ export async function executeTool(
       }
       
       case 'search_audiencias': {
+        const tema =
+          args.tema != null && String(args.tema).trim() !== '' ? String(args.tema).trim() : undefined;
+        const statusAud =
+          args.status != null && String(args.status).trim() !== '' ? String(args.status).trim() : undefined;
+        const inscAbertas =
+          typeof args.inscricoes_abertas === 'boolean' ? args.inscricoes_abertas : undefined;
+        const dataInicio =
+          args.data_inicio != null && String(args.data_inicio).trim() !== ''
+            ? String(args.data_inicio).trim()
+            : undefined;
+        const dataFim =
+          args.data_fim != null && String(args.data_fim).trim() !== '' ? String(args.data_fim).trim() : undefined;
+        const regiaoAud =
+          args.regiao != null && String(args.regiao).trim() !== '' ? String(args.regiao).trim() : undefined;
         const result = await searchAudiencias(
           supabase,
-          args.tema,
-          args.status,
-          args.inscricoes_abertas,
-          args.data_inicio,
-          args.data_fim,
-          args.regiao
+          tema,
+          statusAud,
+          inscAbertas,
+          dataInicio,
+          dataFim,
+          regiaoAud,
         );
         return { success: true, message: result };
       }
@@ -8927,12 +9053,33 @@ export async function executeTool(
       }
       
       case 'suggest_council_member': {
-        const result = await suggestCouncilMember(args.issue_type, args.description, args.district);
+        const issueType = String(args.issue_type ?? '');
+        const description = String(args.description ?? '');
+        const districtRaw = args.district;
+        const district =
+          districtRaw != null && String(districtRaw).trim() !== ''
+            ? String(districtRaw).trim()
+            : undefined;
+        const result = await suggestCouncilMember(issueType, description, district);
         return { success: true, message: result };
       }
       
       case 'get_citizen_history': {
-        const result = await getCitizenHistory(supabase, userId, args.history_type, args.status_filter, args.limit);
+        const historyTypeArg =
+          args.history_type != null && String(args.history_type).trim() !== ''
+            ? String(args.history_type).trim()
+            : 'all';
+        const statusFilterArg =
+          args.status_filter != null && String(args.status_filter).trim() !== ''
+            ? String(args.status_filter).trim()
+            : 'all';
+        const rawHistLimit = args.limit;
+        const limitParsed =
+          typeof rawHistLimit === 'number' && Number.isFinite(rawHistLimit)
+            ? Math.floor(rawHistLimit)
+            : parseInt(String(rawHistLimit ?? '5'), 10);
+        const limitArg = Number.isFinite(limitParsed) && limitParsed > 0 ? limitParsed : 5;
+        const result = await getCitizenHistory(supabase, userId, historyTypeArg, statusFilterArg, limitArg);
         return { success: true, message: result };
       }
 
@@ -9056,8 +9203,18 @@ export async function executeTool(
           intent, confidence, reasoning, suggested_alternatives,
           urban_category, transport_type, extracted_description, category_confidence 
         } = args;
+
+        const intentKey = String(intent ?? '');
+        const confParsed = Number(confidence);
+        const confidenceScore = Number.isFinite(confParsed) ? confParsed : 0;
+        const catConfParsed = Number(category_confidence);
+        const categoryConfidenceScore = Number.isFinite(catConfParsed) ? catConfParsed : 0;
+        const extractedDescStr = String(extracted_description ?? '');
+        const suggestedAlts = Array.isArray(suggested_alternatives)
+          ? (suggested_alternatives as unknown[]).map((a) => String(a))
+          : [];
         
-        console.log('[detect_user_intent] Intent:', intent, 'Confidence:', confidence);
+        console.log('[detect_user_intent] Intent:', intentKey, 'Confidence:', confidenceScore);
         console.log('[detect_user_intent] Reasoning:', reasoning);
         console.log('[detect_user_intent] Extracted - Category:', urban_category, 'Type:', transport_type, 'Description:', extracted_description);
         
@@ -9071,7 +9228,7 @@ export async function executeTool(
           'unknown': null
         };
         
-        const collectionType = intentToCollection[intent];
+        const collectionType = intentToCollection[intentKey];
         
         // Human-readable category names
         const categoryLabels: Record<string, string> = {
@@ -9100,32 +9257,32 @@ export async function executeTool(
           'general': 'Dúvidas Gerais'
         };
         
-        if (confidence >= 0.8 && collectionType) {
+        if (confidenceScore >= 0.8 && collectionType) {
           // High confidence: activate journey with extracted data
           
           // Build progress data including category/description if extracted
           const progressData: Record<string, unknown> = {};
           
-          if (intent === 'urban_report') {
+          if (intentKey === 'urban_report') {
             // Include category if extracted with high confidence
-            if (urban_category && (category_confidence || 0) >= 0.8) {
+            if (urban_category && categoryConfidenceScore >= 0.8) {
               progressData.category = urban_category;
               progressData.category_confidence = category_confidence;
             }
             // Include description if extracted (>= 30 chars)
-            if (extracted_description && extracted_description.length >= 30) {
-              progressData.description = extracted_description;
+            if (extractedDescStr.length >= 30) {
+              progressData.description = extractedDescStr;
             }
-          } else if (intent === 'transport_report') {
+          } else if (intentKey === 'transport_report') {
             // Include report_type if extracted - EXCLUDE "outro" (it's not a real classification)
-            if (transport_type && transport_type !== 'outro' && (category_confidence || 0) >= 0.8) {
+            if (transport_type && transport_type !== 'outro' && categoryConfidenceScore >= 0.8) {
               progressData.report_type = transport_type;
             }
             // Only include description if it's substantive (>= 30 chars, not generic)
             const genericPhrases = ['problema no transporte', 'reclamar do transporte', 'problema com onibus', 'problema com ônibus'];
-            const isGeneric = genericPhrases.some(p => (extracted_description || '').toLowerCase().includes(p));
-            if (extracted_description && extracted_description.length >= 30 && !isGeneric) {
-              progressData.description = extracted_description;
+            const isGeneric = genericPhrases.some(p => extractedDescStr.toLowerCase().includes(p));
+            if (extractedDescStr.length >= 30 && !isGeneric) {
+              progressData.description = extractedDescStr;
             }
           }
           
@@ -9134,10 +9291,10 @@ export async function executeTool(
           // Generate natural response based on intent and extracted data
           let naturalResponse = '';
           
-          switch (intent) {
+          switch (intentKey) {
             case 'urban_report':
-              if (urban_category && (category_confidence || 0) >= 0.8) {
-                const catLabel = categoryLabels[urban_category] || urban_category;
+              if (urban_category && categoryConfidenceScore >= 0.8) {
+                const catLabel = categoryLabels[String(urban_category)] || String(urban_category);
                 naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema de **${catLabel}**. Para localizar o local exato, qual o **CEP**?\n\n_Se não souber, me diz a rua e bairro._`;
               } else {
                 naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema. Para localizar o local exato, qual o **CEP**?\n\n_Se não souber, me diz a rua e bairro._`;
@@ -9145,7 +9302,7 @@ export async function executeTool(
               break;
             case 'transport_report':
               // Perguntar tipo PRIMEIRO se não foi detectado (pergunta ABERTA, sem viés)
-              if (transport_type && transport_type !== 'outro' && (category_confidence || 0) >= 0.8) {
+              if (transport_type && transport_type !== 'outro' && categoryConfidenceScore >= 0.8) {
                 const typeLabels: Record<string, string> = {
                   atraso: 'Atraso',
                   lotacao: 'Lotação',
@@ -9153,7 +9310,7 @@ export async function executeTool(
                   acessibilidade: 'Acessibilidade',
                   limpeza: 'Limpeza'
                 };
-                const typeLabel = typeLabels[transport_type] || transport_type;
+                const typeLabel = typeLabels[String(transport_type)] || String(transport_type);
                 naturalResponse = `${progressMarker}Entendi! Vou registrar esse problema de **${typeLabel}** no transporte. Qual **linha ou estação** teve o problema?`;
               } else {
                 // Pergunta ABERTA sem listar opções (evita viés)
@@ -9172,27 +9329,27 @@ export async function executeTool(
             message: naturalResponse,
             data: {
               status: 'activated',
-              journey: intent,
+              journey: intentKey,
               collection_type: collectionType,
-              confidence: confidence,
+              confidence: confidenceScore,
               extracted_data: progressData
             }
           };
-        } else if (confidence < 0.8 && collectionType) {
+        } else if (confidenceScore < 0.8 && collectionType) {
           // Low confidence: ask for clarification naturally
-          const alternativesList = (suggested_alternatives || [])
-            .map((alt: string) => intentNames[alt] || alt)
+          const alternativesList = suggestedAlts
+            .map((alt) => intentNames[alt] || alt)
             .slice(0, 2)
             .join(' ou ');
           
           return {
             success: true,
-            message: `Isso é um problema para **${intentNames[intent]}** ou ${alternativesList}? Me ajuda a entender melhor.`,
+            message: `Isso é um problema para **${intentNames[intentKey] || intentKey}** ou ${alternativesList}? Me ajuda a entender melhor.`,
             data: {
               status: 'needs_confirmation',
-              detected: intent,
-              alternatives: suggested_alternatives || [],
-              confidence: confidence
+              detected: intentKey,
+              alternatives: suggestedAlts,
+              confidence: confidenceScore
             }
           };
         } else {
@@ -9202,7 +9359,7 @@ export async function executeTool(
             message: `Claro! Como posso ajudar?`,
             data: {
               status: 'light_journey',
-              intent: intent
+              intent: intentKey
             }
           };
         }
@@ -9210,8 +9367,11 @@ export async function executeTool(
       
       case 'confirm_journey_switch': {
         const { current_journey, detected_journey, current_progress_summary } = args;
-        
-        console.log('[confirm_journey_switch] Current:', current_journey, 'Detected:', detected_journey);
+
+        const currentKey = String(current_journey ?? '');
+        const detectedKey = String(detected_journey ?? '');
+
+        console.log('[confirm_journey_switch] Current:', currentKey, 'Detected:', detectedKey);
         console.log('[confirm_journey_switch] Progress summary:', current_progress_summary);
         
         // Human-readable names for ALL journeys
@@ -9228,20 +9388,20 @@ export async function executeTool(
           'chamber_feedback': 'Feedback sobre Vereador'
         };
         
-        const currentName = journeyNames[current_journey] || current_journey;
-        const detectedName = journeyNames[detected_journey] || detected_journey;
+        const currentName = journeyNames[currentKey] || currentKey;
+        const detectedName = journeyNames[detectedKey] || detectedKey;
         
         // The frontend will render buttons based on this marker
-        const switchMarker = `[JOURNEY_SWITCH_PROMPT:${detected_journey}:${current_journey}]`;
+        const switchMarker = `[JOURNEY_SWITCH_PROMPT:${detectedKey}:${currentKey}]`;
         
         return {
           success: true,
           message: `Percebi que você quer falar sobre **${detectedName}**, mas ainda não terminamos seu **${currentName}**${current_progress_summary ? ` (${current_progress_summary})` : ''}. O que prefere fazer?\n\n${switchMarker}`,
           data: {
             status: 'switch_pending',
-            current: current_journey,
+            current: currentKey,
             current_name: currentName,
-            detected: detected_journey,
+            detected: detectedKey,
             detected_name: detectedName,
             progress: current_progress_summary
           }
