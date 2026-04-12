@@ -1,5 +1,7 @@
+/// <reference path="./deno-runtime-shim.d.ts" />
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { CollectionIntent } from "./lib.ts";
 
 // CORS para preflight: entrypoint NÃO importa lib para OPTIONS passar mesmo se lib falhar no cold start
 const PREFLIGHT_CORS: Record<string, string> = {
@@ -324,7 +326,7 @@ serve(async (req) => {
     console.log('[ai-orchestrator] Parsing request body...');
     let requestBodyData: Record<string, unknown>;
     try {
-      requestBodyData = await req.json();
+      requestBodyData = (await req.json()) as Record<string, unknown>;
       console.log('[ai-orchestrator] Request parsed successfully');
     } catch (parseError) {
       console.error('[ai-orchestrator] Failed to parse request body:', parseError);
@@ -335,12 +337,16 @@ serve(async (req) => {
       );
     }
     
-    const { messages, conversationId, collectionType: frontendCollectionType, evaluationContext } = requestBodyData;
+    const { messages, conversationId, collectionType: collectionTypeRaw, evaluationContext } = requestBodyData;
+    const frontendCollectionType = typeof collectionTypeRaw === 'string' ? collectionTypeRaw : '';
+    const chatMessages: Record<string, unknown>[] = Array.isArray(messages)
+      ? (messages as Record<string, unknown>[])
+      : [];
     // Fotos anexadas no chat (relato urbano): usar a última mensagem do usuário que tiver attachmentUrls
-    const userMessages = Array.isArray(messages) ? messages.filter((m: Record<string, unknown>) => m.role === 'user') : [];
+    const userMessages = chatMessages.filter((m: Record<string, unknown>) => m.role === 'user');
     const lastWithAttachments = [...userMessages].reverse().find((m: Record<string, unknown>) => Array.isArray(m.attachmentUrls) && m.attachmentUrls.length > 0);
     const attachmentUrls = (lastWithAttachments?.attachmentUrls as string[] | undefined) ?? [];
-    console.log('[ai-orchestrator] Request parsed successfully. Messages count:', messages?.length || 0);
+    console.log('[ai-orchestrator] Request parsed successfully. Messages count:', chatMessages.length);
     
     // Log frontend collection type for debugging
     if (frontendCollectionType) {
@@ -356,13 +362,18 @@ serve(async (req) => {
       }
       return '';
     };
-    const lastUserContent = messages?.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content;
-    const lastAssistantContent = messages?.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
-    const lastUserTextEarly = getContentText(lastUserContent).trim();
+    const chatHistoryTyped: Array<{ role: string; content: string }> = chatMessages.map((m) => ({
+      role: typeof m.role === 'string' ? m.role : String(m.role ?? ''),
+      content: getContentText(m.content),
+    }));
+    const lastUserContent = chatMessages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content;
+    const lastAssistantContent = chatMessages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
+    const lastUserMsg = getContentText(lastUserContent);
+    const lastUserTextEarly = lastUserMsg.trim();
     const lastAssistantTextEarly = getContentText(lastAssistantContent).toLowerCase();
     const botJustRegisteredReport = /relato\s+registrado|(?:URB|REL)-20\d{2}-\d+/.test(lastAssistantTextEarly);
     const userAsksForwardToCouncil = /(encaminhar|enviar|mandar)\s+(meu\s+)?relato\s+para\s+(um\s+)?vereador|poderia\s+encaminhar\s+meu\s+relato|enviar\s+meu\s+relato\s+para\s+vereador/i.test(lastUserTextEarly);
-    if (botJustRegisteredReport && userAsksForwardToCouncil && Array.isArray(messages) && messages.length >= 2) {
+    if (botJustRegisteredReport && userAsksForwardToCouncil && chatMessages.length >= 2) {
       const catMatch = getContentText(lastAssistantContent).match(/Categoria:\s*\*?\*?\s*([^\n]+)/i);
       const descMatch = getContentText(lastAssistantContent).match(/Descri[cç][aã]o:\s*\*?\*?\s*([^\n]+)/i);
       const descText = (descMatch?.[1] ?? '').trim() || 'Problema urbano reportado';
@@ -400,13 +411,13 @@ serve(async (req) => {
     const lastAssistantText = getContentText(lastAssistantContent);
     const botJustShowedCouncilList = /deseja que eu encaminhe sua demanda para algum deles\?/i.test(lastAssistantText);
     const selectionMatch = lastUserTextEarly.match(/^(.+?)\s*\(([^)]+)\)\s*$/); // ex.: "Adrilles Jorge (UNIAO)"
-    if (botJustShowedCouncilList && selectionMatch && Array.isArray(messages)) {
+    if (botJustShowedCouncilList && selectionMatch && chatMessages.length > 0) {
       const councilName = selectionMatch[1].trim();
       const councilParty = selectionMatch[2].trim();
       let urbanReportId: string | null = null;
       let transportReportId: string | null = null;
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i] as Record<string, unknown>;
+      for (let i = chatMessages.length - 1; i >= 0; i--) {
+        const m = chatMessages[i] as Record<string, unknown>;
         if (m.role !== 'assistant') continue;
         const text = getContentText(m.content);
         const urbanMatch = text.match(/\[REPORT_CREATED:([0-9a-f-]{36})\]/);
@@ -463,9 +474,7 @@ serve(async (req) => {
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
     }
 
-    // Detect collection intent from user message for later injection
-    const lastUserMsg = messages.filter((m: Record<string, unknown>) => m.role === 'user').pop()?.content || '';
-    
+    // Detect collection intent from user message for later injection (lastUserMsg = getContentText acima)
     // === CRITICAL: Check for explicit JOURNEY_SWITCHED marker in last user message ===
     // When user clicks "Sim, iniciar X" button, the message contains [JOURNEY_SWITCHED:type]
     // This MUST take precedence over any other detection logic
@@ -474,7 +483,7 @@ serve(async (req) => {
     // PRIORITY: Use frontend collection type if it's a structured journey type
     const STRUCTURED_TYPES_SET = new Set(['urban_report', 'transport_report', 'service_rating']);
     const LIGHT_JOURNEY_TYPES = ['services', 'occupancy', 'audiencias', 'history', 'general', 'vereadores', 'noticias'];
-    let collectionIntent: lib.CollectionIntent | null = null;
+    let collectionIntent: CollectionIntent | null = null;
     
     if (journeySwitchMatch) {
       // User explicitly switched journey via button click - HIGHEST PRIORITY
@@ -489,7 +498,7 @@ serve(async (req) => {
       } else {
         // Light journey switch - still respect it
         collectionIntent = {
-          type: switchedToType as lib.CollectionIntent['type'],
+          type: switchedToType as CollectionIntent['type'],
           fields: {},
         };
       }
@@ -503,9 +512,10 @@ serve(async (req) => {
       
       // Force use of frontend type (the one user chose to continue)
       if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
-      collectionIntent = {
-        type: frontendCollectionType as 'urban_report' | 'transport_report' | 'service_rating',
-          fields: lib.accumulateFieldsFromHistory(messages, frontendCollectionType),
+        const feStructured = frontendCollectionType as CollectionIntent['type'];
+        collectionIntent = {
+          type: feStructured as 'urban_report' | 'transport_report' | 'service_rating',
+          fields: lib.accumulateFieldsFromHistory(chatHistoryTyped, feStructured),
         };
       }
     } else if (frontendCollectionType && STRUCTURED_TYPES_SET.has(frontendCollectionType)) {
@@ -517,7 +527,7 @@ serve(async (req) => {
         const declined = new Set<string>();
         for (const msg of msgs) {
           if (msg.role === 'user') {
-            const declineMatch = msg.content?.match?.(/\[JOURNEY_DECLINED:(\w+)\]/);
+            const declineMatch = getContentText(msg.content).match(/\[JOURNEY_DECLINED:(\w+)\]/);
             if (declineMatch) {
               declined.add(declineMatch[1]);
             }
@@ -526,7 +536,7 @@ serve(async (req) => {
         return declined;
       };
       
-      const declinedJourneys = getDeclinedJourneys(messages);
+      const declinedJourneys = getDeclinedJourneys(chatMessages);
       if (declinedJourneys.size > 0) {
         console.log('[ai-orchestrator] Declined journeys in history:', Array.from(declinedJourneys));
       }
@@ -545,7 +555,7 @@ serve(async (req) => {
       };
       
       // ALWAYS detect intent first to check for journey switch
-      const detectedIntent = lib.detectCollectionIntent(lastUserMsg, messages);
+      const detectedIntent = lib.detectCollectionIntent(lastUserMsg, chatHistoryTyped);
       
       // Check for JOURNEY CONFLICT (user wants to switch to different structured journey)
       const structuredTypes = ['urban_report', 'transport_report', 'service_rating'] as const;
@@ -573,15 +583,20 @@ serve(async (req) => {
         console.log(`[ai-orchestrator] Journey ${detectedIntent?.type} was recently declined, skipping confirmation`);
       }
       
-      if (isJourneyConflict) {
+      if (isJourneyConflict && detectedIntent) {
         // ALWAYS ask for confirmation - never auto-switch
-        console.log(`[ai-orchestrator] Journey conflict detected: ${frontendCollectionType} → ${detectedIntent.type}`);
-        
-        const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
-        const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
-        
+        const feTypeKey = String(frontendCollectionType ?? '');
+        const detTypeKey = String(detectedIntent.type);
+        console.log(`[ai-orchestrator] Journey conflict detected: ${feTypeKey} → ${detTypeKey}`);
+
+        const currentName = journeyNames[feTypeKey] || feTypeKey;
+        const newName = journeyNames[detTypeKey] || detTypeKey;
+
         // Check accumulated fields to show progress (informational only)
-        const existingFields = lib.accumulateFieldsFromHistory(messages, frontendCollectionType);
+        const existingFields = lib.accumulateFieldsFromHistory(
+          chatHistoryTyped,
+          feTypeKey as CollectionIntent['type'],
+        );
         const rawFieldKeys = Object.keys(existingFields).filter(k => !k.startsWith('_'));
         let meaningfulFieldCount = rawFieldKeys.length;
         
@@ -595,7 +610,7 @@ serve(async (req) => {
           : '';
         
         // FIX: Use correct 2-parameter format that frontend expects
-        const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]` +
+        const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detTypeKey}:${feTypeKey}]` +
           `Parece que você quer iniciar um **${newName}**.\n\n` +
           `Você estava em **${currentName}**${progressNote}. Deseja:\n\n`;
         
@@ -640,7 +655,7 @@ serve(async (req) => {
       
       if (hasExplicitSwitch) {
         // User explicitly wants to switch - detect which journey
-        const detectedIntent = lib.detectCollectionIntent(lastUserMsg, messages);
+        const detectedIntent = lib.detectCollectionIntent(lastUserMsg, chatHistoryTyped);
         if (detectedIntent && STRUCTURED_TYPES_SET.has(detectedIntent.type)) {
           console.log('[ai-orchestrator] Explicit switch from light journey to structured:', detectedIntent.type);
           
@@ -658,10 +673,12 @@ serve(async (req) => {
             'noticias': 'Notícias'
           };
           
-          const currentName = journeyNames[frontendCollectionType] || frontendCollectionType;
-          const newName = journeyNames[detectedIntent.type] || detectedIntent.type;
-          
-          const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detectedIntent.type}:${frontendCollectionType}]` +
+          const feTypeKeyLight = String(frontendCollectionType ?? '');
+          const detTypeKeyLight = String(detectedIntent.type);
+          const currentName = journeyNames[feTypeKeyLight] || feTypeKeyLight;
+          const newName = journeyNames[detTypeKeyLight] || detTypeKeyLight;
+
+          const confirmationResponse = `[JOURNEY_SWITCH_PROMPT:${detTypeKeyLight}:${feTypeKeyLight}]` +
             `Entendi! Você quer iniciar uma **${newName}**.\n\n` +
             `Você estava em **${currentName}**. Deseja trocar?`;
           
@@ -673,7 +690,7 @@ serve(async (req) => {
           );
         } else {
           // Can't determine target - stay in light journey
-          collectionIntent = { type: frontendCollectionType as lib.CollectionIntent['type'], fields: {} };
+          collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
         }
       } else {
         // Stay in light journey - pass through to AI without deterministic flow
@@ -683,11 +700,11 @@ serve(async (req) => {
           /endere[cç]o\s*selecionado\s*:/i.test(lastUserMsg) ||
           (/CEP\s*:\s*\d{5}-?\d{3}/i.test(lastUserMsg) && /(avenida|rua|r\.|al\.|pra[cç]a)/i.test(lastUserMsg));
         if (frontendCollectionType === 'services' && isAddressConfirmationLight) {
-          const urbanAccumulated = lib.accumulateFieldsFromHistory(messages, 'urban_report');
+          const urbanAccumulated = lib.accumulateFieldsFromHistory(chatHistoryTyped, 'urban_report');
           const hasUrbanContext =
             (urbanAccumulated.category || urbanAccumulated.description) &&
             (lib.isGenericIntentText(String(urbanAccumulated.description || '')) === false || urbanAccumulated.category);
-          const lastAssistantContentRaw = (messages as Record<string, unknown>[]).filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
+          const lastAssistantContentRaw = chatMessages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
           const lastAssistantTextForAddress = getContentText(lastAssistantContentRaw);
           const assistantAskedForAddress =
             /qual\s*(é|e)\s*(a\s*)?(avenida|rua)|CEP\s*do\s*local|endere[cç]o\s*do\s*local|onde\s*fica/i.test(lastAssistantTextForAddress) ||
@@ -698,7 +715,7 @@ serve(async (req) => {
           }
         }
         if (!collectionIntent) {
-          collectionIntent = { type: frontendCollectionType as lib.CollectionIntent['type'], fields: {} };
+          collectionIntent = { type: frontendCollectionType as CollectionIntent['type'], fields: {} };
         }
       }
     } else {
@@ -709,11 +726,11 @@ serve(async (req) => {
         /endere[cç]o\s*selecionado\s*:/i.test(lastUserMsg) ||
         (/CEP\s*:\s*\d{5}-?\d{3}/i.test(lastUserMsg) && /(avenida|rua|r\.|al\.|pra[cç]a)/i.test(lastUserMsg));
       if (isAddressConfirmation) {
-        const urbanAccumulated = lib.accumulateFieldsFromHistory(messages, 'urban_report');
+        const urbanAccumulated = lib.accumulateFieldsFromHistory(chatHistoryTyped, 'urban_report');
         const hasUrbanContext =
           (urbanAccumulated.category || urbanAccumulated.description) &&
           (lib.isGenericIntentText(String(urbanAccumulated.description || '')) === false || urbanAccumulated.category);
-        const lastAssistantContentRaw = (messages as Record<string, unknown>[]).filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
+        const lastAssistantContentRaw = chatMessages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop()?.content;
         const lastAssistantTextForAddress = getContentText(lastAssistantContentRaw);
         const assistantAskedForAddress =
           /qual\s*(é|e)\s*(a\s*)?(avenida|rua)|CEP\s*do\s*local|endere[cç]o\s*do\s*local|onde\s*fica/i.test(lastAssistantTextForAddress) ||
@@ -724,7 +741,7 @@ serve(async (req) => {
         }
       }
       if (!collectionIntent) {
-        collectionIntent = lib.detectCollectionIntent(lastUserMsg, messages);
+        collectionIntent = lib.detectCollectionIntent(lastUserMsg, chatHistoryTyped);
       }
     }
     
@@ -761,7 +778,7 @@ serve(async (req) => {
 
     // Primeira mensagem (ou saudação + fato) descreve incidente urbano grave → relato urbano mesmo sem chip / sem intent genérico
     if (!journeySwitchMatch && (!collectionIntent || collectionIntent.type === 'general')) {
-      const userMsgsOpen = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+      const userMsgsOpen = chatMessages.filter((m: Record<string, unknown>) => m.role === 'user');
       const nOpen = userMsgsOpen.length;
       const lastOpen = String(lastUserMsg || '').trim();
       const firstOpen = nOpen >= 1 ? String(userMsgsOpen[0].content || '').trim() : '';
@@ -796,13 +813,16 @@ serve(async (req) => {
         accumulatedFields = {};
         console.log('[ai-orchestrator] Journey switched, starting with fresh fields');
       } else {
-        accumulatedFields = lib.accumulateFieldsFromHistory(messages, collectionIntent.type);
+        accumulatedFields = lib.accumulateFieldsFromHistory(chatHistoryTyped, collectionIntent.type);
         // Merge with detected fields from current message
         accumulatedFields = { ...accumulatedFields, ...collectionIntent.fields };
         // Avaliação conversacional: injeta contexto da visita (visit_id, service_id, service_name, service_type)
         if (evaluationContext && collectionIntent.type === 'service_rating') {
-          accumulatedFields = { ...accumulatedFields, ...evaluationContext };
-          console.log('[ai-orchestrator] Evaluation context injected:', Object.keys(evaluationContext));
+          if (typeof evaluationContext === 'object' && evaluationContext !== null && !Array.isArray(evaluationContext)) {
+            const evalCtx = evaluationContext as Record<string, unknown>;
+            accumulatedFields = { ...accumulatedFields, ...evalCtx };
+            console.log('[ai-orchestrator] Evaluation context injected:', Object.keys(evalCtx));
+          }
         }
       }
       
@@ -814,7 +834,7 @@ serve(async (req) => {
         (collectionIntent?.type === 'urban_report' && !accumulatedFields.city)
       );
       if (needsCepLookup) {
-        const cepLookup = await lib.lookupCEP(accumulatedFields.cep);
+        const cepLookup = await lib.lookupCEP(String(accumulatedFields.cep ?? ''));
         if (cepLookup.valid) {
           console.log('[ai-orchestrator] Auto-resolved CEP:', accumulatedFields.cep, '→', cepLookup.street, cepLookup.neighborhood, cepLookup.city);
           if (!accumulatedFields.street && cepLookup.street) {
@@ -838,7 +858,7 @@ serve(async (req) => {
         !journeySwitchMatch &&
         !/\[JOURNEY_DECLINED:/i.test(lastUserMsg)
       ) {
-        const userMsgsUrban = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+        const userMsgsUrban = chatMessages.filter((m: Record<string, unknown>) => m.role === 'user');
         const nU = userMsgsUrban.length;
         const lastTrim = String(lastUserMsg || '').trim();
         const firstU = nU >= 1 ? String(userMsgsUrban[0].content || '').trim() : '';
@@ -909,7 +929,7 @@ serve(async (req) => {
         
         // 1. DESCRIPTION first - let user tell us what's happening
         // CRITICAL: Use centralized NLP validation (isValidDomainDescription)
-        const description = fields.description || '';
+        const description = String(fields.description ?? '');
         const isGeneric = lib.isGenericIntentText(description);
         const isBareNature = lib.isBareUrbanReportNatureReply(String(description));
         const descToCheck = isGeneric || isBareNature ? '' : description;
@@ -944,23 +964,23 @@ serve(async (req) => {
         
         // 2. CATEGORY + SUBCATEGORY - feedback loop primeiro, depois auto-classification
         if (!fields.category) {
-          const description = (fields.description || '').toLowerCase();
-          
+          const descriptionLower = description.toLowerCase();
+
           // Feedback loop: correções anteriores com descrição similar têm prioridade
           const feedback = await lib.getClassificationFromFeedback(
             classificationFeedbackReadClient,
-            fields.description || '',
+            description,
             'urban'
           );
           if (feedback) {
             fields.category = feedback.category;
-            fields.subcategory = feedback.subcategory || lib.generateLabelFromDescription(fields.description || '');
+            fields.subcategory = feedback.subcategory || lib.generateLabelFromDescription(description);
             fields._auto_classified = true;
             fields._from_feedback = true;
             console.log('[getNextMissingField] Category from feedback:', feedback.category, 'label:', fields.subcategory);
-          } else if (/(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?)/i.test(description)) {
+          } else if (/(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?)/i.test(descriptionLower)) {
           // CRITICAL: Check for urgent/grave problems first (security, violence, drugs, noise)
-            if (/(barulho|som|música|música|festa|balada|ruído|ruido)/i.test(description)) {
+            if (/(barulho|som|música|música|festa|balada|ruído|ruido)/i.test(descriptionLower)) {
               fields.category = 'poluicao';
               fields.subcategory = 'Perturbação Sonora com Risco';
               fields._auto_classified = true;
@@ -975,12 +995,12 @@ serve(async (req) => {
             }
           } else {
             // Try to auto-classify from description
-            const autoClass = lib.autoClassifyCategory(fields.description || '');
-            
+            const autoClass = lib.autoClassifyCategory(description);
+
             if (autoClass.category && autoClass.confidence >= 0.8) {
             // High confidence - auto-set category AND subcategory label
             fields.category = autoClass.category;
-            fields.subcategory = autoClass.suggestedLabel || lib.generateLabelFromDescription(fields.description || '');
+            fields.subcategory = autoClass.suggestedLabel || lib.generateLabelFromDescription(description);
             fields._auto_classified = true;
             console.log('[getNextMissingField] Auto-classified:', autoClass.category, 'label:', fields.subcategory, 'confidence:', autoClass.confidence);
           } else if (autoClass.category && autoClass.confidence >= 0.5) {
@@ -997,16 +1017,16 @@ serve(async (req) => {
             
             // Pre-set pending category and subcategory for when user confirms
             fields._pending_category = autoClass.category;
-            fields._pending_subcategory = autoClass.suggestedLabel || lib.generateLabelFromDescription(fields.description || '');
+            fields._pending_subcategory = autoClass.suggestedLabel || lib.generateLabelFromDescription(description);
             return { field: 'category', picker: null, prompt: `[FIELD_REQUEST:category]Parece ser **${intuitiveName}**. Confirma? (sim/não, ou diga outro tipo)` };
           } else {
             // Low confidence - check if we already asked once
             const alreadyAskedCategory = fields._asked_category === true;
-            
+
             if (alreadyAskedCategory) {
               // FALLBACK: Already asked and still no match - use 'outro' with generated label
               fields.category = 'outro';
-              fields.subcategory = lib.generateLabelFromDescription(fields.description || '');
+              fields.subcategory = lib.generateLabelFromDescription(description);
               fields._fallback_category = true;
               console.log('[getNextMissingField] Fallback to outro with label:', fields.subcategory);
             } else {
@@ -1025,8 +1045,8 @@ serve(async (req) => {
             delete fields._pending_subcategory;
           } else {
             // Generate from description if missing
-            const autoClass = lib.autoClassifyCategory(fields.description || '');
-            fields.subcategory = autoClass.suggestedLabel || lib.generateLabelFromDescription(fields.description || '');
+            const autoClass = lib.autoClassifyCategory(String(fields.description ?? ''));
+            fields.subcategory = autoClass.suggestedLabel || lib.generateLabelFromDescription(String(fields.description ?? ''));
           }
           console.log('[getNextMissingField] Set subcategory:', fields.subcategory);
         }
@@ -1166,7 +1186,7 @@ serve(async (req) => {
         // 5. Gravidade / criticidade (risco) — inferência automática pelo texto; sem botões; pergunta só se incerto
         if (lib.URBAN_RISK_COLLECTION_CATEGORIES.includes(String(fields.category || ''))) {
           if (!fields.risk_level) {
-            const inferText = `${fields.description || ''} ${fields.subcategory || ''}`.trim();
+            const inferText = `${String(fields.description ?? '')} ${fields.subcategory || ''}`.trim();
             const inferred =
               inferText.length >= 4
                 ? lib.autoInferRisk(inferText)
@@ -1200,7 +1220,7 @@ serve(async (req) => {
       }
       
       if (collectionType === 'transport_report') {
-        const description = fields.description || '';
+        const description = String(fields.description ?? '');
         const isGeneric = lib.isGenericIntentText(description);
         const descToCheck = isGeneric ? '' : description;
         const isValidDesc = lib.isValidDomainDescription(descToCheck, 'transport');
@@ -1345,26 +1365,39 @@ serve(async (req) => {
             return {
               field: 'wait_time',
               picker: '[WAIT_TIME_PICKER]',
-              prompt: '**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.'
+              prompt:
+                '[FIELD_REQUEST:wait_time]**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.',
             };
           if (!('atendimento_score' in fields))
             return {
               field: 'atendimento',
               picker: '[DIMENSION_RATING_PICKER:atendimento]',
-              prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+              prompt:
+                '[FIELD_REQUEST:atendimento]Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.',
             };
           if (!('infraestrutura_score' in fields))
             return {
               field: 'infraestrutura',
               picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
-              prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
+              prompt:
+                '[FIELD_REQUEST:infraestrutura]Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.',
             };
           if (!fields._rating_text_skipped) {
             if (fields.rating_text === undefined) {
-              return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+              return {
+                field: 'rating_text',
+                picker: null,
+                prompt:
+                  '[FIELD_REQUEST:rating_text]Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")',
+              };
             }
             if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
-              return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+              return {
+                field: 'rating_text',
+                picker: null,
+                prompt:
+                  '[FIELD_REQUEST:rating_text]Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")',
+              };
             }
           }
           return { field: null, picker: null, prompt: null };
@@ -1418,7 +1451,7 @@ serve(async (req) => {
         const isTypeOnlyEquipment = lib.isServiceRatingTypeOnlyEquipmentName(fields.service_name, String(fields.service_type));
         if (
           !fields.service_name ||
-          fields.service_name.length < 3 ||
+          String(fields.service_name).length < 3 ||
           isGenericName ||
           isJustTypeLabel ||
           isTypeOnlyEquipment
@@ -1447,10 +1480,11 @@ serve(async (req) => {
             ubs: 'UBS', school: 'escola', hospital: 'hospital',
             ceu: 'CEU', library: 'biblioteca', sports_center: 'centro esportivo'
           };
-          const typeLabel = serviceTypeLabel[fields.service_type] || fields.service_type;
+          const stKey = String(fields.service_type ?? '');
+          const typeLabel = serviceTypeLabel[stKey] || stKey;
           
           // Build address - avoid duplication when service_name already contains neighborhood (e.g. "UBS - Butantã")
-          const nameStr = fields.service_name || '';
+          const nameStr = String(fields.service_name ?? '');
           const neighForAddr = String(fields.service_neighborhood || '').trim() || effectiveNeighborhood;
           const nameHasNeigh = neighForAddr && nameStr.toLowerCase().includes(neighForAddr.toLowerCase());
           const address = fields.service_address ||
@@ -1471,7 +1505,8 @@ serve(async (req) => {
             ubs: 'UBS', school: 'escola', hospital: 'hospital',
             ceu: 'CEU', library: 'biblioteca', sports_center: 'centro esportivo'
           };
-          const typeLabel = serviceTypeLabel[fields.service_type] || 'serviço';
+          const stKey2 = String(fields.service_type ?? '');
+          const typeLabel = serviceTypeLabel[stKey2] || 'serviço';
           return {
             field: 'service_neighborhood',
             picker: null,
@@ -1504,28 +1539,41 @@ serve(async (req) => {
           return {
             field: 'wait_time',
             picker: '[WAIT_TIME_PICKER]',
-            prompt: '**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.'
+            prompt:
+              '[FIELD_REQUEST:wait_time]**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.',
           };
         if (!('atendimento_score' in fields))
           return {
             field: 'atendimento',
             picker: '[DIMENSION_RATING_PICKER:atendimento]',
-            prompt: 'Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.'
+            prompt:
+              '[FIELD_REQUEST:atendimento]Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.',
           };
         if (!('infraestrutura_score' in fields))
           return {
             field: 'infraestrutura',
             picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
-            prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
+            prompt:
+              '[FIELD_REQUEST:infraestrutura]Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.',
           };
 
         // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
         if (!fields._rating_text_skipped) {
           if (fields.rating_text === undefined) {
-            return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+            return {
+              field: 'rating_text',
+              picker: null,
+              prompt:
+                '[FIELD_REQUEST:rating_text]Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")',
+            };
           }
           if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
-            return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+            return {
+              field: 'rating_text',
+              picker: null,
+              prompt:
+                '[FIELD_REQUEST:rating_text]Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")',
+            };
           }
         }
         
@@ -1583,11 +1631,11 @@ serve(async (req) => {
       }
       return '';
     };
-    const lastUserMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'user').pop() || {});
+    const lastUserMessage = getMessageText(chatMessages.filter((m: Record<string, unknown>) => m.role === 'user').pop() || {});
     const msgLower = lastUserMessage.toLowerCase().trim();
-    const lastAssistantMessage = getMessageText(messages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
+    const lastAssistantMessage = getMessageText(chatMessages.filter((m: Record<string, unknown>) => m.role === 'assistant').pop() || {});
     const lastAssistantLower = lastAssistantMessage.toLowerCase();
-    const userMessagesOrdered = messages.filter((m: Record<string, unknown>) => m.role === 'user');
+    const userMessagesOrdered = chatMessages.filter((m: Record<string, unknown>) => m.role === 'user');
 
     // Ocupação: após seleção no picker (mensagem com [SERVICE_ID:...]) — não cair no fluxo "serviços próximos" (location_method).
     const occupancyServiceIdMatch = lastUserMessage.match(/\[SERVICE_ID:([a-f0-9-]{36})\]/i);
@@ -1807,7 +1855,7 @@ serve(async (req) => {
       let originLat: number | null = null;
       let originLon: number | null = null;
       // 1) Prioridade: coordenadas na conversa ("Localização GPS: lat,lon") ou accumulatedFields (services)
-      const allMessages = [...messages].reverse(); // mais recente primeiro
+      const allMessages = [...chatMessages].reverse(); // mais recente primeiro
       for (const m of allMessages) {
         const c = getMessageText(m).trim();
         if (!c) continue;
@@ -1854,7 +1902,7 @@ serve(async (req) => {
     if (collectionIntent?.type === 'general') {
       const isBusQuery = lib.isBusInformationalQuery(lastUserMessage);
       const isDuvidaOpener = /d[uú]vida|pergunta|como funciona|quero saber|informa[cç][aã]o/i.test(lastUserMessage);
-      if (!isBusQuery && isDuvidaOpener && messages.filter((m: Record<string, unknown>) => m.role === 'user').length <= 1) {
+      if (!isBusQuery && isDuvidaOpener && chatMessages.filter((m: Record<string, unknown>) => m.role === 'user').length <= 1) {
         const greeting = `[LIGHT_JOURNEY:general]Claro! Pode perguntar sobre a Câmara Municipal: funcionamento, audiências, vereadores, processos ou qualquer outra dúvida. Qual sua pergunta?`;
         const ssePayload = JSON.stringify({ choices: [{ delta: { content: greeting } }] });
         return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -2278,7 +2326,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
 
-            const threadHadTransportSimilarOffer = messages.some((m: Record<string, unknown>) => {
+            const threadHadTransportSimilarOffer = chatMessages.some((m: Record<string, unknown>) => {
               if (m.role !== 'assistant') return false;
               const t = getMessageText(m).toLowerCase();
               return (
@@ -2652,10 +2700,10 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
           } else if (method === 'manual' && (hasCep || hasAddress)) {
             // Geocodificar CEP/endereço quando o frontend não enviou coordenadas (ex.: seleção só por CEP ViaCEP)
             const coords = await lib.geocodeAddressToCoord({
-              street: accumulatedFields.street,
-              street_number: accumulatedFields.street_number,
-              neighborhood: accumulatedFields.neighborhood,
-              cep: accumulatedFields.cep,
+              street: String(accumulatedFields.street ?? ''),
+              street_number: String(accumulatedFields.street_number ?? ''),
+              neighborhood: String(accumulatedFields.neighborhood ?? ''),
+              cep: String(accumulatedFields.cep ?? ''),
               city: 'São Paulo',
             });
             if (coords) {
@@ -2725,7 +2773,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
         .join('\n');
       
       // Check if description contains urgent/grave problems for empathy context
-      const description = accumulatedFields.description || '';
+      const description = String(accumulatedFields.description ?? '');
       const descLower = description.toLowerCase();
       const lastUserUrgent = /(incêndio|incendio|fogo|queimando|chamas|armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente)/i.test(msgLower);
       const hasUrgentContent =
@@ -2784,7 +2832,7 @@ ${empathyNote}
     if (cepOnlyMatch) {
       const cepRaw = cepOnlyMatch[1].replace(/\D/g, '');
       if (cepRaw.length === 8) {
-        const previousUserMessages = messages.filter((m: Record<string, unknown>) => m.role === 'user').map((m: Record<string, unknown>) => (typeof m.content === 'string' ? m.content : '').toLowerCase());
+        const previousUserMessages = chatMessages.filter((m: Record<string, unknown>) => m.role === 'user').map((m: Record<string, unknown>) => (typeof m.content === 'string' ? m.content : '').toLowerCase());
         let serviceType: string | null = null;
         for (let i = previousUserMessages.length - 1; i >= 0 && !serviceType; i--) {
           if (previousUserMessages[i] === lastUserMessage.toLowerCase()) continue; // skip current (CEP)
@@ -2881,8 +2929,9 @@ ${empathyNote}
     const isUrgent = urgentPatterns.some(pattern => pattern.test(msgLower));
     
     // Also check accumulated description for urgent patterns (if user already described the problem)
-    const accumulatedDesc = accumulatedFields?.description || '';
-    const hasUrgentInDescription = accumulatedDesc && urgentPatterns.some(pattern => pattern.test(accumulatedDesc.toLowerCase()));
+    const accumulatedDesc = String(accumulatedFields?.description ?? '');
+    const hasUrgentInDescription =
+      accumulatedDesc.length > 0 && urgentPatterns.some((pattern) => pattern.test(accumulatedDesc.toLowerCase()));
     
     // Não responder com saudação/"descreva o problema" se a jornada urbana exige escolher natureza do relato primeiro
     const skipDeterministicForUrbanNature =
@@ -3232,7 +3281,7 @@ ${empathyNote}
         model: effectiveModel,
         messages: [
           { role: 'system', content: dynamicSystemPrompt },
-          ...messages.slice(-10) // Last 10 messages for context
+          ...chatMessages.slice(-10) // Last 10 messages for context
         ],
         temperature: 0.75,
         stream: true,
@@ -3259,7 +3308,7 @@ ${empathyNote}
       clearTimeout(apiTimeoutId);
     } catch (fetchError: unknown) {
       clearTimeout(apiTimeoutId);
-      if (fetchError.name === 'AbortError') {
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         console.error('[ai-orchestrator] API call timeout after 60s');
         const timeoutMsg = '[TIMEOUT]O serviço está demorando mais que o normal. Isso pode acontecer quando há muitos usuários simultâneos ou quando o servidor está reiniciando. Tentando novamente automaticamente...';
         console.log('[ai-orchestrator] Request completed in', Date.now() - requestStartTime, 'ms (timeout)');
@@ -3326,7 +3375,8 @@ ${empathyNote}
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
-      let toolCallData: unknown = null;
+      type StreamToolCallInfo = { name: string; id?: string };
+      let toolCallData: StreamToolCallInfo | null = null;
       let toolCallArguments = '';
       
       // Read the entire stream with timeout protection (30s total, 10s per read)
@@ -3385,12 +3435,19 @@ ${empathyNote}
           
           if (delta?.tool_calls) {
             toolCallEvents++;
-            for (const tc of delta.tool_calls) {
-              if (tc.function?.name) {
-                toolCallData = { name: tc.function.name, id: tc.id };
+            for (const tc of delta.tool_calls as Array<Record<string, unknown>>) {
+              const fn = tc.function as Record<string, unknown> | undefined;
+              const fnName = fn?.name;
+              if (typeof fnName === 'string' && fnName.length > 0) {
+                const idRaw = tc.id;
+                toolCallData = {
+                  name: fnName,
+                  id: idRaw != null ? String(idRaw) : undefined,
+                };
               }
-              if (tc.function?.arguments) {
-                toolCallArguments += tc.function.arguments;
+              const fnArgs = fn?.arguments;
+              if (typeof fnArgs === 'string') {
+                toolCallArguments += fnArgs;
               }
             }
           }
@@ -3616,7 +3673,15 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
     }
     
     // Fallback: non-streaming response (shouldn't happen but handle gracefully)
-    const data = await response.json();
+    type NonStreamChatCompletion = {
+      choices?: Array<{
+        message?: {
+          content?: string;
+          tool_calls?: Array<{ function: { name: string; arguments: string } }>;
+        };
+      }>;
+    };
+    const data = (await response.json()) as NonStreamChatCompletion;
     const choice = data.choices?.[0];
     
     if (!choice) {
