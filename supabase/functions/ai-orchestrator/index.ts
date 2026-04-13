@@ -1350,7 +1350,8 @@ serve(async (req) => {
           fields.service_neighborhood = lib.normalizeServiceRatingNeighborhood(fields.service_neighborhood);
         }
 
-        // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
+        // MODO VISITA: visit_id presente — mesmo roteiro atômico que o modo livre após identificar o serviço:
+        // nota geral, tempo de espera, dimensões (atendimento, infraestrutura), depois comentário/sugestão.
         if (fields.visit_id) {
           const rs = fields.rating_stars;
           if (typeof rs !== 'number' || rs < 1 || rs > 5) {

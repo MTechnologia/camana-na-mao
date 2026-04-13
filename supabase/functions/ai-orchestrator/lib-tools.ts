@@ -224,11 +224,11 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. Nota: rating_stars 1-5 (avaliação geral). Opcional rating_dimensions (legado). Dois modos: 1) COM visit_id: visit_id + rating_stars + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, rating_stars, rating_text, sentiment. NUNCA rating_text vazio.",
+      description: "Registra avaliação de serviço público. rating_stars 1-5 (média das dimensões quando o wizard preenche scores). Dois modos: 1) COM visit_id — visita já identificada; 2) SEM visit_id — localizar serviço (tipo, nome, endereço) e depois o MESMO roteiro atômico: nota geral, tempo de espera, dimensões e comentário; cria visita virtual completed se necessário. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
-          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem - só pedir avaliação multidimensional e comentário." },
+          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem — coletar nota geral, tempo de espera, dimensões e comentário (paridade com o modo sem visit_id após identificar o serviço)." },
           service_id: { type: "string", description: "ID do serviço (public_services). Usado junto com visit_id para evitar lookup." },
           service_type: {
             type: "string",
