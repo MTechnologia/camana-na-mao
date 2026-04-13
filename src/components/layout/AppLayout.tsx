@@ -64,7 +64,6 @@ const ROUTE_TITLES: Record<string, string> = {
   "/institucional/camara-explica": "Câmara Explica",
   "/institucional/escola-parlamento": "Escola do Parlamento",
   "/institucional/noticias": "Notícias",
-  "/docs/overview": "Documentação",
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
