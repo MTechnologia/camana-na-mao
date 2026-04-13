@@ -30,8 +30,11 @@ crawl-output/
 *-firebase-adminsdk-*.json
 *service-account*.json
 
-# Env files (só variantes; .env na raiz não ignorado)
-.env.e2e.local
+# Variáveis de ambiente — nunca commitar segredos (modelo: .env.example, .env.e2e.example)
+.env
+.env.*
+!.env.example
+!.env.e2e.example
 
 # GeoSampa sync – config com URLs (use .example como modelo)
 scripts/geosampa-layers.json
