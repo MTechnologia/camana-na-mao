@@ -64,7 +64,7 @@ export default function UserManagement() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nome..."
+              placeholder="Buscar por nome ou e-mail..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -165,6 +165,11 @@ export default function UserManagement() {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{user.full_name}</p>
+                    {user.email ? (
+                      <p className="text-sm text-muted-foreground truncate" title={user.email}>
+                        {user.email}
+                      </p>
+                    ) : null}
                     <p className="text-sm text-muted-foreground">
                       {new Date(user.created_at).toLocaleDateString('pt-BR')}
                     </p>
