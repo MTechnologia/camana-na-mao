@@ -1,5 +1,7 @@
 ## Variáveis de ambiente
 
+Política de segredos, auditoria de dependências e checklist: [`SEGURANCA.md`](./SEGURANCA.md).
+
 Este projeto possui **web (Vite)** e **mobile (Expo)**. Cada um usa variáveis diferentes.
 
 ### Web (Vite)
@@ -16,7 +18,7 @@ O Vite foi configurado para expor variáveis que começam com `CAMARA_` (e tamb�
 - **Local**: arquivo `.env` (não commitar)
 - **Render**: Environment Variables do serviço
 
-> Importante: não commitar chaves reais. Use `env.example` como referência.
+> Importante: não commitar chaves reais. Use `.env.example` como referência.
 
 ### Mobile (Expo)
 

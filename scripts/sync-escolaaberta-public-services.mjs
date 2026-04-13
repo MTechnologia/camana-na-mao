@@ -16,6 +16,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+import { fetchWithRetry, formatFetchError } from "./escola-aberta-http.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -119,7 +120,7 @@ async function fetchLivroAbertoEscolas(token) {
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(url, { headers });
+  const res = await fetchWithRetry(url, { headers });
   if (!res.ok) {
     throw new Error(`API Escola Aberta: ${res.status} ${res.statusText}. ${res.status === 401 ? "Verifique ESCOLA_ABERTA_API_TOKEN no .env (API Store pode exigir inscrição/token)." : ""}`);
   }
@@ -149,7 +150,10 @@ async function main() {
   try {
     rows = await fetchLivroAbertoEscolas(apiToken);
   } catch (e) {
-    console.error(e.message);
+    console.error(formatFetchError(e));
+    console.warn(
+      "Se o erro for de rede (timeout, ECONNRESET, etc.), o gateway da Prefeitura pode bloquear ou limitar IPs fora do Brasil — nesse caso rode o workflow em self-hosted runner na rede permitida ou agende o mesmo script no GCP (Cloud Run/Scheduler).",
+    );
     if (!apiToken) {
       console.warn("Dica: o gateway pode exigir token. Inscreva-se na API no API Store e defina ESCOLA_ABERTA_API_TOKEN no .env.");
     }
