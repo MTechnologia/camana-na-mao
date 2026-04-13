@@ -42,6 +42,11 @@ export const useAdminUsers = () => {
       const { data: emailRows, error: emailsError } = await supabase.rpc('admin_user_emails');
       if (emailsError) {
         console.error('admin_user_emails', emailsError);
+        toast.error('E-mails de usuários indisponíveis', {
+          description:
+            'No projeto Supabase deste ambiente, aplique a migration que cria a função admin_user_emails (Dashboard → SQL, ou supabase db push).',
+          duration: 12_000,
+        });
       }
       const emailByUserId = new Map(
         (emailRows ?? []).map((row) => [row.user_id, row.email?.trim() || undefined])

@@ -68,6 +68,15 @@ Substitua `SEU_ANON_KEY` pela chave anon do projeto Supabase `vjzkzsczlbtmrzewff
 4. No **Supabase** → **Table Editor** → **profiles** → sua linha → coluna **expo_push_token** deve estar preenchida com `ExponentPushToken[...]`.
 5. Em **Edge Functions** → **save-expo-push-token** → **Logs**: deve aparecer `[save-expo-push-token] token saved for user ...`.
 
+### 3.4 Novas migrations no Supabase (ex.: RPCs usadas pelo front)
+
+O **merge no Git** não aplica SQL no projeto remoto. Se uma tela depende de uma função nova (por exemplo **`admin_user_emails`** na Gestão de Usuários), é preciso **rodar as migrations no mesmo projeto Supabase** cujo URL está em **`CAMARA_URL` / `_CAMARA_URL`** do Cloud Build.
+
+- **Supabase Dashboard** do projeto (ref. em `vjzkzsczlbtmrzewffdx` ou o que o trigger usar) → **SQL** → executar o ficheiro em `supabase/migrations/` correspondente, **ou**
+- **CLI:** `supabase link` ao projeto e `supabase db push` (a partir da raiz do repo).
+
+Se a migration não estiver aplicada, a RPC falha e a coluna de e-mail fica em **N/A** mesmo com o front atualizado.
+
 ---
 
 ## 4. Resumo
