@@ -12,15 +12,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import { Star, ChevronRight, X } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export default function EvaluationPage() {
+  type VisitWithService = {
+    id: string;
+    service_id?: string;
+    service: {
+      name: string;
+      district: string;
+      service_type: string;
+    };
+  };
+
   const { visitId } = useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { pendingRatings, loading: pendingLoading, markAsSkipped } = usePendingRatings({ limit: 50 });
-  const [visit, setVisit] = useState<{ id: string; service_id?: string } | null>(null);
+  const [visit, setVisit] = useState<VisitWithService | null>(null);
   const [loading, setLoading] = useState(true);
   const [evaluationDone, setEvaluationDone] = useState(false);
+  const [freeEvaluationDone, setFreeEvaluationDone] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -95,6 +107,12 @@ export default function EvaluationPage() {
     }
   };
 
+  /** Modo livre: registro e visita virtual já vêm do create_service_rating na edge; só feedback na UI. */
+  const handleFreeEvaluationComplete = () => {
+    toast.success("Avaliação registrada com sucesso!");
+    setFreeEvaluationDone(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
@@ -106,7 +124,7 @@ export default function EvaluationPage() {
     );
   }
 
-  // Sem visitId: mostrar lista de avaliações pendentes
+  // Sem visitId: visitas pendentes + modo livre (mesmo roteiro de dimensões do orchestrator)
   if (!visitId) {
     if (pendingLoading) {
       return (
@@ -119,25 +137,16 @@ export default function EvaluationPage() {
       );
     }
     return (
-      <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Avaliar serviços visitados" />
-        <div className="p-4 space-y-4">
-          {pendingRatings.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Star className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground mb-4">
-                  Nenhuma avaliação pendente no momento.
-                </p>
-                <Button variant="outline" onClick={() => navigate("/")}>
-                  Voltar ao início
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
+      <div className="min-h-screen bg-background flex flex-col pb-24 pt-[60px]">
+        <PageHeader title="Avaliar serviços" />
+        <div className="p-4 flex-1 flex flex-col gap-6 min-h-0 max-w-3xl mx-auto w-full">
+          {pendingRatings.length > 0 && (
+            <section aria-labelledby="pending-visits-heading" className="space-y-3 shrink-0">
+              <h2 id="pending-visits-heading" className="text-base font-semibold text-foreground">
+                Visitas detectadas
+              </h2>
               <p className="text-sm text-muted-foreground">
-                Selecione um serviço abaixo para avaliar sua visita.
+                Selecione um serviço para avaliar a visita registrada pelo app.
               </p>
               <div className="space-y-2">
                 {pendingRatings.map((rating) => (
@@ -183,8 +192,61 @@ export default function EvaluationPage() {
                   </Card>
                 ))}
               </div>
-            </>
+            </section>
           )}
+
+          {pendingRatings.length === 0 && (
+            <Card className="shrink-0 border-dashed">
+              <CardContent className="p-4 flex gap-3 items-start">
+                <Star className="w-9 h-9 text-muted-foreground/60 shrink-0 mt-0.5" aria-hidden />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Nenhuma visita pendente</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Quando o app detectar que você esteve em um serviço público, a avaliação pode aparecer aqui. Enquanto isso, use o modo livre abaixo.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {pendingRatings.length > 0 && <Separator />}
+
+          <section
+            aria-labelledby="free-eval-heading"
+            className="flex flex-col gap-3 flex-1 min-h-[min(65dvh,600px)]"
+            data-testid="free-evaluation-section"
+          >
+            <h2 id="free-eval-heading" className="text-base font-semibold text-foreground">
+              {pendingRatings.length > 0 ? "Ou avalie outro serviço (modo livre)" : "Modo livre"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Informe tipo e nome do equipamento — o assistente fará as mesmas perguntas por dimensão da avaliação com visita (nota geral, tempo de espera, atendimento, infraestrutura e comentário).
+            </p>
+            <div className="flex-1 flex flex-col min-h-0 min-h-[420px]">
+              <ConversationalEvaluation
+                evaluationContext={null}
+                onComplete={handleFreeEvaluationComplete}
+                completed={freeEvaluationDone}
+              />
+            </div>
+            {freeEvaluationDone && (
+              <Card className="shrink-0 border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-foreground">
+                    Sua avaliação foi registrada. A visita foi vinculada na base para manter o histórico consistente.
+                  </p>
+                  <div className="flex flex-col gap-2 shrink-0 sm:flex-row">
+                    <Button variant="outline" size="sm" onClick={() => navigate("/servicos-proximos")}>
+                      Ir para Perto de você
+                    </Button>
+                    <Button size="sm" onClick={() => navigate("/")}>
+                      Voltar ao início
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </section>
         </div>
       </div>
     );
