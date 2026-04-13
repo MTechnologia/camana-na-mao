@@ -39,6 +39,14 @@ export const useAdminUsers = () => {
 
       if (rolesError) throw rolesError;
 
+      const { data: emailRows, error: emailsError } = await supabase.rpc('admin_user_emails');
+      if (emailsError) {
+        console.error('admin_user_emails', emailsError);
+      }
+      const emailByUserId = new Map(
+        (emailRows ?? []).map((row) => [row.user_id, row.email?.trim() || undefined])
+      );
+
       // Combine data
       const usersWithRoles: AdminUser[] = profiles.map((profile) => {
         const roles = (userRoles
@@ -48,7 +56,7 @@ export const useAdminUsers = () => {
         return {
           ...profile,
           roles,
-          email: undefined, // Email info requires admin API
+          email: emailByUserId.get(profile.id),
         };
       });
 

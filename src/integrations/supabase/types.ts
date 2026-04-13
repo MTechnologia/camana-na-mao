@@ -2595,6 +2595,10 @@ export type Database = {
       }
     }
     Functions: {
+      admin_user_emails: {
+        Args: Record<string, never>
+        Returns: { user_id: string; email: string }[]
+      },
       insert_audiencia_participacao: {
         Args: {
           p_audiencia_id: string
