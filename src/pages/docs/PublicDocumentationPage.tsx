@@ -85,7 +85,7 @@ graph TB
 | Estilização | Tailwind CSS | Design system consistente |
 | Backend | Supabase Edge Functions | Lógica serverless |
 | Banco de Dados | PostgreSQL | Persistência de dados |
-| IA | Lovable AI Gateway (Gemini/GPT) | Processamento de linguagem natural com tool-calling |
+| IA | LLM orquestrado na Edge Function (provider configurável) | Processamento de linguagem natural com tool-calling |
 | Automação | Motor de Análise | Processamento e priorização automatizada |
 
 ### 2.3 Arquitetura de Tool-Calling
