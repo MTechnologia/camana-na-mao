@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { DocumentViewer } from '@/components/docs/DocumentViewer';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LogIn } from 'lucide-react';
-import brasaoImage from '@/assets/brasao-sp.png';
+import { ArrowLeft } from 'lucide-react';
+import { AdminLayout } from '@/layouts/AdminLayout';
 
 const overviewContent = `
 # Câmara na Mão - Visão Executiva da Plataforma
@@ -378,71 +378,31 @@ São Paulo - SP, 01319-900
 🌐 www.saopaulo.sp.leg.br
 `;
 
+/** Documentação executiva da plataforma — acesso apenas via área admin (/admin/docs/overview). */
 const PublicDocumentationPage = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header Institucional */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate('/')}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex items-center gap-3">
-                <img src={brasaoImage} alt="Brasão SP" className="h-10 w-auto" />
-                <div className="hidden sm:block">
-                  <h1 className="text-sm font-semibold text-foreground">CÂMARA MUNICIPAL DE SÃO PAULO</h1>
-                  <p className="text-xs text-muted-foreground">Documentação Câmara na Mão</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/login')}
-                className="gap-2"
-              >
-                <LogIn className="h-4 w-4" />
-                <span className="hidden sm:inline">Entrar</span>
-              </Button>
-            </div>
-          </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/admin")}
+            className="gap-2 -ml-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar ao painel
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground mt-2">Documentação da plataforma</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Visão executiva técnica e institucional (uso interno / gestores).
+          </p>
         </div>
-      </header>
-
-      {/* Conteúdo Principal */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <DocumentViewer content={overviewContent} />
-      </main>
-
-      {/* Footer Institucional */}
-      <footer className="border-t border-border bg-muted/30 mt-16 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img src={brasaoImage} alt="Brasão SP" className="h-8 w-auto opacity-70" />
-              <div className="text-sm text-muted-foreground">
-                <p className="font-medium">Câmara Municipal de São Paulo</p>
-                <p>Viaduto Jacareí, 100 - Bela Vista, São Paulo - SP</p>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Câmara na Mão - Todos os direitos reservados
-            </p>
-          </div>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 

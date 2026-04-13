@@ -200,16 +200,10 @@ const Welcome = () => {
         </div>
 
         {/* Footer text */}
-        <div className="text-center mt-6 space-y-2">
+        <div className="text-center mt-6">
           <p className="text-xs text-muted-foreground">
             Câmara Municipal de São Paulo
           </p>
-          <button
-            onClick={() => navigate("/docs/overview")}
-            className="text-xs text-muted-foreground/70 hover:text-primary transition-colors underline underline-offset-2"
-          >
-            Documentação da Plataforma
-          </button>
         </div>
       </div>
     </div>
