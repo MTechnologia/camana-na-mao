@@ -1,5 +1,10 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { executeTool, SERVICE_RATING_DIMENSION_KEYS } from "./lib.ts";
+import {
+  aggregateRatingDimensionsStars,
+  buildServiceRatingDimensionsFromWizardScores,
+  executeTool,
+  SERVICE_RATING_DIMENSION_KEYS,
+} from "./lib.ts";
 
 // Mock Supabase Client com suporte a chain de chamadas
 const mockSupabase = {
@@ -40,6 +45,37 @@ const mockSupabase = {
     getUser: () => Promise.resolve({ data: { user: { id: 'user-123' } }, error: null })
   }
 } as any;
+
+Deno.test("buildServiceRatingDimensionsFromWizardScores: monta JSON e média (OS-06)", () => {
+  const dims = buildServiceRatingDimensionsFromWizardScores(
+    {
+      wait_time_score: 4,
+      atendimento_score: 5,
+      infraestrutura_score: 3,
+      limpeza_score: 3,
+    },
+    {},
+  );
+  assertExists(dims);
+  assertEquals(SERVICE_RATING_DIMENSION_KEYS.length, 4);
+  assertEquals(dims!.tempo_espera, 4);
+  assertEquals(dims!.atendimento, 5);
+  assertEquals(aggregateRatingDimensionsStars(dims!), 4);
+
+  const dimsNa = buildServiceRatingDimensionsFromWizardScores(
+    { wait_time_score: null, atendimento_score: 4, infraestrutura_score: 4 },
+    {},
+  );
+  assertExists(dimsNa);
+  assertEquals(dimsNa!.tempo_espera, 3);
+});
+
+Deno.test("buildServiceRatingDimensionsFromWizardScores: incompleto → null", () => {
+  assertEquals(
+    buildServiceRatingDimensionsFromWizardScores({ wait_time_score: 4, atendimento_score: 5 }, {}),
+    null,
+  );
+});
 
 Deno.test("create_service_rating: RN-AVA-002 - Valida estrelas (1-5)", async () => {
   const userId = 'user-123';
@@ -127,6 +163,7 @@ Deno.test("create_transport_report: Persistência e campos obrigatórios", async
   }, userId, mockSupabase);
   
   assertEquals(result.success, true);
-  assertExists(result.data.id);
-  assertEquals(result.data.type, 'transport');
+  const transportData = result.data as { id: string; type: string };
+  assertExists(transportData.id);
+  assertEquals(transportData.type, 'transport');
 });

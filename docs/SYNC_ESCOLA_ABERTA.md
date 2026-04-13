@@ -84,6 +84,17 @@ O workflow **`.github/workflows/sync-escolaaberta-ceu.yml`** roda automaticament
 
 É possível rodar o workflow manualmente em **Actions → Sync Escola Aberta + CEU → Run workflow**.
 
+### Falha `fetch failed` no GitHub Actions
+
+O `fetch` do Node falha **antes** de receber HTTP (não é 401/403 no log). Causas comuns:
+
+1. **Rede / firewall** — o gateway `gateway.apilib.prefeitura.sp.gov.br` pode **não aceitar** ou instabilizar conexões vindas dos **IPs de saída do GitHub Actions** (mudam; muitas vezes fora do Brasil).
+2. **Timeout ou TLS** — intermitência; os scripts usam **várias tentativas**, timeout longo e log detalhado (`escola-aberta-http.mjs`).
+
+**O que fazer:** confirmar o endpoint no navegador ou `curl` a partir de uma máquina na rede da empresa. Se só funcionar de SP/Brasil, use **runner self-hosted** na rede permitida, ou execute o mesmo script num **job agendado no GCP** (Cloud Run + Scheduler / Cloud Build) com IP estável, ou peça à Prefeitura liberação dos IPs do GitHub.
+
+Variáveis opcionais para afinar retries (Actions → Variables ou `env:` no workflow): `ESCOLA_ABERTA_FETCH_RETRIES`, `ESCOLA_ABERTA_FETCH_TIMEOUT_MS`, `ESCOLA_ABERTA_FETCH_RETRY_DELAY_MS`.
+
 ## Relação com outros syncs
 
 - **GeoSampa:** traz equipamentos por camada WFS/GeoJSON (ex.: educação rede pública pode ter parte das escolas). O Escola Aberta é fonte oficial da SME com dados já georreferenciados e com telefone.

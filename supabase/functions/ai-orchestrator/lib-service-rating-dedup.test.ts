@@ -1,3 +1,4 @@
+/// <reference path="./deno-runtime-shim.d.ts" />
 /**
  * RN-AVA-003: uma avaliação por serviço por dia — testes do helper de fuso e do bloqueio em create_service_rating.
  * Executar: npx deno test --no-check --allow-env supabase/functions/ai-orchestrator/lib-service-rating-dedup.test.ts
