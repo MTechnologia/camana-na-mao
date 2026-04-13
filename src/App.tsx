@@ -226,8 +226,9 @@ const AppContent = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/nova-senha" element={<UpdatePassword />} />
           <Route path="/privacidade" element={<PrivacyPolicyPage />} />
-          <Route path="/docs" element={<Navigate to="/docs/overview" replace />} />
-          <Route path="/docs/overview" element={<PublicDocumentationPage />} />
+          {/* Documentação: apenas admin — redireciona URLs antigas */}
+          <Route path="/docs" element={<Navigate to="/admin/docs/overview" replace />} />
+          <Route path="/docs/overview" element={<Navigate to="/admin/docs/overview" replace />} />
 
           {/* Rotas protegidas - redirecionam para /welcome se não logado */}
           <Route element={<ProtectedRoute />}>
@@ -308,6 +309,8 @@ const AppContent = () => {
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />
+            <Route path="/admin/docs" element={<ProtectedAdminRoute><Navigate to="/admin/docs/overview" replace /></ProtectedAdminRoute>} />
+            <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><PublicDocumentationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
             <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
             <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -72,6 +72,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
     {
       section: 'SISTEMA',
       items: [
+        { title: 'Documentação', icon: BookOpen, href: '/admin/docs/overview' },
         ...(canConfigureSystem ? [{
           title: 'Configurações',
           icon: Settings,
