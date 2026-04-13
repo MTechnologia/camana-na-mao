@@ -400,7 +400,7 @@ const PublicDocumentationPage = () => {
             Visão executiva técnica e institucional (uso interno / gestores).
           </p>
         </div>
-        <DocumentViewer content={overviewContent} />
+        <DocumentViewer content={overviewContent} variant="admin" />
       </div>
     </AdminLayout>
   );

@@ -13,6 +13,8 @@ import brasaoImage from '@/assets/brasao-sp.png';
 interface DocumentViewerProps {
   content: string;
   title?: string;
+  /** Em admin: sem barra de progresso no topo e sem borda no H1 do markdown (evita “linha” extra). */
+  variant?: 'default' | 'admin';
 }
 
 const slugify = (text: string): string => {
@@ -25,7 +27,7 @@ const slugify = (text: string): string => {
     .replace(/(^-|-$)/g, '');
 };
 
-export const DocumentViewer = ({ content, title }: DocumentViewerProps) => {
+export const DocumentViewer = ({ content, title, variant = 'default' }: DocumentViewerProps) => {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [currentSectionId, setCurrentSectionId] = useState('');
 
@@ -80,7 +82,10 @@ export const DocumentViewer = ({ content, title }: DocumentViewerProps) => {
     const Tag = `h${level}` as const;
     const baseClasses = "group flex items-center gap-2 scroll-mt-24";
     const levelClasses = {
-      1: "text-3xl font-bold border-b border-border pb-4 mb-6",
+      1:
+        variant === 'admin'
+          ? 'text-3xl font-bold pb-2 mb-6'
+          : 'text-3xl font-bold border-b border-border pb-4 mb-6',
       2: "text-2xl font-semibold mt-12 mb-4 text-primary print:break-before-page first:print:break-before-auto",
       3: "text-xl font-medium mt-8 mb-3",
     };
@@ -101,8 +106,8 @@ export const DocumentViewer = ({ content, title }: DocumentViewerProps) => {
 
   return (
     <>
-      <ReadingProgress />
-      
+      {variant !== 'admin' && <ReadingProgress />}
+
       <div className="flex gap-8 pt-6">
         {/* Table of Contents - Sticky Sidebar */}
         <aside className="hidden xl:block w-72 flex-shrink-0">
