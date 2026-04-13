@@ -42,9 +42,11 @@ import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { CitizenReportStatusBadge } from "@/components/citizen/CitizenReportStatusBadge";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 import { toast } from "@/hooks/use-toast";
 import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
+import { embeddedRelationCount } from "@/lib/citizenReportStatus";
 import { formatShortDate } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 
