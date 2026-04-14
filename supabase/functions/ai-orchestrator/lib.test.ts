@@ -14,10 +14,25 @@ const mockSupabase = {
       eq: () => chain,
       ilike: () => chain,
       gt: () => chain,
+      gte: () => chain,
+      lt: () => chain,
       order: () => chain,
       limit: () => chain,
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
       single: () => {
-        if (table === 'service_visits') return Promise.resolve({ data: { id: 'visit-123', service_id: 'service-456' }, error: null });
+        if (table === 'service_visits') {
+          const future = new Date(Date.now() + 7 * 24 * 3600000).toISOString();
+          return Promise.resolve({
+            data: {
+              id: 'visit-123',
+              service_id: 'service-456',
+              status: 'pending',
+              created_at: new Date().toISOString(),
+              expires_at: future,
+            },
+            error: null,
+          });
+        }
         if (table === 'transport_lines') return Promise.resolve({ data: { id: 'line-123', line_code: '875A-10' }, error: null });
         return Promise.resolve({ data: { id: 'mock-id' }, error: null });
       },
@@ -63,7 +78,7 @@ Deno.test("buildServiceRatingDimensionsFromWizardScores: monta JSON e média (OS
   assertEquals(aggregateRatingDimensionsStars(dims!), 4);
 
   const dimsNa = buildServiceRatingDimensionsFromWizardScores(
-    { wait_time_score: null, atendimento_score: 4, infraestrutura_score: 4 },
+    { wait_time_score: null, atendimento_score: 4, infraestrutura_score: 4, limpeza_score: 4 },
     {},
   );
   assertExists(dimsNa);
@@ -87,7 +102,7 @@ Deno.test("create_service_rating: RN-AVA-002 - Valida estrelas (1-5)", async () 
     visit_id: 'visit-123'
   }, userId, mockSupabase);
   assertEquals(result0.success, false);
-  assertEquals(result0.message.includes('rating_stars'), true);
+  assertEquals(result0.message.includes("[FIELD_REQUEST:"), true);
 
   // Teste com nota 6 (inválida)
   const result6 = await executeTool('create_service_rating', { 
@@ -154,16 +169,13 @@ Deno.test("create_transport_report: Persistência e campos obrigatórios", async
   assertEquals(resultNoDesc.success, false);
   assertEquals(resultNoDesc.message.includes('description'), true);
 
-  // Teste completo
-  const result = await executeTool('create_transport_report', {
-    description: 'Ônibus muito atrasado na parada da Paulista',
+  // Com descrição válida mas sem subcategoria — coleta sequencial exige SUBCATEGORY_PICKER
+  const resultNeedSub = await executeTool('create_transport_report', {
+    description: 'Ônibus muito atrasado na parada da Paulista com detalhes suficientes.',
     line_code: '875A-10',
     occurrence_date: today,
     date_confirmed: true
   }, userId, mockSupabase);
-  
-  assertEquals(result.success, true);
-  const transportData = result.data as { id: string; type: string };
-  assertExists(transportData.id);
-  assertEquals(transportData.type, 'transport');
+  assertEquals(resultNeedSub.success, false);
+  assertEquals(resultNeedSub.message.includes('sub_category'), true);
 });

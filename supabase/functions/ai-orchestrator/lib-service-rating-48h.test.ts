@@ -71,13 +71,11 @@ Deno.test("create_service_rating: visita pending com prazo vencido → mensagem 
           update: (payload: Record<string, unknown>) => ({
             eq: () => ({
               eq: () => ({
-                eq: () => ({
-                  eq: async () => {
-                    updateCalled = true;
-                    assertEquals(payload.status, "expired");
-                    return { error: null };
-                  },
-                }),
+                eq: async () => {
+                  updateCalled = true;
+                  assertEquals(payload.status, "expired");
+                  return { error: null };
+                },
               }),
             }),
           }),

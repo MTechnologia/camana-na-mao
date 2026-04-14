@@ -15,12 +15,12 @@ import {
 import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2 } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2, Pencil, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 import { extrairEmailDeMaisInformacoes, parseConvidadosItens } from "@/lib/audienciaDisplay";
@@ -52,6 +52,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { forceReplaceRatingComment, parseRatingSummaryComment } from "@/lib/ratingSummaryComment";
 
 /** Valor usado no Select para "qualquer"; Radix Select não aceita value="". */
 const AUDIENCIA_CHAT_ANY = "__any__";
@@ -143,6 +146,8 @@ interface ChatMessageBubbleProps {
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
   /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
   onSendMessage?: (message: string) => void | Promise<void>;
+  /** Atualiza conteúdo bruto da mensagem (ex.: após editar comentário na avaliação registrada). */
+  patchMessageContent?: (messageId: string, newContent: string) => void | Promise<void>;
   onChipSelect?: (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => void | Promise<void>;
   onOpenDiscovery?: () => void;
   /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
@@ -176,6 +181,7 @@ const ChatMessageBubble = ({
   onRequestAudienciasWithFilters,
   onApplyNearbyFilters,
   onSendMessage,
+  patchMessageContent,
   disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
@@ -197,6 +203,11 @@ const ChatMessageBubble = ({
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
+  const [ratingCommentEditing, setRatingCommentEditing] = useState(false);
+  const [ratingCommentDraft, setRatingCommentDraft] = useState("");
+  const [ratingCommentSaving, setRatingCommentSaving] = useState(false);
+  /** Quando o replace no raw falha, ainda assim atualiza o texto sanitizado exibido. */
+  const [ratingCommentDisplayOverride, setRatingCommentDisplayOverride] = useState<string | null>(null);
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(false);
   const [showAudienciaInscricaoInline, setShowAudienciaInscricaoInline] = useState(false);
@@ -238,11 +249,22 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // Detect dimension rating picker: [DIMENSION_RATING_PICKER:atendimento]
+  // Dimensão: [DIMENSION_RATING_PICKER:X] OU [FIELD_REQUEST:dim_X] + [RATING_PICKER] (OS-06 / RN-IA-003)
   const dimensionRatingMatch = useMemo(() => {
     if (isUser || hasMultiDimensionRatingPicker) return null;
-    const match = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
-    return match ? match[1] : null;
+    const legacy = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
+    if (legacy) return legacy[1];
+    const dimFr = message.content.match(/\[FIELD_REQUEST:(dim_\w+)\]/);
+    if (dimFr && message.content.includes("[RATING_PICKER]")) {
+      const map: Record<string, string> = {
+        dim_tempo_espera: "tempo_espera",
+        dim_atendimento: "atendimento",
+        dim_infraestrutura: "infraestrutura",
+        dim_limpeza: "limpeza",
+      };
+      return map[dimFr[1]] || null;
+    }
+    return null;
   }, [isUser, message.content, hasMultiDimensionRatingPicker]);
   const hasDimensionRatingPicker = dimensionRatingMatch !== null;
 
@@ -570,15 +592,49 @@ const ChatMessageBubble = ({
     treatCepQuestionAsUrbanLocationStep,
   ]);
 
+  useEffect(() => {
+    setRatingCommentDisplayOverride(null);
+  }, [message.id]);
+
+  /** Texto bruto usado só para exibição (resumo pós [RATING_CREATED]); pode divergir se o modelo usar formato exótico. */
+  const assistantRawForDisplay = useMemo(() => {
+    if (
+      !ratingCommentDisplayOverride ||
+      !message.content.includes("[RATING_CREATED:")
+    ) {
+      return message.content;
+    }
+    return forceReplaceRatingComment(message.content, ratingCommentDisplayOverride);
+  }, [message.content, ratingCommentDisplayOverride]);
+
   // Clean content: remove ALL markers so they never show as text (LOCATION_METHOD_PICKER etc.)
   const cleanContent = useMemo(() => {
-    let text = sanitizeMessageContent(message.content);
+    let text = sanitizeMessageContent(assistantRawForDisplay);
     text = text.replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '');
     text = text.replace(/\[LOCATION_METHOD_PICKER\]/g, '');
     // Garantir que o marcador de chips nunca apareça como texto (defesa em profundidade)
     text = text.split('[SHOW_SERVICES_CHIPS]').join('').trim();
+    if (ratingCommentDisplayOverride?.trim()) {
+      const v = ratingCommentDisplayOverride.trim();
+      const afterReplace = forceReplaceRatingComment(text, v);
+      if (afterReplace !== text) {
+        text = afterReplace;
+      } else {
+        const displayPatterns: RegExp[] = [
+          /(📝\s*\*\*Comentário\*\*:\s*)([^\n]+)/u,
+          /(\*\*Comentário\*\*:\s*)([^\n]+)/u,
+          /(Comentário\s*:\s*)([^\n]+)/iu,
+        ];
+        for (const re of displayPatterns) {
+          if (re.test(text)) {
+            text = text.replace(re, `$1${v}`);
+            break;
+          }
+        }
+      }
+    }
     return text.trim();
-  }, [message.content]);
+  }, [assistantRawForDisplay, ratingCommentDisplayOverride]);
 
   const isLongContent = cleanContent.length > 450;
 
@@ -588,6 +644,39 @@ const ChatMessageBubble = ({
     (message.content.includes("[REPORT_CREATED:") ||
       message.content.includes("[TRANSPORT_CREATED:") ||
       message.content.includes("[RATING_CREATED:"));
+
+  const ratingCreatedId = useMemo(
+    () =>
+      !isUser ? message.content.match(/\[RATING_CREATED:([a-f0-9-]+)\]/i)?.[1] ?? null : null,
+    [isUser, message.content],
+  );
+
+  const handleSaveRatingComment = useCallback(async () => {
+    if (!ratingCreatedId || !patchMessageContent) return;
+    const t = ratingCommentDraft.trim();
+    if (t.length < 5) {
+      toast.error("O comentário precisa ter pelo menos 5 caracteres.");
+      return;
+    }
+    setRatingCommentSaving(true);
+    try {
+      const { error } = await supabase
+        .from("service_ratings")
+        .update({ rating_text: t })
+        .eq("id", ratingCreatedId);
+      if (error) throw error;
+      const updated = forceReplaceRatingComment(message.content, t);
+      setRatingCommentDisplayOverride(t);
+      await patchMessageContent(message.id, updated);
+      toast.success("Comentário atualizado.");
+      setRatingCommentEditing(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível salvar o comentário.");
+    } finally {
+      setRatingCommentSaving(false);
+    }
+  }, [ratingCreatedId, patchMessageContent, ratingCommentDraft, message.content, message.id]);
 
   // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
   const appActions = useMemo(
@@ -1027,6 +1116,71 @@ const ChatMessageBubble = ({
                 </ReactMarkdown>
               </div>
               )}
+              {ratingCreatedId && patchMessageContent && (
+                  <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
+                    {!ratingCommentEditing ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setRatingCommentDraft(parseRatingSummaryComment(message.content) ?? "");
+                          setRatingCommentEditing(true);
+                        }}
+                        disabled={ratingCommentSaving}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+                        Editar comentário
+                      </Button>
+                    ) : (
+                      <div className="space-y-2">
+                        <label htmlFor={`rating-comment-edit-${message.id}`} className="text-xs font-medium text-foreground">
+                          Comentário público
+                        </label>
+                        <Textarea
+                          id={`rating-comment-edit-${message.id}`}
+                          value={ratingCommentDraft}
+                          onChange={(e) => setRatingCommentDraft(e.target.value)}
+                          rows={4}
+                          className="resize-y min-h-[88px] text-sm bg-background"
+                          disabled={ratingCommentSaving}
+                        />
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              setRatingCommentEditing(false);
+                              setRatingCommentDraft("");
+                            }}
+                            disabled={ratingCommentSaving}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => void handleSaveRatingComment()}
+                            disabled={ratingCommentSaving || ratingCommentDraft.trim().length < 5}
+                          >
+                            {ratingCommentSaving ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" aria-hidden />
+                                Salvando…
+                              </>
+                            ) : (
+                              "Salvar"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
               {audienciaContentSplit.contentAfter !== null && !isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
@@ -1271,8 +1425,12 @@ const ChatMessageBubble = ({
             <InlineImpactPicker onSelect={handleImpactSelected} />
           )}
         
-        {/* Avaliação geral (1–5 estrelas) */}
-        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (
+        {/* Avaliação geral (1–5 estrelas) — não exibir se for dimensão atômica (FIELD_REQUEST:dim_* + RATING_PICKER) */}
+        {(hasRatingPicker || isAskingForRating) &&
+          !hasDimensionRatingPicker &&
+          !ratingSelected &&
+          isLastAssistantMessage &&
+          onRatingSelected && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
 

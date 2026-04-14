@@ -336,10 +336,85 @@ LIMIT 20;
 
 ---
 
+## 7.3 Task 9520912 — Evidência objetiva: `dim_*` + `[RATING_PICKER]` e fluxo de `dim_limpeza`
+
+Atende às observações formais sobre **prova literal do padrão de marcadores** e sobre **limpeza como dimensão própria** (não apenas derivada da infraestrutura).
+
+### Padrão literal na resposta determinística (short-circuit)
+
+O orquestrador monta cada pergunta assim (ver `index.ts`, função interna `getNextMissingField`, jornada `service_rating`):
+
+- Prefixo: `[COLLECTION_PROGRESS:service_rating:<json dos campos>]`
+- Em seguida: **`[FIELD_REQUEST:dim_tempo_espera]`**, **`[FIELD_REQUEST:dim_atendimento]`**, **`[FIELD_REQUEST:dim_infraestrutura]`** ou **`[FIELD_REQUEST:dim_limpeza]`** (um por mensagem, RN-IA-003)
+- Corpo da pergunta (texto humano)
+- Quebra de linha e **`[RATING_PICKER]`**
+
+Ou seja, a sequência **literal** exigida pelo critério de aceite é: **`[FIELD_REQUEST:dim_<nome>]`** seguida, na mesma mensagem, de **`[RATING_PICKER]`** (com `[COLLECTION_PROGRESS:…]` antes, conforme o motor).
+
+#### 7.3.1 Evidência inequívoca — trecho de produção em `index.ts` (concatenação)
+
+A mensagem enviada ao cliente **não é inferida**: o short-circuit monta a string em um único ponto. Trecho **literal** (arquivo `supabase/functions/ai-orchestrator/index.ts`):
+
+```ts
+const fieldsJson = JSON.stringify(accumulatedFields);
+const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
+const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
+const pickerMarker = nextFieldInfo.picker || '';
+const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+```
+
+- **Linhas de referência:** aprox. **3076–3081** (bloco `shouldShortCircuit` + retorno SSE).
+- **Corolário:** para cada dimensão, `nextFieldInfo.field` é `dim_tempo_espera`, `dim_atendimento`, `dim_infraestrutura` ou `dim_limpeza` e `nextFieldInfo.picker` é **`'[RATING_PICKER]'`** quando definido em `getNextMissingField` — logo o marcador **`[RATING_PICKER]`** aparece **depois** de **`[FIELD_REQUEST:…]`**, separado por **duas quebras de linha** (`\n\n`), exceto quando `picker` é vazio (não é o caso das quatro dimensões).
+
+**Fallback de stream vazio (mesma fórmula):** se o modelo devolver conteúdo vazio mas ainda houver próximo campo, o mesmo padrão é aplicado em **~3637–3642** (`fieldMarker` + `pickerMarker`).
+
+#### 7.3.2 Ordem do roteiro e evidência de `dim_limpeza`
+
+A função interna `getNextMissingField` (mesmo arquivo `index.ts`) define a **ordem fixa** dos quatro scores no modo visita (`fields.visit_id`) e no modo livre (após serviço/endereço):
+
+| Passo | Campo retornado (`nextFieldInfo.field`) | `picker` |
+|------|------------------------------------------|----------|
+| 1 | `dim_tempo_espera` | `[RATING_PICKER]` |
+| 2 | `dim_atendimento` | `[RATING_PICKER]` |
+| 3 | `dim_infraestrutura` | `[RATING_PICKER]` |
+| 4 | **`dim_limpeza`** | **`[RATING_PICKER]`** |
+
+- **Modo visita:** bloco **~1355–1383** — `dim_limpeza` só é pedido quando **`infraestrutura_score`** já foi acumulado e **`limpeza_score`** ainda não (`!('limpeza_score' in fields)`).
+- **Modo livre:** bloco **~1526–1554** — mesma ordem e mesma condição para **`dim_limpeza`**.
+
+Isso é evidência **direta** de que **limpeza** é uma dimensão **quarta e distinta**, não deduzida de infraestrutura.
+
+**Prova automatizada (reproduzível):**
+
+```bash
+npx deno test --no-check --allow-env supabase/functions/ai-orchestrator/lib-service-rating-atomic-dimensions.test.ts
+```
+
+O arquivo `lib-service-rating-atomic-dimensions.test.ts` inclui:
+
+- concatenação **espelhada** do trecho **3076–3081** (comentário no teste);
+- asserts de ordem: `[FIELD_REQUEST:dim_*]` **antes** de `[RATING_PICKER]`;
+- caso explícito **“após infraestrutura”** com `accumulated` contendo `infraestrutura_score` e campo **`dim_limpeza`**;
+- `accumulateFieldsFromHistory` / `buildServiceRatingDimensionsFromWizardScores` para **`limpeza_score`** e JSONB.
+
+### Dimensão `dim_limpeza`
+
+- **Roteiro:** após `dim_infraestrutura`, o próximo campo é **`dim_limpeza`** (pergunta atômica só de limpeza/higiene) — ver tabela e linhas **~1377–1383** / **~1548–1554** em `index.ts`.
+- **Persistência:** `accumulateFieldsFromHistory` grava `limpeza_score`; `buildServiceRatingDimensionsFromWizardScores` exige `limpeza_score` explícito para montar `rating_dimensions.limpeza` (junto com as demais chaves do JSONB).
+
+### Prompt do sistema (RN-IA-003)
+
+Texto atualizado na seção **AVALIAÇÃO** de `supabase/functions/ai-orchestrator/lib-prompts.ts` (uma dimensão por mensagem; quatro campos `dim_*` com `[RATING_PICKER]`).
+
+---
+
 ## 8. Referências de código (repositório)
 
 - `supabase/functions/ai-orchestrator/index.ts`
 - `supabase/functions/ai-orchestrator/lib.ts`
 - `supabase/functions/ai-orchestrator/lib-tools.ts`
+- `supabase/functions/ai-orchestrator/lib-prompts.ts`
+- `supabase/functions/ai-orchestrator/lib-service-rating-atomic-dimensions.test.ts`
+- `src/components/ai/ChatMessageBubble.tsx` (detecção de `[FIELD_REQUEST:dim_*]` + `[RATING_PICKER]` para o `InlineRatingPicker` por dimensão)
 - `src/pages/EvaluationPage.tsx`
 - `docs/GUIA_TESTE_AVALIACAO_CONVERSACIONAL.md`
