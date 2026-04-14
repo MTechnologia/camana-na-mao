@@ -139,7 +139,12 @@ interface ChatMessageBubbleProps {
   onWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
   onDimensionRatingSelected?: (dimensionKey: string, stars: number) => void;
   /** Avaliação 4 dimensões de uma vez → `useUnifiedAIChat` envia `[RATING_DIMENSIONS:{...}]`. */
-  onMultiDimensionRatingComplete?: (dims: ServiceRatingDimensions) => void;
+  onMultiDimensionRatingComplete?: (
+    dims: ServiceRatingDimensions,
+    opts?: { waitTimeSemanticNull?: boolean },
+  ) => void;
+  /** Fluxo atômico dim_tempo + [WAIT_TIME_PICKER] (HU-4.1). */
+  onRatingDimensionWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
@@ -176,6 +181,7 @@ const ChatMessageBubble = ({
   onWaitTimeSelected,
   onDimensionRatingSelected,
   onMultiDimensionRatingComplete,
+  onRatingDimensionWaitTimeSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
@@ -254,13 +260,15 @@ const ChatMessageBubble = ({
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // Dimensão: [DIMENSION_RATING_PICKER:X] OU [FIELD_REQUEST:dim_X] + [RATING_PICKER] (OS-06 / RN-IA-003)
+  // Dimensão: [DIMENSION_RATING_PICKER:X] OU [FIELD_REQUEST:dim_X] + [RATING_PICKER] / [WAIT_TIME_PICKER] para tempo (HU-4.1)
   const dimensionRatingMatch = useMemo(() => {
     if (isUser || hasMultiDimensionRatingPicker) return null;
     const legacy = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
     if (legacy) return legacy[1];
     const dimFr = message.content.match(/\[FIELD_REQUEST:(dim_\w+)\]/);
-    if (dimFr && message.content.includes("[RATING_PICKER]")) {
+    const hasStarPicker = message.content.includes("[RATING_PICKER]");
+    const hasWaitPicker = message.content.includes("[WAIT_TIME_PICKER]");
+    if (dimFr && (hasStarPicker || (dimFr[1] === "dim_tempo_espera" && hasWaitPicker))) {
       const map: Record<string, string> = {
         dim_tempo_espera: "tempo_espera",
         dim_atendimento: "atendimento",
@@ -925,9 +933,12 @@ const ChatMessageBubble = ({
     }
   };
 
-  const handleMultiDimensionRatingComplete = (dims: ServiceRatingDimensions) => {
+  const handleMultiDimensionRatingComplete = (
+    dims: ServiceRatingDimensions,
+    opts?: { waitTimeSemanticNull?: boolean },
+  ) => {
     setMultiDimensionRatingSubmitted(true);
-    onMultiDimensionRatingComplete?.(dims);
+    onMultiDimensionRatingComplete?.(dims, opts);
   };
 
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
@@ -1525,19 +1536,39 @@ const ChatMessageBubble = ({
           )}
 
         {(hasWaitTimePicker || isAskingForWaitTime) &&
+          !(hasDimensionRatingPicker && dimensionRatingMatch === "tempo_espera") &&
           !waitTimeSelected &&
           isLastAssistantMessage &&
           onWaitTimeSelected && (
             <WaitTimePicker onSelect={handleWaitTimeSelected} />
           )}
 
-        {/* Dimension Rating Picker (atendimento, infraestrutura, etc.) */}
+        {/* Dimension Rating Picker (atendimento, infraestrutura, etc.) — tempo: WaitTimePicker se marcador HU-4.1 */}
         {hasDimensionRatingPicker &&
+          dimensionRatingMatch === "tempo_espera" &&
+          !dimensionRatingSelected &&
+          isLastAssistantMessage &&
+          (onRatingDimensionWaitTimeSelected || onWaitTimeSelected) && (
+            <WaitTimePicker
+              onSelect={(label, score) => {
+                setDimensionRatingSelected(true);
+                if (onRatingDimensionWaitTimeSelected) {
+                  onRatingDimensionWaitTimeSelected(label, score);
+                } else {
+                  onWaitTimeSelected?.(label, score);
+                }
+              }}
+            />
+          )}
+
+        {hasDimensionRatingPicker &&
+          dimensionRatingMatch &&
+          dimensionRatingMatch !== "tempo_espera" &&
           !dimensionRatingSelected &&
           isLastAssistantMessage &&
           onDimensionRatingSelected && (
             <InlineRatingPicker
-              dimensionKey={dimensionRatingMatch!}
+              dimensionKey={dimensionRatingMatch}
               onSelect={handleDimensionRatingSelected}
             />
           )}

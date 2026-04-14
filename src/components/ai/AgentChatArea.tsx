@@ -75,6 +75,7 @@ const AgentChatArea = () => {
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,
+    handleRatingDimensionWaitTimeSelected,
     handleMultiDimensionRatingComplete,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
@@ -437,6 +438,7 @@ const AgentChatArea = () => {
                         onRatingSelected={handleRatingSelected}
                         onWaitTimeSelected={handleWaitTimeSelected}
                         onDimensionRatingSelected={handleDimensionRatingSelected}
+                        onRatingDimensionWaitTimeSelected={handleRatingDimensionWaitTimeSelected}
                         onMultiDimensionRatingComplete={handleMultiDimensionRatingComplete}
                         onLocationMethodSelected={handleLocationMethodSelected}
                         onServiceTypeSelected={handleServiceTypeSelected}

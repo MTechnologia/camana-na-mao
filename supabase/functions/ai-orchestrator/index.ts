@@ -2659,6 +2659,17 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             }
 
             if (askedRatingSubmitPreview && userPublishes) {
+              const accRd = accumulatedFields.rating_dimensions as Record<string, number> | null | undefined;
+              let meanForSentiment =
+                typeof accumulatedFields.rating_stars === "number" &&
+                accumulatedFields.rating_stars >= 1 &&
+                accumulatedFields.rating_stars <= 5
+                  ? accumulatedFields.rating_stars
+                  : 3;
+              if (accRd && lib.isCompleteServiceRatingDimensions(accRd)) {
+                meanForSentiment = lib.aggregateRatingDimensionsStars(accRd);
+              }
+              const sentimentAuto = lib.inferServiceRatingSentimentFromMean(meanForSentiment);
               const toolArgs: Record<string, unknown> = {
                 service_type: accumulatedFields.service_type,
                 service_name: accumulatedFields.service_name,
@@ -2668,7 +2679,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 rating_stars: accumulatedFields.rating_stars,
                 rating_dimensions: accumulatedFields.rating_dimensions,
                 rating_text: accumulatedFields.rating_text,
-                sentiment: accumulatedFields.sentiment || 'neutral',
+                sentiment: sentimentAuto,
               };
               if ('wait_time_score' in accumulatedFields) toolArgs.wait_time_score = accumulatedFields.wait_time_score;
               if ('tempo_espera_score' in accumulatedFields) {
@@ -3167,8 +3178,25 @@ ${empathyNote}
       const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
       const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
       const pickerMarker = nextFieldInfo.picker || '';
-      
-      const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+
+      let serviceRatingDimensionHints = '';
+      if (
+        collectionIntent!.type === 'service_rating' &&
+        nextFieldInfo.field === 'rating_dimensions' &&
+        accumulatedFields?.service_type
+      ) {
+        try {
+          serviceRatingDimensionHints = await lib.fetchServiceTypeRatingQuestionHints(
+            supabase,
+            String(accumulatedFields.service_type),
+          );
+        } catch (e) {
+          console.warn('[ai-orchestrator] service_type_rating_questions:', (e as Error).message);
+        }
+      }
+
+      const deterministicResponse =
+        `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${serviceRatingDimensionHints}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
       
       const ssePayload = JSON.stringify({
         choices: [{ delta: { content: deterministicResponse } }]
@@ -3729,7 +3757,23 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
           const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]`;
           const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
           const pickerMarker = nextFieldInfo.picker || '';
-          responseContent = `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+          let hintsEmpty = '';
+          if (
+            collectionIntent.type === 'service_rating' &&
+            nextFieldInfo.field === 'rating_dimensions' &&
+            accumulatedFields?.service_type
+          ) {
+            try {
+              hintsEmpty = await lib.fetchServiceTypeRatingQuestionHints(
+                supabase,
+                String(accumulatedFields.service_type),
+              );
+            } catch {
+              /* ignore */
+            }
+          }
+          responseContent =
+            `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${hintsEmpty}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
         } else {
           // Generic fallback message
           responseContent = 'Desculpe, não consegui processar sua mensagem. Pode reformular?';

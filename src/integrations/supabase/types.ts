@@ -1649,6 +1649,7 @@ export type Database = {
         Row: {
           anonymized_at: string | null
           created_at: string | null
+          dimensions: Json | null
           id: string
           is_anonymous: boolean | null
           publication_status: string
@@ -1665,6 +1666,7 @@ export type Database = {
         Insert: {
           anonymized_at?: string | null
           created_at?: string | null
+          dimensions?: Json | null
           id?: string
           is_anonymous?: boolean | null
           publication_status?: string
@@ -1681,6 +1683,7 @@ export type Database = {
         Update: {
           anonymized_at?: string | null
           created_at?: string | null
+          dimensions?: Json | null
           id?: string
           is_anonymous?: boolean | null
           publication_status?: string
@@ -2663,6 +2666,10 @@ export type Database = {
           p_period?: string
           p_type?: string | null
         }
+        Returns: Json
+      }
+      get_service_rating_dimension_averages: {
+        Args: { p_service_id: string }
         Returns: Json
       }
       get_reports_heatmap_data: {

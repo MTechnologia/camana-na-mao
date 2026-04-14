@@ -173,6 +173,35 @@ export function shouldOfferServiceRatingReferral(
   return false;
 }
 
+/** HU-4.7: sentimento coerente com a média das dimensões (mesma ideia que rating_stars). */
+export function inferServiceRatingSentimentFromMean(meanStars: number): 'positive' | 'neutral' | 'negative' {
+  const m = Math.round(Number(meanStars));
+  if (m >= 4) return 'positive';
+  if (m <= 2) return 'negative';
+  return 'neutral';
+}
+
+/** HU-4.5: dicas por tipo de serviço (markdown curto) antes do picker de dimensões. */
+export async function fetchServiceTypeRatingQuestionHints(
+  supabase: SupabaseClient,
+  serviceType: string,
+): Promise<string> {
+  const st = String(serviceType || '').trim().toLowerCase();
+  if (!st) return '';
+  try {
+    const { data, error } = await supabase
+      .from('service_type_rating_questions')
+      .select('hint_text')
+      .eq('service_type', st)
+      .order('sort_order', { ascending: true })
+      .limit(5);
+    if (error || !data?.length) return '';
+    return '\n\n' + data.map((r: { hint_text: string }) => `• _${r.hint_text}_`).join('\n');
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Monta JSON de dimensões (1–5) a partir do fluxo conversacional com nota geral + WAIT_TIME + DIM_RATING.
  * `wait_time_score === null` (Não se aplica) → tempo_espera = 3 (neutro) para manter JSON completo.
@@ -4246,6 +4275,14 @@ export function accumulateFieldsFromHistory(
               if (rd) {
                 applyCompleteRatingDimensionsToAccumulated(accumulated, rd);
               }
+              const wmRd = answer.match(/\[WAIT_TIME:(\d+|null)\]/i);
+              if (wmRd) {
+                const rawW = wmRd[1].toLowerCase();
+                const v = rawW === 'null' ? null : parseInt(wmRd[1], 10);
+                if (v === null || (v >= 2 && v <= 5)) {
+                  accumulated.wait_time_score = v;
+                }
+              }
               break;
             }
             case 'rating_stars': {
@@ -4295,6 +4332,19 @@ export function accumulateFieldsFromHistory(
               break;
             }
             case 'dim_tempo_espera': {
+              const wm = answer.match(/\[WAIT_TIME:(\d+|null)\]/i);
+              if (wm) {
+                const rawW = wm[1].toLowerCase();
+                const v = rawW === 'null' ? null : parseInt(wm[1], 10);
+                accumulated.wait_time_score = v;
+                const dm = answer.match(/\[DIM_RATING:tempo_espera:([1-5])\]/i);
+                const n = dm ? parseInt(dm[1], 10) : v === null ? 3 : v;
+                if (!Number.isNaN(n) && n >= 1 && n <= 5) {
+                  accumulated.tempo_espera_score = n;
+                  console.log('[accumulateFields] FIELD_REQUEST dim_tempo_espera (WAIT_TIME) → tempo_espera_score:', n);
+                }
+                break;
+              }
               const rs = answer.match(/\[RATING_SELECTED:([1-5])\]/);
               const dm = answer.match(/\[DIM_RATING:tempo_espera:([1-5])\]/i);
               const n = rs ? parseInt(rs[1], 10) : dm ? parseInt(dm[1], 10) : NaN;
@@ -8915,16 +8965,18 @@ export async function executeTool(
           moderation_preview: preModeration,
         });
 
+        const sentimentFinal = inferServiceRatingSentimentFromMean(stars);
         const insertRow: Record<string, unknown> = {
           user_id: userId,
           service_id: serviceId,
           visit_id: visitId,
           rating_stars: stars,
           rating_text: ratingTextTrimmed,
-          sentiment: args.sentiment || 'neutral',
+          sentiment: sentimentFinal,
         };
         if (ratingDimensionsJson) {
           insertRow.rating_dimensions = ratingDimensionsJson;
+          insertRow.dimensions = ratingDimensionsJson;
         }
         if (waitTimeStored !== undefined) insertRow.wait_time_score = waitTimeStored;
 
