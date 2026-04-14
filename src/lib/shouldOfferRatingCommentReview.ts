@@ -19,6 +19,11 @@ export function shouldOfferRatingCommentReview(
     a.includes("comentario") ||
     a.includes("descreva") ||
     a.includes("como foi o atendimento") ||
+    a.includes("sugestão") ||
+    a.includes("sugestao") ||
+    a.includes("melhoria") ||
+    (a.includes("extra") && a.includes("coment")) ||
+    (a.includes("pular") && (a.includes("coment") || a.includes("sugest"))) ||
     a.includes("[field_request:rating_text]");
   if (!asked) return false;
   return draft.trim().length >= 5;

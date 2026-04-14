@@ -1092,7 +1092,13 @@ export const useUnifiedAIChat = (
         if (dimScore >= 1 && dimScore <= 5) {
           const fieldKey = `${dimKey}_score`;
           if (!(fieldKey in collectedFields)) {
-            setCollectedFields(prev => ({ ...prev, [fieldKey]: dimScore }));
+            setCollectedFields((prev) => {
+              const next: Record<string, unknown> = { ...prev, [fieldKey]: dimScore };
+              if (dimKey === "tempo_espera") {
+                next.wait_time_score = Math.min(5, Math.max(2, dimScore));
+              }
+              return next;
+            });
           }
         }
       }
@@ -2083,6 +2089,38 @@ export const useUnifiedAIChat = (
     sendMessage(parts.join('. '));
   }, [sendMessage]);
 
+  /** Atualiza o texto de uma mensagem (ex.: editar comentário na mensagem de avaliação registrada). */
+  const patchMessageContent = useCallback(
+    async (messageId: string, newContent: string) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, content: newContent } : m)),
+      );
+      if (!conversationIdRef.current || !user) return;
+      try {
+        const { data: currentConv } = await supabase
+          .from("ai_conversations")
+          .select("messages")
+          .eq("id", conversationIdRef.current)
+          .single();
+        const arr = (currentConv?.messages as Array<{ id?: string; content?: string }> | undefined) ?? [];
+        if (arr.length === 0) return;
+        const updated = arr.map((m) =>
+          m.id === messageId ? { ...m, content: newContent } : m,
+        );
+        await supabase
+          .from("ai_conversations")
+          .update({
+            messages: updated as Json,
+            last_message_at: new Date().toISOString(),
+          })
+          .eq("id", conversationIdRef.current);
+      } catch (e) {
+        console.error("[useUnifiedAIChat] patchMessageContent", e);
+      }
+    },
+    [user],
+  );
+
   return {
     messages,
     isLoading,
@@ -2114,5 +2152,6 @@ export const useUnifiedAIChat = (
     handleServiceSelected,
     handleServiceAddressConfirmed,
     handleApplyNearbyFilters,
+    patchMessageContent,
   };
 };

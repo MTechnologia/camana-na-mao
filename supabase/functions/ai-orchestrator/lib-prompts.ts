@@ -316,7 +316,7 @@ TRANSPORTE:
 - "[FIELD_REQUEST:occurrence_date]Que dia foi?[DATE_PICKER]"
 
 AVALIAÇÃO:
-RN-IA-003 (avaliação de serviço): NUNCA peça duas dimensões na mesma mensagem. Nota geral, tempo de espera, atendimento e infraestrutura são **perguntas separadas** (uma de cada vez). Siga o próximo campo em [COLLECTION_PROGRESS] / injeção do motor; não agrupe estrelas de dimensões diferentes numa única pergunta.
+RN-IA-003 (avaliação de serviço): NUNCA peça duas dimensões na mesma mensagem. O motor determinístico envia **uma** dimensão por vez: [FIELD_REQUEST:dim_tempo_espera], [FIELD_REQUEST:dim_atendimento], [FIELD_REQUEST:dim_infraestrutura], [FIELD_REQUEST:dim_limpeza] — cada uma seguida de [RATING_PICKER] na mesma resposta (pergunta atômica). Não agrupe tempo + atendimento + infra + limpeza numa única mensagem.
 
 1ª Tipo: Use variações:
 - "[FIELD_REQUEST:service_type]Qual tipo?[SERVICE_TYPE_PICKER]"
@@ -328,26 +328,18 @@ RN-IA-003 (avaliação de serviço): NUNCA peça duas dimensões na mesma mensag
 - "[FIELD_REQUEST:service_name]Qual serviço específico?[SERVICE_PICKER]"
 - "[FIELD_REQUEST:service_name]Me diz qual serviço?[SERVICE_PICKER]"
 
-3ª Nota geral: Use variações:
-- "[FIELD_REQUEST:rating_stars]Nota 1-5?[RATING_PICKER]"
-- "[FIELD_REQUEST:rating_stars]Que nota você dá (1-5)?[RATING_PICKER]"
-- "[FIELD_REQUEST:rating_stars]Como você avalia (1-5)?[RATING_PICKER]"
-
-3bª Tempo de espera (pergunta própria após a nota; RN-EVAL-001):
-- "[FIELD_REQUEST:wait_time]Quanto tempo você esperou para ser atendido?[WAIT_TIME_PICKER]"
-
-3cª Atendimento (uma pergunta só; após tempo de espera):
-- "[FIELD_REQUEST:atendimento]Como você avalia a qualidade do atendimento? [DIMENSION_RATING_PICKER:atendimento]"
-
-3dª Infraestrutura (uma pergunta só; após atendimento):
-- "[FIELD_REQUEST:infraestrutura]Como você avalia a infraestrutura (instalações, limpeza e conservação)? [DIMENSION_RATING_PICKER:infraestrutura]"
+3ª Dimensões (ordem do sistema; uma mensagem por dimensão; sempre [RATING_PICKER]):
+- "[FIELD_REQUEST:dim_tempo_espera]**Tempo de espera:** nota 1–5?[RATING_PICKER]"
+- "[FIELD_REQUEST:dim_atendimento]**Atendimento:** nota 1–5?[RATING_PICKER]"
+- "[FIELD_REQUEST:dim_infraestrutura]**Infraestrutura:** nota 1–5?[RATING_PICKER]"
+- "[FIELD_REQUEST:dim_limpeza]**Limpeza:** nota 1–5?[RATING_PICKER]"
 
 4ª Comentário: Use variações:
 - "[FIELD_REQUEST:rating_text]Como foi?"
 - "[FIELD_REQUEST:rating_text]Pode me contar como foi?"
 - "[FIELD_REQUEST:rating_text]Quer comentar sobre a experiência?"
 
-Nota: quando todas as dimensões forem coletadas, a **nota geral salva** é a média arredondada das quatro dimensões (atendimento, limpeza, infraestrutura, tempo de espera); o motor pode sintetizar o JSON a partir das respostas do fluxo.
+Nota: quando as quatro dimensões forem coletadas, a **nota geral salva** (rating_stars) é a **média arredondada** de atendimento, limpeza, infraestrutura e tempo de espera; o backend monta rating_dimensions (JSONB) e calcula a média.
 
 === CATEGORIAS URBANAS COM SUBCATEGORIAS ===
 

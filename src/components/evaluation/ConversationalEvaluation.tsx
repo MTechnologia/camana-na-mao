@@ -57,6 +57,7 @@ export function ConversationalEvaluation({
     handleServiceSelected,
     handleServiceTypeSelected,
     handleServiceAddressConfirmed,
+    patchMessageContent,
   } = useUnifiedAIChat(
     null,
     "service_rating",
@@ -176,6 +177,7 @@ export function ConversationalEvaluation({
                 onServiceSelected={handleServiceSelected}
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}
+                patchMessageContent={patchMessageContent}
               />
             );
           })}

@@ -224,6 +224,15 @@ const Profile = () => {
 
   const settingsCards = [
     {
+      id: 'subscriptions',
+      title: 'Minhas Inscrições',
+      description: 'Gestão de alertas e temas',
+      icon: Bookmark,
+      iconColor: 'text-indigo-600',
+      iconBg: 'bg-indigo-100',
+      path: '/perfil/inscricoes',
+    },
+    {
       id: 'accessibility',
       title: 'Acessibilidade',
       description: 'Fonte, contraste e leitura',

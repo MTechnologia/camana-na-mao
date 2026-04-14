@@ -1350,37 +1350,36 @@ serve(async (req) => {
           fields.service_neighborhood = lib.normalizeServiceRatingNeighborhood(fields.service_neighborhood);
         }
 
-        // MODO VISITA: visit_id presente (página de avaliação) - só pedir nota e comentário
+        // MODO VISITA: visit_id presente — mesmo roteiro atômico que o modo livre após identificar o serviço:
+        // quatro dimensões (tempo, atendimento, infraestrutura, limpeza) + comentário; nota geral = média das dimensões.
         if (fields.visit_id) {
-          const rs = fields.rating_stars;
-          if (typeof rs !== 'number' || rs < 1 || rs > 5) {
+          if (!('tempo_espera_score' in fields))
             return {
-              field: 'rating_stars',
+              field: 'dim_tempo_espera',
               picker: '[RATING_PICKER]',
               prompt:
-                '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
-            };
-          }
-          if (!('wait_time_score' in fields))
-            return {
-              field: 'wait_time',
-              picker: '[WAIT_TIME_PICKER]',
-              prompt:
-                '[FIELD_REQUEST:wait_time]**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.',
+                '**Tempo de espera:** quanto tempo você precisou esperar para ser atendido? Dê uma nota de **1 a 5** (1 = espera longa/ruim, 5 = espera rápida/boa). Use as estrelas abaixo.',
             };
           if (!('atendimento_score' in fields))
             return {
-              field: 'atendimento',
-              picker: '[DIMENSION_RATING_PICKER:atendimento]',
+              field: 'dim_atendimento',
+              picker: '[RATING_PICKER]',
               prompt:
-                '[FIELD_REQUEST:atendimento]Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.',
+                '**Atendimento:** como você avalia a **qualidade do atendimento**? De **1 a 5** estrelas.',
             };
           if (!('infraestrutura_score' in fields))
             return {
-              field: 'infraestrutura',
-              picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+              field: 'dim_infraestrutura',
+              picker: '[RATING_PICKER]',
               prompt:
-                '[FIELD_REQUEST:infraestrutura]Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.',
+                '**Infraestrutura:** como você avalia a **estrutura física** (instalações, equipamentos, conservação)? De **1 a 5** estrelas.',
+            };
+          if (!('limpeza_score' in fields))
+            return {
+              field: 'dim_limpeza',
+              picker: '[RATING_PICKER]',
+              prompt:
+                '**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.',
             };
           if (!fields._rating_text_skipped) {
             if (fields.rating_text === undefined) {
@@ -1388,7 +1387,7 @@ serve(async (req) => {
                 field: 'rating_text',
                 picker: null,
                 prompt:
-                  '[FIELD_REQUEST:rating_text]Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")',
+                  'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")',
               };
             }
             if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
@@ -1396,7 +1395,7 @@ serve(async (req) => {
                 field: 'rating_text',
                 picker: null,
                 prompt:
-                  '[FIELD_REQUEST:rating_text]Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")',
+                  'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")',
               };
             }
           }
@@ -1524,37 +1523,34 @@ serve(async (req) => {
           };
         }
         
-        // 4. Avaliação geral (1–5) + tempo de espera + dimensões
-        const rsFree = fields.rating_stars;
-        if (typeof rsFree !== 'number' || rsFree < 1 || rsFree > 5) {
+        // 4. Quatro dimensões atômicas (nota geral = média arredondada ao salvar)
+        if (!('tempo_espera_score' in fields))
           return {
-            field: 'rating_stars',
+            field: 'dim_tempo_espera',
             picker: '[RATING_PICKER]',
             prompt:
-              '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). Use as estrelas abaixo.',
-          };
-        }
-
-        if (!('wait_time_score' in fields))
-          return {
-            field: 'wait_time',
-            picker: '[WAIT_TIME_PICKER]',
-            prompt:
-              '[FIELD_REQUEST:wait_time]**Quanto tempo você esperou** para ser atendido? Escolha uma opção abaixo.',
+              '**Tempo de espera:** quanto tempo você precisou esperar para ser atendido? Dê uma nota de **1 a 5** (1 = espera longa/ruim, 5 = espera rápida/boa). Use as estrelas abaixo.',
           };
         if (!('atendimento_score' in fields))
           return {
-            field: 'atendimento',
-            picker: '[DIMENSION_RATING_PICKER:atendimento]',
+            field: 'dim_atendimento',
+            picker: '[RATING_PICKER]',
             prompt:
-              '[FIELD_REQUEST:atendimento]Como você avalia a **qualidade do atendimento**? De 1 a 5 estrelas.',
+              '**Atendimento:** como você avalia a **qualidade do atendimento**? De **1 a 5** estrelas.',
           };
         if (!('infraestrutura_score' in fields))
           return {
-            field: 'infraestrutura',
-            picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+            field: 'dim_infraestrutura',
+            picker: '[RATING_PICKER]',
             prompt:
-              '[FIELD_REQUEST:infraestrutura]Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.',
+              '**Infraestrutura:** como você avalia a **estrutura física** (instalações, equipamentos, conservação)? De **1 a 5** estrelas.',
+          };
+        if (!('limpeza_score' in fields))
+          return {
+            field: 'dim_limpeza',
+            picker: '[RATING_PICKER]',
+            prompt:
+              '**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.',
           };
 
         // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
@@ -1564,7 +1560,7 @@ serve(async (req) => {
               field: 'rating_text',
               picker: null,
               prompt:
-                '[FIELD_REQUEST:rating_text]Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")',
+                'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")',
             };
           }
           if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
@@ -1572,7 +1568,7 @@ serve(async (req) => {
               field: 'rating_text',
               picker: null,
               prompt:
-                '[FIELD_REQUEST:rating_text]Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")',
+                'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")',
             };
           }
         }
@@ -2588,12 +2584,14 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             };
             if ('wait_time_score' in accumulatedFields)
               toolArgs.wait_time_score = accumulatedFields.wait_time_score;
+            if ('tempo_espera_score' in accumulatedFields)
+              toolArgs.tempo_espera_score = accumulatedFields.tempo_espera_score;
             if ('atendimento_score' in accumulatedFields)
               toolArgs.atendimento_score = accumulatedFields.atendimento_score;
-            if ('infraestrutura_score' in accumulatedFields) {
+            if ('infraestrutura_score' in accumulatedFields)
               toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
+            if ('limpeza_score' in accumulatedFields)
               toolArgs.limpeza_score = accumulatedFields.limpeza_score;
-            }
             if (accumulatedFields.visit_id) {
               toolArgs.visit_id = accumulatedFields.visit_id;
               if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
