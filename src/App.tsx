@@ -52,6 +52,7 @@ const DataExportPage = lazy(() => import("./pages/profile/DataExportPage"));
 const UserRightsPage = lazy(() => import("./pages/profile/UserRightsPage"));
 const PublicProfilePage = lazy(() => import("./pages/profile/PublicProfilePage"));
 const VisitHistoryPage = lazy(() => import("./pages/profile/VisitHistoryPage"));
+const SubscriptionsPage = lazy(() => import("./pages/profile/SubscriptionsPage"));
 
 // ============================================
 // CITIZEN PAGES - Lazy loaded
@@ -240,6 +241,7 @@ const AppContent = () => {
             <Route path="/perfil/dados-demograficos" element={<DemographicsPage />} />
             <Route path="/perfil/endereco" element={<AddressPage />} />
             <Route path="/perfil/preferencias" element={<PreferencesPage />} />
+            <Route path="/perfil/inscricoes" element={<SubscriptionsPage />} />
             <Route path="/perfil/consentimentos" element={<ConsentsPage />} />
             <Route path="/perfil/exportar-dados" element={<DataExportPage />} />
             <Route path="/perfil/direitos" element={<UserRightsPage />} />
