@@ -1597,66 +1597,36 @@ export async function fetchSimilarTransportReportsForSupport(
   const lineCodeRaw = fields.line_code != null ? String(fields.line_code).trim() : "";
   const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lineIdRaw);
 
-  let query = supabase
-    .from("transport_reports")
-    .select(
-      "id, protocol_code, report_type, description, occurrence_date, occurrence_time, location, severity, direction, created_at, line_id, line_code_custom, transport_lines ( line_code, line_name )",
-    )
-    .eq("report_type", reportType)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  if (!uuidOk && !lineCodeRaw) return [];
 
-  if (excludeUserId) {
-    query = query.neq("user_id", excludeUserId);
-  }
+  const { data, error } = await supabase.rpc("find_similar_transport_reports", {
+    p_report_type: reportType,
+    p_line_id: uuidOk ? lineIdRaw : null,
+    p_line_code: uuidOk ? null : lineCodeRaw,
+    p_exclude_user_id: excludeUserId ?? null,
+    p_limit: limit,
+  });
 
-  if (uuidOk) {
-    query = query.eq("line_id", lineIdRaw);
-  } else if (lineCodeRaw.length > 0) {
-    const { data: lineRows, error: lineErr } = await supabase
-      .from("transport_lines")
-      .select("id")
-      .ilike("line_code", lineCodeRaw)
-      .limit(25);
-    if (lineErr) {
-      console.error("[fetchSimilarTransportReportsForSupport] line lookup", lineErr);
-    }
-    const ids = (lineRows || []).map((r: { id: string }) => r.id);
-    if (ids.length > 0) {
-      query = query.in("line_id", ids);
-    } else {
-      query = query.eq("line_code_custom", lineCodeRaw);
-    }
-  } else {
-    return [];
-  }
-
-  const { data, error } = await query;
   if (error) {
     console.error("[fetchSimilarTransportReportsForSupport]", error);
     return [];
   }
 
   const rows = (data || []) as Record<string, unknown>[];
-  return rows.map((r) => {
-    const tl = r.transport_lines as { line_code?: string; line_name?: string } | null;
-    const lineCode = tl?.line_code ?? (r.line_code_custom as string | null) ?? null;
-    const lineName = tl?.line_name ?? null;
-    return {
-      id: String(r.id),
-      protocol_code: (r.protocol_code as string | null) ?? null,
-      report_type: String(r.report_type),
-      description: (r.description as string | null) ?? null,
-      occurrence_date: String(r.occurrence_date),
-      occurrence_time: (r.occurrence_time as string | null) ?? null,
-      location: (r.location as string | null) ?? null,
-      severity: (r.severity as string | null) ?? null,
-      direction: (r.direction as string | null) ?? null,
-      created_at: String(r.created_at),
-      line_code: lineCode,
-      line_name: lineName,
-    };
-  });
+  return rows.map((r) => ({
+    id: String(r.id),
+    protocol_code: (r.protocol_code as string | null) ?? null,
+    report_type: String(r.report_type),
+    description: (r.description as string | null) ?? null,
+    occurrence_date: String(r.occurrence_date),
+    occurrence_time: (r.occurrence_time as string | null) ?? null,
+    location: (r.location as string | null) ?? null,
+    severity: (r.severity as string | null) ?? null,
+    direction: (r.direction as string | null) ?? null,
+    created_at: String(r.created_at),
+    line_code: (r.line_code as string | null) ?? null,
+    line_name: (r.line_name as string | null) ?? null,
+  }));
 }
 
 /** Monta linha curta a partir do objeto address do Nominatim (reverse). */
