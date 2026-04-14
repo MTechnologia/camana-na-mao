@@ -2744,6 +2744,29 @@ export type Database = {
         Args: { p_context: string; p_items: Json; p_user_id: string }
         Returns: undefined
       }
+      find_similar_transport_reports: {
+        Args: {
+          p_report_type: string
+          p_line_id?: string | null
+          p_line_code?: string | null
+          p_exclude_user_id?: string | null
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          protocol_code: string | null
+          report_type: string
+          description: string | null
+          occurrence_date: string
+          occurrence_time: string | null
+          location: string | null
+          severity: string | null
+          direction: string | null
+          created_at: string
+          line_code: string | null
+          line_name: string | null
+        }[]
+      }
     }
     Enums: {
       app_role:
