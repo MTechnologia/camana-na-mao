@@ -12,6 +12,9 @@ export type ParsedTransportReportPreview = {
   recurrence_frequency: string | null;
   personal_impact: number | null;
   location: string | null;
+  stop_name: string | null;
+  stop_location: string | null;
+  accessibility_details: Record<string, unknown> | null;
 };
 
 export function parseTransportReportPreviewJson(content: string): ParsedTransportReportPreview | null {
@@ -28,6 +31,11 @@ export function parseTransportReportPreviewJson(content: string): ParsedTranspor
       const p = parseInt(String(num), 10);
       if (Number.isFinite(p)) personalImpact = p;
     }
+    const accDet = data.accessibility_details;
+    const accessibility_details =
+      accDet != null && typeof accDet === "object" && !Array.isArray(accDet)
+        ? (accDet as Record<string, unknown>)
+        : null;
     return {
       description: typeof data.description === "string" ? data.description : null,
       report_type: typeof data.report_type === "string" ? data.report_type : null,
@@ -39,6 +47,9 @@ export function parseTransportReportPreviewJson(content: string): ParsedTranspor
       recurrence_frequency: typeof data.recurrence_frequency === "string" ? data.recurrence_frequency : null,
       personal_impact: personalImpact,
       location: typeof data.location === "string" ? data.location : null,
+      stop_name: typeof data.stop_name === "string" ? data.stop_name : null,
+      stop_location: typeof data.stop_location === "string" ? data.stop_location : null,
+      accessibility_details,
     };
   } catch {
     return null;

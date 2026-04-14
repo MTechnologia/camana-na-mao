@@ -1957,6 +1957,7 @@ export type Database = {
       }
       transport_reports: {
         Row: {
+          accessibility_details: Json
           ai_category: string | null
           ai_pattern_detected: boolean | null
           ai_sentiment: string | null
@@ -1986,11 +1987,14 @@ export type Database = {
           responded_at: string | null
           severity: string
           status: string
+          stop_location: string | null
+          stop_name: string | null
           sub_category: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          accessibility_details?: Json
           ai_category?: string | null
           ai_pattern_detected?: boolean | null
           ai_sentiment?: string | null
@@ -2020,11 +2024,14 @@ export type Database = {
           responded_at?: string | null
           severity?: string
           status?: string
+          stop_location?: string | null
+          stop_name?: string | null
           sub_category?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          accessibility_details?: Json
           ai_category?: string | null
           ai_pattern_detected?: boolean | null
           ai_sentiment?: string | null
@@ -2054,6 +2061,8 @@ export type Database = {
           responded_at?: string | null
           severity?: string
           status?: string
+          stop_location?: string | null
+          stop_name?: string | null
           sub_category?: string | null
           updated_at?: string | null
           user_id?: string
