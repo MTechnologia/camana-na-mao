@@ -32,6 +32,20 @@ function transportPreviewJsonMarker(fields: Record<string, unknown>): string {
   }
 }
 
+function serviceRatingSubmitPreviewJsonMarker(payload: {
+  rating_stars: number;
+  rating_dimensions: Record<string, number> | null;
+  service_name: string;
+  comment_preview: string;
+}): string {
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return `\n\n[RATING_SUBMIT_PREVIEW_JSON:${b64}]`;
+  } catch {
+    return "";
+  }
+}
+
 function transportImpactSummaryLine(pi: unknown): string {
   const n =
     typeof pi === "number" && Number.isFinite(pi)
@@ -1353,34 +1367,21 @@ serve(async (req) => {
         // MODO VISITA: visit_id presente — mesmo roteiro atômico que o modo livre após identificar o serviço:
         // quatro dimensões (tempo, atendimento, infraestrutura, limpeza) + comentário; nota geral = média das dimensões.
         if (fields.visit_id) {
-          if (!('tempo_espera_score' in fields))
+          const legacyFourDims =
+            'tempo_espera_score' in fields &&
+            'atendimento_score' in fields &&
+            'infraestrutura_score' in fields &&
+            'limpeza_score' in fields;
+          const dimsComplete =
+            lib.isCompleteServiceRatingDimensions(fields.rating_dimensions) || legacyFourDims;
+          if (!dimsComplete) {
             return {
-              field: 'dim_tempo_espera',
-              picker: '[RATING_PICKER]',
+              field: 'rating_dimensions',
+              picker: '[MULTI_DIMENSION_RATING_PICKER]',
               prompt:
-                '**Tempo de espera:** quanto tempo você precisou esperar para ser atendido? Dê uma nota de **1 a 5** (1 = espera longa/ruim, 5 = espera rápida/boa). Use as estrelas abaixo.',
+                '**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.',
             };
-          if (!('atendimento_score' in fields))
-            return {
-              field: 'dim_atendimento',
-              picker: '[RATING_PICKER]',
-              prompt:
-                '**Atendimento:** como você avalia a **qualidade do atendimento**? De **1 a 5** estrelas.',
-            };
-          if (!('infraestrutura_score' in fields))
-            return {
-              field: 'dim_infraestrutura',
-              picker: '[RATING_PICKER]',
-              prompt:
-                '**Infraestrutura:** como você avalia a **estrutura física** (instalações, equipamentos, conservação)? De **1 a 5** estrelas.',
-            };
-          if (!('limpeza_score' in fields))
-            return {
-              field: 'dim_limpeza',
-              picker: '[RATING_PICKER]',
-              prompt:
-                '**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.',
-            };
+          }
           if (!fields._rating_text_skipped) {
             if (fields.rating_text === undefined) {
               return {
@@ -1523,35 +1524,21 @@ serve(async (req) => {
           };
         }
         
-        // 4. Quatro dimensões atômicas (nota geral = média arredondada ao salvar)
-        if (!('tempo_espera_score' in fields))
+        const legacyFourDimsFree =
+          'tempo_espera_score' in fields &&
+          'atendimento_score' in fields &&
+          'infraestrutura_score' in fields &&
+          'limpeza_score' in fields;
+        const dimsCompleteFree =
+          lib.isCompleteServiceRatingDimensions(fields.rating_dimensions) || legacyFourDimsFree;
+        if (!dimsCompleteFree) {
           return {
-            field: 'dim_tempo_espera',
-            picker: '[RATING_PICKER]',
+            field: 'rating_dimensions',
+            picker: '[MULTI_DIMENSION_RATING_PICKER]',
             prompt:
-              '**Tempo de espera:** quanto tempo você precisou esperar para ser atendido? Dê uma nota de **1 a 5** (1 = espera longa/ruim, 5 = espera rápida/boa). Use as estrelas abaixo.',
+              '**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.',
           };
-        if (!('atendimento_score' in fields))
-          return {
-            field: 'dim_atendimento',
-            picker: '[RATING_PICKER]',
-            prompt:
-              '**Atendimento:** como você avalia a **qualidade do atendimento**? De **1 a 5** estrelas.',
-          };
-        if (!('infraestrutura_score' in fields))
-          return {
-            field: 'dim_infraestrutura',
-            picker: '[RATING_PICKER]',
-            prompt:
-              '**Infraestrutura:** como você avalia a **estrutura física** (instalações, equipamentos, conservação)? De **1 a 5** estrelas.',
-          };
-        if (!('limpeza_score' in fields))
-          return {
-            field: 'dim_limpeza',
-            picker: '[RATING_PICKER]',
-            prompt:
-              '**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.',
-          };
+        }
 
         // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
         if (!fields._rating_text_skipped) {
@@ -1691,6 +1678,30 @@ serve(async (req) => {
       const reply = `Claro! Seu relato já foi registrado. Para encaminhar a um vereador, seguem sugestões de parlamentares que podem ajudar com esse tipo de demanda:\n\n${councilResult}\n\nPosso ajudar com mais alguma coisa?`;
       const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
       console.log('[ai-orchestrator] Encaminhar relato para vereador: short-circuit suggest_council_member (evita criar novo relato)');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+    }
+
+    const lastBotWasRatingSuccess = /\[RATING_CREATED:/i.test(lastAssistantMessage);
+    const userWantsForwardRatingToCouncil =
+      /encaminhar\s+minha\s+avalia[cç][aã]o|avalia[cç][aã]o\s+.*vereador|encaminhar.*avalia[cç][aã]o.*vereador/i.test(
+        lastUserMessage.trim(),
+      );
+    if (lastBotWasRatingSuccess && userWantsForwardRatingToCouncil) {
+      const serviceMatch = lastAssistantMessage.match(/\*\*Servi[cç]o:\*\*\s*([^\n]+)/i);
+      const commentMatch =
+        lastAssistantMessage.match(/📝\s*\*\*Coment[aá]rio:\*\*\s*([^\n]+)/i) ||
+        lastAssistantMessage.match(/\*\*Coment[aá]rio:\*\*\s*([^\n]+)/i);
+      const description = [
+        'Manifestação do cidadão sobre avaliação de serviço público.',
+        serviceMatch ? `Equipamento: ${serviceMatch[1].trim()}` : '',
+        commentMatch ? `Trecho do comentário: ${commentMatch[1].trim().slice(0, 240)}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const councilResult = await lib.suggestCouncilMember('urbanismo', description || 'Avaliação de serviço público', undefined);
+      const reply = `Certo. Para encaminhar sua **avaliação** a um vereador, seguem sugestões de parlamentares:\n\n${councilResult}\n\nPosso ajudar com mais alguma coisa?`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+      console.log('[ai-orchestrator] Encaminhar avaliação para vereador: short-circuit suggest_council_member');
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
     }
 
@@ -2572,34 +2583,113 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
             }
           } else if (collectionIntent.type === 'service_rating') {
-            const toolArgs: Record<string, unknown> = {
-              service_type: accumulatedFields.service_type,
-              service_name: accumulatedFields.service_name,
-              service_neighborhood: accumulatedFields.service_neighborhood,
-              service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
-              rating_stars: accumulatedFields.rating_stars,
-              rating_dimensions: accumulatedFields.rating_dimensions,
-              rating_text: accumulatedFields.rating_text,
-              sentiment: accumulatedFields.sentiment || 'neutral'
-            };
-            if ('wait_time_score' in accumulatedFields)
-              toolArgs.wait_time_score = accumulatedFields.wait_time_score;
-            if ('tempo_espera_score' in accumulatedFields)
-              toolArgs.tempo_espera_score = accumulatedFields.tempo_espera_score;
-            if ('atendimento_score' in accumulatedFields)
-              toolArgs.atendimento_score = accumulatedFields.atendimento_score;
-            if ('infraestrutura_score' in accumulatedFields)
-              toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
-            if ('limpeza_score' in accumulatedFields)
-              toolArgs.limpeza_score = accumulatedFields.limpeza_score;
-            if (accumulatedFields.visit_id) {
-              toolArgs.visit_id = accumulatedFields.visit_id;
-              if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
-              if (accumulatedFields.service_name) toolArgs.service_name = accumulatedFields.service_name;
-            } else {
-              if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+            const askedRatingSubmitPreview =
+              /\[RATING_SUBMIT_PREVIEW\]/i.test(lastAssistantMessage) ||
+              /\[RATING_SUBMIT_PREVIEW_JSON:/i.test(lastAssistantMessage);
+            const userPublishes =
+              /^(publicar|confirmar|sim|ok|enviar)$/i.test(msgLower) ||
+              /^confirmar\s+e\s+publicar$/i.test(msgLower);
+            const userWantsEditComment = /^(editar|editar_comentario|corrigir)$/i.test(msgLower);
+
+            const ratingTextStr =
+              typeof accumulatedFields.rating_text === 'string' ? accumulatedFields.rating_text.trim() : '';
+            const ratingTextReady = ratingTextStr.length >= 5;
+            const lastAskedRatingTextOnly =
+              /\[FIELD_REQUEST:rating_text\]/i.test(lastAssistantMessage) && !askedRatingSubmitPreview;
+
+            if (askedRatingSubmitPreview && userWantsEditComment) {
+              const fieldsJson = JSON.stringify(accumulatedFields);
+              const content =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `[FIELD_REQUEST:rating_text]**Altere seu comentário** (mín. 5 caracteres). Envie o novo texto abaixo.`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+              console.log('[ai-orchestrator] Service rating: edit comment after preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
             }
-            toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
+
+            if (askedRatingSubmitPreview && !userPublishes && !userWantsEditComment) {
+              const remind =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
+                `[RATING_SUBMIT_PREVIEW]` +
+                `Para **publicar** a avaliação, toque em **Publicar** ou responda \`publicar\`. Para ajustar o comentário, use **Editar** ou responda \`editar\`.\n\n[QUICK_REPLY:publicar,editar_comentario]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: remind } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (!askedRatingSubmitPreview && lastAskedRatingTextOnly && ratingTextReady) {
+              const rd =
+                accumulatedFields.rating_dimensions &&
+                lib.isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
+                  ? (accumulatedFields.rating_dimensions as Record<string, number>)
+                  : null;
+              let stars = typeof accumulatedFields.rating_stars === 'number' ? accumulatedFields.rating_stars : 0;
+              if (rd && (!stars || stars < 1 || stars > 5)) {
+                stars = lib.aggregateRatingDimensionsStars(rd);
+              }
+              const sn = String(accumulatedFields.service_name || '').trim();
+              const dimLine = rd
+                ? `\n• **Dimensões:** Tempo ${rd.tempo_espera}/5 · Atendimento ${rd.atendimento}/5 · Infra ${rd.infraestrutura}/5 · Limpeza ${rd.limpeza}/5`
+                : '';
+              const commentShow = ratingTextStr.length > 400 ? `${ratingTextStr.slice(0, 400)}…` : ratingTextStr;
+              const jsonMarker = serviceRatingSubmitPreviewJsonMarker({
+                rating_stars: stars,
+                rating_dimensions: rd,
+                service_name: sn,
+                comment_preview: ratingTextStr.slice(0, 500),
+              });
+              const preview =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
+                `[RATING_SUBMIT_PREVIEW]**Resumo da avaliação**\n\n` +
+                `🏥 **Serviço:** ${sn || '—'}\n⭐ **Nota geral (média):** ${stars}/5${dimLine}\n\n📝 **Comentário:**\n${commentShow}\n\n` +
+                `Confirme para **publicar** no sistema ou edite o comentário antes.` +
+                jsonMarker +
+                `\n\n[QUICK_REPLY:publicar,editar_comentario]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Service rating: submit preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (askedRatingSubmitPreview && userPublishes) {
+              const toolArgs: Record<string, unknown> = {
+                service_type: accumulatedFields.service_type,
+                service_name: accumulatedFields.service_name,
+                service_neighborhood: accumulatedFields.service_neighborhood,
+                service_address_confirmed:
+                  accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
+                rating_stars: accumulatedFields.rating_stars,
+                rating_dimensions: accumulatedFields.rating_dimensions,
+                rating_text: accumulatedFields.rating_text,
+                sentiment: accumulatedFields.sentiment || 'neutral',
+              };
+              if ('wait_time_score' in accumulatedFields) toolArgs.wait_time_score = accumulatedFields.wait_time_score;
+              if ('tempo_espera_score' in accumulatedFields) {
+                toolArgs.tempo_espera_score = accumulatedFields.tempo_espera_score;
+              }
+              if ('atendimento_score' in accumulatedFields) {
+                toolArgs.atendimento_score = accumulatedFields.atendimento_score;
+              }
+              if ('infraestrutura_score' in accumulatedFields) {
+                toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
+              }
+              if ('limpeza_score' in accumulatedFields) toolArgs.limpeza_score = accumulatedFields.limpeza_score;
+              if (accumulatedFields.visit_id) {
+                toolArgs.visit_id = accumulatedFields.visit_id;
+                if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+                if (accumulatedFields.service_name) toolArgs.service_name = accumulatedFields.service_name;
+              } else {
+                if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+              }
+              toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
+            }
           }
           
           if (toolResult && toolResult.success) {
