@@ -80,6 +80,7 @@ const AgentChatArea = () => {
     handleServiceTypeSelected,
     handleServiceSelected,
     handleApplyNearbyFilters,
+    patchMessageContent,
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
@@ -446,6 +447,7 @@ const AgentChatArea = () => {
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                         onApplyNearbyFilters={handleApplyNearbyFilters}
                         onSendMessage={handleSendMessage}
+                        patchMessageContent={patchMessageContent}
                         disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
                       />
                     </motion.div>

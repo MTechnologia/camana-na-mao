@@ -163,16 +163,21 @@ export function buildServiceRatingDimensionsFromWizardScores(
   const att = get("atendimento_score");
   const inf = get("infraestrutura_score");
   const limRaw = get("limpeza_score");
+  const tempoDim = get("tempo_espera_score");
   const wt = get("wait_time_score");
 
   if (typeof att !== "number" || typeof inf !== "number") return null;
   if (!Number.isInteger(att) || att < 1 || att > 5) return null;
   if (!Number.isInteger(inf) || inf < 1 || inf > 5) return null;
 
-  const lim = typeof limRaw === "number" && Number.isInteger(limRaw) && limRaw >= 1 && limRaw <= 5 ? limRaw : inf;
+  const lim =
+    typeof limRaw === "number" && Number.isInteger(limRaw) && limRaw >= 1 && limRaw <= 5 ? limRaw : null;
+  if (lim === null) return null;
 
   let tempo: number;
-  if (wt === null) {
+  if (typeof tempoDim === "number" && Number.isInteger(tempoDim) && tempoDim >= 1 && tempoDim <= 5) {
+    tempo = tempoDim;
+  } else if (wt === null) {
     tempo = 3;
   } else if (typeof wt === "number" && Number.isInteger(wt) && wt >= 2 && wt <= 5) {
     tempo = wt;
@@ -4060,18 +4065,15 @@ export function accumulateFieldsFromHistory(
           const fieldKey = `${dimKey}_score`;
           accumulated[fieldKey] = dimScore;
           console.log(`[accumulateFields] Parsed ${fieldKey} from DIM_RATING marker:`, dimScore);
-
-          // === RN-IA-003: Replicar infraestrutura para limpeza ===
-          if (dimKey === 'infraestrutura') {
-            accumulated['limpeza_score'] = dimScore;
-            console.log('[accumulateFields] Replicating infraestrutura_score to limpeza_score');
+          if (dimKey === 'tempo_espera') {
+            accumulated.wait_time_score = Math.min(5, Math.max(2, dimScore));
           }
         }
       }
 
       // Parse "Nota: X estrelas" ou [RATING_SELECTED:N] (picker de avaliação geral)
       const ratingSelectedTag = content.match(/\[RATING_SELECTED:([1-5])\]/);
-      if (ratingSelectedTag && !accumulated.rating_stars) {
+      if (ratingSelectedTag && !accumulated.rating_stars && !/\[DIM_RATING:/i.test(content)) {
         accumulated.rating_stars = parseInt(ratingSelectedTag[1], 10);
         console.log('[accumulateFields] Parsed rating_stars from RATING_SELECTED marker');
       }
@@ -4205,9 +4207,49 @@ export function accumulateFieldsFromHistory(
                 const dScore = parseInt(dm[1], 10);
                 if (dScore >= 1 && dScore <= 5) {
                   accumulated.infraestrutura_score = dScore;
-                  accumulated.limpeza_score = dScore;
                   console.log('[accumulateFields] FIELD_REQUEST infraestrutura → infraestrutura_score:', dScore);
                 }
+              }
+              break;
+            }
+            case 'dim_tempo_espera': {
+              const rs = answer.match(/\[RATING_SELECTED:([1-5])\]/);
+              const dm = answer.match(/\[DIM_RATING:tempo_espera:([1-5])\]/i);
+              const n = rs ? parseInt(rs[1], 10) : dm ? parseInt(dm[1], 10) : NaN;
+              if (!Number.isNaN(n) && n >= 1 && n <= 5) {
+                accumulated.tempo_espera_score = n;
+                accumulated.wait_time_score = Math.min(5, Math.max(2, n));
+                console.log('[accumulateFields] FIELD_REQUEST dim_tempo_espera → tempo_espera_score:', n);
+              }
+              break;
+            }
+            case 'dim_atendimento': {
+              const rs = answer.match(/\[RATING_SELECTED:([1-5])\]/);
+              const dm = answer.match(/\[DIM_RATING:atendimento:([1-5])\]/i);
+              const n = rs ? parseInt(rs[1], 10) : dm ? parseInt(dm[1], 10) : NaN;
+              if (!Number.isNaN(n) && n >= 1 && n <= 5) {
+                accumulated.atendimento_score = n;
+                console.log('[accumulateFields] FIELD_REQUEST dim_atendimento → atendimento_score:', n);
+              }
+              break;
+            }
+            case 'dim_infraestrutura': {
+              const rs = answer.match(/\[RATING_SELECTED:([1-5])\]/);
+              const dm = answer.match(/\[DIM_RATING:infraestrutura:([1-5])\]/i);
+              const n = rs ? parseInt(rs[1], 10) : dm ? parseInt(dm[1], 10) : NaN;
+              if (!Number.isNaN(n) && n >= 1 && n <= 5) {
+                accumulated.infraestrutura_score = n;
+                console.log('[accumulateFields] FIELD_REQUEST dim_infraestrutura → infraestrutura_score:', n);
+              }
+              break;
+            }
+            case 'dim_limpeza': {
+              const rs = answer.match(/\[RATING_SELECTED:([1-5])\]/);
+              const dm = answer.match(/\[DIM_RATING:limpeza:([1-5])\]/i);
+              const n = rs ? parseInt(rs[1], 10) : dm ? parseInt(dm[1], 10) : NaN;
+              if (!Number.isNaN(n) && n >= 1 && n <= 5) {
+                accumulated.limpeza_score = n;
+                console.log('[accumulateFields] FIELD_REQUEST dim_limpeza → limpeza_score:', n);
               }
               break;
             }
@@ -8514,7 +8556,7 @@ export async function executeTool(
           return {
             success: false,
             message:
-              '[FIELD_REQUEST:rating_stars]**Avaliação geral:** de **1 a 5** (1 = muito ruim, 5 = excelente). [RATING_PICKER]',
+              '[FIELD_REQUEST:dim_tempo_espera]**Tempo de espera:** avalie de **1 a 5** antes de concluir. [RATING_PICKER]',
           };
         }
         const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
