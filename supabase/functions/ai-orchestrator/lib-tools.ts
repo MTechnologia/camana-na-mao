@@ -198,6 +198,20 @@ export const tools = [
             description: "UUID da linha em transport_lines quando o usuário selecionou na lista ([LINE_SELECTED]). Opcional; se ausente, resolve-se por line_code.",
           },
           location: { type: "string", description: "Ponto, estação ou trecho" },
+          stop_name: {
+            type: "string",
+            description: "HU-6.4: nome do ponto, terminal ou estação (opcional, até ~200 caracteres).",
+          },
+          stop_location: {
+            type: "string",
+            description:
+              "HU-6.4: referência textual do local ou coordenadas lat,lng. Se GPS estiver fora de São Paulo, o registro é bloqueado.",
+          },
+          accessibility_details: {
+            type: "object",
+            description:
+              "HU-6.5: objeto JSON com detalhes de acessibilidade (ex.: rampa_livre: true, elevador: false). Opcional.",
+          },
           severity: {
             type: "string",
             enum: ["baixa", "media", "alta", "critica"],

@@ -87,6 +87,14 @@ export function TransportReportPreviewInChat({ preview }: Props) {
         )}
         {row("Impacto na rotina", impactLabel(preview.personal_impact))}
         {preview.location ? row("Local", preview.location) : null}
+        {preview.stop_name ? row("Parada / estação", preview.stop_name) : null}
+        {preview.stop_location ? row("Ponto / referência", preview.stop_location) : null}
+        {preview.accessibility_details && Object.keys(preview.accessibility_details).length > 0
+          ? (() => {
+              const s = JSON.stringify(preview.accessibility_details);
+              return row("Acessibilidade (detalhes)", s.length > 240 ? `${s.slice(0, 240)}…` : s);
+            })()
+          : null}
       </CardContent>
     </Card>
   );

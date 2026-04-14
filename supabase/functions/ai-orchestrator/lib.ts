@@ -1385,6 +1385,70 @@ export function isCitySaoPaulo(city: string | undefined | null): boolean {
   return normalized === 'sao paulo' || normalized === 'são paulo';
 }
 
+/**
+ * HU-6.6: bbox aproximado do município de SP (alinhado a `src/lib/reportsHeatmapData.ts` / heatmap admin).
+ * Manter os mesmos limites nos dois lados ao alterar a área atendida.
+ */
+export const SAO_PAULO_TRANSPORT_MAP_BOUNDS = {
+  minLat: -23.9,
+  maxLat: -23.3,
+  minLng: -46.85,
+  maxLng: -46.36,
+} as const;
+
+export function isPointInSaoPauloBounds(lat: number, lng: number): boolean {
+  return (
+    lat >= SAO_PAULO_TRANSPORT_MAP_BOUNDS.minLat &&
+    lat <= SAO_PAULO_TRANSPORT_MAP_BOUNDS.maxLat &&
+    lng >= SAO_PAULO_TRANSPORT_MAP_BOUNDS.minLng &&
+    lng <= SAO_PAULO_TRANSPORT_MAP_BOUNDS.maxLng
+  );
+}
+
+/** Coordenadas explícitas no fluxo de transporte (GPS ou par lat,lng em stop_location). */
+export function getTransportReportLatLonForBounds(
+  args: Record<string, unknown>,
+  accumulated: Record<string, unknown> | null | undefined,
+): { lat: number; lon: number } | null {
+  const tryPair = (la: unknown, lo: unknown): { lat: number; lon: number } | null => {
+    const lat = typeof la === 'number' ? la : parseFloat(String(la ?? '').trim());
+    const lon = typeof lo === 'number' ? lo : parseFloat(String(lo ?? '').trim());
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  };
+  const acc = accumulated ?? undefined;
+  const fromGps = tryPair(
+    args.user_lat ?? acc?.user_lat,
+    args.user_lon ?? acc?.user_lon,
+  );
+  if (fromGps) return fromGps;
+  const sl = String(args.stop_location ?? acc?.stop_location ?? '').trim();
+  const coordOnly = sl.match(/^(-?\d+\.?\d*)\s*[,;]\s*(-?\d+\.?\d*)$/);
+  if (coordOnly) return tryPair(coordOnly[1], coordOnly[2]);
+  return null;
+}
+
+/** HU-6.5: aceita só objeto JSON “chato” (boolean, number, string curta). */
+export function normalizeTransportAccessibilityDetails(raw: unknown): Record<string, unknown> | null {
+  if (raw == null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    const key = String(k).trim().slice(0, 80);
+    if (!key) continue;
+    if (typeof v === 'boolean' || typeof v === 'number') {
+      if (typeof v === 'number' && !Number.isFinite(v)) continue;
+      out[key] = v;
+    } else if (typeof v === 'string') {
+      const s = v.trim().slice(0, 500);
+      if (s) out[key] = s;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
 export const MESSAGE_OUTSIDE_SAO_PAULO = (
   cityName?: string
@@ -3252,6 +3316,18 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       if (normalized) result.recurrence_frequency = normalized;
       break;
     }
+
+    case 'stop_name': {
+      const t = response.trim();
+      if (t.length >= 2 && t.length <= 200) result.stop_name = t;
+      break;
+    }
+
+    case 'stop_location': {
+      const t = response.trim();
+      if (t.length >= 2 && t.length <= 500) result.stop_location = t;
+      break;
+    }
       
     case 'active_consequences': {
       // Parse active consequences
@@ -4693,6 +4769,27 @@ export function accumulateFieldsFromHistory(
       if (recurrenceMatch && !accumulated.recurrence_frequency) {
         const normalized = normalizeTransportRecurrenceFrequency(recurrenceMatch[1]);
         if (normalized) accumulated.recurrence_frequency = normalized;
+      }
+    }
+
+    // HU-6.6: GPS no fluxo de transporte (mesmo padrão do relato urbano / serviços)
+    for (const msg of messages) {
+      if (msg.role !== 'user') continue;
+      const c = getMsgText(msg);
+      const cLower = c.toLowerCase();
+      const gpsM =
+        c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps')
+          ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/)
+          : null);
+      if (gpsM && accumulated.user_lat == null) {
+        const la = parseFloat(gpsM[1].trim());
+        const lo = parseFloat(gpsM[2].trim());
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          accumulated.user_lat = la;
+          accumulated.user_lon = lo;
+          if (!accumulated.location_method) accumulated.location_method = 'gps';
+        }
       }
     }
 
@@ -8218,6 +8315,7 @@ export async function executeTool(
       }
       
       case 'create_transport_report': {
+        const argsRec = args as Record<string, unknown>;
         // Merge accumulated fields into args (especially date_confirmed from picker/natural language)
         if (accumulatedFields?.date_confirmed && !args.date_confirmed) {
           args.date_confirmed = true;
@@ -8237,6 +8335,15 @@ export async function executeTool(
         }
         if (accumulatedFields?.impact_description && !args.impact_description) {
           args.impact_description = accumulatedFields.impact_description;
+        }
+        if (accumulatedFields?.stop_name != null && !args.stop_name) {
+          args.stop_name = accumulatedFields.stop_name as string;
+        }
+        if (accumulatedFields?.stop_location != null && args.stop_location == null) {
+          args.stop_location = accumulatedFields.stop_location as string;
+        }
+        if (accumulatedFields?.accessibility_details != null && args.accessibility_details == null) {
+          args.accessibility_details = accumulatedFields.accessibility_details;
         }
         const accDescRaw =
           typeof accumulatedFields?.description === 'string' ? String(accumulatedFields.description).trim() : '';
@@ -8505,6 +8612,24 @@ export async function executeTool(
           ? args.photos.slice(0, 3)
           : null;
 
+        const coordsForSp = getTransportReportLatLonForBounds(argsRec, accumulatedFields ?? undefined);
+        if (coordsForSp && !isPointInSaoPauloBounds(coordsForSp.lat, coordsForSp.lon)) {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:stop_location]As coordenadas informadas estão **fora do município de São Paulo**. Este canal atende ocorrências na capital; ajuste o GPS ou informe um ponto dentro da cidade.',
+          };
+        }
+
+        const rawStopName = String(argsRec.stop_name ?? '').trim();
+        const stopNameInsert = rawStopName.length >= 2 ? rawStopName.slice(0, 200) : null;
+        const rawStopLoc = String(argsRec.stop_location ?? '').trim();
+        const stopLocationInsert = rawStopLoc.length >= 2 ? rawStopLoc.slice(0, 500) : null;
+        const accessibilityInsert =
+          normalizeTransportAccessibilityDetails(
+            argsRec.accessibility_details ?? accumulatedFields?.accessibility_details,
+          ) ?? {};
+
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
@@ -8520,6 +8645,9 @@ export async function executeTool(
             line_code_custom: args.line_code || null,
             sub_category: validSubCategory,
             location: args.location || null,
+            stop_name: stopNameInsert,
+            stop_location: stopLocationInsert,
+            accessibility_details: accessibilityInsert,
             severity: inferredSeverity,
             personal_impact: personalImpactScore,
             impact_description: args.impact_description || null,
