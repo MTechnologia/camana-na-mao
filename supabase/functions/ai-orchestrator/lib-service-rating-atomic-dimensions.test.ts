@@ -1,7 +1,7 @@
 /// <reference path="./deno-runtime-shim.d.ts" />
 /**
- * OS-06 / RN-IA-003: evidência de perguntas atômicas por dimensão, padrão [FIELD_REQUEST:dim_*] + [RATING_PICKER],
- * fluxo explícito de dim_limpeza e acúmulo para rating_dimensions / média.
+ * OS-06 / RN-IA-003: fluxo único [FIELD_REQUEST:rating_dimensions] + [MULTI_DIMENSION_RATING_PICKER],
+ * acúmulo a partir de [RATING_DIMENSIONS:{...}] e paridade com scores.
  *
  * Executar: npx deno test --no-check --allow-env supabase/functions/ai-orchestrator/lib-service-rating-atomic-dimensions.test.ts
  */
@@ -15,20 +15,9 @@ import {
   accumulateFieldsFromHistory,
   aggregateRatingDimensionsStars,
   buildServiceRatingDimensionsFromWizardScores,
+  shouldOfferServiceRatingReferral,
 } from "./lib.ts";
 
-/**
- * Espelha **exatamente** a concatenação do short-circuit em `index.ts` (trecho de produção):
- * linhas 3076–3081 — `deterministicResponse` para jornadas estruturadas (`urban_report`, `transport_report`, `service_rating`).
- *
- * ```ts
- * const fieldsJson = JSON.stringify(accumulatedFields);
- * const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
- * const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
- * const pickerMarker = nextFieldInfo.picker || '';
- * const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
- * ```
- */
 function buildDeterministicResponseLikeIndex(
   collectionType: string,
   accumulatedFields: Record<string, unknown>,
@@ -44,7 +33,6 @@ function buildDeterministicResponseLikeIndex(
   return `${progressMarker}${fieldMarker}${prefix}${prompt}${pickerMarker ? "\n\n" + pickerMarker : ""}`;
 }
 
-/** Alias legado — mesmo resultado que `buildDeterministicResponseLikeIndex` com `prefix` vazio e tipo `service_rating`. */
 function formatServiceRatingDeterministicAsk(
   accumulatedFields: Record<string, unknown>,
   field: string,
@@ -61,78 +49,107 @@ function formatServiceRatingDeterministicAsk(
   );
 }
 
-Deno.test("OS-06: literal — [FIELD_REQUEST:dim_limpeza] antes de [RATING_PICKER] (short-circuit)", () => {
+Deno.test("OS-06: literal — [FIELD_REQUEST:rating_dimensions] antes de [MULTI_DIMENSION_RATING_PICKER]", () => {
   const out = formatServiceRatingDeterministicAsk(
     { visit_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
-    "dim_limpeza",
-    "**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.",
-    "[RATING_PICKER]",
+    "rating_dimensions",
+    "**Avalie em quatro aspectos** (1 a 5 estrelas cada).",
+    "[MULTI_DIMENSION_RATING_PICKER]",
   );
-  assertStringIncludes(out, "[FIELD_REQUEST:dim_limpeza]");
-  assertStringIncludes(out, "[RATING_PICKER]");
-  assertEquals(out.indexOf("[FIELD_REQUEST:dim_limpeza]") < out.indexOf("[RATING_PICKER]"), true);
+  assertStringIncludes(out, "[FIELD_REQUEST:rating_dimensions]");
+  assertStringIncludes(out, "[MULTI_DIMENSION_RATING_PICKER]");
+  assertEquals(
+    out.indexOf("[FIELD_REQUEST:rating_dimensions]") < out.indexOf("[MULTI_DIMENSION_RATING_PICKER]"),
+    true,
+  );
 });
 
-/** Estado acumulado típico imediatamente antes de perguntar só limpeza (após infraestrutura respondida). */
-Deno.test("OS-06: prova inequívoca — fórmula index.ts (3076–3081) para dim_limpeza após dim_infraestrutura", () => {
+Deno.test("OS-06: prova inequívoca — fórmula index.ts para rating_dimensions após endereço", () => {
   const accumulated = {
     visit_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    tempo_espera_score: 5,
-    atendimento_score: 5,
-    infraestrutura_score: 5,
+    service_type: "ubs",
+    service_name: "UBS X",
   };
-  const prompt =
-    "**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.";
+  const prompt = "**Avalie em quatro aspectos** (1 a 5 estrelas cada).";
   const out = buildDeterministicResponseLikeIndex(
     "service_rating",
     accumulated,
-    "dim_limpeza",
+    "rating_dimensions",
     "",
     prompt,
-    "[RATING_PICKER]",
+    "[MULTI_DIMENSION_RATING_PICKER]",
   );
   assertStringIncludes(out, "[COLLECTION_PROGRESS:service_rating:");
-  assertStringIncludes(out, "[FIELD_REQUEST:dim_limpeza]");
-  assertStringIncludes(out, "\n\n[RATING_PICKER]");
-  assertEquals(out.indexOf("[FIELD_REQUEST:dim_limpeza]") < out.indexOf("[RATING_PICKER]"), true);
-  assertEquals(/\[FIELD_REQUEST:dim_limpeza\]/.test(out), true);
-  assertEquals(/\n\n\[RATING_PICKER\]$/.test(out.trimEnd()), true);
+  assertStringIncludes(out, "[FIELD_REQUEST:rating_dimensions]");
+  assertStringIncludes(out, "\n\n[MULTI_DIMENSION_RATING_PICKER]");
+  assertEquals(/\n\n\[MULTI_DIMENSION_RATING_PICKER\]$/.test(out.trimEnd()), true);
 });
 
-Deno.test("OS-06: literal — cada dimensão usa o mesmo padrão FIELD_REQUEST + RATING_PICKER", () => {
-  const dims = ["dim_tempo_espera", "dim_atendimento", "dim_infraestrutura", "dim_limpeza"] as const;
-  for (const d of dims) {
-    const s = formatServiceRatingDeterministicAsk({}, d, "texto da pergunta", "[RATING_PICKER]");
-    assertStringIncludes(s, `[FIELD_REQUEST:${d}]`);
-    assertStringIncludes(s, "[RATING_PICKER]");
-    assertEquals(s.indexOf(`[FIELD_REQUEST:${d}]`) < s.indexOf("[RATING_PICKER]"), true);
-    assertEquals(/\n\n\[RATING_PICKER\]$/.test(s.trimEnd()), true);
-  }
+Deno.test("accumulateFieldsFromHistory: [RATING_DIMENSIONS:…] preenche os quatro *_score e wait_time_score", () => {
+  const json =
+    '{"atendimento":4,"limpeza":5,"infraestrutura":3,"tempo_espera":2}';
+  const messages = [
+    {
+      role: "user",
+      content: `Avaliação por dimensões [RATING_DIMENSIONS:${json}]`,
+    },
+  ];
+  const acc = accumulateFieldsFromHistory(messages, "service_rating");
+  assertEquals(acc.atendimento_score, 4);
+  assertEquals(acc.limpeza_score, 5);
+  assertEquals(acc.infraestrutura_score, 3);
+  assertEquals(acc.tempo_espera_score, 2);
+  assertEquals(acc.wait_time_score, 2);
+  assertExists(acc.rating_dimensions);
 });
 
-Deno.test("accumulateFieldsFromHistory: dim_limpeza acumula limpeza_score (happy path)", () => {
+Deno.test("accumulateFieldsFromHistory: FIELD_REQUEST rating_dimensions + marcador na resposta", () => {
+  const json =
+    '{"atendimento":5,"limpeza":5,"infraestrutura":5,"tempo_espera":1}';
   const messages = [
     {
       role: "assistant",
       content:
-        "[COLLECTION_PROGRESS:service_rating:{}][FIELD_REQUEST:dim_limpeza]**Limpeza:** nota?\n\n[RATING_PICKER]",
+        `[COLLECTION_PROGRESS:service_rating:{}][FIELD_REQUEST:rating_dimensions]Pergunta\n\n[MULTI_DIMENSION_RATING_PICKER]`,
     },
-    { role: "user", content: "Limpeza: 4 estrelas [DIM_RATING:limpeza:4]" },
+    {
+      role: "user",
+      content: `Notas [RATING_DIMENSIONS:${json}]`,
+    },
   ];
   const acc = accumulateFieldsFromHistory(messages, "service_rating");
-  assertEquals(acc.limpeza_score, 4);
+  assertEquals(acc.tempo_espera_score, 1);
+  assertEquals(acc.wait_time_score, 2);
+  assertEquals(aggregateRatingDimensionsStars(acc.rating_dimensions as Record<string, number>), 4);
 });
 
-Deno.test("accumulateFieldsFromHistory: dim_limpeza aceita [RATING_SELECTED:N]", () => {
+Deno.test("shouldOfferServiceRatingReferral: média 1 ou dimensão ≤2", () => {
+  assertEquals(shouldOfferServiceRatingReferral(1, { atendimento: 1, limpeza: 2, infraestrutura: 1, tempo_espera: 1 }), true);
+  assertEquals(shouldOfferServiceRatingReferral(3, { atendimento: 5, limpeza: 5, infraestrutura: 5, tempo_espera: 2 }), true);
+  assertEquals(shouldOfferServiceRatingReferral(4, { atendimento: 4, limpeza: 4, infraestrutura: 4, tempo_espera: 4 }), false);
+});
+
+/** Pré-resumo real: JSON aninhado em COLLECTION_PROGRESS + substring enganosa no JSON. */
+Deno.test("accumulateFieldsFromHistory: após preview, publicar não apaga rating_text nem cai em rating_text falso", () => {
+  const progressPayload = {
+    visit_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    service_type: "ubs",
+    service_name: "Ubs Butantã",
+    rating_dimensions: { atendimento: 1, limpeza: 2, infraestrutura: 1, tempo_espera: 2 },
+    rating_text: "Apenas teste para a task 1.3",
+    description: 'Echo [FIELD_REQUEST:rating_text] dentro do JSON',
+  };
+  const previewAssistant =
+    `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(progressPayload)}]` +
+    `[RATING_SUBMIT_PREVIEW]**Resumo**\n\nConfirme.\n\n[QUICK_REPLY:publicar,editar_comentario]`;
   const messages = [
-    {
-      role: "assistant",
-      content: "[COLLECTION_PROGRESS:service_rating:{}][FIELD_REQUEST:dim_limpeza]Pergunta\n\n[RATING_PICKER]",
-    },
-    { role: "user", content: "Nota: 5 estrelas [RATING_SELECTED:5]" },
+    { role: "assistant", content: "[FIELD_REQUEST:rating_text]Comentário?" },
+    { role: "user", content: "Apenas teste para a task 1.3" },
+    { role: "assistant", content: previewAssistant },
+    { role: "user", content: "publicar" },
   ];
   const acc = accumulateFieldsFromHistory(messages, "service_rating");
-  assertEquals(acc.limpeza_score, 5);
+  assertEquals(acc.rating_text, "Apenas teste para a task 1.3");
 });
 
 Deno.test("buildServiceRatingDimensionsFromWizardScores: média com limpeza explícita (edge: tempo 1 → wait_time DB 2)", () => {

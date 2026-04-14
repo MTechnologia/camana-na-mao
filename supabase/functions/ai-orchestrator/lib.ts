@@ -145,6 +145,34 @@ export function aggregateRatingDimensionsStars(dim: Record<string, number>): num
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 
+/** Sincroniza `rating_dimensions` com os `*_score` usados por `getNextMissingField` e pela tool. */
+export function applyCompleteRatingDimensionsToAccumulated(
+  accumulated: Record<string, unknown>,
+  rd: Record<string, number>,
+): void {
+  accumulated.rating_dimensions = rd;
+  accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+  accumulated.tempo_espera_score = rd.tempo_espera;
+  accumulated.atendimento_score = rd.atendimento;
+  accumulated.infraestrutura_score = rd.infraestrutura;
+  accumulated.limpeza_score = rd.limpeza;
+  accumulated.wait_time_score = Math.min(5, Math.max(2, rd.tempo_espera));
+}
+
+/** HU-1.3: nota geral ≤ 2 **ou** alguma dimensão ≤ 2 (média alta mas problema pontual). */
+export function shouldOfferServiceRatingReferral(
+  stars: number,
+  dims: Record<string, number> | null | undefined,
+): boolean {
+  if (Number.isInteger(stars) && stars >= 1 && stars <= 2) return true;
+  if (!dims || typeof dims !== 'object') return false;
+  for (const k of SERVICE_RATING_DIMENSION_KEYS) {
+    const n = Number((dims as Record<string, number>)[k]);
+    if (Number.isInteger(n) && n >= 1 && n <= 2) return true;
+  }
+  return false;
+}
+
 /**
  * Monta JSON de dimensões (1–5) a partir do fluxo conversacional com nota geral + WAIT_TIME + DIM_RATING.
  * `wait_time_score === null` (Não se aplica) → tempo_espera = 3 (neutro) para manter JSON completo.
@@ -2865,8 +2893,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     case 'rating_dimensions': {
       const fromMark = parseRatingDimensionsMarker(response);
       if (fromMark) {
-        result.rating_dimensions = fromMark;
-        result.rating_stars = aggregateRatingDimensionsStars(fromMark);
+        applyCompleteRatingDimensionsToAccumulated(result, fromMark);
       }
       break;
     }
@@ -3280,6 +3307,61 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
   return result;
 }
 
+const COLLECTION_PROGRESS_PREFIX = '[COLLECTION_PROGRESS:';
+
+/**
+ * Remove blocos `[COLLECTION_PROGRESS:tipo:{...}]` usando balanceamento simples de `{}`.
+ * Assim `[FIELD_REQUEST:x]` que apareça só dentro do JSON serializado não vira último pedido.
+ */
+function stripCollectionProgressMarkersFromAssistantText(text: string): string {
+  const spans: Array<{ start: number; endExclusive: number }> = [];
+  let pos = 0;
+  while (pos < text.length) {
+    const idx = text.indexOf(COLLECTION_PROGRESS_PREFIX, pos);
+    if (idx === -1) break;
+    const afterPrefix = idx + COLLECTION_PROGRESS_PREFIX.length;
+    const colonAfterType = text.indexOf(':', afterPrefix);
+    if (colonAfterType === -1) break;
+    const jsonStart = text.indexOf('{', colonAfterType);
+    if (jsonStart === -1) {
+      pos = colonAfterType + 1;
+      continue;
+    }
+    let depth = 0;
+    let j = jsonStart;
+    for (; j < text.length; j++) {
+      const ch = text[j];
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          j++;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) {
+      pos = idx + 1;
+      continue;
+    }
+    if (text[j] === ']') {
+      spans.push({ start: idx, endExclusive: j + 1 });
+      pos = j + 1;
+    } else {
+      pos = j;
+    }
+  }
+  if (!spans.length) return text;
+  let out = '';
+  let last = 0;
+  for (const s of spans) {
+    out += text.slice(last, s.start);
+    last = s.endExclusive;
+  }
+  out += text.slice(last);
+  return out;
+}
+
 // Accumulate fields from all messages in conversation for better tracking
 export function accumulateFieldsFromHistory(
   messages: Array<{ role: string; content: string }>,
@@ -3471,9 +3553,10 @@ export function accumulateFieldsFromHistory(
     return '';
   };
 
-  /** Último [FIELD_REQUEST:x] na mensagem. JSON em COLLECTION_PROGRESS pode incluir essa substring no texto do cidadão. */
+  /** Último [FIELD_REQUEST:x] fora de COLLECTION_PROGRESS (JSON pode repetir essa substring). */
   const getLastFieldRequestType = (text: string): string | null => {
-    const matches = [...text.matchAll(/\[FIELD_REQUEST:(\w+)\]/g)];
+    const stripped = stripCollectionProgressMarkersFromAssistantText(text);
+    const matches = [...stripped.matchAll(/\[FIELD_REQUEST:(\w+)\]/g)];
     return matches.length ? (matches[matches.length - 1][1] ?? null) : null;
   };
   
@@ -3481,13 +3564,45 @@ export function accumulateFieldsFromHistory(
   for (const msg of messages) {
     if (msg.role !== 'assistant') continue;
     const aText = getMsgText(msg);
-    if (!aText.includes('[COLLECTION_PROGRESS:')) continue;
-    const match = aText.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
-    if (match) {
-      try {
-        const fields = JSON.parse(match[1]);
-        Object.assign(accumulated, fields);
-      } catch { /* ignore parse errors */ }
+    if (!aText.includes(COLLECTION_PROGRESS_PREFIX)) continue;
+    let searchFrom = 0;
+    while (searchFrom < aText.length) {
+      const start = aText.indexOf(COLLECTION_PROGRESS_PREFIX, searchFrom);
+      if (start === -1) break;
+      const afterPrefix = start + COLLECTION_PROGRESS_PREFIX.length;
+      const colonAfterType = aText.indexOf(':', afterPrefix);
+      if (colonAfterType === -1) break;
+      const jsonStart = aText.indexOf('{', colonAfterType);
+      if (jsonStart === -1) {
+        searchFrom = colonAfterType + 1;
+        continue;
+      }
+      let depth = 0;
+      let j = jsonStart;
+      for (; j < aText.length; j++) {
+        const ch = aText[j];
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            j++;
+            break;
+          }
+        }
+      }
+      if (depth !== 0) {
+        searchFrom = jsonStart + 1;
+        continue;
+      }
+      if (aText[j] === ']') {
+        try {
+          const fields = JSON.parse(aText.slice(jsonStart, j));
+          Object.assign(accumulated, fields);
+        } catch { /* ignore parse errors */ }
+        searchFrom = j + 1;
+      } else {
+        searchFrom = j;
+      }
     }
   }
   
@@ -4041,8 +4156,7 @@ export function accumulateFieldsFromHistory(
       
       const rdParsed = parseRatingDimensionsMarker(content);
       if (rdParsed) {
-        accumulated.rating_dimensions = rdParsed;
-        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
+        applyCompleteRatingDimensionsToAccumulated(accumulated, rdParsed);
         console.log('[accumulateFields] Parsed rating_dimensions from marker');
       }
 
@@ -4160,16 +4274,14 @@ export function accumulateFieldsFromHistory(
             case 'rating_dimensions': {
               const rd = parseRatingDimensionsMarker(answer);
               if (rd) {
-                accumulated.rating_dimensions = rd;
-                accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+                applyCompleteRatingDimensionsToAccumulated(accumulated, rd);
               }
               break;
             }
             case 'rating_stars': {
               const rdAns = parseRatingDimensionsMarker(answer);
               if (rdAns) {
-                accumulated.rating_dimensions = rdAns;
-                accumulated.rating_stars = aggregateRatingDimensionsStars(rdAns);
+                applyCompleteRatingDimensionsToAccumulated(accumulated, rdAns);
               } else {
                 const starsMatch = answer.match(/(\d)/);
                 if (starsMatch) {
@@ -4254,6 +4366,11 @@ export function accumulateFieldsFromHistory(
               break;
             }
             case 'rating_text': {
+              // Pré-visualização com Publicar/Editar: "publicar" não é novo comentário
+              if (/\[RATING_SUBMIT_PREVIEW\]/i.test(prevAssistantTextSvc)) {
+                console.log('[accumulateFields] rating_text: ignorando resposta pós-preview (publicar/editar)');
+                break;
+              }
               const lowerAns = answer.toLowerCase().trim();
               if (/^(pular|n[aã]o|pr[oó]ximo|nenhuma|nada)$/i.test(lowerAns)) {
                 accumulated.rating_text = null;
@@ -8556,7 +8673,7 @@ export async function executeTool(
           return {
             success: false,
             message:
-              '[FIELD_REQUEST:dim_tempo_espera]**Tempo de espera:** avalie de **1 a 5** antes de concluir. [RATING_PICKER]',
+              '[FIELD_REQUEST:rating_dimensions]**Avalie o serviço** nas quatro dimensões (1 a 5) antes de concluir.\n\n[MULTI_DIMENSION_RATING_PICKER]',
           };
         }
         const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
@@ -8899,9 +9016,13 @@ export async function executeTool(
           ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
           : '';
 
+        const offerReferral = shouldOfferServiceRatingReferral(stars, ratingDimensionsJson)
+          ? '\n\n[OFFER_REFERRAL]Se quiser, posso orientá-lo a **encaminhar esta avaliação** a um vereador (manifestação sobre o serviço).'
+          : '';
+
         return {
           success: true,
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.${offerReferral}\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }

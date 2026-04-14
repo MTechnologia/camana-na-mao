@@ -316,7 +316,7 @@ TRANSPORTE:
 - "[FIELD_REQUEST:occurrence_date]Que dia foi?[DATE_PICKER]"
 
 AVALIAÇÃO:
-RN-IA-003 (avaliação de serviço): NUNCA peça duas dimensões na mesma mensagem. O motor determinístico envia **uma** dimensão por vez: [FIELD_REQUEST:dim_tempo_espera], [FIELD_REQUEST:dim_atendimento], [FIELD_REQUEST:dim_infraestrutura], [FIELD_REQUEST:dim_limpeza] — cada uma seguida de [RATING_PICKER] na mesma resposta (pergunta atômica). Não agrupe tempo + atendimento + infra + limpeza numa única mensagem.
+RN-IA-003 (avaliação de serviço): o motor determinístico pede as **quatro dimensões num único passo**: [FIELD_REQUEST:rating_dimensions] seguido de [MULTI_DIMENSION_RATING_PICKER] na mesma resposta (tempo de espera, atendimento, infraestrutura, limpeza — 1 a 5 cada). Não simule o fluxo antigo dim_* + [RATING_PICKER] por dimensão.
 
 1ª Tipo: Use variações:
 - "[FIELD_REQUEST:service_type]Qual tipo?[SERVICE_TYPE_PICKER]"
@@ -328,11 +328,8 @@ RN-IA-003 (avaliação de serviço): NUNCA peça duas dimensões na mesma mensag
 - "[FIELD_REQUEST:service_name]Qual serviço específico?[SERVICE_PICKER]"
 - "[FIELD_REQUEST:service_name]Me diz qual serviço?[SERVICE_PICKER]"
 
-3ª Dimensões (ordem do sistema; uma mensagem por dimensão; sempre [RATING_PICKER]):
-- "[FIELD_REQUEST:dim_tempo_espera]**Tempo de espera:** nota 1–5?[RATING_PICKER]"
-- "[FIELD_REQUEST:dim_atendimento]**Atendimento:** nota 1–5?[RATING_PICKER]"
-- "[FIELD_REQUEST:dim_infraestrutura]**Infraestrutura:** nota 1–5?[RATING_PICKER]"
-- "[FIELD_REQUEST:dim_limpeza]**Limpeza:** nota 1–5?[RATING_PICKER]"
+3ª Dimensões (um passo; sempre [MULTI_DIMENSION_RATING_PICKER]):
+- "[FIELD_REQUEST:rating_dimensions]**Avalie em quatro aspectos** (1 a 5 estrelas cada).[MULTI_DIMENSION_RATING_PICKER]"
 
 4ª Comentário: Use variações:
 - "[FIELD_REQUEST:rating_text]Como foi?"

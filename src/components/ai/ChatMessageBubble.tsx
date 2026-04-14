@@ -5,8 +5,13 @@ import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/
 import {
   parseTransportReportPreviewJson,
 } from "@/lib/parseTransportReportPreview";
+import {
+  parseServiceRatingSubmitPreviewJson,
+  stripRatingSubmitPreviewDuplicateMarkdown,
+} from "@/lib/parseServiceRatingSubmitPreview";
 import { UrbanReportPreviewInChat } from "./UrbanReportPreviewInChat";
 import { TransportReportPreviewInChat } from "./TransportReportPreviewInChat";
+import { RatingPreviewCard } from "./RatingPreviewCard";
 import { SimilarUrbanReportsInChat, parseSimilarUrbanReportsB64 } from "./SimilarUrbanReportsInChat";
 import {
   SimilarTransportReportsInChat,
@@ -706,8 +711,10 @@ const ChatMessageBubble = ({
     message.content.includes('o intuito deste canal é poder te ajudar com estes serviços')
   );
 
-  // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
-  const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
+  // Botão "Encaminhar para vereador" após relato ou oferta pós-avaliação com nota baixa
+  const hasEncaminharVereadorCta =
+    !isUser &&
+    (message.content.includes('[REPORT_CREATED:') || message.content.includes('[OFFER_REFERRAL]'));
 
   // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
   const quickReplyButtons = useMemo(() => {
@@ -756,6 +763,8 @@ const ChatMessageBubble = ({
       limpeza: 'Limpeza',
       conducao: 'Condução',
       outro: 'Outro',
+      publicar: 'Publicar',
+      editar_comentario: 'Editar',
     };
     return values.map((value) => ({
       value,
@@ -792,6 +801,22 @@ const ChatMessageBubble = ({
       /resumo do relato de transporte/i.test(message.content) &&
       /\[QUICK_REPLY:[^\]]*(?:registrar|confirmar|corrigir)/i.test(message.content),
   );
+
+  const ratingSubmitPreviewParsed = useMemo(
+    () => (!isUser ? parseServiceRatingSubmitPreviewJson(message.content) : null),
+    [isUser, message.content],
+  );
+  const showRatingSubmitPreviewCard = Boolean(
+    !isUser &&
+      ratingSubmitPreviewParsed &&
+      /\[RATING_SUBMIT_PREVIEW\]/i.test(message.content) &&
+      /\[QUICK_REPLY:[^\]]*publicar/i.test(message.content),
+  );
+  const markdownAfterRatingSubmitPreview = useMemo(() => {
+    if (!showRatingSubmitPreviewCard) return cleanContent;
+    return stripRatingSubmitPreviewDuplicateMarkdown(cleanContent);
+  }, [showRatingSubmitPreviewCard, cleanContent]);
+
   const markdownAfterTransportCard = useMemo(() => {
     if (!showTransportPreviewCard) return cleanContent;
     return cleanContent
@@ -808,6 +833,7 @@ const ChatMessageBubble = ({
     isLongContent &&
     !showUrbanPreviewCard &&
     !showTransportPreviewCard &&
+    !showRatingSubmitPreviewCard &&
     !isRegisteredReportSuccessMessage;
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
@@ -1059,6 +1085,63 @@ const ChatMessageBubble = ({
                     ? withStepLineBreaks(markdownAfterTransportCard)
                     : withStepLineBreaks(audienciaContentSplit.contentBefore)}
                 </ReactMarkdown>
+                </div>
+              </>
+              ) : showRatingSubmitPreviewCard && ratingSubmitPreviewParsed ? (
+              <>
+                <RatingPreviewCard preview={ratingSubmitPreviewParsed} />
+                <div
+                  className={cn(
+                    "prose prose-sm dark:prose-invert max-w-none mt-2",
+                    showVerMais && !contentExpanded && "line-clamp-6",
+                  )}
+                >
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      a: ({ href, children }) => {
+                        const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                        if (isInternal) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                navigate(href || '/');
+                              }}
+                              className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
+                        return (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
+                      code: ({ children }) => (
+                        <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
+                          {children}
+                        </code>
+                      ),
+                    }}
+                  >
+                    {audienciaContentSplit.contentAfter === null
+                      ? withStepLineBreaks(markdownAfterRatingSubmitPreview)
+                      : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                  </ReactMarkdown>
                 </div>
               </>
               ) : (
@@ -1500,17 +1583,27 @@ const ChatMessageBubble = ({
               const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
               const isCorrigir = btn.value === "corrigir";
               const isConfirmar = btn.value === "confirmar";
+              const isPublicar = btn.value === "publicar";
+              const isEditarComentario = btn.value === "editar_comentario";
               return (
                 <Button
                   key={btn.value}
-                  variant={isCorrigir ? "outline" : "default"}
-                  size={showUrbanPreviewCard || showTransportPreviewCard ? "default" : "sm"}
+                  variant={isCorrigir || isEditarComentario ? "outline" : "default"}
+                  size={
+                    showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard
+                      ? "default"
+                      : "sm"
+                  }
                   disabled={disabled}
                   onClick={() => !disabled && onSendMessage?.(btn.value)}
                   className={cn(
                     "rounded-lg",
-                    (showUrbanPreviewCard || showTransportPreviewCard) && isConfirmar && "min-h-11 px-5",
-                    (showUrbanPreviewCard || showTransportPreviewCard) && isCorrigir && "min-h-11 px-5",
+                    (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
+                      (isConfirmar || isPublicar) &&
+                      "min-h-11 px-5",
+                    (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
+                      (isCorrigir || isEditarComentario) &&
+                      "min-h-11 px-5",
                   )}
                 >
                   {btn.label}
@@ -1526,7 +1619,13 @@ const ChatMessageBubble = ({
             <Button
               variant="default"
               size="sm"
-              onClick={() => onSendMessage('Quero encaminhar meu relato para um vereador')}
+              onClick={() =>
+                onSendMessage(
+                  message.content.includes('[OFFER_REFERRAL]')
+                    ? 'Quero encaminhar minha avaliação para um vereador'
+                    : 'Quero encaminhar meu relato para um vereador',
+                )
+              }
               className="w-full justify-between min-h-[40px]"
             >
               <span className="truncate flex-1 text-left">Encaminhar para vereador</span>

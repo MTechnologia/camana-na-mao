@@ -224,7 +224,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. rating_stars 1-5 é a média arredondada das quatro dimensões (tempo_espera, atendimento, infraestrutura, limpeza) quando o fluxo coleta scores. Dois modos: 1) COM visit_id — visita já identificada; 2) SEM visit_id — localizar serviço (tipo, nome, endereço) e depois o MESMO roteiro atômico: dim_tempo_espera → dim_atendimento → dim_infraestrutura → dim_limpeza (cada uma com [RATING_PICKER]) e comentário; cria visita virtual completed se necessário. NUNCA rating_text vazio.",
+      description: "Registra avaliação de serviço público. rating_stars 1-5 é a média arredondada das quatro dimensões (tempo_espera, atendimento, infraestrutura, limpeza) quando o fluxo coleta scores. Dois modos: 1) COM visit_id — visita já identificada; 2) SEM visit_id — localizar serviço (tipo, nome, endereço) e depois [FIELD_REQUEST:rating_dimensions] + [MULTI_DIMENSION_RATING_PICKER] (quatro notas num passo), comentário e confirmação de pré-visualização antes de gravar. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {

@@ -178,6 +178,9 @@ export function ConversationalEvaluation({
                 onServiceTypeSelected={handleServiceTypeSelected}
                 onServiceAddressConfirmed={handleServiceAddressConfirmed}
                 patchMessageContent={patchMessageContent}
+                onSendMessage={(text) => {
+                  void sendMessage(text);
+                }}
               />
             );
           })}
