@@ -2021,27 +2021,49 @@ export const useUnifiedAIChat = (
     sendMessage(`${dimLabel}: ${stars} estrelas [DIM_RATING:${dimensionKey}:${stars}]`);
   }, [sendMessage]);
 
+  /** HU-4.1: dim_tempo com [WAIT_TIME_PICKER] — mesma mensagem com DIM_RATING + WAIT_TIME. */
+  const handleRatingDimensionWaitTimeSelected = useCallback((displayLabel: string, score: number | null) => {
+    const tempoForDim = score === null ? 3 : score;
+    setCollectedFields((prev) => ({
+      ...prev,
+      wait_time_score: score,
+      tempo_espera_score: tempoForDim,
+    }));
+    const w = score === null ? "[WAIT_TIME:null]" : `[WAIT_TIME:${score}]`;
+    sendMessage(
+      `Tempo de espera: ${displayLabel} [DIM_RATING:tempo_espera:${tempoForDim}] ${w}`.trim(),
+    );
+  }, [sendMessage]);
+
   /**
    * `ChatMessageBubble` + `MultiDimensionRatingPicker` → uma mensagem com `[RATING_DIMENSIONS:{...}]`.
    * O caminho de parsing no mesmo hook permanece em `sendMessage` (heurística `service_rating` +
    * `parseRatingDimensionsFromMessage` quando a mensagem do usuário chega de volta).
    */
-  const handleMultiDimensionRatingComplete = useCallback((dims: ServiceRatingDimensions) => {
-    const perDimFields = SERVICE_RATING_DIMENSION_KEYS.reduce(
-      (acc, k) => {
-        acc[`${k}_score`] = dims[k];
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-    setCollectedFields((prev) => ({
-      ...prev,
-      ...perDimFields,
-      rating_dimensions: dims,
-      rating_stars: aggregateServiceRatingStars(dims),
-    }));
-    sendMessage(buildServiceRatingDimensionsUserMessage(dims));
-  }, [sendMessage]);
+  const handleMultiDimensionRatingComplete = useCallback(
+    (dims: ServiceRatingDimensions, opts?: { waitTimeSemanticNull?: boolean }) => {
+      const perDimFields = SERVICE_RATING_DIMENSION_KEYS.reduce(
+        (acc, k) => {
+          acc[`${k}_score`] = dims[k];
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+      setCollectedFields((prev) => ({
+        ...prev,
+        ...perDimFields,
+        rating_dimensions: dims,
+        rating_stars: aggregateServiceRatingStars(dims),
+        ...(opts?.waitTimeSemanticNull ? { wait_time_score: null as number | null } : {}),
+      }));
+      let msg = buildServiceRatingDimensionsUserMessage(dims);
+      if (opts?.waitTimeSemanticNull) {
+        msg += " [WAIT_TIME:null]";
+      }
+      sendMessage(msg);
+    },
+    [sendMessage],
+  );
 
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
   const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
@@ -2146,6 +2168,7 @@ export const useUnifiedAIChat = (
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,
+    handleRatingDimensionWaitTimeSelected,
     handleMultiDimensionRatingComplete,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
