@@ -200,15 +200,25 @@ export const tools = [
           location: { type: "string", description: "Ponto, estação ou trecho" },
           stop_name: {
             type: "string",
-            description: "Nome do ponto de embarque/parada. Quando o cidadão pular, usar null."
+            description: "HU-6.4: nome do ponto, terminal ou estação (opcional, até ~200 caracteres).",
+          },
+          stop_location: {
+            type: "string",
+            description:
+              "HU-6.4: referência textual do local ou coordenadas lat,lng. Se GPS estiver fora de São Paulo, o registro é bloqueado.",
           },
           stop_lat: {
             type: "number",
-            description: "Latitude da parada, quando disponível."
+            description: "Latitude da parada, quando disponível.",
           },
           stop_lon: {
             type: "number",
-            description: "Longitude da parada, quando disponível."
+            description: "Longitude da parada, quando disponível.",
+          },
+          accessibility_details: {
+            type: "object",
+            description:
+              "HU-6.5: objeto JSON com detalhes de acessibilidade (ex.: rampa_livre: true, elevador: false). Opcional.",
           },
           severity: {
             type: "string",
@@ -236,7 +246,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. rating_stars 1-5 é a média arredondada das quatro dimensões (tempo_espera, atendimento, infraestrutura, limpeza) quando o fluxo coleta scores. Dois modos: 1) COM visit_id — visita já identificada; 2) SEM visit_id — localizar serviço (tipo, nome, endereço) e depois o MESMO roteiro atômico: dim_tempo_espera → dim_atendimento → dim_infraestrutura → dim_limpeza (cada uma com [RATING_PICKER]) e comentário; cria visita virtual completed se necessário. NUNCA rating_text vazio.",
+      description: "Registra avaliação de serviço público. rating_stars 1-5 é a média arredondada das quatro dimensões (tempo_espera, atendimento, infraestrutura, limpeza) quando o fluxo coleta scores. Dois modos: 1) COM visit_id — visita já identificada; 2) SEM visit_id — localizar serviço (tipo, nome, endereço) e depois [FIELD_REQUEST:rating_dimensions] + [MULTI_DIMENSION_RATING_PICKER] (quatro notas num passo), comentário e confirmação de pré-visualização antes de gravar. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
@@ -439,6 +449,47 @@ export const tools = [
         required: ["tema"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "subscribe_service",
+      description:
+        "Registra que o cidadão quer acompanhar um equipamento público (UBS, escola, parque, etc.) e receber notificações quando houver nova avaliação publicada. Usar quando pedir para seguir, acompanhar ou ser avisado sobre um serviço específico já identificado (UUID do equipamento). Requer login.",
+      parameters: {
+        type: "object",
+        properties: {
+          service_id: {
+            type: "string",
+            description:
+              "UUID do equipamento em public_services (mesmo id usado na URL /servico/:id ou retornado por find_nearby_services).",
+          },
+        },
+        required: ["service_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "subscribe_transport_line",
+      description:
+        "Registra que o cidadão quer acompanhar uma linha de ônibus/metrô e receber notificações quando houver novos relatos ou padrões naquela linha. Usar quando pedir para seguir linha, acompanhar ônibus ou ser avisado sobre problemas numa linha. Informar line_id (UUID) OU line_code (ex.: 8000-10). Requer login.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: {
+            type: "string",
+            description: "UUID da linha em transport_lines, se conhecido.",
+          },
+          line_code: {
+            type: "string",
+            description: "Código oficial da linha (ex.: 8000-10, LINHA-1-AZUL) quando não houver UUID.",
+          },
+        },
+        required: [],
+      },
+    },
   },
   {
     type: "function",

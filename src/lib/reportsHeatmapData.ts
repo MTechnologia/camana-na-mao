@@ -7,7 +7,7 @@ export type ReportsHeatmapPayload = {
   truncated: boolean;
 };
 
-/** Bbox aproximado do município de São Paulo (alinhado à RPC). */
+/** Bbox aproximado do município de São Paulo (alinhado à RPC e a `SAO_PAULO_TRANSPORT_MAP_BOUNDS` no ai-orchestrator). */
 export const SAO_PAULO_HEATMAP_BOUNDS = {
   minLat: -23.9,
   maxLat: -23.3,

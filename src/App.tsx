@@ -117,6 +117,7 @@ const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 const AnalyticsDashboard = lazy(() => import("./pages/analytics/AnalyticsDashboard"));
 const AdvancedAnalytics = lazy(() => import("./pages/analytics/AdvancedAnalytics"));
 const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
+const WorstServicesByDimensionPage = lazy(() => import("./pages/analytics/WorstServicesByDimensionPage"));
 
 // ============================================
 // ADMIN PAGES - Lazy loaded (separate bundle)
@@ -135,6 +136,7 @@ const N8NIntegration = lazy(() => import("./pages/admin/settings/N8NIntegration"
 const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"));
 const AccessibilitySettings = lazy(() => import("./pages/admin/settings/AccessibilitySettings"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
+const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
 
 // ============================================
@@ -287,6 +289,7 @@ const AppContent = () => {
             <Route path="/paineis" element={<AnalyticsDashboard />} />
             <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
             <Route path="/paineis/criar" element={<CreateDashboard />} />
+            <Route path="/paineis/piores-servicos" element={<WorstServicesByDimensionPage />} />
             <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
             <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
             <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
@@ -304,6 +307,7 @@ const AppContent = () => {
             <Route path="/admin/audit-logs" element={<ProtectedAdminOnlyRoute><AuditLogs /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
+            <Route path="/admin/commissions" element={<ProtectedAdminRoute><LegislativeCommissionsPage /></ProtectedAdminRoute>} />
             <Route path="/admin/service-corrections" element={<ProtectedAdminOnlyRoute><ServiceCorrectionsManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />

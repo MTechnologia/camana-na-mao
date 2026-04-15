@@ -145,6 +145,63 @@ export function aggregateRatingDimensionsStars(dim: Record<string, number>): num
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 
+/** Sincroniza `rating_dimensions` com os `*_score` usados por `getNextMissingField` e pela tool. */
+export function applyCompleteRatingDimensionsToAccumulated(
+  accumulated: Record<string, unknown>,
+  rd: Record<string, number>,
+): void {
+  accumulated.rating_dimensions = rd;
+  accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+  accumulated.tempo_espera_score = rd.tempo_espera;
+  accumulated.atendimento_score = rd.atendimento;
+  accumulated.infraestrutura_score = rd.infraestrutura;
+  accumulated.limpeza_score = rd.limpeza;
+  accumulated.wait_time_score = Math.min(5, Math.max(2, rd.tempo_espera));
+}
+
+/** HU-1.3: nota geral ≤ 2 **ou** alguma dimensão ≤ 2 (média alta mas problema pontual). */
+export function shouldOfferServiceRatingReferral(
+  stars: number,
+  dims: Record<string, number> | null | undefined,
+): boolean {
+  if (Number.isInteger(stars) && stars >= 1 && stars <= 2) return true;
+  if (!dims || typeof dims !== 'object') return false;
+  for (const k of SERVICE_RATING_DIMENSION_KEYS) {
+    const n = Number((dims as Record<string, number>)[k]);
+    if (Number.isInteger(n) && n >= 1 && n <= 2) return true;
+  }
+  return false;
+}
+
+/** HU-4.7: sentimento coerente com a média das dimensões (mesma ideia que rating_stars). */
+export function inferServiceRatingSentimentFromMean(meanStars: number): 'positive' | 'neutral' | 'negative' {
+  const m = Math.round(Number(meanStars));
+  if (m >= 4) return 'positive';
+  if (m <= 2) return 'negative';
+  return 'neutral';
+}
+
+/** HU-4.5: dicas por tipo de serviço (markdown curto) antes do picker de dimensões. */
+export async function fetchServiceTypeRatingQuestionHints(
+  supabase: SupabaseClient,
+  serviceType: string,
+): Promise<string> {
+  const st = String(serviceType || '').trim().toLowerCase();
+  if (!st) return '';
+  try {
+    const { data, error } = await supabase
+      .from('service_type_rating_questions')
+      .select('hint_text')
+      .eq('service_type', st)
+      .order('sort_order', { ascending: true })
+      .limit(5);
+    if (error || !data?.length) return '';
+    return '\n\n' + data.map((r: { hint_text: string }) => `• _${r.hint_text}_`).join('\n');
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Monta JSON de dimensões (1–5) a partir do fluxo conversacional com nota geral + WAIT_TIME + DIM_RATING.
  * `wait_time_score === null` (Não se aplica) → tempo_espera = 3 (neutro) para manter JSON completo.
@@ -1328,6 +1385,70 @@ export function isCitySaoPaulo(city: string | undefined | null): boolean {
   return normalized === 'sao paulo' || normalized === 'são paulo';
 }
 
+/**
+ * HU-6.6: bbox aproximado do município de SP (alinhado a `src/lib/reportsHeatmapData.ts` / heatmap admin).
+ * Manter os mesmos limites nos dois lados ao alterar a área atendida.
+ */
+export const SAO_PAULO_TRANSPORT_MAP_BOUNDS = {
+  minLat: -23.9,
+  maxLat: -23.3,
+  minLng: -46.85,
+  maxLng: -46.36,
+} as const;
+
+export function isPointInSaoPauloBounds(lat: number, lng: number): boolean {
+  return (
+    lat >= SAO_PAULO_TRANSPORT_MAP_BOUNDS.minLat &&
+    lat <= SAO_PAULO_TRANSPORT_MAP_BOUNDS.maxLat &&
+    lng >= SAO_PAULO_TRANSPORT_MAP_BOUNDS.minLng &&
+    lng <= SAO_PAULO_TRANSPORT_MAP_BOUNDS.maxLng
+  );
+}
+
+/** Coordenadas explícitas no fluxo de transporte (GPS ou par lat,lng em stop_location). */
+export function getTransportReportLatLonForBounds(
+  args: Record<string, unknown>,
+  accumulated: Record<string, unknown> | null | undefined,
+): { lat: number; lon: number } | null {
+  const tryPair = (la: unknown, lo: unknown): { lat: number; lon: number } | null => {
+    const lat = typeof la === 'number' ? la : parseFloat(String(la ?? '').trim());
+    const lon = typeof lo === 'number' ? lo : parseFloat(String(lo ?? '').trim());
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  };
+  const acc = accumulated ?? undefined;
+  const fromGps = tryPair(
+    args.user_lat ?? acc?.user_lat,
+    args.user_lon ?? acc?.user_lon,
+  );
+  if (fromGps) return fromGps;
+  const sl = String(args.stop_location ?? acc?.stop_location ?? '').trim();
+  const coordOnly = sl.match(/^(-?\d+\.?\d*)\s*[,;]\s*(-?\d+\.?\d*)$/);
+  if (coordOnly) return tryPair(coordOnly[1], coordOnly[2]);
+  return null;
+}
+
+/** HU-6.5: aceita só objeto JSON “chato” (boolean, number, string curta). */
+export function normalizeTransportAccessibilityDetails(raw: unknown): Record<string, unknown> | null {
+  if (raw == null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(o)) {
+    const key = String(k).trim().slice(0, 80);
+    if (!key) continue;
+    if (typeof v === 'boolean' || typeof v === 'number') {
+      if (typeof v === 'number' && !Number.isFinite(v)) continue;
+      out[key] = v;
+    } else if (typeof v === 'string') {
+      const s = v.trim().slice(0, 500);
+      if (s) out[key] = s;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
 export const MESSAGE_OUTSIDE_SAO_PAULO = (
   cityName?: string
@@ -1621,66 +1742,36 @@ export async function fetchSimilarTransportReportsForSupport(
   const lineCodeRaw = fields.line_code != null ? String(fields.line_code).trim() : "";
   const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lineIdRaw);
 
-  let query = supabase
-    .from("transport_reports")
-    .select(
-      "id, protocol_code, report_type, description, occurrence_date, occurrence_time, location, severity, direction, created_at, line_id, line_code_custom, transport_lines ( line_code, line_name )",
-    )
-    .eq("report_type", reportType)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  if (!uuidOk && !lineCodeRaw) return [];
 
-  if (excludeUserId) {
-    query = query.neq("user_id", excludeUserId);
-  }
+  const { data, error } = await supabase.rpc("find_similar_transport_reports", {
+    p_report_type: reportType,
+    p_line_id: uuidOk ? lineIdRaw : null,
+    p_line_code: uuidOk ? null : lineCodeRaw,
+    p_exclude_user_id: excludeUserId ?? null,
+    p_limit: limit,
+  });
 
-  if (uuidOk) {
-    query = query.eq("line_id", lineIdRaw);
-  } else if (lineCodeRaw.length > 0) {
-    const { data: lineRows, error: lineErr } = await supabase
-      .from("transport_lines")
-      .select("id")
-      .ilike("line_code", lineCodeRaw)
-      .limit(25);
-    if (lineErr) {
-      console.error("[fetchSimilarTransportReportsForSupport] line lookup", lineErr);
-    }
-    const ids = (lineRows || []).map((r: { id: string }) => r.id);
-    if (ids.length > 0) {
-      query = query.in("line_id", ids);
-    } else {
-      query = query.eq("line_code_custom", lineCodeRaw);
-    }
-  } else {
-    return [];
-  }
-
-  const { data, error } = await query;
   if (error) {
     console.error("[fetchSimilarTransportReportsForSupport]", error);
     return [];
   }
 
   const rows = (data || []) as Record<string, unknown>[];
-  return rows.map((r) => {
-    const tl = r.transport_lines as { line_code?: string; line_name?: string } | null;
-    const lineCode = tl?.line_code ?? (r.line_code_custom as string | null) ?? null;
-    const lineName = tl?.line_name ?? null;
-    return {
-      id: String(r.id),
-      protocol_code: (r.protocol_code as string | null) ?? null,
-      report_type: String(r.report_type),
-      description: (r.description as string | null) ?? null,
-      occurrence_date: String(r.occurrence_date),
-      occurrence_time: (r.occurrence_time as string | null) ?? null,
-      location: (r.location as string | null) ?? null,
-      severity: (r.severity as string | null) ?? null,
-      direction: (r.direction as string | null) ?? null,
-      created_at: String(r.created_at),
-      line_code: lineCode,
-      line_name: lineName,
-    };
-  });
+  return rows.map((r) => ({
+    id: String(r.id),
+    protocol_code: (r.protocol_code as string | null) ?? null,
+    report_type: String(r.report_type),
+    description: (r.description as string | null) ?? null,
+    occurrence_date: String(r.occurrence_date),
+    occurrence_time: (r.occurrence_time as string | null) ?? null,
+    location: (r.location as string | null) ?? null,
+    severity: (r.severity as string | null) ?? null,
+    direction: (r.direction as string | null) ?? null,
+    created_at: String(r.created_at),
+    line_code: (r.line_code as string | null) ?? null,
+    line_name: (r.line_name as string | null) ?? null,
+  }));
 }
 
 /** Monta linha curta a partir do objeto address do Nominatim (reverse). */
@@ -2917,8 +3008,7 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     case 'rating_dimensions': {
       const fromMark = parseRatingDimensionsMarker(response);
       if (fromMark) {
-        result.rating_dimensions = fromMark;
-        result.rating_stars = aggregateRatingDimensionsStars(fromMark);
+        applyCompleteRatingDimensionsToAccumulated(result, fromMark);
       }
       break;
     }
@@ -3298,6 +3388,18 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       if (normalized) result.recurrence_frequency = normalized;
       break;
     }
+
+    case 'stop_name': {
+      const t = response.trim();
+      if (t.length >= 2 && t.length <= 200) result.stop_name = t;
+      break;
+    }
+
+    case 'stop_location': {
+      const t = response.trim();
+      if (t.length >= 2 && t.length <= 500) result.stop_location = t;
+      break;
+    }
       
     case 'active_consequences': {
       // Parse active consequences
@@ -3350,6 +3452,61 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
   }
   
   return result;
+}
+
+const COLLECTION_PROGRESS_PREFIX = '[COLLECTION_PROGRESS:';
+
+/**
+ * Remove blocos `[COLLECTION_PROGRESS:tipo:{...}]` usando balanceamento simples de `{}`.
+ * Assim `[FIELD_REQUEST:x]` que apareça só dentro do JSON serializado não vira último pedido.
+ */
+function stripCollectionProgressMarkersFromAssistantText(text: string): string {
+  const spans: Array<{ start: number; endExclusive: number }> = [];
+  let pos = 0;
+  while (pos < text.length) {
+    const idx = text.indexOf(COLLECTION_PROGRESS_PREFIX, pos);
+    if (idx === -1) break;
+    const afterPrefix = idx + COLLECTION_PROGRESS_PREFIX.length;
+    const colonAfterType = text.indexOf(':', afterPrefix);
+    if (colonAfterType === -1) break;
+    const jsonStart = text.indexOf('{', colonAfterType);
+    if (jsonStart === -1) {
+      pos = colonAfterType + 1;
+      continue;
+    }
+    let depth = 0;
+    let j = jsonStart;
+    for (; j < text.length; j++) {
+      const ch = text[j];
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          j++;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) {
+      pos = idx + 1;
+      continue;
+    }
+    if (text[j] === ']') {
+      spans.push({ start: idx, endExclusive: j + 1 });
+      pos = j + 1;
+    } else {
+      pos = j;
+    }
+  }
+  if (!spans.length) return text;
+  let out = '';
+  let last = 0;
+  for (const s of spans) {
+    out += text.slice(last, s.start);
+    last = s.endExclusive;
+  }
+  out += text.slice(last);
+  return out;
 }
 
 // Accumulate fields from all messages in conversation for better tracking
@@ -3543,9 +3700,10 @@ export function accumulateFieldsFromHistory(
     return '';
   };
 
-  /** Último [FIELD_REQUEST:x] na mensagem. JSON em COLLECTION_PROGRESS pode incluir essa substring no texto do cidadão. */
+  /** Último [FIELD_REQUEST:x] fora de COLLECTION_PROGRESS (JSON pode repetir essa substring). */
   const getLastFieldRequestType = (text: string): string | null => {
-    const matches = [...text.matchAll(/\[FIELD_REQUEST:(\w+)\]/g)];
+    const stripped = stripCollectionProgressMarkersFromAssistantText(text);
+    const matches = [...stripped.matchAll(/\[FIELD_REQUEST:(\w+)\]/g)];
     return matches.length ? (matches[matches.length - 1][1] ?? null) : null;
   };
   
@@ -3553,13 +3711,45 @@ export function accumulateFieldsFromHistory(
   for (const msg of messages) {
     if (msg.role !== 'assistant') continue;
     const aText = getMsgText(msg);
-    if (!aText.includes('[COLLECTION_PROGRESS:')) continue;
-    const match = aText.match(/\[COLLECTION_PROGRESS:[^:]+:(\{[^}]+\})\]/);
-    if (match) {
-      try {
-        const fields = JSON.parse(match[1]);
-        Object.assign(accumulated, fields);
-      } catch { /* ignore parse errors */ }
+    if (!aText.includes(COLLECTION_PROGRESS_PREFIX)) continue;
+    let searchFrom = 0;
+    while (searchFrom < aText.length) {
+      const start = aText.indexOf(COLLECTION_PROGRESS_PREFIX, searchFrom);
+      if (start === -1) break;
+      const afterPrefix = start + COLLECTION_PROGRESS_PREFIX.length;
+      const colonAfterType = aText.indexOf(':', afterPrefix);
+      if (colonAfterType === -1) break;
+      const jsonStart = aText.indexOf('{', colonAfterType);
+      if (jsonStart === -1) {
+        searchFrom = colonAfterType + 1;
+        continue;
+      }
+      let depth = 0;
+      let j = jsonStart;
+      for (; j < aText.length; j++) {
+        const ch = aText[j];
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+          depth--;
+          if (depth === 0) {
+            j++;
+            break;
+          }
+        }
+      }
+      if (depth !== 0) {
+        searchFrom = jsonStart + 1;
+        continue;
+      }
+      if (aText[j] === ']') {
+        try {
+          const fields = JSON.parse(aText.slice(jsonStart, j));
+          Object.assign(accumulated, fields);
+        } catch { /* ignore parse errors */ }
+        searchFrom = j + 1;
+      } else {
+        searchFrom = j;
+      }
     }
   }
   
@@ -4113,8 +4303,7 @@ export function accumulateFieldsFromHistory(
       
       const rdParsed = parseRatingDimensionsMarker(content);
       if (rdParsed) {
-        accumulated.rating_dimensions = rdParsed;
-        accumulated.rating_stars = aggregateRatingDimensionsStars(rdParsed);
+        applyCompleteRatingDimensionsToAccumulated(accumulated, rdParsed);
         console.log('[accumulateFields] Parsed rating_dimensions from marker');
       }
 
@@ -4232,16 +4421,22 @@ export function accumulateFieldsFromHistory(
             case 'rating_dimensions': {
               const rd = parseRatingDimensionsMarker(answer);
               if (rd) {
-                accumulated.rating_dimensions = rd;
-                accumulated.rating_stars = aggregateRatingDimensionsStars(rd);
+                applyCompleteRatingDimensionsToAccumulated(accumulated, rd);
+              }
+              const wmRd = answer.match(/\[WAIT_TIME:(\d+|null)\]/i);
+              if (wmRd) {
+                const rawW = wmRd[1].toLowerCase();
+                const v = rawW === 'null' ? null : parseInt(wmRd[1], 10);
+                if (v === null || (v >= 2 && v <= 5)) {
+                  accumulated.wait_time_score = v;
+                }
               }
               break;
             }
             case 'rating_stars': {
               const rdAns = parseRatingDimensionsMarker(answer);
               if (rdAns) {
-                accumulated.rating_dimensions = rdAns;
-                accumulated.rating_stars = aggregateRatingDimensionsStars(rdAns);
+                applyCompleteRatingDimensionsToAccumulated(accumulated, rdAns);
               } else {
                 const starsMatch = answer.match(/(\d)/);
                 if (starsMatch) {
@@ -4285,6 +4480,19 @@ export function accumulateFieldsFromHistory(
               break;
             }
             case 'dim_tempo_espera': {
+              const wm = answer.match(/\[WAIT_TIME:(\d+|null)\]/i);
+              if (wm) {
+                const rawW = wm[1].toLowerCase();
+                const v = rawW === 'null' ? null : parseInt(wm[1], 10);
+                accumulated.wait_time_score = v;
+                const dm = answer.match(/\[DIM_RATING:tempo_espera:([1-5])\]/i);
+                const n = dm ? parseInt(dm[1], 10) : v === null ? 3 : v;
+                if (!Number.isNaN(n) && n >= 1 && n <= 5) {
+                  accumulated.tempo_espera_score = n;
+                  console.log('[accumulateFields] FIELD_REQUEST dim_tempo_espera (WAIT_TIME) → tempo_espera_score:', n);
+                }
+                break;
+              }
               const rs = answer.match(/\[RATING_SELECTED:([1-5])\]/);
               const dm = answer.match(/\[DIM_RATING:tempo_espera:([1-5])\]/i);
               const n = rs ? parseInt(rs[1], 10) : dm ? parseInt(dm[1], 10) : NaN;
@@ -4326,6 +4534,11 @@ export function accumulateFieldsFromHistory(
               break;
             }
             case 'rating_text': {
+              // Pré-visualização com Publicar/Editar: "publicar" não é novo comentário
+              if (/\[RATING_SUBMIT_PREVIEW\]/i.test(prevAssistantTextSvc)) {
+                console.log('[accumulateFields] rating_text: ignorando resposta pós-preview (publicar/editar)');
+                break;
+              }
               const lowerAns = answer.toLowerCase().trim();
               if (/^(pular|n[aã]o|pr[oó]ximo|nenhuma|nada)$/i.test(lowerAns)) {
                 accumulated.rating_text = null;
@@ -4628,6 +4841,27 @@ export function accumulateFieldsFromHistory(
       if (recurrenceMatch && !accumulated.recurrence_frequency) {
         const normalized = normalizeTransportRecurrenceFrequency(recurrenceMatch[1]);
         if (normalized) accumulated.recurrence_frequency = normalized;
+      }
+    }
+
+    // HU-6.6: GPS no fluxo de transporte (mesmo padrão do relato urbano / serviços)
+    for (const msg of messages) {
+      if (msg.role !== 'user') continue;
+      const c = getMsgText(msg);
+      const cLower = c.toLowerCase();
+      const gpsM =
+        c.match(/Localiza[cç][aã]o\s*GPS\s*[-:]?\s*(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/i)
+        || (cLower.includes('localização gps') || cLower.includes('localizacao gps')
+          ? c.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/)
+          : null);
+      if (gpsM && accumulated.user_lat == null) {
+        const la = parseFloat(gpsM[1].trim());
+        const lo = parseFloat(gpsM[2].trim());
+        if (!Number.isNaN(la) && !Number.isNaN(lo) && la >= -90 && la <= 90 && lo >= -180 && lo <= 180) {
+          accumulated.user_lat = la;
+          accumulated.user_lon = lo;
+          if (!accumulated.location_method) accumulated.location_method = 'gps';
+        }
       }
     }
 
@@ -6508,6 +6742,15 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * c;
 }
 
+function normalizeForDedup(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Helper: Find nearby services (com ordenação por distância quando userLat/userLon disponíveis). Só lista serviços com endereço válido.
 export async function findNearbyServices(
   supabase: SupabaseClient,
@@ -6533,6 +6776,22 @@ export async function findNearbyServices(
     const radius = radiusOverride ?? radiusMeters;
     let withAddress = data.filter(hasValidAddress);
     if (withAddress.length === 0) return '';
+
+    // Evita itens duplicados no chat (mesma escola/endereço retornando múltiplas linhas).
+    // Alguns datasets vêm com registros repetidos por fonte/sincronização.
+    const seen = new Set<string>();
+    withAddress = withAddress.filter((s: Record<string, unknown>) => {
+      const key = [
+        normalizeForDedup(s.name),
+        normalizeForDedup(s.address),
+        normalizeForDedup(s.district),
+      ].join("|");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (withAddress.length === 0) return '';
+
     if (search) {
       withAddress = withAddress.filter((s: Record<string, unknown>) => {
         const name = (s.name || '').toString().toLowerCase();
@@ -6570,31 +6829,74 @@ export async function findNearbyServices(
 
   const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
 
-  // Quando temos coordenadas do usuário, buscar mais resultados city-wide e ordenar por distância (prioridade sobre district)
+  // Quando temos coordenadas do usuário, priorizar recorte geográfico por raio (bbox) e ordenar por distância.
+  // Antes era feito `limit(200)` city-wide sem bbox, o que podia ignorar serviços próximos em bases grandes.
   if (hasCoords) {
-    const fetchSize = 200;
-    const { data, error } = await supabase
+    const metersToDegrees = (meters: number) => meters / 111320;
+    const getBboxForRadiusMeters = (lat: number, lon: number, meters: number) => {
+      const latDelta = metersToDegrees(meters);
+      const cosLat = Math.cos((lat * Math.PI) / 180);
+      const lngDeltaRaw = metersToDegrees(meters) / (Math.abs(cosLat) < 1e-6 ? 1e-6 : Math.abs(cosLat));
+      const lngDelta = Number.isFinite(lngDeltaRaw) ? lngDeltaRaw : 0;
+      return {
+        minLat: lat - latDelta,
+        maxLat: lat + latDelta,
+        minLng: lon - lngDelta,
+        maxLng: lon + lngDelta,
+      };
+    };
+
+    const fetchByBbox = async (bboxRadiusMeters: number, rowCap: number) => {
+      const box = getBboxForRadiusMeters(userLat!, userLon!, Math.max(100, bboxRadiusMeters));
+      const { data, error } = await supabase
+        .from('public_services')
+        .select(selectFields)
+        .eq('service_type', serviceType)
+        .gte('latitude', box.minLat)
+        .lte('latitude', box.maxLat)
+        .gte('longitude', box.minLng)
+        .lte('longitude', box.maxLng)
+        .limit(rowCap);
+      return { data, error };
+    };
+
+    // 1) Busca no raio solicitado
+    const { data: inRadius, error: inRadiusErr } = await fetchByBbox(radiusMeters, 1200);
+    if (!inRadiusErr && inRadius?.length) {
+      const out = sortAndFormat(inRadius as unknown as Record<string, unknown>[], !district);
+      if (out) {
+        console.log('[findNearbyServices] Sorted by distance from user (bbox current radius)');
+        return out;
+      }
+    }
+
+    // 2) Fallback: até 20km para sempre retornar algo quando possível
+    const { data: in20km, error: in20kmErr } = await fetchByBbox(20000, 2000);
+    if (!in20kmErr && in20km?.length) {
+      const rows20 = in20km as unknown as Record<string, unknown>[];
+      const out20 = sortAndFormat(rows20, !district, 20000);
+      if (out20) {
+        console.log('[findNearbyServices] No results in radius, showing within 20km (bbox)');
+        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out20}`;
+      }
+      // Ainda zero (ex.: sem lat/lon em muitos registros): sem filtro de distância
+      const outAny = sortAndFormat(rows20, !district, 1e9);
+      if (outAny) {
+        console.log('[findNearbyServices] Showing first N without distance filter (bbox 20km)');
+        return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${outAny}`;
+      }
+    }
+
+    // 3) Último fallback city-wide (mantém robustez para dados esparsos fora bbox)
+    const { data: cityWide, error: cityWideErr } = await supabase
       .from('public_services')
       .select(selectFields)
       .eq('service_type', serviceType)
-      .limit(fetchSize);
-    if (!error && data?.length) {
-      const rows = data as unknown as Record<string, unknown>[];
-      let out = sortAndFormat(rows, !district);
+      .limit(2000);
+    if (!cityWideErr && cityWide?.length) {
+      const out = sortAndFormat(cityWide as unknown as Record<string, unknown>[], !district, 1e9);
       if (out) {
-        console.log('[findNearbyServices] Sorted by distance from user');
-        return out;
-      }
-      // Nenhum resultado no raio pedido: tentar com raio maior (20 km) para sempre mostrar opções quando existirem no DB
-      out = sortAndFormat(rows, !district, 20000);
-      if (out) {
-        console.log('[findNearbyServices] No results in radius, showing within 20km');
-        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out}`;
-      }
-      // Ainda zero (ex.: todos além de 20 km ou registros sem lat/lon): sem filtro de distância (raio muito grande)
-      out = sortAndFormat(rows, !district, 1e9);
-      if (out) {
-        console.log('[findNearbyServices] Showing first N without distance filter');
+        console.log('[findNearbyServices] Showing first N from city-wide fallback');
         return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${out}`;
       }
     }
@@ -8153,6 +8455,7 @@ export async function executeTool(
       }
       
       case 'create_transport_report': {
+        const argsRec = args as Record<string, unknown>;
         // Merge accumulated fields into args (especially date_confirmed from picker/natural language)
         if (accumulatedFields?.date_confirmed && !args.date_confirmed) {
           args.date_confirmed = true;
@@ -8181,6 +8484,15 @@ export async function executeTool(
         }
         if (accumulatedFields?.stop_lon != null && args.stop_lon == null) {
           args.stop_lon = accumulatedFields.stop_lon;
+        }
+        if (accumulatedFields?.stop_name != null && !args.stop_name) {
+          args.stop_name = accumulatedFields.stop_name as string;
+        }
+        if (accumulatedFields?.stop_location != null && args.stop_location == null) {
+          args.stop_location = accumulatedFields.stop_location as string;
+        }
+        if (accumulatedFields?.accessibility_details != null && args.accessibility_details == null) {
+          args.accessibility_details = accumulatedFields.accessibility_details;
         }
         const accDescRaw =
           typeof accumulatedFields?.description === 'string' ? String(accumulatedFields.description).trim() : '';
@@ -8489,6 +8801,24 @@ export async function executeTool(
           ? args.photos.slice(0, 3)
           : null;
 
+        const coordsForSp = getTransportReportLatLonForBounds(argsRec, accumulatedFields ?? undefined);
+        if (coordsForSp && !isPointInSaoPauloBounds(coordsForSp.lat, coordsForSp.lon)) {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:stop_location]As coordenadas informadas estão **fora do município de São Paulo**. Este canal atende ocorrências na capital; ajuste o GPS ou informe um ponto dentro da cidade.',
+          };
+        }
+
+        const rawStopName = String(argsRec.stop_name ?? '').trim();
+        const stopNameInsert = rawStopName.length >= 2 ? rawStopName.slice(0, 200) : null;
+        const rawStopLoc = String(argsRec.stop_location ?? '').trim();
+        const stopLocationInsert = rawStopLoc.length >= 2 ? rawStopLoc.slice(0, 500) : null;
+        const accessibilityInsert =
+          normalizeTransportAccessibilityDetails(
+            argsRec.accessibility_details ?? accumulatedFields?.accessibility_details,
+          ) ?? {};
+
         const { data, error } = await supabase
           .from('transport_reports')
           .insert({
@@ -8504,10 +8834,15 @@ export async function executeTool(
             line_code_custom: args.line_code || null,
             sub_category: validSubCategory,
             location: args.location || null,
-            stop_name: isStopSkipped ? null : rawStopName,
-            stop_location: !isStopSkipped && hasStopCoords
-              ? `SRID=4326;POINT(${stopLon} ${stopLat})`
+            stop_name: isStopSkipped ? null : stopNameInsert,
+            stop_location: !isStopSkipped
+              ? (
+                  hasStopCoords
+                    ? `SRID=4326;POINT(${stopLon} ${stopLat})`
+                    : stopLocationInsert
+                )
               : null,
+            accessibility_details: accessibilityInsert,
             severity: inferredSeverity,
             personal_impact: personalImpactScore,
             impact_description: args.impact_description || null,
@@ -8684,7 +9019,7 @@ export async function executeTool(
           return {
             success: false,
             message:
-              '[FIELD_REQUEST:dim_tempo_espera]**Tempo de espera:** avalie de **1 a 5** antes de concluir. [RATING_PICKER]',
+              '[FIELD_REQUEST:rating_dimensions]**Avalie o serviço** nas quatro dimensões (1 a 5) antes de concluir.\n\n[MULTI_DIMENSION_RATING_PICKER]',
           };
         }
         const ratingDimensionsJson = dimsMerged && typeof dimsMerged === 'object' ? (dimsMerged as Record<string, number>) : null;
@@ -8956,16 +9291,18 @@ export async function executeTool(
           moderation_preview: preModeration,
         });
 
+        const sentimentFinal = inferServiceRatingSentimentFromMean(stars);
         const insertRow: Record<string, unknown> = {
           user_id: userId,
           service_id: serviceId,
           visit_id: visitId,
           rating_stars: stars,
           rating_text: ratingTextTrimmed,
-          sentiment: args.sentiment || 'neutral',
+          sentiment: sentimentFinal,
         };
         if (ratingDimensionsJson) {
           insertRow.rating_dimensions = ratingDimensionsJson;
+          insertRow.dimensions = ratingDimensionsJson;
         }
         if (waitTimeStored !== undefined) insertRow.wait_time_score = waitTimeStored;
 
@@ -9006,6 +9343,32 @@ export async function executeTool(
             .update({ status: 'completed' })
             .eq('id', visitId);
         }
+
+        // HU-8.4: notificar N8N (payload alinhado a notify-n8n / NotifyPayload)
+        try {
+          await supabase.functions.invoke('notify-n8n', {
+            body: {
+              event: 'service_rating_created',
+              report_id: data.id,
+              report_type: 'service_rating',
+              report_data: {
+                service_id: serviceId,
+                service_name: serviceNameForMessage,
+                rating_stars: stars,
+                rating_text: ratingTextTrimmed.slice(0, 2000),
+                rating_dimensions: ratingDimensionsJson,
+                publication_status: publicationStatus,
+                visit_id: visitId,
+                service_type: args.service_type ?? accumulatedFields?.service_type ?? null,
+              },
+              user_id: userId,
+              source_tool: 'create_service_rating',
+              tool_arguments: args as Record<string, unknown>,
+            },
+          });
+        } catch (n8nRatingErr) {
+          console.error('[create_service_rating] notify-n8n failed:', n8nRatingErr);
+        }
         
         console.log('[create_service_rating] Rating saved successfully:', {
           id: data.id,
@@ -9027,9 +9390,13 @@ export async function executeTool(
           ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
           : '';
 
+        const offerReferral = shouldOfferServiceRatingReferral(stars, ratingDimensionsJson)
+          ? '\n\n[OFFER_REFERRAL]Se quiser, posso orientá-lo a **encaminhar esta avaliação** a um vereador (manifestação sobre o serviço).'
+          : '';
+
         return {
           success: true,
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.${offerReferral}\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }
@@ -9219,6 +9586,181 @@ export async function executeTool(
         return {
           success: true,
           message: `Anotado! Você receberá uma notificação no app quando houver novas audiências públicas sobre **${tema}**. Quer que eu busque agora se já existe alguma agendada sobre esse tema?`
+        };
+      }
+
+      case 'subscribe_service': {
+        if (!userId) {
+          return {
+            success: false,
+            message:
+              'Para acompanhar um equipamento público e receber avisos de novas avaliações, faça login no app. Depois peça de novo por aqui.',
+          };
+        }
+        const rawServiceId = typeof args.service_id === 'string' ? args.service_id.trim() : '';
+        const uuidRe =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!rawServiceId || !uuidRe.test(rawServiceId)) {
+          return {
+            success: false,
+            message:
+              'Preciso do identificador do equipamento (UUID). No app, abra a página do equipamento ou use a busca por serviços próximos; a partir daí posso registrar o acompanhamento.',
+          };
+        }
+        const supabaseUrlSvc = Deno.env.get('SUPABASE_URL');
+        const serviceKeySvc = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const clientSvc =
+          serviceKeySvc && supabaseUrlSvc ? createClient(supabaseUrlSvc, serviceKeySvc) : supabase;
+        const { data: svcRow, error: svcErr } = await clientSvc
+          .from('public_services')
+          .select('id, name')
+          .eq('id', rawServiceId)
+          .maybeSingle();
+        if (svcErr) {
+          console.error('[subscribe_service]', svcErr.code, svcErr.message, svcErr.details);
+          return { success: false, message: 'Não foi possível confirmar o equipamento. Tente novamente em instantes.' };
+        }
+        if (!svcRow?.id) {
+          return { success: false, message: 'Não encontrei esse equipamento na base. Confira o identificador ou busque o serviço no app.' };
+        }
+        const { error: upErr } = await clientSvc.from('service_subscriptions').upsert(
+          { user_id: userId, service_id: svcRow.id },
+          { onConflict: 'user_id,service_id' },
+        );
+        if (upErr) {
+          console.error('[subscribe_service] upsert', upErr.code, upErr.message, upErr.details);
+          if (upErr.code === '42P01' || upErr.message?.includes('does not exist')) {
+            return {
+              success: false,
+              message: 'O recurso de acompanhamento de equipamentos ainda não está disponível neste ambiente.',
+            };
+          }
+          return { success: false, message: 'Não foi possível registrar o acompanhamento. Tente novamente em instantes.' };
+        }
+        const nome = typeof svcRow.name === 'string' && svcRow.name.trim() !== '' ? svcRow.name.trim() : 'este equipamento';
+        return {
+          success: true,
+          message: `Pronto! Você passará a acompanhar **${nome}** e receberá aviso no app quando houver nova avaliação publicada por outros cidadãos.`,
+        };
+      }
+
+      case 'subscribe_transport_line': {
+        if (!userId) {
+          return {
+            success: false,
+            message:
+              'Para acompanhar uma linha de transporte, faça login no app. Depois peça de novo: por exemplo, "acompanhar linha 8000-10".',
+          };
+        }
+        const lineIdArg = typeof args.line_id === 'string' ? args.line_id.trim() : '';
+        const lineCodeArg = typeof args.line_code === 'string' ? args.line_code.trim() : '';
+        if (!lineIdArg && !lineCodeArg) {
+          return {
+            success: false,
+            message: 'Informe o código da linha (ex.: 8000-10) ou o identificador UUID da linha, se você tiver.',
+          };
+        }
+        const uuidLineRe =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const supabaseUrlLn = Deno.env.get('SUPABASE_URL');
+        const serviceKeyLn = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const clientLn =
+          serviceKeyLn && supabaseUrlLn ? createClient(supabaseUrlLn, serviceKeyLn) : supabase;
+
+        let resolvedLineId: string | null = null;
+        let lineDisplay = '';
+
+        if (lineIdArg && uuidLineRe.test(lineIdArg)) {
+          const { data: byId, error: byIdErr } = await clientLn
+            .from('transport_lines')
+            .select('id, line_code, line_name')
+            .eq('id', lineIdArg)
+            .maybeSingle();
+          if (byIdErr) {
+            console.error('[subscribe_transport_line] by id', byIdErr);
+            return { success: false, message: 'Erro ao buscar a linha. Tente novamente em instantes.' };
+          }
+          if (byId?.id) {
+            resolvedLineId = byId.id as string;
+            lineDisplay = `${byId.line_code} - ${byId.line_name}`;
+          }
+        }
+
+        if (!resolvedLineId && lineCodeArg) {
+          const safeCode = lineCodeArg.replace(/[%_\\]/g, '').trim();
+          if (safeCode.length < 2) {
+            return { success: false, message: 'Use pelo menos 2 caracteres no código ou nome da linha.' };
+          }
+          const { data: exact, error: exErr } = await clientLn
+            .from('transport_lines')
+            .select('id, line_code, line_name')
+            .eq('line_code', safeCode)
+            .maybeSingle();
+          if (exErr) {
+            console.error('[subscribe_transport_line] exact', exErr);
+            return { success: false, message: 'Erro ao buscar a linha. Tente novamente em instantes.' };
+          }
+          if (exact?.id) {
+            resolvedLineId = exact.id as string;
+            lineDisplay = `${exact.line_code} - ${exact.line_name}`;
+          } else {
+            const { data: cand, error: candErr } = await clientLn
+              .from('transport_lines')
+              .select('id, line_code, line_name')
+              .or(`line_code.ilike.%${safeCode}%,line_name.ilike.%${safeCode}%`)
+              .limit(6);
+            if (candErr) {
+              console.error('[subscribe_transport_line] ilike', candErr);
+              return { success: false, message: 'Erro ao buscar a linha. Tente novamente em instantes.' };
+            }
+            const list = cand ?? [];
+            if (list.length === 0) {
+              return {
+                success: false,
+                message:
+                  'Não encontrei essa linha. Confira o código oficial (ex.: 8000-10) ou busque a linha no app em Novo relato de transporte.',
+              };
+            }
+            if (list.length > 1) {
+              const amostra = list
+                .slice(0, 4)
+                .map((r: { line_code: string; line_name: string }) => `${r.line_code} (${r.line_name})`)
+                .join('; ');
+              return {
+                success: false,
+                message: `Há mais de uma linha parecida (${amostra}). Diga o código oficial completo da linha que deseja acompanhar.`,
+              };
+            }
+            resolvedLineId = list[0].id as string;
+            lineDisplay = `${list[0].line_code} - ${list[0].line_name}`;
+          }
+        }
+
+        if (!resolvedLineId) {
+          return {
+            success: false,
+            message:
+              'Não consegui identificar a linha. Informe o código oficial completo (ex.: 8000-10) ou escolha a linha no app.',
+          };
+        }
+
+        const { error: lnUpErr } = await clientLn.from('transport_subscriptions').upsert(
+          { user_id: userId, line_id: resolvedLineId, subscription_type: 'alert' },
+          { onConflict: 'user_id,line_id,subscription_type' },
+        );
+        if (lnUpErr) {
+          console.error('[subscribe_transport_line] upsert', lnUpErr.code, lnUpErr.message, lnUpErr.details);
+          if (lnUpErr.code === '42P01' || lnUpErr.message?.includes('does not exist')) {
+            return {
+              success: false,
+              message: 'O recurso de acompanhamento de linhas ainda não está disponível neste ambiente.',
+            };
+          }
+          return { success: false, message: 'Não foi possível registrar o acompanhamento. Tente novamente em instantes.' };
+        }
+        return {
+          success: true,
+          message: `Pronto! Você acompanha a linha **${lineDisplay}** e receberá avisos no app sobre novos relatos e padrões relacionados a ela.`,
         };
       }
       

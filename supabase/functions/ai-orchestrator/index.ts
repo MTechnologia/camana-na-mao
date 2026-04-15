@@ -24,10 +24,26 @@ function transportPreviewJsonMarker(fields: Record<string, unknown>): string {
     recurrence_frequency: fields.recurrence_frequency ?? null,
     personal_impact: fields.personal_impact ?? null,
     location: fields.location ?? null,
+    stop_location: fields.stop_location ?? null,
+    accessibility_details: fields.accessibility_details ?? null,
   };
   try {
     const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     return `\n\n[TRANSPORT_PREVIEW_JSON:${b64}]`;
+  } catch {
+    return "";
+  }
+}
+
+function serviceRatingSubmitPreviewJsonMarker(payload: {
+  rating_stars: number;
+  rating_dimensions: Record<string, number> | null;
+  service_name: string;
+  comment_preview: string;
+}): string {
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return `\n\n[RATING_SUBMIT_PREVIEW_JSON:${b64}]`;
   } catch {
     return "";
   }
@@ -1288,11 +1304,15 @@ serve(async (req) => {
           }
         }
 
-        if (!fields.sub_category) {
-          const reportType = String(fields.report_type || "outro").toLowerCase();
+        const reportTypeForSub = String(fields.report_type || "outro").toLowerCase();
+        const subTrimmed =
+          fields.sub_category != null && String(fields.sub_category).trim() !== ""
+            ? String(fields.sub_category).trim()
+            : "";
+        if (!subTrimmed || !lib.isValidTransportSubcategory(reportTypeForSub, subTrimmed)) {
           return {
             field: "sub_category",
-            picker: `[SUBCATEGORY_PICKER:${reportType}]`,
+            picker: `[SUBCATEGORY_PICKER:${reportTypeForSub}]`,
             prompt: "Qual detalhe descreve melhor esse problema?",
           };
         }
@@ -1365,34 +1385,21 @@ serve(async (req) => {
         // MODO VISITA: visit_id presente — mesmo roteiro atômico que o modo livre após identificar o serviço:
         // quatro dimensões (tempo, atendimento, infraestrutura, limpeza) + comentário; nota geral = média das dimensões.
         if (fields.visit_id) {
-          if (!('tempo_espera_score' in fields))
+          const legacyFourDims =
+            'tempo_espera_score' in fields &&
+            'atendimento_score' in fields &&
+            'infraestrutura_score' in fields &&
+            'limpeza_score' in fields;
+          const dimsComplete =
+            lib.isCompleteServiceRatingDimensions(fields.rating_dimensions) || legacyFourDims;
+          if (!dimsComplete) {
             return {
-              field: 'dim_tempo_espera',
-              picker: '[RATING_PICKER]',
+              field: 'rating_dimensions',
+              picker: '[MULTI_DIMENSION_RATING_PICKER]',
               prompt:
-                '**Tempo de espera:** quanto tempo você precisou esperar para ser atendido? Dê uma nota de **1 a 5** (1 = espera longa/ruim, 5 = espera rápida/boa). Use as estrelas abaixo.',
+                '**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.',
             };
-          if (!('atendimento_score' in fields))
-            return {
-              field: 'dim_atendimento',
-              picker: '[RATING_PICKER]',
-              prompt:
-                '**Atendimento:** como você avalia a **qualidade do atendimento**? De **1 a 5** estrelas.',
-            };
-          if (!('infraestrutura_score' in fields))
-            return {
-              field: 'dim_infraestrutura',
-              picker: '[RATING_PICKER]',
-              prompt:
-                '**Infraestrutura:** como você avalia a **estrutura física** (instalações, equipamentos, conservação)? De **1 a 5** estrelas.',
-            };
-          if (!('limpeza_score' in fields))
-            return {
-              field: 'dim_limpeza',
-              picker: '[RATING_PICKER]',
-              prompt:
-                '**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.',
-            };
+          }
           if (!fields._rating_text_skipped) {
             if (fields.rating_text === undefined) {
               return {
@@ -1535,35 +1542,21 @@ serve(async (req) => {
           };
         }
         
-        // 4. Quatro dimensões atômicas (nota geral = média arredondada ao salvar)
-        if (!('tempo_espera_score' in fields))
+        const legacyFourDimsFree =
+          'tempo_espera_score' in fields &&
+          'atendimento_score' in fields &&
+          'infraestrutura_score' in fields &&
+          'limpeza_score' in fields;
+        const dimsCompleteFree =
+          lib.isCompleteServiceRatingDimensions(fields.rating_dimensions) || legacyFourDimsFree;
+        if (!dimsCompleteFree) {
           return {
-            field: 'dim_tempo_espera',
-            picker: '[RATING_PICKER]',
+            field: 'rating_dimensions',
+            picker: '[MULTI_DIMENSION_RATING_PICKER]',
             prompt:
-              '**Tempo de espera:** quanto tempo você precisou esperar para ser atendido? Dê uma nota de **1 a 5** (1 = espera longa/ruim, 5 = espera rápida/boa). Use as estrelas abaixo.',
+              '**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.',
           };
-        if (!('atendimento_score' in fields))
-          return {
-            field: 'dim_atendimento',
-            picker: '[RATING_PICKER]',
-            prompt:
-              '**Atendimento:** como você avalia a **qualidade do atendimento**? De **1 a 5** estrelas.',
-          };
-        if (!('infraestrutura_score' in fields))
-          return {
-            field: 'dim_infraestrutura',
-            picker: '[RATING_PICKER]',
-            prompt:
-              '**Infraestrutura:** como você avalia a **estrutura física** (instalações, equipamentos, conservação)? De **1 a 5** estrelas.',
-          };
-        if (!('limpeza_score' in fields))
-          return {
-            field: 'dim_limpeza',
-            picker: '[RATING_PICKER]',
-            prompt:
-              '**Limpeza:** como você avalia a **limpeza e higiene** do local? De **1 a 5** estrelas.',
-          };
+        }
 
         // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
         if (!fields._rating_text_skipped) {
@@ -1703,6 +1696,30 @@ serve(async (req) => {
       const reply = `Claro! Seu relato já foi registrado. Para encaminhar a um vereador, seguem sugestões de parlamentares que podem ajudar com esse tipo de demanda:\n\n${councilResult}\n\nPosso ajudar com mais alguma coisa?`;
       const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
       console.log('[ai-orchestrator] Encaminhar relato para vereador: short-circuit suggest_council_member (evita criar novo relato)');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+    }
+
+    const lastBotWasRatingSuccess = /\[RATING_CREATED:/i.test(lastAssistantMessage);
+    const userWantsForwardRatingToCouncil =
+      /encaminhar\s+minha\s+avalia[cç][aã]o|avalia[cç][aã]o\s+.*vereador|encaminhar.*avalia[cç][aã]o.*vereador/i.test(
+        lastUserMessage.trim(),
+      );
+    if (lastBotWasRatingSuccess && userWantsForwardRatingToCouncil) {
+      const serviceMatch = lastAssistantMessage.match(/\*\*Servi[cç]o:\*\*\s*([^\n]+)/i);
+      const commentMatch =
+        lastAssistantMessage.match(/📝\s*\*\*Coment[aá]rio:\*\*\s*([^\n]+)/i) ||
+        lastAssistantMessage.match(/\*\*Coment[aá]rio:\*\*\s*([^\n]+)/i);
+      const description = [
+        'Manifestação do cidadão sobre avaliação de serviço público.',
+        serviceMatch ? `Equipamento: ${serviceMatch[1].trim()}` : '',
+        commentMatch ? `Trecho do comentário: ${commentMatch[1].trim().slice(0, 240)}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const councilResult = await lib.suggestCouncilMember('urbanismo', description || 'Avaliação de serviço público', undefined);
+      const reply = `Certo. Para encaminhar sua **avaliação** a um vereador, seguem sugestões de parlamentares:\n\n${councilResult}\n\nPosso ajudar com mais alguma coisa?`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+      console.log('[ai-orchestrator] Encaminhar avaliação para vereador: short-circuit suggest_council_member');
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
     }
 
@@ -2223,9 +2240,13 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
           } else if (collectionIntent.type === 'transport_report') {
-            if (!accumulatedFields.sub_category) {
-              const reportType = String(accumulatedFields.report_type || "outro").toLowerCase();
-              const askSubcategoryMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${reportType}]`;
+            const accRt = String(accumulatedFields.report_type || "outro").toLowerCase();
+            const accSub =
+              accumulatedFields.sub_category != null && String(accumulatedFields.sub_category).trim() !== ""
+                ? String(accumulatedFields.sub_category).trim()
+                : "";
+            if (!accSub || !lib.isValidTransportSubcategory(accRt, accSub)) {
+              const askSubcategoryMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${accRt}]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: askSubcategoryMsg } }] });
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
@@ -2544,6 +2565,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 report_type: accumulatedFields.report_type,
                 sub_category: accumulatedFields.sub_category,
                 line_code: accumulatedFields.line_code,
+                line_id: accumulatedFields.line_id,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
                 direction: accumulatedFields.direction,
@@ -2552,6 +2574,8 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 stop_name: accumulatedFields.stop_name,
                 stop_lat: accumulatedFields.stop_lat,
                 stop_lon: accumulatedFields.stop_lon,
+                stop_location: accumulatedFields.stop_location,
+                accessibility_details: accumulatedFields.accessibility_details,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
                 subcategory_label: accumulatedFields.subcategory_label,
@@ -2585,6 +2609,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 report_type: accumulatedFields.report_type,
                 sub_category: accumulatedFields.sub_category,
                 line_code: accumulatedFields.line_code,
+                line_id: accumulatedFields.line_id,
                 occurrence_date: accumulatedFields.occurrence_date,
                 occurrence_time: accumulatedFields.occurrence_time,
                 direction: accumulatedFields.direction,
@@ -2593,6 +2618,8 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 stop_name: accumulatedFields.stop_name,
                 stop_lat: accumulatedFields.stop_lat,
                 stop_lon: accumulatedFields.stop_lon,
+                stop_location: accumulatedFields.stop_location,
+                accessibility_details: accumulatedFields.accessibility_details,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
                 subcategory_label: accumulatedFields.subcategory_label,
@@ -2601,34 +2628,124 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               toolResult = await lib.executeTool('create_transport_report', toolArgs, user.id, supabase, accumulatedFields);
             }
           } else if (collectionIntent.type === 'service_rating') {
-            const toolArgs: Record<string, unknown> = {
-              service_type: accumulatedFields.service_type,
-              service_name: accumulatedFields.service_name,
-              service_neighborhood: accumulatedFields.service_neighborhood,
-              service_address_confirmed: accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
-              rating_stars: accumulatedFields.rating_stars,
-              rating_dimensions: accumulatedFields.rating_dimensions,
-              rating_text: accumulatedFields.rating_text,
-              sentiment: accumulatedFields.sentiment || 'neutral'
-            };
-            if ('wait_time_score' in accumulatedFields)
-              toolArgs.wait_time_score = accumulatedFields.wait_time_score;
-            if ('tempo_espera_score' in accumulatedFields)
-              toolArgs.tempo_espera_score = accumulatedFields.tempo_espera_score;
-            if ('atendimento_score' in accumulatedFields)
-              toolArgs.atendimento_score = accumulatedFields.atendimento_score;
-            if ('infraestrutura_score' in accumulatedFields)
-              toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
-            if ('limpeza_score' in accumulatedFields)
-              toolArgs.limpeza_score = accumulatedFields.limpeza_score;
-            if (accumulatedFields.visit_id) {
-              toolArgs.visit_id = accumulatedFields.visit_id;
-              if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
-              if (accumulatedFields.service_name) toolArgs.service_name = accumulatedFields.service_name;
-            } else {
-              if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+            const askedRatingSubmitPreview =
+              /\[RATING_SUBMIT_PREVIEW\]/i.test(lastAssistantMessage) ||
+              /\[RATING_SUBMIT_PREVIEW_JSON:/i.test(lastAssistantMessage);
+            const userPublishes =
+              /^(publicar|confirmar|sim|ok|enviar)$/i.test(msgLower) ||
+              /^confirmar\s+e\s+publicar$/i.test(msgLower);
+            const userWantsEditComment = /^(editar|editar_comentario|corrigir)$/i.test(msgLower);
+
+            const ratingTextStr =
+              typeof accumulatedFields.rating_text === 'string' ? accumulatedFields.rating_text.trim() : '';
+            const ratingTextReady = ratingTextStr.length >= 5;
+            const lastAskedRatingTextOnly =
+              /\[FIELD_REQUEST:rating_text\]/i.test(lastAssistantMessage) && !askedRatingSubmitPreview;
+
+            if (askedRatingSubmitPreview && userWantsEditComment) {
+              const fieldsJson = JSON.stringify(accumulatedFields);
+              const content =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `[FIELD_REQUEST:rating_text]**Altere seu comentário** (mín. 5 caracteres). Envie o novo texto abaixo.`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+              console.log('[ai-orchestrator] Service rating: edit comment after preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
             }
-            toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
+
+            if (askedRatingSubmitPreview && !userPublishes && !userWantsEditComment) {
+              const remind =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
+                `[RATING_SUBMIT_PREVIEW]` +
+                `Para **publicar** a avaliação, toque em **Publicar** ou responda \`publicar\`. Para ajustar o comentário, use **Editar** ou responda \`editar\`.\n\n[QUICK_REPLY:publicar,editar_comentario]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: remind } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (!askedRatingSubmitPreview && lastAskedRatingTextOnly && ratingTextReady) {
+              const rd =
+                accumulatedFields.rating_dimensions &&
+                lib.isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
+                  ? (accumulatedFields.rating_dimensions as Record<string, number>)
+                  : null;
+              let stars = typeof accumulatedFields.rating_stars === 'number' ? accumulatedFields.rating_stars : 0;
+              if (rd && (!stars || stars < 1 || stars > 5)) {
+                stars = lib.aggregateRatingDimensionsStars(rd);
+              }
+              const sn = String(accumulatedFields.service_name || '').trim();
+              const dimLine = rd
+                ? `\n• **Dimensões:** Tempo ${rd.tempo_espera}/5 · Atendimento ${rd.atendimento}/5 · Infra ${rd.infraestrutura}/5 · Limpeza ${rd.limpeza}/5`
+                : '';
+              const commentShow = ratingTextStr.length > 400 ? `${ratingTextStr.slice(0, 400)}…` : ratingTextStr;
+              const jsonMarker = serviceRatingSubmitPreviewJsonMarker({
+                rating_stars: stars,
+                rating_dimensions: rd,
+                service_name: sn,
+                comment_preview: ratingTextStr.slice(0, 500),
+              });
+              const preview =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
+                `[RATING_SUBMIT_PREVIEW]**Resumo da avaliação**\n\n` +
+                `🏥 **Serviço:** ${sn || '—'}\n⭐ **Nota geral (média):** ${stars}/5${dimLine}\n\n📝 **Comentário:**\n${commentShow}\n\n` +
+                `Confirme para **publicar** no sistema ou edite o comentário antes.` +
+                jsonMarker +
+                `\n\n[QUICK_REPLY:publicar,editar_comentario]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+              console.log('[ai-orchestrator] Service rating: submit preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (askedRatingSubmitPreview && userPublishes) {
+              const accRd = accumulatedFields.rating_dimensions as Record<string, number> | null | undefined;
+              let meanForSentiment =
+                typeof accumulatedFields.rating_stars === "number" &&
+                accumulatedFields.rating_stars >= 1 &&
+                accumulatedFields.rating_stars <= 5
+                  ? accumulatedFields.rating_stars
+                  : 3;
+              if (accRd && lib.isCompleteServiceRatingDimensions(accRd)) {
+                meanForSentiment = lib.aggregateRatingDimensionsStars(accRd);
+              }
+              const sentimentAuto = lib.inferServiceRatingSentimentFromMean(meanForSentiment);
+              const toolArgs: Record<string, unknown> = {
+                service_type: accumulatedFields.service_type,
+                service_name: accumulatedFields.service_name,
+                service_neighborhood: accumulatedFields.service_neighborhood,
+                service_address_confirmed:
+                  accumulatedFields.service_address_confirmed || accumulatedFields._address_reconfirmed,
+                rating_stars: accumulatedFields.rating_stars,
+                rating_dimensions: accumulatedFields.rating_dimensions,
+                rating_text: accumulatedFields.rating_text,
+                sentiment: sentimentAuto,
+              };
+              if ('wait_time_score' in accumulatedFields) toolArgs.wait_time_score = accumulatedFields.wait_time_score;
+              if ('tempo_espera_score' in accumulatedFields) {
+                toolArgs.tempo_espera_score = accumulatedFields.tempo_espera_score;
+              }
+              if ('atendimento_score' in accumulatedFields) {
+                toolArgs.atendimento_score = accumulatedFields.atendimento_score;
+              }
+              if ('infraestrutura_score' in accumulatedFields) {
+                toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
+              }
+              if ('limpeza_score' in accumulatedFields) toolArgs.limpeza_score = accumulatedFields.limpeza_score;
+              if (accumulatedFields.visit_id) {
+                toolArgs.visit_id = accumulatedFields.visit_id;
+                if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+                if (accumulatedFields.service_name) toolArgs.service_name = accumulatedFields.service_name;
+              } else {
+                if (accumulatedFields.service_id) toolArgs.service_id = accumulatedFields.service_id;
+              }
+              toolResult = await lib.executeTool('create_service_rating', toolArgs, user.id, supabase, accumulatedFields);
+            }
           }
           
           if (toolResult && toolResult.success) {
@@ -3106,8 +3223,25 @@ ${empathyNote}
       const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent!.type}:${fieldsJson}]`;
       const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
       const pickerMarker = nextFieldInfo.picker || '';
-      
-      const deterministicResponse = `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+
+      let serviceRatingDimensionHints = '';
+      if (
+        collectionIntent!.type === 'service_rating' &&
+        nextFieldInfo.field === 'rating_dimensions' &&
+        accumulatedFields?.service_type
+      ) {
+        try {
+          serviceRatingDimensionHints = await lib.fetchServiceTypeRatingQuestionHints(
+            supabase,
+            String(accumulatedFields.service_type),
+          );
+        } catch (e) {
+          console.warn('[ai-orchestrator] service_type_rating_questions:', (e as Error).message);
+        }
+      }
+
+      const deterministicResponse =
+        `${progressMarker}${fieldMarker}${prefix}${nextFieldInfo.prompt}${serviceRatingDimensionHints}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
       
       const ssePayload = JSON.stringify({
         choices: [{ delta: { content: deterministicResponse } }]
@@ -3518,70 +3652,103 @@ ${empathyNote}
                 report_type: toolArgs.report_type ?? accumulatedFields.report_type,
                 sub_category: toolArgs.sub_category ?? accumulatedFields.sub_category,
                 line_code: toolArgs.line_code ?? accumulatedFields.line_code,
+                line_id: toolArgs.line_id ?? accumulatedFields.line_id,
                 occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
                 occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
                 direction: toolArgs.direction ?? accumulatedFields.direction,
                 recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
                 stop_name: toolArgs.stop_name ?? accumulatedFields.stop_name,
                 location: toolArgs.location ?? accumulatedFields.location,
+                stop_location: toolArgs.stop_location ?? accumulatedFields.stop_location,
+                accessibility_details:
+                  toolArgs.accessibility_details ?? accumulatedFields.accessibility_details,
                 severity: toolArgs.severity ?? accumulatedFields.severity,
                 subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label,
                 personal_impact: toolArgs.personal_impact ?? accumulatedFields.personal_impact,
                 impact_description: toolArgs.impact_description ?? accumulatedFields.impact_description,
               };
-              if (merged.occurrence_time && merged.direction && merged.personal_impact != null && merged.personal_impact !== "") {
-              if (!alreadyShowedSimilarTransportIntercept) {
-                try {
-                  const similarStream = await lib.fetchSimilarTransportReportsForSupport(
-                    supabase,
-                    merged as Record<string, unknown>,
-                    user.id,
-                    10,
-                  );
-                  if (similarStream.length > 0) {
-                    const payload = { reports: similarStream };
-                    const json = JSON.stringify(payload);
-                    const b64 = btoa(unescape(encodeURIComponent(json)));
-                    const intro =
-                      `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarStream.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
-                    const similarMsg =
-                      `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
-                    const sseSimilar = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
-                    console.log('[ai-orchestrator] Transport report: intercept – similar reports first, count:', similarStream.length);
-                    return new Response(`data: ${sseSimilar}\n\ndata: [DONE]\n\n`, {
-                      headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
-                    });
-                  }
-                } catch (e) {
-                  console.warn('[ai-orchestrator] Transport intercept (stream) similar lookup failed:', e);
-                }
+              const interceptBaseReady =
+                Boolean(merged.occurrence_time) &&
+                Boolean(merged.direction) &&
+                merged.personal_impact != null &&
+                merged.personal_impact !== "";
+              const interceptReportType = String(merged.report_type || "outro").toLowerCase();
+              const interceptSubRaw = merged.sub_category;
+              const interceptSubTrimmed =
+                interceptSubRaw != null && String(interceptSubRaw).trim() !== ""
+                  ? String(interceptSubRaw).trim()
+                  : "";
+              const interceptSubOk =
+                interceptSubTrimmed.length > 0 &&
+                lib.isValidTransportSubcategory(interceptReportType, interceptSubTrimmed);
+
+              if (interceptBaseReady && !interceptSubOk) {
+                const askSubcategoryMsg =
+                  `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${interceptReportType}]`;
+                const sseSub = JSON.stringify({ choices: [{ delta: { content: askSubcategoryMsg } }] });
+                console.log(
+                  "[ai-orchestrator] Transport report: intercept (stream) – missing/invalid sub_category, picker before preview",
+                );
+                return new Response(`data: ${sseSub}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
               }
-              const recurrenceLabelMap: Record<string, string> = {
-                primeira_vez: 'Primeira vez',
-                algumas_vezes_mes: 'Algumas vezes/mês',
-                toda_semana: 'Toda semana',
-                todos_os_dias: 'Todos os dias',
-              };
-              const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
+
+              if (interceptBaseReady && interceptSubOk) {
+                if (!alreadyShowedSimilarTransportIntercept) {
+                  try {
+                    const similarStream = await lib.fetchSimilarTransportReportsForSupport(
+                      supabase,
+                      merged as Record<string, unknown>,
+                      user.id,
+                      10,
+                    );
+                    if (similarStream.length > 0) {
+                      const payload = { reports: similarStream };
+                      const json = JSON.stringify(payload);
+                      const b64 = btoa(unescape(encodeURIComponent(json)));
+                      const intro =
+                        `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarStream.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                      const similarMsg =
+                        `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                      const sseSimilar = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                      console.log('[ai-orchestrator] Transport report: intercept – similar reports first, count:', similarStream.length);
+                      return new Response(`data: ${sseSimilar}\n\ndata: [DONE]\n\n`, {
+                        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+                      });
+                    }
+                  } catch (e) {
+                    console.warn('[ai-orchestrator] Transport intercept (stream) similar lookup failed:', e);
+                  }
+                }
+                const recurrenceLabelMap: Record<string, string> = {
+                  primeira_vez: 'Primeira vez',
+                  algumas_vezes_mes: 'Algumas vezes/mês',
+                  toda_semana: 'Toda semana',
+                  todos_os_dias: 'Todos os dias',
+                };
+                const stopNameRaw = (merged as Record<string, unknown>).stop_name;
+                const stopNameLabel =
+                  stopNameRaw === "__skip__"
+                    ? "Não lembro"
+                    : (typeof stopNameRaw === "string" && stopNameRaw.trim() ? stopNameRaw : "Não informado");
+                const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
-• **Ponto de embarque/parada:** ${(() => {
-  const stopName = (merged as Record<string, unknown>).stop_name;
-  return stopName === "__skip__" ? "Não lembro" : (stopName || "Não informado");
-})()}
+• **Ponto de embarque/parada:** ${stopNameLabel}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
 • **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
 • **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?${transportPreviewJsonMarker(merged)}[QUICK_REPLY:sim,não]`;
-              const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
-              console.log('[ai-orchestrator] Transport report: intercept – showing preview + photo choice before creating');
-              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
-                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
-              });
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
+                console.log('[ai-orchestrator] Transport report: intercept – showing preview + photo choice before creating');
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+                });
               }
             }
           }
@@ -3618,6 +3785,13 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.severity && { severity: toolArgs.severity }),
             ...(toolArgs.personal_impact != null && toolArgs.personal_impact !== "" && { personal_impact: toolArgs.personal_impact }),
             ...(toolArgs.impact_description && { impact_description: toolArgs.impact_description }),
+            ...(toolArgs.stop_name && { stop_name: toolArgs.stop_name }),
+            ...(toolArgs.stop_location && { stop_location: toolArgs.stop_location }),
+            ...(toolArgs.accessibility_details != null &&
+            typeof toolArgs.accessibility_details === "object" &&
+            !Array.isArray(toolArgs.accessibility_details)
+              ? { accessibility_details: toolArgs.accessibility_details }
+              : {}),
             // Service rating fields
             ...(toolArgs.service_type && { service_type: toolArgs.service_type }),
             ...(toolArgs.rating_stars && { rating_stars: toolArgs.rating_stars }),
@@ -3674,7 +3848,23 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
           const progressMarker = `[COLLECTION_PROGRESS:${collectionIntent.type}:${fieldsJson}]`;
           const fieldMarker = `[FIELD_REQUEST:${nextFieldInfo.field}]`;
           const pickerMarker = nextFieldInfo.picker || '';
-          responseContent = `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
+          let hintsEmpty = '';
+          if (
+            collectionIntent.type === 'service_rating' &&
+            nextFieldInfo.field === 'rating_dimensions' &&
+            accumulatedFields?.service_type
+          ) {
+            try {
+              hintsEmpty = await lib.fetchServiceTypeRatingQuestionHints(
+                supabase,
+                String(accumulatedFields.service_type),
+              );
+            } catch {
+              /* ignore */
+            }
+          }
+          responseContent =
+            `${progressMarker}${fieldMarker}${nextFieldInfo.prompt}${hintsEmpty}${pickerMarker ? '\n\n' + pickerMarker : ''}`;
         } else {
           // Generic fallback message
           responseContent = 'Desculpe, não consegui processar sua mensagem. Pode reformular?';
@@ -3746,56 +3936,86 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             report_type: toolArgs.report_type ?? accumulatedFields.report_type,
             sub_category: toolArgs.sub_category ?? accumulatedFields.sub_category,
             line_code: toolArgs.line_code ?? accumulatedFields.line_code,
+            line_id: toolArgs.line_id ?? accumulatedFields.line_id,
             occurrence_date: toolArgs.occurrence_date ?? accumulatedFields.occurrence_date,
             occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
             direction: toolArgs.direction ?? accumulatedFields.direction,
             recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
             stop_name: toolArgs.stop_name ?? accumulatedFields.stop_name,
             location: toolArgs.location ?? accumulatedFields.location,
+            stop_location: toolArgs.stop_location ?? accumulatedFields.stop_location,
+            accessibility_details:
+              toolArgs.accessibility_details ?? accumulatedFields.accessibility_details,
             severity: toolArgs.severity ?? accumulatedFields.severity,
             subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label,
             personal_impact: toolArgs.personal_impact ?? accumulatedFields.personal_impact,
             impact_description: toolArgs.impact_description ?? accumulatedFields.impact_description,
           };
-          if (merged.occurrence_time && merged.direction && merged.personal_impact != null && merged.personal_impact !== "") {
-          if (!alreadyShowedSimilarNs) {
-            try {
-              const similarNs = await lib.fetchSimilarTransportReportsForSupport(
-                supabase,
-                merged as Record<string, unknown>,
-                user.id,
-                10,
-              );
-              if (similarNs.length > 0) {
-                const payload = { reports: similarNs };
-                const json = JSON.stringify(payload);
-                const b64 = btoa(unescape(encodeURIComponent(json)));
-                const intro =
-                  `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarNs.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
-                const similarMsg =
-                  `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
-                const sseSimilarNs = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
-                console.log('[ai-orchestrator] Transport report (non-stream): intercept – similar first, count:', similarNs.length);
-                return new Response(`data: ${sseSimilarNs}\n\ndata: [DONE]\n\n`, {
-                  headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
-                });
-              }
-            } catch (e) {
-              console.warn('[ai-orchestrator] Transport intercept (non-stream) similar lookup failed:', e);
-            }
+          const interceptBaseReadyNs =
+            Boolean(merged.occurrence_time) &&
+            Boolean(merged.direction) &&
+            merged.personal_impact != null &&
+            merged.personal_impact !== "";
+          const interceptReportTypeNs = String(merged.report_type || "outro").toLowerCase();
+          const interceptSubRawNs = merged.sub_category;
+          const interceptSubTrimmedNs =
+            interceptSubRawNs != null && String(interceptSubRawNs).trim() !== ""
+              ? String(interceptSubRawNs).trim()
+              : "";
+          const interceptSubOkNs =
+            interceptSubTrimmedNs.length > 0 &&
+            lib.isValidTransportSubcategory(interceptReportTypeNs, interceptSubTrimmedNs);
+
+          if (interceptBaseReadyNs && !interceptSubOkNs) {
+            const askSubcategoryMsgNs =
+              `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:sub_category]Qual detalhe descreve melhor esse problema?[SUBCATEGORY_PICKER:${interceptReportTypeNs}]`;
+            const sseSubNs = JSON.stringify({ choices: [{ delta: { content: askSubcategoryMsgNs } }] });
+            console.log(
+              "[ai-orchestrator] Transport report (non-stream): intercept – missing/invalid sub_category, picker before preview",
+            );
+            return new Response(`data: ${sseSubNs}\n\ndata: [DONE]\n\n`, {
+              headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+            });
           }
-          const recurrenceLabelMap: Record<string, string> = {
-            primeira_vez: 'Primeira vez',
-            algumas_vezes_mes: 'Algumas vezes/mês',
-            toda_semana: 'Toda semana',
-            todos_os_dias: 'Todos os dias',
-          };
-          const stopNameRaw = (merged as Record<string, unknown>).stop_name;
-          const stopNameLabel =
-            stopNameRaw === "__skip__"
-              ? "Não lembro"
-              : (typeof stopNameRaw === "string" && stopNameRaw.trim() ? stopNameRaw : "Não informado");
-          const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
+          if (interceptBaseReadyNs && interceptSubOkNs) {
+            if (!alreadyShowedSimilarNs) {
+              try {
+                const similarNs = await lib.fetchSimilarTransportReportsForSupport(
+                  supabase,
+                  merged as Record<string, unknown>,
+                  user.id,
+                  10,
+                );
+                if (similarNs.length > 0) {
+                  const payload = { reports: similarNs };
+                  const json = JSON.stringify(payload);
+                  const b64 = btoa(unescape(encodeURIComponent(json)));
+                  const intro =
+                    `Encontramos **relatos recentes na mesma linha e tipo de problema** (até ${similarNs.length} registros). Você pode **apoiar** um relato existente ou **registrar um novo**.`;
+                  const similarMsg =
+                    `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]${intro}\n\n[SIMILAR_TRANSPORT_REPORTS_B64:${b64}]\n\nToque em **Registrar novo relato** para seguir com o seu pedido (fotos e confirmação).[QUICK_REPLY:novo_relato]`;
+                  const sseSimilarNs = JSON.stringify({ choices: [{ delta: { content: similarMsg } }] });
+                  console.log('[ai-orchestrator] Transport report (non-stream): intercept – similar first, count:', similarNs.length);
+                  return new Response(`data: ${sseSimilarNs}\n\ndata: [DONE]\n\n`, {
+                    headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+                  });
+                }
+              } catch (e) {
+                console.warn('[ai-orchestrator] Transport intercept (non-stream) similar lookup failed:', e);
+              }
+            }
+            const recurrenceLabelMap: Record<string, string> = {
+              primeira_vez: 'Primeira vez',
+              algumas_vezes_mes: 'Algumas vezes/mês',
+              toda_semana: 'Toda semana',
+              todos_os_dias: 'Todos os dias',
+            };
+            const stopNameRaw = (merged as Record<string, unknown>).stop_name;
+            const stopNameLabel =
+              stopNameRaw === "__skip__"
+                ? "Não lembro"
+                : (typeof stopNameRaw === "string" && stopNameRaw.trim() ? stopNameRaw : "Não informado");
+            const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
@@ -3807,11 +4027,11 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
 • **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?${transportPreviewJsonMarker(merged)}[QUICK_REPLY:sim,não]`;
-          const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
-          console.log('[ai-orchestrator] Transport report (non-stream): intercept – preview + photo choice');
-          return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
-            headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
-          });
+            const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
+            console.log('[ai-orchestrator] Transport report (non-stream): intercept – preview + photo choice');
+            return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+              headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+            });
           }
         }
       }

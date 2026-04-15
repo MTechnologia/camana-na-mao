@@ -3,6 +3,8 @@ import {
   aggregateRatingDimensionsStars,
   buildServiceRatingDimensionsFromWizardScores,
   executeTool,
+  getTransportReportLatLonForBounds,
+  isPointInSaoPauloBounds,
   SERVICE_RATING_DIMENSION_KEYS,
 } from "./lib.ts";
 
@@ -334,4 +336,21 @@ Deno.test("create_transport_report: resolve stop_location por geocoding quando s
   assertExists(inserted);
   assertEquals(inserted.stop_name, "Parada Metro Vila Mariana");
   assertEquals(inserted.stop_location, "SRID=4326;POINT(-46.63555 -23.58912)");
+});
+
+Deno.test("HU-6.6: isPointInSaoPauloBounds e getTransportReportLatLonForBounds", () => {
+  assertEquals(isPointInSaoPauloBounds(-23.5505, -46.6333), true);
+  assertEquals(isPointInSaoPauloBounds(-22.9, -46.6), false);
+  const fromGps = getTransportReportLatLonForBounds(
+    { user_lat: -23.55, user_lon: -46.63 },
+    {},
+  );
+  assertExists(fromGps);
+  assertEquals(isPointInSaoPauloBounds(fromGps.lat, fromGps.lon), true);
+  const fromStop = getTransportReportLatLonForBounds(
+    { stop_location: "-23.55 , -46.63" },
+    undefined,
+  );
+  assertExists(fromStop);
+  assertEquals(isPointInSaoPauloBounds(fromStop.lat, fromStop.lon), true);
 });
