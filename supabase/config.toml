@@ -92,3 +92,10 @@ verify_jwt = false
 
 [functions.process-pending-visits]
 verify_jwt = false
+
+# HU-7.1: análise de padrões (RPC analyze_report_patterns + sync de alertas).
+# Agendar no Dashboard → Integrations → Cron (ou pg_cron + pg_net), ex. semanal:
+#   POST {SUPABASE_URL}/functions/v1/analyze-patterns
+#   Headers: Authorization Bearer {SERVICE_ROLE_KEY}; se CRON_SECRET existir, incluir x-cron-secret.
+[functions.analyze-patterns]
+verify_jwt = false

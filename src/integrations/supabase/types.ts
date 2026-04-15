@@ -1216,42 +1216,107 @@ export type Database = {
         }
         Relationships: []
       }
+      report_pattern_threshold_events: {
+        Row: {
+          alert_level: string
+          average_severity: string | null
+          avg_severity: number | null
+          created_at: string
+          description: string | null
+          id: string
+          line_id: string | null
+          occurrence_count: number | null
+          pattern_type: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          alert_level: string
+          average_severity?: string | null
+          avg_severity?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_id?: string | null
+          occurrence_count?: number | null
+          pattern_type: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          alert_level?: string
+          average_severity?: string | null
+          avg_severity?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_id?: string | null
+          occurrence_count?: number | null
+          pattern_type?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_pattern_threshold_events_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "transport_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_patterns: {
         Row: {
           average_severity: string | null
+          avg_severity: number | null
           description: string
           first_detected_at: string | null
           id: string
+          last_analyzed_at: string | null
           last_occurrence_at: string | null
           line_id: string | null
           occurrence_count: number | null
           pattern_type: string
+          peak_hours: Json | null
           status: string | null
           suggested_action: string | null
+          window_end: string | null
+          window_start: string | null
         }
         Insert: {
           average_severity?: string | null
+          avg_severity?: number | null
           description: string
           first_detected_at?: string | null
           id?: string
+          last_analyzed_at?: string | null
           last_occurrence_at?: string | null
           line_id?: string | null
           occurrence_count?: number | null
           pattern_type: string
+          peak_hours?: Json | null
           status?: string | null
           suggested_action?: string | null
+          window_end?: string | null
+          window_start?: string | null
         }
         Update: {
           average_severity?: string | null
+          avg_severity?: number | null
           description?: string
           first_detected_at?: string | null
           id?: string
+          last_analyzed_at?: string | null
           last_occurrence_at?: string | null
           line_id?: string | null
           occurrence_count?: number | null
           pattern_type?: string
+          peak_hours?: Json | null
           status?: string | null
           suggested_action?: string | null
+          window_end?: string | null
+          window_start?: string | null
         }
         Relationships: [
           {
@@ -2610,6 +2675,22 @@ export type Database = {
       admin_user_emails: {
         Args: Record<string, never>
         Returns: { user_id: string; email: string }[]
+      },
+      analyze_report_patterns: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      },
+      get_analytics_dashboard_summary: {
+        Args: { p_end?: string | null; p_start?: string | null }
+        Returns: Json
+      },
+      get_worst_services_by_dimension: {
+        Args: { p_dimension: string; p_limit?: number | null }
+        Returns: Json
+      },
+      sync_pattern_threshold_events: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       },
       insert_audiencia_participacao: {
         Args: {
