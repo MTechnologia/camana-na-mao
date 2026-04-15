@@ -11,6 +11,9 @@ interface ReportData {
   severity?: string;
   report_type?: string;
   location?: string;
+  /** HU-8.3: filtro por comissão (keywords da tabela legislative_commissions) */
+  commission_keywords?: string[];
+  commission_name?: string;
 }
 
 interface SuggestionResult {
@@ -55,7 +58,8 @@ export const useCouncilMemberSuggestions = () => {
             party: v.party,
             region: v.region,
             initials: v.initials,
-            photo: v.photo
+            photo: v.photo,
+            areas_de_atuacao: v.areasDeAtuacao,
           }))
         },
         headers: {
@@ -96,6 +100,7 @@ export const useCouncilMemberSuggestions = () => {
     matchScore: number;
     matchReasons: string[];
     citizenMessage?: string;
+    legislative_commission_id?: string | null;
   }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -106,11 +111,15 @@ export const useCouncilMemberSuggestions = () => {
         council_member_id: params.vereador.id,
         council_member_name: params.vereador.name,
         council_member_party: params.vereador.party,
-        match_score: params.matchScore,
+        match_score: Math.round(Number(params.matchScore)),
         match_reasons: params.matchReasons,
         citizen_message: params.citizenMessage,
         status: 'pending'
       };
+
+      if (params.legislative_commission_id) {
+        referralData.legislative_commission_id = params.legislative_commission_id;
+      }
 
       // Set the appropriate foreign key based on report type
       if (params.reportType === 'transport') {
