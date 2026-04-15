@@ -6670,6 +6670,15 @@ function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * c;
 }
 
+function normalizeForDedup(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Helper: Find nearby services (com ordenação por distância quando userLat/userLon disponíveis). Só lista serviços com endereço válido.
 export async function findNearbyServices(
   supabase: SupabaseClient,
@@ -6695,6 +6704,22 @@ export async function findNearbyServices(
     const radius = radiusOverride ?? radiusMeters;
     let withAddress = data.filter(hasValidAddress);
     if (withAddress.length === 0) return '';
+
+    // Evita itens duplicados no chat (mesma escola/endereço retornando múltiplas linhas).
+    // Alguns datasets vêm com registros repetidos por fonte/sincronização.
+    const seen = new Set<string>();
+    withAddress = withAddress.filter((s: Record<string, unknown>) => {
+      const key = [
+        normalizeForDedup(s.name),
+        normalizeForDedup(s.address),
+        normalizeForDedup(s.district),
+      ].join("|");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (withAddress.length === 0) return '';
+
     if (search) {
       withAddress = withAddress.filter((s: Record<string, unknown>) => {
         const name = (s.name || '').toString().toLowerCase();
@@ -6732,31 +6757,74 @@ export async function findNearbyServices(
 
   const tryFormat = (data: Record<string, unknown>[], isExpanded: boolean): string => sortAndFormat(data, isExpanded);
 
-  // Quando temos coordenadas do usuário, buscar mais resultados city-wide e ordenar por distância (prioridade sobre district)
+  // Quando temos coordenadas do usuário, priorizar recorte geográfico por raio (bbox) e ordenar por distância.
+  // Antes era feito `limit(200)` city-wide sem bbox, o que podia ignorar serviços próximos em bases grandes.
   if (hasCoords) {
-    const fetchSize = 200;
-    const { data, error } = await supabase
+    const metersToDegrees = (meters: number) => meters / 111320;
+    const getBboxForRadiusMeters = (lat: number, lon: number, meters: number) => {
+      const latDelta = metersToDegrees(meters);
+      const cosLat = Math.cos((lat * Math.PI) / 180);
+      const lngDeltaRaw = metersToDegrees(meters) / (Math.abs(cosLat) < 1e-6 ? 1e-6 : Math.abs(cosLat));
+      const lngDelta = Number.isFinite(lngDeltaRaw) ? lngDeltaRaw : 0;
+      return {
+        minLat: lat - latDelta,
+        maxLat: lat + latDelta,
+        minLng: lon - lngDelta,
+        maxLng: lon + lngDelta,
+      };
+    };
+
+    const fetchByBbox = async (bboxRadiusMeters: number, rowCap: number) => {
+      const box = getBboxForRadiusMeters(userLat!, userLon!, Math.max(100, bboxRadiusMeters));
+      const { data, error } = await supabase
+        .from('public_services')
+        .select(selectFields)
+        .eq('service_type', serviceType)
+        .gte('latitude', box.minLat)
+        .lte('latitude', box.maxLat)
+        .gte('longitude', box.minLng)
+        .lte('longitude', box.maxLng)
+        .limit(rowCap);
+      return { data, error };
+    };
+
+    // 1) Busca no raio solicitado
+    const { data: inRadius, error: inRadiusErr } = await fetchByBbox(radiusMeters, 1200);
+    if (!inRadiusErr && inRadius?.length) {
+      const out = sortAndFormat(inRadius as unknown as Record<string, unknown>[], !district);
+      if (out) {
+        console.log('[findNearbyServices] Sorted by distance from user (bbox current radius)');
+        return out;
+      }
+    }
+
+    // 2) Fallback: até 20km para sempre retornar algo quando possível
+    const { data: in20km, error: in20kmErr } = await fetchByBbox(20000, 2000);
+    if (!in20kmErr && in20km?.length) {
+      const rows20 = in20km as unknown as Record<string, unknown>[];
+      const out20 = sortAndFormat(rows20, !district, 20000);
+      if (out20) {
+        console.log('[findNearbyServices] No results in radius, showing within 20km (bbox)');
+        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out20}`;
+      }
+      // Ainda zero (ex.: sem lat/lon em muitos registros): sem filtro de distância
+      const outAny = sortAndFormat(rows20, !district, 1e9);
+      if (outAny) {
+        console.log('[findNearbyServices] Showing first N without distance filter (bbox 20km)');
+        return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${outAny}`;
+      }
+    }
+
+    // 3) Último fallback city-wide (mantém robustez para dados esparsos fora bbox)
+    const { data: cityWide, error: cityWideErr } = await supabase
       .from('public_services')
       .select(selectFields)
       .eq('service_type', serviceType)
-      .limit(fetchSize);
-    if (!error && data?.length) {
-      const rows = data as unknown as Record<string, unknown>[];
-      let out = sortAndFormat(rows, !district);
+      .limit(2000);
+    if (!cityWideErr && cityWide?.length) {
+      const out = sortAndFormat(cityWide as unknown as Record<string, unknown>[], !district, 1e9);
       if (out) {
-        console.log('[findNearbyServices] Sorted by distance from user');
-        return out;
-      }
-      // Nenhum resultado no raio pedido: tentar com raio maior (20 km) para sempre mostrar opções quando existirem no DB
-      out = sortAndFormat(rows, !district, 20000);
-      if (out) {
-        console.log('[findNearbyServices] No results in radius, showing within 20km');
-        return `Nenhum ${typeName} a até ${radiusMeters < 1000 ? radiusMeters + ' m' : (radiusMeters / 1000) + ' km'} de você. Aqui estão as opções mais próximas (até 20 km):\n\n${out}`;
-      }
-      // Ainda zero (ex.: todos além de 20 km ou registros sem lat/lon): sem filtro de distância (raio muito grande)
-      out = sortAndFormat(rows, !district, 1e9);
-      if (out) {
-        console.log('[findNearbyServices] Showing first N without distance filter');
+        console.log('[findNearbyServices] Showing first N from city-wide fallback');
         return `Aqui estão algumas opções de ${typeName} em São Paulo:\n\n${out}`;
       }
     }
