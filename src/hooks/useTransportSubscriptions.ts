@@ -87,7 +87,8 @@ export function useTransportSubscriptions() {
         .from("transport_subscriptions")
         .delete()
         .eq("user_id", user.id)
-        .eq("line_id", lineId);
+        .eq("line_id", lineId)
+        .eq("subscription_type", type);
 
       if (error) {
         console.error("[useTransportSubscriptions] Error unsubscribing:", error);

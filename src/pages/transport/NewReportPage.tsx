@@ -14,6 +14,8 @@ import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
+import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
+import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +29,7 @@ export default function NewReportPage() {
   const { user } = useAuth();
   const { submitReport, submitting } = useTransportReport();
   const { patterns } = useReportPatterns();
+  const transportFollow = useTransportSubscriptions();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [reportData, setReportData] = useState<Record<string, unknown>>({});
@@ -173,6 +176,26 @@ export default function NewReportPage() {
           {relatedPattern && (
             <PatternAlert pattern={relatedPattern} />
           )}
+
+          {step >= 2 &&
+            typeof reportData.line_id === 'string' &&
+            reportData.line_id.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Quer ser avisado quando houver novos relatos ou padrões nesta linha?
+                </p>
+                <TransportLineFollowButton
+                  lineId={reportData.line_id}
+                  lineLabel={
+                    typeof reportData.line_name === 'string' ? reportData.line_name : undefined
+                  }
+                  subscriptions={transportFollow.subscriptions}
+                  loading={transportFollow.loading}
+                  toggleSubscription={transportFollow.toggleSubscription}
+                  className="shrink-0 self-start sm:self-center"
+                />
+              </div>
+            )}
           
           {step === 1 && (
           <div className="space-y-4">
