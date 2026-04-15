@@ -71,6 +71,8 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[OFFER_REFERRAL\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW_JSON:[^\]]+\]/g, '')
+    .replace(/\[RATING_PREVIEW:\{[\s\S]*?\}\]/g, '')
+    .replace(/\[RATING_STEP_CONFIRM:[^\]]+\]/g, '')
     .replace(/\[FIELD_REQUEST:\w+\]/g, '')
     .replace(/\[ADDRESS_PICKER\]/g, '')
     .replace(/\[LINE_PICKER\]/g, '')

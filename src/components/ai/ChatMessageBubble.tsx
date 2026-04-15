@@ -640,7 +640,7 @@ const ChatMessageBubble = ({
         ];
         for (const re of displayPatterns) {
           if (re.test(text)) {
-            text = text.replace(re, `$1${v}`);
+            text = text.replace(re, `📝 **Comentário:** ${v}`);
             break;
           }
         }
@@ -772,7 +772,13 @@ const ChatMessageBubble = ({
       conducao: 'Condução',
       outro: 'Outro',
       publicar: 'Publicar',
-      editar_comentario: 'Editar',
+      finalizar: 'Finalizar',
+      proxima: 'Próxima',
+      proximo: 'Próximo',
+      editar_comentario: 'Editar comentário',
+      editar_nota_geral: 'Editar nota geral',
+      editar_tempo_espera: 'Editar tempo de espera',
+      editar_dimensoes: 'Editar dimensões',
     };
     return values.map((value) => ({
       value,
@@ -817,7 +823,8 @@ const ChatMessageBubble = ({
   const showRatingSubmitPreviewCard = Boolean(
     !isUser &&
       ratingSubmitPreviewParsed &&
-      /\[RATING_SUBMIT_PREVIEW\]/i.test(message.content) &&
+      (/\[RATING_SUBMIT_PREVIEW\]/i.test(message.content) ||
+        /\[RATING_PREVIEW:\{/i.test(message.content)) &&
       /\[QUICK_REPLY:[^\]]*publicar/i.test(message.content),
   );
   const markdownAfterRatingSubmitPreview = useMemo(() => {
@@ -1023,7 +1030,7 @@ const ChatMessageBubble = ({
       {/* Message Content */}
       <div
         className={cn(
-          "flex flex-col gap-1 max-w-[75%]",
+          "flex flex-col gap-1 max-w-[92%] sm:max-w-[75%]",
           isUser ? "items-end" : "items-start"
         )}
       >
@@ -1616,24 +1623,38 @@ const ChatMessageBubble = ({
               const isConfirmar = btn.value === "confirmar";
               const isPublicar = btn.value === "publicar";
               const isEditarComentario = btn.value === "editar_comentario";
+              const isEditarCampoRating =
+                btn.value === "editar_nota_geral" ||
+                btn.value === "editar_tempo_espera" ||
+                btn.value === "editar_dimensoes";
+              const messageToSend =
+                btn.value === "editar_comentario"
+                  ? "Editando comentário"
+                  : btn.value === "editar_nota_geral"
+                    ? "Editando nota geral"
+                    : btn.value === "editar_tempo_espera"
+                      ? "Editando tempo de espera"
+                      : btn.value === "editar_dimensoes"
+                        ? "Editando dimensões"
+                        : btn.value;
               return (
                 <Button
                   key={btn.value}
-                  variant={isCorrigir || isEditarComentario ? "outline" : "default"}
+                  variant={isCorrigir || isEditarComentario || isEditarCampoRating ? "outline" : "default"}
                   size={
                     showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard
                       ? "default"
                       : "sm"
                   }
                   disabled={disabled}
-                  onClick={() => !disabled && onSendMessage?.(btn.value)}
+                  onClick={() => !disabled && onSendMessage?.(messageToSend)}
                   className={cn(
                     "rounded-lg",
                     (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
                       (isConfirmar || isPublicar) &&
                       "min-h-11 px-5",
                     (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
-                      (isCorrigir || isEditarComentario) &&
+                      (isCorrigir || isEditarComentario || isEditarCampoRating) &&
                       "min-h-11 px-5",
                   )}
                 >

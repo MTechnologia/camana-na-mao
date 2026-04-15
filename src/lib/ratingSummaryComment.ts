@@ -129,7 +129,7 @@ export function forceReplaceRatingComment(raw: string, newComment: string): stri
     }
   }
 
-  const loose = working.replace(/(Comentário\s*:\s*)([^\r\n]+)/iu, `$1${t}`);
+  const loose = working.replace(/Comentário\s*:\s*[^\r\n]+/iu, `📝 **Comentário:** ${t}`);
   if (loose !== working) return loose;
 
   return working;

@@ -49,6 +49,24 @@ function serviceRatingSubmitPreviewJsonMarker(payload: {
   }
 }
 
+function serviceRatingPreviewMarker(payload: {
+  rating_stars: number;
+  rating_dimensions: Record<string, number> | null;
+  service_name: string;
+  comment_preview: string;
+}): string {
+  try {
+    const safePayload = {
+      ...payload,
+      // Garante que o marcador [RATING_PREVIEW:{...}] não seja quebrado por "]" no comentário.
+      comment_preview: String(payload.comment_preview || "").replace(/\]/g, "\\u005d"),
+    };
+    return `\n\n[RATING_PREVIEW:${JSON.stringify(safePayload)}]`;
+  } catch {
+    return "";
+  }
+}
+
 function transportImpactSummaryLine(pi: unknown): string {
   const n =
     typeof pi === "number" && Number.isFinite(pi)
@@ -2604,23 +2622,291 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
           } else if (collectionIntent.type === 'service_rating') {
             const askedRatingSubmitPreview =
               /\[RATING_SUBMIT_PREVIEW\]/i.test(lastAssistantMessage) ||
-              /\[RATING_SUBMIT_PREVIEW_JSON:/i.test(lastAssistantMessage);
+              /\[RATING_SUBMIT_PREVIEW_JSON:/i.test(lastAssistantMessage) ||
+              /\[RATING_PREVIEW:\{/i.test(lastAssistantMessage);
+            const normalizedMsg = msgLower
+              .normalize("NFD")
+              .replace(/\p{M}/gu, "")
+              .trim();
+            const historyMessages = Array.isArray(messages)
+              ? (messages as Array<{ role?: string; content?: string }>)
+              : [];
             const userPublishes =
               /^(publicar|confirmar|sim|ok|enviar)$/i.test(msgLower) ||
-              /^confirmar\s+e\s+publicar$/i.test(msgLower);
-            const userWantsEditComment = /^(editar|editar_comentario|corrigir)$/i.test(msgLower);
+              /^confirmar\s+e\s+publicar$/i.test(msgLower) ||
+              /^(finalizar|concluir)$/i.test(msgLower);
+            const userWantsEdit = /^(editar|corrigir)$/i.test(msgLower);
+            const userWantsEditComment =
+              /^editar_comentario$/i.test(msgLower) ||
+              /^(editando|editar)\s+comentario$/i.test(normalizedMsg);
+            const userWantsEditStars =
+              /^editar_nota_geral$/i.test(msgLower) ||
+              /^(editando|editar)\s+nota\s+geral$/i.test(normalizedMsg);
+            const userWantsEditWaitTime =
+              /^editar_tempo_espera$/i.test(msgLower) ||
+              /^(editando|editar)\s+tempo\s+de\s+espera$/i.test(normalizedMsg);
+            const userWantsEditDimensions =
+              /^editar_dimensoes$/i.test(msgLower) ||
+              /^(editando|editar)\s+dimensoes$/i.test(normalizedMsg);
+            const userWantsNextStep = /^(proxima|proximo|seguir|continuar)$/i.test(normalizedMsg);
+            const stepConfirmFieldMatch = lastAssistantMessage.match(
+              /\[RATING_STEP_CONFIRM:(rating_stars|dim_tempo_espera|dim_atendimento|dim_infraestrutura|dim_limpeza)\]/i,
+            );
+            const stepConfirmField = stepConfirmFieldMatch?.[1]?.toLowerCase() ?? null;
+            const askedAtomicRatingFieldMatch = lastAssistantMessage.match(
+              /\[FIELD_REQUEST:(rating_stars|dim_tempo_espera|dim_atendimento|dim_infraestrutura|dim_limpeza)\]/i,
+            );
+            const askedAtomicRatingField = askedAtomicRatingFieldMatch?.[1]?.toLowerCase() ?? null;
+            const editedFieldFromUserMessage = (() => {
+              if (/^editar_tempo_espera$/i.test(msgLower) || /^(editando|editar)\s+tempo\s+de\s+espera$/i.test(normalizedMsg)) {
+                return "dim_tempo_espera";
+              }
+              if (/^editar_nota_geral$/i.test(msgLower) || /^(editando|editar)\s+nota\s+geral$/i.test(normalizedMsg)) {
+                return "rating_stars";
+              }
+              if (/^editar_dimensoes$/i.test(msgLower) || /^(editando|editar)\s+dimensoes$/i.test(normalizedMsg)) {
+                return "rating_dimensions";
+              }
+              if (/^editar_comentario$/i.test(msgLower) || /^(editando|editar)\s+comentario$/i.test(normalizedMsg)) {
+                return "rating_text";
+              }
+              return null;
+            })();
+
+            const editedSingleFields = new Set<string>();
+            for (const um of historyMessages.filter((m) => m.role === "user")) {
+              const raw = String(um.content ?? "").toLowerCase().trim();
+              const norm = raw.normalize("NFD").replace(/\p{M}/gu, "").trim();
+              if (
+                /^editar_tempo_espera$/i.test(raw) ||
+                /^(editando|editar)\s+tempo\s+de\s+espera$/i.test(norm)
+              ) {
+                editedSingleFields.add("dim_tempo_espera");
+              }
+              if (
+                /^editar_nota_geral$/i.test(raw) ||
+                /^(editando|editar)\s+nota\s+geral$/i.test(norm)
+              ) {
+                editedSingleFields.add("rating_stars");
+              }
+            }
+            // Se usuário escolheu editar "dimensões", considera as 4 já contempladas para não repetir.
+            for (const um of historyMessages.filter((m) => m.role === "user")) {
+              const raw = String(um.content ?? "").toLowerCase().trim();
+              const norm = raw.normalize("NFD").replace(/\p{M}/gu, "").trim();
+              if (
+                /^editar_dimensoes$/i.test(raw) ||
+                /^(editando|editar)\s+dimensoes$/i.test(norm)
+              ) {
+                editedSingleFields.add("dim_tempo_espera");
+                editedSingleFields.add("dim_atendimento");
+                editedSingleFields.add("dim_infraestrutura");
+                editedSingleFields.add("dim_limpeza");
+              }
+            }
+
+            const atomicFieldPrompt = (field: string): { prompt: string; picker: string } | null => {
+              const map: Record<string, { prompt: string; picker: string }> = {
+                rating_stars: {
+                  prompt: "**Altere a nota geral** (1 a 5 estrelas).",
+                  picker: "[RATING_PICKER]",
+                },
+                dim_tempo_espera: {
+                  prompt: "**Altere a nota de tempo de espera** (1 a 5 estrelas).",
+                  picker: "[RATING_PICKER]",
+                },
+                dim_atendimento: {
+                  prompt: "**Altere a nota de atendimento** (1 a 5 estrelas).",
+                  picker: "[RATING_PICKER]",
+                },
+                dim_infraestrutura: {
+                  prompt: "**Altere a nota de infraestrutura** (1 a 5 estrelas).",
+                  picker: "[RATING_PICKER]",
+                },
+                dim_limpeza: {
+                  prompt: "**Altere a nota de limpeza** (1 a 5 estrelas).",
+                  picker: "[RATING_PICKER]",
+                },
+              };
+              return map[field] ?? null;
+            };
+
+            const atomicFieldLabel = (field: string): string => {
+              const labels: Record<string, string> = {
+                rating_stars: "nota geral",
+                dim_tempo_espera: "tempo de espera",
+                dim_atendimento: "atendimento",
+                dim_infraestrutura: "infraestrutura",
+                dim_limpeza: "limpeza",
+              };
+              return labels[field] ?? "nota";
+            };
 
             const ratingTextStr =
               typeof accumulatedFields.rating_text === 'string' ? accumulatedFields.rating_text.trim() : '';
             const ratingTextReady = ratingTextStr.length >= 5;
             const lastAskedRatingTextOnly =
               /\[FIELD_REQUEST:rating_text\]/i.test(lastAssistantMessage) && !askedRatingSubmitPreview;
+            const hadRatingPreviewInHistory = historyMessages.some(
+              (m) =>
+                m.role === "assistant" &&
+                (/\[RATING_SUBMIT_PREVIEW\]/i.test(String(m.content ?? "")) ||
+                  /\[RATING_SUBMIT_PREVIEW_JSON:/i.test(String(m.content ?? "")) ||
+                  /\[RATING_PREVIEW:\{/i.test(String(m.content ?? ""))),
+            );
+            const askedEditableFieldAfterPreview =
+              hadRatingPreviewInHistory &&
+              !askedRatingSubmitPreview &&
+              /\[FIELD_REQUEST:(rating_text|rating_stars|dim_tempo_espera|rating_dimensions)\]/i.test(
+                lastAssistantMessage,
+              );
+
+            const buildEditMoreQuickReply = (lastEditedField?: string | null): string => {
+              const disabled = new Set(editedSingleFields);
+              if (lastEditedField) {
+                if (lastEditedField === "rating_stars") disabled.add("rating_stars");
+                if (lastEditedField === "dim_tempo_espera") disabled.add("dim_tempo_espera");
+                if (lastEditedField === "dim_atendimento") disabled.add("dim_atendimento");
+                if (lastEditedField === "dim_infraestrutura") disabled.add("dim_infraestrutura");
+                if (lastEditedField === "dim_limpeza") disabled.add("dim_limpeza");
+                if (lastEditedField === "rating_dimensions") {
+                  disabled.add("dim_tempo_espera");
+                  disabled.add("dim_atendimento");
+                  disabled.add("dim_infraestrutura");
+                  disabled.add("dim_limpeza");
+                }
+              }
+              const options: string[] = ["editar_comentario"];
+              if (!disabled.has("rating_stars")) options.push("editar_nota_geral");
+              if (!disabled.has("dim_tempo_espera")) options.push("editar_tempo_espera");
+              if (
+                !disabled.has("dim_tempo_espera") ||
+                !disabled.has("dim_atendimento") ||
+                !disabled.has("dim_infraestrutura") ||
+                !disabled.has("dim_limpeza")
+              ) {
+                options.push("editar_dimensoes");
+              }
+              options.push("finalizar");
+              return `[QUICK_REPLY:${Array.from(new Set(options)).join(",")}]`;
+            };
+
+            const buildServiceRatingPreviewMessage = (opts?: { lastEditedField?: string | null }) => {
+              const rd =
+                accumulatedFields.rating_dimensions &&
+                lib.isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
+                  ? (accumulatedFields.rating_dimensions as Record<string, number>)
+                  : null;
+              let stars = typeof accumulatedFields.rating_stars === "number" ? accumulatedFields.rating_stars : 0;
+              if (rd && (!stars || stars < 1 || stars > 5)) {
+                stars = lib.aggregateRatingDimensionsStars(rd);
+              }
+              const sn = String(accumulatedFields.service_name || "").trim();
+              const dimLine = rd
+                ? `\n• **Dimensões:** Tempo ${rd.tempo_espera}/5 · Atendimento ${rd.atendimento}/5 · Infra ${rd.infraestrutura}/5 · Limpeza ${rd.limpeza}/5`
+                : "";
+              const ratingTextCurrent =
+                typeof accumulatedFields.rating_text === "string" ? accumulatedFields.rating_text.trim() : "";
+              const commentShow =
+                ratingTextCurrent.length > 400 ? `${ratingTextCurrent.slice(0, 400)}…` : ratingTextCurrent;
+              const jsonMarker = serviceRatingSubmitPreviewJsonMarker({
+                rating_stars: stars,
+                rating_dimensions: rd,
+                service_name: sn,
+                comment_preview: ratingTextCurrent.slice(0, 500),
+              });
+              const inlinePreviewMarker = serviceRatingPreviewMarker({
+                rating_stars: stars,
+                rating_dimensions: rd,
+                service_name: sn,
+                comment_preview: ratingTextCurrent.slice(0, 500),
+              });
+              return (
+                (lightJourneyMarker || "") +
+                `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
+                `[RATING_SUBMIT_PREVIEW]**Resumo da avaliação**\n\n` +
+                `🏥 **Serviço:** ${sn || "—"}\n⭐ **Nota geral (média):** ${stars}/5${dimLine}\n\n📝 **Comentário:**\n${commentShow}\n\n` +
+                `Dados atualizados. Deseja **editar mais alguma coisa** ou **finalizar**?` +
+                inlinePreviewMarker +
+                jsonMarker +
+                `\n\n${buildEditMoreQuickReply(opts?.lastEditedField ?? null)}`
+              );
+            };
+
+            if (askedRatingSubmitPreview && userWantsEdit) {
+              const fieldsJson = JSON.stringify(accumulatedFields);
+              const content =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `Você pode editar um campo específico antes de publicar:\n\n` +
+                `${buildEditMoreQuickReply(editedFieldFromUserMessage)}`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+              console.log('[ai-orchestrator] Service rating: show granular edit options');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (stepConfirmField) {
+              const stepPrompt = atomicFieldPrompt(stepConfirmField);
+              if (!stepPrompt) {
+                // segue fluxo normal
+              } else if (userWantsNextStep) {
+                const preview = buildServiceRatingPreviewMessage({ lastEditedField: stepConfirmField });
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              } else if (userWantsEdit || /^(editar|corrigir)$/i.test(normalizedMsg)) {
+                const fieldsJson = JSON.stringify(accumulatedFields);
+                const content =
+                  (lightJourneyMarker || "") +
+                  `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                  `[FIELD_REQUEST:${stepConfirmField}]${stepPrompt.prompt}\n\n${stepPrompt.picker}`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              } else if (!userWantsNextStep) {
+                const fieldsJson = JSON.stringify(accumulatedFields);
+                const remind =
+                  (lightJourneyMarker || "") +
+                  `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                  `[RATING_STEP_CONFIRM:${stepConfirmField}]Você deseja seguir para a próxima etapa ou editar esta nota?\n\n` +
+                  `[QUICK_REPLY:proxima,editar]`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: remind } }] });
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              }
+            }
+
+            if (!stepConfirmField && askedAtomicRatingField && !askedRatingSubmitPreview) {
+              const answeredAtomicField =
+                /\[RATING_SELECTED:[1-5]\]/i.test(lastUserMessage) ||
+                new RegExp(`\\[DIM_RATING:${askedAtomicRatingField.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:([1-5])\\]`, "i").test(lastUserMessage) ||
+                (askedAtomicRatingField === "dim_tempo_espera" && /\[WAIT_TIME:(\d+|null)\]/i.test(lastUserMessage));
+              if (answeredAtomicField) {
+                const fieldsJson = JSON.stringify(accumulatedFields);
+                const confirmMsg =
+                  (lightJourneyMarker || "") +
+                  `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                  `[RATING_STEP_CONFIRM:${askedAtomicRatingField}]Nota de **${atomicFieldLabel(askedAtomicRatingField)}** registrada. ` +
+                  `Deseja seguir para a próxima etapa ou editar esta nota?\n\n` +
+                  `[QUICK_REPLY:proxima,editar]`;
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: confirmMsg } }] });
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
+              }
+            }
 
             if (askedRatingSubmitPreview && userWantsEditComment) {
               const fieldsJson = JSON.stringify(accumulatedFields);
               const content =
                 (lightJourneyMarker || '') +
                 `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `**Editando comentário**.\n\n` +
                 `[FIELD_REQUEST:rating_text]**Altere seu comentário** (mín. 5 caracteres). Envie o novo texto abaixo.`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
               console.log('[ai-orchestrator] Service rating: edit comment after preview');
@@ -2629,47 +2915,99 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
 
-            if (askedRatingSubmitPreview && !userPublishes && !userWantsEditComment) {
+            if (askedRatingSubmitPreview && userWantsEditStars) {
+              const fieldsJson = JSON.stringify(accumulatedFields);
+              const content =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `**Editando nota geral**.\n\n` +
+                `[FIELD_REQUEST:rating_stars]**Altere a nota geral** (1 a 5 estrelas).\n\n[RATING_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+              console.log('[ai-orchestrator] Service rating: edit overall stars after preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (askedRatingSubmitPreview && userWantsEditWaitTime) {
+              const fieldsJson = JSON.stringify(accumulatedFields);
+              const content =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `**Editando tempo de espera**.\n\n` +
+                `[FIELD_REQUEST:dim_tempo_espera]**Altere o tempo de espera**.\n\n[WAIT_TIME_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+              console.log('[ai-orchestrator] Service rating: edit wait-time dimension after preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (askedRatingSubmitPreview && userWantsEditDimensions) {
+              const fieldsJson = JSON.stringify(accumulatedFields);
+              const content =
+                (lightJourneyMarker || '') +
+                `[COLLECTION_PROGRESS:service_rating:${fieldsJson}]` +
+                `**Editando dimensões**.\n\n` +
+                `[FIELD_REQUEST:rating_dimensions]**Reavalie as dimensões** (tempo de espera, atendimento, infraestrutura e limpeza).\n\n[MULTI_DIMENSION_RATING_PICKER]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content } }] });
+              console.log('[ai-orchestrator] Service rating: edit all dimensions after preview');
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+              });
+            }
+
+            if (
+              askedRatingSubmitPreview &&
+              !userPublishes &&
+              !userWantsEdit &&
+              !userWantsEditComment &&
+              !userWantsEditStars &&
+              !userWantsEditWaitTime &&
+              !userWantsEditDimensions
+            ) {
               const remind =
                 (lightJourneyMarker || '') +
                 `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
                 `[RATING_SUBMIT_PREVIEW]` +
-                `Para **publicar** a avaliação, toque em **Publicar** ou responda \`publicar\`. Para ajustar o comentário, use **Editar** ou responda \`editar\`.\n\n[QUICK_REPLY:publicar,editar_comentario]`;
+                `Para **publicar** a avaliação, toque em **Publicar** ou responda \`publicar\`. ` +
+                `Para editar campos, toque em **Editar**.\n\n` +
+                `[QUICK_REPLY:editar,finalizar]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: remind } }] });
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
               });
             }
 
-            if (!askedRatingSubmitPreview && lastAskedRatingTextOnly && ratingTextReady) {
-              const rd =
-                accumulatedFields.rating_dimensions &&
-                lib.isCompleteServiceRatingDimensions(accumulatedFields.rating_dimensions)
-                  ? (accumulatedFields.rating_dimensions as Record<string, number>)
-                  : null;
-              let stars = typeof accumulatedFields.rating_stars === 'number' ? accumulatedFields.rating_stars : 0;
-              if (rd && (!stars || stars < 1 || stars > 5)) {
-                stars = lib.aggregateRatingDimensionsStars(rd);
+            if (askedEditableFieldAfterPreview) {
+              const askedField = lastAssistantMessage.match(
+                /\[FIELD_REQUEST:(rating_text|rating_stars|dim_tempo_espera|rating_dimensions)\]/i,
+              )?.[1];
+              const starsReady =
+                typeof accumulatedFields.rating_stars === "number" &&
+                accumulatedFields.rating_stars >= 1 &&
+                accumulatedFields.rating_stars <= 5;
+              const waitTimeReady = "wait_time_score" in accumulatedFields || "tempo_espera_score" in accumulatedFields;
+              const dimensionsReady = lib.isCompleteServiceRatingDimensions(
+                accumulatedFields.rating_dimensions as Record<string, number> | null | undefined,
+              );
+              const fieldReady =
+                (askedField === "rating_text" && ratingTextReady) ||
+                (askedField === "rating_stars" && starsReady) ||
+                (askedField === "dim_tempo_espera" && waitTimeReady) ||
+                (askedField === "rating_dimensions" && dimensionsReady);
+              if (fieldReady) {
+                const preview = buildServiceRatingPreviewMessage({ lastEditedField: askedField });
+                const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
+                console.log("[ai-orchestrator] Service rating: back to preview after field edit");
+                return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                  headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                });
               }
-              const sn = String(accumulatedFields.service_name || '').trim();
-              const dimLine = rd
-                ? `\n• **Dimensões:** Tempo ${rd.tempo_espera}/5 · Atendimento ${rd.atendimento}/5 · Infra ${rd.infraestrutura}/5 · Limpeza ${rd.limpeza}/5`
-                : '';
-              const commentShow = ratingTextStr.length > 400 ? `${ratingTextStr.slice(0, 400)}…` : ratingTextStr;
-              const jsonMarker = serviceRatingSubmitPreviewJsonMarker({
-                rating_stars: stars,
-                rating_dimensions: rd,
-                service_name: sn,
-                comment_preview: ratingTextStr.slice(0, 500),
-              });
-              const preview =
-                (lightJourneyMarker || '') +
-                `[COLLECTION_PROGRESS:service_rating:${JSON.stringify(accumulatedFields)}]` +
-                `[RATING_SUBMIT_PREVIEW]**Resumo da avaliação**\n\n` +
-                `🏥 **Serviço:** ${sn || '—'}\n⭐ **Nota geral (média):** ${stars}/5${dimLine}\n\n📝 **Comentário:**\n${commentShow}\n\n` +
-                `Confirme para **publicar** no sistema ou edite o comentário antes.` +
-                jsonMarker +
-                `\n\n[QUICK_REPLY:publicar,editar_comentario]`;
+            }
+
+            if (!askedRatingSubmitPreview && lastAskedRatingTextOnly && ratingTextReady) {
+              const preview = buildServiceRatingPreviewMessage();
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: preview } }] });
               console.log('[ai-orchestrator] Service rating: submit preview');
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
