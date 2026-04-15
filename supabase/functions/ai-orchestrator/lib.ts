@@ -4463,7 +4463,10 @@ export function accumulateFieldsFromHistory(
             }
             case 'rating_text': {
               // Pré-visualização com Publicar/Editar: "publicar" não é novo comentário
-              if (/\[RATING_SUBMIT_PREVIEW\]/i.test(prevAssistantTextSvc)) {
+              if (
+                /\[RATING_SUBMIT_PREVIEW\]/i.test(prevAssistantTextSvc) ||
+                /\[RATING_PREVIEW:\{/i.test(prevAssistantTextSvc)
+              ) {
                 console.log('[accumulateFields] rating_text: ignorando resposta pós-preview (publicar/editar)');
                 break;
               }
