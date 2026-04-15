@@ -44,6 +44,9 @@ scripts/geosampa-layers.json
 coverage/
 playwright-report/
 test-results/
+playwright-report/index.html
+test-results/.last-run.json
+test-results/results.json
 
 # Editor directories and files
 .cursor/
