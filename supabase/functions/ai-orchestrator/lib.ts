@@ -8810,7 +8810,6 @@ export async function executeTool(
           };
         }
 
-        const rawStopName = String(argsRec.stop_name ?? '').trim();
         const stopNameInsert = rawStopName.length >= 2 ? rawStopName.slice(0, 200) : null;
         const rawStopLoc = String(argsRec.stop_location ?? '').trim();
         const stopLocationInsert = rawStopLoc.length >= 2 ? rawStopLoc.slice(0, 500) : null;

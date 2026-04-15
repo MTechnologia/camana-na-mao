@@ -3785,7 +3785,6 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.severity && { severity: toolArgs.severity }),
             ...(toolArgs.personal_impact != null && toolArgs.personal_impact !== "" && { personal_impact: toolArgs.personal_impact }),
             ...(toolArgs.impact_description && { impact_description: toolArgs.impact_description }),
-            ...(toolArgs.stop_name && { stop_name: toolArgs.stop_name }),
             ...(toolArgs.stop_location && { stop_location: toolArgs.stop_location }),
             ...(toolArgs.accessibility_details != null &&
             typeof toolArgs.accessibility_details === "object" &&
