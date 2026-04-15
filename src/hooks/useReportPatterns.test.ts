@@ -5,7 +5,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 
 describe("useReportPatterns", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("deve carregar padrões com sucesso", async () => {
@@ -13,7 +13,7 @@ describe("useReportPatterns", () => {
       { id: "1", description: "Pattern 1", occurrence_count: 10, status: "active" },
     ];
 
-    vi.mocked(supabase.from).mockReturnValue({
+    vi.spyOn(supabase, "from").mockReturnValue({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: mockData, error: null }),
@@ -28,10 +28,11 @@ describe("useReportPatterns", () => {
     });
 
     expect(result.current.patterns).toEqual(mockData);
+    expect(result.current.error).toBeNull();
   });
 
-  it("deve usar mockPatterns quando o banco retornar vazio", async () => {
-    vi.mocked(supabase.from).mockReturnValue({
+  it("deve retornar lista vazia quando o banco não tiver padrões", async () => {
+    vi.spyOn(supabase, "from").mockReturnValue({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -43,27 +44,44 @@ describe("useReportPatterns", () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.patterns.length).toBeGreaterThan(0);
-    expect(result.current.patterns[0].id).toContain("mock-");
+    expect(result.current.patterns).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("deve expor erro quando a query falhar", async () => {
+    vi.spyOn(supabase, "from").mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: null, error: { message: "falhou" } }),
+    } as any);
+
+    const { result } = renderHook(() => useReportPatterns());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.patterns).toEqual([]);
+    expect(result.current.error).toBeTruthy();
   });
 
   it("deve filtrar por lineId se fornecido", async () => {
     const lineId = "line-123";
-    const mockEq = vi.fn().mockReturnThis();
-    const mockOrder = vi.fn().mockResolvedValue({ data: [], error: null });
-    
-    vi.mocked(supabase.from).mockReturnValue({
+    const chain = {
       select: vi.fn().mockReturnThis(),
-      eq: mockEq,
-      order: mockOrder,
-    } as any);
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+
+    vi.spyOn(supabase, "from").mockReturnValue(chain as any);
 
     renderHook(() => useReportPatterns(lineId));
 
     await waitFor(() => {
-      expect(mockEq).toHaveBeenCalled();
+      expect(chain.eq).toHaveBeenCalled();
     });
 
-    expect(mockEq).toHaveBeenCalledWith("status", "active");
+    expect(chain.eq).toHaveBeenCalledWith("status", "active");
+    expect(chain.eq).toHaveBeenCalledWith("line_id", lineId);
   });
 });

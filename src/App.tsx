@@ -117,6 +117,7 @@ const ReportHistoryPage = lazy(() => import("./pages/urban/ReportHistoryPage"));
 const AnalyticsDashboard = lazy(() => import("./pages/analytics/AnalyticsDashboard"));
 const AdvancedAnalytics = lazy(() => import("./pages/analytics/AdvancedAnalytics"));
 const CreateDashboard = lazy(() => import("./pages/analytics/CreateDashboard"));
+const WorstServicesByDimensionPage = lazy(() => import("./pages/analytics/WorstServicesByDimensionPage"));
 
 // ============================================
 // ADMIN PAGES - Lazy loaded (separate bundle)
@@ -287,6 +288,7 @@ const AppContent = () => {
             <Route path="/paineis" element={<AnalyticsDashboard />} />
             <Route path="/paineis/avancado" element={<AdvancedAnalytics />} />
             <Route path="/paineis/criar" element={<CreateDashboard />} />
+            <Route path="/paineis/piores-servicos" element={<WorstServicesByDimensionPage />} />
             <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
             <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
             <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
