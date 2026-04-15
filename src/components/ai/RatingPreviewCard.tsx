@@ -4,6 +4,7 @@ import {
   SERVICE_RATING_DIMENSION_LABELS,
   isCompleteServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
+import { shouldOfferRatingReferral } from "@/lib/shouldOfferRatingReferral";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Star } from "lucide-react";
 
@@ -25,10 +26,8 @@ export function RatingPreviewCard({ preview }: Props) {
         ))
       : null;
 
-  /** HU-1.3: alinhado ao orchestrator — aviso no pré-resumo (o CTA [OFFER_REFERRAL] só vem após Publicar). */
-  const showReferralAfterPublishHint =
-    (preview.rating_stars >= 1 && preview.rating_stars <= 2) ||
-    !!(rd && isCompleteServiceRatingDimensions(rd) && SERVICE_RATING_DIMENSION_KEYS.some((k) => rd[k] <= 2));
+  /** HU-8.1 / HU-1.3: encaminhamento (não revisão de comentário) — CTA [OFFER_REFERRAL] só após Publicar. */
+  const showReferralAfterPublishHint = shouldOfferRatingReferral(preview.rating_stars, rd);
 
   return (
     <Card className="mt-3 border-primary/20 bg-primary/5">

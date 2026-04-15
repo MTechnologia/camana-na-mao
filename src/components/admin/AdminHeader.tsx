@@ -28,6 +28,7 @@ const routeNames: Record<string, string> = {
   '/admin/transport-reports': 'Relatos de Transporte',
   '/admin/reports': 'Gestão de Relatos',
   '/admin/referrals': 'Encaminhamentos',
+  '/admin/commissions': 'Comissões (encaminhamento)',
 };
 
 interface AdminHeaderProps {

@@ -9145,6 +9145,32 @@ export async function executeTool(
             .update({ status: 'completed' })
             .eq('id', visitId);
         }
+
+        // HU-8.4: notificar N8N (payload alinhado a notify-n8n / NotifyPayload)
+        try {
+          await supabase.functions.invoke('notify-n8n', {
+            body: {
+              event: 'service_rating_created',
+              report_id: data.id,
+              report_type: 'service_rating',
+              report_data: {
+                service_id: serviceId,
+                service_name: serviceNameForMessage,
+                rating_stars: stars,
+                rating_text: ratingTextTrimmed.slice(0, 2000),
+                rating_dimensions: ratingDimensionsJson,
+                publication_status: publicationStatus,
+                visit_id: visitId,
+                service_type: args.service_type ?? accumulatedFields?.service_type ?? null,
+              },
+              user_id: userId,
+              source_tool: 'create_service_rating',
+              tool_arguments: args as Record<string, unknown>,
+            },
+          });
+        } catch (n8nRatingErr) {
+          console.error('[create_service_rating] notify-n8n failed:', n8nRatingErr);
+        }
         
         console.log('[create_service_rating] Rating saved successfully:', {
           id: data.id,

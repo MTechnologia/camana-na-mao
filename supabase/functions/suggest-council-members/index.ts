@@ -82,6 +82,10 @@ interface ReportData {
   region?: string;
   type?: string;
   location?: string;
+  /** HU-8.3: palavras-chave da comissão escolhida (minúsculas recomendadas) */
+  commission_keywords?: string[];
+  /** HU-8.3: nome exibido da comissão (para casar com texto de atuação) */
+  commission_name?: string;
 }
 
 interface VereadorData {
@@ -100,12 +104,48 @@ interface VereadorData {
   isGovernmentLeader?: boolean;
   isSubstitute?: boolean;
   isOnLeave?: boolean;
+  /** Áreas/comissões (CMSP); usado para bônus quando o cidadão escolhe uma comissão */
+  areas_de_atuacao?: string[];
 }
 
 interface SuggestionResult {
   vereador: VereadorData;
   matchScore: number;
   matchReasons: string[];
+}
+
+/** HU-8.5: nota mínima para aparecer no ranking (antes do fallback de líderes). */
+export const MIN_SUGGESTION_SCORE = 0.5;
+
+export function passesMinSuggestionScore(score: number): boolean {
+  return Number.isFinite(score) && score >= MIN_SUGGESTION_SCORE;
+}
+
+function commissionActuationBonus(vereador: VereadorData, report: ReportData): { bonus: number; reasons: string[] } {
+  const keywords = report.commission_keywords || [];
+  const commissionName = (report.commission_name || "").trim();
+  const areasRaw = vereador.areas_de_atuacao;
+  if ((!keywords.length && !commissionName) || !areasRaw?.length) {
+    return { bonus: 0, reasons: [] };
+  }
+  const areaText = areasRaw.map((a) => String(a).toLowerCase()).join(" | ");
+  let bonus = 0;
+  const reasons: string[] = [];
+  for (const kw of keywords) {
+    const k = String(kw).trim().toLowerCase();
+    if (k.length >= 2 && areaText.includes(k)) {
+      bonus += 12;
+      reasons.push(`Tema da comissão (“${kw}”) aparece na atuação parlamentar`);
+    }
+  }
+  if (commissionName) {
+    const cn = commissionName.toLowerCase();
+    if (areaText.includes(cn)) {
+      bonus += 15;
+      reasons.push("Atuação relacionada à comissão que você escolheu");
+    }
+  }
+  return { bonus: Math.min(35, bonus), reasons };
 }
 
 // Calcula score de match entre vereador e relato
@@ -190,10 +230,14 @@ export function calculateMatchScore(vereador: VereadorData, report: ReportData):
     score += 10;
     reasons.push('Fiscalização ativa em questões críticas');
   }
+
+  const comm = commissionActuationBonus(vereador, report);
+  score += comm.bonus;
+  reasons.push(...comm.reasons);
   
-  // Garantir score mínimo para não retornar vazios
-  if (score === 0 && partyThemes.length > 0) {
-    score = 5;
+  // HU-8.5: patamar mínimo (antes filtragem >= 0.5); evita lista vazia só com “ruído” < 0.5
+  if (score < MIN_SUGGESTION_SCORE && partyThemes.length > 0) {
+    score = MIN_SUGGESTION_SCORE;
     reasons.push('Vereador ativo na Câmara');
   }
   
@@ -284,7 +328,7 @@ if (import.meta.main) {
           matchReasons: reasons
         };
       })
-      .filter(s => s.matchScore > 0)
+      .filter(s => passesMinSuggestionScore(s.matchScore))
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, 5); // Top 5 sugestões
 

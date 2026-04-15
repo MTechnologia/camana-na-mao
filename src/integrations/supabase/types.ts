@@ -358,6 +358,42 @@ export type Database = {
         }
         Relationships: []
       }
+      legislative_commissions: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          match_keywords: string[]
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          match_keywords?: string[]
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          match_keywords?: string[]
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       council_member_referrals: {
         Row: {
           acknowledged_at: string | null
@@ -367,6 +403,7 @@ export type Database = {
           council_member_party: string | null
           created_at: string | null
           id: string
+          legislative_commission_id: string | null
           match_reasons: string[] | null
           match_score: number | null
           resolved_at: string | null
@@ -387,6 +424,7 @@ export type Database = {
           council_member_party?: string | null
           created_at?: string | null
           id?: string
+          legislative_commission_id?: string | null
           match_reasons?: string[] | null
           match_score?: number | null
           resolved_at?: string | null
@@ -407,6 +445,7 @@ export type Database = {
           council_member_party?: string | null
           created_at?: string | null
           id?: string
+          legislative_commission_id?: string | null
           match_reasons?: string[] | null
           match_score?: number | null
           resolved_at?: string | null
@@ -420,6 +459,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "council_member_referrals_legislative_commission_id_fkey"
+            columns: ["legislative_commission_id"]
+            isOneToOne: false
+            referencedRelation: "legislative_commissions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "council_member_referrals_service_rating_id_fkey"
             columns: ["service_rating_id"]
