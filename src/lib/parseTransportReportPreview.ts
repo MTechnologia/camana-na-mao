@@ -6,6 +6,7 @@ export type ParsedTransportReportPreview = {
   report_type: string | null;
   sub_category: string | null;
   line_code: string | null;
+  stop_name: string | null;
   occurrence_date: string | null;
   occurrence_time: string | null;
   direction: string | null;
@@ -16,10 +17,12 @@ export type ParsedTransportReportPreview = {
 
 export function parseTransportReportPreviewJson(content: string): ParsedTransportReportPreview | null {
   const m = content.match(/\[TRANSPORT_PREVIEW_JSON:([A-Za-z0-9+/=_-]+)\]/);
-  if (!m?.[1]) return null;
+  const progressMatch = content.match(/\[COLLECTION_PROGRESS:transport_report:(\{.*?\})\]/);
+  if (!m?.[1] && !progressMatch?.[1]) return null;
   try {
-    const json = decodeURIComponent(escape(atob(m[1])));
-    const data = JSON.parse(json) as Record<string, unknown>;
+    const data = m?.[1]
+      ? (JSON.parse(decodeURIComponent(escape(atob(m[1])))) as Record<string, unknown>)
+      : (JSON.parse(progressMatch![1]) as Record<string, unknown>);
     const num = data.personal_impact;
     let personalImpact: number | null = null;
     if (typeof num === "number" && Number.isFinite(num)) {
@@ -33,6 +36,7 @@ export function parseTransportReportPreviewJson(content: string): ParsedTranspor
       report_type: typeof data.report_type === "string" ? data.report_type : null,
       sub_category: typeof data.sub_category === "string" ? data.sub_category : null,
       line_code: typeof data.line_code === "string" ? data.line_code : null,
+      stop_name: typeof data.stop_name === "string" ? data.stop_name : null,
       occurrence_date: typeof data.occurrence_date === "string" ? data.occurrence_date : null,
       occurrence_time: typeof data.occurrence_time === "string" ? data.occurrence_time : null,
       direction: typeof data.direction === "string" ? data.direction : null,

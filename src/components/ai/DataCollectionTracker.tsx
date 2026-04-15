@@ -171,6 +171,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
       { key: 'occurrence_time', label: 'Horário', required: true },
       { key: 'direction', label: 'Sentido', required: true },
       { key: 'recurrence_frequency', label: 'Frequência', required: true },
+      { key: 'stop_name', label: 'Ponto de embarque/parada', required: true },
       { key: 'personal_impact', label: 'Impacto na rotina', required: true },
       { key: 'line_code', label: 'Linha', required: false },
       { key: 'location', label: 'Local', required: false },
@@ -265,6 +266,9 @@ const formatFieldValue = (key: string, value: unknown): string => {
     if (value >= 4) return 'Atraso > 30 min';
     if (value >= 3) return 'Atraso < 30 min';
     return 'Desconforto';
+  }
+  if (key === 'stop_name' && value === '__skip__') {
+    return 'Não lembro';
   }
 
   if (key === 'rating_dimensions' && value && typeof value === 'object' && !Array.isArray(value)) {

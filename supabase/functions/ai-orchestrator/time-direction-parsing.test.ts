@@ -58,6 +58,22 @@ Deno.test("parseFieldResponse: sub_category extrai marcador do picker", () => {
   );
 });
 
+Deno.test("parseFieldResponse: stop_name aceita valor livre e opção não lembro", () => {
+  assertEquals(parseFieldResponse("stop_name", "Terminal Pinheiros"), { stop_name: "Terminal Pinheiros" });
+  assertEquals(parseFieldResponse("stop_name", "Não lembro"), { stop_name: "__skip__" });
+});
+
+Deno.test("parseFieldResponse: stop_name extrai coordenadas quando enviadas junto", () => {
+  assertEquals(
+    parseFieldResponse("stop_name", "Ponto na Av. Paulista -23.5617,-46.6559"),
+    {
+      stop_name: "Ponto na Av. Paulista -23.5617,-46.6559",
+      stop_lat: -23.5617,
+      stop_lon: -46.6559,
+    },
+  );
+});
+
 Deno.test("accumulateFieldsFromHistory: último FIELD_REQUEST quando JSON contém substring enganosa", () => {
   const progressPayload = {
     description: "Texto do usuário com [FIELD_REQUEST:description] colado",

@@ -198,6 +198,18 @@ export const tools = [
             description: "UUID da linha em transport_lines quando o usuário selecionou na lista ([LINE_SELECTED]). Opcional; se ausente, resolve-se por line_code.",
           },
           location: { type: "string", description: "Ponto, estação ou trecho" },
+          stop_name: {
+            type: "string",
+            description: "Nome do ponto de embarque/parada. Quando o cidadão pular, usar null."
+          },
+          stop_lat: {
+            type: "number",
+            description: "Latitude da parada, quando disponível."
+          },
+          stop_lon: {
+            type: "number",
+            description: "Longitude da parada, quando disponível."
+          },
           severity: {
             type: "string",
             enum: ["baixa", "media", "alta", "critica"],

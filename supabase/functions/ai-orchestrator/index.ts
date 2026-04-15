@@ -17,6 +17,7 @@ function transportPreviewJsonMarker(fields: Record<string, unknown>): string {
     report_type: fields.report_type ?? null,
     sub_category: fields.sub_category ?? null,
     line_code: fields.line_code ?? null,
+    stop_name: fields.stop_name ?? null,
     occurrence_date: fields.occurrence_date ?? null,
     occurrence_time: fields.occurrence_time ?? null,
     direction: fields.direction ?? null,
@@ -108,6 +109,9 @@ function buildTransportFinalPreviewMessage(
 • **Problema:** ${desc.slice(0, 150)}${desc.length > 150 ? "..." : ""}
 • **Tipo:** ${typeHuman}
 • **Linha:** ${accumulatedFields.line_code || "Não informada"}
+• **Ponto de embarque/parada:** ${
+    accumulatedFields.stop_name === "__skip__" ? "Não lembro" : (accumulatedFields.stop_name || "Não informado")
+  }
 • **Quando:** ${accumulatedFields.occurrence_date || ""}${
     accumulatedFields.occurrence_time ? ` às ${accumulatedFields.occurrence_time}` : ""
   }${extraPhotoLine}
@@ -1333,6 +1337,14 @@ serve(async (req) => {
             prompt: 'Com qual frequência isso acontece?',
           };
 
+        // 8. Stop name (REQUIRED - atomic collection, with skip option)
+        if (!("stop_name" in fields))
+          return {
+            field: "stop_name",
+            picker: "[QUICK_REPLY:não lembro]",
+            prompt: 'Qual é o **ponto de embarque/parada** onde ocorreu o problema? (nome em texto livre)\n\nSe não lembrar, você pode pular.',
+          };
+
         if (fields.personal_impact == null || fields.personal_impact === "")
           return {
             field: "personal_impact",
@@ -2240,6 +2252,13 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
               });
             }
+            if (!("stop_name" in accumulatedFields)) {
+              const askStopMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:stop_name]Qual é o **ponto de embarque/parada** onde ocorreu o problema? (nome em texto livre)\n\nSe não lembrar, você pode pular.[QUICK_REPLY:não lembro]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askStopMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
             if (accumulatedFields.personal_impact == null || accumulatedFields.personal_impact === "") {
               const askImpactMsg = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**?[IMPACT_PICKER]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: askImpactMsg } }] });
@@ -2301,6 +2320,9 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               } else if (transportPickNorm === "impacto") {
                 reply =
                   `${progress}[FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**? Escolha de novo.[IMPACT_PICKER]`;
+              } else if (transportPickNorm === "ponto" || transportPickNorm.includes("parada")) {
+                reply =
+                  `${progress}[FIELD_REQUEST:stop_name]Qual é o **ponto de embarque/parada** correto?\n\nSe não lembrar, você pode pular.[QUICK_REPLY:não lembro]`;
               } else if (transportPickNorm === "local") {
                 reply =
                   `${progress}[FIELD_REQUEST:location]Qual o **local** ou ponto de referência correto? (parada, terminal, trecho)`;
@@ -2314,7 +2336,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               }
               const reaskMenu =
                 `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Não reconheci essa opção. **O que você gostaria de ajustar** no resumo?\n\n` +
-                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,ponto,impacto,local]`;
               const sseReask = JSON.stringify({ choices: [{ delta: { content: reaskMenu } }] });
               console.log("[ai-orchestrator] Transport report: correction menu — pick não reconhecido, reexibindo opções");
               return new Response(`data: ${sseReask}\n\ndata: [DONE]\n\n`, {
@@ -2349,6 +2371,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 "sentido",
                 "frequência",
                 "frequencia",
+                "ponto",
                 "impacto",
                 "local",
               ]);
@@ -2380,7 +2403,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             if (isTransportFinalPreview && userWantsCorrectionTransport) {
               const correctionOptions =
                 `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de **ajustar** no resumo?\n\n` +
-                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,ponto,impacto,local]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: correctionOptions } }] });
               console.log("[ai-orchestrator] Transport report: user requested correction → menu");
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -2526,6 +2549,9 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 direction: accumulatedFields.direction,
                 recurrence_frequency: accumulatedFields.recurrence_frequency,
                 location: accumulatedFields.location,
+                stop_name: accumulatedFields.stop_name,
+                stop_lat: accumulatedFields.stop_lat,
+                stop_lon: accumulatedFields.stop_lon,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
                 subcategory_label: accumulatedFields.subcategory_label,
@@ -2564,6 +2590,9 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 direction: accumulatedFields.direction,
                 recurrence_frequency: accumulatedFields.recurrence_frequency,
                 location: accumulatedFields.location,
+                stop_name: accumulatedFields.stop_name,
+                stop_lat: accumulatedFields.stop_lat,
+                stop_lon: accumulatedFields.stop_lon,
                 severity: accumulatedFields.severity,
                 impact_description: accumulatedFields.impact_description,
                 subcategory_label: accumulatedFields.subcategory_label,
@@ -3493,6 +3522,7 @@ ${empathyNote}
                 occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
                 direction: toolArgs.direction ?? accumulatedFields.direction,
                 recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
+                stop_name: toolArgs.stop_name ?? accumulatedFields.stop_name,
                 location: toolArgs.location ?? accumulatedFields.location,
                 severity: toolArgs.severity ?? accumulatedFields.severity,
                 subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label,
@@ -3537,6 +3567,10 @@ ${empathyNote}
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
+• **Ponto de embarque/parada:** ${(() => {
+  const stopName = (merged as Record<string, unknown>).stop_name;
+  return stopName === "__skip__" ? "Não lembro" : (stopName || "Não informado");
+})()}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
 • **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
@@ -3580,6 +3614,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             ...(toolArgs.occurrence_time && { occurrence_time: toolArgs.occurrence_time }),
             ...(toolArgs.direction && { direction: toolArgs.direction }),
             ...(toolArgs.recurrence_frequency && { recurrence_frequency: toolArgs.recurrence_frequency }),
+            ...(toolArgs.stop_name && { stop_name: toolArgs.stop_name }),
             ...(toolArgs.severity && { severity: toolArgs.severity }),
             ...(toolArgs.personal_impact != null && toolArgs.personal_impact !== "" && { personal_impact: toolArgs.personal_impact }),
             ...(toolArgs.impact_description && { impact_description: toolArgs.impact_description }),
@@ -3715,6 +3750,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             occurrence_time: toolArgs.occurrence_time ?? accumulatedFields.occurrence_time,
             direction: toolArgs.direction ?? accumulatedFields.direction,
             recurrence_frequency: toolArgs.recurrence_frequency ?? accumulatedFields.recurrence_frequency,
+            stop_name: toolArgs.stop_name ?? accumulatedFields.stop_name,
             location: toolArgs.location ?? accumulatedFields.location,
             severity: toolArgs.severity ?? accumulatedFields.severity,
             subcategory_label: toolArgs.subcategory_label ?? accumulatedFields.subcategory_label,
@@ -3754,11 +3790,17 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
             toda_semana: 'Toda semana',
             todos_os_dias: 'Todos os dias',
           };
+          const stopNameRaw = (merged as Record<string, unknown>).stop_name;
+          const stopNameLabel =
+            stopNameRaw === "__skip__"
+              ? "Não lembro"
+              : (typeof stopNameRaw === "string" && stopNameRaw.trim() ? stopNameRaw : "Não informado");
           const previewAndPhoto = `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}]**Resumo do relato de transporte**
 
 • **Problema:** ${((merged.description as string) || '').toString().slice(0, 150)}${((merged.description as string) || '').toString().length > 150 ? '...' : ''}
 • **Tipo:** ${lib.formatTransportPreviewTypeLine(merged as Record<string, unknown>)}
 • **Linha:** ${merged.line_code || 'Não informada'}
+• **Ponto de embarque/parada:** ${stopNameLabel}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
 • **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}

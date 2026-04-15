@@ -1514,6 +1514,58 @@ export async function resolveUrbanCoordsForSimilarSearch(
   return geocodeAddressToCoord(addr);
 }
 
+/** Resolve coordenadas de ponto/parada de transporte a partir do nome em texto livre. */
+export async function resolveTransportStopCoords(
+  supabase: SupabaseClient,
+  stopName: string,
+  context?: { neighborhood?: string | null; cep?: string | null },
+): Promise<{ lat: number; lon: number; source: "google_places" | "local_geocode" | "olho_vivo" } | null> {
+  const raw = String(stopName || "").trim();
+  if (!raw) return null;
+
+  const addrForGeocode = {
+    street: raw,
+    street_number: null as string | null,
+    neighborhood: context?.neighborhood ?? null,
+    cep: context?.cep ?? null,
+    city: "São Paulo",
+  };
+
+  // 1) Reuso do geocoder principal já adotado em outros fluxos.
+  const byGoogle = await geocodeAddressWithGoogle(supabase, addrForGeocode);
+  if (byGoogle) {
+    return { lat: byGoogle.lat, lon: byGoogle.lon, source: "google_places" };
+  }
+
+  // 2) Fallback local (cache/faixa aproximada) já usado no sistema.
+  const byLocal = await geocodeAddressToCoord(addrForGeocode);
+  if (byLocal) {
+    return { lat: byLocal.lat, lon: byLocal.lon, source: "local_geocode" };
+  }
+
+  // 3) Fallback de domínio transporte (Olho Vivo) por nome/endereço de parada.
+  const searchTerms = [
+    raw,
+    raw.replace(/^(parada|ponto|estacao|estação)\s+/i, "").trim(),
+  ].filter((v, i, arr) => !!v && arr.indexOf(v) === i);
+  for (const term of searchTerms) {
+    try {
+      const out = await olhoVivoSearchStops(term);
+      if (!out.success || !out.stops?.length) continue;
+      const pick = out.stops[0];
+      const lat = Number(pick.py);
+      const lon = Number(pick.px);
+      if (Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return { lat, lon, source: "olho_vivo" };
+      }
+    } catch (_e) {
+      // fallback silencioso: ausência de API/token não deve bloquear criação do relato
+    }
+  }
+
+  return null;
+}
+
 /** K relatos mais próximos (mesma categoria), ordenados por distância. */
 export async function fetchNearestUrbanReportsForSimilarity(
   supabase: SupabaseClient,
@@ -3206,6 +3258,26 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       }
       if (reportTypeText) {
         result.report_type = normalizeTransportSubcategory(reportTypeText);
+      }
+      break;
+    }
+
+    case 'stop_name': {
+      if (/^(n[aã]o\s+lembro|nao\s+lembro|n[aã]o\s+sei|nao\s+sei|pular)$/i.test(responseLower)) {
+        result.stop_name = '__skip__';
+        break;
+      }
+      const gpsInSameMessage = response.match(/(-?[\d.]+)\s*[,，]\s*(-?[\d.]+)/);
+      if (gpsInSameMessage) {
+        const lat = parseFloat(gpsInSameMessage[1]);
+        const lon = parseFloat(gpsInSameMessage[2]);
+        if (!Number.isNaN(lat) && !Number.isNaN(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+          result.stop_lat = lat;
+          result.stop_lon = lon;
+        }
+      }
+      if (response.length >= 2) {
+        result.stop_name = response;
       }
       break;
     }
@@ -8101,6 +8173,15 @@ export async function executeTool(
         if (accumulatedFields?.impact_description && !args.impact_description) {
           args.impact_description = accumulatedFields.impact_description;
         }
+        if (accumulatedFields && "stop_name" in accumulatedFields && !("stop_name" in args)) {
+          args.stop_name = accumulatedFields.stop_name;
+        }
+        if (accumulatedFields?.stop_lat != null && args.stop_lat == null) {
+          args.stop_lat = accumulatedFields.stop_lat;
+        }
+        if (accumulatedFields?.stop_lon != null && args.stop_lon == null) {
+          args.stop_lon = accumulatedFields.stop_lon;
+        }
         const accDescRaw =
           typeof accumulatedFields?.description === 'string' ? String(accumulatedFields.description).trim() : '';
         const argDescRaw = String(args.description ?? '').trim();
@@ -8283,6 +8364,46 @@ export async function executeTool(
         }
         args.recurrence_frequency = normalizedRecurrence;
 
+        const rawStopName = String(args.stop_name ?? "").trim();
+        const isStopSkipped = rawStopName === "__skip__";
+        if (!rawStopName) {
+          return {
+            success: false,
+            message:
+              '[FIELD_REQUEST:stop_name]Qual é o **ponto de embarque/parada** onde ocorreu o problema? Se não lembrar, toque em "Não lembro". [QUICK_REPLY:não lembro]',
+          };
+        }
+
+        const stopLatRaw = args.stop_lat ?? accumulatedFields?.stop_lat ?? accumulatedFields?.user_lat;
+        const stopLonRaw = args.stop_lon ?? accumulatedFields?.stop_lon ?? accumulatedFields?.user_lon;
+        let stopLat = Number(stopLatRaw);
+        let stopLon = Number(stopLonRaw);
+        let hasStopCoords =
+          Number.isFinite(stopLat) &&
+          Number.isFinite(stopLon) &&
+          stopLat >= -90 &&
+          stopLat <= 90 &&
+          stopLon >= -180 &&
+          stopLon <= 180;
+
+        if (!isStopSkipped && !hasStopCoords) {
+          const resolvedStop = await resolveTransportStopCoords(supabase, rawStopName, {
+            neighborhood: (accumulatedFields?.neighborhood as string | null | undefined) ?? null,
+            cep: (accumulatedFields?.cep as string | null | undefined) ?? null,
+          });
+          if (resolvedStop) {
+            stopLat = resolvedStop.lat;
+            stopLon = resolvedStop.lon;
+            hasStopCoords = true;
+            console.log("[create_transport_report] stop_location resolved from stop_name:", {
+              stop_name: rawStopName,
+              source: resolvedStop.source,
+              lat: stopLat,
+              lon: stopLon,
+            });
+          }
+        }
+
         const piRaw = args.personal_impact ?? accumulatedFields?.personal_impact;
         const personalImpactScore =
           typeof piRaw === 'number' && Number.isFinite(piRaw)
@@ -8383,6 +8504,10 @@ export async function executeTool(
             line_code_custom: args.line_code || null,
             sub_category: validSubCategory,
             location: args.location || null,
+            stop_name: isStopSkipped ? null : rawStopName,
+            stop_location: !isStopSkipped && hasStopCoords
+              ? `SRID=4326;POINT(${stopLon} ${stopLat})`
+              : null,
             severity: inferredSeverity,
             personal_impact: personalImpactScore,
             impact_description: args.impact_description || null,
@@ -8499,6 +8624,9 @@ export async function executeTool(
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
           args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : '',
           recurrenceLabel ? `🔁 **Frequência:** ${recurrenceLabel}` : '',
+          isStopSkipped
+            ? `🛑 **Ponto de embarque/parada:** Não lembro`
+            : (rawStopName ? `🛑 **Ponto de embarque/parada:** ${rawStopName}` : ''),
           args.location ? `📍 **Local:** ${args.location}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,

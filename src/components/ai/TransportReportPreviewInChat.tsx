@@ -73,6 +73,10 @@ export function TransportReportPreviewInChat({ preview }: Props) {
         )}
         {row("Linha", preview.line_code || "—")}
         {row(
+          "Ponto de embarque/parada",
+          preview.stop_name === "__skip__" ? "Não lembro" : (preview.stop_name || "—"),
+        )}
+        {row(
           "Quando",
           [preview.occurrence_date, preview.occurrence_time ? `às ${preview.occurrence_time}` : ""]
             .filter(Boolean)
