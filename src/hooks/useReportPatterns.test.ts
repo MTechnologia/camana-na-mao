@@ -1,11 +1,18 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    from: vi.fn(),
+  },
+}));
+
 import { useReportPatterns } from "./useReportPatterns";
 import { supabase } from "@/integrations/supabase/client";
-import { vi, describe, it, expect, beforeEach } from "vitest";
 
 describe("useReportPatterns", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it("deve carregar padrões com sucesso", async () => {
