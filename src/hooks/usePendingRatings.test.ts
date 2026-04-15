@@ -1,16 +1,48 @@
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { vi, describe, it, expect, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: vi.fn(),
+}));
+
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    from: vi.fn(),
+  },
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 import { usePendingRatings } from "./usePendingRatings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
+
+function createSelectChain(result: { data: unknown; error: unknown | null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
+  const self = chain as Record<string, unknown> & { then: typeof Promise.prototype.then };
+  const p = Promise.resolve(result);
+  self.then = p.then.bind(p);
+  self.catch = p.catch.bind(p);
+  self.select = vi.fn(() => self);
+  self.eq = vi.fn(() => self);
+  self.gt = vi.fn(() => self);
+  self.order = vi.fn(() => self);
+  self.limit = vi.fn(() => self);
+  return self;
+}
 
 describe("usePendingRatings", () => {
   const mockUser = { id: "user-123" };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAuth).mockReturnValue({ user: mockUser as any, loading: false });
+    vi.mocked(useAuth).mockReturnValue({ user: mockUser as any, loading: false } as any);
   });
 
   it("deve buscar avaliações pendentes com sucesso", async () => {
@@ -18,22 +50,14 @@ describe("usePendingRatings", () => {
       { id: "1", service_id: "s1", status: "pending", service: { name: "Service 1" } },
     ];
 
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gt: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue({ data: mockData, error: null }),
-    } as any);
+    vi.mocked(supabase.from).mockReturnValue(
+      createSelectChain({ data: mockData, error: null }) as ReturnType<typeof supabase.from>,
+    );
 
     const { result } = renderHook(() => usePendingRatings());
 
-    // Não usar waitFor com fakeTimers para promessas que dependem de useEffect
-    // Vamos avançar o tempo ou esperar a promessa resolver
     await act(async () => {
-      // O useEffect chama fetchPendingRatings que é async
-      // Precisamos dar um tempo para as promessas resolverem
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
 
     expect(result.current.loading).toBe(false);
@@ -45,30 +69,21 @@ describe("usePendingRatings", () => {
       { id: "visit-1", service_id: "s1", status: "pending", service: { name: "Service 1" } },
     ];
 
-    // Mock para o fetch inicial e update
-    const mockUpdate = vi.fn().mockReturnThis();
-    const mockEq = vi.fn().mockImplementation((col, val) => {
-      if (col === "id" && val === "visit-1") {
-        return { eq: vi.fn().mockResolvedValue({ error: null }) };
-      }
-      return {
-        eq: vi.fn().mockReturnThis(),
-        gt: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: mockData, error: null }),
-      };
-    });
+    const finalEq = vi.fn().mockResolvedValue({ error: null });
+    const firstEq = vi.fn().mockReturnValue({ eq: finalEq });
 
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      update: mockUpdate,
-      eq: mockEq,
-    } as any);
+    vi.mocked(supabase.from).mockImplementation(() => {
+      const fetchChain = createSelectChain({ data: mockData, error: null });
+      return {
+        ...fetchChain,
+        update: vi.fn().mockReturnValue({ eq: firstEq }),
+      } as ReturnType<typeof supabase.from>;
+    });
 
     const { result } = renderHook(() => usePendingRatings());
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
 
     expect(result.current.pendingRatings.length).toBe(1);
@@ -83,18 +98,14 @@ describe("usePendingRatings", () => {
 
   it("deve lidar com erro ao buscar avaliações", async () => {
     const errorMessage = "Fetch error";
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      gt: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue({ data: null, error: new Error(errorMessage) }),
-    } as any);
+    vi.mocked(supabase.from).mockReturnValue(
+      createSelectChain({ data: null, error: new Error(errorMessage) }) as ReturnType<typeof supabase.from>,
+    );
 
     const { result } = renderHook(() => usePendingRatings());
 
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await Promise.resolve();
     });
 
     expect(result.current.loading).toBe(false);

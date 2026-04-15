@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { calculateMatchScore } from "./index.ts";
+import { calculateMatchScore, MIN_SUGGESTION_SCORE, passesMinSuggestionScore } from "./index.ts";
 
 Deno.test("suggest-council-members: Cálculo de score - Match por Partido e Tema", () => {
   const vereador = {
@@ -62,7 +62,7 @@ Deno.test("suggest-council-members: Cálculo de score - Bônus Oposição e Seve
   assertEquals(score > 20, true);
 });
 
-Deno.test("suggest-council-members: Score mínimo", () => {
+Deno.test("suggest-council-members: Score mínimo (HU-8.5 patamar 0.5)", () => {
   const vereador = {
     id: "v4",
     name: "Vereador Genérico",
@@ -76,6 +76,30 @@ Deno.test("suggest-council-members: Score mínimo", () => {
   
   const { score, reasons } = calculateMatchScore(vereador, report);
   
-  assertEquals(score, 5);
+  assertEquals(score, MIN_SUGGESTION_SCORE);
   assertEquals(reasons.includes("Vereador ativo na Câmara"), true);
+});
+
+Deno.test("suggest-council-members: passesMinSuggestionScore — limite 0.5", () => {
+  assertEquals(passesMinSuggestionScore(0.49), false);
+  assertEquals(passesMinSuggestionScore(0.5), true);
+  assertEquals(passesMinSuggestionScore(5), true);
+});
+
+Deno.test("suggest-council-members: Bônus por comissão + áreas de atuação", () => {
+  const vereador = {
+    id: "v5",
+    name: "Vereador Comissão Saúde",
+    party: "PT",
+    areas_de_atuacao: ["Comissão de Saúde", "Educação"],
+  };
+  const report = {
+    category: "ubs",
+    commission_name: "Comissão de Saúde",
+    commission_keywords: ["saúde", "ubs"],
+    report_type: "service",
+  };
+  const { score, reasons } = calculateMatchScore(vereador, report);
+  assertEquals(score >= MIN_SUGGESTION_SCORE, true);
+  assertEquals(reasons.some((r) => r.toLowerCase().includes("comissão")), true);
 });

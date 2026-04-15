@@ -18,6 +18,7 @@ import { buildGoogleMapsUrl, getAddressDisplay } from "@/lib/mapUtils";
 import { needsVerificationForLowAverageRating } from "@/lib/serviceRatingVerification";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceRatingsHistorySection } from "@/components/evaluation/ServiceRatingsHistorySection";
+import { DimensionAveragesChart } from "@/components/evaluation/DimensionAveragesChart";
 import { ServiceCorrectionSuggestSection } from "@/components/services/ServiceCorrectionSuggestSection";
 import { ServiceFavoriteButton } from "@/components/services/ServiceFavoriteButton";
 import { SERVICE_CORRECTION_REVIEW_SLA_HOURS } from "@/lib/serviceCorrectionFields";
@@ -678,6 +679,10 @@ export default function ServiceDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {(service.total_ratings ?? 0) > 0 && realServiceId ? (
+          <DimensionAveragesChart serviceId={realServiceId} enabled />
+        ) : null}
 
         <ServiceRatingsHistorySection
           serviceId={realServiceId}

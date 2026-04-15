@@ -7,8 +7,8 @@ import {
   MapPin,
   Download,
   BarChart3,
-  Settings,
   Plus,
+  ListOrdered,
 } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 
@@ -19,7 +19,9 @@ import { HeatmapChart } from '@/components/analytics/HeatmapChart';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAnalyticsDashboardSummary } from '@/hooks/useAnalyticsDashboardSummary';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   BarChart,
   Bar,
@@ -34,6 +36,24 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+
+function periodLabel(ym: string): string {
+  const parts = ym.split('-');
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return ym;
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+}
+
+function trendFromPct(pct: number | null | undefined): { value: number; direction: 'up' | 'down' } | undefined {
+  if (pct == null || Number.isNaN(Number(pct))) return undefined;
+  const n = Number(pct);
+  return {
+    value: Math.min(999, Math.round(Math.abs(n) * 10) / 10),
+    direction: n >= 0 ? 'up' : 'down',
+  };
+}
 
 interface AnalyticsFilters {
   search: string;
@@ -71,6 +91,11 @@ const AnalyticsDashboard = () => {
   });
   const [showExport, setShowExport] = useState(false);
 
+  const { data: summary, loading: summaryLoading, error: summaryError } = useAnalyticsDashboardSummary({
+    from: filters.dateRange?.from,
+    to: filters.dateRange?.to,
+  });
+
   const activeCount = useMemo(() => {
     let count = 0;
     if (filters.search) count++;
@@ -103,44 +128,33 @@ const AnalyticsDashboard = () => {
     );
   }
 
-  // Mock data
+  const kpis = summary?.kpis;
   const kpiData = {
-    totalReports: 12847,
-    positiveRate: 78,
-    criticalIssues: 34,
-    activeRegions: 96,
+    totalReports: kpis?.totalReports.current ?? 0,
+    positiveRate: kpis?.positiveRate.current ?? 0,
+    criticalIssues: kpis?.criticalIssues.current ?? 0,
+    activeRegions: kpis?.activeRegions.current ?? 0,
   };
 
-  const timeSeriesData = [
-    { name: 'Jan', reports: 1200, satisfaction: 72 },
-    { name: 'Fev', reports: 1400, satisfaction: 75 },
-    { name: 'Mar', reports: 1100, satisfaction: 78 },
-    { name: 'Abr', reports: 1600, satisfaction: 76 },
-    { name: 'Mai', reports: 1800, satisfaction: 80 },
-    { name: 'Jun', reports: 1500, satisfaction: 82 },
-  ];
+  const timeSeriesData = (summary?.time_series ?? []).map((t) => ({
+    name: periodLabel(t.period),
+    reports: t.reports,
+    satisfaction: t.satisfaction,
+  }));
 
-  const categoryData = [
-    { name: 'Saúde', value: 4200 },
-    { name: 'Educação', value: 3100 },
-    { name: 'Transporte', value: 2800 },
-    { name: 'Segurança', value: 1900 },
-    { name: 'Outros', value: 847 },
-  ];
+  const categoryData = summary?.category_distribution ?? [];
 
-  const heatmapData = [
-    { x: 'Centro', y: 'Seg', value: 45 },
-    { x: 'Centro', y: 'Ter', value: 52 },
-    { x: 'Centro', y: 'Qua', value: 49 },
-    { x: 'Norte', y: 'Seg', value: 32 },
-    { x: 'Norte', y: 'Ter', value: 38 },
-    { x: 'Norte', y: 'Qua', value: 35 },
-    { x: 'Sul', y: 'Seg', value: 28 },
-    { x: 'Sul', y: 'Ter', value: 31 },
-    { x: 'Sul', y: 'Qua', value: 27 },
-  ];
+  const heatmapRaw = summary?.heatmap ?? [];
+  const heatmapData =
+    heatmapRaw.length > 0 ? heatmapRaw : [{ x: '—', y: '—', value: 0 }];
+
+  const topRegionsBar = summary?.top_regions ?? [];
 
   const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+
+  const lastUpdatedLabel = summary?.range?.end
+    ? new Date(summary.range.end).toLocaleString('pt-BR')
+    : new Date().toLocaleString('pt-BR');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -158,10 +172,24 @@ const AnalyticsDashboard = () => {
           />
         </div>
 
+        {summaryError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{summaryError}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Action Bar */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-foreground">Visão Geral</h2>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/paineis/piores-servicos')}
+              className="gap-2"
+            >
+              <ListOrdered className="w-4 h-4" />
+              Piores por dimensão
+            </Button>
             <Button
               variant="outline"
               onClick={() => navigate('/paineis/criar')}
@@ -193,35 +221,46 @@ const AnalyticsDashboard = () => {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <KPICard
-            title="Total de Relatos"
-            value={kpiData.totalReports.toLocaleString('pt-BR')}
-            icon={TrendingUp}
-            trend={{ value: 12.5, direction: 'up' }}
-            subtitle="vs. mês anterior"
-          />
-          <KPICard
-            title="Taxa de Satisfação"
-            value={`${kpiData.positiveRate}%`}
-            icon={Users}
-            trend={{ value: 3.2, direction: 'up' }}
-            subtitle="Avaliações positivas"
-          />
-          <KPICard
-            title="Questões Críticas"
-            value={kpiData.criticalIssues}
-            icon={AlertTriangle}
-            trend={{ value: 8.1, direction: 'down' }}
-            subtitle="Requerem atenção"
-          />
-          <KPICard
-            title="Regiões Ativas"
-            value={kpiData.activeRegions}
-            icon={MapPin}
-            subtitle="Com relatos recentes"
-          />
-        </div>
+        {summaryLoading && !summary ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <KPICard
+              title="Total de Relatos"
+              value={kpiData.totalReports.toLocaleString('pt-BR')}
+              icon={TrendingUp}
+              trend={trendFromPct(kpis?.totalReports.trendPct)}
+              subtitle="vs. período anterior (mesma duração)"
+            />
+            <KPICard
+              title="Taxa de Satisfação"
+              value={`${kpiData.positiveRate}%`}
+              icon={Users}
+              trend={trendFromPct(kpis?.positiveRate.trendPct)}
+              subtitle="Avaliações 4–5 estrelas (publicadas)"
+            />
+            <KPICard
+              title="Questões Críticas"
+              value={kpiData.criticalIssues}
+              icon={AlertTriangle}
+              trend={trendFromPct(
+                kpis?.criticalIssues.trendPct != null ? -Number(kpis.criticalIssues.trendPct) : null,
+              )}
+              subtitle="Relatos urbanos e transporte (alta/crítica)"
+            />
+            <KPICard
+              title="Regiões Ativas"
+              value={kpiData.activeRegions}
+              icon={MapPin}
+              trend={trendFromPct(kpis?.activeRegions.trendPct)}
+              subtitle="Bairros distintos (relatos urbanos)"
+            />
+          </div>
+        )}
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -230,10 +269,10 @@ const AnalyticsDashboard = () => {
             title="Evolução Temporal"
             subtitle="Relatos e satisfação ao longo do tempo"
             onDrillDown={() => navigate('/paineis/avancado')}
-            lastUpdated={new Date().toLocaleString('pt-BR')}
+            lastUpdated={lastUpdatedLabel}
           >
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={timeSeriesData}>
+              <LineChart data={timeSeriesData.length ? timeSeriesData : [{ name: '—', reports: 0, satisfaction: 0 }]}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                 <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -267,12 +306,12 @@ const AnalyticsDashboard = () => {
             title="Distribuição por Categoria"
             subtitle="Volume de demandas por área"
             onDrillDown={() => navigate('/paineis/avancado')}
-            lastUpdated={new Date().toLocaleString('pt-BR')}
+            lastUpdated={lastUpdatedLabel}
           >
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={categoryData}
+                  data={categoryData.length ? categoryData : [{ name: 'Sem dados', value: 1 }]}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -294,9 +333,9 @@ const AnalyticsDashboard = () => {
         {/* Heatmap */}
         <ChartCard
           title="Mapa de Calor - Demandas por Região e Dia"
-          subtitle="Intensidade de ocorrências ao longo da semana"
+          subtitle="Relatos urbanos por faixa heurística de bairro e dia da semana"
           onDrillDown={() => navigate('/paineis/avancado')}
-          lastUpdated={new Date().toLocaleString('pt-BR')}
+          lastUpdated={lastUpdatedLabel}
           className="mb-6"
         >
           <HeatmapChart
@@ -309,17 +348,15 @@ const AnalyticsDashboard = () => {
         <ChartCard
           title="Atividade por Região"
           subtitle="Top 10 regiões com mais relatos"
-          lastUpdated={new Date().toLocaleString('pt-BR')}
+          lastUpdated={lastUpdatedLabel}
         >
           <ResponsiveContainer width="100%" height={300}>
             <BarChart
-              data={[
-                { name: 'Centro', value: 856 },
-                { name: 'Zona Norte', value: 732 },
-                { name: 'Zona Sul', value: 648 },
-                { name: 'Zona Leste', value: 592 },
-                { name: 'Zona Oeste', value: 521 },
-              ]}
+              data={
+                topRegionsBar.length > 0
+                  ? topRegionsBar
+                  : [{ name: 'Sem dados', value: 0 }]
+              }
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />

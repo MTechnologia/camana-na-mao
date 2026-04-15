@@ -358,6 +358,42 @@ export type Database = {
         }
         Relationships: []
       }
+      legislative_commissions: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          match_keywords: string[]
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          match_keywords?: string[]
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          match_keywords?: string[]
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       council_member_referrals: {
         Row: {
           acknowledged_at: string | null
@@ -367,6 +403,7 @@ export type Database = {
           council_member_party: string | null
           created_at: string | null
           id: string
+          legislative_commission_id: string | null
           match_reasons: string[] | null
           match_score: number | null
           resolved_at: string | null
@@ -387,6 +424,7 @@ export type Database = {
           council_member_party?: string | null
           created_at?: string | null
           id?: string
+          legislative_commission_id?: string | null
           match_reasons?: string[] | null
           match_score?: number | null
           resolved_at?: string | null
@@ -407,6 +445,7 @@ export type Database = {
           council_member_party?: string | null
           created_at?: string | null
           id?: string
+          legislative_commission_id?: string | null
           match_reasons?: string[] | null
           match_score?: number | null
           resolved_at?: string | null
@@ -420,6 +459,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "council_member_referrals_legislative_commission_id_fkey"
+            columns: ["legislative_commission_id"]
+            isOneToOne: false
+            referencedRelation: "legislative_commissions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "council_member_referrals_service_rating_id_fkey"
             columns: ["service_rating_id"]
@@ -1216,42 +1262,107 @@ export type Database = {
         }
         Relationships: []
       }
+      report_pattern_threshold_events: {
+        Row: {
+          alert_level: string
+          average_severity: string | null
+          avg_severity: number | null
+          created_at: string
+          description: string | null
+          id: string
+          line_id: string | null
+          occurrence_count: number | null
+          pattern_type: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          alert_level: string
+          average_severity?: string | null
+          avg_severity?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_id?: string | null
+          occurrence_count?: number | null
+          pattern_type: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          alert_level?: string
+          average_severity?: string | null
+          avg_severity?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          line_id?: string | null
+          occurrence_count?: number | null
+          pattern_type?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_pattern_threshold_events_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "transport_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_patterns: {
         Row: {
           average_severity: string | null
+          avg_severity: number | null
           description: string
           first_detected_at: string | null
           id: string
+          last_analyzed_at: string | null
           last_occurrence_at: string | null
           line_id: string | null
           occurrence_count: number | null
           pattern_type: string
+          peak_hours: Json | null
           status: string | null
           suggested_action: string | null
+          window_end: string | null
+          window_start: string | null
         }
         Insert: {
           average_severity?: string | null
+          avg_severity?: number | null
           description: string
           first_detected_at?: string | null
           id?: string
+          last_analyzed_at?: string | null
           last_occurrence_at?: string | null
           line_id?: string | null
           occurrence_count?: number | null
           pattern_type: string
+          peak_hours?: Json | null
           status?: string | null
           suggested_action?: string | null
+          window_end?: string | null
+          window_start?: string | null
         }
         Update: {
           average_severity?: string | null
+          avg_severity?: number | null
           description?: string
           first_detected_at?: string | null
           id?: string
+          last_analyzed_at?: string | null
           last_occurrence_at?: string | null
           line_id?: string | null
           occurrence_count?: number | null
           pattern_type?: string
+          peak_hours?: Json | null
           status?: string | null
           suggested_action?: string | null
+          window_end?: string | null
+          window_start?: string | null
         }
         Relationships: [
           {
@@ -1649,6 +1760,7 @@ export type Database = {
         Row: {
           anonymized_at: string | null
           created_at: string | null
+          dimensions: Json | null
           id: string
           is_anonymous: boolean | null
           publication_status: string
@@ -1665,6 +1777,7 @@ export type Database = {
         Insert: {
           anonymized_at?: string | null
           created_at?: string | null
+          dimensions?: Json | null
           id?: string
           is_anonymous?: boolean | null
           publication_status?: string
@@ -1681,6 +1794,7 @@ export type Database = {
         Update: {
           anonymized_at?: string | null
           created_at?: string | null
+          dimensions?: Json | null
           id?: string
           is_anonymous?: boolean | null
           publication_status?: string
@@ -1954,6 +2068,7 @@ export type Database = {
       }
       transport_reports: {
         Row: {
+          accessibility_details: Json
           ai_category: string | null
           ai_pattern_detected: boolean | null
           ai_sentiment: string | null
@@ -1983,11 +2098,14 @@ export type Database = {
           responded_at: string | null
           severity: string
           status: string
+          stop_location: string | null
+          stop_name: string | null
           sub_category: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          accessibility_details?: Json
           ai_category?: string | null
           ai_pattern_detected?: boolean | null
           ai_sentiment?: string | null
@@ -2017,11 +2135,14 @@ export type Database = {
           responded_at?: string | null
           severity?: string
           status?: string
+          stop_location?: string | null
+          stop_name?: string | null
           sub_category?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          accessibility_details?: Json
           ai_category?: string | null
           ai_pattern_detected?: boolean | null
           ai_sentiment?: string | null
@@ -2051,6 +2172,8 @@ export type Database = {
           responded_at?: string | null
           severity?: string
           status?: string
+          stop_location?: string | null
+          stop_name?: string | null
           sub_category?: string | null
           updated_at?: string | null
           user_id?: string
@@ -2599,6 +2722,22 @@ export type Database = {
         Args: Record<string, never>
         Returns: { user_id: string; email: string }[]
       },
+      analyze_report_patterns: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      },
+      get_analytics_dashboard_summary: {
+        Args: { p_end?: string | null; p_start?: string | null }
+        Returns: Json
+      },
+      get_worst_services_by_dimension: {
+        Args: { p_dimension: string; p_limit?: number | null }
+        Returns: Json
+      },
+      sync_pattern_threshold_events: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      },
       insert_audiencia_participacao: {
         Args: {
           p_audiencia_id: string
@@ -2663,6 +2802,10 @@ export type Database = {
           p_period?: string
           p_type?: string | null
         }
+        Returns: Json
+      }
+      get_service_rating_dimension_averages: {
+        Args: { p_service_id: string }
         Returns: Json
       }
       get_reports_heatmap_data: {
@@ -2743,6 +2886,29 @@ export type Database = {
       replace_user_app_suggestions_for_user: {
         Args: { p_context: string; p_items: Json; p_user_id: string }
         Returns: undefined
+      }
+      find_similar_transport_reports: {
+        Args: {
+          p_report_type: string
+          p_line_id?: string | null
+          p_line_code?: string | null
+          p_exclude_user_id?: string | null
+          p_limit?: number
+        }
+        Returns: {
+          id: string
+          protocol_code: string | null
+          report_type: string
+          description: string | null
+          occurrence_date: string
+          occurrence_time: string | null
+          location: string | null
+          severity: string | null
+          direction: string | null
+          created_at: string
+          line_code: string | null
+          line_name: string | null
+        }[]
       }
     }
     Enums: {

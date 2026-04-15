@@ -12,6 +12,9 @@ interface ReportData {
   occurrence_date: string;
   occurrence_time?: string;
   location?: string;
+  stop_name?: string | null;
+  stop_location?: string | null;
+  accessibility_details?: Record<string, unknown> | null;
   impact_description?: string;
   photos?: string[] | null;
 }
