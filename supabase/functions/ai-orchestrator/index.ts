@@ -143,6 +143,44 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
   )}[QUICK_REPLY:confirmar,corrigir]`;
 }
 
+type SubscriptionOfferContext =
+  | { kind: "service"; service_id: string; service_name?: string | null }
+  | {
+      kind: "transport_line";
+      line_id?: string | null;
+      line_code?: string | null;
+      line_name?: string | null;
+    };
+
+function parseSubscriptionOfferContext(text: string): SubscriptionOfferContext | null {
+  const match = text.match(/\[SUBSCRIPTION_OFFER_JSON:([^\]]+)\]/);
+  if (!match?.[1]) return null;
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(match[1])))) as SubscriptionOfferContext;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeQuickReplyChoice(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function isAcceptSubscriptionChoice(text: string): boolean {
+  const normalized = normalizeQuickReplyChoice(text);
+  return ["sim", "sim_acompanhar", "acompanhar", "quero_acompanhar"].includes(normalized);
+}
+
+function isDeclineSubscriptionChoice(text: string): boolean {
+  const normalized = normalizeQuickReplyChoice(text);
+  return ["nao", "nao_obrigado", "nao_quero", "agora_nao"].includes(normalized);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: PREFLIGHT_CORS });
@@ -1710,6 +1748,37 @@ serve(async (req) => {
       const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
       console.log('[ai-orchestrator] Encaminhar avaliação para vereador: short-circuit suggest_council_member');
       return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, { headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' } });
+    }
+
+    const subscriptionOfferContext = parseSubscriptionOfferContext(lastAssistantMessage);
+    if (subscriptionOfferContext && isAcceptSubscriptionChoice(lastUserMessage.trim())) {
+      const toolName =
+        subscriptionOfferContext.kind === 'service'
+          ? 'subscribe_service'
+          : 'subscribe_transport_line';
+      const toolArgs =
+        subscriptionOfferContext.kind === 'service'
+          ? { service_id: subscriptionOfferContext.service_id }
+          : {
+              ...(subscriptionOfferContext.line_id ? { line_id: subscriptionOfferContext.line_id } : {}),
+              ...(subscriptionOfferContext.line_code ? { line_code: subscriptionOfferContext.line_code } : {}),
+            };
+      const toolResult = await lib.executeTool(toolName, toolArgs, user.id, supabase);
+      const reply = `${toolResult.message}\n\nPosso ajudar com mais alguma coisa?`;
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+      console.log('[ai-orchestrator] Subscription offer accepted: short-circuit tool', toolName);
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
+    }
+
+    if (subscriptionOfferContext && isDeclineSubscriptionChoice(lastUserMessage.trim())) {
+      const reply = 'Tudo bem! Se quiser acompanhar depois, é só me pedir por aqui.\n\nPosso ajudar com mais alguma coisa?';
+      const ssePayload = JSON.stringify({ choices: [{ delta: { content: reply } }] });
+      console.log('[ai-orchestrator] Subscription offer declined: short-circuit reply');
+      return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+        headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
     }
 
     // Primeira pergunta "como chegar em X" → resposta fixa com as 3 opções (GPS, endereço cadastrado, digitar)

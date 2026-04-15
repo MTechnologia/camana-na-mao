@@ -732,8 +732,10 @@ const ChatMessageBubble = ({
     const values = match[1].split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
     const labels: Record<string, string> = {
       sim: 'Sim',
+      sim_acompanhar: 'Sim, acompanhar',
       não: 'Não',
       nao: 'Não',
+      nao_obrigado: 'Não, obrigado',
       registrar: 'Registrar',
       novo_relato: 'Registrar novo relato',
       confirmar: 'Confirmar',

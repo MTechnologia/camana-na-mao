@@ -68,6 +68,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
     .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
     .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
+    .replace(/\[SUBSCRIPTION_OFFER_JSON:[^\]]+\]/g, '')
     .replace(/\[OFFER_REFERRAL\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW_JSON:[^\]]+\]/g, '')

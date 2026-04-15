@@ -181,6 +181,24 @@ export function inferServiceRatingSentimentFromMean(meanStars: number): 'positiv
   return 'neutral';
 }
 
+function buildSubscriptionOfferMarker(
+  payload:
+    | { kind: "service"; service_id: string; service_name?: string | null }
+    | {
+        kind: "transport_line";
+        line_id?: string | null;
+        line_code?: string | null;
+        line_name?: string | null;
+      },
+): string {
+  try {
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return `[SUBSCRIPTION_OFFER_JSON:${b64}]`;
+  } catch {
+    return "";
+  }
+}
+
 /** HU-4.5: dicas por tipo de serviço (markdown curto) antes do picker de dimensões. */
 export async function fetchServiceTypeRatingQuestionHints(
   supabase: SupabaseClient,
@@ -8777,6 +8795,25 @@ export async function executeTool(
           '---',
           '',
           '🔗 [Ver Meus Relatos](/transporte/meus-relatos) para acompanhar.',
+          ...((lineId || args.line_code)
+            ? [
+                '',
+                `${buildSubscriptionOfferMarker({
+                  kind: 'transport_line',
+                  line_id: lineId,
+                  line_code:
+                    typeof args.line_code === 'string' && args.line_code.trim() !== ''
+                      ? args.line_code.trim()
+                      : null,
+                })}**Quer acompanhar atualizações sobre ${
+                  typeof args.line_code === 'string' && args.line_code.trim() !== ''
+                    ? `a linha ${args.line_code.trim()}`
+                    : 'essa linha'
+                }?**`,
+                '',
+                '[QUICK_REPLY:sim_acompanhar,nao_obrigado]',
+              ]
+            : []),
           '',
           '**Quer que eu encaminhe esse relato para algum vereador?**',
           '',
@@ -9195,10 +9232,18 @@ export async function executeTool(
         const offerReferral = shouldOfferServiceRatingReferral(stars, ratingDimensionsJson)
           ? '\n\n[OFFER_REFERRAL]Se quiser, posso orientá-lo a **encaminhar esta avaliação** a um vereador (manifestação sobre o serviço).'
           : '';
+        const subscriptionOffer = serviceId
+          ? `\n\n${buildSubscriptionOfferMarker({
+              kind: 'service',
+              service_id: serviceId,
+              service_name:
+                typeof serviceNameForMessage === 'string' ? serviceNameForMessage : String(serviceNameForMessage ?? ''),
+            })}**Quer acompanhar atualizações sobre este serviço?**\n\n[QUICK_REPLY:sim_acompanhar,nao_obrigado]`
+          : '';
 
         return {
           success: true,
-          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.${offerReferral}\n\nPosso ajudar com mais alguma coisa?`,
+          message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.${offerReferral}${subscriptionOffer}\n\nPosso ajudar com mais alguma coisa?`,
           data: { id: data.id, type: 'rating', publication_status: publicationStatus },
         };
       }
