@@ -15,6 +15,7 @@ function isRatingComentarioLabelLine(line: string): boolean {
   return (
     /📝/.test(line) ||
     /\*\*Comentário\*\*/.test(line) ||
+    /\*\*Comentário:\*\*/.test(line) ||
     /^Comentário\s*:/i.test(t)
   );
 }
@@ -30,8 +31,10 @@ function replaceComentarioLineByLine(raw: string, newComment: string): string {
     if (!isRatingComentarioLabelLine(line)) return line;
     const patterns: RegExp[] = [
       /^(\s*📝\s*\*\*Comentário\*\*:\s*)([^\r\n]*)$/u,
+      /^(\s*📝\s*\*\*Comentário:\*\*\s*)([^\r\n]*)$/u,
       /^(\s*📝\s*Comentário:\s*)([^\r\n]*)$/iu,
       /^(\s*\*\*Comentário\*\*:\s*)([^\r\n]*)$/u,
+      /^(\s*\*\*Comentário:\*\*\s*)([^\r\n]*)$/u,
       /^(\s*Comentário:\s*)([^\r\n]*)$/iu,
     ];
     for (const re of patterns) {
@@ -54,8 +57,10 @@ export function replaceRatingSummaryComment(raw: string, newComment: string): st
 
   const fullTextPatterns: Array<[RegExp, string]> = [
     [/(📝\s*\*\*Comentário\*\*:\s*)([^\r\n]*)/gu, `$1${t}`],
+    [/(📝\s*\*\*Comentário:\*\*\s*)([^\r\n]*)/gu, `$1${t}`],
     [/(📝\s*Comentário:\s*)([^\r\n]*)/giu, `$1${t}`],
     [/(\*\*Comentário\*\*:\s*)([^\r\n]*)/gu, `$1${t}`],
+    [/(\*\*Comentário:\*\*\s*)([^\r\n]*)/gu, `$1${t}`],
   ];
 
   for (const [re, replacement] of fullTextPatterns) {
@@ -76,8 +81,10 @@ export function parseRatingSummaryComment(raw: string): string | null {
   const nfc = normalizeUnicode(raw);
   const linePatterns = [
     /📝\s*\*\*Comentário\*\*:\s*([^\r\n]+)/u,
+    /📝\s*\*\*Comentário:\*\*\s*([^\r\n]+)/u,
     /📝\s*Comentário:\s*([^\r\n]+)/iu,
     /\*\*Comentário\*\*:\s*([^\r\n]+)/u,
+    /\*\*Comentário:\*\*\s*([^\r\n]+)/u,
   ];
   for (const re of linePatterns) {
     const m = nfc.match(re);
@@ -101,12 +108,11 @@ export function forceReplaceRatingComment(raw: string, newComment: string): stri
   const t = newComment.trim();
   if (!t) return raw;
 
-  const primary = replaceRatingSummaryComment(raw, t);
-  if (primary !== raw) return primary;
+  const working = replaceRatingSummaryComment(raw, t);
 
-  if (!/\[RATING_CREATED:/i.test(raw)) return raw;
+  if (!/\[RATING_CREATED:/i.test(working)) return working;
 
-  const lines = raw.split(/\r?\n/);
+  const lines = working.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/⏳\s*\*\*Seu comentário passará/i.test(line)) continue;
@@ -115,6 +121,7 @@ export function forceReplaceRatingComment(raw: string, newComment: string): stri
     if (
       /📝/.test(line) ||
       /\*\*Comentário\*\*/.test(line) ||
+      /\*\*Comentário:\*\*/.test(line) ||
       /^Comentário\s*:/i.test(trimmed)
     ) {
       lines[i] = `📝 **Comentário:** ${t}`;
@@ -122,8 +129,8 @@ export function forceReplaceRatingComment(raw: string, newComment: string): stri
     }
   }
 
-  const loose = raw.replace(/(Comentário\s*:\s*)([^\r\n]+)/iu, `$1${t}`);
-  if (loose !== raw) return loose;
+  const loose = working.replace(/(Comentário\s*:\s*)([^\r\n]+)/iu, `$1${t}`);
+  if (loose !== working) return loose;
 
-  return raw;
+  return working;
 }
