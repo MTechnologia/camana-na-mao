@@ -1,15 +1,15 @@
-import { useNavigate } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ui/page-header';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
+import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
+import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatShortDate } from '@/lib/dateUtils';
 export default function PatternsPage() {
-  const navigate = useNavigate();
   const { patterns, loading } = useReportPatterns();
+  const transportFollow = useTransportSubscriptions();
 
   return (
     <>
@@ -74,6 +74,18 @@ export default function PatternsPage() {
                     <p className="text-xs text-amber-900">
                       <strong>Ação sugerida:</strong> {pattern.suggested_action}
                     </p>
+                  </div>
+                )}
+
+                {pattern.line_id && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                    <TransportLineFollowButton
+                      lineId={pattern.line_id}
+                      lineLabel={pattern.description}
+                      subscriptions={transportFollow.subscriptions}
+                      loading={transportFollow.loading}
+                      toggleSubscription={transportFollow.toggleSubscription}
+                    />
                   </div>
                 )}
               </CardContent>

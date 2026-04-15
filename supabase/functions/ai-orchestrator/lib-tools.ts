@@ -445,6 +445,47 @@ export const tools = [
   {
     type: "function",
     function: {
+      name: "subscribe_service",
+      description:
+        "Registra que o cidadão quer acompanhar um equipamento público (UBS, escola, parque, etc.) e receber notificações quando houver nova avaliação publicada. Usar quando pedir para seguir, acompanhar ou ser avisado sobre um serviço específico já identificado (UUID do equipamento). Requer login.",
+      parameters: {
+        type: "object",
+        properties: {
+          service_id: {
+            type: "string",
+            description:
+              "UUID do equipamento em public_services (mesmo id usado na URL /servico/:id ou retornado por find_nearby_services).",
+          },
+        },
+        required: ["service_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "subscribe_transport_line",
+      description:
+        "Registra que o cidadão quer acompanhar uma linha de ônibus/metrô e receber notificações quando houver novos relatos ou padrões naquela linha. Usar quando pedir para seguir linha, acompanhar ônibus ou ser avisado sobre problemas numa linha. Informar line_id (UUID) OU line_code (ex.: 8000-10). Requer login.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: {
+            type: "string",
+            description: "UUID da linha em transport_lines, se conhecido.",
+          },
+          line_code: {
+            type: "string",
+            description: "Código oficial da linha (ex.: 8000-10, LINHA-1-AZUL) quando não houver UUID.",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "suggest_council_member",
       description: "Sugere vereadores para encaminhar uma demanda cidadã. Usar quando cidadão quiser: encaminhar reclamação a vereador, saber qual vereador procurar, indicar vereador especialista no tema.",
       parameters: {

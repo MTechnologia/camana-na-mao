@@ -89,7 +89,8 @@ export default function SubscriptionsPage() {
   const isLoading = loadingServices || loadingTransport || loadingTopics;
 
   const isServiceSubscribed = (serviceId: string) => serviceSubs.some(s => s.service_id === serviceId);
-  const isTransportSubscribed = (lineId: string) => transportSubs.some(s => s.line_id === lineId);
+  const isTransportSubscribed = (lineId: string) =>
+    transportSubs.some((s) => s.line_id === lineId && s.subscription_type === "alert");
   const isTopicSubscribed = (tema: string) => topicSubs.some(s => s.tema === tema);
 
   return (
