@@ -1,0 +1,83 @@
+# Deploy automatizado de Edge Functions no Supabase.
+# Objetivo principal: eliminar dependência da CLI local (ex.: bloqueio por Device Guard).
+#
+# Configure nos GitHub Environments `dev`, `hml` e `production` os secrets:
+# - SUPABASE_ACCESS_TOKEN_CAMARA
+# - SUPABASE_PROJECT_ID
+#
+# Fluxos:
+# 1) Push em `dev` / `hml` / `main` com mudanças na ai-orchestrator ou em `_shared`
+# 2) Execução manual (`workflow_dispatch`) para redeploy de qualquer função
+
+name: Deploy Edge Function
+
+on:
+  push:
+    branches: [dev, hml, main]
+    paths:
+      - "supabase/functions/ai-orchestrator/**"
+      - "supabase/functions/_shared/**"
+      - ".github/workflows/deploy-edge-function.yml"
+  workflow_dispatch:
+    inputs:
+      function_name:
+        description: "Nome da Edge Function para deploy"
+        required: true
+        default: "ai-orchestrator"
+      target_environment:
+        description: "Ambiente GitHub / projeto Supabase alvo"
+        required: true
+        type: choice
+        options:
+          - dev
+          - hml
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'main' && 'production' || github.ref_name) }}
+    concurrency:
+      group: edge-function-${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || github.ref_name }}-${{ github.event_name == 'workflow_dispatch' && inputs.function_name || 'ai-orchestrator' }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+
+    env:
+      FUNCTION_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.function_name || 'ai-orchestrator' }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_CAMARA }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate workflow inputs and secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${SUPABASE_ACCESS_TOKEN}" || { echo "Missing secret: SUPABASE_ACCESS_TOKEN_CAMARA"; exit 1; }
+          test -n "${SUPABASE_PROJECT_ID}" || { echo "Missing secret: SUPABASE_PROJECT_ID"; exit 1; }
+          test -d "supabase/functions/${FUNCTION_NAME}" || { echo "Function folder not found: supabase/functions/${FUNCTION_NAME}"; exit 1; }
+
+      - name: Deploy Edge Function
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Deploying ${FUNCTION_NAME} to project ${SUPABASE_PROJECT_ID}"
+          supabase functions deploy "${FUNCTION_NAME}" --project-ref "${SUPABASE_PROJECT_ID}"
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          {
+            echo "## Edge Function deploy"
+            echo "- Function: \`${FUNCTION_NAME}\`"
+            echo "- Environment: \`${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || (github.ref_name == 'main' && 'production' || github.ref_name) }}\`"
+            echo "- Project ref: \`${SUPABASE_PROJECT_ID}\`"
+            echo "- Trigger: \`${{ github.event_name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
