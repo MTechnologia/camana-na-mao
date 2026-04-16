@@ -1542,8 +1542,7 @@ serve(async (req) => {
           return {
             field: 'rating_dimensions',
             picker: '[MULTI_DIMENSION_RATING_PICKER]',
-            prompt:
-              '**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.',
+            prompt: lib.buildServiceRatingDimensionsPrompt(String(fields.service_type || "")),
           };
         }
 

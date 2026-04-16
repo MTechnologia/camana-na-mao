@@ -5012,6 +5012,41 @@ export function buildServiceRatingBairroPrompt(serviceType: string | undefined):
   return `Em qual **bairro** fica ${art} **${noun}** que você visitou?`;
 }
 
+/** Pergunta de dimensões com contexto visível do tipo de equipamento. */
+export function buildServiceRatingDimensionsPrompt(serviceType: string | undefined): string {
+  const t = String(serviceType || "").trim().toLowerCase();
+  if (!t) {
+    return "**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.";
+  }
+  if (t === "ubs") {
+    return "**Avalie a UBS em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.";
+  }
+  if (t === "ceu") {
+    return "**Avalie o CEU em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.";
+  }
+  const noun = getServiceRatingNounPt(t);
+  const masculineArticleTypes = new Set([
+    "hospital",
+    "sports_center",
+    "community_center",
+    "park",
+    "market",
+    "city_market",
+    "theater",
+    "museum",
+    "cemetery",
+    "transit_station",
+    "police_station",
+    "fire_station",
+    "street_market",
+    "other",
+    "accessibility",
+    "recycling_point",
+  ]);
+  const art = masculineArticleTypes.has(t) ? "o" : "a";
+  return `**Avalie ${art} ${noun} em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.`;
+}
+
 // Extract service rating-specific fields
 export function extractServiceFields(context: string): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
