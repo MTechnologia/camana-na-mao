@@ -83,6 +83,8 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[RECURRENCE_FREQUENCY_PICKER\]/g, '')
     .replace(/\[IMPACT_PICKER\]/g, '')
     .replace(/\[IMPACT_SELECTED:[2-5]\]/g, '')
+    .replace(/\[ACCESSIBILITY_CHECKLIST\]/g, '')
+    .replace(/\[ACCESSIBILITY_DETAILS:[^\]]+\]/g, '')
     .replace(/\[TRANSPORT_PREVIEW_JSON:[^\]]+\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
     .replace(/\[WAIT_TIME_PICKER\]/g, '')

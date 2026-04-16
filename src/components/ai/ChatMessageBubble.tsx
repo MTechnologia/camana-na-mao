@@ -495,7 +495,12 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:occurrence_time]') ||
-      (content.includes('que horas') && isLastAssistantMessage)
+      (isLastAssistantMessage &&
+        (content.includes('que horas') ||
+          content.includes('horário exato') ||
+          content.includes('horario exato') ||
+          content.includes('qual foi o horário') ||
+          content.includes('qual foi o horario')))
     );
   }, [isUser, message.content, timeSelected, hasTimePicker, isLastAssistantMessage]);
 
@@ -545,7 +550,7 @@ const ChatMessageBubble = ({
     hasImpactPicker,
     isLastAssistantMessage,
   ]);
-  
+
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
     if (isUser || ratingSelected || hasRatingPicker) return false;
@@ -772,6 +777,11 @@ const ChatMessageBubble = ({
       sentido: 'Sentido',
       frequência: 'Frequência',
       impacto: 'Impacto na rotina',
+      parada: 'Parada / estação',
+      ponto: 'Ponto / referência',
+      referencia: 'Ponto / referência',
+      referência: 'Ponto / referência',
+      detalhes_acessibilidade: 'Acessibilidade',
       local: 'Local',
       lotacao: 'Lotação',
       seguranca: 'Segurança',
@@ -1579,7 +1589,7 @@ const ChatMessageBubble = ({
           onAccessibilityChecklistSubmit && (
             <InlineAccessibilityChecklistPicker onSubmit={handleAccessibilityChecklistSubmit} />
           )}
-        
+          
         {/* Avaliação geral (1–5 estrelas) — não exibir se for dimensão atômica (FIELD_REQUEST:dim_* + RATING_PICKER) */}
         {(hasRatingPicker || isAskingForRating) &&
           !hasDimensionRatingPicker &&

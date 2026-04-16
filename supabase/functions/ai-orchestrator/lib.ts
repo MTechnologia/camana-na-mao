@@ -43,6 +43,17 @@ export function parseRatingDimensionsMarker(content: string): Record<string, num
   }
 }
 
+export function parseAccessibilityDetailsMarker(content: string): Record<string, unknown> | null {
+  const match = content.match(/\[ACCESSIBILITY_DETAILS:([A-Za-z0-9+/=_-]+)\]/);
+  if (!match?.[1]) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(match[1])));
+    return normalizeTransportAccessibilityDetails(JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
 /** Fuso para RN-AVA-003 (alinhado a idx_one_rating_per_service_per_day no PostgreSQL). */
 const SERVICE_RATING_DEDUP_TZ = 'America/Sao_Paulo';
 
@@ -1473,6 +1484,23 @@ function hasCompleteAccessibilityChecklist(raw: unknown): boolean {
   const normalized = normalizeAccessibilityChecklist(raw);
   if (!normalized) return false;
   return ACCESSIBILITY_CHECKLIST_KEYS.every((key) => typeof normalized[key] === "boolean");
+}
+
+export function formatTransportAccessibilitySummary(raw: unknown): string | null {
+  const normalized = normalizeAccessibilityChecklist(raw);
+  if (!normalized) return null;
+  const labels: Record<string, string> = {
+    elevador_funcionando: "Elevador funcionando",
+    piso_tatil_presente: "Piso tátil presente",
+    espaco_cadeirante: "Espaço para cadeirante",
+    info_sonora_visual_disponivel: "Informação sonora/visual disponível",
+  };
+  const parts = ACCESSIBILITY_CHECKLIST_KEYS.map((key) => {
+    const value = normalized[key];
+    if (typeof value !== "boolean") return null;
+    return `${labels[key]}: ${value ? "Sim" : "Não"}`;
+  }).filter(Boolean);
+  return parts.length ? `Checklist de acessibilidade: ${parts.join(" | ")}` : null;
 }
 
 /** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
@@ -3367,6 +3395,14 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       } catch {
         // ignore malformed JSON
       }
+      const fromMarker = parseAccessibilityDetailsMarker(response);
+      if (fromMarker) {
+        const normalized = normalizeAccessibilityChecklist(fromMarker);
+        if (normalized) {
+          result.accessibility_details = normalized;
+        }
+        break;
+      }
       break;
     }
       
@@ -4757,6 +4793,12 @@ export function accumulateFieldsFromHistory(
       const impactLabelM = content.match(/^Impacto:\s*(.+?)\s*\[IMPACT_SELECTED:/im);
       if (impactLabelM && !accumulated.impact_description) {
         accumulated.impact_description = impactLabelM[1].trim();
+      }
+
+      const accessibilityDetails = parseAccessibilityDetailsMarker(content);
+      if (accessibilityDetails) {
+        accumulated.accessibility_details = accessibilityDetails;
+        console.log("[accumulateFields] Parsed accessibility_details from ACCESSIBILITY_DETAILS marker");
       }
       
       // Parse "Data: DD/MM/YYYY" format from InlineDatePicker - always mark as confirmed
@@ -8905,27 +8947,7 @@ export async function executeTool(
         };
         const recurrenceLabel = recurrenceLabels[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
         const descPreview = String(args.description ?? '');
-        const accessibilityChecklistLabels: Record<string, string> = {
-          elevador_funcionando: "Elevador funcionando",
-          piso_tatil_presente: "Piso tátil presente",
-          espaco_cadeirante: "Espaço para cadeirante",
-          info_sonora_visual_disponivel: "Informação sonora/visual disponível",
-        };
-        const accessibilitySummary = (() => {
-          if (
-            String(validReportType) !== "acessibilidade" ||
-            !accessibilityInsert ||
-            Object.keys(accessibilityInsert).length === 0
-          ) {
-            return "";
-          }
-          const parts = Object.entries(accessibilityInsert).map(([key, value]) => {
-            const label = accessibilityChecklistLabels[key] || key;
-            if (typeof value === "boolean") return `${label}: ${value ? "Sim" : "Não"}`;
-            return `${label}: ${String(value)}`;
-          });
-          return parts.length ? `♿ **Checklist de acessibilidade:** ${parts.join(" | ")}` : "";
-        })();
+        const accessibilitySummary = formatTransportAccessibilitySummary(accessibilityInsert);
         
         // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
         const successMessage = [
@@ -8942,8 +8964,10 @@ export async function executeTool(
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
           args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : '',
           recurrenceLabel ? `🔁 **Frequência:** ${recurrenceLabel}` : '',
-          accessibilitySummary,
+          accessibilitySummary ? `♿ **${accessibilitySummary}**` : '',
           args.location ? `📍 **Local:** ${args.location}` : '',
+          stopNameInsert ? `🚏 **Parada / estação:** ${stopNameInsert}` : '',
+          stopLocationInsert ? `📌 **Ponto / referência:** ${stopLocationInsert}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
           '',
