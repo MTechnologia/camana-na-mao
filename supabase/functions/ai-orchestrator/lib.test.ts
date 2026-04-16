@@ -297,8 +297,15 @@ Deno.test("HU-6.5: parseAccessibilityDetailsMarker e formatTransportAccessibilit
   assertEquals(parsed?.rampa, true);
   assertEquals(parsed?.piso_tatil, true);
   assertEquals(parsed?.observacoes, "elevador quebrado");
+
+  const checklistPayload = {
+    elevador_funcionando: false,
+    piso_tatil_presente: true,
+    espaco_cadeirante: true,
+    info_sonora_visual_disponivel: false,
+  };
   assertEquals(
-    formatTransportAccessibilitySummary(parsed),
-    "Rampa; Piso tátil; Observações: elevador quebrado",
+    formatTransportAccessibilitySummary(checklistPayload),
+    "Checklist de acessibilidade: Elevador funcionando: Não | Piso tátil presente: Sim | Espaço para cadeirante: Sim | Informação sonora/visual disponível: Não",
   );
 });
