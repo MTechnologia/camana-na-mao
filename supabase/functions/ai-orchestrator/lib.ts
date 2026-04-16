@@ -43,6 +43,17 @@ export function parseRatingDimensionsMarker(content: string): Record<string, num
   }
 }
 
+export function parseAccessibilityDetailsMarker(content: string): Record<string, unknown> | null {
+  const match = content.match(/\[ACCESSIBILITY_DETAILS:([A-Za-z0-9+/=_-]+)\]/);
+  if (!match?.[1]) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(match[1])));
+    return normalizeTransportAccessibilityDetails(JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
 /** Fuso para RN-AVA-003 (alinhado a idx_one_rating_per_service_per_day no PostgreSQL). */
 const SERVICE_RATING_DEDUP_TZ = 'America/Sao_Paulo';
 
@@ -1447,6 +1458,28 @@ export function normalizeTransportAccessibilityDetails(raw: unknown): Record<str
     }
   }
   return Object.keys(out).length ? out : null;
+}
+
+export function formatTransportAccessibilitySummary(raw: unknown): string | null {
+  const normalized = normalizeTransportAccessibilityDetails(raw);
+  if (!normalized) return null;
+  const labels: Record<string, string> = {
+    rampa: "Rampa",
+    elevador: "Elevador / escada rolante",
+    piso_tatil: "Piso tátil",
+    embarque_assistido: "Apoio para embarque",
+    observacoes: "Observações",
+  };
+  const parts = Object.entries(normalized)
+    .map(([key, value]) => {
+      const label = labels[key] || key.replace(/_/g, " ");
+      if (value === true) return label;
+      if (value === false) return `${label}: não`;
+      const text = String(value ?? "").trim();
+      return text ? `${label}: ${text}` : null;
+    })
+    .filter(Boolean);
+  return parts.length ? parts.join("; ") : null;
 }
 
 /** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
@@ -3400,6 +3433,19 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
       if (t.length >= 2 && t.length <= 500) result.stop_location = t;
       break;
     }
+
+    case 'accessibility_details': {
+      const fromMarker = parseAccessibilityDetailsMarker(response);
+      if (fromMarker) {
+        result.accessibility_details = fromMarker;
+        break;
+      }
+      const normalized = normalizeTransportAccessibilityDetails({
+        observacoes: response.trim(),
+      });
+      if (normalized) result.accessibility_details = normalized;
+      break;
+    }
       
     case 'active_consequences': {
       // Parse active consequences
@@ -4789,6 +4835,12 @@ export function accumulateFieldsFromHistory(
       if (impactLabelM && !accumulated.impact_description) {
         accumulated.impact_description = impactLabelM[1].trim();
       }
+
+      const accessibilityDetails = parseAccessibilityDetailsMarker(content);
+      if (accessibilityDetails) {
+        accumulated.accessibility_details = accessibilityDetails;
+        console.log("[accumulateFields] Parsed accessibility_details from ACCESSIBILITY_DETAILS marker");
+      }
       
       // Parse "Data: DD/MM/YYYY" format from InlineDatePicker - always mark as confirmed
       const dateMatch = content.match(/data:\s*(.+)/i);
@@ -5082,6 +5134,41 @@ export function buildServiceRatingBairroPrompt(serviceType: string | undefined):
   ]);
   const art = masculineArticleTypes.has(t) ? "o" : "a";
   return `Em qual **bairro** fica ${art} **${noun}** que você visitou?`;
+}
+
+/** Pergunta de dimensões com contexto visível do tipo de equipamento. */
+export function buildServiceRatingDimensionsPrompt(serviceType: string | undefined): string {
+  const t = String(serviceType || "").trim().toLowerCase();
+  if (!t) {
+    return "**Avalie em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.";
+  }
+  if (t === "ubs") {
+    return "**Avalie a UBS em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.";
+  }
+  if (t === "ceu") {
+    return "**Avalie o CEU em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.";
+  }
+  const noun = getServiceRatingNounPt(t);
+  const masculineArticleTypes = new Set([
+    "hospital",
+    "sports_center",
+    "community_center",
+    "park",
+    "market",
+    "city_market",
+    "theater",
+    "museum",
+    "cemetery",
+    "transit_station",
+    "police_station",
+    "fire_station",
+    "street_market",
+    "other",
+    "accessibility",
+    "recycling_point",
+  ]);
+  const art = masculineArticleTypes.has(t) ? "o" : "a";
+  return `**Avalie ${art} ${noun} em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.`;
 }
 
 // Extract service rating-specific fields
@@ -8942,6 +9029,7 @@ export async function executeTool(
         };
         const recurrenceLabel = recurrenceLabels[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
         const descPreview = String(args.description ?? '');
+        const accessibilitySummary = formatTransportAccessibilitySummary(accessibilityInsert);
         
         // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
         const successMessage = [
@@ -8962,6 +9050,9 @@ export async function executeTool(
             ? `🛑 **Ponto de embarque/parada:** Não lembro`
             : (rawStopName ? `🛑 **Ponto de embarque/parada:** ${rawStopName}` : ''),
           args.location ? `📍 **Local:** ${args.location}` : '',
+          stopNameInsert ? `🚏 **Parada / estação:** ${stopNameInsert}` : '',
+          stopLocationInsert ? `📌 **Ponto / referência:** ${stopLocationInsert}` : '',
+          accessibilitySummary ? `♿ **Acessibilidade:** ${accessibilitySummary}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,
           '',

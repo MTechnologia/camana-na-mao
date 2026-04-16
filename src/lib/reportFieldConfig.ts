@@ -97,6 +97,8 @@ export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'report_type', label: 'Tipo', required: true },
   { key: 'sub_category', label: 'Detalhe do problema', required: true, requiredWhen: { field: 'report_type', values: ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'] } },
   { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
+  { key: 'stop_name', label: 'Parada / estação', required: true },
+  { key: 'stop_location', label: 'Ponto / referência', required: true },
   { key: 'occurrence_date', label: 'Data', required: true },
   { key: 'occurrence_time', label: 'Horário', required: true },
   { key: 'direction', label: 'Sentido', required: true },
@@ -105,6 +107,7 @@ export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'personal_impact', label: 'Impacto na rotina', required: true },
   { key: 'line_code', label: 'Linha', required: false },
   { key: 'location', label: 'Local', required: false },
+  { key: 'accessibility_details', label: 'Checklist de acessibilidade', required: false, requiredWhen: { field: 'report_type', values: ['acessibilidade'] } },
   { key: 'severity', label: 'Gravidade', required: false },
 ];
 

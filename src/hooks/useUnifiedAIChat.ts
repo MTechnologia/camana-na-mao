@@ -2001,6 +2001,17 @@ export const useUnifiedAIChat = (
     sendMessage(`Impacto: ${label} [IMPACT_SELECTED:${score}]`);
   }, [sendMessage]);
 
+  const handleAccessibilityDetailsSelected = useCallback((details: Record<string, unknown>) => {
+    setCollectedFields((prev) => ({ ...prev, accessibility_details: details }));
+    const summary = Object.entries(details)
+      .filter(([, value]) => value === true)
+      .map(([key]) => key.replace(/_/g, " "))
+      .join(", ");
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(details))));
+    const prefix = summary ? `Acessibilidade: ${summary}` : "Acessibilidade informada";
+    sendMessage(`${prefix} [ACCESSIBILITY_DETAILS:${encoded}]`);
+  }, [sendMessage]);
+
   // Handle rating selection from inline picker
   const handleRatingSelected = useCallback((stars: number) => {
     setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
@@ -2165,6 +2176,7 @@ export const useUnifiedAIChat = (
     handleSubcategorySelected,
     handleRecurrenceFrequencySelected,
     handleImpactSelected,
+    handleAccessibilityDetailsSelected,
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,

@@ -1,10 +1,13 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
   aggregateRatingDimensionsStars,
+  buildServiceRatingDimensionsPrompt,
   buildServiceRatingDimensionsFromWizardScores,
   executeTool,
+  formatTransportAccessibilitySummary,
   getTransportReportLatLonForBounds,
   isPointInSaoPauloBounds,
+  parseAccessibilityDetailsMarker,
   SERVICE_RATING_DIMENSION_KEYS,
 } from "./lib.ts";
 
@@ -91,6 +94,17 @@ Deno.test("buildServiceRatingDimensionsFromWizardScores: incompleto → null", (
   assertEquals(
     buildServiceRatingDimensionsFromWizardScores({ wait_time_score: 4, atendimento_score: 5 }, {}),
     null,
+  );
+});
+
+Deno.test("buildServiceRatingDimensionsPrompt: contextualiza por tipo de equipamento", () => {
+  assertEquals(
+    buildServiceRatingDimensionsPrompt("ubs"),
+    "**Avalie a UBS em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.",
+  );
+  assertEquals(
+    buildServiceRatingDimensionsPrompt("hospital"),
+    "**Avalie o hospital em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.",
   );
 });
 
@@ -353,4 +367,18 @@ Deno.test("HU-6.6: isPointInSaoPauloBounds e getTransportReportLatLonForBounds",
   );
   assertExists(fromStop);
   assertEquals(isPointInSaoPauloBounds(fromStop.lat, fromStop.lon), true);
+});
+
+Deno.test("HU-6.5: parseAccessibilityDetailsMarker e formatTransportAccessibilitySummary", () => {
+  const payload = { rampa: true, piso_tatil: true, observacoes: "elevador quebrado" };
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const parsed = parseAccessibilityDetailsMarker(`Acessibilidade [ACCESSIBILITY_DETAILS:${encoded}]`);
+  assertExists(parsed);
+  assertEquals(parsed?.rampa, true);
+  assertEquals(parsed?.piso_tatil, true);
+  assertEquals(parsed?.observacoes, "elevador quebrado");
+  assertEquals(
+    formatTransportAccessibilitySummary(parsed),
+    "Rampa; Piso tátil; Observações: elevador quebrado",
+  );
 });
