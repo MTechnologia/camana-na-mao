@@ -31,6 +31,7 @@ import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 import { extrairEmailDeMaisInformacoes, parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getServiceTypeLabel } from "@/components/icons";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineDirectionPicker from "./InlineDirectionPicker";
@@ -998,6 +999,47 @@ const ChatMessageBubble = ({
     }
     return { serviceType, district, hideRatedToday };
   }, [message.content]);
+
+  const ratingServiceType = useMemo(() => {
+    const explicit = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
+    if (explicit?.[1]) return explicit[1].trim().toLowerCase();
+
+    const fieldProgress = message.content.match(/\[COLLECTION_PROGRESS:service_rating:([^\]]+)\]/);
+    if (fieldProgress?.[1]) {
+      try {
+        const parsed = JSON.parse(fieldProgress[1]) as { service_type?: string };
+        if (parsed.service_type) return String(parsed.service_type).trim().toLowerCase();
+      } catch {
+        // ignore malformed progress payload
+      }
+    }
+
+    return null;
+  }, [message.content]);
+
+  const ratingServiceTypeLabel = useMemo(() => {
+    if (!ratingServiceType) return undefined;
+    return getServiceTypeLabel(ratingServiceType);
+  }, [ratingServiceType]);
+
+  const { data: ratingServiceTypeHints = [] } = useQuery({
+    queryKey: ["service-type-rating-hints", ratingServiceType],
+    enabled: Boolean(hasMultiDimensionRatingPicker && isLastAssistantMessage && ratingServiceType),
+    queryFn: async () => {
+      if (!ratingServiceType) return [];
+      const { data, error } = await supabase
+        .from("service_type_rating_questions")
+        .select("hint_text")
+        .eq("service_type", ratingServiceType)
+        .order("sort_order", { ascending: true })
+        .limit(5);
+      if (error || !data?.length) return [];
+      return data
+        .map((row) => row.hint_text?.trim())
+        .filter((value): value is string => Boolean(value));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   
   return (
     <div
@@ -1532,7 +1574,11 @@ const ChatMessageBubble = ({
           !multiDimensionRatingSubmitted &&
           isLastAssistantMessage &&
           onMultiDimensionRatingComplete && (
-            <MultiDimensionRatingPicker onComplete={handleMultiDimensionRatingComplete} />
+            <MultiDimensionRatingPicker
+              onComplete={handleMultiDimensionRatingComplete}
+              serviceTypeLabel={ratingServiceTypeLabel}
+              serviceTypeHints={ratingServiceTypeHints}
+            />
           )}
 
         {(hasWaitTimePicker || isAskingForWaitTime) &&

@@ -1,6 +1,7 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import {
   aggregateRatingDimensionsStars,
+  buildServiceRatingDimensionsPrompt,
   buildServiceRatingDimensionsFromWizardScores,
   executeTool,
   getTransportReportLatLonForBounds,
@@ -91,6 +92,17 @@ Deno.test("buildServiceRatingDimensionsFromWizardScores: incompleto → null", (
   assertEquals(
     buildServiceRatingDimensionsFromWizardScores({ wait_time_score: 4, atendimento_score: 5 }, {}),
     null,
+  );
+});
+
+Deno.test("buildServiceRatingDimensionsPrompt: contextualiza por tipo de equipamento", () => {
+  assertEquals(
+    buildServiceRatingDimensionsPrompt("ubs"),
+    "**Avalie a UBS em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.",
+  );
+  assertEquals(
+    buildServiceRatingDimensionsPrompt("hospital"),
+    "**Avalie o hospital em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.",
   );
 });
 
