@@ -317,7 +317,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="h-screen bg-background pt-[80px] flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-background pt-[80px] pb-24">
       <PageHeader title="Meu Perfil" backTo="/" />
 
       {/* Hidden file input */}
@@ -329,7 +329,7 @@ const Profile = () => {
         className="hidden"
       />
 
-      <div className="flex-1 px-4 pb-4 flex flex-col overflow-hidden">
+      <div className="px-4 pb-4">
         {/* Profile Card Compacto - Agora editável */}
         {user && (
           <Card
@@ -394,8 +394,7 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Sections Container - grows to fill space */}
-        <div className="flex-1 flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-3">
           {/* Meus Dados Section */}
           <div className="space-y-1.5">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
@@ -417,11 +416,10 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Logout Button - fixed at bottom */}
         <Button
           onClick={signOut}
           variant="outline"
-          className="w-full h-10 mt-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30 flex-shrink-0"
+          className="w-full h-10 mt-4 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sair da Conta
