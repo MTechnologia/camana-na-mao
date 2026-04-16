@@ -40,6 +40,13 @@ function subcategoryLabel(reportType: string | null, value: string | null): stri
 
 type Props = { preview: ParsedTransportReportPreview };
 
+const ACCESSIBILITY_DETAIL_LABELS: Record<string, string> = {
+  elevador_funcionando: "Elevador funcionando",
+  piso_tatil_presente: "Piso tátil presente",
+  espaco_cadeirante: "Espaço para cadeirante",
+  info_sonora_visual_disponivel: "Informação sonora/visual disponível",
+};
+
 export function TransportReportPreviewInChat({ preview }: Props) {
   const row = (label: string, value: string) => (
     <div className="text-sm">
@@ -91,8 +98,13 @@ export function TransportReportPreviewInChat({ preview }: Props) {
         {preview.stop_location ? row("Ponto / referência", preview.stop_location) : null}
         {preview.accessibility_details && Object.keys(preview.accessibility_details).length > 0
           ? (() => {
-              const s = JSON.stringify(preview.accessibility_details);
-              return row("Acessibilidade (detalhes)", s.length > 240 ? `${s.slice(0, 240)}…` : s);
+              const parts = Object.entries(preview.accessibility_details).map(([key, value]) => {
+                const label = ACCESSIBILITY_DETAIL_LABELS[key] || key;
+                if (typeof value === "boolean") return `${label}: ${value ? "Sim" : "Não"}`;
+                return `${label}: ${String(value)}`;
+              });
+              const text = parts.join(" | ");
+              return row("Acessibilidade (detalhes)", text.length > 240 ? `${text.slice(0, 240)}…` : text);
             })()
           : null}
       </CardContent>

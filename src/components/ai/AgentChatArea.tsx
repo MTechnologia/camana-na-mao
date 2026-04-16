@@ -72,6 +72,7 @@ const AgentChatArea = () => {
     handleSubcategorySelected,
     handleRecurrenceFrequencySelected,
     handleImpactSelected,
+    handleAccessibilityChecklistSubmit,
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,
@@ -435,6 +436,7 @@ const AgentChatArea = () => {
                         onSubcategorySelected={handleSubcategorySelected}
                         onRecurrenceFrequencySelected={handleRecurrenceFrequencySelected}
                         onImpactSelected={handleImpactSelected}
+                        onAccessibilityChecklistSubmit={handleAccessibilityChecklistSubmit}
                         onRatingSelected={handleRatingSelected}
                         onWaitTimeSelected={handleWaitTimeSelected}
                         onDimensionRatingSelected={handleDimensionRatingSelected}

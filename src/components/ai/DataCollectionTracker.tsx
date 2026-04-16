@@ -24,6 +24,10 @@ function isTrackerFieldCollected(fieldKey: string, fields: CollectedFields): boo
   if (fieldKey === "rating_dimensions") {
     return isCompleteServiceRatingDimensions(fields.rating_dimensions);
   }
+  if (fieldKey === "accessibility_details") {
+    const value = fields.accessibility_details;
+    return !!value && typeof value === "object" && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0;
+  }
   return !!fields[fieldKey];
 }
 
@@ -166,6 +170,7 @@ const DEFAULT_CONFIGS: Record<string, CollectionConfig> = {
     fields: [
       { key: 'report_type', label: 'Tipo', required: true },
       { key: 'sub_category', label: 'Detalhe', required: true },
+      { key: 'accessibility_details', label: 'Checklist de acessibilidade', required: false },
       { key: 'description', label: 'Descrição', required: true },
       { key: 'occurrence_date', label: 'Data', required: true },
       { key: 'occurrence_time', label: 'Horário', required: true },
@@ -329,9 +334,25 @@ const DataCollectionTracker = ({
         };
       }
     }
+
+    if (collectionType === 'transport_report') {
+      const isAccessibilityType = collectedFields.report_type === 'acessibilidade';
+      if (!isAccessibilityType) {
+        return {
+          ...baseConfig,
+          fields: baseConfig.fields.filter((f) => f.key !== 'accessibility_details'),
+        };
+      }
+      return {
+        ...baseConfig,
+        fields: baseConfig.fields.map((f) =>
+          f.key === 'accessibility_details' ? { ...f, required: true } : f
+        ),
+      };
+    }
     
     return baseConfig;
-  }, [collectionType, collectedFields.category]);
+  }, [collectionType, collectedFields.category, collectedFields.report_type]);
 
   if (!collectionType || !config) return null;
 

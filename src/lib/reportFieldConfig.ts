@@ -96,6 +96,7 @@ export const URBAN_REPORT_FIELDS: FieldConfig[] = [
 export const TRANSPORT_REPORT_FIELDS: FieldConfig[] = [
   { key: 'report_type', label: 'Tipo', required: true },
   { key: 'sub_category', label: 'Detalhe do problema', required: true, requiredWhen: { field: 'report_type', values: ['atraso', 'lotacao', 'seguranca', 'acessibilidade', 'limpeza', 'conducao', 'outro'] } },
+  { key: 'accessibility_details', label: 'Checklist de acessibilidade', required: false, requiredWhen: { field: 'report_type', values: ['acessibilidade'] } },
   { key: 'description', label: 'Descrição', required: true }, // No minLength - semantic validation by LLM
   { key: 'occurrence_date', label: 'Data', required: true },
   { key: 'occurrence_time', label: 'Horário', required: true },
@@ -164,13 +165,13 @@ export function getMissingRequiredFields(
 
     // Check conditional requirements (requiredFor)
     if (!isRequired && field.requiredFor && category) {
-      isRequired = field.requiredFor.includes(category);
+      isRequired = typeof category === 'string' && field.requiredFor.includes(category);
     }
 
     // Check conditional requirements (requiredWhen)
     if (!isRequired && field.requiredWhen) {
       const dependentValue = collectedFields[field.requiredWhen.field];
-      if (dependentValue && field.requiredWhen.values.includes(dependentValue)) {
+      if (typeof dependentValue === 'string' && field.requiredWhen.values.includes(dependentValue)) {
         isRequired = true;
       }
     }

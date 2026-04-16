@@ -16,6 +16,7 @@ import {
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
+import type { AccessibilityChecklistValues } from "@/components/ai/InlineAccessibilityChecklistPicker";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -1012,6 +1013,16 @@ export const useUnifiedAIChat = (
         const score = parseInt(impactSelectedTag[1], 10);
         setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
       }
+
+      const accessibilityChecklistMatch = raw.match(/\[ACCESSIBILITY_CHECKLIST:({[\s\S]*})\]/i);
+      if (accessibilityChecklistMatch?.[1]) {
+        try {
+          const parsed = JSON.parse(accessibilityChecklistMatch[1]) as Record<string, unknown>;
+          setCollectedFields((prev) => ({ ...prev, accessibility_details: parsed }));
+        } catch {
+          // ignore malformed marker
+        }
+      }
     }
     
     // === HEURÍSTICAS PARA AVALIAÇÃO ===
@@ -1852,6 +1863,7 @@ export const useUnifiedAIChat = (
       transport_report: [
         { key: 'report_type', required: true },
         { key: 'sub_category', required: true },
+        { key: 'accessibility_details', required: false, requiredWhen: { field: 'report_type', values: ['acessibilidade'] } },
         { key: 'description', required: true },
         { key: 'occurrence_date', required: true },
         { key: 'occurrence_time', required: true },
@@ -1999,6 +2011,11 @@ export const useUnifiedAIChat = (
   const handleImpactSelected = useCallback((score: number, label: string) => {
     setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
     sendMessage(`Impacto: ${label} [IMPACT_SELECTED:${score}]`);
+  }, [sendMessage]);
+
+  const handleAccessibilityChecklistSubmit = useCallback((values: AccessibilityChecklistValues) => {
+    setCollectedFields((prev) => ({ ...prev, accessibility_details: values }));
+    sendMessage(`Checklist de acessibilidade preenchido. [ACCESSIBILITY_CHECKLIST:${JSON.stringify(values)}]`);
   }, [sendMessage]);
 
   // Handle rating selection from inline picker
@@ -2165,6 +2182,7 @@ export const useUnifiedAIChat = (
     handleSubcategorySelected,
     handleRecurrenceFrequencySelected,
     handleImpactSelected,
+    handleAccessibilityChecklistSubmit,
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,

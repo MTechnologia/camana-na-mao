@@ -210,7 +210,7 @@ export const tools = [
           accessibility_details: {
             type: "object",
             description:
-              "HU-6.5: objeto JSON com detalhes de acessibilidade (ex.: rampa_livre: true, elevador: false). Opcional.",
+              "Checklist condicional para report_type='acessibilidade' com 4 chaves booleanas: elevador_funcionando, piso_tatil_presente, espaco_cadeirante, info_sonora_visual_disponivel.",
           },
           severity: {
             type: "string",

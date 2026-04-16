@@ -46,6 +46,9 @@ import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
 import InlineSubcategoryPicker from "./InlineSubcategoryPicker";
+import InlineAccessibilityChecklistPicker, {
+  type AccessibilityChecklistValues,
+} from "./InlineAccessibilityChecklistPicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import NearbyServicesFiltersInline, { type NearbyFiltersValues } from "./NearbyServicesFiltersInline";
 import PromptChips, { CollectionTypePreset } from "./PromptChips";
@@ -136,6 +139,7 @@ interface ChatMessageBubbleProps {
   onSubcategorySelected?: (value: string, label: string, reportType: string) => void;
   onRecurrenceFrequencySelected?: (frequency: string, displayText: string) => void;
   onImpactSelected?: (score: number, label: string) => void;
+  onAccessibilityChecklistSubmit?: (values: AccessibilityChecklistValues) => void;
   onRatingSelected?: (stars: number) => void;
   onWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
   onDimensionRatingSelected?: (dimensionKey: string, stars: number) => void;
@@ -178,6 +182,7 @@ const ChatMessageBubble = ({
   onSubcategorySelected,
   onRecurrenceFrequencySelected,
   onImpactSelected,
+  onAccessibilityChecklistSubmit,
   onRatingSelected,
   onWaitTimeSelected,
   onDimensionRatingSelected,
@@ -208,6 +213,7 @@ const ChatMessageBubble = ({
   const [subcategorySelected, setSubcategorySelected] = useState(false);
   const [recurrenceFrequencySelected, setRecurrenceFrequencySelected] = useState(false);
   const [impactSelected, setImpactSelected] = useState(false);
+  const [accessibilityChecklistSubmitted, setAccessibilityChecklistSubmitted] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
   const [waitTimeSelected, setWaitTimeSelected] = useState(false);
   const [dimensionRatingSelected, setDimensionRatingSelected] = useState(false);
@@ -252,6 +258,7 @@ const ChatMessageBubble = ({
   const hasSubcategoryPicker = !isUser && !!subcategoryPickerReportType;
   const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
   const hasImpactPicker = !isUser && message.content.includes('[IMPACT_PICKER]');
+  const hasAccessibilityChecklistPicker = !isUser && message.content.includes('[ACCESSIBILITY_CHECKLIST_PICKER]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
   const hasMultiDimensionRatingPicker =
     !isUser && message.content.includes("[MULTI_DIMENSION_RATING_PICKER]");
@@ -914,6 +921,11 @@ const ChatMessageBubble = ({
       onImpactSelected(score, label);
     }
   };
+
+  const handleAccessibilityChecklistSubmit = (values: AccessibilityChecklistValues) => {
+    setAccessibilityChecklistSubmitted(true);
+    onAccessibilityChecklistSubmit?.(values);
+  };
   
   const handleRatingSelected = (stars: number) => {
     setRatingSelected(true);
@@ -1559,6 +1571,13 @@ const ChatMessageBubble = ({
           isLastAssistantMessage &&
           onImpactSelected && (
             <InlineImpactPicker onSelect={handleImpactSelected} />
+          )}
+
+        {hasAccessibilityChecklistPicker &&
+          !accessibilityChecklistSubmitted &&
+          isLastAssistantMessage &&
+          onAccessibilityChecklistSubmit && (
+            <InlineAccessibilityChecklistPicker onSubmit={handleAccessibilityChecklistSubmit} />
           )}
         
         {/* Avaliação geral (1–5 estrelas) — não exibir se for dimensão atômica (FIELD_REQUEST:dim_* + RATING_PICKER) */}

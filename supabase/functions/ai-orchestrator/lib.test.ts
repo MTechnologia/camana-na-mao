@@ -194,6 +194,82 @@ Deno.test("create_transport_report: Persistência e campos obrigatórios", async
   assertEquals(resultNeedSub.message.includes('sub_category'), true);
 });
 
+Deno.test("create_transport_report: exige checklist condicional em report_type acessibilidade", async () => {
+  const userId = "user-123";
+  const today = new Date().toISOString().split("T")[0];
+  const result = await executeTool(
+    "create_transport_report",
+    {
+      report_type: "acessibilidade",
+      sub_category: "elevador_escada",
+      description: "O elevador da estação estava parado e sem alternativa de acesso.",
+      line_code: "875A-10",
+      occurrence_date: today,
+      occurrence_time: "08:10",
+      direction: "ida",
+      recurrence_frequency: "primeira_vez",
+      personal_impact: 4,
+      date_confirmed: true,
+    },
+    userId,
+    mockSupabase,
+  );
+  assertEquals(result.success, false);
+  assertEquals(result.message.includes("[FIELD_REQUEST:accessibility_details]"), true);
+  assertEquals(result.message.includes("[ACCESSIBILITY_CHECKLIST_PICKER]"), true);
+});
+
+Deno.test("create_transport_report: persiste checklist completo de acessibilidade em JSON", async () => {
+  const userId = "user-123";
+  const today = new Date().toISOString().split("T")[0];
+  let inserted: Record<string, unknown> | null = null;
+  const mockSupabaseWithCapture = {
+    ...mockSupabase,
+    from: (table: string) => {
+      if (table !== "transport_reports") return mockSupabase.from(table);
+      return {
+        insert: (data: Record<string, unknown>) => {
+          inserted = data;
+          return {
+            select: () => ({
+              single: () => Promise.resolve({ data: { id: "new-id", protocol_code: "PROT123" }, error: null }),
+            }),
+          };
+        },
+      };
+    },
+  } as any;
+
+  const accessibility = {
+    elevador_funcionando: false,
+    piso_tatil_presente: true,
+    espaco_cadeirante: true,
+    info_sonora_visual_disponivel: false,
+  };
+  const result = await executeTool(
+    "create_transport_report",
+    {
+      report_type: "acessibilidade",
+      sub_category: "elevador_escada",
+      description: "A estação estava com falha de acessibilidade e sem apoio adequado.",
+      line_code: "875A-10",
+      occurrence_date: today,
+      occurrence_time: "08:10",
+      direction: "ida",
+      recurrence_frequency: "primeira_vez",
+      personal_impact: 5,
+      accessibility_details: accessibility,
+      date_confirmed: true,
+    },
+    userId,
+    mockSupabaseWithCapture,
+  );
+
+  assertEquals(result.success, true);
+  assertExists(inserted);
+  assertEquals((inserted as Record<string, unknown>).accessibility_details, accessibility);
+});
+
 Deno.test("HU-6.6: isPointInSaoPauloBounds e getTransportReportLatLonForBounds", () => {
   assertEquals(isPointInSaoPauloBounds(-23.5505, -46.6333), true);
   assertEquals(isPointInSaoPauloBounds(-22.9, -46.6), false);

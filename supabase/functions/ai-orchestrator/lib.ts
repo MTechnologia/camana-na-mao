@@ -1449,6 +1449,32 @@ export function normalizeTransportAccessibilityDetails(raw: unknown): Record<str
   return Object.keys(out).length ? out : null;
 }
 
+const ACCESSIBILITY_CHECKLIST_KEYS = [
+  "elevador_funcionando",
+  "piso_tatil_presente",
+  "espaco_cadeirante",
+  "info_sonora_visual_disponivel",
+] as const;
+
+function normalizeAccessibilityChecklist(raw: unknown): Record<string, boolean> | null {
+  const normalized = normalizeTransportAccessibilityDetails(raw);
+  if (!normalized) return null;
+  const out: Record<string, boolean> = {};
+  for (const key of ACCESSIBILITY_CHECKLIST_KEYS) {
+    const value = normalized[key];
+    if (typeof value === "boolean") {
+      out[key] = value;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+function hasCompleteAccessibilityChecklist(raw: unknown): boolean {
+  const normalized = normalizeAccessibilityChecklist(raw);
+  if (!normalized) return false;
+  return ACCESSIBILITY_CHECKLIST_KEYS.every((key) => typeof normalized[key] === "boolean");
+}
+
 /** Mensagem amigável quando endereço/CEP está fora do município de São Paulo (usado em relatos). */
 export const MESSAGE_OUTSIDE_SAO_PAULO = (
   cityName?: string
@@ -3326,6 +3352,21 @@ export function parseFieldResponse(fieldType: string, userResponse: string): Rec
     case 'stop_location': {
       const t = response.trim();
       if (t.length >= 2 && t.length <= 500) result.stop_location = t;
+      break;
+    }
+
+    case 'accessibility_details': {
+      const marker = response.match(/\[ACCESSIBILITY_CHECKLIST:({[\s\S]*})\]/i);
+      const rawJson = marker?.[1] || response;
+      try {
+        const parsed = JSON.parse(rawJson) as unknown;
+        const normalized = normalizeAccessibilityChecklist(parsed);
+        if (normalized) {
+          result.accessibility_details = normalized;
+        }
+      } catch {
+        // ignore malformed JSON
+      }
       break;
     }
       
@@ -8547,6 +8588,19 @@ export async function executeTool(
         }
         args.sub_category = validSubCategory;
 
+        if (String(validReportType) === "acessibilidade") {
+          const accessibilityRaw =
+            argsRec.accessibility_details ?? accumulatedFields?.accessibility_details;
+          if (!hasCompleteAccessibilityChecklist(accessibilityRaw)) {
+            return {
+              success: false,
+              message:
+                "[FIELD_REQUEST:accessibility_details]Preencha o checklist de acessibilidade com as condições observadas.[ACCESSIBILITY_CHECKLIST_PICKER]",
+            };
+          }
+          args.accessibility_details = normalizeAccessibilityChecklist(accessibilityRaw) ?? {};
+        }
+
         // Se ainda não tem subcategory_label, gerar um
         if (!subcategoryLabel && validReportType !== 'outro') {
           const reportTypeStr = String(validReportType);
@@ -8851,6 +8905,27 @@ export async function executeTool(
         };
         const recurrenceLabel = recurrenceLabels[String(args.recurrence_frequency)] || String(args.recurrence_frequency || "");
         const descPreview = String(args.description ?? '');
+        const accessibilityChecklistLabels: Record<string, string> = {
+          elevador_funcionando: "Elevador funcionando",
+          piso_tatil_presente: "Piso tátil presente",
+          espaco_cadeirante: "Espaço para cadeirante",
+          info_sonora_visual_disponivel: "Informação sonora/visual disponível",
+        };
+        const accessibilitySummary = (() => {
+          if (
+            String(validReportType) !== "acessibilidade" ||
+            !accessibilityInsert ||
+            Object.keys(accessibilityInsert).length === 0
+          ) {
+            return "";
+          }
+          const parts = Object.entries(accessibilityInsert).map(([key, value]) => {
+            const label = accessibilityChecklistLabels[key] || key;
+            if (typeof value === "boolean") return `${label}: ${value ? "Sim" : "Não"}`;
+            return `${label}: ${String(value)}`;
+          });
+          return parts.length ? `♿ **Checklist de acessibilidade:** ${parts.join(" | ")}` : "";
+        })();
         
         // Compose full success message with [TRANSPORT_CREATED] marker for tracker reconstruction
         const successMessage = [
@@ -8867,6 +8942,7 @@ export async function executeTool(
           args.occurrence_time ? `🕐 **Horário:** ${args.occurrence_time}` : '',
           args.direction ? `🧭 **Sentido:** ${String(args.direction).charAt(0).toUpperCase()}${String(args.direction).slice(1)}` : '',
           recurrenceLabel ? `🔁 **Frequência:** ${recurrenceLabel}` : '',
+          accessibilitySummary,
           args.location ? `📍 **Local:** ${args.location}` : '',
           photosArray?.length ? `📷 **Fotos anexadas:** ${photosArray.length} imagem(ns)` : '',
           `⚠️ **Gravidade:** ${severityLabel}`,

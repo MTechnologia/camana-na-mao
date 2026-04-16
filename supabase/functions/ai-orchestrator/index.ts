@@ -1360,6 +1360,34 @@ serve(async (req) => {
             picker: "[IMPACT_PICKER]",
             prompt: "Como isso afetou **sua rotina**?",
           };
+
+        // 8. Checklist condicional de acessibilidade (antes do resumo/finalização)
+        if (String(fields.report_type || "").toLowerCase() === "acessibilidade") {
+          const acc = fields.accessibility_details;
+          const accObj =
+            acc && typeof acc === "object" && !Array.isArray(acc)
+              ? (acc as Record<string, unknown>)
+              : null;
+          const requiredAccessibilityKeys = [
+            "elevador_funcionando",
+            "piso_tatil_presente",
+            "espaco_cadeirante",
+            "info_sonora_visual_disponivel",
+          ] as const;
+          const hasFullChecklist =
+            !!accObj &&
+            requiredAccessibilityKeys.every(
+              (k) => typeof accObj[k] === "boolean",
+            );
+          if (!hasFullChecklist) {
+            return {
+              field: "accessibility_details",
+              picker: "[ACCESSIBILITY_CHECKLIST_PICKER]",
+              prompt:
+                "Preencha o checklist de acessibilidade com as condições observadas.",
+            };
+          }
+        }
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };
