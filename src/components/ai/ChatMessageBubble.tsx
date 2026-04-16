@@ -488,7 +488,12 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:occurrence_time]') ||
-      (content.includes('que horas') && isLastAssistantMessage)
+      (isLastAssistantMessage &&
+        (content.includes('que horas') ||
+          content.includes('horário exato') ||
+          content.includes('horario exato') ||
+          content.includes('qual foi o horário') ||
+          content.includes('qual foi o horario')))
     );
   }, [isUser, message.content, timeSelected, hasTimePicker, isLastAssistantMessage]);
 
