@@ -61,6 +61,49 @@ function transportImpactSummaryLine(pi: unknown): string {
   return "Desconforto";
 }
 
+function hasTransportAccessibilityDetails(value: unknown): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.keys(value as Record<string, unknown>).length > 0,
+  );
+}
+
+function formatTransportAccessibilitySummary(value: unknown): string | null {
+  if (!hasTransportAccessibilityDetails(value)) return null;
+  const details = value as Record<string, unknown>;
+  const labels: Record<string, string> = {
+    rampa: "Rampa",
+    elevador: "Elevador / escada rolante",
+    piso_tatil: "Piso tátil",
+    embarque_assistido: "Apoio para embarque",
+    observacoes: "Observações",
+  };
+  const parts = Object.entries(details)
+    .map(([key, raw]) => {
+      const label = labels[key] || key.replace(/_/g, " ");
+      if (raw === true) return label;
+      if (raw === false) return `${label}: não`;
+      const text = String(raw ?? "").trim();
+      return text ? `${label}: ${text}` : null;
+    })
+    .filter(Boolean);
+  return parts.length ? parts.join("; ") : null;
+}
+
+function buildTransportPreviewOptionalLines(fields: Record<string, unknown>): string {
+  const lines: string[] = [];
+  if (fields.location) lines.push(`• **Local:** ${fields.location}`);
+  if (fields.stop_name) lines.push(`• **Parada / estação:** ${fields.stop_name}`);
+  if (fields.stop_location) lines.push(`• **Ponto / referência:** ${fields.stop_location}`);
+  const accessibilitySummary = formatTransportAccessibilitySummary(fields.accessibility_details);
+  if (accessibilitySummary) {
+    lines.push(`• **Acessibilidade:** ${accessibilitySummary}`);
+  }
+  return lines.length ? `\n${lines.join("\n")}` : "";
+}
+
 function transportTypeWithSubcategory(fields: Record<string, unknown>): string {
   const typeLabels: Record<string, string> = {
     atraso: "Atraso",
@@ -134,7 +177,7 @@ function buildTransportFinalPreviewMessage(
     accumulatedFields.recurrence_frequency ||
     "Não informada"
   }
-• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}`;
+• **Impacto na rotina:** ${transportImpactSummaryLine(accumulatedFields.personal_impact)}${buildTransportPreviewOptionalLines(accumulatedFields)}`;
 
   return `${bullets}
 
@@ -1333,6 +1376,23 @@ serve(async (req) => {
         if (!fields.line_code && !fields.line_id) {
           return { field: 'line_code', picker: '[LINE_PICKER]', prompt: 'Qual **linha ou estação** teve o problema?' };
         }
+
+        if (!fields.stop_name) {
+          return {
+            field: 'stop_name',
+            picker: null,
+            prompt: 'Qual foi a **parada, ponto, terminal ou estação** específicos onde isso aconteceu?',
+          };
+        }
+
+        if (!fields.stop_location) {
+          return {
+            field: 'stop_location',
+            picker: null,
+            prompt:
+              'Qual o **endereço, cruzamento ou referência** desse ponto? Se preferir, você também pode informar coordenadas `lat,lng`.',
+          };
+        }
         
         // 4. Date (REQUIRED - user must confirm)
         if (!fields.occurrence_date)
@@ -1360,6 +1420,18 @@ serve(async (req) => {
             picker: "[IMPACT_PICKER]",
             prompt: "Como isso afetou **sua rotina**?",
           };
+
+        if (
+          String(fields.report_type || "").toLowerCase() === "acessibilidade" &&
+          !hasTransportAccessibilityDetails(fields.accessibility_details)
+        ) {
+          return {
+            field: "accessibility_details",
+            picker: "[ACCESSIBILITY_CHECKLIST]",
+            prompt:
+              "Para detalhar a ocorrência, marque o **checklist de acessibilidade** abaixo (rampa, elevador, piso tátil, apoio para embarque) e complemente se necessário.",
+          };
+        }
         
         // All required fields collected
         return { field: null, picker: null, prompt: null };
@@ -1938,7 +2010,12 @@ serve(async (req) => {
     ];
     const serviceSearchMatchEarly = !isOnlyCepEarly && proximityPhrases.some((p) => p.test(msgLower));
     const inferredServiceTypeEarly = lib.inferServiceTypeFromText(lastUserMessage);
-    if (inferredServiceTypeEarly && serviceSearchMatchEarly && lastUserMessage.length < 120) {
+    if (
+      inferredServiceTypeEarly &&
+      serviceSearchMatchEarly &&
+      lastUserMessage.length < 120 &&
+      (!collectionIntent || collectionIntent.type === 'general')
+    ) {
       const askCepMsg = `Vou te ajudar a encontrar ${lib.getServiceTypeName(inferredServiceTypeEarly)} próximas a você. Qual é o CEP da sua região? (Se não souber, pode informar o bairro.)`;
       const progressPayload = { service_type: inferredServiceTypeEarly };
       const withMarker = (lightJourneyMarker ? lightJourneyMarker : '') + `[COLLECTION_PROGRESS:services:${JSON.stringify(progressPayload)}]${askCepMsg}`;
@@ -2269,6 +2346,36 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               });
             }
 
+            if (!accumulatedFields.stop_name) {
+              const askStopNameMsg =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:stop_name]Qual foi a **parada, ponto, terminal ou estação** específicos onde isso aconteceu?`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askStopNameMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            if (!accumulatedFields.stop_location) {
+              const askStopLocationMsg =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:stop_location]Qual o **endereço, cruzamento ou referência** desse ponto? Se preferir, você também pode informar coordenadas \`lat,lng\`.`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askStopLocationMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
+            if (
+              accRt === "acessibilidade" &&
+              !hasTransportAccessibilityDetails(accumulatedFields.accessibility_details)
+            ) {
+              const askAccessibilityChecklistMsg =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}][FIELD_REQUEST:accessibility_details]Para detalhar a ocorrência, marque o **checklist de acessibilidade** abaixo (rampa, elevador, piso tátil, apoio para embarque) e complemente se necessário.[ACCESSIBILITY_CHECKLIST]`;
+              const ssePayload = JSON.stringify({ choices: [{ delta: { content: askAccessibilityChecklistMsg } }] });
+              return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, 'Content-Type': 'text/event-stream' }
+              });
+            }
+
             const userWantsCorrectionTransport =
               /^(corrigir|corrigir\s+relato|editar|ajustar)$/i.test(msgLower.trim());
             const isTransportFinalPreview =
@@ -2322,6 +2429,19 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               } else if (transportPickNorm === "impacto") {
                 reply =
                   `${progress}[FIELD_REQUEST:personal_impact]Como isso afetou **sua rotina**? Escolha de novo.[IMPACT_PICKER]`;
+              } else if (transportPickNorm === "parada") {
+                reply =
+                  `${progress}[FIELD_REQUEST:stop_name]Qual foi a **parada, ponto, terminal ou estação** corretos?`;
+              } else if (
+                transportPickNorm === "ponto" ||
+                transportPickNorm === "referencia" ||
+                transportPickNorm === "endereco"
+              ) {
+                reply =
+                  `${progress}[FIELD_REQUEST:stop_location]Qual o **endereço, cruzamento ou referência** corretos desse ponto?`;
+              } else if (transportPickNorm === "detalhes_acessibilidade") {
+                reply =
+                  `${progress}[FIELD_REQUEST:accessibility_details]Atualize o **checklist de acessibilidade** abaixo.[ACCESSIBILITY_CHECKLIST]`;
               } else if (transportPickNorm === "local") {
                 reply =
                   `${progress}[FIELD_REQUEST:location]Qual o **local** ou ponto de referência correto? (parada, terminal, trecho)`;
@@ -2335,7 +2455,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
               }
               const reaskMenu =
                 `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Não reconheci essa opção. **O que você gostaria de ajustar** no resumo?\n\n` +
-                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,parada,ponto,detalhes_acessibilidade,local]`;
               const sseReask = JSON.stringify({ choices: [{ delta: { content: reaskMenu } }] });
               console.log("[ai-orchestrator] Transport report: correction menu — pick não reconhecido, reexibindo opções");
               return new Response(`data: ${sseReask}\n\ndata: [DONE]\n\n`, {
@@ -2351,13 +2471,19 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 /relatos\s+recentes\s+na\s+mesma\s+linha/i.test(t)
               );
             });
-            const skipTransportPreviewShortcutAfterFirstImpact =
-              transportFieldReqMatch?.[1] === 'personal_impact' && !threadHadTransportSimilarOffer;
+            const threadHadTransportPreviewOrCorrection = chatMessages.some((m: Record<string, unknown>) => {
+              if (m.role !== "assistant") return false;
+              const t = getMessageText(m).toLowerCase();
+              return (
+                /resumo\s+do\s+relato\s+de\s+transporte/i.test(t) ||
+                /o\s+que\s+voc[eê]\s+gostaria\s+de\s+ajustar/i.test(t)
+              );
+            });
 
             if (
               prevWasTransportFieldRequest &&
               lastUserMessage.trim().length > 0 &&
-              !skipTransportPreviewShortcutAfterFirstImpact
+              threadHadTransportPreviewOrCorrection
             ) {
               const menuTokens = new Set([
                 "descrição",
@@ -2371,6 +2497,11 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
                 "frequência",
                 "frequencia",
                 "impacto",
+                "parada",
+                "ponto",
+                "referencia",
+                "endereco",
+                "detalhes_acessibilidade",
                 "local",
               ]);
               const isMenuPick = menuTokens.has(transportCorrectionMenuPick);
@@ -2401,7 +2532,7 @@ Se estiver tudo certo, clique em **Confirmar** para registrar ou em **Corrigir**
             if (isTransportFinalPreview && userWantsCorrectionTransport) {
               const correctionOptions =
                 `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(accumulatedFields)}]Certo. O que você gostaria de **ajustar** no resumo?\n\n` +
-                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,local]`;
+                `Selecione uma opção abaixo.[QUICK_REPLY:descrição,tipo,linha,data,horário,sentido,frequência,impacto,parada,ponto,detalhes_acessibilidade,local]`;
               const ssePayload = JSON.stringify({ choices: [{ delta: { content: correctionOptions } }] });
               console.log("[ai-orchestrator] Transport report: user requested correction → menu");
               return new Response(`data: ${ssePayload}\n\ndata: [DONE]\n\n`, {
@@ -3668,6 +3799,35 @@ ${empathyNote}
               }
 
               if (interceptBaseReady && interceptSubOk) {
+                if (!merged.stop_name) {
+                  const askStopNameMsg =
+                    `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:stop_name]Qual foi a **parada, ponto, terminal ou estação** específicos onde isso aconteceu?`;
+                  const sseStopName = JSON.stringify({ choices: [{ delta: { content: askStopNameMsg } }] });
+                  return new Response(`data: ${sseStopName}\n\ndata: [DONE]\n\n`, {
+                    headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                  });
+                }
+                if (!merged.stop_location) {
+                  const askStopLocationMsg =
+                    `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:stop_location]Qual o **endereço, cruzamento ou referência** desse ponto? Se preferir, você também pode informar coordenadas \`lat,lng\`.`;
+                  const sseStopLocation = JSON.stringify({ choices: [{ delta: { content: askStopLocationMsg } }] });
+                  return new Response(`data: ${sseStopLocation}\n\ndata: [DONE]\n\n`, {
+                    headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                  });
+                }
+                if (
+                  interceptReportType === "acessibilidade" &&
+                  !hasTransportAccessibilityDetails(merged.accessibility_details)
+                ) {
+                  const askAccessibilityChecklistMsg =
+                    `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:accessibility_details]Para detalhar a ocorrência, marque o **checklist de acessibilidade** abaixo (rampa, elevador, piso tátil, apoio para embarque) e complemente se necessário.[ACCESSIBILITY_CHECKLIST]`;
+                  const sseAccessibility = JSON.stringify({
+                    choices: [{ delta: { content: askAccessibilityChecklistMsg } }],
+                  });
+                  return new Response(`data: ${sseAccessibility}\n\ndata: [DONE]\n\n`, {
+                    headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+                  });
+                }
                 if (!alreadyShowedSimilarTransportIntercept) {
                   try {
                     const similarStream = await lib.fetchSimilarTransportReportsForSupport(
@@ -3708,7 +3868,7 @@ ${empathyNote}
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
 • **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
-• **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}
+• **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}${buildTransportPreviewOptionalLines(merged)}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?${transportPreviewJsonMarker(merged)}[QUICK_REPLY:sim,não]`;
                 const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
@@ -3945,6 +4105,35 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
           }
 
           if (interceptBaseReadyNs && interceptSubOkNs) {
+            if (!merged.stop_name) {
+              const askStopNameMsgNs =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:stop_name]Qual foi a **parada, ponto, terminal ou estação** específicos onde isso aconteceu?`;
+              const sseStopNameNs = JSON.stringify({ choices: [{ delta: { content: askStopNameMsgNs } }] });
+              return new Response(`data: ${sseStopNameNs}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
+            if (!merged.stop_location) {
+              const askStopLocationMsgNs =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:stop_location]Qual o **endereço, cruzamento ou referência** desse ponto? Se preferir, você também pode informar coordenadas \`lat,lng\`.`;
+              const sseStopLocationNs = JSON.stringify({ choices: [{ delta: { content: askStopLocationMsgNs } }] });
+              return new Response(`data: ${sseStopLocationNs}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
+            if (
+              interceptReportTypeNs === "acessibilidade" &&
+              !hasTransportAccessibilityDetails(merged.accessibility_details)
+            ) {
+              const askAccessibilityChecklistMsgNs =
+                `[COLLECTION_PROGRESS:transport_report:${JSON.stringify(merged)}][FIELD_REQUEST:accessibility_details]Para detalhar a ocorrência, marque o **checklist de acessibilidade** abaixo (rampa, elevador, piso tátil, apoio para embarque) e complemente se necessário.[ACCESSIBILITY_CHECKLIST]`;
+              const sseAccessibilityNs = JSON.stringify({
+                choices: [{ delta: { content: askAccessibilityChecklistMsgNs } }],
+              });
+              return new Response(`data: ${sseAccessibilityNs}\n\ndata: [DONE]\n\n`, {
+                headers: { ...lib.corsHeaders, "Content-Type": "text/event-stream" },
+              });
+            }
             if (!alreadyShowedSimilarNs) {
               try {
                 const similarNs = await lib.fetchSimilarTransportReportsForSupport(
@@ -3985,7 +4174,7 @@ Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria a
 • **Quando:** ${merged.occurrence_date || ''}${merged.occurrence_time ? ` às ${merged.occurrence_time}` : ''}
 • **Sentido:** ${merged.direction || 'Não informado'}
 • **Frequência:** ${recurrenceLabelMap[String(merged.recurrence_frequency || '')] || merged.recurrence_frequency || 'Não informada'}
-• **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}
+• **Impacto na rotina:** ${transportImpactSummaryLine(merged.personal_impact)}${buildTransportPreviewOptionalLines(merged)}
 
 Se estiver tudo certo, você pode **anexar fotos** (botões Câmera ou Galeria abaixo) ou registrar direto. **Deseja anexar imagens** quanto ao problema de transporte?${transportPreviewJsonMarker(merged)}[QUICK_REPLY:sim,não]`;
             const ssePayload = JSON.stringify({ choices: [{ delta: { content: previewAndPhoto } }] });
