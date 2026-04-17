@@ -6,6 +6,7 @@ import {
   executeTool,
   formatTransportAccessibilitySummary,
   getTransportReportLatLonForBounds,
+  parseFieldResponse,
   isPointInSaoPauloBounds,
   parseAccessibilityDetailsMarker,
   SERVICE_RATING_DIMENSION_KEYS,
@@ -59,7 +60,15 @@ const mockSupabase = {
     return Promise.resolve({ data: true, error: null });
   },
   functions: {
-    invoke: () => Promise.resolve({ data: { success: true }, error: null })
+    invoke: (name: string) => {
+      if (name === "google-places-autocomplete") {
+        return Promise.resolve({ data: { predictions: [{ placeId: "place-123" }] }, error: null });
+      }
+      if (name === "google-places-details") {
+        return Promise.resolve({ data: { address: { latitude: -23.55, longitude: -46.63 } }, error: null });
+      }
+      return Promise.resolve({ data: { success: true }, error: null });
+    }
   },
   auth: {
     getUser: () => Promise.resolve({ data: { user: { id: 'user-123' } }, error: null })
@@ -196,6 +205,82 @@ Deno.test("create_transport_report: Persistência e campos obrigatórios", async
   assertEquals(resultNeedSub.message.includes('sub_category'), true);
 });
 
+Deno.test("create_urban_report: persiste relato e mantém resumo final", async () => {
+  const userId = "user-123";
+
+  const result = await executeTool(
+    "create_urban_report",
+    {
+      category: "lixo",
+      description: "Há lixo acumulado na rua há dias, com mau cheiro forte e muitos sacos espalhados.",
+      street: "Rua das Flores",
+      neighborhood: "Centro",
+      street_number: "123",
+      risk_level: "low",
+      urgency_reason: "Mau cheiro e acúmulo recorrente",
+    },
+    userId,
+    mockSupabase,
+    {},
+  );
+
+  assertEquals(result.success, true);
+  assertEquals(result.message.includes("[REPORT_CREATED:new-id]"), true);
+  assertEquals(result.message.includes("**Categoria:** Lixo/Entulho"), true);
+});
+
+Deno.test("create_transport_report: persiste relato e mantém resumo final", async () => {
+  const userId = "user-123";
+
+  const result = await executeTool(
+    "create_transport_report",
+    {
+      description: "O ônibus demorou muito para passar e a espera no ponto passou de 30 minutos hoje cedo.",
+      line_code: "875A-10",
+      occurrence_date: "2026-04-16",
+      occurrence_time: "07:30",
+      direction: "ida",
+      recurrence_frequency: "toda_semana",
+      personal_impact: 4,
+      sub_category: "intervalo_irregular",
+      stop_name: "Parada Central",
+    },
+    userId,
+    mockSupabase,
+    {},
+  );
+
+  assertEquals(result.success, true);
+  assertEquals(result.message.includes("[TRANSPORT_CREATED:new-id]"), true);
+  assertEquals(result.message.includes("**Linha:** 875A-10"), true);
+});
+
+Deno.test("create_service_rating: persiste avaliação e mantém resumo final", async () => {
+  const userId = "user-123";
+
+  const result = await executeTool(
+    "create_service_rating",
+    {
+      visit_id: "visit-123",
+      service_name: "UBS Vila Madalena",
+      rating_text: "O atendimento foi muito bom e a equipe foi bastante atenciosa.",
+      rating_dimensions: {
+        atendimento: 5,
+        limpeza: 4,
+        infraestrutura: 4,
+        tempo_espera: 3,
+      },
+    },
+    userId,
+    mockSupabase,
+    {},
+  );
+
+  assertEquals(result.success, true);
+  assertEquals(result.message.includes("[RATING_CREATED:new-id]"), true);
+  assertEquals(result.message.includes("**Serviço:** UBS Vila Madalena"), true);
+});
+
 Deno.test("HU-6.6: isPointInSaoPauloBounds e getTransportReportLatLonForBounds", () => {
   assertEquals(isPointInSaoPauloBounds(-23.5505, -46.6333), true);
   assertEquals(isPointInSaoPauloBounds(-22.9, -46.6), false);
@@ -225,4 +310,45 @@ Deno.test("HU-6.5: parseAccessibilityDetailsMarker e formatTransportAccessibilit
     formatTransportAccessibilitySummary(parsed),
     "Rampa; Piso tátil; Observações: elevador quebrado",
   );
+});
+
+Deno.test("parseFieldResponse: mantém parsing urbano de categoria e risco", () => {
+  assertEquals(parseFieldResponse("category", "barulho alto a noite"), {
+    category: "poluicao",
+  });
+
+  assertEquals(parseFieldResponse("risk_level", "alagando e não passa carro"), {
+    risk_level: "critical",
+    risk_types: ["traffic"],
+    urgency_reason: "alagando e não passa carro",
+  });
+});
+
+Deno.test("parseFieldResponse: mantém parsing urbano de escopo e consequências", () => {
+  assertEquals(parseFieldResponse("affected_scope", "a rua toda foi afetada"), {
+    affected_scope: "street",
+  });
+
+  assertEquals(parseFieldResponse("active_consequences", "está alagando, não passa carro e está sem água"), {
+    active_consequences: ["water_outage", "traffic_blocked", "flooding"],
+  });
+});
+
+Deno.test("parseFieldResponse: mantém parsing urbano de localização", () => {
+  assertEquals(parseFieldResponse("location_method", "Localização GPS: -23.55,-46.63"), {
+    user_lat: -23.55,
+    user_lon: -46.63,
+    location_method: "gps",
+  });
+
+  assertEquals(parseFieldResponse("urban_registered_address_ack", "não"), {
+    urban_registered_address_ack: true,
+    location_method: "manual",
+    street: "",
+    neighborhood: "",
+    cep: "",
+    street_number: "",
+    reference_point: "",
+    _location_from_user_profile: false,
+  });
 });
