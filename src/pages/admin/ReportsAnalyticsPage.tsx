@@ -23,6 +23,7 @@ import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { DemographicFilters, DemographicFilterState } from '@/components/analytics/DemographicFilters';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
 import { useDrillInsight } from '@/hooks/useDrillInsight';
@@ -53,9 +54,18 @@ export default function ReportsAnalyticsPage() {
   }), [demographicFilters]);
   
   const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
+  const {
+    alerts: thresholdAlerts,
+    error: thresholdAlertsError,
+    refresh: refreshThresholdAlerts,
+  } = usePatternThresholdEvents();
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
   const correlations = useCorrelationAnalytics();
   const drillInsight = useDrillInsight(combinedFilters);
+  const refreshAll = () => {
+    void refresh();
+    void refreshThresholdAlerts();
+  };
 
   // Transform peak hours for chart
   const peakHoursData = useMemo(() => {
@@ -98,7 +108,7 @@ export default function ReportsAnalyticsPage() {
           <AlertTriangle className="h-16 w-16 text-destructive opacity-60" />
           <h2 className="text-xl font-semibold text-foreground">Falha ao carregar análises</h2>
           <p className="text-muted-foreground text-center max-w-md">{error}</p>
-          <Button onClick={() => refresh()} variant="default">
+          <Button onClick={refreshAll} variant="default">
             <RefreshCw className="h-4 w-4 mr-2" />
             Tentar novamente
           </Button>
@@ -114,7 +124,7 @@ export default function ReportsAnalyticsPage() {
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <BarChart3 className="h-16 w-16 text-muted-foreground opacity-40" />
           <p className="text-muted-foreground">Nenhum dado disponível</p>
-          <Button onClick={() => refresh()} variant="outline">
+          <Button onClick={refreshAll} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
@@ -135,7 +145,7 @@ export default function ReportsAnalyticsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={refreshAll} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
@@ -152,7 +162,7 @@ export default function ReportsAnalyticsPage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <p className="text-sm text-destructive flex-1">{error}</p>
-              <Button variant="ghost" size="sm" onClick={() => refresh()}>
+              <Button variant="ghost" size="sm" onClick={refreshAll}>
                 Tentar novamente
               </Button>
             </div>
@@ -506,10 +516,21 @@ export default function ReportsAnalyticsPage() {
                 <TrendingUp className="h-5 w-5 text-primary" />
                 <h3 className="text-lg font-semibold">Alertas de Padrões</h3>
               </div>
-              <PatternAlerts 
-                alerts={stats.criticality.patterns}
-                onAlertClick={(alert) => drillInsight.searchByCategory(alert.title || '')}
-              />
+              {thresholdAlertsError && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Não foi possível carregar os alertas derivados do pipeline neste momento.
+                </p>
+              )}
+              {thresholdAlerts.length === 0 && !thresholdAlertsError ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum alerta de threshold gerado para a janela atual.
+                </p>
+              ) : (
+                <PatternAlerts
+                  alerts={thresholdAlerts}
+                  onAlertClick={(alert) => drillInsight.searchByCategory(alert.title || '')}
+                />
+              )}
             </Card>
           </TabsContent>
         </Tabs>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { parseHeatmapRpcPayload, type ReportsHeatmapPayload } from "@/lib/reportsHeatmapData";
 
-export type ReportsHeatmapTypeFilter = "all" | "urban" | "transport" | "evaluation";
+export type ReportsHeatmapTypeFilter = "all" | "urban" | "evaluation";
 export type ReportsHeatmapPeriod = "7d" | "30d" | "90d" | "12m";
 
 export function useReportsHeatmap(params: {
@@ -17,11 +17,8 @@ export function useReportsHeatmap(params: {
     setIsLoading(true);
     setError(null);
     try {
-      const p_type =
-        params.typeFilter === "all" ? "all" : params.typeFilter === "transport" ? "transport" : params.typeFilter;
-
       const { data: rpcData, error: rpcError } = await supabase.rpc("get_reports_heatmap_data", {
-        p_type,
+        p_type: params.typeFilter,
         p_period: params.period,
       });
 

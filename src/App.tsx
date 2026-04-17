@@ -283,6 +283,7 @@ const AppContent = () => {
             <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
             <Route path="/transporte/novo" element={<NewReportPage />} />
             <Route path="/transporte/padroes" element={<PatternsPage />} />
+            <Route path="/relatos/padroes" element={<Navigate to="/transporte/padroes" replace />} />
             <Route path="/transporte/historico" element={<MyReportsPage />} />
             {/* Alias usado em deep links (notificações, mensagem pós-registro no chat, docs) */}
             <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />

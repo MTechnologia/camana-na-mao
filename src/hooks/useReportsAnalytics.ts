@@ -360,35 +360,6 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         { label: 'Resolvidos', count: resolved, percentage: total > 0 ? (resolved / total) * 100 : 0, color: 'hsl(var(--chart-1))' },
       ];
 
-      // Padrões
-      const patterns: PatternAlert[] = [];
-      if (critical > 5) {
-        patterns.push({
-          id: '1',
-          type: 'frequency',
-          severity: 'critical',
-          title: 'Alta frequência de relatos críticos',
-          description: `${critical} relatos críticos detectados no período`,
-          suggestedAction: 'Revisar prioridades e alocar recursos',
-          count: critical,
-          confidence: 92,
-        });
-      }
-
-      const topCategory = categories[0];
-      if (topCategory && topCategory.count > total * 0.4) {
-        patterns.push({
-          id: '2',
-          type: 'location',
-          severity: 'warning',
-          title: `Concentração em ${topCategory.category}`,
-          description: `${Math.round((topCategory.count / total) * 100)}% dos relatos são sobre ${topCategory.category}`,
-          suggestedAction: 'Investigar causas e definir ações focadas',
-          count: topCategory.count,
-          confidence: 88,
-        });
-      }
-
       if (isMounted) {
         setStats({
           total,
@@ -425,7 +396,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           criticality: {
             criticalScore,
             bySeverity,
-            patterns,
+            patterns: [],
             criticalPendingReports: [],
           },
         });
