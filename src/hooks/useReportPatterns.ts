@@ -1,23 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 
-export interface ReportPatternRow {
-  id: string;
-  line_id: string | null;
-  pattern_type: string;
-  description: string;
-  occurrence_count: number;
-  first_detected_at: string;
-  last_occurrence_at: string;
-  average_severity: string | null;
-  suggested_action: string | null;
-  status: string;
-  peak_hours?: unknown;
-  avg_severity?: number | null;
-  window_start?: string | null;
-  window_end?: string | null;
-  last_analyzed_at?: string | null;
-}
+export type ReportPatternRow = Tables<'report_patterns'>;
 
 export const useReportPatterns = (lineId?: string) => {
   const [patterns, setPatterns] = useState<ReportPatternRow[]>([]);
@@ -40,7 +25,13 @@ export const useReportPatterns = (lineId?: string) => {
     } catch (err) {
       console.error('Error fetching patterns:', err);
       setPatterns([]);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar padrões');
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'object' && err && 'message' in err && typeof err.message === 'string'
+            ? err.message
+            : 'Erro ao carregar padrões';
+      setError(message);
     } finally {
       setLoading(false);
     }
