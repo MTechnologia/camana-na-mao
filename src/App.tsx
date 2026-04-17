@@ -67,7 +67,6 @@ const SearchPage = lazy(() => import("./pages/Search"));
 const Audiencias = lazy(() => import("./pages/Audiencias"));
 const AudienciaDetailPage = lazy(() => import("./pages/audiencias/AudienciaDetailPage"));
 const ParticipacaoPage = lazy(() => import("./pages/audiencias/ParticipacaoPage"));
-const MyAudienciaInscricoesPage = lazy(() => import("./pages/audiencias/MyAudienciaInscricoesPage"));
 
 // ============================================
 // INSTITUTIONAL PAGES - Lazy loaded
@@ -264,7 +263,7 @@ const AppContent = () => {
             <Route path="/audiencias" element={<Audiencias />} />
             <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
             <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
-            <Route path="/audiencias/minhas-inscricoes" element={<MyAudienciaInscricoesPage />} />
+            <Route path="/audiencias/minhas-inscricoes" element={<Navigate to="/perfil/inscricoes?aba=audiencias" replace />} />
             <Route path="/institucional/agenda" element={<AgendaCMSP />} />
             <Route path="/institucional/vereadores" element={<Vereadores />} />
             <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />

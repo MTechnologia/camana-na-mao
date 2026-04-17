@@ -82,11 +82,11 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: Bookmark,
       route: "/servicos/favoritos",
     },
-    { 
-      id: 2.3, 
-      label: "Minhas inscrições em audiências", 
-      icon: CalendarCheck,
-      route: "/audiencias/minhas-inscricoes"
+    {
+      id: 2.27,
+      label: "Minhas Inscrições",
+      icon: Bookmark,
+      route: "/perfil/inscricoes",
     },
     { 
       id: 2.5,
