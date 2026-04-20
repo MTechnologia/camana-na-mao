@@ -93,8 +93,10 @@ verify_jwt = false
 [functions.process-pending-visits]
 verify_jwt = false
 
-# HU-7.1 / HU-8.6: análise de padrões — a RPC `analyze_report_patterns` usa janela deslizante de 30 dias
-# (ver migration de report_patterns). Para rodar com periodicidade (ex.: diário ou semanal), configure
+# HU-7.1 / HU-8.6: nesta fase, o cron de 30 dias reaproveita a Edge Function `analyze-patterns`
+# e a RPC `analyze_report_patterns` (janela deslizante de 30 dias em report_patterns).
+# Não há job dedicado de `service_ratings` neste escopo atual. Para rodar com periodicidade
+# (ex.: diário ou semanal), configure
 # um job que chame a Edge Function `analyze-patterns`:
 #
 #   POST {SUPABASE_URL}/functions/v1/analyze-patterns

@@ -315,6 +315,7 @@ const AppContent = () => {
             <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/commissions" element={<ProtectedAdminRoute><LegislativeCommissionsPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/comissions" element={<Navigate to="/admin/commissions" replace />} />
             <Route path="/admin/service-corrections" element={<ProtectedAdminOnlyRoute><ServiceCorrectionsManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />

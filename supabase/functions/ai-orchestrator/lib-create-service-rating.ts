@@ -27,7 +27,7 @@ function buildServiceRatingSuccessMessage(
   ratingTextTrimmed: string,
   ratingDimensionsJson: RatingDimensions | null,
   waitTimeStored: number | null | undefined,
-  deps: CreateServiceRatingDeps,
+  offerReferral: boolean,
 ): ToolResult {
   const publicationStatus = (data?.publication_status as string) || "published";
   const commentPreview = ratingTextTrimmed.substring(0, 80) + (ratingTextTrimmed.length > 80 ? "..." : "");
@@ -44,13 +44,13 @@ function buildServiceRatingSuccessMessage(
   const dimLine = ratingDimensionsJson
     ? `\n📊 **Por dimensão:** Atendimento ${ratingDimensionsJson.atendimento}/5 · Limpeza ${ratingDimensionsJson.limpeza}/5 · Infraestrutura ${ratingDimensionsJson.infraestrutura}/5 · Tempo de espera ${ratingDimensionsJson.tempo_espera}/5`
     : "";
-  const offerReferral = deps.shouldOfferServiceRatingReferral(stars, ratingDimensionsJson)
+  const offerReferralLine = offerReferral
     ? "\n\n[OFFER_REFERRAL]Se quiser, posso orientá-lo a **encaminhar esta avaliação** a um vereador (manifestação sobre o serviço)."
     : "";
 
   return {
     success: true,
-    message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${"★".repeat(stars)}${"☆".repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.${offerReferral}\n\nPosso ajudar com mais alguma coisa?`,
+    message: `[RATING_CREATED:${data.id}]\n\n✅ **Avaliação registrada!**\n\n🏥 **Serviço:** ${serviceNameForMessage}\n⭐ **Nota geral (média):** ${"★".repeat(stars)}${"☆".repeat(5 - stars)}${dimLine}${waitLine}\n📝 **Comentário:** ${commentPreview}${moderationNote}\n\nObrigado pelo seu feedback! Ele ajuda a melhorar os serviços públicos.${offerReferralLine}\n\nPosso ajudar com mais alguma coisa?`,
     data: { id: data.id, type: "rating", publication_status: publicationStatus },
   };
 }
@@ -90,6 +90,7 @@ export async function handleCreateServiceRating(
 
   const ratingDimensionsJson =
     dimsMerged && typeof dimsMerged === "object" ? (dimsMerged as RatingDimensions) : null;
+  const isNegativeRating = deps.shouldOfferServiceRatingReferral(stars, ratingDimensionsJson);
 
   const ratingTextTrimmed = String(args.rating_text ?? "").trim();
   if (ratingTextTrimmed.length < 5) {
@@ -401,29 +402,8 @@ export async function handleCreateServiceRating(
     await supabase.from("service_visits").update({ status: "completed" }).eq("id", visitId);
   }
 
-  try {
-    await supabase.functions.invoke("notify-n8n", {
-      body: {
-        event: "service_rating_created",
-        report_id: data.id,
-        report_type: "service_rating",
-        report_data: {
-          service_id: serviceId,
-          service_name: serviceNameForMessage,
-          rating_stars: stars,
-          rating_text: ratingTextTrimmed.slice(0, 2000),
-          rating_dimensions: ratingDimensionsJson,
-          publication_status: publicationStatus,
-          visit_id: visitId,
-          service_type: args.service_type ?? accumulatedFields?.service_type ?? null,
-        },
-        user_id: userId,
-        source_tool: "create_service_rating",
-        tool_arguments: args as Record<string, unknown>,
-      },
-    });
-  } catch (n8nRatingErr) {
-    console.error("[create_service_rating] notify-n8n failed:", n8nRatingErr);
+  if (isNegativeRating) {
+    console.log("[create_service_rating] Negative rating eligible for in-app referral offer");
   }
 
   console.log("[create_service_rating] Rating saved successfully:", {
@@ -438,6 +418,6 @@ export async function handleCreateServiceRating(
     ratingTextTrimmed,
     ratingDimensionsJson,
     waitTimeStored,
-    deps,
+    isNegativeRating,
   );
 }
