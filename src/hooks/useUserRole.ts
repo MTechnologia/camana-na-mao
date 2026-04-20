@@ -10,6 +10,21 @@ export type UserRole =
   | 'cidadao'
   | 'cidadao_engajado';
 
+const ROLE_PRIORITY: UserRole[] = [
+  'admin',
+  'gestor',
+  'vereador',
+  'assessor',
+  'cidadao_engajado',
+  'cidadao',
+];
+
+const normalizeSingleRole = (roles: UserRole[]): UserRole[] => {
+  const uniqueRoles = Array.from(new Set(roles));
+  const normalized = ROLE_PRIORITY.find((role) => uniqueRoles.includes(role));
+  return normalized ? [normalized] : [];
+};
+
 export const useUserRole = () => {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +100,8 @@ export const useUserRole = () => {
 
         userRoles = (rpcData || []).map((r) => r as UserRole);
       }
+
+      userRoles = normalizeSingleRole(userRoles);
 
       // Safety net: if roles are empty (misconfigured DB/migrations), assume default citizen to avoid UI "no permissions".
       if (userRoles.length === 0) userRoles = ['cidadao'];

@@ -5,6 +5,21 @@ import { Database } from '@/integrations/supabase/types';
 
 type UserRole = Database['public']['Enums']['app_role'];
 
+const ROLE_PRIORITY: UserRole[] = [
+  'admin',
+  'gestor',
+  'vereador',
+  'assessor',
+  'cidadao_engajado',
+  'cidadao',
+];
+
+const normalizeSingleRole = (roles: UserRole[]): UserRole[] => {
+  const uniqueRoles = Array.from(new Set(roles));
+  const normalized = ROLE_PRIORITY.find((role) => uniqueRoles.includes(role));
+  return normalized ? [normalized] : [];
+};
+
 export interface AdminUser {
   id: string;
   full_name: string;
@@ -61,9 +76,9 @@ export const useAdminUsers = () => {
 
       // Combine data
       const usersWithRoles: AdminUser[] = profiles.map((profile) => {
-        const roles = (userRoles
+        const roles = normalizeSingleRole((userRoles
           ?.filter((ur) => ur.user_id === profile.id)
-          .map((ur) => ur.role) || []) as UserRole[];
+          .map((ur) => ur.role) || []) as UserRole[]);
         const gabineteLink = gabineteLinkByUserId.get(profile.id);
 
         return {
@@ -90,7 +105,7 @@ export const useAdminUsers = () => {
 
   const updateUserRoles = async (
     userId: string,
-    newRoles: UserRole[],
+    newRole: UserRole | null,
     councilMemberId?: string | null,
   ) => {
     try {
@@ -98,11 +113,9 @@ export const useAdminUsers = () => {
       const currentUser = users.find(u => u.id === userId);
       const oldRoles = currentUser?.roles || [];
       const oldCouncilMemberId = currentUser?.council_member_id ?? null;
-      const gabineteRole = newRoles.includes('vereador')
-        ? 'vereador'
-        : newRoles.includes('assessor')
-          ? 'assessor'
-          : null;
+      const gabineteRole = newRole === 'vereador' || newRole === 'assessor'
+        ? newRole
+        : null;
 
       if (gabineteRole && !councilMemberId) {
         throw new Error('Selecione o vereador vinculado para este usuário.');
@@ -117,15 +130,13 @@ export const useAdminUsers = () => {
       if (deleteError) throw deleteError;
 
       // Insert new roles
-      if (newRoles.length > 0) {
-        const rolesToInsert = newRoles.map((role) => ({
-          user_id: userId,
-          role,
-        }));
-
+      if (newRole) {
         const { error: insertError } = await supabase
           .from('user_roles')
-          .insert(rolesToInsert);
+          .insert({
+            user_id: userId,
+            role: newRole,
+          });
 
         if (insertError) throw insertError;
       }
@@ -161,12 +172,12 @@ export const useAdminUsers = () => {
           entity_type: 'user_role',
           entity_id: userId,
           old_values: { roles: oldRoles, council_member_id: oldCouncilMemberId },
-          new_values: { roles: newRoles, council_member_id: councilMemberId ?? null },
+          new_values: { roles: newRole ? [newRole] : [], council_member_id: councilMemberId ?? null },
           user_agent: navigator.userAgent
         });
       }
 
-      toast.success('Roles atualizados com sucesso');
+      toast.success('Perfil atualizado com sucesso');
       await fetchUsers();
     } catch (error: unknown) {
       console.error('Error updating roles:', error);
@@ -176,7 +187,7 @@ export const useAdminUsers = () => {
         await fetchUsers();
         return;
       }
-      toast.error('Erro ao atualizar roles');
+      toast.error('Erro ao atualizar perfil');
       throw error;
     }
   };
