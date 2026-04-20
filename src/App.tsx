@@ -15,6 +15,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { ProtectedAdminOnlyRoute } from "@/components/admin/ProtectedAdminOnlyRoute";
+import { ProtectedVereadorRoute } from "@/components/vereador/ProtectedVereadorRoute";
 import { usePrefetch } from "@/components/navigation/PrefetchLink";
 
 // ============================================
@@ -137,6 +138,9 @@ const AccessibilitySettings = lazy(() => import("./pages/admin/settings/Accessib
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
 const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
+const GabineteDashboard = lazy(() => import("./pages/gabinete/GabineteDashboard"));
+const GabineteManifestacoes = lazy(() => import("./pages/gabinete/GabineteManifestacoes"));
+const GabineteEncaminhamentos = lazy(() => import("./pages/gabinete/GabineteEncaminhamentos"));
 
 // ============================================
 // OTHER PAGES - Lazy loaded
@@ -293,6 +297,9 @@ const AppContent = () => {
             <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
             <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
             <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
+            <Route path="/gabinete" element={<ProtectedVereadorRoute><GabineteDashboard /></ProtectedVereadorRoute>} />
+            <Route path="/gabinete/manifestacoes" element={<ProtectedVereadorRoute><GabineteManifestacoes /></ProtectedVereadorRoute>} />
+            <Route path="/gabinete/encaminhamentos" element={<ProtectedVereadorRoute><GabineteEncaminhamentos /></ProtectedVereadorRoute>} />
             <Route path="/relato-urbano" element={<UrbanReportPage />} />
             <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
             <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />

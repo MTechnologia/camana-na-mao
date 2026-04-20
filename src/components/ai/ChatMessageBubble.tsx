@@ -753,7 +753,11 @@ const ChatMessageBubble = ({
   // Botão "Encaminhar para vereador" após relato ou oferta pós-avaliação com nota baixa
   const hasEncaminharVereadorCta =
     !isUser &&
-    (message.content.includes('[REPORT_CREATED:') || message.content.includes('[OFFER_REFERRAL]'));
+    (
+      message.content.includes('[REPORT_CREATED:') ||
+      message.content.includes('[TRANSPORT_CREATED:') ||
+      message.content.includes('[OFFER_REFERRAL]')
+    );
 
   // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
   const quickReplyButtons = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,9 @@ import { Label } from '@/components/ui/label';
 import { AdminUser } from '@/hooks/useAdminUsers';
 import { Badge } from '@/components/ui/badge';
 import { Database } from '@/integrations/supabase/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useVereadores } from '@/hooks/useVereadores';
+import { toast } from 'sonner';
 
 type UserRole = Database['public']['Enums']['app_role'];
 
@@ -20,7 +23,7 @@ interface UserRoleModalProps {
   user: AdminUser;
   open: boolean;
   onClose: () => void;
-  onUpdateRoles: (userId: string, roles: UserRole[]) => Promise<void>;
+  onUpdateRoles: (userId: string, roles: UserRole[], councilMemberId?: string | null) => Promise<void>;
 }
 
 const availableRoles: Array<{ value: UserRole; label: string; description: string; color: string }> = [
@@ -34,18 +37,52 @@ const availableRoles: Array<{ value: UserRole; label: string; description: strin
 
 export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleModalProps) => {
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(user.roles);
+  const [selectedCouncilMemberId, setSelectedCouncilMemberId] = useState<string>(user.council_member_id ?? '');
   const [loading, setLoading] = useState(false);
+  const { data: vereadores = [], isLoading: vereadoresLoading } = useVereadores();
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedRoles(user.roles);
+    setSelectedCouncilMemberId(user.council_member_id ?? '');
+  }, [open, user]);
+
+  const gabineteRoleSelected = useMemo(
+    () => selectedRoles.includes('vereador') || selectedRoles.includes('assessor'),
+    [selectedRoles],
+  );
 
   const handleToggleRole = (role: UserRole) => {
-    setSelectedRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
+    setSelectedRoles((prev) => {
+      if (prev.includes(role)) {
+        return prev.filter((r) => r !== role);
+      }
+
+      if (role === 'vereador') {
+        return [...prev.filter((r) => r !== 'assessor'), role];
+      }
+
+      if (role === 'assessor') {
+        return [...prev.filter((r) => r !== 'vereador'), role];
+      }
+
+      return [...prev, role];
+    });
   };
 
   const handleSave = async () => {
+    if (gabineteRoleSelected && !selectedCouncilMemberId) {
+      toast.error('Selecione o vereador vinculado para continuar.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await onUpdateRoles(user.id, selectedRoles);
+      await onUpdateRoles(
+        user.id,
+        selectedRoles,
+        gabineteRoleSelected ? selectedCouncilMemberId : null,
+      );
       onClose();
     } catch (error) {
       console.error('Error updating roles:', error);
@@ -90,6 +127,31 @@ export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleMo
               </div>
             </div>
           ))}
+
+          {gabineteRoleSelected && (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <Label htmlFor="council-member-select">Gabinete vinculado</Label>
+              <Select
+                value={selectedCouncilMemberId}
+                onValueChange={setSelectedCouncilMemberId}
+                disabled={vereadoresLoading || loading}
+              >
+                <SelectTrigger id="council-member-select">
+                  <SelectValue placeholder="Selecione o vereador responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vereadores.map((vereador) => (
+                    <SelectItem key={vereador.id} value={vereador.id}>
+                      {vereador.name} {vereador.party ? `(${vereador.party})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Esse vínculo define quais encaminhamentos e manifestações o gabinete poderá visualizar.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border pt-4">
