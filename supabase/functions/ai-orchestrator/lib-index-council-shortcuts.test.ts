@@ -39,6 +39,48 @@ Deno.test("handleCouncilShortcuts sugere vereadores sem criar novo relato", asyn
   assertEquals(text.includes("Vereador Exemplo"), true);
 });
 
+Deno.test("handleCouncilShortcuts sugere vereadores após relato de transporte registrado", async () => {
+  let suggestArgs: { description: string; district?: string; issueType: string } | null = null;
+
+  const result = await handleCouncilShortcuts({
+    chatMessages: [
+      {
+        role: "assistant",
+        content:
+          "[TRANSPORT_CREATED:123e4567-e89b-12d3-a456-426614174111]\n✅ Relato de transporte registrado!\n📝 Descrição: Ônibus atrasou e perdi compromisso",
+      },
+      { role: "user", content: "Quero encaminhar meu relato para um vereador" },
+    ],
+    corsHeaders: {},
+    lastAssistantContent:
+      "[TRANSPORT_CREATED:123e4567-e89b-12d3-a456-426614174111]\n✅ Relato de transporte registrado!\n📝 Descrição: Ônibus atrasou e perdi compromisso",
+    lastAssistantText:
+      "[TRANSPORT_CREATED:123e4567-e89b-12d3-a456-426614174111]\n✅ Relato de transporte registrado!\n📝 Descrição: Ônibus atrasou e perdi compromisso",
+    lastAssistantTextEarly:
+      "[transport_created:123e4567-e89b-12d3-a456-426614174111] ✅ relato de transporte registrado! 📝 descrição: ônibus atrasou e perdi compromisso",
+    lastUserTextEarly: "quero encaminhar meu relato para um vereador",
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-transport",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      suggestCouncilMember: async (issueType: string, description: string, district?: string) => {
+        suggestArgs = { description, district, issueType };
+        return "Vereador Transporte";
+      },
+    } as any,
+  });
+
+  assertExists(result.response);
+  assertEquals(suggestArgs, {
+    description: "Ônibus atrasou e perdi compromisso",
+    district: undefined,
+    issueType: "urbanismo",
+  });
+  const text = await result.response!.text();
+  assertEquals(text.includes("Vereador Transporte"), true);
+});
+
 Deno.test("handleCouncilShortcuts registra encaminhamento quando usuário escolhe vereador", async () => {
   let insertedRow: Record<string, unknown> | null = null;
   const supabase = {

@@ -12,6 +12,8 @@ export interface AdminUser {
   created_at: string;
   roles: UserRole[];
   email?: string;
+  council_member_id?: string | null;
+  council_member_role?: Extract<UserRole, 'vereador' | 'assessor'> | null;
 }
 
 export const useAdminUsers = () => {
@@ -47,16 +49,29 @@ export const useAdminUsers = () => {
         (emailRows ?? []).map((row) => [row.user_id, row.email?.trim() || undefined])
       );
 
+      const { data: gabineteLinks, error: gabineteLinksError } = await supabase
+        .from('vereador_user_links')
+        .select('user_id, council_member_id, role');
+
+      if (gabineteLinksError) throw gabineteLinksError;
+
+      const gabineteLinkByUserId = new Map(
+        (gabineteLinks ?? []).map((link) => [link.user_id, link])
+      );
+
       // Combine data
       const usersWithRoles: AdminUser[] = profiles.map((profile) => {
         const roles = (userRoles
           ?.filter((ur) => ur.user_id === profile.id)
           .map((ur) => ur.role) || []) as UserRole[];
+        const gabineteLink = gabineteLinkByUserId.get(profile.id);
 
         return {
           ...profile,
           roles,
           email: emailByUserId.get(profile.id),
+          council_member_id: gabineteLink?.council_member_id ?? null,
+          council_member_role: (gabineteLink?.role as Extract<UserRole, 'vereador' | 'assessor'> | undefined) ?? null,
         };
       });
 
@@ -73,10 +88,25 @@ export const useAdminUsers = () => {
     fetchUsers();
   }, []);
 
-  const updateUserRoles = async (userId: string, newRoles: UserRole[]) => {
+  const updateUserRoles = async (
+    userId: string,
+    newRoles: UserRole[],
+    councilMemberId?: string | null,
+  ) => {
     try {
       // Get old roles for audit log
-      const oldRoles = users.find(u => u.id === userId)?.roles || [];
+      const currentUser = users.find(u => u.id === userId);
+      const oldRoles = currentUser?.roles || [];
+      const oldCouncilMemberId = currentUser?.council_member_id ?? null;
+      const gabineteRole = newRoles.includes('vereador')
+        ? 'vereador'
+        : newRoles.includes('assessor')
+          ? 'assessor'
+          : null;
+
+      if (gabineteRole && !councilMemberId) {
+        throw new Error('Selecione o vereador vinculado para este usuário.');
+      }
       
       // Delete existing roles
       const { error: deleteError } = await supabase
@@ -100,6 +130,28 @@ export const useAdminUsers = () => {
         if (insertError) throw insertError;
       }
 
+      if (gabineteRole && councilMemberId) {
+        const { error: upsertLinkError } = await supabase
+          .from('vereador_user_links')
+          .upsert(
+            {
+              user_id: userId,
+              council_member_id: councilMemberId,
+              role: gabineteRole,
+            },
+            { onConflict: 'user_id' },
+          );
+
+        if (upsertLinkError) throw upsertLinkError;
+      } else {
+        const { error: deleteLinkError } = await supabase
+          .from('vereador_user_links')
+          .delete()
+          .eq('user_id', userId);
+
+        if (deleteLinkError) throw deleteLinkError;
+      }
+
       // Register audit log
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -108,8 +160,8 @@ export const useAdminUsers = () => {
           action: 'update',
           entity_type: 'user_role',
           entity_id: userId,
-          old_values: { roles: oldRoles },
-          new_values: { roles: newRoles },
+          old_values: { roles: oldRoles, council_member_id: oldCouncilMemberId },
+          new_values: { roles: newRoles, council_member_id: councilMemberId ?? null },
           user_agent: navigator.userAgent
         });
       }

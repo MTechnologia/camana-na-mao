@@ -9,6 +9,7 @@ import PageHeader from "@/components/ui/page-header";
 import ProfileCompletionCard from "@/components/home/ProfileCompletionCard";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useProfileCompletion } from "@/hooks/useProfileCompletion";
+import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { 
   MapPin, 
@@ -25,12 +26,14 @@ import {
   Shield,
   Download,
   History,
+  Building2,
 } from "lucide-react";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { status: profileStatus, checkCompletion } = useProfileCompletion();
+  const { canViewGabinete } = useUserRole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profile, setProfile] = useState({
@@ -224,6 +227,15 @@ const Profile = () => {
 
   const settingsCards = [
     {
+      id: 'gabinete',
+      title: 'Gabinete',
+      description: 'Painel institucional do vereador e assessoria',
+      icon: Building2,
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-100',
+      path: '/gabinete',
+    },
+    {
       id: 'subscriptions',
       title: 'Minhas Inscrições',
       description: 'Gestão de alertas e temas',
@@ -411,7 +423,9 @@ const Profile = () => {
               Configurações
             </h3>
             <div className="space-y-1.5">
-              {settingsCards.map(card => renderCard(card, false))}
+              {settingsCards
+                .filter((card) => card.id !== 'gabinete' || canViewGabinete)
+                .map(card => renderCard(card, false))}
             </div>
           </div>
         </div>

@@ -105,7 +105,9 @@ export async function handleCouncilShortcuts(
     lib,
   } = args;
 
-  const botJustRegisteredReport = /relato\s+registrado|(?:URB|REL)-20\d{2}-\d+/.test(lastAssistantTextEarly);
+  const botJustRegisteredReport =
+    /relato(?:\s+de\s+transporte)?\s+registrado|(?:URB|REL|TRP)-20\d{2}-\d+/.test(lastAssistantTextEarly) ||
+    /\[(?:REPORT|TRANSPORT)_CREATED:[0-9a-f-]{36}\]/i.test(lastAssistantText);
   const userAsksForwardToCouncil =
     /(encaminhar|enviar|mandar)\s+(meu\s+)?relato\s+para\s+(um\s+)?vereador|poderia\s+encaminhar\s+meu\s+relato|enviar\s+meu\s+relato\s+para\s+vereador/i
       .test(lastUserTextEarly);
