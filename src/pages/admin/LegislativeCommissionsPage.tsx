@@ -89,8 +89,8 @@ export default function LegislativeCommissionsPage() {
           <CardHeader>
             <CardTitle>Comissões legislativas</CardTitle>
             <CardDescription>
-              HU-8.7: palavras-chave usadas para alinhar vereadores à comissão escolhida no wizard de encaminhamento.
-              Separe termos por vírgula (ex.: saúde, ubs, hospital).
+              Gestão operacional das palavras-chave, ordem e ativação usadas para alinhar vereadores à comissão escolhida no wizard de encaminhamento.
+              O cadastro-base das comissões continua vindo da migration. Separe termos por vírgula (ex.: saúde, ubs, hospital).
             </CardDescription>
           </CardHeader>
           <CardContent>
