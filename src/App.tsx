@@ -15,6 +15,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ProtectedAdminRoute } from "@/components/admin/ProtectedAdminRoute";
 import { ProtectedAdminOnlyRoute } from "@/components/admin/ProtectedAdminOnlyRoute";
+import { ProtectedVereadorRoute } from "@/components/vereador/ProtectedVereadorRoute";
 import { usePrefetch } from "@/components/navigation/PrefetchLink";
 
 // ============================================
@@ -67,7 +68,6 @@ const SearchPage = lazy(() => import("./pages/Search"));
 const Audiencias = lazy(() => import("./pages/Audiencias"));
 const AudienciaDetailPage = lazy(() => import("./pages/audiencias/AudienciaDetailPage"));
 const ParticipacaoPage = lazy(() => import("./pages/audiencias/ParticipacaoPage"));
-const MyAudienciaInscricoesPage = lazy(() => import("./pages/audiencias/MyAudienciaInscricoesPage"));
 
 // ============================================
 // INSTITUTIONAL PAGES - Lazy loaded
@@ -139,6 +139,9 @@ const AccessibilitySettings = lazy(() => import("./pages/admin/settings/Accessib
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
 const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
+const GabineteDashboard = lazy(() => import("./pages/gabinete/GabineteDashboard"));
+const GabineteManifestacoes = lazy(() => import("./pages/gabinete/GabineteManifestacoes"));
+const GabineteEncaminhamentos = lazy(() => import("./pages/gabinete/GabineteEncaminhamentos"));
 
 // ============================================
 // OTHER PAGES - Lazy loaded
@@ -266,7 +269,7 @@ const AppContent = () => {
             <Route path="/audiencias" element={<Audiencias />} />
             <Route path="/audiencias/:id" element={<AudienciaDetailPage />} />
             <Route path="/audiencias/:id/participar" element={<ParticipacaoPage />} />
-            <Route path="/audiencias/minhas-inscricoes" element={<MyAudienciaInscricoesPage />} />
+            <Route path="/audiencias/minhas-inscricoes" element={<Navigate to="/perfil/inscricoes?aba=audiencias" replace />} />
             <Route path="/institucional/agenda" element={<AgendaCMSP />} />
             <Route path="/institucional/vereadores" element={<Vereadores />} />
             <Route path="/institucional/vereadores/:id" element={<VereadorDetailPage />} />
@@ -285,6 +288,7 @@ const AppContent = () => {
             <Route path="/transporte" element={<Navigate to="/relatos" replace />} />
             <Route path="/transporte/novo" element={<NewReportPage />} />
             <Route path="/transporte/padroes" element={<PatternsPage />} />
+            <Route path="/relatos/padroes" element={<Navigate to="/transporte/padroes" replace />} />
             <Route path="/transporte/historico" element={<MyReportsPage />} />
             {/* Alias usado em deep links (notificações, mensagem pós-registro no chat, docs) */}
             <Route path="/transporte/meus-relatos" element={<MyReportsPage />} />
@@ -296,6 +300,9 @@ const AppContent = () => {
             <Route path="/analytics" element={<Navigate to="/paineis" replace />} />
             <Route path="/analytics/advanced" element={<Navigate to="/paineis/avancado" replace />} />
             <Route path="/analytics/criar-painel" element={<Navigate to="/paineis/criar" replace />} />
+            <Route path="/gabinete" element={<ProtectedVereadorRoute><GabineteDashboard /></ProtectedVereadorRoute>} />
+            <Route path="/gabinete/manifestacoes" element={<ProtectedVereadorRoute><GabineteManifestacoes /></ProtectedVereadorRoute>} />
+            <Route path="/gabinete/encaminhamentos" element={<ProtectedVereadorRoute><GabineteEncaminhamentos /></ProtectedVereadorRoute>} />
             <Route path="/relato-urbano" element={<UrbanReportPage />} />
             <Route path="/relato-urbano/manual" element={<ManualReportPage />} />
             <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
@@ -311,6 +318,7 @@ const AppContent = () => {
             <Route path="/admin/reports" element={<ProtectedAdminRoute><ReportsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/referrals" element={<ProtectedAdminRoute><ReferralsManagement /></ProtectedAdminRoute>} />
             <Route path="/admin/commissions" element={<ProtectedAdminRoute><LegislativeCommissionsPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/comissions" element={<Navigate to="/admin/commissions" replace />} />
             <Route path="/admin/service-corrections" element={<ProtectedAdminOnlyRoute><ServiceCorrectionsManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />

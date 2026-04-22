@@ -549,6 +549,33 @@ export type Database = {
         }
         Relationships: []
       }
+      vereador_user_links: {
+        Row: {
+          council_member_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          council_member_id: string
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          council_member_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dashboards: {
         Row: {
           config: Json
@@ -1753,6 +1780,30 @@ export type Database = {
           planned_time?: string | null
           status?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      service_type_rating_questions: {
+        Row: {
+          created_at: string
+          hint_text: string
+          id: string
+          service_type: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          hint_text: string
+          id?: string
+          service_type: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          hint_text?: string
+          id?: string
+          service_type?: string
+          sort_order?: number
         }
         Relationships: []
       }

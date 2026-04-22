@@ -16,12 +16,18 @@ export type MultiDimensionRatingCompleteOptions = {
 
 export interface MultiDimensionRatingPickerProps {
   onComplete: (dims: ServiceRatingDimensions, opts?: MultiDimensionRatingCompleteOptions) => void;
+  serviceTypeLabel?: string;
+  serviceTypeHints?: string[];
 }
 
 /**
  * Quatro dimensões: tempo de espera com {@link WaitTimePicker} (HU-4.1), demais com estrelas 1–5.
  */
-export function MultiDimensionRatingPicker({ onComplete }: MultiDimensionRatingPickerProps) {
+export function MultiDimensionRatingPicker({
+  onComplete,
+  serviceTypeLabel,
+  serviceTypeHints = [],
+}: MultiDimensionRatingPickerProps) {
   const [selections, setSelections] = useState<Partial<Record<ServiceRatingDimensionKey, number>>>({});
   const [hovered, setHovered] = useState<{ key: ServiceRatingDimensionKey; star: number } | null>(
     null,
@@ -72,8 +78,25 @@ export function MultiDimensionRatingPicker({ onComplete }: MultiDimensionRatingP
     <div className="mt-2 w-full space-y-4">
       <div className="flex items-center gap-2 mb-1 text-xs text-muted-foreground">
         <Star className="h-3 w-3" />
-        <span>Avalie cada aspecto (tempo de espera em faixas; demais dimensões de 1 a 5 estrelas)</span>
+        <span>
+          {serviceTypeLabel
+            ? `Avalie ${serviceTypeLabel} em cada aspecto`
+            : "Avalie cada aspecto"}{" "}
+          (tempo de espera em faixas; demais dimensões de 1 a 5 estrelas)
+        </span>
       </div>
+      {serviceTypeHints.length > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+          <p className="text-xs font-medium text-foreground">
+            Dicas para avaliar {serviceTypeLabel ?? "este serviço"}
+          </p>
+          <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+            {serviceTypeHints.map((hint) => (
+              <li key={hint}>{hint}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {SERVICE_RATING_DIMENSION_KEYS.map((dimKey) => (
         <div key={dimKey} className="border-t border-border/60 pt-3 first:border-t-0 first:pt-0">
           {dimKey === "tempo_espera" ? (

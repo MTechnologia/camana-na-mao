@@ -54,11 +54,10 @@ export default function ReportsHeatmapPage() {
         <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Filtro <strong>Transporte</strong>: relatos sem coordenadas no banco não aparecem no mapa. Tipos{" "}
-            <strong>Todos</strong>, <strong>Urbanos</strong> e <strong>Avaliações</strong> usam pontos válidos no
-            retângulo aproximado do município (lat {SAO_PAULO_HEATMAP_BOUNDS.minLat} a{" "}
-            {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng {SAO_PAULO_HEATMAP_BOUNDS.minLng} a{" "}
-            {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
+            O mapa agrega apenas pontos válidos de <strong>relatos urbanos</strong> e{" "}
+            <strong>avaliações de serviços</strong> dentro do retângulo aproximado do município
+            (lat {SAO_PAULO_HEATMAP_BOUNDS.minLat} a {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng{" "}
+            {SAO_PAULO_HEATMAP_BOUNDS.minLng} a {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
           </span>
         </div>
 
@@ -73,7 +72,6 @@ export default function ReportsHeatmapPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos (urbano + avaliações)</SelectItem>
                   <SelectItem value="urban">Relatos urbanos</SelectItem>
-                  <SelectItem value="transport">Relatos de transporte</SelectItem>
                   <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
                 </SelectContent>
               </Select>

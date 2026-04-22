@@ -220,7 +220,7 @@ export default function EvaluationPage() {
               {pendingRatings.length > 0 ? "Ou avalie outro serviço (modo livre)" : "Modo livre"}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Informe tipo e nome do equipamento — o assistente fará as mesmas perguntas por dimensão da avaliação com visita (nota geral, tempo de espera, atendimento, infraestrutura e comentário).
+              Informe tipo e nome do equipamento — o assistente contextualiza a avaliação conforme o tipo selecionado, com dicas específicas antes das dimensões.
             </p>
             <div className="flex-1 flex flex-col min-h-0 min-h-[420px]">
               <ConversationalEvaluation

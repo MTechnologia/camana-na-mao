@@ -319,7 +319,7 @@ TRANSPORTE:
 - "[FIELD_REQUEST:occurrence_date]Quando aconteceu?[DATE_PICKER]"
 - "[FIELD_REQUEST:occurrence_date]Que dia foi?[DATE_PICKER]"
 
-HU-6 (coleta estruturada): quando fizer sentido, peça **parada/estação** com [FIELD_REQUEST:stop_name] e **local do ponto** com [FIELD_REQUEST:stop_location]. Em **acessibilidade**, pode pedir detalhes e repassar em **accessibility_details** (objeto JSON) na ferramenta **create_transport_report**. Coordenadas GPS fora do bbox de São Paulo são **rejeitadas** pelo backend.
+HU-6 (coleta estruturada): quando fizer sentido, peça **parada/estação** com [FIELD_REQUEST:stop_name] e **local do ponto** com [FIELD_REQUEST:stop_location]. Em **acessibilidade**, use [FIELD_REQUEST:accessibility_details] com [ACCESSIBILITY_CHECKLIST] e repasse em **accessibility_details** (objeto JSON) na ferramenta **create_transport_report**. Coordenadas GPS fora do bbox de São Paulo são **rejeitadas** pelo backend.
 
 AVALIAÇÃO:
 RN-IA-003 (avaliação de serviço): o motor determinístico pede as **quatro dimensões num único passo**: [FIELD_REQUEST:rating_dimensions] seguido de [MULTI_DIMENSION_RATING_PICKER] na mesma resposta (tempo de espera, atendimento, infraestrutura, limpeza — 1 a 5 cada). Não simule o fluxo antigo dim_* + [RATING_PICKER] por dimensão. Se o fluxo atómico pedir só **tempo de espera** (campo dim_tempo_espera), use **[WAIT_TIME_PICKER]** (faixas de espera), não apenas [RATING_PICKER].

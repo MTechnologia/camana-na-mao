@@ -55,7 +55,7 @@ export default function UserManagement() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Usuários</h1>
           <p className="text-muted-foreground mt-2 text-sm md:text-base">
-            Gerencie roles e permissões dos usuários do sistema
+            Gerencie o perfil e as permissões dos usuários do sistema
           </p>
         </div>
 
@@ -72,10 +72,10 @@ export default function UserManagement() {
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Filtrar por role" />
+              <SelectValue placeholder="Filtrar por perfil" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas as Roles</SelectItem>
+              <SelectItem value="all">Todos os Perfis</SelectItem>
               {Object.entries(roleLabels).map(([value, label]) => (
                 <SelectItem key={value} value={value}>{label}</SelectItem>
               ))}
@@ -113,7 +113,7 @@ export default function UserManagement() {
                 hideOnMobile: true,
               },
               {
-                header: 'Roles',
+                header: 'Perfil',
                 accessor: (user) => (
                   <div className="flex flex-wrap gap-1">
                     {user.roles.length > 0 ? (
@@ -123,7 +123,7 @@ export default function UserManagement() {
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-sm text-muted-foreground">Sem role</span>
+                      <span className="text-sm text-muted-foreground">Sem perfil</span>
                     )}
                   </div>
                 ),
@@ -142,7 +142,7 @@ export default function UserManagement() {
                       size="sm"
                       onClick={() => setSelectedUser(user)}
                     >
-                      Editar Roles
+                      Editar Perfil
                     </Button>
                     <Button
                       variant="ghost"
@@ -183,7 +183,7 @@ export default function UserManagement() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-muted-foreground">Sem role</span>
+                    <span className="text-sm text-muted-foreground">Sem perfil</span>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -193,7 +193,7 @@ export default function UserManagement() {
                     className="flex-1"
                     onClick={() => setSelectedUser(user)}
                   >
-                    Editar Roles
+                    Editar Perfil
                   </Button>
                   <Button
                     variant="ghost"

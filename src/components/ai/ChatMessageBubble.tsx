@@ -31,11 +31,13 @@ import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 import { extrairEmailDeMaisInformacoes, parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getServiceTypeLabel } from "@/components/icons";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
 import InlineDirectionPicker from "./InlineDirectionPicker";
 import InlineRecurrenceFrequencyPicker from "./InlineRecurrenceFrequencyPicker";
 import InlineImpactPicker from "./InlineImpactPicker";
+import InlineAccessibilityChecklist from "./InlineAccessibilityChecklist";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
 import MultiDimensionRatingPicker from "./MultiDimensionRatingPicker";
@@ -135,6 +137,7 @@ interface ChatMessageBubbleProps {
   onSubcategorySelected?: (value: string, label: string, reportType: string) => void;
   onRecurrenceFrequencySelected?: (frequency: string, displayText: string) => void;
   onImpactSelected?: (score: number, label: string) => void;
+  onAccessibilityDetailsSelected?: (details: Record<string, unknown>) => void;
   onRatingSelected?: (stars: number) => void;
   onWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
   onDimensionRatingSelected?: (dimensionKey: string, stars: number) => void;
@@ -177,6 +180,7 @@ const ChatMessageBubble = ({
   onSubcategorySelected,
   onRecurrenceFrequencySelected,
   onImpactSelected,
+  onAccessibilityDetailsSelected,
   onRatingSelected,
   onWaitTimeSelected,
   onDimensionRatingSelected,
@@ -207,6 +211,7 @@ const ChatMessageBubble = ({
   const [subcategorySelected, setSubcategorySelected] = useState(false);
   const [recurrenceFrequencySelected, setRecurrenceFrequencySelected] = useState(false);
   const [impactSelected, setImpactSelected] = useState(false);
+  const [accessibilityDetailsSelected, setAccessibilityDetailsSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
   const [waitTimeSelected, setWaitTimeSelected] = useState(false);
   const [dimensionRatingSelected, setDimensionRatingSelected] = useState(false);
@@ -251,6 +256,7 @@ const ChatMessageBubble = ({
   const hasSubcategoryPicker = !isUser && !!subcategoryPickerReportType;
   const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
   const hasImpactPicker = !isUser && message.content.includes('[IMPACT_PICKER]');
+  const hasAccessibilityChecklist = !isUser && message.content.includes('[ACCESSIBILITY_CHECKLIST]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
   const hasMultiDimensionRatingPicker =
     !isUser && message.content.includes("[MULTI_DIMENSION_RATING_PICKER]");
@@ -487,7 +493,12 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:occurrence_time]') ||
-      (content.includes('que horas') && isLastAssistantMessage)
+      (isLastAssistantMessage &&
+        (content.includes('que horas') ||
+          content.includes('horário exato') ||
+          content.includes('horario exato') ||
+          content.includes('qual foi o horário') ||
+          content.includes('qual foi o horario')))
     );
   }, [isUser, message.content, timeSelected, hasTimePicker, isLastAssistantMessage]);
 
@@ -535,6 +546,26 @@ const ChatMessageBubble = ({
     message.content,
     impactSelected,
     hasImpactPicker,
+    isLastAssistantMessage,
+  ]);
+
+  const isAskingForAccessibilityDetails = useMemo(() => {
+    if (isUser || accessibilityDetailsSelected || hasAccessibilityChecklist) return false;
+    const lower = message.content.toLowerCase();
+    return (
+      /\[field_request:accessibility_details\]/i.test(message.content) ||
+      (isLastAssistantMessage &&
+        (lower.includes("checklist de acessibilidade") ||
+          lower.includes("detalhes de acessibilidade") ||
+          lower.includes("piso tátil") ||
+          lower.includes("piso tatil") ||
+          lower.includes("rampa")))
+    );
+  }, [
+    isUser,
+    accessibilityDetailsSelected,
+    hasAccessibilityChecklist,
+    message.content,
     isLastAssistantMessage,
   ]);
   
@@ -722,7 +753,11 @@ const ChatMessageBubble = ({
   // Botão "Encaminhar para vereador" após relato ou oferta pós-avaliação com nota baixa
   const hasEncaminharVereadorCta =
     !isUser &&
-    (message.content.includes('[REPORT_CREATED:') || message.content.includes('[OFFER_REFERRAL]'));
+    (
+      message.content.includes('[REPORT_CREATED:') ||
+      message.content.includes('[TRANSPORT_CREATED:') ||
+      message.content.includes('[OFFER_REFERRAL]')
+    );
 
   // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
   const quickReplyButtons = useMemo(() => {
@@ -764,6 +799,11 @@ const ChatMessageBubble = ({
       sentido: 'Sentido',
       frequência: 'Frequência',
       impacto: 'Impacto na rotina',
+      parada: 'Parada / estação',
+      ponto: 'Ponto / referência',
+      referencia: 'Ponto / referência',
+      referência: 'Ponto / referência',
+      detalhes_acessibilidade: 'Acessibilidade',
       local: 'Local',
       lotacao: 'Lotação',
       seguranca: 'Segurança',
@@ -913,6 +953,11 @@ const ChatMessageBubble = ({
       onImpactSelected(score, label);
     }
   };
+
+  const handleAccessibilityDetailsSelected = (details: Record<string, unknown>) => {
+    setAccessibilityDetailsSelected(true);
+    onAccessibilityDetailsSelected?.(details);
+  };
   
   const handleRatingSelected = (stars: number) => {
     setRatingSelected(true);
@@ -998,6 +1043,47 @@ const ChatMessageBubble = ({
     }
     return { serviceType, district, hideRatedToday };
   }, [message.content]);
+
+  const ratingServiceType = useMemo(() => {
+    const explicit = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
+    if (explicit?.[1]) return explicit[1].trim().toLowerCase();
+
+    const fieldProgress = message.content.match(/\[COLLECTION_PROGRESS:service_rating:([^\]]+)\]/);
+    if (fieldProgress?.[1]) {
+      try {
+        const parsed = JSON.parse(fieldProgress[1]) as { service_type?: string };
+        if (parsed.service_type) return String(parsed.service_type).trim().toLowerCase();
+      } catch {
+        // ignore malformed progress payload
+      }
+    }
+
+    return null;
+  }, [message.content]);
+
+  const ratingServiceTypeLabel = useMemo(() => {
+    if (!ratingServiceType) return undefined;
+    return getServiceTypeLabel(ratingServiceType);
+  }, [ratingServiceType]);
+
+  const { data: ratingServiceTypeHints = [] } = useQuery({
+    queryKey: ["service-type-rating-hints", ratingServiceType],
+    enabled: Boolean(hasMultiDimensionRatingPicker && isLastAssistantMessage && ratingServiceType),
+    queryFn: async () => {
+      if (!ratingServiceType) return [];
+      const { data, error } = await supabase
+        .from("service_type_rating_questions")
+        .select("hint_text")
+        .eq("service_type", ratingServiceType)
+        .order("sort_order", { ascending: true })
+        .limit(5);
+      if (error || !data?.length) return [];
+      return data
+        .map((row) => row.hint_text?.trim())
+        .filter((value): value is string => Boolean(value));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   
   return (
     <div
@@ -1518,6 +1604,13 @@ const ChatMessageBubble = ({
           onImpactSelected && (
             <InlineImpactPicker onSelect={handleImpactSelected} />
           )}
+
+        {(hasAccessibilityChecklist || isAskingForAccessibilityDetails) &&
+          !accessibilityDetailsSelected &&
+          isLastAssistantMessage &&
+          onAccessibilityDetailsSelected && (
+            <InlineAccessibilityChecklist onSelect={handleAccessibilityDetailsSelected} />
+          )}
         
         {/* Avaliação geral (1–5 estrelas) — não exibir se for dimensão atômica (FIELD_REQUEST:dim_* + RATING_PICKER) */}
         {(hasRatingPicker || isAskingForRating) &&
@@ -1532,7 +1625,11 @@ const ChatMessageBubble = ({
           !multiDimensionRatingSubmitted &&
           isLastAssistantMessage &&
           onMultiDimensionRatingComplete && (
-            <MultiDimensionRatingPicker onComplete={handleMultiDimensionRatingComplete} />
+            <MultiDimensionRatingPicker
+              onComplete={handleMultiDimensionRatingComplete}
+              serviceTypeLabel={ratingServiceTypeLabel}
+              serviceTypeHints={ratingServiceTypeHints}
+            />
           )}
 
         {(hasWaitTimePicker || isAskingForWaitTime) &&
