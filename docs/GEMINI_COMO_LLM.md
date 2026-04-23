@@ -1,6 +1,6 @@
 # Usar Gemini como LLM no Câmara na Mão
 
-O **ai-orchestrator** (e outras funções que chamam o modelo) usam um endpoint **compatível com OpenAI**: `POST .../chat/completions`, com `messages`, `tools`, `tool_choice` e `stream`. O Gemini oferece essa mesma interface, então a troca pode ser feita **só por configuração** (variáveis de ambiente), sem alterar código.
+O **ai-orchestrator** (e outras funções que chamam o modelo) usam um endpoint **compatível com OpenAI**: `POST .../chat/completions`, com `messages`, `tools`, `tool_choice` e `stream`. Para Gemini 2.5 a troca costuma ser essencialmente por configuração. Para Gemini 3, trate a migração como rollout controlado: a interface continua parecida, mas fluxos com `tool calling`, `streaming` e possível uso de `thought signatures` precisam de validação em staging antes da produção.
 
 ---
 
@@ -9,7 +9,7 @@ O **ai-orchestrator** (e outras funções que chamam o modelo) usam um endpoint 
 - **Formato:** O orchestrator envia `model`, `messages`, `temperature`, `stream`, `tools`, `tool_choice`. O Gemini (via API compatível com OpenAI) aceita esse formato.
 - **Function calling:** O Gemini suporta `tools` e `tool_choice: "auto"` na mesma forma que você já usa.
 - **Streaming:** Suportado.
-- **Conclusão:** Sim, é viável trocar a LLM atual (vLLM/Llama) pelo Gemini apenas configurando URL, chave e modelo.
+- **Conclusão:** Sim, é viável trocar a LLM atual pelo Gemini. Para Gemini 2.5 isso tende a ser só configuração; para Gemini 3, valide compatibilidade do pipeline antes do rollout final.
 
 ---
 
@@ -118,7 +118,17 @@ Use quando quiser tudo dentro do GCP (projeto, faturamento, políticas, VPC, etc
 
 ---
 
-## 4. Resumo
+## 4. Rollout recomendado para Gemini 3
+
+1. ajuste `AI_CHAT_MODEL` primeiro em staging;
+2. valide perguntas simples, perguntas com RAG e fluxos que acionam tools;
+3. acompanhe logs de `400`, `tool_calls` inesperados e mensagens ligadas a `thought signature`;
+4. só depois replique a mudança em produção;
+5. mantenha rollback simples revertendo `AI_CHAT_MODEL`.
+
+---
+
+## 5. Resumo
 
 | Critério        | Google AI Studio (Opção A) | Vertex AI no GCP (Opção B) |
 |-----------------|----------------------------|-----------------------------|
@@ -131,7 +141,7 @@ Para **testar rápido**: use a **Opção A** (AI Studio) apenas trocando as trê
 
 ---
 
-## 5. Referências
+## 6. Referências
 
 - [Gemini API – Compatibilidade com OpenAI](https://ai.google.dev/gemini-api/docs/openai)
 - [Gemini API – Chaves](https://ai.google.dev/gemini-api/docs/api-key)

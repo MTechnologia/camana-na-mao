@@ -1,4 +1,9 @@
 import { createSseResponse } from "./lib-index-sse.ts";
+import {
+  buildChatCompletionsModel,
+  hasUsableVertexCredentials,
+  isVertexAiProvider,
+} from "../_shared/ai-provider.ts";
 
 type AiApiArgs = {
   aiChatModel: string;
@@ -34,8 +39,8 @@ export async function callAiChatCompletion(
     vertexTokenUrl,
   } = args;
 
-  const isVertex = !!(vertexTokenUrl || finalAiBaseUrl.includes("aiplatform"));
-  if (isVertex && !vertexTokenObtained) {
+  const isVertex = isVertexAiProvider(finalAiBaseUrl, vertexTokenUrl);
+  if (!hasUsableVertexCredentials({ finalAiApiKey, isVertex, vertexTokenObtained, vertexTokenUrl })) {
     console.error(
       '[ai-orchestrator] Vertex URL configurada mas token não obtido. Verifique VERTEX_TOKEN_URL, VERTEX_TOKEN_SECRET e se o serviço vertex-token retorna { "token": "<oauth2_access_token>" }.',
     );
@@ -63,9 +68,7 @@ export async function callAiChatCompletion(
   let response: Response;
   try {
     const apiUrl = `${finalAiBaseUrl.replace(/\/$/, "")}/chat/completions`;
-    const effectiveModel = isVertex && !aiChatModel.startsWith("google/")
-      ? `google/${aiChatModel}`
-      : aiChatModel;
+    const effectiveModel = buildChatCompletionsModel(aiChatModel, isVertex);
     console.log("[ai-orchestrator] Calling AI API:", apiUrl, "model:", effectiveModel);
 
     const requestBody: Record<string, unknown> = {
@@ -144,6 +147,11 @@ export async function callAiChatCompletion(
     if (response.status === 400) {
       const oneLine = (errorText || "").replace(/\s+/g, " ").trim();
       console.error("[ai-orchestrator] Bad Request (400) body:", oneLine);
+      if (/thought[_\s-]?signature|stateful reasoning/i.test(errorText)) {
+        console.error(
+          "[ai-orchestrator] Gemini 3/Vertex indicou incompatibilidade de thought signatures. Revise o fluxo multi-turn/tool calling antes de promover esta configuração.",
+        );
+      }
       if (/tool|function.call|tool_choice/i.test(errorText)) {
         console.error(
           "[ai-orchestrator] Dica: se o vLLM não tiver tool calling ativo, suba o container com --enable-auto-tool-choice e --tool-call-parser llama3_json (ver docs/VM_LLM_CHAT_GPU_L4_INFO.md).",
@@ -152,7 +160,9 @@ export async function callAiChatCompletion(
       console.log("[ai-orchestrator] Request completed in", Date.now() - requestStartTime, "ms (400 error)");
       return {
         errorResponse: createSseResponse(
-          "Desculpe, houve um erro ao processar sua solicitação. Por favor, tente novamente.",
+          /thought[_\s-]?signature|stateful reasoning/i.test(errorText)
+            ? "Desculpe, o modelo configurado exige suporte adicional de estado de conversa no Vertex. Tente novamente mais tarde ou avise o administrador para revisar a migração do Gemini 3."
+            : "Desculpe, houve um erro ao processar sua solicitação. Por favor, tente novamente.",
           corsHeaders,
         ),
       };

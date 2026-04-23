@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { resolveAiProviderConfig } from "../_shared/ai-provider.ts";
+
 type ChatMessage = Record<string, unknown>;
 
 type ChatHistoryEntry = {
@@ -99,90 +101,42 @@ export async function initializeRequestBootstrap(
   const clientFactory = createClientImpl ?? ((url, key, options) => createClient(url, key, options));
 
   console.log("[ai-orchestrator] Loading environment variables...");
-  const aiChatBaseUrl = envGet("AI_CHAT_BASE_URL");
-  const aiChatApiKey = envGet("AI_CHAT_API_KEY");
-  const aiBaseUrl = envGet("AI_BASE_URL");
-  const aiApiKey = envGet("AI_API_KEY");
-  const aiChatModel = envGet("AI_CHAT_MODEL") || "meta-llama/Meta-Llama-3.1-8B-Instruct";
+  const {
+    aiChatModel,
+    finalAiApiKey,
+    finalAiBaseUrl,
+    isVertex,
+    vertexTokenObtained,
+    vertexTokenUrl,
+  } = await resolveAiProviderConfig({
+    envGet,
+    fetchImpl,
+    logPrefix: "[ai-orchestrator]",
+  });
 
   const supabaseUrl = envGet("SUPABASE_URL");
   const supabaseAnonKey = envGet("SUPABASE_ANON_KEY");
   const supabaseServiceRoleKey = envGet("SUPABASE_SERVICE_ROLE_KEY");
 
   console.log("[ai-orchestrator] Environment check:", {
-    hasAiChatBaseUrl: !!aiChatBaseUrl,
-    hasAiBaseUrl: !!aiBaseUrl,
+    hasAiChatBaseUrl: !!envGet("AI_CHAT_BASE_URL"),
+    hasAiBaseUrl: !!envGet("AI_BASE_URL"),
     hasSupabaseUrl: !!supabaseUrl,
     hasSupabaseAnonKey: !!supabaseAnonKey,
     hasSupabaseServiceRoleKey: !!supabaseServiceRoleKey,
     aiChatModel,
+    isVertex,
     supabaseUrl: supabaseUrl ? supabaseUrl.substring(0, 50) + "..." : "missing",
     supabaseAnonKeyLength: supabaseAnonKey?.length || 0,
   });
-
-  const finalAiBaseUrl = aiChatBaseUrl || aiBaseUrl;
-  let finalAiApiKey = aiChatApiKey || aiApiKey || "";
-  let vertexTokenObtained = false;
-
-  const vertexTokenUrl = envGet("VERTEX_TOKEN_URL");
-  const vertexTokenSecret = envGet("VERTEX_TOKEN_SECRET");
   const vertexRagDatastore = envGet("VERTEX_RAG_DATASTORE");
   const vertexRagCorpus = envGet("VERTEX_RAG_CORPUS");
-
-  if (vertexTokenUrl && vertexTokenSecret) {
-    try {
-      console.log(
-        "[ai-orchestrator] Fetching Vertex token from",
-        vertexTokenUrl.replace(/\/[^/]*$/, "/..."),
-      );
-      const tokenRes = await fetchImpl(vertexTokenUrl, {
-        method: "GET",
-        headers: { "X-Token-Secret": vertexTokenSecret },
-      });
-      const responseText = await tokenRes.text();
-      if (tokenRes.ok) {
-        try {
-          const data = JSON.parse(responseText) as { token?: string };
-          if (data?.token && typeof data.token === "string" && data.token.length > 0) {
-            finalAiApiKey = data.token;
-            vertexTokenObtained = true;
-            console.log(
-              "[ai-orchestrator] Vertex token obtained successfully (length:",
-              data.token.length,
-              ")",
-            );
-          } else {
-            console.warn(
-              "[ai-orchestrator] Vertex token URL returned OK but no token in body. Body keys:",
-              data ? Object.keys(data) : "null",
-              "| body length:",
-              responseText.length,
-            );
-          }
-        } catch (_parseErr) {
-          console.warn(
-            "[ai-orchestrator] Vertex token URL returned non-JSON or invalid:",
-            responseText.substring(0, 200),
-          );
-        }
-      } else {
-        console.warn(
-          "[ai-orchestrator] Vertex token URL returned",
-          tokenRes.status,
-          "| body:",
-          responseText.substring(0, 300),
-        );
-      }
-    } catch (error) {
-      console.warn("[ai-orchestrator] VERTEX_TOKEN_URL fetch failed:", (error as Error).message);
-    }
-  }
 
   if (!finalAiBaseUrl || !supabaseUrl || !supabaseAnonKey) {
     console.error("[ai-orchestrator] Missing required environment variables");
     console.error("[ai-orchestrator] Missing:", {
-      aiChatBaseUrl: !aiChatBaseUrl,
-      aiBaseUrl: !aiBaseUrl,
+      aiChatBaseUrl: !envGet("AI_CHAT_BASE_URL"),
+      aiBaseUrl: !envGet("AI_BASE_URL"),
       supabaseUrl: !supabaseUrl,
       supabaseAnonKey: !supabaseAnonKey,
     });

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { buildVertexPublisherModelId } from "../_shared/ai-provider.ts";
 import type { CollectionIntent } from "./lib.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 
@@ -43,6 +44,7 @@ export async function buildPromptContextAndTools(
   } = args;
 
   let dynamicSystemPrompt = initialSystemPrompt;
+  const vertexPublisherModelId = buildVertexPublisherModelId(aiChatModel);
 
   if (collectionIntent?.type === "noticias") {
     try {
@@ -148,7 +150,7 @@ export async function buildPromptContextAndTools(
       const location = match?.[2];
       if (project && location) {
         const generateContentUrl =
-          `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${aiChatModel}:generateContent`;
+          `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models/${vertexPublisherModelId}:generateContent`;
         let datastorePath = (vertexRagDatastore || "").trim();
         if (vertexRagDatastore && !datastorePath.startsWith("projects/")) {
           datastorePath =

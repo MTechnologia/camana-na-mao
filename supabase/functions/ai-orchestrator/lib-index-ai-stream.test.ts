@@ -23,9 +23,33 @@ Deno.test("parseAiSseResponse concatena conteúdo e argumentos de tool call", as
   );
 
   assertEquals(result.fullContent, "Olá");
+  assertEquals(result.multipleToolCallsDetected, false);
+  assertEquals(result.thoughtSignatureDetected, false);
   assertEquals(result.toolCallData?.name, "create_service_rating");
   assertEquals(result.toolCallData?.id, "call-1");
   assertEquals(result.toolCallArguments, '{"rating_stars":5}');
+});
+
+Deno.test("parseAiSseResponse sinaliza multiple tool calls e thought signature", async () => {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(
+        encoder.encode(
+          'data: {"choices":[{"delta":{"tool_calls":[{"id":"call-1","function":{"name":"tool_a","arguments":"{}"}},{"id":"call-2","function":{"name":"tool_b","arguments":"{}"}}],"thought_signature":"opaque-token"}}]}\n' +
+            "data: [DONE]\n\n",
+        ),
+      );
+      controller.close();
+    },
+  });
+
+  const result = await parseAiSseResponse(
+    new Response(body, { headers: { "content-type": "text/event-stream" } }),
+  );
+
+  assertEquals(result.multipleToolCallsDetected, true);
+  assertEquals(result.thoughtSignatureDetected, true);
 });
 
 Deno.test("handleAiToolCall intercepta create_transport_report pedindo subcategoria", async () => {
