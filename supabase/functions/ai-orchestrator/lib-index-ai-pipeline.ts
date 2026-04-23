@@ -136,7 +136,24 @@ export async function runAiPipeline(args: AiPipelineArgs): Promise<Response> {
   console.log("[ai-orchestrator] Response content-type:", contentType);
 
   if (contentType.includes("text/event-stream") && response.body) {
-    const { fullContent, toolCallData, toolCallArguments } = await parseAiSseResponseImpl(response);
+    const {
+      fullContent,
+      multipleToolCallsDetected,
+      thoughtSignatureDetected,
+      toolCallData,
+      toolCallArguments,
+    } = await parseAiSseResponseImpl(response);
+
+    if (thoughtSignatureDetected) {
+      console.warn(
+        "[ai-orchestrator] SSE response contains thought signature markers. Gemini 3 multi-turn tool calling may require preserving provider state between turns.",
+      );
+    }
+    if (multipleToolCallsDetected) {
+      console.warn(
+        "[ai-orchestrator] Multiple tool calls detected in a single SSE response. Current pipeline executes only the first resolved tool call.",
+      );
+    }
 
     if (toolCallData?.name) {
       try {

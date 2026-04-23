@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { resolveAiProviderConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,11 +35,13 @@ serve(async (req) => {
       throw new Error('Invalid request: reports array is required');
     }
 
-    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL') || Deno.env.get('AI_BASE_URL');
-    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY') || Deno.env.get('AI_API_KEY');
-    const aiChatModel = Deno.env.get('AI_CHAT_MODEL') || 'meta-llama/Meta-Llama-3.1-8B-Instruct';
+    const {
+      chatCompletionsModel,
+      finalAiApiKey,
+      finalAiBaseUrl,
+    } = await resolveAiProviderConfig({ logPrefix: '[analyze-sentiment]' });
     
-    if (!aiChatBaseUrl) {
+    if (!finalAiBaseUrl) {
       throw new Error('AI_CHAT_BASE_URL ou AI_BASE_URL not configured');
     }
 
@@ -50,16 +53,16 @@ serve(async (req) => {
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
-        if (aiChatApiKey) {
-          headers['Authorization'] = `Bearer ${aiChatApiKey}`;
+        if (finalAiApiKey) {
+          headers['Authorization'] = `Bearer ${finalAiApiKey}`;
         }
         
-        const apiUrl = `${aiChatBaseUrl.replace(/\/$/, '')}/chat/completions`;
+        const apiUrl = `${finalAiBaseUrl.replace(/\/$/, '')}/chat/completions`;
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            model: aiChatModel,
+            model: chatCompletionsModel,
             messages: [
               {
                 role: 'system',

@@ -1,6 +1,6 @@
 # Configurar secrets do Supabase para Vertex AI (Gemini)
 
-Siga estes passos no **Supabase Dashboard** para o assistente usar o Gemini 2.5 Flash via Vertex.
+Siga estes passos no **Supabase Dashboard** para o assistente usar Gemini via Vertex.
 
 ---
 
@@ -38,7 +38,8 @@ https://southamerica-east1-aiplatform.googleapis.com/v1/projects/arcane-atom-480
 gemini-2.5-flash
 ```
 
-- Nome do modelo no Vertex para Gemini 2.5 Flash.
+- Use o ID curto do modelo no Vertex, sem prefixo `google/`.
+- Exemplos: `gemini-2.5-flash`, `gemini-3-flash`.
 
 ---
 
@@ -120,10 +121,29 @@ Se você tinha `AI_CHAT_API_KEY` antes (ex.: para vLLM ou AI Studio), pode deixa
 | Secret                 | Exemplo / observação |
 |------------------------|----------------------|
 | `AI_CHAT_BASE_URL`     | `https://southamerica-east1-aiplatform.googleapis.com/v1/projects/arcane-atom-480020-f6/locations/southamerica-east1/endpoints/openapi` |
-| `AI_CHAT_MODEL`        | `gemini-2.5-flash`   |
+| `AI_CHAT_MODEL`        | `gemini-2.5-flash` ou `gemini-3-flash` |
 | `VERTEX_TOKEN_URL`     | URL da Cloud Function (vertex-token) |
 | `VERTEX_TOKEN_SECRET`  | Mesmo valor do `TOKEN_SECRET` da Cloud Function |
 | `VERTEX_RAG_DATASTORE` | (opcional) Path do data store Vertex AI Search para RAG em dúvidas gerais |
 | `VERTEX_RAG_CORPUS`    | (opcional) Path do corpus RAG Engine; use um ou outro, não ambos |
 
-Depois de salvar, as próximas chamadas ao assistente já usarão o Gemini 2.5 Flash no Vertex (desde que a Cloud Function esteja no ar e a conta de serviço tenha permissão no Vertex).
+Depois de salvar, as próximas chamadas ao assistente já usarão o modelo configurado no Vertex (desde que a Cloud Function esteja no ar e a conta de serviço tenha permissão no Vertex).
+
+---
+
+## Rollout recomendado para Gemini 3
+
+Antes de trocar `AI_CHAT_MODEL` em produção:
+
+1. Atualize primeiro um ambiente de staging.
+2. Valide chat simples, chat com tools e perguntas que usam RAG.
+3. Monitore os logs do `ai-orchestrator` para erros `400`, `tool_calls` inesperados e menções a `thought signature`.
+4. Só depois replique a mudança em produção.
+
+### Rollback
+
+Se houver regressão após a troca:
+
+1. volte o secret `AI_CHAT_MODEL` para o valor anterior;
+2. faça novo deploy das Edge Functions se o seu fluxo exigir republicação;
+3. repita os smoke tests básicos.
