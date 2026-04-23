@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveAiProviderConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,11 +17,13 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const aiChatBaseUrl = Deno.env.get('AI_CHAT_BASE_URL') || Deno.env.get('AI_BASE_URL');
-    const aiChatApiKey = Deno.env.get('AI_CHAT_API_KEY') || Deno.env.get('AI_API_KEY');
-    const aiChatModel = Deno.env.get('AI_CHAT_MODEL') || 'meta-llama/Meta-Llama-3.1-8B-Instruct';
+    const {
+      chatCompletionsModel,
+      finalAiApiKey,
+      finalAiBaseUrl,
+    } = await resolveAiProviderConfig({ logPrefix: '[recommend-services]' });
 
-    if (!aiChatBaseUrl) {
+    if (!finalAiBaseUrl) {
       throw new Error("AI_CHAT_BASE_URL ou AI_BASE_URL não configurada");
     }
 
@@ -124,16 +127,16 @@ Ordene por relevância (mais relevantes primeiro). Máximo 10 recomendações.`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    if (aiChatApiKey) {
-      headers['Authorization'] = `Bearer ${aiChatApiKey}`;
+    if (finalAiApiKey) {
+      headers['Authorization'] = `Bearer ${finalAiApiKey}`;
     }
     
-    const apiUrl = `${aiChatBaseUrl.replace(/\/$/, '')}/chat/completions`;
+    const apiUrl = `${finalAiBaseUrl.replace(/\/$/, '')}/chat/completions`;
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        model: aiChatModel,
+        model: chatCompletionsModel,
         messages: [
           { role: 'system', content: 'Você é um assistente de recomendações. Retorne sempre JSON válido.' },
           { role: 'user', content: `${aiPrompt}\n\nServiços disponíveis:\n${JSON.stringify(servicesData)}` }

@@ -99,6 +99,7 @@ Deno.test("initializeRequestBootstrap obtém token do Vertex e deriva contexto d
   assertExists(result.context);
   assertEquals(result.response, undefined);
   assertEquals(result.context!.finalAiApiKey, "vertex-token");
+  assertEquals(result.context!.aiChatModel, "gemini-test");
   assertEquals(result.context!.vertexTokenObtained, true);
   assertEquals(result.context!.vertexTokenUrl, "https://token.example.com");
   assertEquals(result.context!.vertexRagDatastore, "datastore-1");

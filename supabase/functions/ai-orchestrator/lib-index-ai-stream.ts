@@ -19,6 +19,8 @@ export type StreamToolCallInfo = {
 
 export type ParsedAiSseResponse = {
   fullContent: string;
+  multipleToolCallsDetected: boolean;
+  thoughtSignatureDetected: boolean;
   toolCallData: StreamToolCallInfo | null;
   toolCallArguments: string;
 };
@@ -185,11 +187,19 @@ async function maybeInterceptTransportToolCall(
 export async function parseAiSseResponse(response: Response): Promise<ParsedAiSseResponse> {
   const reader = response.body?.getReader();
   if (!reader) {
-    return { fullContent: "", toolCallData: null, toolCallArguments: "" };
+    return {
+      fullContent: "",
+      multipleToolCallsDetected: false,
+      thoughtSignatureDetected: false,
+      toolCallData: null,
+      toolCallArguments: "",
+    };
   }
 
   const decoder = new TextDecoder();
   let fullContent = "";
+  let multipleToolCallsDetected = false;
+  let thoughtSignatureDetected = false;
   let toolCallData: StreamToolCallInfo | null = null;
   let toolCallArguments = "";
   let textBuffer = "";
@@ -240,6 +250,7 @@ export async function parseAiSseResponse(response: Response): Promise<ParsedAiSs
       const parsed = JSON.parse(jsonStr);
       parsedEvents++;
       const delta = parsed.choices?.[0]?.delta;
+      const serializedEvent = JSON.stringify(parsed);
 
       if (delta?.content) {
         fullContent += delta.content;
@@ -248,6 +259,9 @@ export async function parseAiSseResponse(response: Response): Promise<ParsedAiSs
 
       if (delta?.tool_calls) {
         toolCallEvents++;
+        if ((delta.tool_calls as Array<unknown>).length > 1) {
+          multipleToolCallsDetected = true;
+        }
         for (const tc of delta.tool_calls as Array<Record<string, unknown>>) {
           const fn = tc.function as Record<string, unknown> | undefined;
           const fnName = fn?.name;
@@ -264,6 +278,10 @@ export async function parseAiSseResponse(response: Response): Promise<ParsedAiSs
           }
         }
       }
+
+      if (/thought[_\s-]?signature/i.test(serializedEvent)) {
+        thoughtSignatureDetected = true;
+      }
     } catch {
       console.warn("[ai-orchestrator] Failed to parse SSE line:", line.substring(0, 100));
     }
@@ -275,11 +293,19 @@ export async function parseAiSseResponse(response: Response): Promise<ParsedAiSs
     toolCallEvents,
     contentLength: fullContent.length,
     hasToolCall: !!toolCallData?.name,
+    multipleToolCallsDetected,
+    thoughtSignatureDetected,
   });
   console.log("[ai-orchestrator] Parsed content:", fullContent.substring(0, 100) || "(empty)");
   console.log("[ai-orchestrator] Tool call detected:", toolCallData?.name || "none");
 
-  return { fullContent, toolCallData, toolCallArguments };
+  return {
+    fullContent,
+    multipleToolCallsDetected,
+    thoughtSignatureDetected,
+    toolCallData,
+    toolCallArguments,
+  };
 }
 
 export async function handleAiToolCall(args: HandleAiToolCallArgs): Promise<Response> {

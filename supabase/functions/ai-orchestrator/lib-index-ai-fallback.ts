@@ -137,12 +137,23 @@ export async function handleAiNonStreamResponse(
 
   const data = (await response.json()) as NonStreamChatCompletion;
   const choice = data.choices?.[0];
+  const payloadHasThoughtSignature = /thought[_\s-]?signature/i.test(JSON.stringify(data));
 
   if (!choice) {
     throw new Error("No response from AI");
   }
 
   if (choice.message?.tool_calls?.length) {
+    if (choice.message.tool_calls.length > 1) {
+      console.warn(
+        "[ai-orchestrator] Multiple non-stream tool calls received. Current pipeline executes only the first tool call.",
+      );
+    }
+    if (payloadHasThoughtSignature) {
+      console.warn(
+        "[ai-orchestrator] Non-stream response contains thought signature markers. Gemini 3 follow-up turns may require provider state preservation.",
+      );
+    }
     const toolCall = choice.message.tool_calls[0];
     const toolName = toolCall.function.name;
     const toolArgs = JSON.parse(toolCall.function.arguments);
