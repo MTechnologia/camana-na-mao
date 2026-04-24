@@ -68,6 +68,20 @@ export async function handleSubscribeAudienciaTopicAlert(
     }
     return { success: false, message: "Não foi possível registrar seu aviso. Tente novamente em instantes." };
   }
+
+  const { error: backfillError } = await client.rpc("backfill_audiencia_topic_alert_notifications_for_user", {
+    p_user_id: userId,
+    p_tema: tema,
+  });
+  if (backfillError) {
+    console.error(
+      "[subscribe_audiencia_topic_alert] backfill",
+      backfillError.code,
+      backfillError.message,
+      backfillError.details,
+    );
+  }
+
   return {
     success: true,
     message: `Anotado! Você receberá uma notificação no app quando houver novas audiências públicas sobre **${tema}**. Quer que eu busque agora se já existe alguma agendada sobre esse tema?`,
@@ -86,27 +100,98 @@ export async function handleSubscribeService(
     };
   }
   const rawServiceId = typeof args.service_id === "string" ? args.service_id.trim() : "";
+  const serviceNameArg = typeof args.service_name === "string" ? args.service_name.trim() : "";
+  const districtArg = typeof args.district === "string" ? args.district.trim() : "";
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!rawServiceId || !uuidRe.test(rawServiceId)) {
+  if ((!rawServiceId || !uuidRe.test(rawServiceId)) && !serviceNameArg) {
     return {
       success: false,
-      message: "Preciso do identificador do equipamento (UUID). No app, abra a página do equipamento ou use a busca por serviços próximos; a partir daí posso registrar o acompanhamento.",
+      message: "Preciso do identificador do equipamento (UUID) ou do nome do serviço (ex.: UBS Vila Mariana). No app, você também pode abrir a página do equipamento ou usar a busca por serviços próximos.",
     };
   }
   const supabaseUrlSvc = Deno.env.get("SUPABASE_URL");
   const serviceKeySvc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const clientSvc = serviceKeySvc && supabaseUrlSvc ? createClient(supabaseUrlSvc, serviceKeySvc) : supabase;
-  const { data: svcRow, error: svcErr } = await clientSvc
-    .from("public_services")
-    .select("id, name")
-    .eq("id", rawServiceId)
-    .maybeSingle();
-  if (svcErr) {
-    console.error("[subscribe_service]", svcErr.code, svcErr.message, svcErr.details);
-    return { success: false, message: "Não foi possível confirmar o equipamento. Tente novamente em instantes." };
+  let svcRow: { id: string; name: string | null; district?: string | null } | null = null;
+
+  if (rawServiceId && uuidRe.test(rawServiceId)) {
+    const { data, error: svcErr } = await clientSvc
+      .from("public_services")
+      .select("id, name, district")
+      .eq("id", rawServiceId)
+      .maybeSingle();
+    if (svcErr) {
+      console.error("[subscribe_service]", svcErr.code, svcErr.message, svcErr.details);
+      return { success: false, message: "Não foi possível confirmar o equipamento. Tente novamente em instantes." };
+    }
+    svcRow = data;
   }
+
+  if (!svcRow && serviceNameArg) {
+    const safeName = serviceNameArg.replace(/[%_\\]/g, "").trim();
+    const safeDistrict = districtArg.replace(/[%_\\]/g, "").trim();
+    if (safeName.length < 3) {
+      return {
+        success: false,
+        message: "Informe pelo menos 3 caracteres do nome do equipamento para eu localizar corretamente.",
+      };
+    }
+
+    let exactQuery = clientSvc
+      .from("public_services")
+      .select("id, name, district")
+      .ilike("name", safeName)
+      .limit(2);
+    if (safeDistrict) {
+      exactQuery = exactQuery.ilike("district", `%${safeDistrict}%`);
+    }
+    const { data: exactMatches, error: exactErr } = await exactQuery;
+    if (exactErr) {
+      console.error("[subscribe_service] exact", exactErr.code, exactErr.message, exactErr.details);
+      return { success: false, message: "Não foi possível localizar esse equipamento. Tente novamente em instantes." };
+    }
+    if ((exactMatches ?? []).length === 1) {
+      svcRow = exactMatches![0];
+    } else {
+      let fuzzyQuery = clientSvc
+        .from("public_services")
+        .select("id, name, district")
+        .ilike("name", `%${safeName}%`)
+        .limit(6);
+      if (safeDistrict) {
+        fuzzyQuery = fuzzyQuery.ilike("district", `%${safeDistrict}%`);
+      }
+      const { data: fuzzyMatches, error: fuzzyErr } = await fuzzyQuery;
+      if (fuzzyErr) {
+        console.error("[subscribe_service] fuzzy", fuzzyErr.code, fuzzyErr.message, fuzzyErr.details);
+        return { success: false, message: "Não foi possível localizar esse equipamento. Tente novamente em instantes." };
+      }
+      const matches = fuzzyMatches ?? [];
+      if (matches.length === 0) {
+        return {
+          success: false,
+          message: "Não encontrei esse equipamento na base. Confira o nome exato ou abra a página do serviço no app.",
+        };
+      }
+      if (matches.length > 1) {
+        const sample = matches
+          .slice(0, 4)
+          .map((row) => row.district ? `${row.name} (${row.district})` : row.name)
+          .join("; ");
+        return {
+          success: false,
+          message: `Encontrei mais de um equipamento parecido (${sample}). Diga o nome mais completo ou informe o bairro para eu registrar o acompanhamento certo.`,
+        };
+      }
+      svcRow = matches[0];
+    }
+  }
+
   if (!svcRow?.id) {
-    return { success: false, message: "Não encontrei esse equipamento na base. Confira o identificador ou busque o serviço no app." };
+    return {
+      success: false,
+      message: "Não encontrei esse equipamento na base. Confira o identificador, o nome do serviço ou busque o equipamento no app.",
+    };
   }
   const { error: upErr } = await clientSvc.from("service_subscriptions").upsert(
     { user_id: userId, service_id: svcRow.id },

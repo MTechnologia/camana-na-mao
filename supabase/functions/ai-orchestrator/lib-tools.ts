@@ -447,7 +447,7 @@ export const tools = [
     function: {
       name: "subscribe_service",
       description:
-        "Registra que o cidadão quer acompanhar um equipamento público (UBS, escola, parque, etc.) e receber notificações quando houver nova avaliação publicada. Usar quando pedir para seguir, acompanhar ou ser avisado sobre um serviço específico já identificado (UUID do equipamento). Requer login.",
+        "Registra que o cidadão quer acompanhar um equipamento público (UBS, escola, parque, etc.) e receber notificações quando houver nova avaliação publicada. Usar quando pedir para seguir, acompanhar ou ser avisado sobre um serviço específico já identificado na conversa. Pode usar service_id (UUID) ou service_name (nome do equipamento). Requer login.",
       parameters: {
         type: "object",
         properties: {
@@ -456,8 +456,18 @@ export const tools = [
             description:
               "UUID do equipamento em public_services (mesmo id usado na URL /servico/:id ou retornado por find_nearby_services).",
           },
+          service_name: {
+            type: "string",
+            description:
+              "Nome do equipamento quando o UUID não estiver disponível (ex.: UBS Vila Mariana, CEU Parelheiros, EMEF João XXIII).",
+          },
+          district: {
+            type: "string",
+            description:
+              "Bairro/distrito do equipamento, se o usuário mencionar, para reduzir ambiguidade (ex.: Vila Mariana, Butantã, Capão Redondo).",
+          },
         },
-        required: ["service_id"],
+        required: [],
       },
     },
   },

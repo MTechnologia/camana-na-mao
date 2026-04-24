@@ -76,6 +76,7 @@ export const NOTIFICATION_TYPE_ICONS: Record<string, LucideIcon> = {
   referral: Mail,
   referral_update: RefreshCw,
   audiencia: Mic,
+  audiencia_topic_alert: Bell,
   audiencia_inscricao: CheckCircle,
   audiencia_lembrete_d1: Calendar,
   audiencia_lembrete_1h: Clock,
