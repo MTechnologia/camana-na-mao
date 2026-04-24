@@ -152,6 +152,11 @@ export default function NewReportPage() {
               reportId={reportId}
               variant="transport"
               onViewPatterns={() => navigate('/transporte/padroes')}
+              onSubscribe={
+                typeof reportData.line_id === 'string' && reportData.line_id.length > 0
+                  ? () => transportFollow.toggleSubscription(reportData.line_id as string, true, 'alert')
+                  : undefined
+              }
               onNewReport={handleNewReport}
             />
           </div>

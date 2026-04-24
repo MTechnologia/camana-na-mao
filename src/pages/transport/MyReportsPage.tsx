@@ -24,12 +24,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { TransportReportInteractions } from '@/components/transport/TransportReportInteractions';
 import { TransportReportComments } from '@/components/transport/TransportReportComments';
+import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import {
   TransportReportFilters,
   type TransportReportFiltersState,
 } from '@/components/transport/TransportReportFilters';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
 
 const RECURRENCE_LABELS: Record<string, string> = {
   primeira_vez: 'Primeira vez',
@@ -72,6 +74,11 @@ export default function MyReportsPage() {
   const { user } = useAuth();
   const { getMyReports } = useTransportReport();
   const { canReferToCouncilMember } = useUserRole();
+  const {
+    subscriptions: transportSubscriptions,
+    loading: transportSubscriptionsLoading,
+    toggleSubscription: toggleTransportSubscription,
+  } = useTransportSubscriptions();
   const [reports, setReports] = useState<TransportListRow[]>([]);
   const [allTransportReports, setAllTransportReports] = useState<TransportListRow[]>([]);
   const [transportFilters, setTransportFilters] = useState<TransportReportFiltersState>({
@@ -310,6 +317,8 @@ export default function MyReportsPage() {
     const lineRow = report.line as { line_code?: string; line_name?: string } | undefined;
     const typeLabel = transportTypeLabel(report.report_type);
     const narrativeDesc = formatTransportReportDescriptionForDisplay(report.description as string | undefined);
+    const lineId = typeof report.line_id === 'string' ? report.line_id : null;
+    const lineLabel = [lineRow?.line_code, lineRow?.line_name].filter(Boolean).join(' - ');
 
     return (
       <Card
@@ -435,6 +444,16 @@ export default function MyReportsPage() {
                 refreshNonce={transportInteractionNonce[reportIdStr] ?? 0}
                 onCommentClick={() => setSelectedTransportForComments(report)}
               />
+              {lineId ? (
+                <TransportLineFollowButton
+                  lineId={lineId}
+                  lineLabel={lineLabel || undefined}
+                  subscriptions={transportSubscriptions}
+                  loading={transportSubscriptionsLoading}
+                  toggleSubscription={toggleTransportSubscription}
+                  className="h-8"
+                />
+              ) : null}
               {canReferToCouncilMember ? (
                 <Button
                   variant="outline"
@@ -489,6 +508,8 @@ export default function MyReportsPage() {
     const otherNarrativeDesc = formatTransportReportDescriptionForDisplay(
       otherReport.description as string | undefined,
     );
+    const otherLineId = typeof otherReport.line_id === 'string' ? otherReport.line_id : null;
+    const otherLineLabel = [line?.line_code, line?.line_name].filter(Boolean).join(' - ');
 
     return (
       <Card className="border-primary/40 ring-1 ring-primary/20">
@@ -611,6 +632,16 @@ export default function MyReportsPage() {
               refreshNonce={transportInteractionNonce[otherId] ?? 0}
               onCommentClick={() => setSelectedTransportForComments(otherReport)}
             />
+            {otherLineId ? (
+              <TransportLineFollowButton
+                lineId={otherLineId}
+                lineLabel={otherLineLabel || undefined}
+                subscriptions={transportSubscriptions}
+                loading={transportSubscriptionsLoading}
+                toggleSubscription={toggleTransportSubscription}
+                className="h-8"
+              />
+            ) : null}
           </div>
         </CardContent>
       </Card>
