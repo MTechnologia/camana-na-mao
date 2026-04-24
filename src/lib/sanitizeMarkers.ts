@@ -68,6 +68,7 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
     .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
     .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
+    .replace(/\s*\[LINE_SELECTED:[a-f0-9-]+\]\s*/gi, ' ')
     .replace(/\[OFFER_REFERRAL\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW\]/g, '')
     .replace(/\[RATING_SUBMIT_PREVIEW_JSON:[^\]]+\]/g, '')
@@ -110,7 +111,7 @@ export const sanitizeMessageContent = (content: string): string => {
     // Hide raw DB timeout text when leaked by backend/provider.
     .replace(/canceling statement due to statement timeout/gi, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
-  result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
+  result = result.split('[SHOW_SERVICES_CHIPS]').join('').replace(/\s{2,}/g, ' ').trim();
   
   return result;
 };
