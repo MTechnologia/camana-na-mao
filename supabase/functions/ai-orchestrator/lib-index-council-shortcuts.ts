@@ -90,6 +90,41 @@ function extractLatestCreatedReportIds(
   return { transportReportId, urbanReportId };
 }
 
+function extractCouncilSelectionFromAssistantList(
+  lastAssistantText: string,
+  lastUserTextEarly: string,
+): { councilName: string; councilParty: string } | null {
+  const namedSelectionMatch = lastUserTextEarly.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (namedSelectionMatch) {
+    return {
+      councilName: namedSelectionMatch[1].trim(),
+      councilParty: namedSelectionMatch[2].trim(),
+    };
+  }
+
+  const numericSelectionMatch = lastUserTextEarly.match(/^(?:op[cç][aã]o\s*)?([1-9]\d*)$/i);
+  if (!numericSelectionMatch) return null;
+
+  const selectedIndex = parseInt(numericSelectionMatch[1], 10);
+  if (!Number.isFinite(selectedIndex) || selectedIndex < 1) return null;
+
+  const options = [...lastAssistantText.matchAll(/^\s*(\d+)\.\s+(.+?)\s*\(([^)]+)\)\s*$/gim)]
+    .map((match) => ({
+      index: parseInt(match[1], 10),
+      councilName: match[2].trim(),
+      councilParty: match[3].trim(),
+    }))
+    .filter((option) => Number.isFinite(option.index));
+
+  const selectedOption = options.find((option) => option.index === selectedIndex);
+  if (!selectedOption) return null;
+
+  return {
+    councilName: selectedOption.councilName,
+    councilParty: selectedOption.councilParty,
+  };
+}
+
 export async function handleCouncilShortcuts(
   args: CouncilShortcutArgs,
 ): Promise<CouncilShortcutResult> {
@@ -137,10 +172,9 @@ export async function handleCouncilShortcuts(
   }
 
   const botJustShowedCouncilList = /deseja que eu encaminhe sua demanda para algum deles\?/i.test(lastAssistantText);
-  const selectionMatch = lastUserTextEarly.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  if (botJustShowedCouncilList && selectionMatch && chatMessages.length > 0) {
-    const councilName = selectionMatch[1].trim();
-    const councilParty = selectionMatch[2].trim();
+  const parsedSelection = extractCouncilSelectionFromAssistantList(lastAssistantText, lastUserTextEarly);
+  if (botJustShowedCouncilList && parsedSelection && chatMessages.length > 0) {
+    const { councilName, councilParty } = parsedSelection;
     const { transportReportId, urbanReportId } = extractLatestCreatedReportIds(chatMessages);
     const councilId = councilName.toLowerCase()
       .normalize("NFD")
