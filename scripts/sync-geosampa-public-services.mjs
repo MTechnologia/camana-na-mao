@@ -137,13 +137,9 @@ const PRIVATE_SOURCE_LAYERS = new Set([
 
 const MIXED_OR_REVIEW_SOURCE_LAYERS = new Set([
   "hospital",
-  "equipamento_saude_hospital",
   "urgencia_emergencia",
-  "equipamento_saude_urgencia_emergencia",
   "equipamento_saude_ambulatorios_especializados",
   "equipamento_saude_saude_mental",
-  "equipamento_saude_outros",
-  "equipamento_saude_unidades_dst_aids",
   "equipamento_ccz",
   "educacao_outros",
   "senai_sesi_senac",

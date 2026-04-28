@@ -237,16 +237,6 @@ export const useNearbyServices = ({
     [equipmentNature],
   );
 
-  const isRpcSignatureMissingError = (error: { message?: string; code?: string } | null | undefined) => {
-    const message = error?.message?.toLowerCase() ?? "";
-    return (
-      error?.code === "PGRST202" ||
-      message.includes("could not find the function") ||
-      message.includes("schema cache") ||
-      message.includes("equipment_natures")
-    );
-  };
-
   const fetchServices = useCallback(async () => {
     if (skipFetch) {
       setServices([]);
@@ -393,7 +383,7 @@ export const useNearbyServices = ({
         rowFetchMode: BboxRowFetchMode,
       ): Promise<{ rows: unknown[]; error: { message?: string } | null }> => {
         const baseSelect =
-          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status, equipment_nature, source_layer";
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status, equipment_nature";
 
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
@@ -410,19 +400,14 @@ export const useNearbyServices = ({
             query = query.eq("equipment_nature", equipmentNature);
           }
 
-          let bboxError: { message?: string } | null = null;
-
-          if (!shouldFilterEquipmentNature) {
-            // Fast path: consulta REST direta por tipo com cap baixo.
-            const restResult = await withTimeout(
-              query.limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
-              queryTimeoutMs,
-              "public_services bbox unordered fallback",
-            );
-            bboxError = restResult.error;
-            if (!bboxError) {
-              return { rows: ((restResult.data ?? []) as unknown[]) || [], error: null };
-            }
+          // Fast path: consulta REST direta por tipo com cap baixo.
+          const { data: bboxData, error: bboxError } = await withTimeout(
+            query.limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+            queryTimeoutMs,
+            "public_services bbox unordered fallback",
+          );
+          if (!bboxError) {
+            return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
           }
 
           // Fallback: RPC bbox light (e quadrantes) quando REST falha em bbox grande.
@@ -452,9 +437,15 @@ export const useNearbyServices = ({
 
             const withNature = await withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
-                ...args,
+                min_lat: b.minLat,
+                max_lat: b.maxLat,
+                min_lng: b.minLng,
+                max_lng: b.maxLng,
+                service_types: [singleType],
+                result_limit: resultLimit,
+                result_offset: 0,
                 equipment_natures: equipmentNatures,
-              }) as unknown as Promise<{ data: unknown; error: { message?: string; code?: string } | null }>,
+              }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light",
             );
@@ -594,9 +585,15 @@ export const useNearbyServices = ({
 
             const withNature = await withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
-                ...args,
+                min_lat: b.minLat,
+                max_lat: b.maxLat,
+                min_lng: b.minLng,
+                max_lng: b.maxLng,
+                service_types: types,
+                result_limit: resultLimit,
+                result_offset: 0,
                 equipment_natures: equipmentNatures,
-              }) as unknown as Promise<{ data: unknown; error: { message?: string; code?: string } | null }>,
+              }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light (many types)",
             );

@@ -19,7 +19,7 @@ BEGIN
       CHECK (
         equipment_nature IS NULL
         OR equipment_nature IN ('publico', 'privado', 'misto_indefinido', 'nao_aplicavel')
-      ) NOT VALID;
+      );
   END IF;
 END $$;
 
@@ -28,9 +28,31 @@ COMMENT ON COLUMN public.public_services.equipment_nature IS
 COMMENT ON COLUMN public.public_services.equipment_nature_source IS
   'Origem da classificacao de natureza (ex.: geosampa_esfera_administrativa, source_layer_rule, manual_admin, google_places).';
 
--- Backfill em massa fica fora do db push para evitar timeout no pooler remoto.
--- O sync GeoSampa já persiste `equipment_nature`; o frontend também infere por `source_layer`
--- quando encontra registros antigos ainda sem classificação.
+UPDATE public.public_services
+SET
+  equipment_nature = CASE
+    WHEN source_layer IN ('rede_privada') THEN 'privado'
+    WHEN source_layer IN (
+      'hospital',
+      'urgencia_emergencia',
+      'equipamento_saude_ambulatorios_especializados',
+      'equipamento_saude_saude_mental',
+      'equipamento_ccz',
+      'educacao_outros',
+      'senai_sesi_senac',
+      'teatro_cinema_show',
+      'museus',
+      'espacos_culturais',
+      'equipamento_cultura_outros'
+    ) THEN 'misto_indefinido'
+    WHEN source_layer IS NOT NULL THEN 'publico'
+    ELSE NULL
+  END,
+  equipment_nature_source = CASE
+    WHEN source_layer IS NOT NULL THEN 'source_layer_rule'
+    ELSE equipment_nature_source
+  END
+WHERE equipment_nature IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_public_services_equipment_nature
   ON public.public_services (equipment_nature);
