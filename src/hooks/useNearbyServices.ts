@@ -105,6 +105,16 @@ const NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS = 55_000;
 /** Mínimo de caracteres para aplicar filtro textual no cliente sobre a amostra REST no bbox. */
 export const NEARBY_FULLTEXT_MIN_LENGTH = 2;
 
+function isRpcSignatureMissingError(error: { message?: string; code?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return (
+    error?.code === "PGRST202" ||
+    message.includes("could not find the function") ||
+    message.includes("schema cache") ||
+    message.includes("equipment_natures")
+  );
+}
+
 interface UseNearbyServicesProps {
   latitude: number | null;
   longitude: number | null;
