@@ -26,7 +26,11 @@ export interface NearbyService {
   opening_hours: { text?: string } | string | null;
   services_offered: string | null;
   operational_status: "open" | "closed" | "maintenance" | null;
+  equipment_nature: EquipmentNatureValue | null;
 }
+
+export type EquipmentNatureValue = "publico" | "privado" | "misto_indefinido" | "nao_aplicavel";
+export type EquipmentNatureFilterValue = "all" | "publico" | "privado";
 
 type ServiceType = "ubs" | "school" | "ceu" | "hospital" | "library" | "sports_center" | "street_market"
   | "community_center" | "daycare" | "park" | "market" | "city_market" | "theater" | "museum"
@@ -113,6 +117,8 @@ interface UseNearbyServicesProps {
   fullTextQuery?: string;
   /** Distância mínima (Haversine) em metros no filtro cliente (faixas em anel do preset). */
   minRadiusMeters?: number;
+  /** Natureza do equipamento para filtro Publico/Privado. */
+  equipmentNature?: EquipmentNatureFilterValue;
   /** Evita fetch (ex.: aguardando endereço primário do usuário) sem erro de localização */
   skipFetch?: boolean;
 }
@@ -191,6 +197,7 @@ export const useNearbyServices = ({
   serviceTypes,
   fullTextQuery = "",
   minRadiusMeters,
+  equipmentNature = "all",
   skipFetch = false,
 }: UseNearbyServicesProps) => {
   // useRef para manter última localização válida e evitar recálculos desnecessários (sem fallback em ponto fixo)
@@ -203,6 +210,8 @@ export const useNearbyServices = ({
   const [error, setError] = useState<string | null>(null);
   /** Evita que uma resposta antiga sobrescreva uma busca mais recente (digitação rápida). */
   const fetchRequestIdRef = useRef(0);
+  /** Compatibilidade temporária: alguns ambientes ainda têm a RPC sem `equipment_natures`. */
+  const rpcSupportsEquipmentNatureRef = useRef(true);
 
   // Atualizar ref apenas se receber localização válida
   if (isValidCoordinate(latitude) && isValidCoordinate(longitude)) {
@@ -213,11 +222,30 @@ export const useNearbyServices = ({
     (cached: CachedNearbyService[], userLat: number, userLng: number): NearbyService[] => {
       return cached.map((s) => ({
         ...s,
+        equipment_nature: s.equipment_nature ?? null,
         distance: calculateDistance(userLat, userLng, s.latitude, s.longitude),
       }));
     },
     []
   );
+
+  const filterByEquipmentNature = useCallback(
+    (list: NearbyService[]) => {
+      if (equipmentNature === "all") return list;
+      return list.filter((service) => service.equipment_nature === equipmentNature);
+    },
+    [equipmentNature],
+  );
+
+  const isRpcSignatureMissingError = (error: { message?: string; code?: string } | null | undefined) => {
+    const message = error?.message?.toLowerCase() ?? "";
+    return (
+      error?.code === "PGRST202" ||
+      message.includes("could not find the function") ||
+      message.includes("schema cache") ||
+      message.includes("equipment_natures")
+    );
+  };
 
   const fetchServices = useCallback(async () => {
     if (skipFetch) {
@@ -252,7 +280,7 @@ export const useNearbyServices = ({
           const withDistance = excludeGenericOtherType(
             applyCacheWithDistance(cached.services, centerLat, centerLng),
           );
-          setServices(withDistance);
+          setServices(filterByEquipmentNature(withDistance));
         } else {
           setServices([]);
         }
@@ -287,6 +315,8 @@ export const useNearbyServices = ({
       const effectiveTypes =
         types.length > 0 ? types : singleType ? [singleType] : [];
       const isAllTypes = effectiveTypes.length === 0;
+      const shouldFilterEquipmentNature = equipmentNature !== "all";
+      const equipmentNatures = shouldFilterEquipmentNature ? [equipmentNature] : [];
       /**
        * Cap adaptativo para fallback REST:
        * evita timeout de consultas muito amplas e reduz inconsistência de amostragem.
@@ -328,7 +358,7 @@ export const useNearbyServices = ({
           )
           .filter((service): service is NearbyService => service !== null);
 
-        const withoutOther = excludeGenericOtherType(formatted);
+        const withoutOther = filterByEquipmentNature(excludeGenericOtherType(formatted));
 
         const withinRadius = withoutOther
           .filter((service) => {
@@ -363,43 +393,77 @@ export const useNearbyServices = ({
         rowFetchMode: BboxRowFetchMode,
       ): Promise<{ rows: unknown[]; error: { message?: string } | null }> => {
         const baseSelect =
-          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status";
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status, equipment_nature, source_layer";
 
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
-          // Fast path: consulta REST direta por tipo com cap baixo.
-          const { data: bboxData, error: bboxError } = await withTimeout(
-            supabase
-              .from("public_services")
-              .select(baseSelect)
-              .gte("latitude", box.minLat)
-              .lte("latitude", box.maxLat)
-              .gte("longitude", box.minLng)
-              .lte("longitude", box.maxLng)
-              .eq("service_type", singleType)
-              .limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
-            queryTimeoutMs,
-            "public_services bbox unordered fallback",
-          );
-          if (!bboxError) {
-            return { rows: ((bboxData ?? []) as unknown[]) || [], error: null };
+          let query = supabase
+            .from("public_services")
+            .select(baseSelect)
+            .gte("latitude", box.minLat)
+            .lte("latitude", box.maxLat)
+            .gte("longitude", box.minLng)
+            .lte("longitude", box.maxLng)
+            .eq("service_type", singleType);
+
+          if (shouldFilterEquipmentNature) {
+            query = query.eq("equipment_nature", equipmentNature);
+          }
+
+          let bboxError: { message?: string } | null = null;
+
+          if (!shouldFilterEquipmentNature) {
+            // Fast path: consulta REST direta por tipo com cap baixo.
+            const restResult = await withTimeout(
+              query.limit(lim) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+              queryTimeoutMs,
+              "public_services bbox unordered fallback",
+            );
+            bboxError = restResult.error;
+            if (!bboxError) {
+              return { rows: ((restResult.data ?? []) as unknown[]) || [], error: null };
+            }
           }
 
           // Fallback: RPC bbox light (e quadrantes) quando REST falha em bbox grande.
-          const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) =>
-            withTimeout(
+          const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) => {
+            const args = {
+              min_lat: b.minLat,
+              max_lat: b.maxLat,
+              min_lng: b.minLng,
+              max_lng: b.maxLng,
+              service_types: [singleType],
+              result_limit: resultLimit,
+              result_offset: 0,
+            };
+            const legacyCall = () =>
+              withTimeout(
+                supabase.rpc("search_public_services_bbox_light", args) as unknown as Promise<{
+                  data: unknown;
+                  error: { message?: string; code?: string } | null;
+                }>,
+                Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
+                "search_public_services_bbox_light (legacy signature)",
+              );
+
+            if (!rpcSupportsEquipmentNatureRef.current) {
+              return legacyCall();
+            }
+
+            const withNature = await withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
-                min_lat: b.minLat,
-                max_lat: b.maxLat,
-                min_lng: b.minLng,
-                max_lng: b.maxLng,
-                service_types: [singleType],
-                result_limit: resultLimit,
-                result_offset: 0,
-              }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+                ...args,
+                equipment_natures: equipmentNatures,
+              }) as unknown as Promise<{ data: unknown; error: { message?: string; code?: string } | null }>,
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light",
             );
+            if (!isRpcSignatureMissingError(withNature.error)) {
+              return withNature;
+            }
+            rpcSupportsEquipmentNatureRef.current = false;
+            return legacyCall();
+          };
 
           const { data: rpcData, error: rpcError } = await rpcBboxLight(box, lim);
           if (!rpcError && Array.isArray(rpcData)) {
@@ -441,6 +505,10 @@ export const useNearbyServices = ({
             .eq("service_type", singleType)
             .order("id", { ascending: true })
             .limit(batchSize);
+
+          if (shouldFilterEquipmentNature) {
+            query = query.eq("equipment_nature", equipmentNature);
+          }
 
           if (lastId) {
             query = query.gt("id", lastId);
@@ -486,24 +554,58 @@ export const useNearbyServices = ({
         if (typesList.length > 0 && types.length === 0) {
           return { rows: [], error: null };
         }
+        const getLegacyRpcServiceTypes = () => {
+          if (equipmentNature !== "publico" || types.length <= 1) return types;
+
+          // Ambientes sem a assinatura nova da RPC ainda retornam uma amostra sem filtro de natureza.
+          // A camada de escolas privadas domina essa amostra em bbox grande, então evitamos que ela
+          // esconda UBS/CEU/esportes públicos enquanto a migration remota não está aplicada.
+          const withoutPrivateHeavySchoolLayer = types.filter((type) => type !== "school");
+          return withoutPrivateHeavySchoolLayer.length > 0 ? withoutPrivateHeavySchoolLayer : types;
+        };
 
         // Em bbox grande, uma única RPC com todos os tipos reduz chamadas e evita 500 intermitente no REST por tipo.
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
-          const rpcManyTypes = async (b: NearbyBoundingBox, resultLimit: number) =>
-            withTimeout(
+          const rpcManyTypes = async (b: NearbyBoundingBox, resultLimit: number) => {
+            const args = {
+              min_lat: b.minLat,
+              max_lat: b.maxLat,
+              min_lng: b.minLng,
+              max_lng: b.maxLng,
+              service_types: types,
+              result_limit: resultLimit,
+              result_offset: 0,
+            };
+            const legacyArgs = { ...args, service_types: getLegacyRpcServiceTypes() };
+            const legacyCall = () =>
+              withTimeout(
+                supabase.rpc("search_public_services_bbox_light", legacyArgs) as unknown as Promise<{
+                  data: unknown;
+                  error: { message?: string; code?: string } | null;
+                }>,
+                Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
+                "search_public_services_bbox_light (many types legacy signature)",
+              );
+
+            if (!rpcSupportsEquipmentNatureRef.current) {
+              return legacyCall();
+            }
+
+            const withNature = await withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
-                min_lat: b.minLat,
-                max_lat: b.maxLat,
-                min_lng: b.minLng,
-                max_lng: b.maxLng,
-                service_types: types,
-                result_limit: resultLimit,
-                result_offset: 0,
-              }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
+                ...args,
+                equipment_natures: equipmentNatures,
+              }) as unknown as Promise<{ data: unknown; error: { message?: string; code?: string } | null }>,
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light (many types)",
             );
+            if (!isRpcSignatureMissingError(withNature.error)) {
+              return withNature;
+            }
+            rpcSupportsEquipmentNatureRef.current = false;
+            return legacyCall();
+          };
 
           const { data: rpcData, error: rpcError } = await rpcManyTypes(box, lim);
           if (!rpcError && Array.isArray(rpcData)) {
@@ -705,7 +807,7 @@ export const useNearbyServices = ({
           )
           .filter((service): service is NearbyService => service !== null);
 
-        const withoutOther = excludeGenericOtherType(formatted);
+        const withoutOther = filterByEquipmentNature(excludeGenericOtherType(formatted));
 
         const withinRadius = withoutOther
           .filter((service) => {
@@ -766,7 +868,7 @@ export const useNearbyServices = ({
         const withDistance = excludeGenericOtherType(
           applyCacheWithDistance(cached.services, cached.centerLat, cached.centerLng),
         );
-        setServices(withDistance);
+        setServices(filterByEquipmentNature(withDistance));
         setError("Sem conexão. Exibindo equipamentos em cache.");
       } else {
         setServices([]);
@@ -777,7 +879,7 @@ export const useNearbyServices = ({
         setLoading(false);
       }
     }
-  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, fullTextQuery, minRadiusMeters, skipFetch]);
+  }, [radiusMeters, serviceType, serviceTypes, applyCacheWithDistance, filterByEquipmentNature, fullTextQuery, minRadiusMeters, equipmentNature, skipFetch]);
 
   useEffect(() => {
     fetchServices();

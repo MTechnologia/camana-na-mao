@@ -7,6 +7,7 @@ import {
   syncAppSuggestions,
 } from "@/lib/api/appSuggestionsApi";
 import { withPoolRetry } from "@/lib/supabaseRetry";
+import { createClientId } from "@/lib/clientId";
 import type {
   NearbyRecentEquipmentPayload,
   NearbyRecentPlacePayload,
@@ -48,7 +49,7 @@ function stableEntryId(entry: Omit<NearbyRecentSearchEntry, "id" | "createdAt">)
   if (entry.kind === "equipment" && entry.equipment) {
     return `eq:${entry.equipment.serviceId}`;
   }
-  return `misc:${crypto.randomUUID()}`;
+  return `misc:${createClientId("recent")}`;
 }
 
 function parseStored(raw: string | null): NearbyRecentSearchEntry[] {

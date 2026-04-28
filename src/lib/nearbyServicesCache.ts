@@ -27,6 +27,7 @@ export interface CachedNearbyService {
   opening_hours: { text?: string } | string | null;
   services_offered: string | null;
   operational_status: "open" | "closed" | "maintenance" | null;
+  equipment_nature: "publico" | "privado" | "misto_indefinido" | "nao_aplicavel" | null;
 }
 
 export interface NearbyServicesCacheEntry {
@@ -78,6 +79,7 @@ export async function saveNearbyServicesCache(
       opening_hours: s.opening_hours,
       services_offered: s.services_offered,
       operational_status: s.operational_status ?? null,
+      equipment_nature: s.equipment_nature ?? null,
     }));
     const entry: NearbyServicesCacheEntry = {
       services: toStore,
