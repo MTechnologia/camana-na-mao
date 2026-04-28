@@ -109,6 +109,6 @@ export function mapPublicServiceRowToNearbyService(
     opening_hours: (raw.opening_hours as NearbyService["opening_hours"]) ?? null,
     services_offered: (raw.services_offered as string | null) ?? null,
     operational_status: (raw.operational_status as NearbyService["operational_status"]) ?? null,
-    equipment_nature: (raw.equipment_nature as NearbyService["equipment_nature"]) ?? null,
+    equipment_nature: equipmentNature,
   };
 }

@@ -317,6 +317,10 @@ export const useNearbyServices = ({
       const isAllTypes = effectiveTypes.length === 0;
       const shouldFilterEquipmentNature = equipmentNature !== "all";
       const equipmentNatures = shouldFilterEquipmentNature ? [equipmentNature] : [];
+      // A migration pode ser aplicada antes do backfill de `equipment_nature`.
+      // Enquanto houver linhas antigas com coluna nula, inferimos por `source_layer`
+      // e filtramos no cliente para não esconder EMEIs/UBS públicas.
+      const shouldFilterEquipmentNatureOnServer = false;
       /**
        * Cap adaptativo para fallback REST:
        * evita timeout de consultas muito amplas e reduz inconsistência de amostragem.
@@ -393,7 +397,7 @@ export const useNearbyServices = ({
         rowFetchMode: BboxRowFetchMode,
       ): Promise<{ rows: unknown[]; error: { message?: string } | null }> => {
         const baseSelect =
-          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status, equipment_nature";
+          "id, name, service_type, address, district, latitude, longitude, phone, average_rating, total_ratings, opening_hours, services_offered, operational_status, equipment_nature, source_layer";
 
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
@@ -406,7 +410,7 @@ export const useNearbyServices = ({
             .lte("longitude", box.maxLng)
             .eq("service_type", singleType);
 
-          if (shouldFilterEquipmentNature) {
+          if (shouldFilterEquipmentNatureOnServer) {
             query = query.eq("equipment_nature", equipmentNature);
           }
 
@@ -454,7 +458,7 @@ export const useNearbyServices = ({
                 service_types: [singleType],
                 result_limit: resultLimit,
                 result_offset: 0,
-                equipment_natures: equipmentNatures,
+                equipment_natures: shouldFilterEquipmentNatureOnServer ? equipmentNatures : [],
               }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light",
@@ -507,7 +511,7 @@ export const useNearbyServices = ({
             .order("id", { ascending: true })
             .limit(batchSize);
 
-          if (shouldFilterEquipmentNature) {
+          if (shouldFilterEquipmentNatureOnServer) {
             query = query.eq("equipment_nature", equipmentNature);
           }
 
@@ -602,7 +606,7 @@ export const useNearbyServices = ({
                 service_types: types,
                 result_limit: resultLimit,
                 result_offset: 0,
-                equipment_natures: equipmentNatures,
+                equipment_natures: shouldFilterEquipmentNatureOnServer ? equipmentNatures : [],
               }) as unknown as Promise<{ data: unknown; error: { message?: string } | null }>,
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light (many types)",
