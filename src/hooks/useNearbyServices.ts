@@ -210,6 +210,8 @@ export const useNearbyServices = ({
   const [error, setError] = useState<string | null>(null);
   /** Evita que uma resposta antiga sobrescreva uma busca mais recente (digitação rápida). */
   const fetchRequestIdRef = useRef(0);
+  /** Compatibilidade temporária: alguns ambientes ainda têm a RPC sem `equipment_natures`. */
+  const rpcSupportsEquipmentNatureRef = useRef(true);
 
   // Atualizar ref apenas se receber localização válida
   if (isValidCoordinate(latitude) && isValidCoordinate(longitude)) {
@@ -346,7 +348,7 @@ export const useNearbyServices = ({
           )
           .filter((service): service is NearbyService => service !== null);
 
-        const withoutOther = excludeGenericOtherType(formatted);
+        const withoutOther = filterByEquipmentNature(excludeGenericOtherType(formatted));
 
         const withinRadius = withoutOther
           .filter((service) => {
@@ -409,8 +411,31 @@ export const useNearbyServices = ({
           }
 
           // Fallback: RPC bbox light (e quadrantes) quando REST falha em bbox grande.
-          const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) =>
-            withTimeout(
+          const rpcBboxLight = async (b: NearbyBoundingBox, resultLimit: number) => {
+            const args = {
+              min_lat: b.minLat,
+              max_lat: b.maxLat,
+              min_lng: b.minLng,
+              max_lng: b.maxLng,
+              service_types: [singleType],
+              result_limit: resultLimit,
+              result_offset: 0,
+            };
+            const legacyCall = () =>
+              withTimeout(
+                supabase.rpc("search_public_services_bbox_light", args) as unknown as Promise<{
+                  data: unknown;
+                  error: { message?: string; code?: string } | null;
+                }>,
+                Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
+                "search_public_services_bbox_light (legacy signature)",
+              );
+
+            if (!rpcSupportsEquipmentNatureRef.current) {
+              return legacyCall();
+            }
+
+            const withNature = await withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
                 min_lat: b.minLat,
                 max_lat: b.maxLat,
@@ -424,6 +449,12 @@ export const useNearbyServices = ({
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light",
             );
+            if (!isRpcSignatureMissingError(withNature.error)) {
+              return withNature;
+            }
+            rpcSupportsEquipmentNatureRef.current = false;
+            return legacyCall();
+          };
 
           const { data: rpcData, error: rpcError } = await rpcBboxLight(box, lim);
           if (!rpcError && Array.isArray(rpcData)) {
@@ -514,12 +545,45 @@ export const useNearbyServices = ({
         if (typesList.length > 0 && types.length === 0) {
           return { rows: [], error: null };
         }
+        const getLegacyRpcServiceTypes = () => {
+          if (equipmentNature !== "publico" || types.length <= 1) return types;
+
+          // Ambientes sem a assinatura nova da RPC ainda retornam uma amostra sem filtro de natureza.
+          // A camada de escolas privadas domina essa amostra em bbox grande, então evitamos que ela
+          // esconda UBS/CEU/esportes públicos enquanto a migration remota não está aplicada.
+          const withoutPrivateHeavySchoolLayer = types.filter((type) => type !== "school");
+          return withoutPrivateHeavySchoolLayer.length > 0 ? withoutPrivateHeavySchoolLayer : types;
+        };
 
         // Em bbox grande, uma única RPC com todos os tipos reduz chamadas e evita 500 intermitente no REST por tipo.
         if (rowFetchMode === "unordered_single") {
           const lim = Math.max(1, Math.min(totalCap, 200));
-          const rpcManyTypes = async (b: NearbyBoundingBox, resultLimit: number) =>
-            withTimeout(
+          const rpcManyTypes = async (b: NearbyBoundingBox, resultLimit: number) => {
+            const args = {
+              min_lat: b.minLat,
+              max_lat: b.maxLat,
+              min_lng: b.minLng,
+              max_lng: b.maxLng,
+              service_types: types,
+              result_limit: resultLimit,
+              result_offset: 0,
+            };
+            const legacyArgs = { ...args, service_types: getLegacyRpcServiceTypes() };
+            const legacyCall = () =>
+              withTimeout(
+                supabase.rpc("search_public_services_bbox_light", legacyArgs) as unknown as Promise<{
+                  data: unknown;
+                  error: { message?: string; code?: string } | null;
+                }>,
+                Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
+                "search_public_services_bbox_light (many types legacy signature)",
+              );
+
+            if (!rpcSupportsEquipmentNatureRef.current) {
+              return legacyCall();
+            }
+
+            const withNature = await withTimeout(
               supabase.rpc("search_public_services_bbox_light", {
                 min_lat: b.minLat,
                 max_lat: b.maxLat,
@@ -533,6 +597,12 @@ export const useNearbyServices = ({
               Math.max(queryTimeoutMs, NEARBY_BBOX_LIGHT_RPC_TIMEOUT_MS),
               "search_public_services_bbox_light (many types)",
             );
+            if (!isRpcSignatureMissingError(withNature.error)) {
+              return withNature;
+            }
+            rpcSupportsEquipmentNatureRef.current = false;
+            return legacyCall();
+          };
 
           const { data: rpcData, error: rpcError } = await rpcManyTypes(box, lim);
           if (!rpcError && Array.isArray(rpcData)) {
@@ -734,7 +804,7 @@ export const useNearbyServices = ({
           )
           .filter((service): service is NearbyService => service !== null);
 
-        const withoutOther = excludeGenericOtherType(formatted);
+        const withoutOther = filterByEquipmentNature(excludeGenericOtherType(formatted));
 
         const withinRadius = withoutOther
           .filter((service) => {

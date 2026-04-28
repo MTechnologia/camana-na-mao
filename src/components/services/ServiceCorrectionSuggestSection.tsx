@@ -24,6 +24,7 @@ import {
   getServiceContextSummary,
 } from "@/lib/serviceCorrectionFields";
 import { cn } from "@/lib/utils";
+import { createClientId } from "@/lib/clientId";
 
 const MAX_DESCRIPTION = 4000;
 const MAX_PHOTO_MB = 5;
@@ -100,7 +101,7 @@ export function ServiceCorrectionSuggestSection({
     if (!photoFile) return null;
     const ext = photoFile.name.split(".").pop()?.toLowerCase();
     const safeExt = ext && ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-    const path = `${uid}/${crypto.randomUUID()}.${safeExt}`;
+    const path = `${uid}/${createClientId("evidence")}.${safeExt}`;
 
     const { error } = await supabase.storage.from("service-corrections").upload(path, photoFile, {
       cacheControl: "3600",
