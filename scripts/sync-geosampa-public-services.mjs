@@ -135,6 +135,17 @@ const PRIVATE_SOURCE_LAYERS = new Set([
   "rede_privada",
 ]);
 
+const PUBLIC_SOURCE_LAYERS = new Set([
+  "educacao_infantil",
+  "ensino_fundamental_medio",
+  "ensino_tecnico",
+  "ceu",
+  "ceu_sme",
+  "escola_aberta",
+  "ubs_posto_centro",
+  "equipamento_saude_ubs_posto_centro",
+]);
+
 const MIXED_OR_REVIEW_SOURCE_LAYERS = new Set([
   "hospital",
   "urgencia_emergencia",
@@ -158,6 +169,13 @@ function normalizeText(value) {
 }
 
 function inferEquipmentNature(props, sourceLayer) {
+  if (PRIVATE_SOURCE_LAYERS.has(sourceLayer)) {
+    return { nature: "privado", source: "source_layer_rule" };
+  }
+  if (PUBLIC_SOURCE_LAYERS.has(sourceLayer)) {
+    return { nature: "publico", source: "source_layer_rule" };
+  }
+
   const administrativeSphere = getProp(
     props,
     "nm_esfera_administrativa_equipamento",
@@ -178,9 +196,6 @@ function inferEquipmentNature(props, sourceLayer) {
     }
   }
 
-  if (PRIVATE_SOURCE_LAYERS.has(sourceLayer)) {
-    return { nature: "privado", source: "source_layer_rule" };
-  }
   if (MIXED_OR_REVIEW_SOURCE_LAYERS.has(sourceLayer)) {
     return { nature: "misto_indefinido", source: "source_layer_rule" };
   }

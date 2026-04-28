@@ -29,6 +29,17 @@ const parseNumber = (value: unknown): number | null => {
 const isValidCoordinate = (value: unknown): value is number =>
   typeof value === "number" && !Number.isNaN(value) && Number.isFinite(value);
 
+const PUBLIC_NATURE_SOURCE_LAYERS = new Set([
+  "educacao_infantil",
+  "ensino_fundamental_medio",
+  "ensino_tecnico",
+  "ceu",
+  "ceu_sme",
+  "escola_aberta",
+  "ubs_posto_centro",
+  "equipamento_saude_ubs_posto_centro",
+]);
+
 const MIXED_NATURE_SOURCE_LAYERS = new Set([
   "hospital",
   "equipamento_saude_hospital",
@@ -63,6 +74,7 @@ const inferEquipmentNatureFromSourceLayer = (sourceLayer: unknown): NearbyServic
   if (typeof sourceLayer !== "string" || !sourceLayer.trim()) return null;
 
   if (sourceLayer === "rede_privada") return "privado";
+  if (PUBLIC_NATURE_SOURCE_LAYERS.has(sourceLayer)) return "publico";
   if (MIXED_NATURE_SOURCE_LAYERS.has(sourceLayer)) return "misto_indefinido";
 
   return "publico";
@@ -92,8 +104,12 @@ export function mapPublicServiceRowToNearbyService(
   const lat = parseNumber(raw.latitude);
   const lng = parseNumber(raw.longitude);
   if (!isValidCoordinate(lat) || !isValidCoordinate(lng)) return null;
+  const rawEquipmentNature = normalizeEquipmentNature(raw.equipment_nature);
+  const inferredEquipmentNature = inferEquipmentNatureFromSourceLayer(raw.source_layer);
   const equipmentNature =
-    normalizeEquipmentNature(raw.equipment_nature) ?? inferEquipmentNatureFromSourceLayer(raw.source_layer);
+    rawEquipmentNature === "privado" && inferredEquipmentNature === "publico"
+      ? "publico"
+      : rawEquipmentNature ?? inferredEquipmentNature;
   return {
     id,
     name: String(raw.name ?? ""),
