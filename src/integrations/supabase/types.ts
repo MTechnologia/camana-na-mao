@@ -1153,6 +1153,8 @@ export type Database = {
           city: string
           created_at: string | null
           district: string
+          equipment_nature: string | null
+          equipment_nature_source: string | null
           id: string
           latitude: number
           longitude: number
@@ -1175,6 +1177,8 @@ export type Database = {
           city?: string
           created_at?: string | null
           district: string
+          equipment_nature?: string | null
+          equipment_nature_source?: string | null
           id?: string
           latitude: number
           longitude: number
@@ -1196,6 +1200,8 @@ export type Database = {
           city?: string
           created_at?: string | null
           district?: string
+          equipment_nature?: string | null
+          equipment_nature_source?: string | null
           id?: string
           latitude?: number
           longitude?: number
