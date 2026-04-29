@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -104,9 +104,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const isActive = (href: string) => location.pathname === href;
 
   const SidebarContent = () => (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <div className={cn(
-        "p-4 border-b border-border/50 flex items-center justify-between",
+        "p-4 border-b border-border/50 flex items-center justify-between shrink-0",
         "bg-gradient-to-r from-primary/5 to-primary/10"
       )}>
         {!collapsed && (
@@ -132,19 +132,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             <ChevronLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
           </Button>
         )}
-        {isMobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(false)}
-            className="ml-auto"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
-      <nav className="p-4 space-y-2 flex-1">
+      <nav className="flex-1 space-y-2 overflow-y-auto overscroll-contain p-4">
         {menuSections.map((section, sectionIdx) => (
           <div key={sectionIdx}>
             {section.section && (
@@ -240,9 +230,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         ))}
       </nav>
 
-      <Separator className="my-2" />
+      <Separator className="my-2 shrink-0" />
 
-      <div className="p-4 space-y-2">
+      <div className="shrink-0 p-4 space-y-2">
         <Button
           variant="outline"
           className={cn(
@@ -258,7 +248,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           {!collapsed && <span className="ml-2">Voltar ao App</span>}
         </Button>
       </div>
-    </>
+    </div>
   );
 
   if (isMobile) {
