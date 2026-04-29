@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Linking, NativeSyntheticEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Linking, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -37,6 +37,8 @@ try {
 } catch {
   APP_LINK_HOST = '';
 }
+
+const APP_SCHEME = 'camaranaomao';
 
 /** action_url relativo (ex. /avaliar/uuid) ou absoluto → URL do WebView */
 function resolveNotificationTargetUrl(pathOrUrl: string, baseWebUrl: string): string | null {
@@ -120,19 +122,37 @@ export function FrontendWebView() {
   // Universal Links (iOS) / App Links (Android): quando o usuário abre um link do e-mail no celular, abrir no app
   useEffect(() => {
     const handleOpenUrl = (url: string | null) => {
-      if (!url || !normalizeAndValidate(url)) return;
-      const parsed = url.startsWith('http') ? url : `https://${url}`;
-      if (APP_LINK_HOST && parsed.includes(APP_LINK_HOST)) {
-        setDraftUrl(parsed);
-        setActiveUrl(parsed);
-        setReloadKey((k) => k + 1);
+      if (!url) return;
+
+      try {
+        const parsedUrl = new URL(url);
+
+        if (parsedUrl.protocol === `${APP_SCHEME}:`) {
+          const base = normalizedActive || DEFAULT_WEB_URL.trim();
+          const target = new URL('/login', base);
+          target.search = parsedUrl.search;
+          target.hash = parsedUrl.hash;
+          setDraftUrl(target.href);
+          setActiveUrl(target.href);
+          setReloadKey((k) => k + 1);
+          return;
+        }
+
+        if (!normalizeAndValidate(url)) return;
+        if (APP_LINK_HOST && parsedUrl.hostname === APP_LINK_HOST) {
+          setDraftUrl(url);
+          setActiveUrl(url);
+          setReloadKey((k) => k + 1);
+        }
+      } catch {
+        return;
       }
     };
 
     Linking.getInitialURL().then(handleOpenUrl);
     const sub = Linking.addEventListener('url', (event) => handleOpenUrl(event.url));
     return () => sub.remove();
-  }, []);
+  }, [normalizedActive]);
 
   // Toque em notificação push (Expo): data.url vem de send-web-push (ex. /avaliar/:visitId)
   const openFromNotificationData = useCallback(
@@ -204,7 +224,7 @@ export function FrontendWebView() {
   }, [canGoBack]);
 
   const handleWebViewMessage = useCallback(
-    (event: NativeSyntheticEvent<WebViewMessageEvent>) => {
+    (event: WebViewMessageEvent) => {
       try {
         const data = JSON.parse(event.nativeEvent.data);
         if (data?.type === EXPO_PUSH_MESSAGE_TYPE) {

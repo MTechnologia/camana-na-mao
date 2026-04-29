@@ -1,11 +1,44 @@
+import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Mail, ArrowRight } from "lucide-react";
+import { Mail, ArrowRight, RefreshCw } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { isAutoConfirmedEmailPending } from "@/lib/emailConfirmationGuard";
 
 const ConfirmarEmail = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const email = (location.state as { email?: string } | null)?.email;
+  const { user, resendEmailConfirmation } = useAuth();
+  const [resending, setResending] = useState(false);
+  const state = location.state as { email?: string } | null;
+  const searchEmail = new URLSearchParams(location.search).get("email") ?? undefined;
+  const email = state?.email ?? user?.email ?? searchEmail;
+  const requiresSupabaseConfiguration = isAutoConfirmedEmailPending(email);
+  const isEmailConfirmed = Boolean(user?.email_confirmed_at) && !requiresSupabaseConfiguration;
+
+  const handleResend = async () => {
+    if (!email) return;
+    setResending(true);
+    await resendEmailConfirmation(email);
+    setResending(false);
+  };
+
+  const handleGoToLogin = async () => {
+    if (user && !isEmailConfirmed) {
+      await supabase.auth.signOut().catch(() => undefined);
+    }
+    navigate("/login", { replace: true });
+  };
+
+  const handlePrimaryAction = async () => {
+    if (isEmailConfirmed) {
+      navigate("/");
+      return;
+    }
+
+    await handleGoToLogin();
+  };
 
   return (
     <div className="min-h-screen bg-muted flex flex-col items-center justify-center p-6">
@@ -15,13 +48,25 @@ const ConfirmarEmail = () => {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            Confirme seu e-mail
+            {isEmailConfirmed ? "E-mail confirmado" : "Confirme seu e-mail"}
           </h1>
           <p className="text-muted-foreground">
-            {email ? (
+            {isEmailConfirmed ? (
               <>
-                Enviamos um link de confirmação para <strong className="text-foreground">{email}</strong>.
-                Abra seu e-mail e clique no link para ativar sua conta.
+                Seu e-mail já está confirmado. Você já pode acessar o app.
+              </>
+            ) : email ? (
+              <>
+                {requiresSupabaseConfiguration ? (
+                  <>
+                    O cadastro foi criado para <strong className="text-foreground">{email}</strong>, mas o Supabase marcou o e-mail como confirmado automaticamente.
+                  </>
+                ) : (
+                  <>
+                    Enviamos um link de confirmação para <strong className="text-foreground">{email}</strong>.
+                    Abra seu e-mail e clique no link para ativar sua conta.
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -32,16 +77,32 @@ const ConfirmarEmail = () => {
           </p>
         </div>
         <p className="text-sm text-muted-foreground">
-          Depois de confirmar, você poderá fazer login e acessar o app normalmente.
+          {isEmailConfirmed
+            ? "Se o app não abrir automaticamente, use o botão abaixo."
+            : requiresSupabaseConfiguration
+              ? "Para exigir validação real, ative a confirmação de e-mail no Supabase Auth. Até lá, este navegador não liberará o login desse cadastro."
+            : "Depois de confirmar, você poderá fazer login e acessar o app normalmente."}
         </p>
         <div className="flex flex-col gap-3 pt-4">
           <Button
-            onClick={() => navigate("/login")}
+            onClick={() => void handlePrimaryAction()}
             className="w-full"
           >
-            Ir para o login
+            {isEmailConfirmed ? "Entrar no app" : "Ir para o login"}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
+          {!isEmailConfirmed && email && !requiresSupabaseConfiguration && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleResend()}
+              disabled={resending}
+              className="w-full"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${resending ? "animate-spin" : ""}`} />
+              {resending ? "Reenviando..." : "Reenviar e-mail de confirmação"}
+            </Button>
+          )}
           <Link
             to="/welcome"
             className="text-sm text-muted-foreground hover:text-foreground"
