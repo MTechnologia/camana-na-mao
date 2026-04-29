@@ -42,6 +42,7 @@ interface ParticipacaoRecord {
 }
 
 interface AudienciaRow {
+  id?: string;
   titulo: string;
   data: string;
   hora: string | null;
@@ -72,6 +73,98 @@ function formatDataHora(data: string, hora: string | null): string {
   const d = data.slice(0, 10);
   if (hora && hora.length >= 8) return `${d} ${hora.slice(0, 8)}`;
   return d;
+}
+
+const AP_CODE_COMMISSION_HINTS: Record<string, string[]> = {
+  ECON: ["economia", "desenvolvimento economico", "turismo", "transito", "transporte", "atividade economica"],
+  FIN: ["financas", "orcamento"],
+  SAUDE: ["saude", "promocao social", "trabalho", "mulher"],
+  TRANS: ["transito", "transporte", "atividade economica", "turismo", "lazer"],
+  EDUC: ["educacao", "cultura", "esportes"],
+  URB: ["politica urbana", "metropolitana", "meio ambiente"],
+  ADM: ["administracao publica"],
+  CONST: ["constituicao", "justica", "legislacao"],
+  EXTRA: ["extraordinaria"],
+};
+
+function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function apCodePrefix(apCode?: string | null): string {
+  return (apCode ?? "").split("-")[0]?.replace(/\d+$/g, "").toUpperCase() ?? "";
+}
+
+function scoreAudienciaForApCode(audiencia: AudienciaRow, apCode?: string | null): number {
+  const prefix = apCodePrefix(apCode);
+  if (!prefix) return 0;
+  const text = normalizeForMatch(`${audiencia.comissao ?? ""} ${audiencia.titulo ?? ""}`);
+  if (!text) return 0;
+
+  const hints = AP_CODE_COMMISSION_HINTS[prefix] ?? [];
+  if (hints.some((hint) => text.includes(hint))) return 20;
+
+  const normalizedPrefix = normalizeForMatch(prefix);
+  if (normalizedPrefix.length >= 3 && text.includes(normalizedPrefix)) return 10;
+
+  return 0;
+}
+
+function isAudienciaConsistentWithApCode(audiencia: AudienciaRow): boolean {
+  const apCode = audiencia.ap_code?.trim();
+  if (!apCode) return true;
+  return scoreAudienciaForApCode(audiencia, apCode) > 0;
+}
+
+function sameNormalizedText(a?: string | null, b?: string | null): boolean {
+  const aNorm = normalizeForMatch(a ?? "");
+  const bNorm = normalizeForMatch(b ?? "");
+  return !!aNorm && aNorm === bNorm;
+}
+
+async function resolveAudienciaForEmail(
+  supabase: ReturnType<typeof createClient>,
+  audiencia: AudienciaRow | null,
+): Promise<AudienciaRow | null> {
+  if (!audiencia) return null;
+
+  const needsLookup = !audiencia.ap_code?.trim() || !isAudienciaConsistentWithApCode(audiencia);
+  if (!needsLookup || !audiencia.data) return audiencia;
+
+  let query = supabase
+    .from("audiencias")
+    .select("id, titulo, data, hora, comissao, link_transmissao, ap_code, mais_informacoes")
+    .eq("data", audiencia.data);
+  query = audiencia.hora ? query.eq("hora", audiencia.hora) : query.is("hora", null);
+
+  const { data: candidates } = await query;
+  const rows = ((candidates ?? []) as AudienciaRow[]).filter((row) => row.id !== audiencia.id);
+
+  if (audiencia.ap_code?.trim()) {
+    const bySameApCode = rows.find((row) => row.ap_code === audiencia.ap_code && isAudienciaConsistentWithApCode(row));
+    if (bySameApCode) return bySameApCode;
+
+    const byCommissionMatch = rows
+      .map((row) => ({ row, score: scoreAudienciaForApCode(row, audiencia.ap_code) }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)[0]?.row;
+    if (byCommissionMatch) {
+      return { ...byCommissionMatch, ap_code: audiencia.ap_code };
+    }
+  }
+
+  const withSameNameAndApCode = rows.find((row) =>
+    row.ap_code?.trim() &&
+    (sameNormalizedText(row.comissao, audiencia.comissao) || sameNormalizedText(row.titulo, audiencia.titulo))
+  );
+
+  return withSameNameAndApCode ?? audiencia;
 }
 
 /** Bloco HTML com o texto da manifestação por escrito (quebras de linha preservadas). */
@@ -291,15 +384,16 @@ serve(async (req) => {
 
     const { data: audiencia } = await supabase
       .from("audiencias")
-      .select("titulo, data, hora, comissao, link_transmissao, ap_code, mais_informacoes")
+      .select("id, titulo, data, hora, comissao, link_transmissao, ap_code, mais_informacoes")
       .eq("id", record.audiencia_id)
       .maybeSingle();
+    const audienciaForEmail = await resolveAudienciaForEmail(supabase, audiencia as AudienciaRow | null);
 
     const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/$/, "");
-    const { subject, html } = buildHtmlEmail(record, audiencia as AudienciaRow | null, appUrl);
+    const { subject, html } = buildHtmlEmail(record, audienciaForEmail, appUrl);
     const { subject: adminSubject, html: adminHtml } = buildAdminNotificationEmail(
       record,
-      audiencia as AudienciaRow | null,
+      audienciaForEmail,
       appUrl
     );
 
