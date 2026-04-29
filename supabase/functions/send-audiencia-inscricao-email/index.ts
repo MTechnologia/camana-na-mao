@@ -101,6 +101,15 @@ function apCodePrefix(apCode?: string | null): string {
   return (apCode ?? "").split("-")[0]?.replace(/\d+$/g, "").toUpperCase() ?? "";
 }
 
+function expectedApCodePrefix(audiencia: AudienciaRow): string | null {
+  const text = normalizeForMatch(`${audiencia.comissao ?? ""} ${audiencia.titulo ?? ""}`);
+  if (!text) return null;
+  for (const [prefix, hints] of Object.entries(AP_CODE_COMMISSION_HINTS)) {
+    if (hints.some((hint) => text.includes(hint))) return prefix;
+  }
+  return null;
+}
+
 function scoreAudienciaForApCode(audiencia: AudienciaRow, apCode?: string | null): number {
   const prefix = apCodePrefix(apCode);
   if (!prefix) return 0;
@@ -128,6 +137,29 @@ function sameNormalizedText(a?: string | null, b?: string | null): boolean {
   return !!aNorm && aNorm === bNorm;
 }
 
+function apCodeDateSuffix(data?: string | null): string | null {
+  const date = (data ?? "").slice(0, 10);
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  return `${day}-${month}-${year}`;
+}
+
+function displayApCode(audiencia: AudienciaRow | null): string {
+  if (!audiencia) return "—";
+  const rawApCode = audiencia.ap_code?.trim() ?? "";
+  if (rawApCode && isAudienciaConsistentWithApCode(audiencia)) return rawApCode;
+
+  const expectedPrefix = expectedApCodePrefix(audiencia);
+  if (!expectedPrefix) return rawApCode || "—";
+
+  const rawSuffix = rawApCode.match(/^[A-Z]+(\d+-\d{2}-\d{2}-\d{4}(?:-\d+h)?)$/i)?.[1];
+  if (rawSuffix) return `${expectedPrefix}${rawSuffix}`;
+
+  const dateSuffix = apCodeDateSuffix(audiencia.data);
+  return dateSuffix ? `${expectedPrefix}-${dateSuffix}` : expectedPrefix;
+}
+
 async function resolveAudienciaForEmail(
   supabase: ReturnType<typeof createClient>,
   audiencia: AudienciaRow | null,
@@ -146,21 +178,9 @@ async function resolveAudienciaForEmail(
   const { data: candidates } = await query;
   const rows = ((candidates ?? []) as AudienciaRow[]).filter((row) => row.id !== audiencia.id);
 
-  if (audiencia.ap_code?.trim()) {
-    const bySameApCode = rows.find((row) => row.ap_code === audiencia.ap_code && isAudienciaConsistentWithApCode(row));
-    if (bySameApCode) return bySameApCode;
-
-    const byCommissionMatch = rows
-      .map((row) => ({ row, score: scoreAudienciaForApCode(row, audiencia.ap_code) }))
-      .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score)[0]?.row;
-    if (byCommissionMatch) {
-      return { ...byCommissionMatch, ap_code: audiencia.ap_code };
-    }
-  }
-
   const withSameNameAndApCode = rows.find((row) =>
     row.ap_code?.trim() &&
+    isAudienciaConsistentWithApCode(row) &&
     (sameNormalizedText(row.comissao, audiencia.comissao) || sameNormalizedText(row.titulo, audiencia.titulo))
   );
 
@@ -208,7 +228,7 @@ function buildHtmlEmail(
   appUrl: string
 ): { subject: string; html: string } {
   const tipo = record.tipo === "escrito" ? "escrito" : "videoconferencia";
-  const apCode = audiencia?.ap_code ?? "—";
+  const apCode = displayApCode(audiencia);
   const dataHora = audiencia ? formatDataHora(audiencia.data, audiencia.hora) : "";
   const contactEmail = audiencia?.mais_informacoes?.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/)?.[0] ?? null;
   const telefoneDigits = (record.telefone || "").replace(/\D/g, "");
@@ -283,7 +303,7 @@ function buildAdminNotificationEmail(
   appUrl: string
 ): { subject: string; html: string } {
   const tipo = record.tipo === "escrito" ? "escrito" : "videoconferencia";
-  const apCode = audiencia?.ap_code ?? "—";
+  const apCode = displayApCode(audiencia);
   const dataHora = audiencia ? formatDataHora(audiencia.data, audiencia.hora) : "";
   const comissaoOuTitulo = audiencia?.comissao?.trim() || audiencia?.titulo?.trim() || "—";
   const telefoneDigits = (record.telefone || "").replace(/\D/g, "");
