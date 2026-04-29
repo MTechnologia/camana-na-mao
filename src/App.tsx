@@ -36,6 +36,7 @@ import TestTask4 from "./pages/TestTask4";
 const Welcome = lazy(() => import("./pages/Welcome"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
+const ConfirmarEmail = lazy(() => import("./pages/ConfirmarEmail"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -227,6 +228,7 @@ const AppContent = () => {
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/confirmar-email" element={<ConfirmarEmail />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/nova-senha" element={<UpdatePassword />} />
           <Route path="/privacidade" element={<PrivacyPolicyPage />} />

@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { loginSchema } from "@/lib/validations";
 import { toast } from "sonner";
 import brasaoSP from "@/assets/brasao-sp.png";
+import { isAutoConfirmedEmailPending } from "@/lib/emailConfirmationGuard";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -21,8 +22,12 @@ const Login = () => {
   const isEmailValid = email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   useEffect(() => {
-    if (user) {
+    if (user && isAutoConfirmedEmailPending(user.email)) {
+      navigate("/confirmar-email", { replace: true, state: { email: user.email } });
+    } else if (user?.email_confirmed_at) {
       navigate("/");
+    } else if (user && !user.email_confirmed_at) {
+      navigate("/confirmar-email", { replace: true, state: { email: user.email } });
     }
   }, [user, navigate]);
 
@@ -33,10 +38,21 @@ const Login = () => {
       const validated = loginSchema.parse({ email, password });
       setLoading(true);
 
+      if (isAutoConfirmedEmailPending(validated.email)) {
+        toast.error("Confirme seu e-mail antes de acessar o app.");
+        navigate("/confirmar-email", { replace: true, state: { email: validated.email } });
+        return;
+      }
+
       const { error } = await signIn(validated.email, validated.password);
 
       if (!error) {
         navigate("/");
+      } else if (
+        error.message?.toLowerCase().includes("email not confirmed") ||
+        error.message?.toLowerCase().includes("email confirmation pending")
+      ) {
+        navigate("/confirmar-email", { replace: true, state: { email: validated.email } });
       }
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }> };

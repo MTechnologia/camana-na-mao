@@ -3,9 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, ChevronLeft } from "lucide-react";
+import { Eye, EyeOff, ChevronLeft, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { registerStep1Schema, registerStep2Schema } from "@/lib/validations";
+import { passwordRequirements, registerStep1Schema, registerStep2Schema } from "@/lib/validations";
 import { toast } from "sonner";
 import { supabase, supabaseUrl, supabaseAnonKey } from "@/integrations/supabase/client";
 import StepIndicator from "@/components/register/StepIndicator";
@@ -81,8 +81,9 @@ const Register = () => {
 
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: "" };
-    if (password.length < 6) return { strength: 33, label: "Fraca", color: "bg-red-500" };
-    if (password.length < 10) return { strength: 66, label: "Média", color: "bg-yellow-500" };
+    const metRequirements = passwordRequirements.filter((requirement) => requirement.test(password)).length;
+    if (metRequirements < 3) return { strength: 33, label: "Fraca", color: "bg-red-500" };
+    if (metRequirements < passwordRequirements.length) return { strength: 66, label: "Média", color: "bg-yellow-500" };
     return { strength: 100, label: "Forte", color: "bg-green-500" };
   };
 
@@ -127,38 +128,12 @@ const Register = () => {
       );
 
       if (!error && data?.user) {
-        setUserId(data.user.id);
-        // Garantir que nome e celular fiquem no perfil (upsert: cria se trigger ainda não rodou, atualiza se já existir)
-        await supabase
-          .from("profiles")
-          .upsert(
-            {
-              id: data.user.id,
-              full_name: formData.fullName.trim() || "Usuário",
-              phone: formData.phone.trim() || null,
-            },
-            { onConflict: "id" }
-          );
-
-        // Record consents in database
-        try {
-          await supabase.rpc('grant_consent', {
-            _user_id: data.user.id,
-            _consent_type: 'terms_of_use',
-            _version: '1.0'
-          });
-          
-          await supabase.rpc('grant_consent', {
-            _user_id: data.user.id,
-            _consent_type: 'privacy_policy',
-            _version: '1.0'
-          });
-        } catch (consentErr) {
-          console.error('Error recording consents:', consentErr);
-          // Don't block registration if consent recording fails
-        }
-        
-        setCurrentStep(3);
+        await supabase.auth.signOut().catch(() => undefined);
+        navigate("/confirmar-email", {
+          replace: true,
+          state: { email: formData.email.trim() },
+        });
+        return;
       }
     } catch (error: unknown) {
       if (error.errors) {
@@ -427,6 +402,35 @@ const Register = () => {
                     </span>
                   </div>
                 )}
+                <div className="mt-3 rounded-xl border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-medium text-foreground mb-2">
+                    A senha deve conter:
+                  </p>
+                  <ul className="space-y-1">
+                    {passwordRequirements.map((requirement) => {
+                      const isMet = requirement.test(formData.password);
+                      return (
+                        <li
+                          key={requirement.id}
+                          className={`flex items-center gap-2 text-xs ${
+                            isMet ? "text-green-700" : "text-muted-foreground"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                              isMet
+                                ? "border-green-600 bg-green-600 text-white"
+                                : "border-muted-foreground/40"
+                            }`}
+                          >
+                            {isMet && <Check size={12} strokeWidth={3} />}
+                          </span>
+                          {requirement.label}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">
