@@ -610,6 +610,85 @@ function slugToApCode(slug: string): string {
   return slug.slice(0, idx).toUpperCase() + slug.slice(idx);
 }
 
+type CmspSlugEntry = {
+  slug: string;
+  data: string;
+  apCode: string;
+  prefix: string;
+};
+
+const AP_CODE_COMMISSION_HINTS: Record<string, string[]> = {
+  ECON: ["economia", "desenvolvimento economico", "turismo", "transito", "transporte", "atividade economica"],
+  FIN: ["financas", "orcamento"],
+  SAUDE: ["saude", "promocao social", "trabalho", "mulher"],
+  TRANS: ["transito", "transporte", "atividade economica", "turismo", "lazer"],
+  EDUC: ["educacao", "cultura", "esportes"],
+  URB: ["politica urbana", "metropolitana", "meio ambiente"],
+  ADM: ["administracao publica"],
+  CONST: ["constituicao", "justica", "legislacao"],
+  EXTRA: ["extraordinaria"],
+};
+
+function normalizeForSlugMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function apCodePrefixFromSlug(slug: string): string {
+  const apCode = slugToApCode(slug);
+  return apCode.split("-")[0]?.replace(/\d+$/g, "") ?? "";
+}
+
+function slugEntryFromSlug(slug: string): CmspSlugEntry | null {
+  const data = dateFromSlug(slug);
+  if (!data) return null;
+  const apCode = slugToApCode(slug);
+  const prefix = apCodePrefixFromSlug(slug);
+  return { slug, data, apCode, prefix };
+}
+
+function scoreSlugForAudiencia(
+  entry: CmspSlugEntry,
+  row: { comissao?: unknown; titulo?: unknown },
+): number {
+  const text = normalizeForSlugMatch(`${row.comissao ?? ""} ${row.titulo ?? ""}`);
+  if (!text) return 0;
+
+  const prefix = entry.prefix.toUpperCase();
+  const hints = AP_CODE_COMMISSION_HINTS[prefix] ?? [];
+  if (hints.some((hint) => text.includes(hint))) return 20;
+
+  const normalizedPrefix = normalizeForSlugMatch(prefix);
+  if (normalizedPrefix.length >= 3 && text.includes(normalizedPrefix)) return 10;
+
+  return 0;
+}
+
+function pickSlugForAudiencia(
+  entries: CmspSlugEntry[] | undefined,
+  row: { comissao?: unknown; titulo?: unknown },
+): CmspSlugEntry | null {
+  if (!entries?.length) return null;
+  if (entries.length === 1) {
+    const onlyEntry = entries[0]!;
+    return scoreSlugForAudiencia(onlyEntry, row) > 0 ? onlyEntry : null;
+  }
+
+  const scored = entries
+    .map((entry) => ({ entry, score: scoreSlugForAudiencia(entry, row) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return null;
+  if (scored.length > 1 && scored[0]!.score === scored[1]!.score) return null;
+  return scored[0]!.entry;
+}
+
 function stripDiacriticsHtmlText(s: string): string {
   return s
     .toLowerCase()
@@ -687,9 +766,9 @@ function parseCmspListingHtml(html: string): Array<{ slug: string; data: string 
   return Array.from(bySlug.values());
 }
 
-/** Busca até numPages páginas da listagem CMSP e retorna mapa data -> slugs[]. */
-async function fetchCmspSlugsByData(numPages: number): Promise<Map<string, string[]>> {
-  const byData = new Map<string, string[]>();
+/** Busca até numPages páginas da listagem CMSP e retorna mapa data -> slugs com código AP. */
+async function fetchCmspSlugsByData(numPages: number): Promise<Map<string, CmspSlugEntry[]>> {
+  const byData = new Map<string, CmspSlugEntry[]>();
   for (let p = 1; p <= numPages; p++) {
     const pageUrl = p === 1 ? `${CMSP_LIST_BASE}/` : `${CMSP_LIST_BASE}/page/${p}/`;
     try {
@@ -708,8 +787,10 @@ async function fetchCmspSlugsByData(numPages: number): Promise<Map<string, strin
       const entries = parseCmspListingHtml(html);
       for (const { slug, data } of entries) {
         if (!data) continue;
+        const entry = slugEntryFromSlug(slug);
+        if (!entry) continue;
         const list = byData.get(data) ?? [];
-        if (!list.includes(slug)) list.push(slug);
+        if (!list.some((item) => item.slug === slug)) list.push(entry);
         byData.set(data, list);
       }
       if (entries.length > 0) {
@@ -1184,29 +1265,37 @@ serve(async (req) => {
       console.log("[fetch-audiencias] CMSP slugs por data:", numDatas, numDatas > 0 ? "datas" : "(nenhum – verifique se a listagem CMSP está acessível pela Edge Function)");
       if (numDatas > 0) {
         const datasComSlug = [...cmspSlugsByData.keys()];
-        const { data: semSlug, error: selectErr } = await supabase
+        const { data: audienciasComData, error: selectErr } = await supabase
           .from("audiencias")
-          .select("id, data")
-          .is("slug", null)
+          .select("id, data, titulo, comissao, slug, ap_code")
           .in("data", datasComSlug);
         if (selectErr) {
-          console.warn("[fetch-audiencias] Select audiencias sem slug:", selectErr.message);
+          console.warn("[fetch-audiencias] Select audiencias para slug:", selectErr.message);
         } else {
-          console.log("[fetch-audiencias] Audiências sem slug com data na CMSP:", (semSlug ?? []).length);
+          console.log("[fetch-audiencias] Audiências com data na CMSP para casar slug:", (audienciasComData ?? []).length);
         }
-        for (const row of semSlug ?? []) {
+        let slugsSkippedAmbiguous = 0;
+        for (const row of audienciasComData ?? []) {
           const dataStr = row.data as string;
-          const slugs = cmspSlugsByData.get(dataStr);
-          const slug = slugs?.[0];
-          if (!slug) continue;
+          const matched = pickSlugForAudiencia(cmspSlugsByData.get(dataStr), row);
+          if (!matched) {
+            slugsSkippedAmbiguous++;
+            continue;
+          }
+          const currentSlug = (row.slug as string | null | undefined)?.trim() ?? "";
+          const currentApCode = (row.ap_code as string | null | undefined)?.trim() ?? "";
+          if (currentSlug === matched.slug && currentApCode === matched.apCode) continue;
           const { error: upErr } = await supabase
             .from("audiencias")
-            .update({ slug, ap_code: slugToApCode(slug) })
+            .update({ slug: matched.slug, ap_code: matched.apCode })
             .eq("id", row.id);
           if (!upErr) slugsUpdated++;
         }
         if (slugsUpdated > 0) {
-          console.log("[fetch-audiencias] Slug/ap_code preenchidos a partir da CMSP:", slugsUpdated);
+          console.log("[fetch-audiencias] Slug/ap_code preenchidos/corrigidos a partir da CMSP:", slugsUpdated);
+        }
+        if (slugsSkippedAmbiguous > 0) {
+          console.log("[fetch-audiencias] Slug/ap_code ignorados por casamento ambíguo:", slugsSkippedAmbiguous);
         }
       }
     } catch (slugErr) {
