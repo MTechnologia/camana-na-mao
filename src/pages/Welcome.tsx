@@ -60,8 +60,8 @@ const Welcome = () => {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-background z-[100]">
-      {/* Header with logo and skip */}
-      <header className="flex items-center justify-between px-6 py-4">
+      {/* Header with logo */}
+      <header className="flex items-center px-6 py-4">
         <div className="flex items-center gap-2">
           <img 
             src={brasaoSP} 
@@ -70,14 +70,6 @@ const Welcome = () => {
           />
           <span className="text-base font-bold text-foreground">Câmara na Mão</span>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/login")}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          Pular
-        </Button>
       </header>
 
       {/* Carousel */}
