@@ -25,6 +25,7 @@ import { DemographicFilters, DemographicFilterState } from '@/components/analyti
 import { VolumeOverviewTab } from '@/components/analytics/VolumeOverviewTab';
 import { ResponseTimeOverviewTab } from '@/components/analytics/ResponseTimeOverviewTab';
 import { DiagnosticoTab } from '@/components/analytics/DiagnosticoTab';
+import { AudienciasAnalyticsTab } from '@/components/analytics/AudienciasAnalyticsTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
@@ -217,10 +218,11 @@ export default function ReportsAnalyticsPage() {
 
         {/* Tabs for detailed analytics */}
         <Tabs defaultValue="volume" className="w-full">
-          <TabsList className="flex flex-wrap md:grid md:grid-cols-8 w-full h-auto gap-1 p-1">
+          <TabsList className="flex flex-wrap md:grid md:grid-cols-9 w-full h-auto gap-1 p-1">
             <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>
             <TabsTrigger value="eficiencia" className="flex-1 min-w-[100px]">Eficiência</TabsTrigger>
             <TabsTrigger value="diagnostico" className="flex-1 min-w-[100px]">Diagnóstico</TabsTrigger>
+            <TabsTrigger value="audiencias" className="flex-1 min-w-[100px]">Audiências</TabsTrigger>
             <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
             <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
             <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
@@ -241,6 +243,11 @@ export default function ReportsAnalyticsPage() {
           {/* TAB DIAGNÓSTICO — HU-1.3: sentimento + padrões + criticidade */}
           <TabsContent value="diagnostico" className="space-y-6">
             <DiagnosticoTab />
+          </TabsContent>
+
+          {/* TAB AUDIÊNCIAS — HU-1.4: engajamento em audiências */}
+          <TabsContent value="audiencias" className="space-y-6">
+            <AudienciasAnalyticsTab />
           </TabsContent>
 
           {/* TAB GERAL */}
