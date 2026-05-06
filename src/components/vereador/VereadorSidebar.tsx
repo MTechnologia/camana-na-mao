@@ -2,7 +2,7 @@ import { Dispatch, SetStateAction, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn, getInitials } from '@/lib/utils';
@@ -130,6 +130,10 @@ export const VereadorSidebar = ({ mobileOpen, setMobileOpen, isMobile }: Vereado
     return (
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 p-0 flex flex-col">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Menu do gabinete</SheetTitle>
+            <SheetDescription>Navegação do painel do vereador</SheetDescription>
+          </SheetHeader>
           {content}
         </SheetContent>
       </Sheet>
