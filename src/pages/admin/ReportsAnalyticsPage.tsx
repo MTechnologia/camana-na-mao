@@ -22,6 +22,7 @@ import { TimeDistributionChart } from '@/components/analytics/TimeDistributionCh
 import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { DemographicFilters, DemographicFilterState } from '@/components/analytics/DemographicFilters';
+import { VolumeOverviewTab } from '@/components/analytics/VolumeOverviewTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
@@ -141,7 +142,8 @@ export default function ReportsAnalyticsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Análise de Relatos</h1>
             <p className="text-muted-foreground">
-              Relatos urbanos e de transporte • Avaliações de serviço em outra seção
+              Volume, sentimento, demografia e criticidade — relatos urbanos, de transporte e
+              avaliações de serviço
             </p>
           </div>
           <div className="flex gap-2">
@@ -212,14 +214,20 @@ export default function ReportsAnalyticsPage() {
         </div>
 
         {/* Tabs for detailed analytics */}
-        <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="flex flex-wrap md:grid md:grid-cols-5 w-full h-auto gap-1 p-1">
+        <Tabs defaultValue="volume" className="w-full">
+          <TabsList className="flex flex-wrap md:grid md:grid-cols-6 w-full h-auto gap-1 p-1">
+            <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>
             <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
             <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
             <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
             <TabsTrigger value="engajamento" className="flex-1 min-w-[110px]">Engajamento</TabsTrigger>
             <TabsTrigger value="criticidade" className="flex-1 min-w-[100px]">Criticidade</TabsTrigger>
           </TabsList>
+
+          {/* TAB VOLUME — HU-1.1: visão de volume por período / categoria / região */}
+          <TabsContent value="volume" className="space-y-6">
+            <VolumeOverviewTab />
+          </TabsContent>
 
           {/* TAB GERAL */}
           <TabsContent value="geral" className="space-y-6">
