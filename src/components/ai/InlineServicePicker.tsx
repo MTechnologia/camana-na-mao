@@ -138,7 +138,7 @@ async function validateManualEntryNotRatedToday(
   if (term.length < 2) return { blocked: false };
 
   const applyType = (strict: boolean) => {
-    let q = supabase.from("public_services").select("id, name, district").limit(40);
+    let q = supabase.from("public_services").select("id, name, district").is("duplicate_of", null).limit(40);
     if (!st) return q;
     if (strict) return q.eq("service_type", st);
     if (st === "hospital") return q.in("service_type", ["hospital", "other"] as string[]);
@@ -234,7 +234,7 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
       setIsLoading(true);
       try {
         const baseSelect = () =>
-          supabase.from("public_services").select("id, name, service_type, district, address").limit(80);
+          supabase.from("public_services").select("id, name, service_type, district, address").is("duplicate_of", null).limit(80);
 
         const applyType = (
           q: ReturnType<typeof baseSelect>,

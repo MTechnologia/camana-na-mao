@@ -408,7 +408,8 @@ export const useNearbyServices = ({
             .lte("latitude", box.maxLat)
             .gte("longitude", box.minLng)
             .lte("longitude", box.maxLng)
-            .eq("service_type", singleType);
+            .eq("service_type", singleType)
+            .is("duplicate_of", null);
 
           if (shouldFilterEquipmentNatureOnServer) {
             query = query.eq("equipment_nature", equipmentNature);
@@ -508,6 +509,7 @@ export const useNearbyServices = ({
             .gte("longitude", box.minLng)
             .lte("longitude", box.maxLng)
             .eq("service_type", singleType)
+            .is("duplicate_of", null)
             .order("id", { ascending: true })
             .limit(batchSize);
 

@@ -27,6 +27,7 @@ import { ResponseTimeOverviewTab } from '@/components/analytics/ResponseTimeOver
 import { DiagnosticoTab } from '@/components/analytics/DiagnosticoTab';
 import { AudienciasAnalyticsTab } from '@/components/analytics/AudienciasAnalyticsTab';
 import { TerritorialDrillTab } from '@/components/analytics/TerritorialDrillTab';
+import { MultiDrillTab } from '@/components/analytics/MultiDrillTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
@@ -219,12 +220,14 @@ export default function ReportsAnalyticsPage() {
 
         {/* Tabs for detailed analytics */}
         <Tabs defaultValue="volume" className="w-full">
-          <TabsList className="flex flex-wrap md:grid md:grid-cols-10 w-full h-auto gap-1 p-1">
+          {/* Tabs em flex-wrap puro (mobile-first): quebra naturalmente em 2 linhas sem grid rígido. */}
+          <TabsList className="flex flex-wrap w-full h-auto gap-1 p-1">
             <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>
             <TabsTrigger value="eficiencia" className="flex-1 min-w-[100px]">Eficiência</TabsTrigger>
             <TabsTrigger value="diagnostico" className="flex-1 min-w-[100px]">Diagnóstico</TabsTrigger>
             <TabsTrigger value="audiencias" className="flex-1 min-w-[100px]">Audiências</TabsTrigger>
             <TabsTrigger value="territorial" className="flex-1 min-w-[100px]">Territorial</TabsTrigger>
+            <TabsTrigger value="drill" className="flex-1 min-w-[100px]">Drill-down</TabsTrigger>
             <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
             <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
             <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
@@ -255,6 +258,11 @@ export default function ReportsAnalyticsPage() {
           {/* TAB TERRITORIAL — HU-3.1: drill-down zona › bairro › rua */}
           <TabsContent value="territorial" className="space-y-6">
             <TerritorialDrillTab />
+          </TabsContent>
+
+          {/* TAB DRILL-DOWN — HU-3.2: drill multi-dimensional (categoria/tempo/status/audiência) */}
+          <TabsContent value="drill" className="space-y-6">
+            <MultiDrillTab />
           </TabsContent>
 
           {/* TAB GERAL */}

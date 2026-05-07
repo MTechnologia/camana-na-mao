@@ -160,6 +160,57 @@ const MIXED_OR_REVIEW_SOURCE_LAYERS = new Set([
   "equipamento_cultura_outros",
 ]);
 
+/** Infraestrutura viária / análise / coberturas: não deve entrar em public_services. */
+const BLOCKED_PUBLIC_SERVICES_SOURCE_LAYERS = new Set([
+  "acidentes",
+  "area_influencia_metro",
+  "area_influencia_trem",
+  "calcadas",
+  "contagem_ciclistas",
+  "cruzamentos_semaforizados",
+  "det",
+  "diagnostico_potencialidades",
+  "diagnostico_riscos",
+  "diretoria_regional_educacao",
+  "get",
+  "hierarquia_pedestre",
+  "junta_servico_militar",
+  "limite_batalhoes_pm",
+  "limite_comandos_pm",
+  "limite_companhias_pm",
+  "limite_delegacias_pc",
+  "limite_seccionais_pc",
+  "ponto_entrega_voluntaria",
+  "quadra_viaria",
+  "restricao_mian",
+  "restricao_zmrc",
+  "restricao_zmrf",
+  "saude_abrangencia_ubs",
+  "saude_coordenadoria_regional",
+  "saude_cobertura_familia",
+  "saude_supervisao_tecnica",
+  "setor_educacional",
+  "vaga_especial",
+  "vaga_especial_estabelecimento",
+  "vigilancia_saude",
+  "zona_origem_destino",
+]);
+
+/**
+ * Mesmo que GEOSAMPA_LAYERS_JSON (secret legado) marque `other`, força o tipo canônico no upsert.
+ */
+const SOURCE_LAYER_SERVICE_TYPE_OVERRIDES = Object.freeze({
+  ponto_onibus: "transit_station",
+  estacao_metro: "transit_station",
+  estacao_trem: "transit_station",
+  terminal_onibus: "transit_station",
+  estacao_metro_projeto: "transit_station",
+  estacao_trem_projeto: "transit_station",
+  bicicletario_paraciclo: "bicycle",
+  aterro_sanitario: "recycling_point",
+  defesa_civil: "social_assistance",
+});
+
 function normalizeText(value) {
   return String(value ?? "")
     .normalize("NFD")
@@ -461,6 +512,12 @@ async function main() {
       console.warn("Camada ignorada (falta url ou source_layer):", layer);
       continue;
     }
+    if (BLOCKED_PUBLIC_SERVICES_SOURCE_LAYERS.has(source_layer)) {
+      console.warn(`[${source_layer}] Camada bloqueada para public_services — ignorada.`);
+      continue;
+    }
+    const effectiveServiceType =
+      SOURCE_LAYER_SERVICE_TYPE_OVERRIDES[source_layer] ?? (service_type ?? "other");
     console.log(`[${source_layer}] Buscando ${url.slice(0, 60)}...`);
 
     let geojson;
@@ -474,7 +531,7 @@ async function main() {
     const features = geojson?.features ?? [];
     let rows = [];
     for (let i = 0; i < features.length; i++) {
-      const row = featureToRow(features[i], { service_type: service_type ?? "other", source_layer }, i);
+      const row = featureToRow(features[i], { service_type: effectiveServiceType, source_layer }, i);
       if (row) rows.push(row);
     }
 
