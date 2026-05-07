@@ -139,6 +139,11 @@ export default function ServiceDetailPage() {
         }
 
         if (data) {
+          const dup = (data as { duplicate_of?: string | null }).duplicate_of;
+          if (dup) {
+            navigate(`/servico/${dup}`, { replace: true });
+            return;
+          }
           setService(data);
           setRealServiceId(data.id);
           return;
