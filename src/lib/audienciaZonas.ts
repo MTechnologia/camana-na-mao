@@ -55,16 +55,31 @@ const ZONA_KEYWORDS: { zona: ZonaSP; keywords: string[] }[] = [
 ];
 
 /**
- * Retorna a zona de São Paulo para um texto de local (endereço/nome do auditório).
- * Usado no filtro por região para exibir zonas em vez de endereços.
+ * Retorna a zona de São Paulo para um texto de local (endereço/nome do auditório),
+ * ou `null` quando o texto não bate com nenhuma keyword.
+ *
+ * Usado pelos consumidores que preferem tratar "não classificado" explicitamente
+ * em vez de cair em "Centro" por default (caso do `regionMapping.ts`).
  */
-export function localParaZona(local: string | null | undefined): ZonaSP {
+export function localParaZonaOuNull(local: string | null | undefined): ZonaSP | null {
   const text = (local || "").toLowerCase().trim();
-  if (!text) return "Centro";
+  if (!text) return null;
 
   for (const { zona, keywords } of ZONA_KEYWORDS) {
     if (keywords.some((k) => text.includes(k))) return zona;
   }
 
-  return "Centro";
+  return null;
+}
+
+/**
+ * Retorna a zona de São Paulo para um texto de local (endereço/nome do auditório).
+ * Usado no filtro por região para exibir zonas em vez de endereços.
+ *
+ * Mantém compatibilidade com consumidores antigos que esperam sempre uma zona —
+ * cai em "Centro" como fallback. Para tratar não-classificados explicitamente,
+ * use `localParaZonaOuNull`.
+ */
+export function localParaZona(local: string | null | undefined): ZonaSP {
+  return localParaZonaOuNull(local) ?? "Centro";
 }

@@ -1,43 +1,57 @@
 /**
- * Mapeamento de região para o módulo de Analytics de Relatos (HU-1.1).
+ * Mapeamento de região para o módulo de Analytics de Relatos (HU-1.1, HU-3.1).
  *
- * O banco de dados não armazena a "zona" da cidade explicitamente em nenhuma
- * tabela de relatos. As fontes de localização disponíveis são:
- *   - urban_reports.neighborhood
- *   - transport_reports.location / stop_location / stop_name
- *   - public_services.district (via service_ratings.service_id)
- *
- * Este módulo deriva a zona (Norte/Sul/Leste/Oeste/Centro) a partir desses
- * textos livres. A lista de keywords é compartilhada com src/lib/audienciaZonas.ts
- * para manter consistência entre as features de Audiências e Analytics.
+ * Estratégia de classificação por zona da cidade, em ordem de prioridade:
+ *   1. Coordenadas geográficas (lat/lng) via point-in-bounding-box — mais
+ *      preciso, recomendado quando o relato tem coords (urban_reports e
+ *      public_services tipicamente têm).
+ *   2. Keywords no texto livre do bairro/local (compartilhadas com
+ *      `audienciaZonas.ts`).
+ *   3. "Não informada" como fallback final — preferimos sinalizar a ausência
+ *      de classificação a forçar o registro para Centro (default antigo).
  */
 
-import { ZONAS_SAO_PAULO, type ZonaSP, localParaZona } from "@/lib/audienciaZonas";
+import { ZONAS_SAO_PAULO, type ZonaSP, localParaZonaOuNull } from "@/lib/audienciaZonas";
+import { coordinatesToZone } from "@/lib/spZonePolygons";
 
 export const ZONAS_VOLUME = ZONAS_SAO_PAULO;
 export type ZonaVolume = ZonaSP;
 
 /**
  * Sentinel value used when nenhum texto de localização foi informado em um
- * relato. Mantemos um bucket próprio para não mascarar a cobertura real dos
- * dados — caso esse bucket fique grande, há sinal de qualidade de dados.
+ * relato OU as coordenadas estão fora do município de SP. Mantemos um bucket
+ * próprio para não mascarar a cobertura real dos dados — caso esse bucket
+ * fique grande, há sinal de qualidade de dados.
  */
 export const ZONA_DESCONHECIDA = "Não informada" as const;
 
 export type ZonaVolumeOuDesconhecida = ZonaVolume | typeof ZONA_DESCONHECIDA;
 
 /**
- * Resolve a zona de SP para um texto livre de bairro/local.
- * Retorna `ZONA_DESCONHECIDA` quando o texto está vazio, em vez do default
- * "Centro" usado em audienciaZonas.ts (que faz sentido para audiências, mas
- * não para analytics — preferimos sinalizar a ausência de dado).
+ * Resolve a zona de SP combinando coordenadas (preferencial) e texto livre
+ * de bairro/local. Retorna `ZONA_DESCONHECIDA` quando nada bate.
+ *
+ * @param texto Bairro, endereço ou texto livre de localização.
+ * @param lat Latitude do relato (opcional). Se fornecida, tem prioridade.
+ * @param lng Longitude do relato (opcional). Necessária junto com `lat`.
  */
 export function bairroParaZona(
   texto: string | null | undefined,
+  lat?: number | null,
+  lng?: number | null,
 ): ZonaVolumeOuDesconhecida {
-  const limpo = (texto || "").trim();
-  if (!limpo) return ZONA_DESCONHECIDA;
-  return localParaZona(limpo);
+  // 1) Geolocalização tem prioridade — mais precisa
+  if (lat != null && lng != null) {
+    const fromCoords = coordinatesToZone(lat, lng);
+    if (fromCoords) return fromCoords;
+  }
+
+  // 2) Keywords no texto livre
+  const fromText = localParaZonaOuNull(texto);
+  if (fromText) return fromText;
+
+  // 3) Não informada
+  return ZONA_DESCONHECIDA;
 }
 
 /**
