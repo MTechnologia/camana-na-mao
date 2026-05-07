@@ -598,23 +598,3 @@ export default function ReportsAnalyticsPage() {
     </AdminLayout>
   );
 }
-
-        {/* Drill Insight Panel */}
-        <DrillInsightPanel
-          state={drillInsight.state}
-          onClose={drillInsight.close}
-        />
-
-        {/* Export Dialog */}
-        <ExportDialog
-          isOpen={showExport}
-          onClose={() => setShowExport(false)}
-          exportType="all"
-          estimatedRows={stats.total}
-          analyticsStats={stats}
-          sentimentStats={sentimentStats}
-        />
-      </div>
-    </AdminLayout>
-  );
-}
