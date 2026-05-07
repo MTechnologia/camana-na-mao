@@ -296,7 +296,7 @@ def phase_visits_keyset(batch_size: int, sleep_s: float) -> int:
         SELECT
           (SELECT count(*)::integer FROM u) AS affected,
           (SELECT count(*)::integer FROM slice) AS slice_n,
-          (SELECT max(slice.dup_id)::text FROM slice) AS max_dup;
+          (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
     return run_keyset_updates("service_visits", sql, batch_size, sleep_s)
 
@@ -322,7 +322,7 @@ def phase_ratings_keyset(batch_size: int, sleep_s: float) -> int:
         SELECT
           (SELECT count(*)::integer FROM u) AS affected,
           (SELECT count(*)::integer FROM slice) AS slice_n,
-          (SELECT max(slice.dup_id)::text FROM slice) AS max_dup;
+          (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
     return run_keyset_updates("service_ratings", sql, batch_size, sleep_s)
 
@@ -348,7 +348,7 @@ def phase_corrections_keyset(batch_size: int, sleep_s: float) -> int:
         SELECT
           (SELECT count(*)::integer FROM u) AS affected,
           (SELECT count(*)::integer FROM slice) AS slice_n,
-          (SELECT max(slice.dup_id)::text FROM slice) AS max_dup;
+          (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
     return run_keyset_updates("service_corrections", sql, batch_size, sleep_s)
 
@@ -374,7 +374,7 @@ def phase_plan_items_keyset(batch_size: int, sleep_s: float) -> int:
         SELECT
           (SELECT count(*)::integer FROM u) AS affected,
           (SELECT count(*)::integer FROM slice) AS slice_n,
-          (SELECT max(slice.dup_id)::text FROM slice) AS max_dup;
+          (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
     return run_keyset_updates("service_plan_items", sql, batch_size, sleep_s)
 
@@ -400,7 +400,7 @@ def phase_alerts_keyset(batch_size: int, sleep_s: float) -> int:
         SELECT
           (SELECT count(*)::integer FROM u) AS affected,
           (SELECT count(*)::integer FROM slice) AS slice_n,
-          (SELECT max(slice.dup_id)::text FROM slice) AS max_dup;
+          (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
     return run_keyset_updates("service_alerts", sql, batch_size, sleep_s)
 
