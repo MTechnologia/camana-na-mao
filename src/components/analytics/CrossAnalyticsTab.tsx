@@ -1,118 +1,199 @@
 import { useMemo } from "react";
-import { GitMerge, RefreshCw, Users, BarChart3, Calendar, Heart } from "lucide-react";
+import { GitMerge, RefreshCw, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DemographicHeatmap } from "@/components/analytics/DemographicHeatmap";
 import {
-  useDemographicCrossAnalytics,
-  type DemoAxis,
-  type ReportCategory,
-} from "@/hooks/useDemographicCrossAnalytics";
+  useCrossDimensionAnalytics,
+  type CrossCellMatrix,
+} from "@/hooks/useCrossDimensionAnalytics";
 import { useDrillInsight } from "@/hooks/useDrillInsight";
 import { DrillInsightPanel } from "@/components/analytics/DrillInsightPanel";
 import { useUrlSyncedState, type FieldSerializer } from "@/hooks/useUrlSyncedState";
+import {
+  DIMENSIONS,
+  DIMENSION_KEYS,
+  type DimensionKey,
+} from "@/lib/analyticsDimensions";
+import type { CrossMatrix, ReportCategory } from "@/hooks/useDemographicCrossAnalytics";
 import { cn } from "@/lib/utils";
 
 /**
- * Aba "Cruzamentos" do dashboard administrativo (HU-3.4).
+ * HU-3.5 — Aba "Cruzamentos" expandida para drill-across N×N.
  *
- * Drill-across entre tipo de problema (categoria) e perfil demográfico do
- * autor do relato. Quatro eixos: gênero, raça/cor, classe social e faixa
- * etária. Click em célula da matriz abre painel de drill-into com a lista
- * dos relatos correspondentes.
+ * O usuário escolhe LINHA e COLUNA entre 13 dimensões analíticas (categoria,
+ * status, severidade, zona, tempo, sentimento, demografia, fonte). A matriz
+ * resultante é exibida no DemographicHeatmap (componente reusado da HU-3.4).
+ *
+ * Click em célula abre o DrillInsightPanel com os relatos que cruzam ambas
+ * as dimensões da célula. URL state preserva ambas as escolhas
+ * (?cross.row=, ?cross.col=).
  */
 
-interface AxisDef {
-  key: DemoAxis;
-  label: string;
-  description: string;
+// Serializadores que aceitam qualquer DimensionKey conhecida
+function dimensionSerializer(defaultValue: DimensionKey): FieldSerializer<DimensionKey> {
+  return {
+    toParam: (v) => (v === defaultValue ? null : v),
+    fromParam: (raw) => {
+      if (raw && (DIMENSION_KEYS as readonly string[]).includes(raw)) return raw as DimensionKey;
+      return defaultValue;
+    },
+  };
 }
 
-const AXES: AxisDef[] = [
-  { key: "gender", label: "Gênero", description: "Sexo autodeclarado" },
-  { key: "age_group", label: "Faixa etária", description: "Idade do reportante" },
-  { key: "race", label: "Raça/Cor", description: "Cor autodeclarada" },
-  { key: "social_class", label: "Classe social", description: "Classe econômica" },
-];
-
-const axisIcon = (a: DemoAxis) => {
-  if (a === "gender") return <Users className="h-4 w-4" />;
-  if (a === "age_group") return <Calendar className="h-4 w-4" />;
-  if (a === "race") return <Heart className="h-4 w-4" />;
-  return <BarChart3 className="h-4 w-4" />;
-};
-
-const axisSerializer: FieldSerializer<DemoAxis> = {
-  toParam: (v) => (v === "gender" ? null : v),
-  fromParam: (raw) => {
-    if (raw === "race" || raw === "social_class" || raw === "age_group") return raw;
-    return "gender";
-  },
-};
+/**
+ * Adapta a matriz N×N do useCrossDimensionAnalytics para o formato CrossMatrix
+ * esperado pelo DemographicHeatmap (que tem tipos da HU-3.4). O cast é seguro
+ * porque ambos os formatos guardam contagens em \`cells: Record<string, number>\`.
+ */
+function adaptMatrixForHeatmap(m: CrossCellMatrix): CrossMatrix {
+  const rowTotals: Record<string, number> = {};
+  const colTotals: Record<string, number> = {};
+  m.rowValues.forEach((r) => (rowTotals[r.value] = r.total));
+  m.colValues.forEach((c) => (colTotals[c.value] = c.total));
+  return {
+    axis: "gender",
+    categories: m.rowValues.map((r) => r.label) as ReportCategory[],
+    demoValues: m.colValues.map((c) => ({ value: c.value, label: c.label })),
+    cells: m.rowValues.reduce<Record<string, number>>((acc, r) => {
+      m.colValues.forEach((c) => {
+        const k = `${r.label}|${c.value}`;
+        acc[k] = m.cells[`${r.value}|${c.value}`] || 0;
+      });
+      return acc;
+    }, {}),
+    maxCount: m.maxCount,
+    total: m.total,
+    rowTotals: m.rowValues.reduce<Record<ReportCategory, number>>((acc, r) => {
+      (acc as Record<string, number>)[r.label] = r.total;
+      return acc;
+    }, {} as Record<ReportCategory, number>),
+    colTotals,
+  };
+}
 
 export function CrossAnalyticsTab() {
-  // Eixo demográfico ativo sincronizado com URL (?cross.axis=gender|race|...)
-  const [axisState, setAxisState] = useUrlSyncedState<{ axis: DemoAxis }>({
+  // URL state com 2 dimensões (default Categoria × Gênero — equivalente HU-3.4)
+  const [state, setState] = useUrlSyncedState<{ row: DimensionKey; col: DimensionKey }>({
     prefix: "cross",
-    defaults: { axis: "gender" },
-    serializers: { axis: axisSerializer },
+    defaults: { row: "category", col: "gender" },
+    serializers: {
+      row: dimensionSerializer("category"),
+      col: dimensionSerializer("gender"),
+    },
   });
-  const axis = axisState.axis;
+  const rowDim = state.row;
+  const colDim = state.col;
 
-  const { matrix, isLoading, error, refresh } = useDemographicCrossAnalytics(axis);
+  const { matrix, reports, isLoading, error, refresh, getReportsForCell } =
+    useCrossDimensionAnalytics(rowDim, colDim);
   const drillInsight = useDrillInsight();
 
-  const activeAxis = useMemo(() => AXES.find((a) => a.key === axis) ?? AXES[0], [axis]);
+  const adapted = useMemo(() => adaptMatrixForHeatmap(matrix), [matrix]);
+  const rowDef = DIMENSIONS[rowDim];
+  const colDef = DIMENSIONS[colDim];
+
+  const handleSwap = () => setState({ row: colDim, col: rowDim });
 
   const handleCellClick = (
-    category: ReportCategory,
-    demoValue: string,
-    demoLabel: string,
+    rowLabel: string,
+    _colValue: string,
+    colLabel: string,
     _count: number,
   ) => {
-    // HU-3.4 fix — usa busca cruzada (categoria macro x eixo demografico)
-    void drillInsight.searchByCrossDemographic(category, axis, demoValue, demoLabel);
+    // O DemographicHeatmap envia o "category" como o LABEL da linha. Para fazer
+    // o lookup, recuperamos o `value` original da matriz subjacente.
+    const rowEntry = matrix.rowValues.find((r) => r.label === rowLabel);
+    const colEntry = matrix.colValues.find((c) => c.label === colLabel);
+    if (!rowEntry || !colEntry) return;
+    const cellReports = getReportsForCell(rowEntry.value, colEntry.value);
+    void drillInsight.searchByCrossDimensions(
+      rowDim,
+      rowEntry.value,
+      rowLabel,
+      colDim,
+      colEntry.value,
+      colLabel,
+      cellReports.map((r) => r.id),
+    );
   };
 
   return (
     <div className="space-y-4">
-      {/* Header com seletor de eixo + atualizar */}
+      {/* Header com seletores Linha / Coluna + Inverter + Atualizar */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <GitMerge className="h-4 w-4" />
-            Eixo demográfico
+            Cruzamento de dimensões
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Escolha a dimensão da linha e da coluna. {reports.length.toLocaleString("pt-BR")}{" "}
+            relatos analisados.
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-2">
-            {AXES.map((a) => {
-              const active = a.key === axis;
-              return (
-                <button
-                  key={a.key}
-                  type="button"
-                  onClick={() => setAxisState({ axis: a.key })}
-                  className={cn(
-                    "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background hover:bg-muted",
-                  )}
-                  aria-pressed={active}
-                >
-                  {axisIcon(a.key)}
-                  <span className="font-medium">{a.label}</span>
-                  <span className="hidden sm:inline text-xs opacity-80">{a.description}</span>
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto] gap-3 items-end">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Linha
+              </label>
+              <Select value={rowDim} onValueChange={(v) => setState({ row: v as DimensionKey, col: colDim })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DIMENSION_KEYS.map((k) => (
+                    <SelectItem key={k} value={k} disabled={k === colDim}>
+                      {DIMENSIONS[k].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSwap}
+              aria-label="Inverter linha e coluna"
+              title="Inverter eixos"
+              className="self-end md:mb-px"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+            </Button>
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Coluna
+              </label>
+              <Select value={colDim} onValueChange={(v) => setState({ row: rowDim, col: v as DimensionKey })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DIMENSION_KEYS.map((k) => (
+                    <SelectItem key={k} value={k} disabled={k === rowDim}>
+                      {DIMENSIONS[k].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button
               variant="ghost"
               size="sm"
               onClick={() => void refresh()}
               disabled={isLoading}
-              className="ml-auto"
+              className="self-end"
             >
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", isLoading && "animate-spin")} />
               Atualizar
@@ -125,11 +206,11 @@ export function CrossAnalyticsTab() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            {activeAxis.label} × Tipo de relato
+            {rowDef.label} × {colDef.label}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Toque em uma célula para ver os relatos que cruzam aquele tipo com o perfil escolhido.
-            Cor mais escura indica maior concentração de relatos.
+            Toque em uma célula para ver os relatos que cruzam {rowDef.label.toLowerCase()} com{" "}
+            {colDef.label.toLowerCase()}. Cor mais escura indica maior concentração.
           </p>
         </CardHeader>
         <CardContent>
@@ -137,15 +218,15 @@ export function CrossAnalyticsTab() {
             <p className="text-sm text-destructive">{error}</p>
           ) : (
             <DemographicHeatmap
-              matrix={matrix}
+              matrix={adapted}
               isLoading={isLoading}
               onCellClick={handleCellClick}
+              rowHeaderLabel={rowDef.label}
             />
           )}
         </CardContent>
       </Card>
 
-      {/* Drill-into: lista de relatos da célula clicada */}
       <DrillInsightPanel state={drillInsight.state} onClose={drillInsight.close} />
     </div>
   );

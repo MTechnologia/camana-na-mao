@@ -803,6 +803,65 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
     }
   }, []);
 
+  /**
+   * HU-3.5 — drill-into a partir do heatmap N×N de cruzamento.
+   * Recebe os IDs das duas tabelas de relatos já filtrados pelo CrossAnalyticsTab
+   * (urban + transport). Faz fetch direto desses IDs e popula o painel.
+   */
+  const searchByCrossDimensions = useCallback(async (
+    rowDim: string,
+    rowValue: string,
+    rowLabel: string,
+    colDim: string,
+    colValue: string,
+    colLabel: string,
+    reportIds: string[],
+  ) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+    const ctxLabel = `${rowLabel} × ${colLabel}`;
+
+    try {
+      if (reportIds.length === 0) {
+        setState({
+          open: true,
+          context: { type: 'category', value: ctxLabel, label: ctxLabel },
+          reports: [],
+          stats: calculateStats([]),
+          insight: `Sem relatos no cruzamento ${rowLabel} × ${colLabel}.`,
+          isLoading: false,
+        });
+        return;
+      }
+
+      // Fazemos lookup paralelo nas duas fontes de DrillReport
+      const [{ data: urbanData }, { data: transportData }] = await Promise.all([
+        supabase.from('urban_reports').select('*').in('id', reportIds),
+        supabase.from('transport_reports').select('*').in('id', reportIds),
+      ]);
+
+      const allReports = [
+        ...mapUrbanReports(urbanData || []),
+        ...mapTransportReports(transportData || []),
+      ];
+      const stats = calculateStats(allReports);
+      const context: DrillContext = { type: 'category', value: ctxLabel, label: ctxLabel };
+      // Insight com info adicional: quando houver IDs sem retorno (ex: service_ratings),
+      // explicamos a discrepância para o usuário.
+      const missingCount = reportIds.length - allReports.length;
+      const baseInsight = generateInsight(context, stats);
+      const insight = missingCount > 0
+        ? `${baseInsight} ${missingCount} avaliação(ões) de serviço também cruzam este filtro — não aparecem listadas individualmente aqui.`
+        : baseInsight;
+      // metadata extra para depuração futura — não usada na UI agora
+      void rowDim; void rowValue; void colDim; void colValue;
+      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+    } catch (error) {
+      console.error('Error in searchByCrossDimensions:', error);
+      toast.error('Erro ao carregar cruzamento');
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+
   const close = useCallback(() => {
     setState(prev => ({ ...prev, open: false }));
   }, []);
@@ -830,6 +889,7 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
     searchByHour,
     searchByWeekday,
     searchByCrossDemographic,
+    searchByCrossDimensions,
     close,
     reset,
   };
