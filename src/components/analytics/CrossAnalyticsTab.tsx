@@ -66,14 +66,12 @@ export function CrossAnalyticsTab() {
 
   const handleCellClick = (
     category: ReportCategory,
-    _demoValue: string,
+    demoValue: string,
     demoLabel: string,
-    count: number,
+    _count: number,
   ) => {
-    // Reusa o DrillInsightPanel do projeto, abrindo a vista cruzada.
-    // O painel não tem suporte nativo a multi-filtro, então combinamos rótulos
-    // num texto descritivo de busca por categoria.
-    void drillInsight.searchByCategory(`${category} (${demoLabel}, ${count})`);
+    // HU-3.4 fix — usa busca cruzada (categoria macro x eixo demografico)
+    void drillInsight.searchByCrossDemographic(category, axis, demoValue, demoLabel);
   };
 
   return (
