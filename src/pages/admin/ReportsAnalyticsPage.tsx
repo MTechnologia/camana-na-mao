@@ -28,6 +28,7 @@ import { DiagnosticoTab } from '@/components/analytics/DiagnosticoTab';
 import { AudienciasAnalyticsTab } from '@/components/analytics/AudienciasAnalyticsTab';
 import { TerritorialDrillTab } from '@/components/analytics/TerritorialDrillTab';
 import { MultiDrillTab } from '@/components/analytics/MultiDrillTab';
+import { CrossAnalyticsTab } from '@/components/analytics/CrossAnalyticsTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
 import { useUrlSyncedState, optionalStringSerializer, stringSerializer } from '@/hooks/useUrlSyncedState';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
@@ -268,6 +269,7 @@ export default function ReportsAnalyticsPage() {
             <TabsTrigger value="audiencias" className="flex-1 min-w-[100px]">Audiências</TabsTrigger>
             <TabsTrigger value="territorial" className="flex-1 min-w-[100px]">Territorial</TabsTrigger>
             <TabsTrigger value="drill" className="flex-1 min-w-[100px]">Drill-down</TabsTrigger>
+            <TabsTrigger value="cross" className="flex-1 min-w-[110px]">Cruzamentos</TabsTrigger>
             <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
             <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
             <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
@@ -303,6 +305,11 @@ export default function ReportsAnalyticsPage() {
           {/* TAB DRILL-DOWN — HU-3.2: drill multi-dimensional (categoria/tempo/status/audiência) */}
           <TabsContent value="drill" className="space-y-6">
             <MultiDrillTab />
+          </TabsContent>
+
+          {/* TAB CRUZAMENTOS — HU-3.4: drill-across categoria × demografia */}
+          <TabsContent value="cross" className="space-y-6">
+            <CrossAnalyticsTab />
           </TabsContent>
 
           {/* TAB GERAL */}
