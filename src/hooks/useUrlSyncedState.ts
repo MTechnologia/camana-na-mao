@@ -131,8 +131,13 @@ export function useUrlSyncedState<T extends Record<string, unknown>>(
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
 
-  // Sempre que `state` mudar, atualiza a URL (sem disparar loop)
-  const lastSerializedRef = useRef<string>("");
+  // Sempre que `state` mudar, atualiza a URL (sem disparar loop).
+  // HU-3.5 fix: inicializamos lastSerializedRef com a URL atual para evitar
+  // setSearchParams espúrio no mount inicial (causa de race entre
+  // múltiplas instâncias do hook na mesma página, fazendo Tabs
+  // controlado reverter para valor anterior).
+  const lastSerializedRef = useRef<string>(searchParams.toString());
+  const isFirstWriteRef = useRef<boolean>(true);
   useEffect(() => {
     const next = new URLSearchParams(searchParamsRef.current);
     (Object.keys(serializers) as Array<keyof T>).forEach((key) => {
@@ -147,9 +152,15 @@ export function useUrlSyncedState<T extends Record<string, unknown>>(
     });
 
     const serialized = next.toString();
-    if (serialized === lastSerializedRef.current) return;
+    if (serialized === lastSerializedRef.current) {
+      isFirstWriteRef.current = false;
+      return;
+    }
     lastSerializedRef.current = serialized;
-    setSearchParams(next, { replace: strategy === "replace" });
+    // No primeiro write, foraça replace para não poluir histórico
+    const useReplace = strategy === "replace" || isFirstWriteRef.current;
+    isFirstWriteRef.current = false;
+    setSearchParams(next, { replace: useReplace });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
