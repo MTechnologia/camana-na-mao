@@ -273,13 +273,13 @@ async function fetchService(): Promise<RawReport[]> {
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const { data, error } = await supabase
       .from("service_ratings")
-      .select("id, comment, created_at, public_services(service_type, district, name)")
+      .select("id, rating_text, created_at, public_services(service_type, district, name)")
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) throw error;
     const rows = (data ?? []) as Array<{
       id: string;
-      comment: string | null;
+      rating_text: string | null;
       created_at: string;
       public_services:
         | { service_type: string | null; district: string | null; name: string | null }
@@ -299,7 +299,7 @@ async function fetchService(): Promise<RawReport[]> {
         severity: "Sem classificação",
         createdAt: r.created_at,
         title: safe(svc?.name || svc?.service_type, "Avaliação de serviço"),
-        subtitle: safe(r.comment, "").slice(0, 120),
+        subtitle: safe(r.rating_text, "").slice(0, 120),
         isResolved: false,
         isCritical: false,
       });
