@@ -27,6 +27,7 @@ import {
   optionalStringSerializer,
 } from "@/hooks/useUrlSyncedState";
 import { useDrillKeyboardShortcuts } from "@/hooks/useDrillKeyboardShortcuts";
+import { useReportDetailModal } from "@/contexts/ReportDetailContext";
 
 const dimensionSerializer: FieldSerializer<DrillDimension> = {
   toParam: (v) => (v === "categoria" ? null : v),
@@ -354,6 +355,7 @@ function LeafRecordsList({
 }: {
   records: ReturnType<typeof useMultiDrill>["stats"]["records"];
 }) {
+  const { open: openReport } = useReportDetailModal();
   if (records.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -382,8 +384,24 @@ function LeafRecordsList({
             </li>
           );
         }
+        const reportSource =
+          rec.source === "urbano" ? "urban" :
+          rec.source === "transporte" ? "transport" : null;
+        const clickable = !!reportSource;
         return (
-          <li key={rec.id} className="py-3">
+          <li
+            key={rec.id}
+            className={clickable ? "py-3 cursor-pointer hover:bg-muted/50 -mx-2 px-2 rounded transition-colors" : "py-3"}
+            onClick={() => clickable && reportSource && openReport(rec.id, reportSource)}
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (clickable && reportSource && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                openReport(rec.id, reportSource);
+              }
+            }}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{rec.title}</p>
