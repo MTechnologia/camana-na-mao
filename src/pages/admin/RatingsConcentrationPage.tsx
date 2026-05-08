@@ -40,6 +40,21 @@ export default function RatingsConcentrationPage() {
       serviceTypeFilter: serviceTypeFilter === "all" ? null : serviceTypeFilter,
     });
 
+  // Threshold adaptativo: tenta ≥5 → ≥3 → ≥2 → ≥1 e usa o primeiro que retornar dados
+  const TRY_THRESHOLDS = [5, 3, 2, 1];
+  let topThreshold = 5;
+  let topItems: ServiceRatingsAggregate[] = [];
+  for (const t of TRY_THRESHOLDS) {
+    const filtered = aggregates.filter((a) => a.count >= t);
+    if (filtered.length > 0) {
+      topThreshold = t;
+      topItems = [...filtered]
+        .sort((a, b) => b.polarizationIndex - a.polarizationIndex)
+        .slice(0, 10);
+      break;
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -146,23 +161,33 @@ export default function RatingsConcentrationPage() {
           </div>
         </Card>
 
-        {/* Top 10 mais polarizados (lista textual) */}
+        {/* Top equipamentos mais polarizados (threshold adaptativo) */}
         {aggregates.length > 0 && (
           <Card className="p-4 md:p-6">
-            <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+            <h2 className="text-base font-semibold flex items-center gap-2 mb-1">
               <BarChart3 className="h-4 w-4" />
-              Top 10 equipamentos mais polarizados (≥ 5 avaliações)
+              Top {Math.min(10, topItems.length)} equipamentos mais polarizados
             </h2>
-            <ul className="divide-y">
-              {aggregates
-                .filter((a) => a.count >= 5)
-                .sort((a, b) => b.polarizationIndex - a.polarizationIndex)
-                .slice(0, 10)
-                .map((a) => (
+            <p className="text-xs text-muted-foreground mb-3">
+              {topItems.length === 0
+                ? "Sem equipamentos com avaliações suficientes para o ranking de polarização neste recorte."
+                : `Mostrando equipamentos com ≥ ${topThreshold} avaliação${topThreshold === 1 ? "" : "ões"} no recorte selecionado.`}
+            </p>
+            {topItems.length > 0 && (
+              <ul className="divide-y">
+                {topItems.map((a) => (
                   <li
                     key={a.serviceId}
                     className="py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/40 -mx-2 px-2 rounded"
                     onClick={() => setSelected(a)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelected(a);
+                      }
+                    }}
                   >
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{a.serviceName ?? "Sem nome"}</p>
@@ -178,7 +203,8 @@ export default function RatingsConcentrationPage() {
                     </div>
                   </li>
                 ))}
-            </ul>
+              </ul>
+            )}
           </Card>
         )}
 
