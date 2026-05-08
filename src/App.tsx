@@ -129,6 +129,7 @@ const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPa
 const TrendDashboardPage = lazy(() => import("./pages/admin/TrendDashboardPage"));
 const ReportsHeatmapPage = lazy(() => import("./pages/admin/ReportsHeatmapPage"));
 const RatingsConcentrationPage = lazy(() => import("./pages/admin/RatingsConcentrationPage"));
+const IntensityDemandPage = lazy(() => import("./pages/admin/IntensityDemandPage"));
 const ClassificationAccuracyPage = lazy(() => import("./pages/admin/ClassificationAccuracyPage"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
@@ -312,6 +313,7 @@ const AppContent = () => {
             <Route path="/admin/trends" element={<ProtectedAdminRoute><TrendDashboardPage /></ProtectedAdminRoute>} />
             <Route path="/admin/reports-heatmap" element={<ProtectedAdminRoute><ReportsHeatmapPage /></ProtectedAdminRoute>} />
             <Route path="/admin/avaliacoes-polarizacao" element={<ProtectedAdminRoute><RatingsConcentrationPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/intensidade-demanda" element={<ProtectedAdminRoute><IntensityDemandPage /></ProtectedAdminRoute>} />
             <Route path="/admin/classification-accuracy" element={<ProtectedAdminRoute><ClassificationAccuracyPage /></ProtectedAdminRoute>} />
             <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />
