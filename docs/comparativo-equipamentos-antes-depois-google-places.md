@@ -77,4 +77,5 @@
 
 ---
 
+**OBS** Considerar Marco **C**
 *Valores ilustrativos; não substituem fatura Google.*
