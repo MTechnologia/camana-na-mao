@@ -29,6 +29,7 @@ import { AudienciasAnalyticsTab } from '@/components/analytics/AudienciasAnalyti
 import { TerritorialDrillTab } from '@/components/analytics/TerritorialDrillTab';
 import { MultiDrillTab } from '@/components/analytics/MultiDrillTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import { useUrlSyncedState, optionalStringSerializer, stringSerializer } from '@/hooks/useUrlSyncedState';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
@@ -52,7 +53,46 @@ import {
 // Analytics page for unified reports visualization
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
-  const [demographicFilters, setDemographicFilters] = useState<DemographicFilterState>({});
+
+  // HU-3.3 — Aba ativa sincronizada com URL (?tab=)
+  const [tabState, setTabState] = useUrlSyncedState<{ tab: string }>({
+    defaults: { tab: 'volume' },
+    serializers: { tab: stringSerializer('volume') },
+  });
+
+  // HU-3.3 — Filtros demográficos sincronizados com URL (?dem.g, ?dem.r, ?dem.c, ?dem.a)
+  const [demUrlState, setDemUrlState] = useUrlSyncedState<{
+    g: string | null;
+    r: string | null;
+    c: string | null;
+    a: string | null;
+  }>({
+    prefix: 'dem',
+    defaults: { g: null, r: null, c: null, a: null },
+    serializers: {
+      g: optionalStringSerializer(),
+      r: optionalStringSerializer(),
+      c: optionalStringSerializer(),
+      a: optionalStringSerializer(),
+    },
+  });
+  const demographicFilters: DemographicFilterState = useMemo(() => ({
+    gender: demUrlState.g ?? undefined,
+    race: demUrlState.r ?? undefined,
+    socialClass: demUrlState.c ?? undefined,
+    ageGroup: demUrlState.a ?? undefined,
+  }), [demUrlState]);
+  const setDemographicFilters = (
+    next: DemographicFilterState | ((prev: DemographicFilterState) => DemographicFilterState),
+  ) => {
+    const value = typeof next === 'function' ? next(demographicFilters) : next;
+    setDemUrlState({
+      g: value.gender ?? null,
+      r: value.race ?? null,
+      c: value.socialClass ?? null,
+      a: value.ageGroup ?? null,
+    });
+  };
   
   // Combine filters for the analytics hook
   const combinedFilters: ReportsAnalyticsFilters = useMemo(() => ({
@@ -219,7 +259,7 @@ export default function ReportsAnalyticsPage() {
         </div>
 
         {/* Tabs for detailed analytics */}
-        <Tabs defaultValue="volume" className="w-full">
+        <Tabs value={tabState.tab} onValueChange={(t) => setTabState({ tab: t })} className="w-full">
           {/* Tabs em flex-wrap puro (mobile-first): quebra naturalmente em 2 linhas sem grid rígido. */}
           <TabsList className="flex flex-wrap w-full h-auto gap-1 p-1">
             <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>

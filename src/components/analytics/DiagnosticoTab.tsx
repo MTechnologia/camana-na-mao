@@ -19,6 +19,7 @@ import { AIInsightsCard } from "@/components/analytics/AIInsightsCard";
 import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
+import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
 import {
   useDiagnosticoCriticidade,
   type CategoryDiagnostic,
@@ -51,7 +52,14 @@ function scoreLabel(score: number): string {
 }
 
 export function DiagnosticoTab() {
-  const [period, setPeriod] = useState<DateRangeValue | undefined>(undefined);
+  // HU-3.3 — período sincronizado com URL
+  const [periodState, setPeriodState] = useUrlSyncedState<{ p: { startDate?: string; endDate?: string } | null }>({
+    prefix: "dia",
+    defaults: { p: null },
+    serializers: { p: dateRangeSerializer() },
+  });
+  const period: DateRangeValue | undefined = periodState.p ? { startDate: periodState.p.startDate, endDate: periodState.p.endDate } : undefined;
+  const setPeriod = (next: DateRangeValue | undefined) => setPeriodState({ p: next ? { startDate: next.startDate, endDate: next.endDate } : null });
 
   const filters = useMemo(
     () => ({ startDate: period?.from, endDate: period?.to }),

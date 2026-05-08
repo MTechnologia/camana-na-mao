@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   AlertTriangle,
   ChevronRight,
@@ -19,6 +18,9 @@ import {
   type DrillPosition,
 } from "@/hooks/useTerritorialDrill";
 import type { ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
+import { DrillNavBar } from "@/components/analytics/DrillNavBar";
+import { useUrlSyncedState, optionalStringSerializer } from "@/hooks/useUrlSyncedState";
+import { useDrillKeyboardShortcuts } from "@/hooks/useDrillKeyboardShortcuts";
 
 /**
  * Aba "Territorial" do dashboard administrativo (HU-3.1).
@@ -87,16 +89,29 @@ function scoreLabel(score: number): string {
 }
 
 export function TerritorialDrillTab() {
-  const [position, setPosition] = useState<DrillPosition>({});
+  // HU-3.3 — estado sincronizado com URL (?ter.zona, ?ter.bairro, ?ter.rua)
+  const [position, setPosition] = useUrlSyncedState<DrillPosition>({
+    prefix: "ter",
+    defaults: { zona: null, bairro: null, rua: null },
+    serializers: {
+      zona: optionalStringSerializer() as never,
+      bairro: optionalStringSerializer(),
+      rua: optionalStringSerializer(),
+    },
+  });
   const { stats, isLoading, error, refresh } = useTerritorialDrill(position);
 
   const breadcrumbs = buildBreadcrumbs(position);
 
-  const goTo = (newPosition: DrillPosition) => setPosition(newPosition);
+  const goTo = (newPosition: DrillPosition) =>
+    setPosition({
+      zona: (newPosition.zona ?? null) as ZonaVolumeOuDesconhecida | null,
+      bairro: newPosition.bairro ?? null,
+      rua: newPosition.rua ?? null,
+    });
 
   const handleNextClick = (label: string) => {
     if (stats.nextLevel === "zona") {
-      // Selecionando uma zona a partir da raiz
       goTo({ zona: label as ZonaVolumeOuDesconhecida });
     } else if (stats.nextLevel === "bairro") {
       goTo({ zona: position.zona, bairro: label });
@@ -104,6 +119,15 @@ export function TerritorialDrillTab() {
       goTo({ zona: position.zona, bairro: position.bairro, rua: label });
     }
   };
+
+  // HU-3.3 — drill-up via botão Voltar e atalhos Backspace/Esc
+  const handleUp = () => {
+    if (position.rua) goTo({ zona: position.zona, bairro: position.bairro });
+    else if (position.bairro) goTo({ zona: position.zona });
+    else if (position.zona) goTo({});
+  };
+  const handleResetRoot = () => goTo({});
+  useDrillKeyboardShortcuts({ onUp: handleUp, onReset: handleResetRoot });
 
   if (error) {
     return (
@@ -120,52 +144,20 @@ export function TerritorialDrillTab() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumbs */}
+      {/* HU-3.3 — Navegação drill: Voltar + Início + Breadcrumbs + Atualizar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Compass className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            <nav
-              aria-label="Drill-down territorial"
-              className="flex items-center gap-1.5 flex-wrap text-sm"
-            >
-              {breadcrumbs.map((step, idx) => {
-                const isLast = idx === breadcrumbs.length - 1;
-                return (
-                  <span key={`${step.level}-${step.label}`} className="flex items-center gap-1.5">
-                    {idx > 0 && (
-                      <ChevronRight
-                        className="h-3.5 w-3.5 text-muted-foreground shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {isLast ? (
-                      <span className="font-medium text-foreground" aria-current="location">
-                        {step.label}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => goTo(step.position)}
-                        className="text-muted-foreground hover:text-foreground hover:underline transition-colors"
-                      >
-                        {step.label}
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
-            </nav>
-            {breadcrumbs.length > 1 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => goTo({})}
-                className="ml-auto text-xs"
-              >
-                Voltar à visão geral
-              </Button>
-            )}
+          <div className="flex items-center gap-2">
+            <Compass className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+            <DrillNavBar
+              steps={breadcrumbs.map((s) => ({ label: s.label, key: `${s.level}-${s.label}` }))}
+              onStepClick={(idx) => goTo(breadcrumbs[idx].position)}
+              onUp={handleUp}
+              onReset={handleResetRoot}
+              onRefresh={() => void refresh()}
+              isLoading={isLoading}
+              className="flex-1"
+            />
           </div>
         </CardContent>
       </Card>

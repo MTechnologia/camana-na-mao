@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   AlertTriangle,
   Calendar,
@@ -7,21 +7,34 @@ import {
   Compass,
   Gauge,
   MapPin,
-  RefreshCw,
   Tag,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KPICard } from "@/components/analytics/KPICard";
+import { DrillNavBar } from "@/components/analytics/DrillNavBar";
 import { cn } from "@/lib/utils";
 import {
   useMultiDrill,
   type DrillDimension,
   type MultiDrillPosition,
 } from "@/hooks/useMultiDrill";
+import {
+  useUrlSyncedState,
+  type FieldSerializer,
+  optionalStringSerializer,
+} from "@/hooks/useUrlSyncedState";
+import { useDrillKeyboardShortcuts } from "@/hooks/useDrillKeyboardShortcuts";
+
+const dimensionSerializer: FieldSerializer<DrillDimension> = {
+  toParam: (v) => (v === "categoria" ? null : v),
+  fromParam: (raw) => {
+    if (raw === "tempo" || raw === "status" || raw === "audiencia") return raw;
+    return "categoria";
+  },
+};
 
 /**
  * Aba "Drill-down" do dashboard administrativo (HU-3.2).
@@ -138,8 +151,16 @@ function statusBadgeVariant(status: string): "default" | "destructive" | "second
 }
 
 export function MultiDrillTab() {
-  const [position, setPosition] = useState<MultiDrillPosition>({
-    dimension: "categoria",
+  // Estado sincronizado com URL (?dr.dimension, ?dr.level1, ?dr.level2, ?dr.level3)
+  const [position, setPosition] = useUrlSyncedState<MultiDrillPosition>({
+    prefix: "dr",
+    defaults: { dimension: "categoria", level1: null, level2: null, level3: null },
+    serializers: {
+      dimension: dimensionSerializer,
+      level1: optionalStringSerializer(),
+      level2: optionalStringSerializer(),
+      level3: optionalStringSerializer(),
+    },
   });
   const { stats, isLoading, error, refresh } = useMultiDrill(position);
 
@@ -147,21 +168,41 @@ export function MultiDrillTab() {
   const def = useMemo(() => dimensionDef(position.dimension), [position.dimension]);
 
   const handleSelectDimension = (d: DrillDimension) => {
-    setPosition({ dimension: d });
+    setPosition({ dimension: d, level1: null, level2: null, level3: null });
   };
 
   const handleNextClick = (value: string) => {
     if (!position.level1) {
-      setPosition({ dimension: position.dimension, level1: value });
+      setPosition({ dimension: position.dimension, level1: value, level2: null, level3: null });
     } else if (!position.level2) {
-      setPosition({ dimension: position.dimension, level1: position.level1, level2: value });
+      setPosition({
+        dimension: position.dimension,
+        level1: position.level1,
+        level2: value,
+        level3: null,
+      });
     } else if (!position.level3) {
       setPosition({ ...position, level3: value });
     }
   };
 
-  const handleBreadcrumbClick = (step: BreadcrumbStep) => setPosition(step.position);
-  const handleReset = () => setPosition({ dimension: position.dimension });
+  const handleBreadcrumbClick = (step: BreadcrumbStep) =>
+    setPosition({
+      dimension: position.dimension,
+      level1: step.position.level1 ?? null,
+      level2: step.position.level2 ?? null,
+      level3: step.position.level3 ?? null,
+    });
+  const handleReset = () =>
+    setPosition({ dimension: position.dimension, level1: null, level2: null, level3: null });
+
+  // HU-3.3 — drill-up: Backspace volta um nível, Esc volta ao topo da dimensão
+  const handleUp = () => {
+    if (position.level3) setPosition({ ...position, level3: null });
+    else if (position.level2) setPosition({ ...position, level2: null, level3: null });
+    else if (position.level1) setPosition({ ...position, level1: null, level2: null, level3: null });
+  };
+  useDrillKeyboardShortcuts({ onUp: handleUp, onReset: handleReset });
 
   return (
     <div className="space-y-4">
@@ -200,43 +241,17 @@ export function MultiDrillTab() {
         </CardContent>
       </Card>
 
-      {/* Breadcrumbs */}
+      {/* Navegação drill: Voltar + Início + Breadcrumbs + Atualizar (HU-3.3) */}
       <Card>
         <CardContent className="py-3">
-          <div className="flex flex-wrap items-center gap-1 text-sm">
-            {breadcrumbs.map((step, idx) => {
-              const isLast = idx === breadcrumbs.length - 1;
-              return (
-                <span key={`${step.label}-${idx}`} className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleBreadcrumbClick(step)}
-                    disabled={isLast}
-                    className={cn(
-                      "rounded px-1.5 py-0.5 transition-colors",
-                      isLast
-                        ? "font-semibold text-foreground"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    {step.label}
-                  </button>
-                  {!isLast && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                </span>
-              );
-            })}
-            <div className="ml-auto flex items-center gap-2">
-              {breadcrumbs.length > 1 && (
-                <Button variant="ghost" size="sm" onClick={handleReset}>
-                  Reiniciar
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={refresh} disabled={isLoading}>
-                <RefreshCw className={cn("h-3.5 w-3.5 mr-1", isLoading && "animate-spin")} />
-                Atualizar
-              </Button>
-            </div>
-          </div>
+          <DrillNavBar
+            steps={breadcrumbs.map((s, i) => ({ label: s.label, key: `${s.label}-${i}` }))}
+            onStepClick={(idx) => handleBreadcrumbClick(breadcrumbs[idx])}
+            onUp={handleUp}
+            onReset={handleReset}
+            onRefresh={refresh}
+            isLoading={isLoading}
+          />
         </CardContent>
       </Card>
 
