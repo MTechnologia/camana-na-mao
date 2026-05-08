@@ -4,6 +4,7 @@ import { Search, MapPin, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { lookupCepAddress } from "@/lib/cepLookup";
+import { createClientId } from "@/lib/clientId";
 
 export interface StructuredAddress {
   street: string;
@@ -45,7 +46,7 @@ export function AddressAutocomplete({
   
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const sessionTokenRef = useRef<string>(crypto.randomUUID());
+  const sessionTokenRef = useRef<string>(createClientId("places-session"));
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Formata valor do input como CEP (00000-000) quando o usuário digita só números
@@ -219,7 +220,7 @@ export function AddressAutocomplete({
       );
 
       // Generate new session token for next search
-      sessionTokenRef.current = crypto.randomUUID();
+      sessionTokenRef.current = createClientId("places-session");
 
       if (fnError) {
         console.error("Error fetching details:", fnError);
@@ -294,7 +295,7 @@ export function AddressAutocomplete({
             const raw = e.target.value;
             const digits = raw.replace(/\D/g, '');
             // Se contém só números (e no máximo um hífen), aplicar máscara CEP (00000-000)
-            if (/^[\d\-]*$/.test(raw) && digits.length <= 8) {
+            if (/^[\d-]*$/.test(raw) && digits.length <= 8) {
               setQuery(digits.length <= 5 ? digits : formatCepDisplay(digits));
             } else {
               setQuery(raw);

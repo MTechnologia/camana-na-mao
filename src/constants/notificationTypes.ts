@@ -118,6 +118,12 @@ export const NOTIFICATION_TYPES = {
     icon: '🎤',
     audience: 'all'
   },
+  audiencia_topic_alert: {
+    label: 'Aviso por tema de audiência',
+    color: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+    icon: '🔔',
+    audience: 'citizen'
+  },
   audiencia_inscricao: { 
     label: 'Inscrição em Audiência', 
     color: 'bg-rose-500/10 text-rose-600 border-rose-500/20',

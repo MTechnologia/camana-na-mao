@@ -3,6 +3,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { cleanupLegacyPWA } from "./lib/cleanupLegacyPWA";
+import { installStaleChunkHandler } from "./lib/handleStaleChunks";
+
+// Detecta chunks stale (deploy substituiu bundles) e força reload automático
+// para evitar tela branca após deploy. Idempotente.
+installStaleChunkHandler();
 
 // Limpeza passiva de PWA legado (não bloqueia renderização)
 cleanupLegacyPWA().catch(console.error);

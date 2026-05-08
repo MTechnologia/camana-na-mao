@@ -22,7 +22,15 @@ import { TimeDistributionChart } from '@/components/analytics/TimeDistributionCh
 import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
 import { DemographicFilters, DemographicFilterState } from '@/components/analytics/DemographicFilters';
+import { VolumeOverviewTab } from '@/components/analytics/VolumeOverviewTab';
+import { ResponseTimeOverviewTab } from '@/components/analytics/ResponseTimeOverviewTab';
+import { DiagnosticoTab } from '@/components/analytics/DiagnosticoTab';
+import { AudienciasAnalyticsTab } from '@/components/analytics/AudienciasAnalyticsTab';
+import { TerritorialDrillTab } from '@/components/analytics/TerritorialDrillTab';
+import { MultiDrillTab } from '@/components/analytics/MultiDrillTab';
+import { CrossAnalyticsTab } from '@/components/analytics/CrossAnalyticsTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import { useUrlSyncedState, optionalStringSerializer, stringSerializer } from '@/hooks/useUrlSyncedState';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
@@ -46,7 +54,46 @@ import {
 // Analytics page for unified reports visualization
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
-  const [demographicFilters, setDemographicFilters] = useState<DemographicFilterState>({});
+
+  // HU-3.3 — Aba ativa sincronizada com URL (?tab=)
+  const [tabState, setTabState] = useUrlSyncedState<{ tab: string }>({
+    defaults: { tab: 'volume' },
+    serializers: { tab: stringSerializer('volume') },
+  });
+
+  // HU-3.3 — Filtros demográficos sincronizados com URL (?dem.g, ?dem.r, ?dem.c, ?dem.a)
+  const [demUrlState, setDemUrlState] = useUrlSyncedState<{
+    g: string | null;
+    r: string | null;
+    c: string | null;
+    a: string | null;
+  }>({
+    prefix: 'dem',
+    defaults: { g: null, r: null, c: null, a: null },
+    serializers: {
+      g: optionalStringSerializer(),
+      r: optionalStringSerializer(),
+      c: optionalStringSerializer(),
+      a: optionalStringSerializer(),
+    },
+  });
+  const demographicFilters: DemographicFilterState = useMemo(() => ({
+    gender: demUrlState.g ?? undefined,
+    race: demUrlState.r ?? undefined,
+    socialClass: demUrlState.c ?? undefined,
+    ageGroup: demUrlState.a ?? undefined,
+  }), [demUrlState]);
+  const setDemographicFilters = (
+    next: DemographicFilterState | ((prev: DemographicFilterState) => DemographicFilterState),
+  ) => {
+    const value = typeof next === 'function' ? next(demographicFilters) : next;
+    setDemUrlState({
+      g: value.gender ?? null,
+      r: value.race ?? null,
+      c: value.socialClass ?? null,
+      a: value.ageGroup ?? null,
+    });
+  };
   
   // Combine filters for the analytics hook
   const combinedFilters: ReportsAnalyticsFilters = useMemo(() => ({
@@ -141,7 +188,8 @@ export default function ReportsAnalyticsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Análise de Relatos</h1>
             <p className="text-muted-foreground">
-              Relatos urbanos e de transporte • Avaliações de serviço em outra seção
+              Volume, sentimento, demografia e criticidade — relatos urbanos, de transporte e
+              avaliações de serviço
             </p>
           </div>
           <div className="flex gap-2">
@@ -212,14 +260,57 @@ export default function ReportsAnalyticsPage() {
         </div>
 
         {/* Tabs for detailed analytics */}
-        <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="flex flex-wrap md:grid md:grid-cols-5 w-full h-auto gap-1 p-1">
+        <Tabs value={tabState.tab} onValueChange={(t) => setTabState({ tab: t })} className="w-full">
+          {/* Tabs em flex-wrap puro (mobile-first): quebra naturalmente em 2 linhas sem grid rígido. */}
+          <TabsList className="flex flex-wrap w-full h-auto gap-1 p-1">
+            <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>
+            <TabsTrigger value="eficiencia" className="flex-1 min-w-[100px]">Eficiência</TabsTrigger>
+            <TabsTrigger value="diagnostico" className="flex-1 min-w-[100px]">Diagnóstico</TabsTrigger>
+            <TabsTrigger value="audiencias" className="flex-1 min-w-[100px]">Audiências</TabsTrigger>
+            <TabsTrigger value="territorial" className="flex-1 min-w-[100px]">Territorial</TabsTrigger>
+            <TabsTrigger value="drill" className="flex-1 min-w-[100px]">Drill-down</TabsTrigger>
+            <TabsTrigger value="cross" className="flex-1 min-w-[110px]">Cruzamentos</TabsTrigger>
             <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
             <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
             <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
             <TabsTrigger value="engajamento" className="flex-1 min-w-[110px]">Engajamento</TabsTrigger>
             <TabsTrigger value="criticidade" className="flex-1 min-w-[100px]">Criticidade</TabsTrigger>
           </TabsList>
+
+          {/* TAB VOLUME — HU-1.1: visão de volume por período / categoria / região */}
+          <TabsContent value="volume" className="space-y-6">
+            <VolumeOverviewTab />
+          </TabsContent>
+
+          {/* TAB EFICIÊNCIA — HU-1.2: tempo médio de resolução e tendência */}
+          <TabsContent value="eficiencia" className="space-y-6">
+            <ResponseTimeOverviewTab />
+          </TabsContent>
+
+          {/* TAB DIAGNÓSTICO — HU-1.3: sentimento + padrões + criticidade */}
+          <TabsContent value="diagnostico" className="space-y-6">
+            <DiagnosticoTab />
+          </TabsContent>
+
+          {/* TAB AUDIÊNCIAS — HU-1.4: engajamento em audiências */}
+          <TabsContent value="audiencias" className="space-y-6">
+            <AudienciasAnalyticsTab />
+          </TabsContent>
+
+          {/* TAB TERRITORIAL — HU-3.1: drill-down zona › bairro › rua */}
+          <TabsContent value="territorial" className="space-y-6">
+            <TerritorialDrillTab />
+          </TabsContent>
+
+          {/* TAB DRILL-DOWN — HU-3.2: drill multi-dimensional (categoria/tempo/status/audiência) */}
+          <TabsContent value="drill" className="space-y-6">
+            <MultiDrillTab />
+          </TabsContent>
+
+          {/* TAB CRUZAMENTOS — HU-3.4: drill-across categoria × demografia */}
+          <TabsContent value="cross" className="space-y-6">
+            <CrossAnalyticsTab />
+          </TabsContent>
 
           {/* TAB GERAL */}
           <TabsContent value="geral" className="space-y-6">
@@ -542,7 +633,7 @@ export default function ReportsAnalyticsPage() {
         />
 
         {/* Export Dialog */}
-        <ExportDialog 
+        <ExportDialog
           isOpen={showExport}
           onClose={() => setShowExport(false)}
           exportType="all"

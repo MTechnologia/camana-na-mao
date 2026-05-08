@@ -60,15 +60,12 @@ export function useTransportSubscriptions() {
 
   const toggleSubscription = async (lineId: string, active: boolean, type: string = "alert") => {
     if (!user?.id) return;
+    if (!lineId?.trim()) {
+      toast.error("Não foi possível identificar a linha para acompanhar.");
+      return;
+    }
 
-    // Optimistic update
-    const previousSubs = [...subscriptions];
-    
     if (active) {
-      // Find the line info from existing lines to add optimistically
-      // Note: We don't have allLines here, but we can at least show a loading state 
-      // or wait for the actual refresh. For now, let's keep it simple but prevent double upsert.
-      
       const { error } = await supabase
         .from("transport_subscriptions")
         .upsert(

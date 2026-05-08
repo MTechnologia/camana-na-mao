@@ -1,8 +1,8 @@
 /**
- * Chama a função SQL process_audiencia_topic_alerts() para enviar notificações
- * a usuários que pediram aviso quando houver audiências sobre um tema.
+ * Chama a função SQL process_audiencia_topic_alerts() como backfill/manual repair
+ * para gerar notificações de audiência por tema que ainda não existam.
  *
- * Deve ser invocado por cron (ex.: diariamente às 09:00 BRT).
+ * A entrega normal acontece via trigger no banco; esta function fica como apoio operacional.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";

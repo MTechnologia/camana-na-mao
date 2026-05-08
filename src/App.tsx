@@ -36,6 +36,7 @@ import TestTask4 from "./pages/TestTask4";
 const Welcome = lazy(() => import("./pages/Welcome"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
+const ConfirmarEmail = lazy(() => import("./pages/ConfirmarEmail"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
@@ -128,6 +129,7 @@ const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications")
 const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPage"));
 const TrendDashboardPage = lazy(() => import("./pages/admin/TrendDashboardPage"));
 const ReportsHeatmapPage = lazy(() => import("./pages/admin/ReportsHeatmapPage"));
+const RatingsConcentrationPage = lazy(() => import("./pages/admin/RatingsConcentrationPage"));
 const ClassificationAccuracyPage = lazy(() => import("./pages/admin/ClassificationAccuracyPage"));
 const UserManagement = lazy(() => import("./pages/admin/UserManagement"));
 const ExportLogs = lazy(() => import("./pages/admin/ExportLogs"));
@@ -229,6 +231,7 @@ const AppContent = () => {
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/confirmar-email" element={<ConfirmarEmail />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/nova-senha" element={<UpdatePassword />} />
           <Route path="/privacidade" element={<PrivacyPolicyPage />} />
@@ -311,6 +314,7 @@ const AppContent = () => {
             <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
             <Route path="/admin/trends" element={<ProtectedAdminRoute><TrendDashboardPage /></ProtectedAdminRoute>} />
             <Route path="/admin/reports-heatmap" element={<ProtectedAdminRoute><ReportsHeatmapPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/avaliacoes-polarizacao" element={<ProtectedAdminRoute><RatingsConcentrationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/classification-accuracy" element={<ProtectedAdminRoute><ClassificationAccuracyPage /></ProtectedAdminRoute>} />
             <Route path="/admin/users" element={<ProtectedAdminOnlyRoute><UserManagement /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/exports" element={<ProtectedAdminRoute><ExportLogs /></ProtectedAdminRoute>} />

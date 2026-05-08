@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAutoConfirmedEmailPending } from "@/lib/emailConfirmationGuard";
 
 interface ProtectedRouteProps {
   children?: ReactNode;
@@ -29,6 +30,17 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   if (!user && !session) {
     return <Navigate to="/welcome" replace state={{ from: location.pathname }} />;
+  }
+
+  const isEmailConfirmed = Boolean(user?.email_confirmed_at) && !isAutoConfirmedEmailPending(user?.email);
+  if (user && !isEmailConfirmed) {
+    return (
+      <Navigate
+        to="/confirmar-email"
+        replace
+        state={{ email: user.email, from: location.pathname }}
+      />
+    );
   }
 
   return children ? <>{children}</> : <Outlet />;

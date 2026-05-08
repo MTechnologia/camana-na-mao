@@ -5,7 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTransportLines } from '@/hooks/useTransportLines';
 
 interface LineSearchInputProps {
-  onSelectLine: (line: { id: string; line_code: string; line_name: string }) => void;
+  onSelectLine: (line: { id?: string | null; line_code: string; line_name: string }) => void;
   allowCustom?: boolean;
 }
 
@@ -24,7 +24,7 @@ export const LineSearchInput = ({ onSelectLine, allowCustom = true }: LineSearch
   const handleCustomLine = () => {
     if (query.trim()) {
       onSelectLine({
-        id: '',
+        id: null,
         line_code: query.trim(),
         line_name: 'Linha informada manualmente',
       });

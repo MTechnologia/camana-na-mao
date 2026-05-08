@@ -169,6 +169,77 @@ export function extrairEmailDeMaisInformacoes(texto: string | null | undefined):
   return match ? match[0] : null;
 }
 
+const AP_CODE_COMMISSION_HINTS: Record<string, string[]> = {
+  ECON: ["economia", "desenvolvimento economico", "turismo", "transito", "transporte", "atividade economica"],
+  FIN: ["financas", "orcamento"],
+  SAUDE: ["saude", "promocao social", "trabalho", "mulher"],
+  TRANS: ["transito", "transporte", "atividade economica", "turismo", "lazer"],
+  EDUC: ["educacao", "cultura", "esportes"],
+  URB: ["politica urbana", "metropolitana", "meio ambiente"],
+  ADM: ["administracao publica"],
+  CONST: ["constituicao", "justica", "legislacao"],
+  EXTRA: ["extraordinaria"],
+};
+
+type AudienciaApCodeContext = {
+  ap_code?: string | null;
+  comissao?: string | null;
+  titulo?: string | null;
+  data?: string | null;
+};
+
+function normalizeApCodeText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function apCodePrefix(apCode?: string | null): string {
+  return (apCode ?? "").split("-")[0]?.replace(/\d+$/g, "").toUpperCase() ?? "";
+}
+
+function expectedApCodePrefix(audiencia: AudienciaApCodeContext): string | null {
+  const text = normalizeApCodeText(`${audiencia.comissao ?? ""} ${audiencia.titulo ?? ""}`);
+  if (!text) return null;
+  for (const [prefix, hints] of Object.entries(AP_CODE_COMMISSION_HINTS)) {
+    if (hints.some((hint) => text.includes(hint))) return prefix;
+  }
+  return null;
+}
+
+function isApCodeConsistent(audiencia: AudienciaApCodeContext): boolean {
+  const prefix = apCodePrefix(audiencia.ap_code);
+  if (!prefix) return false;
+  return expectedApCodePrefix(audiencia) === prefix;
+}
+
+function apCodeDateSuffix(data?: string | null): string | null {
+  const date = (data ?? "").slice(0, 10);
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  return `${day}-${month}-${year}`;
+}
+
+export function formatAudienciaApCode(audiencia: AudienciaApCodeContext | null): string {
+  if (!audiencia) return "—";
+  const rawApCode = audiencia.ap_code?.trim() ?? "";
+  if (rawApCode && isApCodeConsistent(audiencia)) return rawApCode;
+
+  const expectedPrefix = expectedApCodePrefix(audiencia);
+  if (!expectedPrefix) return rawApCode || "—";
+
+  const rawSuffix = rawApCode.match(/^[A-Z]+(\d+-\d{2}-\d{2}-\d{4}(?:-\d+h)?)$/i)?.[1];
+  if (rawSuffix) return `${expectedPrefix}${rawSuffix}`;
+
+  const dateSuffix = apCodeDateSuffix(audiencia.data);
+  return dateSuffix ? `${expectedPrefix}-${dateSuffix}` : expectedPrefix;
+}
+
 /** Alinhado ao site da CMSP quando não há inscrição por videoconferência. */
 export const OBSERVACAO_SOMENTE_PRESENCIAL_AUDIENCIA =
   "Audiência pública com participação somente presencial. Não é possível se inscrever para participar por videoconferência desta Audiência Pública. Compareça ao evento e contribua presencialmente.";

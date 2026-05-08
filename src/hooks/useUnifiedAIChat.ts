@@ -16,6 +16,7 @@ import {
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
 import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
+import { createClientId } from "@/lib/clientId";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -139,7 +140,7 @@ interface Message {
 function messageFromSavedRow(msg: Record<string, unknown>): Message {
   const role: Message["role"] =
     msg.role === "assistant" || msg.role === "user" ? msg.role : "user";
-  const id = typeof msg.id === "string" && msg.id.trim() ? msg.id : crypto.randomUUID();
+  const id = typeof msg.id === "string" && msg.id.trim() ? msg.id : createClientId("chat-message");
   const content = typeof msg.content === "string" ? msg.content : "";
   const timestamp = typeof msg.timestamp === "string" ? msg.timestamp : "";
   const source = typeof msg.source === "string" ? msg.source : undefined;
@@ -516,7 +517,7 @@ export const useUnifiedAIChat = (
   // Adiciona mensagem do usuário de forma otimista (antes da conversa ser criada)
   const addOptimisticMessage = useCallback((content: string) => {
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat-message"),
       role: "user",
       content,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
@@ -1197,7 +1198,7 @@ export const useUnifiedAIChat = (
     }
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat-message"),
       role: "user",
       content: trimmedContent,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
@@ -1426,7 +1427,7 @@ export const useUnifiedAIChat = (
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = "";
-      const assistantMessageId = crypto.randomUUID();
+      const assistantMessageId = createClientId("chat-message");
       let textBuffer = "";
 
       if (!reader) throw new Error("No response body");
@@ -1823,7 +1824,7 @@ export const useUnifiedAIChat = (
 
   const addAssistantMessage = (content: string) => {
     const newMessage: Message = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat-message"),
       role: "assistant",
       content,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
