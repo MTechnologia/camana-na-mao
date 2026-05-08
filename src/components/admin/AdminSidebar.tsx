@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -54,6 +54,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
         { title: 'Mapa de calor', icon: Flame, href: '/admin/reports-heatmap' },
+        { title: 'Polarização de avaliações', icon: Star, href: '/admin/avaliacoes-polarizacao' },
         { title: 'Acurácia da classificação', icon: Target, href: '/admin/classification-accuracy' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
         { title: 'Comissões', icon: Landmark, href: '/admin/commissions' },
