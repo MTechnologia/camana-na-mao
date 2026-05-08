@@ -55,6 +55,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
         { title: 'Mapa de calor', icon: Flame, href: '/admin/reports-heatmap' },
         { title: 'Polarização de avaliações', icon: Star, href: '/admin/avaliacoes-polarizacao' },
+        { title: 'Intensidade de demanda', icon: Activity, href: '/admin/intensidade-demanda' },
         { title: 'Acurácia da classificação', icon: Target, href: '/admin/classification-accuracy' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
         { title: 'Comissões', icon: Landmark, href: '/admin/commissions' },
