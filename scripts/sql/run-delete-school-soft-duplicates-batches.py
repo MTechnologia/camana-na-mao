@@ -243,14 +243,25 @@ def phase_favorites_one_shot() -> tuple[int, int]:
     return n1, n2
 
 
-def run_keyset_updates(name: str, update_sql: str, batch_size: int, sleep_s: float) -> int:
+def run_keyset_updates(
+    name: str,
+    update_sql: str,
+    batch_size: int,
+    sleep_s: float,
+    *,
+    soft_dupes: int,
+) -> int:
     """
     Pagina duplicatas de escola por ps.id (keyset) para nao parar no primeiro lote com 0 linhas na tabela filha.
     update_sql must contain {last_uuid} and {batch_size} placeholders.
+    soft_dupes: total de public_services school com duplicate_of (para progresso fatia i/N).
     """
+    est_slices = max(1, (soft_dupes + batch_size - 1) // batch_size)
     total = 0
     last_uuid = "00000000-0000-0000-0000-000000000000"
+    slice_idx = 0
     while True:
+        slice_idx += 1
         sql = update_sql.format(last_uuid=sql_uuid(last_uuid), batch_size=batch_size)
         rows = run_sql(
             f"""
@@ -266,7 +277,10 @@ def run_keyset_updates(name: str, update_sql: str, batch_size: int, sleep_s: flo
         slice_n = int(r0.get("slice_n") or 0)
         max_dup = (r0.get("max_dup") or "").strip()
         total += n
-        print(f"{name}: slice={slice_n} affected={n} (acum. {total})", flush=True)
+        print(
+            f"{name}: fatia {slice_idx}/{est_slices} slice_ids={slice_n} affected={n} (acum. {total})",
+            flush=True,
+        )
         if slice_n == 0:
             break
         if max_dup:
@@ -275,7 +289,7 @@ def run_keyset_updates(name: str, update_sql: str, batch_size: int, sleep_s: flo
     return total
 
 
-def phase_visits_keyset(batch_size: int, sleep_s: float) -> int:
+def phase_visits_keyset(batch_size: int, sleep_s: float, soft_dupes: int) -> int:
     sql = """
         WITH slice AS (
           SELECT ps.id AS dup_id, ps.duplicate_of AS canon_id
@@ -298,11 +312,15 @@ def phase_visits_keyset(batch_size: int, sleep_s: float) -> int:
           (SELECT count(*)::integer FROM slice) AS slice_n,
           (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
-    return run_keyset_updates("service_visits", sql, batch_size, sleep_s)
+    return run_keyset_updates("service_visits", sql, batch_size, sleep_s, soft_dupes=soft_dupes)
 
 
-def phase_ratings_keyset(batch_size: int, sleep_s: float) -> int:
-    sql = """
+def phase_ratings_keyset(batch_size: int, sleep_s: float, soft_dupes: int) -> int:
+    """
+    Reatribui avaliacoes de escolas duplicadas ao canônico.
+    Remove conflitos RN-AVA-003 antes do UPDATE (idx_one_rating_per_service_per_day).
+    """
+    sql_template = """
         WITH slice AS (
           SELECT ps.id AS dup_id, ps.duplicate_of AS canon_id
           FROM public.public_services ps
@@ -312,6 +330,56 @@ def phase_ratings_keyset(batch_size: int, sleep_s: float) -> int:
           ORDER BY ps.id
           LIMIT {batch_size}
         ),
+        dup_ratings AS (
+          SELECT
+            r.id,
+            r.user_id,
+            s.canon_id,
+            (timezone('America/Sao_Paulo', r.created_at))::date AS dday,
+            r.created_at
+          FROM public.service_ratings r
+          INNER JOIN slice s ON r.service_id = s.dup_id
+          WHERE r.created_at IS NOT NULL
+        ),
+        ranked_intra AS (
+          SELECT
+            id,
+            row_number() OVER (
+              PARTITION BY user_id, canon_id, dday
+              ORDER BY created_at ASC, id ASC
+            ) AS rn
+          FROM dup_ratings
+        ),
+        del_intra AS (
+          DELETE FROM public.service_ratings sr
+          USING ranked_intra ri
+          WHERE sr.id = ri.id AND ri.rn > 1
+          RETURNING sr.id
+        ),
+        conflict_pairs AS (
+          SELECT
+            CASE
+              WHEN r_dup.created_at < r_can.created_at
+                OR (r_dup.created_at = r_can.created_at AND r_dup.id < r_can.id)
+              THEN r_can.id
+              ELSE r_dup.id
+            END AS loser_id
+          FROM slice s
+          INNER JOIN public.service_ratings r_dup
+            ON r_dup.service_id = s.dup_id AND r_dup.created_at IS NOT NULL
+          INNER JOIN public.service_ratings r_can
+            ON r_can.service_id = s.canon_id
+            AND r_can.user_id = r_dup.user_id
+            AND r_can.created_at IS NOT NULL
+            AND (timezone('America/Sao_Paulo', r_dup.created_at))::date
+              = (timezone('America/Sao_Paulo', r_can.created_at))::date
+        ),
+        del_inter AS (
+          DELETE FROM public.service_ratings sr
+          USING conflict_pairs cp
+          WHERE sr.id = cp.loser_id
+          RETURNING sr.id
+        ),
         u AS (
           UPDATE public.service_ratings r
           SET service_id = s.canon_id, updated_at = now()
@@ -320,14 +388,51 @@ def phase_ratings_keyset(batch_size: int, sleep_s: float) -> int:
           RETURNING r.id
         )
         SELECT
+          (SELECT count(*)::integer FROM del_intra) AS del_intra_n,
+          (SELECT count(*)::integer FROM del_inter) AS del_inter_n,
           (SELECT count(*)::integer FROM u) AS affected,
           (SELECT count(*)::integer FROM slice) AS slice_n,
           (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
-    return run_keyset_updates("service_ratings", sql, batch_size, sleep_s)
+    est_slices = max(1, (soft_dupes + batch_size - 1) // batch_size)
+    total = 0
+    total_del = 0
+    last_uuid = "00000000-0000-0000-0000-000000000000"
+    slice_idx = 0
+    while True:
+        slice_idx += 1
+        sql = sql_template.format(last_uuid=sql_uuid(last_uuid), batch_size=batch_size)
+        rows = run_sql(
+            f"""
+        SET lock_timeout = '30s';
+        SET statement_timeout = '180s';
+        {sql}
+        """
+        )
+        if not rows:
+            break
+        r0 = rows[0]
+        n = int(r0.get("affected") or 0)
+        di = int(r0.get("del_intra_n") or 0)
+        de = int(r0.get("del_inter_n") or 0)
+        slice_n = int(r0.get("slice_n") or 0)
+        max_dup = (r0.get("max_dup") or "").strip()
+        total += n
+        total_del += di + de
+        print(
+            f"service_ratings: fatia {slice_idx}/{est_slices} slice_ids={slice_n} "
+            f"del_intra={di} del_inter={de} upd={n} (acum. upd={total}, del_conf={total_del})",
+            flush=True,
+        )
+        if slice_n == 0:
+            break
+        if max_dup:
+            last_uuid = max_dup
+        time.sleep(sleep_s)
+    return total
 
 
-def phase_corrections_keyset(batch_size: int, sleep_s: float) -> int:
+def phase_corrections_keyset(batch_size: int, sleep_s: float, soft_dupes: int) -> int:
     sql = """
         WITH slice AS (
           SELECT ps.id AS dup_id, ps.duplicate_of AS canon_id
@@ -350,10 +455,10 @@ def phase_corrections_keyset(batch_size: int, sleep_s: float) -> int:
           (SELECT count(*)::integer FROM slice) AS slice_n,
           (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
-    return run_keyset_updates("service_corrections", sql, batch_size, sleep_s)
+    return run_keyset_updates("service_corrections", sql, batch_size, sleep_s, soft_dupes=soft_dupes)
 
 
-def phase_plan_items_keyset(batch_size: int, sleep_s: float) -> int:
+def phase_plan_items_keyset(batch_size: int, sleep_s: float, soft_dupes: int) -> int:
     sql = """
         WITH slice AS (
           SELECT ps.id AS dup_id, ps.duplicate_of AS canon_id
@@ -376,10 +481,10 @@ def phase_plan_items_keyset(batch_size: int, sleep_s: float) -> int:
           (SELECT count(*)::integer FROM slice) AS slice_n,
           (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
-    return run_keyset_updates("service_plan_items", sql, batch_size, sleep_s)
+    return run_keyset_updates("service_plan_items", sql, batch_size, sleep_s, soft_dupes=soft_dupes)
 
 
-def phase_alerts_keyset(batch_size: int, sleep_s: float) -> int:
+def phase_alerts_keyset(batch_size: int, sleep_s: float, soft_dupes: int) -> int:
     sql = """
         WITH slice AS (
           SELECT ps.id AS dup_id, ps.duplicate_of AS canon_id
@@ -402,7 +507,7 @@ def phase_alerts_keyset(batch_size: int, sleep_s: float) -> int:
           (SELECT count(*)::integer FROM slice) AS slice_n,
           (SELECT s.dup_id::text FROM slice s ORDER BY s.dup_id DESC LIMIT 1) AS max_dup;
     """
-    return run_keyset_updates("service_alerts", sql, batch_size, sleep_s)
+    return run_keyset_updates("service_alerts", sql, batch_size, sleep_s, soft_dupes=soft_dupes)
 
 
 def dedupe_ratings_one_per_day() -> int:
@@ -506,25 +611,52 @@ def main() -> int:
         print("Nada a fazer (soft_dupes=0).", flush=True)
         return 0
 
+    sd = counts["soft_dupes"]
+    bs = args.batch_size
+    est_slices = max(1, (sd + bs - 1) // bs)
+    sec_guess = 12.0
+    t_keyset_min = (5 * est_slices * (sec_guess + args.sleep)) / 60.0
+    t_del_min = (est_slices * (sec_guess + args.sleep)) / 60.0
+    print(
+        f"Plano: {sd:,} duplicatas escola; ~{est_slices} fatias de até {bs} ids por fase keyset "
+        f"(visitas, ratings, correcoes, planos, alertas).",
+        flush=True,
+    )
+    print(
+        f"Estimativa grosseira (supondo ~{sec_guess:.0f}s por chamada + sleep {args.sleep}s): "
+        f"keyset ~{t_keyset_min:.0f} min; dedupe ratings; DELETE public_services ~{t_del_min:.0f} min "
+        f"(~{est_slices} lotes cheios). Valores reais variam com rede e carga.",
+        flush=True,
+    )
+
     phase_visit_detection_one_shot()
     phase_subscriptions_one_shot()
     phase_favorites_one_shot()
-    phase_visits_keyset(args.batch_size, args.sleep)
-    phase_ratings_keyset(args.batch_size, args.sleep)
-    phase_corrections_keyset(args.batch_size, args.sleep)
-    phase_plan_items_keyset(args.batch_size, args.sleep)
-    phase_alerts_keyset(args.batch_size, args.sleep)
+    phase_visits_keyset(args.batch_size, args.sleep, sd)
+    phase_ratings_keyset(args.batch_size, args.sleep, sd)
+    phase_corrections_keyset(args.batch_size, args.sleep, sd)
+    phase_plan_items_keyset(args.batch_size, args.sleep, sd)
+    phase_alerts_keyset(args.batch_size, args.sleep, sd)
 
     n_dedupe = dedupe_ratings_one_per_day()
     print(f"service_ratings dedupe RN-AVA-003: removed={n_dedupe}", flush=True)
+    print(
+        f"Iniciando DELETE em public_services (soft_dup escola), ~{est_slices} lotes típicos de até {bs} linhas.",
+        flush=True,
+    )
 
     del_total = 0
+    del_batch_idx = 0
     while True:
         n = delete_school_dupes_batch(args.batch_size)
         if n == 0:
             break
+        del_batch_idx += 1
         del_total += n
-        print(f"public_services DELETE soft_dup school: +{n} (acum. {del_total})", flush=True)
+        print(
+            f"public_services DELETE soft_dup school: lote {del_batch_idx} (+{n} linhas, acum. {del_total})",
+            flush=True,
+        )
         time.sleep(args.sleep)
 
     print("depois:", count_school_dupes(), flush=True)
