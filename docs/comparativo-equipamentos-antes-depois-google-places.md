@@ -94,7 +94,36 @@ Atualizar “depois”: `scripts/sql/diagnostic-count-by-service-type.sql`.
 
 ---
 
-## 5. Google Places — valores **USD** e **BRL**
+## 5. Levantamento da **terça-feira** (~**US$ 59 000**) e conciliação
+
+No início do trabalho (levantamento feito **na terça-feira**), a ordem de grandeza apontada para o custo Google Places foi de **cerca de US$ 59 000** (baseline interno da equipa).
+
+**Em BRL (referência R$ 5,50 / US$):** ~**US$ 59 000 × 5,50 ≈ R$ 324 500**.
+
+### 5.1 Por que este documento também mostra valores **menores** (ex.: ~US$ 9,8k no marco **B** sem ônibus)?
+
+O **~US$ 59k** e os valores da **secção 6** abaixo **não são contraditórios** se as **premissas** forem diferentes:
+
+| Premissa | Tende a **subir** o custo → aproxima **~US$ 59k** | Tende a **baixar** → valores da secção 6 |
+|----------|---------------------------------------------------|------------------------------------------|
+| **N** (nº de chamadas / POIs) | Contar **quase todos** os `public_services`, **incl.** fase com **~1,7M** linhas; ou **duas chamadas** por POI (resolver `place_id` + detalhe) | Contar só **marco B ou C**, **excluindo** **537 675** `transit_station` |
+| **SKUs** | Text Search / Nearby **+** Place Details; vários níveis (Essentials + Pro + Enterprise) | **Só** Place Details **Enterprise + Atmosphere**, **uma** chamada por POI |
+| **Preço por 1k** | Tabela **completa** (faixas após 100k / 500k com média efetiva maior no título do projeto) | **Só primeira faixa paga** linear **US$ 25 / 1 000** após 1k grátis (ilustrativo) |
+
+**Exemplo de conta que bate na ordem de US$ 59k:**  
+se o levantamento da terça tiver usado **~2,36 milhões** de eventos cobráveis à **US$ 25 / 1 000** → **~US$ 59 000** ( `2 360 000 × 0,025 ≈ 59 000` ). Isso pode corresponder a **volume maior** (pico do cadastro / duplicatas / múltiplas chamadas por equipamento), não ao recorte “marco **B** sem ônibus” deste doc.
+
+**Recomendação:** guardar a **planilha ou o N usado na terça** (total de chamadas, SKUs, se ônibus entravam) e **igualar** à coluna “N” daqui — aí o **~US$ 59k** passa a ser a linha oficial “**antes**” e os cenários da secção 6 ficam como **cenários alternativos** documentados.
+
+| Referência | USD (ordem) | BRL (≈ R$ 5,50) | Uso no doc |
+|------------|------------:|----------------:|------------|
+| **Levantamento terça-feira** | **~59 000** | **~324 500** | baseline da equipa |
+| Marco **B**, sem ônibus (sec. 6, simplificado) | ~9 806 | ~53 933 | 1 SKU, N menor |
+| Marco **C**, sem ônibus (sec. 6, simplificado) | ~3 141 | ~17 276 | após limpezas `other` |
+
+---
+
+## 6. Google Places — valores **USD** e **BRL** (cenários simplificados deste documento)
 
 **SKU de referência:** Place Details **Enterprise + Atmosphere** — primeira faixa paga **US$ 25 por 1 000** chamadas após **1 000** gratuitas/mês ([tabela](https://developers.google.com/maps/billing-and-pricing/pricing#places-pricing)).
 
@@ -102,7 +131,7 @@ Atualizar “depois”: `scripts/sql/diagnostic-count-by-service-type.sql`.
 `USD ≈ max(0, N − 1000) × 0,025`  
 `BRL ≈ USD × 5,50`
 
-### 5.1 Onda completa “tudo exceto ônibus”
+### 6.1 Onda completa “tudo exceto ônibus”
 
 | Marco | N (POIs) | Chamadas cobráveis (≈) | USD (≈) | BRL (≈, R$ 5,50) |
 |-------|----------|-------------------------|--------:|-----------------:|
@@ -110,7 +139,7 @@ Atualizar “depois”: `scripts/sql/diagnostic-count-by-service-type.sql`.
 | **C** | 126 656 | 125 656 | **3 141** | **17 276** |
 | **Economia (B − C)** | — | — | **6 665** | **36 658** |
 
-### 5.2 Recorte **escolas + UBS + hospitais** (~**59 627** — inalterado entre B e C)
+### 6.2 Recorte **escolas + UBS + hospitais** (~**59 627** — inalterado entre B e C)
 
 | Métrica | USD (≈) | BRL (≈, R$ 5,50) |
 |---------|--------:|-----------------:|
@@ -118,7 +147,7 @@ Atualizar “depois”: `scripts/sql/diagnostic-count-by-service-type.sql`.
 
 *(`max(0, 59627−1000)×0,025`.)*
 
-### 5.3 Marco **A** (se alguém quisesse enriquecer **tudo** incluindo duplicatas de escola — **não recomendado**)
+### 6.3 Marco **A** (se alguém quisesse enriquecer **tudo** incluindo duplicatas de escola — **não recomendado**)
 
 | Métrica | Valor |
 |---------|------:|
@@ -132,13 +161,14 @@ Isto **não** é o cenário desejado após dedupe; serve só para mostrar por qu
 
 ---
 
-## 6. Resumo executivo
+## 7. Resumo executivo
 
 | Pergunta | Resposta |
 |----------|----------|
 | 10 milhões de equipamentos? | **Não** na `public_services` que medimos; houve **~1,72M linhas** no pico agregado (contagem que incluía duplicatas) e **~931k** após limpar escolas. |
 | O que mudou de B para C? | **−266 596** linhas, sobretudo **`other`**. |
-| Places sem ônibus | Volume cai de **~393k** para **~127k** POIs → **~US$ 6,7k** (~**R$ 36,7k**) a menos por “onda” no modelo simplificado acima. |
+| **Levantamento terça (~US$ 59k)** | Baseline interno; alinhar **N** e **SKUs** com a planilha da terça — ver **secção 5**. |
+| Places sem ônibus (cenário simplificado sec. 6) | Volume cai de **~393k** para **~127k** POIs → **~US$ 6,7k** (~**R$ 36,7k**) a menos por “onda”. |
 | Saúde + educação (59k) | **~US$ 1,5k** ≈ **R$ 8,1k** por onda (inalterado entre B e C). |
 
 ---
