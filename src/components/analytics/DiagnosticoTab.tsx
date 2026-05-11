@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AIInsightsCard } from "@/components/analytics/AIInsightsCard";
 import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
+import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
@@ -61,6 +63,9 @@ export function DiagnosticoTab() {
   const period: DateRangeValue | undefined = periodState.p ? { startDate: periodState.p.startDate, endDate: periodState.p.endDate } : undefined;
   const setPeriod = (next: DateRangeValue | undefined) => setPeriodState({ p: next ? { startDate: next.startDate, endDate: next.endDate } : null });
 
+  // HU-5.2 — Filtros granulares (categorias, bairros, zonas)
+  const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+
   const filters = useMemo(
     () => ({ startDate: period?.from, endDate: period?.to }),
     [period],
@@ -91,21 +96,17 @@ export function DiagnosticoTab() {
 
   return (
     <div className="space-y-6">
-      {/* Filtro de período */}
-      <div className="rounded-lg border border-border bg-card p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Clock className="h-4 w-4" aria-hidden="true" />
-          <span>Período de análise</span>
-        </div>
-        <FilterDatePicker
-          value={period}
-          onChange={setPeriod}
-          placeholder="Todos os períodos"
-        />
-        <span className="ml-auto text-xs text-muted-foreground">
-          Score combina volume, sentimento, severidade e padrões ativos.
-        </span>
-      </div>
+      {/* HU-5.2 — Filtros granulares: período + categorias + bairros + zonas */}
+      <VolumeFilters
+        value={{ ...granularFilters, period }}
+        onChange={(next) => {
+          setPeriod(next.period);
+          setGranularFilters({ ...next, period: next.period });
+        }}
+        availableCategories={[]}
+        availableRegions={[]}
+        loading={isLoading}
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

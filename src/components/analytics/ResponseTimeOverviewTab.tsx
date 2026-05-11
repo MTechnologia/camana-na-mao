@@ -31,6 +31,8 @@ import { Card } from "@/components/ui/card";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
 import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
+import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
@@ -84,9 +86,18 @@ export function ResponseTimeOverviewTab() {
   const period: DateRangeValue | undefined = periodState.p ? { startDate: periodState.p.startDate, endDate: periodState.p.endDate } : undefined;
   const setPeriod = (next: DateRangeValue | undefined) => setPeriodState({ p: next ? { startDate: next.startDate, endDate: next.endDate } : null });
 
+  // HU-5.2 — Filtros granulares (categorias, bairros, zonas)
+  const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+
   const filters: ResponseTimeFilters = useMemo(
-    () => ({ startDate: period?.from, endDate: period?.to }),
-    [period],
+    () => ({
+      startDate: period?.from,
+      endDate: period?.to,
+      categories: granularFilters.categories,
+      regions: granularFilters.regions,
+      zones: granularFilters.zones,
+    }),
+    [period, granularFilters],
   );
 
   const { stats, isLoading, error, refresh } = useResponseTimeAnalytics(filters);

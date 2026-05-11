@@ -23,6 +23,15 @@ import { localParaZona, type ZonaSP } from "@/lib/audienciaZonas";
 export interface AudienciasFilters {
   startDate?: Date | string | null;
   endDate?: Date | string | null;
+  /**
+   * HU-5.2 — filtros adicionais. Categories não se aplicam a audiências
+   * (não há "categoria de audiência" comparável a relatos urbanos). Regions
+   * e zones são aplicadas ao campo `local` da audiência via mapeamento de
+   * zona. Mantidos opcionais para compatibilidade com a interface comum.
+   */
+  categories?: string[];
+  regions?: string[];
+  zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
 }
 
 export interface BreakdownItem {
