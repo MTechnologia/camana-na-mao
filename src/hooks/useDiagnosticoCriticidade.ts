@@ -86,6 +86,9 @@ export interface DiagnosticoStats {
   topRegions: RegionDiagnostic[];
   /** Top 10 padrões ativos. */
   topPatterns: PatternEntry[];
+  /** HU-5.2 — listas para popular MultiSelect */
+  availableCategories: string[];
+  availableRegions: string[];
 }
 
 const EMPTY_STATS: DiagnosticoStats = {
@@ -97,6 +100,8 @@ const EMPTY_STATS: DiagnosticoStats = {
   topCategories: [],
   topRegions: [],
   topPatterns: [],
+  availableCategories: [],
+  availableRegions: [],
 };
 
 interface RawReport {
@@ -307,8 +312,18 @@ function buildBreakdown(
 export function aggregate(
   records: RawReport[],
   patterns: PatternEntry[],
+  // HU-5.2 — listas de opções dos MultiSelects. Devem vir do conjunto NÃO
+  // FILTRADO para não esconder opções conforme o usuário seleciona.
+  allAvailableCategories: string[] = [],
+  allAvailableRegions: string[] = [],
 ): DiagnosticoStats {
-  if (records.length === 0 && patterns.length === 0) return EMPTY_STATS;
+  if (records.length === 0 && patterns.length === 0) {
+    return {
+      ...EMPTY_STATS,
+      availableCategories: allAvailableCategories,
+      availableRegions: allAvailableRegions,
+    };
+  }
 
   // Por categoria
   const catMap = new Map<string, { total: number; neg: number; crit: number }>();
@@ -396,6 +411,29 @@ export function aggregate(
   );
   const globalScore = totalRecords === 0 && patterns.length === 0 ? 0 : computeScore(globalBreakdown);
 
+  // HU-5.2 — usa listas pré-calculadas (não filtradas) quando disponíveis,
+  // fallback para reduzir dos records atuais (compatibilidade com testes legados).
+  const availableCategories =
+    allAvailableCategories.length > 0
+      ? allAvailableCategories
+      : Array.from(
+          new Set(
+            records
+              .map((r) => r.category)
+              .filter((c): c is string => !!c && c !== "Sem categoria"),
+          ),
+        ).sort();
+  const availableRegions =
+    allAvailableRegions.length > 0
+      ? allAvailableRegions
+      : Array.from(
+          new Set(
+            records
+              .map((r) => r.region)
+              .filter((r): r is string => !!r && r !== "Não informada"),
+          ),
+        ).sort();
+
   return {
     globalScore,
     totalRecords,
@@ -405,6 +443,8 @@ export function aggregate(
     topCategories,
     topRegions,
     topPatterns: patterns.slice(0, 10),
+    availableCategories,
+    availableRegions,
   };
 }
 
@@ -436,8 +476,25 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
         regions: filters.regions,
         zones: filters.zones,
       };
-      const filtered = applyAnalyticsFilters([...urban, ...transport], analyticsFilter);
-      setStats(aggregate(filtered, patterns));
+      const allRecords = [...urban, ...transport];
+      // Listas de opções para MultiSelects vêm do conjunto ANTES dos filtros
+      // adicionais (caso contrário ao selecionar uma categoria as outras somem).
+      const allAvailableCategories = Array.from(
+        new Set(
+          allRecords
+            .map((r) => r.category)
+            .filter((c): c is string => !!c && c !== "Sem categoria"),
+        ),
+      ).sort();
+      const allAvailableRegions = Array.from(
+        new Set(
+          allRecords
+            .map((r) => r.region)
+            .filter((r): r is string => !!r && r !== "Não informada"),
+        ),
+      ).sort();
+      const filtered = applyAnalyticsFilters(allRecords, analyticsFilter);
+      setStats(aggregate(filtered, patterns, allAvailableCategories, allAvailableRegions));
     } catch (err) {
       console.error("[useDiagnosticoCriticidade] fetch error", err);
       setError("Não foi possível carregar o diagnóstico. Tente novamente.");
@@ -445,7 +502,10 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters.startDate, filters.endDate]);
+    // HU-5.2 fix — incluir categories/regions/zones nas deps; sem isso o
+    // fetchData fica com closure dos filtros da 1ª render e mudanças em
+    // categorias/bairros/zonas nunca disparam re-fetch/re-filter.
+  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
 
   useEffect(() => {
     void fetchData();

@@ -41,6 +41,18 @@ interface VolumeFiltersProps {
   availableRegions: string[];
   loading?: boolean;
   className?: string;
+  /** Título exibido no cabeçalho do bloco de filtros (default "Filtros de volume"). */
+  title?: string;
+  /** Rótulo da MultiSelect de categorias (default "Categorias"). */
+  categoryLabel?: string;
+  /** Placeholder do campo de busca dentro da MultiSelect de categorias. */
+  categorySearchPlaceholder?: string;
+  /** aria-label do contêiner (default "Filtros de volume de relatos"). */
+  ariaLabel?: string;
+  /** Quando false, oculta a MultiSelect de Bairros (default true). */
+  showRegions?: boolean;
+  /** Quando false, oculta a MultiSelect de Zonas (default true). */
+  showZones?: boolean;
 }
 
 export function VolumeFilters({
@@ -50,15 +62,21 @@ export function VolumeFilters({
   availableRegions,
   loading,
   className,
+  title = "Filtros de volume",
+  categoryLabel = "Categorias",
+  categorySearchPlaceholder = "Buscar categoria...",
+  ariaLabel = "Filtros de volume de relatos",
+  showRegions = true,
+  showZones = true,
 }: VolumeFiltersProps) {
   const activeCount = useMemo(() => {
     let count = 0;
     if (value.period?.from || value.period?.to) count += 1;
     count += value.categories.length;
-    count += value.regions.length;
-    count += value.zones.length;
+    if (showRegions) count += value.regions.length;
+    if (showZones) count += value.zones.length;
     return count;
-  }, [value]);
+  }, [value, showRegions, showZones]);
 
   const handleClearAll = () => onChange(EMPTY_VOLUME_FILTERS);
 
@@ -69,12 +87,12 @@ export function VolumeFilters({
         className,
       )}
       role="region"
-      aria-label="Filtros de volume de relatos"
+      aria-label={ariaLabel}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Filter className="h-4 w-4" aria-hidden="true" />
-          <span>Filtros de volume</span>
+          <span>{title}</span>
           {activeCount > 0 && (
             <Badge variant="secondary" className="ml-1">
               {activeCount} ativo{activeCount > 1 ? "s" : ""}
@@ -106,37 +124,43 @@ export function VolumeFilters({
           placeholder="Todos os períodos"
         />
 
+        {/* HU-5.2 — não passar `loading` para `disabled` das MultiSelects:
+            cada clique re-dispara fetch (isLoading=true) e desabilitar o trigger
+            no meio da interação fecha o popover, quebrando a multisseleção. */}
         <MultiSelectPopover
           icon={<Tag className="h-3.5 w-3.5" aria-hidden="true" />}
-          label="Categorias"
+          label={categoryLabel}
           options={availableCategories}
           selected={value.categories}
           onChange={(categories) => onChange({ ...value, categories })}
-          searchPlaceholder="Buscar categoria..."
-          disabled={loading || availableCategories.length === 0}
+          searchPlaceholder={categorySearchPlaceholder}
+          disabled={availableCategories.length === 0}
         />
 
-        <MultiSelectPopover
-          icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />}
-          label="Bairros"
-          options={availableRegions}
-          selected={value.regions}
-          onChange={(regions) => onChange({ ...value, regions })}
-          searchPlaceholder="Buscar bairro..."
-          disabled={loading || availableRegions.length === 0}
-        />
+        {showRegions && (
+          <MultiSelectPopover
+            icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Bairros"
+            options={availableRegions}
+            selected={value.regions}
+            onChange={(regions) => onChange({ ...value, regions })}
+            searchPlaceholder="Buscar bairro..."
+            disabled={availableRegions.length === 0}
+          />
+        )}
 
-        <MultiSelectPopover
-          icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />}
-          label="Zonas"
-          options={ZONAS_FILTRO as unknown as readonly string[]}
-          selected={value.zones}
-          onChange={(zones) =>
-            onChange({ ...value, zones: zones as ZonaVolumeOuDesconhecida[] })
-          }
-          searchPlaceholder="Buscar zona..."
-          disabled={loading}
-        />
+        {showZones && (
+          <MultiSelectPopover
+            icon={<MapPin className="h-3.5 w-3.5" aria-hidden="true" />}
+            label="Zonas"
+            options={ZONAS_FILTRO as unknown as readonly string[]}
+            selected={value.zones}
+            onChange={(zones) =>
+              onChange({ ...value, zones: zones as ZonaVolumeOuDesconhecida[] })
+            }
+            searchPlaceholder="Buscar zona..."
+          />
+        )}
       </div>
     </div>
   );

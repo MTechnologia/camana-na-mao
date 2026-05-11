@@ -387,12 +387,24 @@ export function useReportsVolume(filters: ReportsVolumeFilters) {
 
   // Re-agrega sempre que filtros derivados (categoria/região/zona/tipo) mudam.
   // O fetch só roda quando o período muda — agregação é barata e roda em memória.
+  // HU-5.2 fix — depender da chave estável JSON.stringify em vez da referência do objeto
+  // `filters`, que muda em todo render quando o caller passa objeto literal (ex.: o hook
+  // useReportsVolumeCompare). Sem isso, há loop infinito: novo filters → useEffect refaz →
+  // setStats → re-render → novo filters.
+  const filtersKey = useMemo(
+    () =>
+      JSON.stringify({
+        c: filters.categories ?? [],
+        r: filters.regions ?? [],
+        z: filters.zones ?? [],
+        t: filters.types ?? [],
+      }),
+    [filters.categories, filters.regions, filters.zones, filters.types],
+  );
   useEffect(() => {
     setStats(aggregate(rawRows, filters));
-  }, [
-    rawRows,
-    filters,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawRows, filtersKey]);
 
   return { stats, isLoading, error, refresh: fetchData };
 }
