@@ -25,6 +25,12 @@ import {
   type VolumeFiltersValue,
 } from "@/components/analytics/volumeFiltersConstants";
 import { useReportsVolume, type ReportsVolumeFilters } from "@/hooks/useReportsVolume";
+import {
+  PeriodComparePicker,
+  type PeriodComparePickerValue,
+} from "@/components/filters/PeriodComparePicker";
+import { useReportsVolumeCompare } from "@/hooks/useReportsVolumeCompare";
+import { VolumeCompareView } from "@/components/analytics/VolumeCompareView";
 
 /**
  * Conteúdo da aba "Volume" do dashboard administrativo de relatos (HU-1.1).
@@ -53,6 +59,38 @@ export function VolumeOverviewTab() {
   );
 
   const { stats, isLoading, error, refresh } = useReportsVolume(hookFilters);
+
+  // HU-5.1 — Estado de comparação A vs B (período secundário opcional)
+  const [comparePeriods, setComparePeriods] = useState<PeriodComparePickerValue>({
+    periodA: filters.period,
+    periodB: null,
+    preset: "previous",
+  });
+
+  // Sincroniza periodA quando o filtro de período muda
+  useMemo(() => {
+    if (comparePeriods.periodA !== filters.period) {
+      setComparePeriods((prev) => ({ ...prev, periodA: filters.period }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.period]);
+
+  const compareEnabled = comparePeriods.periodB !== null;
+
+  const compare = useReportsVolumeCompare({
+    baseFilters: {
+      categories: filters.categories,
+      regions: filters.regions,
+      zones: filters.zones,
+    },
+    periodA: comparePeriods.periodA
+      ? { startDate: comparePeriods.periodA.from, endDate: comparePeriods.periodA.to }
+      : undefined,
+    periodB:
+      comparePeriods.periodB && comparePeriods.periodB.from && comparePeriods.periodB.to
+        ? { startDate: comparePeriods.periodB.from, endDate: comparePeriods.periodB.to }
+        : null,
+  });
 
   const timelineData = useMemo(
     () =>
