@@ -1,10 +1,11 @@
 """Gera docs/comparativo-google-places-subset-cohort-1.docx."""
 from pathlib import Path
 from xml.sax.saxutils import escape
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "comparativo-google-places-subset-cohort-1.docx"
+ZIP_TIMESTAMP = (2026, 1, 1, 0, 0, 0)
 
 SUBSET_ROWS = [
     ["Escola (4 camadas SME/GeoSampa)", "57.962"],
@@ -118,11 +119,16 @@ def _document_xml(body: str) -> str:
 
 
 def _write_docx(body: str) -> None:
+    def write_part(docx: ZipFile, name: str, content: str) -> None:
+        info = ZipInfo(name, ZIP_TIMESTAMP)
+        info.compress_type = ZIP_DEFLATED
+        docx.writestr(info, content)
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(OUT, "w", ZIP_DEFLATED) as docx:
-        docx.writestr("[Content_Types].xml", _content_types_xml())
-        docx.writestr("_rels/.rels", _rels_xml())
-        docx.writestr("word/document.xml", _document_xml(body))
+        write_part(docx, "[Content_Types].xml", _content_types_xml())
+        write_part(docx, "_rels/.rels", _rels_xml())
+        write_part(docx, "word/document.xml", _document_xml(body))
 
 
 def main() -> None:
