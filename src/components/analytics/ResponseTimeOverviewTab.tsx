@@ -31,11 +31,13 @@ import { Card } from "@/components/ui/card";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
 import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   useResponseTimeAnalytics,
   type ResponseTimeFilters,
@@ -108,19 +110,21 @@ export function ResponseTimeOverviewTab() {
 
   // HU-5.2 — Filtros granulares (categorias, bairros, zonas)
   const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+  // HU-5.3 — Debounce nos filtros granulares (multisseleção rápida).
+  const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
   const filters: ResponseTimeFilters = useMemo(
     () => ({
       startDate: period?.from,
       endDate: period?.to,
-      categories: granularFilters.categories,
-      regions: granularFilters.regions,
-      zones: granularFilters.zones,
+      categories: debouncedGranularFilters.categories,
+      regions: debouncedGranularFilters.regions,
+      zones: debouncedGranularFilters.zones,
     }),
-    [period, granularFilters],
+    [period, debouncedGranularFilters],
   );
 
-  const { stats, isLoading, error, refresh } = useResponseTimeAnalytics(filters);
+  const { stats, isLoading, error, refresh, lastUpdate } = useResponseTimeAnalytics(filters);
 
   const trendData = useMemo(
     () =>
@@ -175,6 +179,15 @@ export function ResponseTimeOverviewTab() {
 
   return (
     <div className="space-y-6">
+      {/* HU-5.3 — Indicador "ao vivo" + refresh manual */}
+      <div className="flex justify-end -mb-2">
+        <AnalyticsLiveBadge
+          lastUpdates={[lastUpdate]}
+          onRefresh={() => void refresh()}
+          refreshing={isLoading}
+        />
+      </div>
+
       {/* HU-5.2 — Eficiência usa apenas período + partido político (categoria
           aqui é populada a partir de council_member_party em encaminhamentos). */}
       <VolumeFilters

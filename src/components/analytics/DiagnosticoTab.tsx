@@ -16,11 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AIInsightsCard } from "@/components/analytics/AIInsightsCard";
 import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   useDiagnosticoCriticidade,
   type CategoryDiagnostic,
@@ -85,19 +87,23 @@ export function DiagnosticoTab() {
 
   // HU-5.2 — Filtros granulares (categorias, bairros, zonas)
   const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+  // HU-5.3 — Debounce de 300ms nas seleções rápidas (multisseleção em sequência)
+  // pra evitar disparar fetchData a cada checkbox marcado. O período não entra no
+  // debounce porque o usuário escolhe e fecha o popover de uma vez.
+  const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
   const filters = useMemo(
     () => ({
       startDate: period?.from,
       endDate: period?.to,
-      categories: granularFilters.categories,
-      regions: granularFilters.regions,
-      zones: granularFilters.zones,
+      categories: debouncedGranularFilters.categories,
+      regions: debouncedGranularFilters.regions,
+      zones: debouncedGranularFilters.zones,
     }),
-    [period, granularFilters],
+    [period, debouncedGranularFilters],
   );
 
-  const { stats, isLoading, error, refresh } = useDiagnosticoCriticidade(filters);
+  const { stats, isLoading, error, refresh, lastUpdate } = useDiagnosticoCriticidade(filters);
 
   // Reaproveita insights da IA já gerados pelo hook de sentimento.
   const { stats: sentimentStats } = useSentimentAnalytics({
@@ -122,6 +128,15 @@ export function DiagnosticoTab() {
 
   return (
     <div className="space-y-6">
+      {/* HU-5.3 — Indicador "ao vivo" + refresh manual */}
+      <div className="flex justify-end -mb-2">
+        <AnalyticsLiveBadge
+          lastUpdates={[lastUpdate]}
+          onRefresh={() => void refresh()}
+          refreshing={isLoading}
+        />
+      </div>
+
       {/* HU-5.2 — Filtros granulares: período + categorias + bairros + zonas */}
       <VolumeFilters
         value={{ ...granularFilters, period }}

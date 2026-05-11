@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
@@ -84,7 +85,7 @@ export function AudienciasAnalyticsTab() {
     [period],
   );
 
-  const { stats, isLoading, error, refresh } = useAudienciasAnalytics(filters);
+  const { stats, isLoading, error, refresh, lastUpdate } = useAudienciasAnalytics(filters);
 
   const timelineData = useMemo(
     () =>
@@ -110,6 +111,15 @@ export function AudienciasAnalyticsTab() {
 
   return (
     <div className="space-y-6">
+      {/* HU-5.3 — Indicador "ao vivo" + refresh manual */}
+      <div className="flex justify-end -mb-2">
+        <AnalyticsLiveBadge
+          lastUpdates={[lastUpdate]}
+          onRefresh={() => void refresh()}
+          refreshing={isLoading}
+        />
+      </div>
+
       {/* Filtro de período */}
       <div className="rounded-lg border border-border bg-card p-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
