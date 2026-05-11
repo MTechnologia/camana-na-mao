@@ -35,6 +35,9 @@ import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
 import { useDrillInsight } from '@/hooks/useDrillInsight';
+import { ThemeSwitcher } from '@/components/admin/ThemeSwitcher';
+import { useWidgetTheme } from '@/hooks/useWidgetTheme';
+import { getTheme, type AnalyticsTabId } from '@/lib/widgetThemes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -50,6 +53,38 @@ import {
   Activity,
   Sparkles
 } from 'lucide-react';
+
+// HU-6.1 — Labels e min-widths das tabs em um mapa, para iterar dinamicamente
+// quando reordenarmos por tema.
+const TAB_LABELS: Record<AnalyticsTabId, string> = {
+  volume: 'Volume',
+  eficiencia: 'Eficiência',
+  diagnostico: 'Diagnóstico',
+  audiencias: 'Audiências',
+  territorial: 'Territorial',
+  drill: 'Drill-down',
+  cross: 'Cruzamentos',
+  geral: 'Geral',
+  sentimento: 'Sentimento',
+  demografia: 'Demografia',
+  engajamento: 'Engajamento',
+  criticidade: 'Criticidade',
+};
+
+const TAB_MIN_WIDTH: Record<AnalyticsTabId, string> = {
+  volume: 'min-w-[80px]',
+  eficiencia: 'min-w-[100px]',
+  diagnostico: 'min-w-[100px]',
+  audiencias: 'min-w-[100px]',
+  territorial: 'min-w-[100px]',
+  drill: 'min-w-[100px]',
+  cross: 'min-w-[110px]',
+  geral: 'min-w-[80px]',
+  sentimento: 'min-w-[100px]',
+  demografia: 'min-w-[100px]',
+  engajamento: 'min-w-[110px]',
+  criticidade: 'min-w-[100px]',
+};
 
 // Analytics page for unified reports visualization
 export default function ReportsAnalyticsPage() {
@@ -109,6 +144,34 @@ export default function ReportsAnalyticsPage() {
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
   const correlations = useCorrelationAnalytics();
   const drillInsight = useDrillInsight(combinedFilters);
+
+  // HU-6.1 — Aplica tema de atuação: reordena as tabs colocando as `priorityTabs`
+  // do tema selecionado primeiro e destaca-as visualmente.
+  const { theme: themeId } = useWidgetTheme();
+  const activeTheme = useMemo(() => getTheme(themeId), [themeId]);
+  const orderedTabs: AnalyticsTabId[] = useMemo(() => {
+    const all: AnalyticsTabId[] = [
+      'volume', 'eficiencia', 'diagnostico', 'audiencias', 'territorial', 'drill',
+      'cross', 'geral', 'sentimento', 'demografia', 'engajamento', 'criticidade',
+    ];
+    if (activeTheme.id === 'geral') return all;
+    const seen = new Set<AnalyticsTabId>();
+    const ordered: AnalyticsTabId[] = [];
+    for (const t of activeTheme.priorityTabs) {
+      if (!seen.has(t) && all.includes(t)) {
+        ordered.push(t);
+        seen.add(t);
+      }
+    }
+    for (const t of all) {
+      if (!seen.has(t)) ordered.push(t);
+    }
+    return ordered;
+  }, [activeTheme]);
+  const priorityTabSet = useMemo(
+    () => new Set(activeTheme.priorityTabs),
+    [activeTheme],
+  );
   const refreshAll = () => {
     void refresh();
     void refreshThresholdAlerts();
@@ -192,7 +255,10 @@ export default function ReportsAnalyticsPage() {
               avaliações de serviço
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* HU-6.1 — Dropdown de tema de atuação. Persiste por usuário e
+                reordena/destaca as tabs e filtros de cada hook. */}
+            <ThemeSwitcher />
             <Button variant="outline" size="sm" onClick={refreshAll} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
@@ -263,18 +329,32 @@ export default function ReportsAnalyticsPage() {
         <Tabs value={tabState.tab} onValueChange={(t) => setTabState({ tab: t })} className="w-full">
           {/* Tabs em flex-wrap puro (mobile-first): quebra naturalmente em 2 linhas sem grid rígido. */}
           <TabsList className="flex flex-wrap w-full h-auto gap-1 p-1">
-            <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>
-            <TabsTrigger value="eficiencia" className="flex-1 min-w-[100px]">Eficiência</TabsTrigger>
-            <TabsTrigger value="diagnostico" className="flex-1 min-w-[100px]">Diagnóstico</TabsTrigger>
-            <TabsTrigger value="audiencias" className="flex-1 min-w-[100px]">Audiências</TabsTrigger>
-            <TabsTrigger value="territorial" className="flex-1 min-w-[100px]">Territorial</TabsTrigger>
-            <TabsTrigger value="drill" className="flex-1 min-w-[100px]">Drill-down</TabsTrigger>
-            <TabsTrigger value="cross" className="flex-1 min-w-[110px]">Cruzamentos</TabsTrigger>
-            <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
-            <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
-            <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
-            <TabsTrigger value="engajamento" className="flex-1 min-w-[110px]">Engajamento</TabsTrigger>
-            <TabsTrigger value="criticidade" className="flex-1 min-w-[100px]">Criticidade</TabsTrigger>
+            {/* HU-6.1 — Tabs reordenadas pelas priorityTabs do tema ativo.
+                Tabs do tema ganham um indicador discreto à esquerda (bullet
+                colorido) + leve realce de fundo. Sem ring/borda forte para
+                não competir com o estado de tab ativa do shadcn. */}
+            {orderedTabs.map((id) => {
+              const isPriority = activeTheme.id !== 'geral' && priorityTabSet.has(id);
+              return (
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  className={`flex-1 ${TAB_MIN_WIDTH[id] ?? 'min-w-[100px]'} ${
+                    isPriority
+                      ? 'font-semibold bg-primary/[0.04] data-[state=active]:bg-background'
+                      : 'text-muted-foreground/80'
+                  }`}
+                >
+                  {isPriority && (
+                    <span
+                      className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary/70"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {TAB_LABELS[id]}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
           {/* TAB VOLUME — HU-1.1: visão de volume por período / categoria / região */}
