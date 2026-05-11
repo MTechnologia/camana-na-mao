@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
+import { applyAnalyticsFilters } from "@/lib/analyticsFilterHelpers";
 
 /**
  * HU-1.2 — Como gestor, quero visualizar tempo médio de resposta e tendência
@@ -23,6 +24,10 @@ export type EfficiencySource = "urbano" | "transporte" | "encaminhamento";
 export interface ResponseTimeFilters {
   startDate?: Date | string | null;
   endDate?: Date | string | null;
+  /** HU-5.2 — filtros adicionais opcionais (aplicados no client). */
+  categories?: string[];
+  regions?: string[];
+  zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
 }
 
 export interface TrendPoint {
@@ -376,7 +381,7 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
     const s = toIso(filters.startDate) || "";
     const e = toIso(filters.endDate) || "";
     return `${s}|${e}`;
-  }, [filters.startDate, filters.endDate]);
+  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -395,8 +400,19 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
         prev.startIso ? fetchResolvedReferrals(prev.startIso, prev.endIso) : Promise.resolve([]),
       ]);
 
-      const current = [...urbanCur, ...transCur, ...refCur];
-      const previous = [...urbanPrev, ...transPrev, ...refPrev];
+      const analyticsFilter = {
+        categories: filters.categories,
+        regions: filters.regions,
+        zones: filters.zones,
+      };
+      const current = applyAnalyticsFilters(
+        [...urbanCur, ...transCur, ...refCur],
+        analyticsFilter,
+      );
+      const previous = applyAnalyticsFilters(
+        [...urbanPrev, ...transPrev, ...refPrev],
+        analyticsFilter,
+      );
       setStats(aggregate(current, previous));
     } catch (err) {
       console.error("[useResponseTimeAnalytics] fetch error", err);

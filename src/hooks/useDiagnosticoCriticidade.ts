@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { applyAnalyticsFilters } from "@/lib/analyticsFilterHelpers";
 import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
 
 /**
@@ -20,6 +21,10 @@ import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMappi
 export interface DiagnosticoFilters {
   startDate?: Date | string | null;
   endDate?: Date | string | null;
+  /** HU-5.2 — filtros adicionais opcionais. */
+  categories?: string[];
+  regions?: string[];
+  zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
 }
 
 export interface ScoreBreakdown {
@@ -412,7 +417,7 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
     const s = toIso(filters.startDate) || "";
     const e = toIso(filters.endDate) || "";
     return `${s}|${e}`;
-  }, [filters.startDate, filters.endDate]);
+  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -425,7 +430,14 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
         fetchTransportForDiagnostico(startIso, endIso),
         fetchActivePatterns(),
       ]);
-      setStats(aggregate([...urban, ...transport], patterns));
+      // HU-5.2 — aplica filtros adicionais no client
+      const analyticsFilter = {
+        categories: filters.categories,
+        regions: filters.regions,
+        zones: filters.zones,
+      };
+      const filtered = applyAnalyticsFilters([...urban, ...transport], analyticsFilter);
+      setStats(aggregate(filtered, patterns));
     } catch (err) {
       console.error("[useDiagnosticoCriticidade] fetch error", err);
       setError("Não foi possível carregar o diagnóstico. Tente novamente.");
