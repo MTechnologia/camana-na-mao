@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KPICard } from '@/components/analytics/KPICard';
@@ -36,8 +36,10 @@ import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
 import { useDrillInsight } from '@/hooks/useDrillInsight';
 import { ThemeSwitcher } from '@/components/admin/ThemeSwitcher';
+import { PresetsDropdown } from '@/components/admin/PresetsDropdown';
 import { useWidgetTheme } from '@/hooks/useWidgetTheme';
-import { getTheme, type AnalyticsTabId } from '@/lib/widgetThemes';
+import { useDashboardPresets } from '@/hooks/useDashboardPresets';
+import { getTheme, DEFAULT_THEME_ID, type AnalyticsTabId } from '@/lib/widgetThemes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -147,7 +149,27 @@ export default function ReportsAnalyticsPage() {
 
   // HU-6.1 — Aplica tema de atuação: reordena as tabs colocando as `priorityTabs`
   // do tema selecionado primeiro e destaca-as visualmente.
-  const { theme: themeId } = useWidgetTheme();
+  const { theme: themeId, setTheme, setWidgetConfig, isLoading: themeLoading } = useWidgetTheme();
+  const { defaultPreset, isLoading: presetsLoading } = useDashboardPresets();
+
+  // HU-6.2 — Auto-aplica o preset padrão na primeira renderização, se houver,
+  // e se o usuário ainda não tiver tema personalizado (estiver em 'geral').
+  // Só roda 1x por sessão pra não atropelar mudanças manuais subsequentes.
+  const defaultAppliedRef = useRef(false);
+  useEffect(() => {
+    if (defaultAppliedRef.current) return;
+    if (themeLoading || presetsLoading) return;
+    if (!defaultPreset) {
+      defaultAppliedRef.current = true; // sem default; nunca mais tenta nesta sessão
+      return;
+    }
+    if (themeId === DEFAULT_THEME_ID) {
+      setTheme(defaultPreset.theme);
+      setWidgetConfig(defaultPreset.config);
+    }
+    defaultAppliedRef.current = true;
+  }, [themeLoading, presetsLoading, defaultPreset, themeId, setTheme, setWidgetConfig]);
+
   const activeTheme = useMemo(() => getTheme(themeId), [themeId]);
   const orderedTabs: AnalyticsTabId[] = useMemo(() => {
     const all: AnalyticsTabId[] = [
@@ -259,6 +281,9 @@ export default function ReportsAnalyticsPage() {
             {/* HU-6.1 — Dropdown de tema de atuação. Persiste por usuário e
                 reordena/destaca as tabs e filtros de cada hook. */}
             <ThemeSwitcher />
+            {/* HU-6.2 — Presets nomeados (configurações salvas) com default
+                aplicado automaticamente ao abrir a página. */}
+            <PresetsDropdown />
             <Button variant="outline" size="sm" onClick={refreshAll} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
