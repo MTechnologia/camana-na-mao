@@ -89,7 +89,17 @@ export function ReportDetailSheet() {
   const id = opened?.id ?? null;
   const source = opened?.source ?? null;
 
-  const { detail, author, comments, auditLog, isLoading, error, refresh } = useReportDetail(id, source);
+  const {
+    detail,
+    author,
+    comments,
+    auditLog,
+    isLoading,
+    error,
+    refresh,
+    applyOptimisticDetail,
+    applyOptimisticComment,
+  } = useReportDetail(id, source);
   const [activeTab, setActiveTab] = useState<"detalhes" | "autor" | "ia" | "historico">("detalhes");
 
   return (
@@ -184,6 +194,8 @@ export function ReportDetailSheet() {
               detail={detail}
               source={source!}
               onChange={refresh}
+              applyOptimisticDetail={applyOptimisticDetail}
+              applyOptimisticComment={applyOptimisticComment}
             />
           )}
         </Tabs>
@@ -518,10 +530,15 @@ function ActionsFooter({
   detail,
   source,
   onChange,
+  applyOptimisticDetail,
+  applyOptimisticComment,
 }: {
   detail: ReportDetail;
   source: ReportSource;
   onChange: () => Promise<void>;
+  // HU-5.3 — callbacks de optimistic update (opcionais para compat).
+  applyOptimisticDetail?: (patch: Partial<ReportDetail>) => void;
+  applyOptimisticComment?: (comment: ReportComment) => void;
 }) {
   const [newStatus, setNewStatus] = useState<string>(detail.status || "pending");
   const [comment, setComment] = useState("");
@@ -529,6 +546,9 @@ function ActionsFooter({
 
   const handleStatusChange = async () => {
     if (newStatus === detail.status) return;
+    // HU-5.3 — Optimistic update: aplica imediatamente, reverte em caso de erro.
+    const previousStatus = detail.status;
+    applyOptimisticDetail?.({ status: newStatus });
     setBusy(true);
     try {
       const tableName = source === "urban" ? "urban_reports" : "transport_reports";
@@ -538,31 +558,51 @@ function ActionsFooter({
         .eq("id", detail.id);
       if (error) throw error;
       toast.success(`Status alterado para "${statusLabel(newStatus)}".`);
-      await onChange();
+      // Não precisa await onChange() — o realtime/subscription já vai sincronizar
+      // a fonte da verdade. O optimistic update já refletiu na UI.
+      void onChange();
     } catch (err) {
       console.error("Erro ao mudar status", err);
       toast.error("Não foi possível alterar o status.");
+      // Reverte optimistic update.
+      applyOptimisticDetail?.({ status: previousStatus });
+      setNewStatus(previousStatus);
     } finally {
       setBusy(false);
     }
   };
 
   const handleComment = async () => {
-    if (!comment.trim()) return;
+    const trimmed = comment.trim();
+    if (!trimmed) return;
+    // HU-5.3 — Optimistic insert: adiciona comentário temporário na lista.
+    const tempComment: ReportComment = {
+      id: `optimistic-${Date.now()}`,
+      userId: null,
+      authorName: "Você",
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+    applyOptimisticComment?.(tempComment);
+    setComment("");
     setBusy(true);
     try {
       const tableName = source === "urban" ? "urban_report_comments" : "transport_report_comments";
       const { error } = await supabase.from(tableName).insert({
         report_id: detail.id,
-        comment_text: comment.trim(),
+        comment_text: trimmed,
       });
       if (error) throw error;
       toast.success("Comentário adicionado.");
-      setComment("");
-      await onChange();
+      // Realtime/refresh substituirá o comentário otimista pelo canônico.
+      void onChange();
     } catch (err) {
       console.error("Erro ao adicionar comentário", err);
       toast.error("Não foi possível adicionar o comentário.");
+      // Restaura o texto pro usuário corrigir e reverte o optimistic.
+      setComment(trimmed);
+      // Não temos um remove direto; o próximo onChange limpará o temporário.
+      void onChange();
     } finally {
       setBusy(false);
     }

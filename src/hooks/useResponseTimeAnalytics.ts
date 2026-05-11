@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
 import { applyAnalyticsFilters } from "@/lib/analyticsFilterHelpers";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
  * HU-1.2 — Como gestor, quero visualizar tempo médio de resposta e tendência
@@ -411,8 +412,10 @@ function previousWindow(
 
 export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
   const [stats, setStats] = useState<ResponseTimeStats>(EMPTY_STATS);
-  const [isLoading, setIsLoading] = useState(true);
+  // HU-5.3 — refetch silencioso (initial loading vs realtime/refetch).
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   const periodKey = useMemo(() => {
     const s = toIso(filters.startDate) || "";
@@ -421,7 +424,6 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
   }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
     try {
       const startIso = toIso(filters.startDate);
@@ -465,12 +467,13 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
         analyticsFilter,
       );
       setStats(aggregate(current, previous, allAvailableCategories, allAvailableRegions));
+      setLastUpdate(new Date());
     } catch (err) {
       console.error("[useResponseTimeAnalytics] fetch error", err);
       setError("Não foi possível carregar o tempo de resposta. Tente novamente.");
-      setStats(EMPTY_STATS);
+      // HU-5.3 — não resetar para EMPTY_STATS: mantém último resultado bom visível.
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
     // HU-5.2 fix — incluir categories/regions/zones nas deps; sem isso o
     // fetchData fica com closure das categorias da 1ª render e o filtro
@@ -481,8 +484,25 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
     void fetchData();
   }, [fetchData, periodKey]);
 
-  return { stats, isLoading, error, refresh: fetchData };
+  // HU-5.3 — auto-refresh em novos relatos/encaminhamentos resolvidos.
+  useRealtimeRefresh(REALTIME_TABLES, fetchData);
+
+  return {
+    stats,
+    isLoading: isInitialLoading,
+    isInitialLoading,
+    error,
+    refresh: fetchData,
+    lastUpdate,
+  };
 }
+
+// HU-5.3 — tabelas observadas pelo realtime (referência estável fora do hook).
+const REALTIME_TABLES = [
+  "urban_reports",
+  "transport_reports",
+  "council_member_referrals",
+] as const;
 
 // Exposições para teste.
 export const __test__ = {

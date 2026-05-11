@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { applyAnalyticsFilters } from "@/lib/analyticsFilterHelpers";
 import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
  * HU-1.3 — Como gestor, quero visualizar sentimento agregado e padrões
@@ -450,8 +451,10 @@ export function aggregate(
 
 export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
   const [stats, setStats] = useState<DiagnosticoStats>(EMPTY_STATS);
-  const [isLoading, setIsLoading] = useState(true);
+  // HU-5.3 — refetch silencioso.
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   const periodKey = useMemo(() => {
     const s = toIso(filters.startDate) || "";
@@ -460,7 +463,6 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
   }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
     try {
       const startIso = toIso(filters.startDate);
@@ -495,12 +497,13 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
       ).sort();
       const filtered = applyAnalyticsFilters(allRecords, analyticsFilter);
       setStats(aggregate(filtered, patterns, allAvailableCategories, allAvailableRegions));
+      setLastUpdate(new Date());
     } catch (err) {
       console.error("[useDiagnosticoCriticidade] fetch error", err);
       setError("Não foi possível carregar o diagnóstico. Tente novamente.");
-      setStats(EMPTY_STATS);
+      // HU-5.3 — não resetar stats em erro: mantém último resultado bom visível.
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
     // HU-5.2 fix — incluir categories/regions/zones nas deps; sem isso o
     // fetchData fica com closure dos filtros da 1ª render e mudanças em
@@ -511,8 +514,21 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
     void fetchData();
   }, [fetchData, periodKey]);
 
-  return { stats, isLoading, error, refresh: fetchData };
+  // HU-5.3 — realtime: novos relatos, mudanças de status e novos padrões detectados.
+  useRealtimeRefresh(REALTIME_TABLES, fetchData);
+
+  return {
+    stats,
+    isLoading: isInitialLoading,
+    isInitialLoading,
+    error,
+    refresh: fetchData,
+    lastUpdate,
+  };
 }
+
+// HU-5.3 — tabelas observadas (referência estável).
+const REALTIME_TABLES = ["urban_reports", "transport_reports", "report_patterns"] as const;
 
 export const __test__ = {
   aggregate,
