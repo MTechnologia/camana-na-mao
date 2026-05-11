@@ -13,6 +13,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
 
+  // HU-6.1 — Nota: o WidgetThemeProvider está em ProtectedAdminRoute (acima
+  // desta árvore), pois useWidgetTheme() pode ser chamado no corpo de páginas
+  // como ReportsAnalyticsPage ANTES de AdminLayout entrar na árvore.
   return (
     <ReportDetailProvider>
       <div className="h-screen flex w-full overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">

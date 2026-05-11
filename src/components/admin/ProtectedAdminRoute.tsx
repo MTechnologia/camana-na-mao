@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
+import { WidgetThemeProvider } from '@/contexts/WidgetThemeContext';
 import { toast } from 'sonner';
 
 interface ProtectedAdminRouteProps {
@@ -35,5 +36,9 @@ export const ProtectedAdminRoute = ({ children }: ProtectedAdminRouteProps) => {
     return null;
   }
 
-  return <>{children}</>;
+  // HU-6.1 — WidgetThemeProvider precisa estar ACIMA de toda página admin
+  // (ReportsAnalyticsPage chama useWidgetTheme() em seu corpo, antes de
+  // renderizar o AdminLayout). Como ProtectedAdminRoute envolve todas as
+  // rotas admin, é o ponto natural para o Provider.
+  return <WidgetThemeProvider>{children}</WidgetThemeProvider>;
 };
