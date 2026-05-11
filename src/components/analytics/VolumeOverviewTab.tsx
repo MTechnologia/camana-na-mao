@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -68,11 +68,10 @@ export function VolumeOverviewTab() {
   });
 
   // Sincroniza periodA quando o filtro de período muda
-  useMemo(() => {
-    if (comparePeriods.periodA !== filters.period) {
-      setComparePeriods((prev) => ({ ...prev, periodA: filters.period }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setComparePeriods((prev) =>
+      prev.periodA === filters.period ? prev : { ...prev, periodA: filters.period },
+    );
   }, [filters.period]);
 
   const compareEnabled = comparePeriods.periodB !== null;

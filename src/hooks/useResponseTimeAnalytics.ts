@@ -80,6 +80,8 @@ const EMPTY_STATS: ResponseTimeStats = {
   bySeverity: [],
   byCategory: [],
   byRegion: [],
+  availableCategories: [],
+  availableRegions: [],
 };
 
 interface ResolvedRecord {
@@ -281,9 +283,19 @@ function buildBreakdown(
 function aggregate(
   current: ResolvedRecord[],
   previous: ResolvedRecord[],
+  // HU-5.2 — listas para popular MultiSelects de filtros. Devem vir do conjunto
+  // NÃO FILTRADO (para que selecionar PSOL não esconda UNIÃO do dropdown).
+  allAvailableCategories: string[] = [],
+  allAvailableRegions: string[] = [],
 ): ResponseTimeStats {
   const count = current.length;
-  if (count === 0 && previous.length === 0) return EMPTY_STATS;
+  if (count === 0 && previous.length === 0) {
+    return {
+      ...EMPTY_STATS,
+      availableCategories: allAvailableCategories,
+      availableRegions: allAvailableRegions,
+    };
+  }
 
   const sumCurrent = current.reduce((acc, r) => acc + r.hours, 0);
   const avgHours = count > 0 ? sumCurrent / count : 0;
@@ -343,6 +355,29 @@ function aggregate(
   const byCategory = buildBreakdown(current, (r) => r.category);
   const byRegion = buildBreakdown(current, (r) => `${r.zone}`);
 
+  // HU-5.2 — listas para popular MultiSelects de filtros vêm do conjunto NÃO
+  // filtrado (passadas como argumento). Fallback para o atual em caso de chamadas legadas.
+  const availableCategories =
+    allAvailableCategories.length > 0
+      ? allAvailableCategories
+      : Array.from(
+          new Set(
+            current
+              .map((r) => r.category)
+              .filter((c): c is string => !!c && c !== "Sem categoria"),
+          ),
+        ).sort();
+  const availableRegions =
+    allAvailableRegions.length > 0
+      ? allAvailableRegions
+      : Array.from(
+          new Set(
+            current
+              .map((r) => r.region)
+              .filter((r): r is string => !!r && r !== "Não informada"),
+          ),
+        ).sort();
+
   return {
     count,
     avgHours,
@@ -355,6 +390,8 @@ function aggregate(
     bySeverity,
     byCategory,
     byRegion,
+    availableCategories,
+    availableRegions,
   };
 }
 
@@ -405,15 +442,29 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
         regions: filters.regions,
         zones: filters.zones,
       };
-      const current = applyAnalyticsFilters(
-        [...urbanCur, ...transCur, ...refCur],
-        analyticsFilter,
-      );
+      const allCurrent = [...urbanCur, ...transCur, ...refCur];
+      // HU-5.2 — listas de opções dos MultiSelects vêm do recorte ANTES dos filtros
+      // adicionais (caso contrário selecionar PSOL esconde UNIÃO do dropdown).
+      const allAvailableCategories = Array.from(
+        new Set(
+          allCurrent
+            .map((r) => r.category)
+            .filter((c): c is string => !!c && c !== "Sem categoria"),
+        ),
+      ).sort();
+      const allAvailableRegions = Array.from(
+        new Set(
+          allCurrent
+            .map((r) => r.region)
+            .filter((r): r is string => !!r && r !== "Não informada"),
+        ),
+      ).sort();
+      const current = applyAnalyticsFilters(allCurrent, analyticsFilter);
       const previous = applyAnalyticsFilters(
         [...urbanPrev, ...transPrev, ...refPrev],
         analyticsFilter,
       );
-      setStats(aggregate(current, previous));
+      setStats(aggregate(current, previous, allAvailableCategories, allAvailableRegions));
     } catch (err) {
       console.error("[useResponseTimeAnalytics] fetch error", err);
       setError("Não foi possível carregar o tempo de resposta. Tente novamente.");
@@ -421,7 +472,10 @@ export function useResponseTimeAnalytics(filters: ResponseTimeFilters) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters.startDate, filters.endDate]);
+    // HU-5.2 fix — incluir categories/regions/zones nas deps; sem isso o
+    // fetchData fica com closure das categorias da 1ª render e o filtro
+    // de partido político / categoria nunca era aplicado.
+  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
 
   useEffect(() => {
     void fetchData();
