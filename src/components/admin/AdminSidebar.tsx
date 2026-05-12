@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -88,6 +88,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
         // HU-8.1 — Acesso direto à gestão de agendamentos de export (admin + gestor).
         { title: 'Agendamentos', icon: CalendarClock, href: '/admin/configuracoes/agendamentos' },
+        // HU-9.1 — Padrões detectados pela IA (admin + gestor).
+        { title: 'Padrões da IA', icon: Sparkles, href: '/admin/padroes' },
         { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: unreadCount > 0 ? unreadCount : null },
       ],
     },
