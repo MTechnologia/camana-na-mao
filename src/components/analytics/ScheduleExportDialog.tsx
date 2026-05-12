@@ -84,6 +84,8 @@ export function ScheduleExportDialog({
   const [periodKind, setPeriodKind] = useState<PeriodKind>("relative");
   const [periodRelative, setPeriodRelative] = useState<RelativePeriodKind>("last_7d");
   const [notifyInApp, setNotifyInApp] = useState(true);
+  // HU-8.2
+  const [notifyEmail, setNotifyEmail] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function ScheduleExportDialog({
       setPeriodKind("relative");
       setPeriodRelative("last_7d");
       setNotifyInApp(true);
+      setNotifyEmail(true);
       setBusy(false);
     }
   }, [open]);
@@ -143,6 +146,8 @@ export function ScheduleExportDialog({
       periodKind,
       periodRelative: periodKind === "relative" ? periodRelative : undefined,
       notifyInApp,
+      // HU-8.2
+      notifyEmail,
     });
     setBusy(false);
     if (created) {
@@ -343,23 +348,42 @@ export function ScheduleExportDialog({
             )}
           </div>
 
-          {/* HU-8.1 — Notificação in-app */}
-          <Label
-            htmlFor="notify-in-app"
-            className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
-          >
-            <Checkbox
-              id="notify-in-app"
-              checked={notifyInApp}
-              onCheckedChange={(v) => setNotifyInApp(v === true)}
-            />
-            <span className="text-sm">
-              Receber notificação quando o arquivo estiver pronto
-              <span className="block text-xs text-muted-foreground">
-                Avisa no sino da plataforma com link direto para download.
+          {/* HU-8.1 + HU-8.2 — Canais de aviso */}
+          <div className="space-y-1">
+            <Label className="text-sm">Avisos ao concluir</Label>
+            <Label
+              htmlFor="notify-in-app"
+              className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
+            >
+              <Checkbox
+                id="notify-in-app"
+                checked={notifyInApp}
+                onCheckedChange={(v) => setNotifyInApp(v === true)}
+              />
+              <span className="text-sm">
+                Notificar no sino da plataforma
+                <span className="block text-xs text-muted-foreground">
+                  Aparece em destaque dentro do Câmara na Mão.
+                </span>
               </span>
-            </span>
-          </Label>
+            </Label>
+            <Label
+              htmlFor="notify-email"
+              className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
+            >
+              <Checkbox
+                id="notify-email"
+                checked={notifyEmail}
+                onCheckedChange={(v) => setNotifyEmail(v === true)}
+              />
+              <span className="text-sm">
+                Enviar por email
+                <span className="block text-xs text-muted-foreground">
+                  Link signed URL (válido por 7 dias) na sua caixa de entrada.
+                </span>
+              </span>
+            </Label>
+          </div>
 
           <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-0.5">
             <div className="flex items-center gap-1.5 text-muted-foreground">

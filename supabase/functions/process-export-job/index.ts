@@ -355,10 +355,10 @@ serve(async (req) => {
       })
       .eq("id", job.id);
 
-    // HU-8.1 — Notificação in-app quando o job veio de um agendamento e o
-    // dono pediu pra ser avisado.
+    // HU-8.1 + HU-8.2 — Pós-conclusão: notificação in-app + email automático
+    // quando o job veio de um agendamento. Cada canal é independente
+    // (notify_in_app e notify_email no scheduled_exports).
     try {
-      // O job pode ter `scheduled_export_id` populado quando source='scheduled'.
       const { data: jobFresh } = await supabase
         .from("export_jobs")
         .select("source, scheduled_export_id")
@@ -371,10 +371,14 @@ serve(async (req) => {
       if (scheduledExportId) {
         const { data: sch } = await supabase
           .from("scheduled_exports")
-          .select("name, notify_in_app")
+          .select("name, notify_in_app, notify_email")
           .eq("id", scheduledExportId)
           .single();
-        const schedule = sch as { name?: string; notify_in_app?: boolean } | null;
+        const schedule = sch as
+          | { name?: string; notify_in_app?: boolean; notify_email?: boolean }
+          | null;
+
+        // HU-8.1 — Notificação in-app
         if (schedule?.notify_in_app) {
           const datasetLabel =
             job.dataset === "urban_reports"
@@ -397,9 +401,28 @@ serve(async (req) => {
             },
           });
         }
+
+        // HU-8.2 — Email automático com link signed URL (fire-and-forget).
+        // Invoca a edge function send-export-email; falhas não interrompem
+        // o pipeline (apenas logam).
+        if (schedule?.notify_email) {
+          const emailUrl = `${supabaseUrl}/functions/v1/send-export-email`;
+          const emailHeaders: Record<string, string> = {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceRoleKey}`,
+          };
+          if (cronSecret) emailHeaders["x-cron-secret"] = cronSecret;
+          fetch(emailUrl, {
+            method: "POST",
+            headers: emailHeaders,
+            body: JSON.stringify({ jobId: job.id }),
+          }).catch((e) =>
+            console.warn(`[process-export-job] falha ao invocar send-export-email/${job.id}:`, e),
+          );
+        }
       }
     } catch (notifErr) {
-      console.warn("[process-export-job] falha ao criar notificação:", notifErr);
+      console.warn("[process-export-job] falha em notificação pós-conclusão:", notifErr);
     }
 
     return new Response(

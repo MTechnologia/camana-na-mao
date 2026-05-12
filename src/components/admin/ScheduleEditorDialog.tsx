@@ -88,6 +88,8 @@ export function ScheduleEditorDialog({
   const [periodKind, setPeriodKind] = useState<PeriodKind>("relative");
   const [periodRelative, setPeriodRelative] = useState<RelativePeriodKind>("last_7d");
   const [notifyInApp, setNotifyInApp] = useState(true);
+  // HU-8.2
+  const [notifyEmail, setNotifyEmail] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -104,6 +106,7 @@ export function ScheduleEditorDialog({
       setPeriodKind(target.periodKind);
       setPeriodRelative(target.periodRelative ?? "last_7d");
       setNotifyInApp(target.notifyInApp);
+      setNotifyEmail(target.notifyEmail);
     } else {
       setName("");
       setDataset("urban_reports");
@@ -116,6 +119,7 @@ export function ScheduleEditorDialog({
       setPeriodKind("relative");
       setPeriodRelative("last_7d");
       setNotifyInApp(true);
+      setNotifyEmail(true);
     }
     setBusy(false);
   }, [open, target]);
@@ -161,6 +165,7 @@ export function ScheduleEditorDialog({
         periodKind,
         periodRelative: periodKind === "relative" ? periodRelative : null,
         notifyInApp,
+        notifyEmail,
       });
       toast.success(`Agendamento "${nameTrimmed}" atualizado.`);
     } else {
@@ -180,6 +185,7 @@ export function ScheduleEditorDialog({
         periodKind,
         periodRelative: periodKind === "relative" ? periodRelative : undefined,
         notifyInApp,
+        notifyEmail,
       });
       if (created) toast.success(`Agendamento "${created.name}" criado.`);
       else toast.error("Não foi possível criar o agendamento.");
@@ -416,22 +422,44 @@ export function ScheduleEditorDialog({
             )}
           </div>
 
-          <Label
-            htmlFor="ed-notify"
-            className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
-          >
-            <Checkbox
-              id="ed-notify"
-              checked={notifyInApp}
-              onCheckedChange={(v) => setNotifyInApp(v === true)}
-            />
-            <span className="text-sm">
-              Receber notificação quando o arquivo estiver pronto
-              <span className="block text-xs text-muted-foreground">
-                Avisa no sino da plataforma com link direto para download.
+          {/* HU-8.1 + HU-8.2 — Canais de aviso (independentes) */}
+          <div className="space-y-1">
+            <Label className="text-sm">Avisos ao concluir</Label>
+            <Label
+              htmlFor="ed-notify"
+              className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
+            >
+              <Checkbox
+                id="ed-notify"
+                checked={notifyInApp}
+                onCheckedChange={(v) => setNotifyInApp(v === true)}
+              />
+              <span className="text-sm">
+                Notificar no sino da plataforma
+                <span className="block text-xs text-muted-foreground">
+                  Aparece em destaque dentro do Câmara na Mão.
+                </span>
               </span>
-            </span>
-          </Label>
+            </Label>
+
+            <Label
+              htmlFor="ed-notify-email"
+              className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
+            >
+              <Checkbox
+                id="ed-notify-email"
+                checked={notifyEmail}
+                onCheckedChange={(v) => setNotifyEmail(v === true)}
+              />
+              <span className="text-sm">
+                Enviar por email
+                <span className="block text-xs text-muted-foreground">
+                  Você receberá um link signed URL (válido por 7 dias) para baixar
+                  o arquivo direto da caixa de entrada.
+                </span>
+              </span>
+            </Label>
+          </div>
         </div>
 
         <DialogFooter>

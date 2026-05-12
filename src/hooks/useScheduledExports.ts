@@ -37,6 +37,8 @@ export interface ScheduledExport {
   periodKind: PeriodKind;
   periodRelative: RelativePeriodKind | null;
   notifyInApp: boolean;
+  // HU-8.2
+  notifyEmail: boolean;
   enabled: boolean;
   lastRunAt: string | null;
   nextRunAt: string;
@@ -61,6 +63,8 @@ export interface CreateScheduledExportInput {
   periodKind?: PeriodKind;
   periodRelative?: RelativePeriodKind;
   notifyInApp?: boolean;
+  // HU-8.2
+  notifyEmail?: boolean;
 }
 
 export interface UpdateScheduledExportInput {
@@ -79,6 +83,8 @@ export interface UpdateScheduledExportInput {
   periodKind?: PeriodKind;
   periodRelative?: RelativePeriodKind | null;
   notifyInApp?: boolean;
+  // HU-8.2
+  notifyEmail?: boolean;
 }
 
 export interface UseScheduledExportsResult {
@@ -110,6 +116,7 @@ interface RawRow {
   period_kind: string | null;
   period_relative: string | null;
   notify_in_app: boolean | null;
+  notify_email: boolean | null;
   enabled: boolean;
   last_run_at: string | null;
   next_run_at: string;
@@ -140,6 +147,7 @@ function toModel(row: RawRow): ScheduledExport {
     periodKind: ((row.period_kind ?? "relative") as PeriodKind),
     periodRelative: (row.period_relative as RelativePeriodKind | null) ?? null,
     notifyInApp: row.notify_in_app ?? true,
+    notifyEmail: row.notify_email ?? true,
     enabled: row.enabled,
     lastRunAt: row.last_run_at,
     nextRunAt: row.next_run_at,
@@ -209,6 +217,8 @@ export function useScheduledExports(): UseScheduledExportsResult {
             period_relative:
               input.periodKind === "fixed" ? null : (input.periodRelative ?? "last_7d"),
             notify_in_app: input.notifyInApp ?? true,
+            // HU-8.2 — envio por email default ligado.
+            notify_email: input.notifyEmail ?? true,
             // next_run_at é calculado pelo trigger auto_set_scheduled_export_next_run.
             // Passa um placeholder em ISO pra satisfazer a constraint NOT NULL.
             next_run_at: new Date().toISOString(),
@@ -248,6 +258,7 @@ export function useScheduledExports(): UseScheduledExportsResult {
       if (patch.periodKind !== undefined) dbPatch.period_kind = patch.periodKind;
       if (patch.periodRelative !== undefined) dbPatch.period_relative = patch.periodRelative;
       if (patch.notifyInApp !== undefined) dbPatch.notify_in_app = patch.notifyInApp;
+      if (patch.notifyEmail !== undefined) dbPatch.notify_email = patch.notifyEmail;
       if (Object.keys(dbPatch).length === 0) return;
 
       const prev = schedules;
