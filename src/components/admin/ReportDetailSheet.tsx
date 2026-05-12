@@ -36,7 +36,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useReportDetail, type ReportAuditEntry, type ReportComment, type ReportDetail, type ReportAuthor } from "@/hooks/useReportDetail";
 import { useReportDetailModal, type ReportSource } from "@/contexts/ReportDetailContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { cn } from "@/lib/utils";
+import { TriageEditor } from "@/components/admin/triage/TriageEditor";
+import { ReportTimelineTab } from "@/components/admin/triage/ReportTimelineTab";
+import { CommissionReferralDialog } from "@/components/admin/triage/CommissionReferralDialog";
 
 /**
  * HU-3.6 — Sheet lateral com detalhes completos de um relato individual.
@@ -100,7 +104,12 @@ export function ReportDetailSheet() {
     applyOptimisticDetail,
     applyOptimisticComment,
   } = useReportDetail(id, source);
-  const [activeTab, setActiveTab] = useState<"detalhes" | "autor" | "ia" | "historico">("detalhes");
+  const [activeTab, setActiveTab] = useState<
+    "detalhes" | "autor" | "ia" | "triagem" | "acompanhamento" | "historico"
+  >("detalhes");
+  const [referralOpen, setReferralOpen] = useState(false);
+  const { canManageTriage, isAdmin, isGestor, isAssessor } = useUserRole();
+  const canReferToCommission = isAdmin || isGestor || isAssessor;
 
   return (
     <Sheet open={!!opened} onOpenChange={(o) => { if (!o) close(); }}>
@@ -156,6 +165,10 @@ export function ReportDetailSheet() {
             <TabsTrigger value="detalhes" className="flex-1 min-w-[80px] text-xs">Detalhes</TabsTrigger>
             <TabsTrigger value="autor" className="flex-1 min-w-[80px] text-xs">Autor</TabsTrigger>
             <TabsTrigger value="ia" className="flex-1 min-w-[60px] text-xs">IA</TabsTrigger>
+            {canManageTriage && (
+              <TabsTrigger value="triagem" className="flex-1 min-w-[80px] text-xs">Triagem</TabsTrigger>
+            )}
+            <TabsTrigger value="acompanhamento" className="flex-1 min-w-[120px] text-xs">Acompanhamento</TabsTrigger>
             <TabsTrigger value="historico" className="flex-1 min-w-[90px] text-xs">Histórico</TabsTrigger>
           </TabsList>
 
@@ -179,6 +192,34 @@ export function ReportDetailSheet() {
               <AIPanel detail={detail} isLoading={isLoading} />
             </TabsContent>
 
+            {canManageTriage && (
+              <TabsContent value="triagem" className="mt-0 space-y-4">
+                {id && source && (
+                  <TriageEditor reportId={id} source={source} canEdit={canManageTriage} />
+                )}
+              </TabsContent>
+            )}
+
+            <TabsContent value="acompanhamento" className="mt-0 space-y-4">
+              {id && source && (
+                <>
+                  <ReportTimelineTab reportId={id} source={source} />
+                  {canReferToCommission && (
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setReferralOpen(true)}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-2" />
+                        Encaminhar a comissão
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
             <TabsContent value="historico" className="mt-0 space-y-4">
               <HistoryPanel
                 auditLog={auditLog}
@@ -199,6 +240,16 @@ export function ReportDetailSheet() {
             />
           )}
         </Tabs>
+
+        {id && source && canReferToCommission && (
+          <CommissionReferralDialog
+            open={referralOpen}
+            onOpenChange={setReferralOpen}
+            reportId={id}
+            source={source}
+            onSubmitted={refresh}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -588,9 +639,16 @@ function ActionsFooter({
     setBusy(true);
     try {
       const tableName = source === "urban" ? "urban_report_comments" : "transport_report_comments";
+      // RLS exige user_id = auth.uid(). O hook do client não preenche
+      // automaticamente, então buscamos o usuário e incluímos no payload.
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) throw userErr;
+      const userId = userData?.user?.id;
+      if (!userId) throw new Error("Sessão expirada — faça login novamente.");
       const { error } = await supabase.from(tableName).insert({
         report_id: detail.id,
         comment_text: trimmed,
+        user_id: userId,
       });
       if (error) throw error;
       toast.success("Comentário adicionado.");
