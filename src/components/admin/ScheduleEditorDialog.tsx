@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,36 +25,36 @@ import {
   useScheduledExports,
   type Recurrence,
   type PeriodKind,
+  type ScheduledExport,
 } from "@/hooks/useScheduledExports";
-import type { ExportDataset } from "@/lib/exportFields";
+import {
+  DATASET_LIST,
+  getBasicPresetFieldIds,
+  getDataset,
+  filterFieldsByRole,
+  type ExportDataset,
+} from "@/lib/exportFields";
+import { useUserRole } from "@/hooks/useUserRole";
+import type { ExportRole } from "@/lib/exportFields";
 import {
   RELATIVE_PERIOD_OPTIONS,
-  resolveRelativePeriod,
   formatPeriodPtBr,
+  resolveRelativePeriod,
   type RelativePeriodKind,
 } from "@/lib/relativePeriod";
 
 /**
- * HU-7.4 — Modal "Agendar exportação".
+ * HU-8.1 — Editor completo de agendamento, usado pela página de gerenciamento.
  *
- * Recebe a configuração atual do DataExportDialog (dataset, formato, campos,
- * ordenação, filtros, includeSummary) e permite ao gestor salvar como um
- * agendamento periódico. Validações:
- *  - Nome obrigatório e único por usuário.
- *  - Recurrence weekly exige weekday; monthly exige monthday.
+ * Diferente do ScheduleExportDialog (que captura snapshot do contexto atual),
+ * este dialog tem seus próprios controles para dataset, formato e campos.
+ * Suporta CRIAR (target=null) e EDITAR (target=ScheduledExport).
  */
 
-interface ScheduleExportDialogProps {
+interface ScheduleEditorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultConfig: {
-    dataset: ExportDataset;
-    format: "csv" | "xlsx";
-    fieldIds: string[];
-    orderBy: { fieldId: string; direction: "asc" | "desc" };
-    filters?: Record<string, unknown>;
-    includeSummary?: boolean;
-  };
+  target: ScheduledExport | null;
 }
 
 const WEEKDAYS = [
@@ -67,28 +67,47 @@ const WEEKDAYS = [
   { id: 7, label: "Domingo" },
 ];
 
-export function ScheduleExportDialog({
+export function ScheduleEditorDialog({
   open,
   onOpenChange,
-  defaultConfig,
-}: ScheduleExportDialogProps) {
-  const { schedules, create } = useScheduledExports();
+  target,
+}: ScheduleEditorDialogProps) {
+  const { schedules, create, update } = useScheduledExports();
+  const { isAdmin, isGestor } = useUserRole();
+  const role: ExportRole | null = isAdmin ? "admin" : isGestor ? "gestor" : null;
 
+  const isEdit = target !== null;
   const [name, setName] = useState("");
+  const [dataset, setDataset] = useState<ExportDataset>("urban_reports");
+  const [format, setFormat] = useState<"csv" | "xlsx">("csv");
   const [recurrence, setRecurrence] = useState<Recurrence>("daily");
   const [runHour, setRunHour] = useState(7);
   const [runMinute, setRunMinute] = useState(0);
   const [weekday, setWeekday] = useState(1);
   const [monthday, setMonthday] = useState(1);
-  // HU-8.1 — período relativo + notificação in-app
   const [periodKind, setPeriodKind] = useState<PeriodKind>("relative");
   const [periodRelative, setPeriodRelative] = useState<RelativePeriodKind>("last_7d");
   const [notifyInApp, setNotifyInApp] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (target) {
+      setName(target.name);
+      setDataset(target.dataset);
+      setFormat(target.format);
+      setRecurrence(target.recurrence);
+      setRunHour(target.runHour);
+      setRunMinute(target.runMinute);
+      setWeekday(target.weekday ?? 1);
+      setMonthday(target.monthday ?? 1);
+      setPeriodKind(target.periodKind);
+      setPeriodRelative(target.periodRelative ?? "last_7d");
+      setNotifyInApp(target.notifyInApp);
+    } else {
       setName("");
+      setDataset("urban_reports");
+      setFormat("csv");
       setRecurrence("daily");
       setRunHour(7);
       setRunMinute(0);
@@ -97,17 +116,9 @@ export function ScheduleExportDialog({
       setPeriodKind("relative");
       setPeriodRelative("last_7d");
       setNotifyInApp(true);
-      setBusy(false);
     }
-  }, [open]);
-
-  // HU-8.1 — Preview do intervalo que será aplicado quando a próxima execução
-  // disparar. Mostra ao gestor o que esperar.
-  const previewPeriod = useMemo(() => {
-    if (periodKind !== "relative") return null;
-    const p = resolveRelativePeriod(periodRelative, new Date());
-    return formatPeriodPtBr(p);
-  }, [periodKind, periodRelative]);
+    setBusy(false);
+  }, [open, target]);
 
   const nameTrimmed = name.trim();
   const nameError = useMemo<string | null>(() => {
@@ -115,75 +126,150 @@ export function ScheduleExportDialog({
     if (nameTrimmed.length > 80) return "Use até 80 caracteres.";
     const dup = schedules.find(
       (s) =>
+        s.id !== target?.id &&
         s.name.localeCompare(nameTrimmed, "pt-BR", { sensitivity: "base" }) === 0,
     );
     if (dup) return "Já existe um agendamento com este nome.";
     return null;
-  }, [nameTrimmed, schedules]);
+  }, [nameTrimmed, schedules, target]);
 
   const canSubmit = nameTrimmed.length > 0 && !nameError && !busy;
+
+  const previewPeriod = useMemo(() => {
+    if (periodKind !== "relative") return null;
+    return formatPeriodPtBr(resolveRelativePeriod(periodRelative));
+  }, [periodKind, periodRelative]);
 
   const handleSave = async () => {
     if (!canSubmit) return;
     setBusy(true);
-    const created = await create({
-      name: nameTrimmed,
-      dataset: defaultConfig.dataset,
-      format: defaultConfig.format,
-      fieldIds: defaultConfig.fieldIds,
-      orderBy: defaultConfig.orderBy,
-      filters: defaultConfig.filters,
-      includeSummary: defaultConfig.includeSummary,
-      recurrence,
-      runHour,
-      runMinute,
-      weekday: recurrence === "weekly" ? weekday : undefined,
-      monthday: recurrence === "monthly" ? monthday : undefined,
-      // HU-8.1
-      periodKind,
-      periodRelative: periodKind === "relative" ? periodRelative : undefined,
-      notifyInApp,
-    });
-    setBusy(false);
-    if (created) {
-      const nextRun = new Date(created.nextRunAt);
-      toast.success(
-        `Agendado "${created.name}". Próxima execução: ${nextRun.toLocaleString("pt-BR")}.`,
-      );
-      onOpenChange(false);
+
+    // Campos default: presets "Básicos" filtrados pela role (governança HU-7.3).
+    const dsMeta = getDataset(dataset);
+    const visible = filterFieldsByRole(dsMeta.fields, role);
+    const visibleIds = new Set(visible.map((f) => f.id));
+    const fieldIds = getBasicPresetFieldIds(dsMeta).filter((id) => visibleIds.has(id));
+
+    if (isEdit && target) {
+      await update(target.id, {
+        name: nameTrimmed,
+        recurrence,
+        runHour,
+        runMinute,
+        weekday: recurrence === "weekly" ? weekday : null,
+        monthday: recurrence === "monthly" ? monthday : null,
+        periodKind,
+        periodRelative: periodKind === "relative" ? periodRelative : null,
+        notifyInApp,
+      });
+      toast.success(`Agendamento "${nameTrimmed}" atualizado.`);
     } else {
-      toast.error("Não foi possível salvar o agendamento.");
+      const created = await create({
+        name: nameTrimmed,
+        dataset,
+        format,
+        fieldIds,
+        orderBy: { fieldId: dsMeta.defaultOrderColumn, direction: "desc" },
+        filters: {},
+        includeSummary: format === "xlsx",
+        recurrence,
+        runHour,
+        runMinute,
+        weekday: recurrence === "weekly" ? weekday : undefined,
+        monthday: recurrence === "monthly" ? monthday : undefined,
+        periodKind,
+        periodRelative: periodKind === "relative" ? periodRelative : undefined,
+        notifyInApp,
+      });
+      if (created) toast.success(`Agendamento "${created.name}" criado.`);
+      else toast.error("Não foi possível criar o agendamento.");
     }
+    setBusy(false);
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Agendar exportação</DialogTitle>
+          <DialogTitle>{isEdit ? "Editar agendamento" : "Novo agendamento"}</DialogTitle>
           <DialogDescription>
-            Vamos rodar este export periodicamente e salvar o arquivo no seu painel
-            "Minhas exportações".
+            {isEdit
+              ? "Ajuste a frequência, o período e a notificação."
+              : "Configure um export periódico que será disparado automaticamente."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="schedule-name">Nome do agendamento</Label>
+            <Label htmlFor="ed-name">Nome</Label>
             <Input
-              id="schedule-name"
+              id="ed-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder='Ex.: "Relatos urbanos - semanal"'
               maxLength={80}
-              autoFocus
               disabled={busy}
             />
             {nameError && <p className="text-xs text-destructive">{nameError}</p>}
           </div>
 
+          {!isEdit && (
+            <>
+              <div className="space-y-2">
+                <Label>Dataset</Label>
+                <RadioGroup
+                  value={dataset}
+                  onValueChange={(v) => setDataset(v as ExportDataset)}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {DATASET_LIST.map((d) => (
+                    <Label
+                      key={d.id}
+                      htmlFor={`ed-ds-${d.id}`}
+                      className="flex items-center gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04] text-sm"
+                    >
+                      <RadioGroupItem value={d.id} id={`ed-ds-${d.id}`} />
+                      <span>{d.label}</span>
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Formato</Label>
+                <RadioGroup
+                  value={format}
+                  onValueChange={(v) => setFormat(v as "csv" | "xlsx")}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  <Label
+                    htmlFor="ed-fmt-csv"
+                    className="flex items-center gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04] text-sm"
+                  >
+                    <RadioGroupItem value="csv" id="ed-fmt-csv" />
+                    CSV (.csv)
+                  </Label>
+                  <Label
+                    htmlFor="ed-fmt-xlsx"
+                    className="flex items-center gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04] text-sm"
+                  >
+                    <RadioGroupItem value="xlsx" id="ed-fmt-xlsx" />
+                    Excel (.xlsx)
+                  </Label>
+                </RadioGroup>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground">
+                Novos agendamentos começam com os campos do preset "Básicos" do
+                dataset. Para selecionar campos específicos, abra um export
+                manual e use "Agendar" lá.
+              </p>
+            </>
+          )}
+
           <div className="space-y-2">
-            <Label className="text-sm">Frequência</Label>
+            <Label>Frequência</Label>
             <RadioGroup
               value={recurrence}
               onValueChange={(v) => setRecurrence(v as Recurrence)}
@@ -192,13 +278,11 @@ export function ScheduleExportDialog({
               {(["daily", "weekly", "monthly"] as Recurrence[]).map((r) => (
                 <Label
                   key={r}
-                  htmlFor={`rec-${r}`}
-                  className="flex items-center gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04]"
+                  htmlFor={`ed-rec-${r}`}
+                  className="flex items-center gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04] text-sm"
                 >
-                  <RadioGroupItem value={r} id={`rec-${r}`} />
-                  <span className="text-sm capitalize">
-                    {r === "daily" ? "Diário" : r === "weekly" ? "Semanal" : "Mensal"}
-                  </span>
+                  <RadioGroupItem value={r} id={`ed-rec-${r}`} />
+                  {r === "daily" ? "Diário" : r === "weekly" ? "Semanal" : "Mensal"}
                 </Label>
               ))}
             </RadioGroup>
@@ -206,7 +290,7 @@ export function ScheduleExportDialog({
 
           {recurrence === "weekly" && (
             <div className="space-y-2">
-              <Label className="text-sm">Dia da semana</Label>
+              <Label>Dia da semana</Label>
               <Select value={String(weekday)} onValueChange={(v) => setWeekday(Number(v))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -224,7 +308,7 @@ export function ScheduleExportDialog({
 
           {recurrence === "monthly" && (
             <div className="space-y-2">
-              <Label className="text-sm">Dia do mês</Label>
+              <Label>Dia do mês</Label>
               <Select value={String(monthday)} onValueChange={(v) => setMonthday(Number(v))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -237,15 +321,12 @@ export function ScheduleExportDialog({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Em meses sem o dia escolhido, executa no último dia disponível.
-              </p>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-sm">Hora</Label>
+              <Label>Hora</Label>
               <Select value={String(runHour)} onValueChange={(v) => setRunHour(Number(v))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -260,7 +341,7 @@ export function ScheduleExportDialog({
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">Minuto</Label>
+              <Label>Minuto</Label>
               <Select value={String(runMinute)} onValueChange={(v) => setRunMinute(Number(v))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -276,19 +357,18 @@ export function ScheduleExportDialog({
             </div>
           </div>
 
-          {/* HU-8.1 — Período relativo vs fixo */}
           <div className="space-y-2">
-            <Label className="text-sm">Período dos dados</Label>
+            <Label>Período dos dados</Label>
             <RadioGroup
               value={periodKind}
               onValueChange={(v) => setPeriodKind(v as PeriodKind)}
               className="grid grid-cols-2 gap-2"
             >
               <Label
-                htmlFor="period-relative"
+                htmlFor="ed-pk-rel"
                 className="flex items-start gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04]"
               >
-                <RadioGroupItem value="relative" id="period-relative" className="mt-0.5" />
+                <RadioGroupItem value="relative" id="ed-pk-rel" className="mt-0.5" />
                 <div className="flex-1">
                   <div className="text-sm font-medium">Dinâmico</div>
                   <div className="text-xs text-muted-foreground">
@@ -297,14 +377,14 @@ export function ScheduleExportDialog({
                 </div>
               </Label>
               <Label
-                htmlFor="period-fixed"
+                htmlFor="ed-pk-fixed"
                 className="flex items-start gap-2 rounded border p-2 cursor-pointer hover:bg-muted/50 [&:has(:checked)]:border-primary [&:has(:checked)]:bg-primary/[0.04]"
               >
-                <RadioGroupItem value="fixed" id="period-fixed" className="mt-0.5" />
+                <RadioGroupItem value="fixed" id="ed-pk-fixed" className="mt-0.5" />
                 <div className="flex-1">
                   <div className="text-sm font-medium">Fixo</div>
                   <div className="text-xs text-muted-foreground">
-                    Mesmo intervalo todas as vezes
+                    Sem período (todo histórico)
                   </div>
                 </div>
               </Label>
@@ -334,22 +414,14 @@ export function ScheduleExportDialog({
                 )}
               </div>
             )}
-            {periodKind === "fixed" && (
-              <p className="text-xs text-muted-foreground">
-                Mantém as datas do export atual ({defaultConfig.filters?.startDate
-                  ? "início e fim definidos"
-                  : "todo o histórico"}).
-              </p>
-            )}
           </div>
 
-          {/* HU-8.1 — Notificação in-app */}
           <Label
-            htmlFor="notify-in-app"
+            htmlFor="ed-notify"
             className="flex items-start gap-2 cursor-pointer px-2 py-1.5 rounded hover:bg-muted/50"
           >
             <Checkbox
-              id="notify-in-app"
+              id="ed-notify"
               checked={notifyInApp}
               onCheckedChange={(v) => setNotifyInApp(v === true)}
             />
@@ -360,20 +432,6 @@ export function ScheduleExportDialog({
               </span>
             </span>
           </Label>
-
-          <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-0.5">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span>Configuração capturada:</span>
-            </div>
-            <div>Dataset: {defaultConfig.dataset === "urban_reports" ? "Relatos urbanos" : "Relatos de transporte"}</div>
-            <div>Formato: {defaultConfig.format.toUpperCase()}</div>
-            <div>Campos: {defaultConfig.fieldIds.length} selecionados</div>
-            <div>
-              Ordenação: {defaultConfig.orderBy.fieldId}{" "}
-              ({defaultConfig.orderBy.direction === "asc" ? "↑" : "↓"})
-            </div>
-          </div>
         </div>
 
         <DialogFooter>
@@ -386,8 +444,10 @@ export function ScheduleExportDialog({
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Salvando...
               </>
+            ) : isEdit ? (
+              "Salvar alterações"
             ) : (
-              "Salvar agendamento"
+              "Criar agendamento"
             )}
           </Button>
         </DialogFooter>

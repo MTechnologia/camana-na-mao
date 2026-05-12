@@ -138,6 +138,7 @@ const ReportsManagement = lazy(() => import("./pages/admin/ReportsManagement"));
 const N8NIntegration = lazy(() => import("./pages/admin/settings/N8NIntegration"));
 const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"));
 const AccessibilitySettings = lazy(() => import("./pages/admin/settings/AccessibilitySettings"));
+const SchedulesManagementPage = lazy(() => import("./pages/admin/settings/SchedulesManagementPage"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
 const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
@@ -326,6 +327,9 @@ const AppContent = () => {
             <Route path="/admin/settings/n8n" element={<ProtectedAdminOnlyRoute><N8NIntegration /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/n8n-monitoring" element={<ProtectedAdminOnlyRoute><N8NMonitoring /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/settings/accessibility" element={<ProtectedAdminOnlyRoute><AccessibilitySettings /></ProtectedAdminOnlyRoute>} />
+            {/* HU-8.1 — Página de gerenciamento de agendamentos de export.
+                Acessível por admin e gestor (ProtectedAdminRoute, não AdminOnly). */}
+            <Route path="/admin/configuracoes/agendamentos" element={<ProtectedAdminRoute><SchedulesManagementPage /></ProtectedAdminRoute>} />
             <Route path="/admin/docs" element={<ProtectedAdminRoute><Navigate to="/admin/docs/overview" replace /></ProtectedAdminRoute>} />
             <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><PublicDocumentationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />

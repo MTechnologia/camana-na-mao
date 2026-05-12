@@ -31,6 +31,81 @@ interface ScheduledExportRow {
   run_minute: number;
   weekday: number | null;
   monthday: number | null;
+  // HU-8.1 — período relativo e notificação in-app
+  period_kind: "relative" | "fixed";
+  period_relative:
+    | "yesterday"
+    | "last_7d"
+    | "last_30d"
+    | "previous_month"
+    | "current_month"
+    | "last_quarter"
+    | "last_year"
+    | null;
+  notify_in_app: boolean;
+}
+
+/**
+ * HU-8.1 — Resolve janela de período relativo (espelha src/lib/relativePeriod.ts).
+ * Mantém em sincronia se adicionar novos kinds.
+ */
+function resolveRelativePeriod(
+  kind: ScheduledExportRow["period_relative"],
+  baseDate: Date = new Date(),
+): { startDate: string; endDate: string } | null {
+  if (!kind) return null;
+  const start = new Date(baseDate);
+  const end = new Date(baseDate);
+  switch (kind) {
+    case "yesterday":
+      start.setDate(start.getDate() - 1);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "last_7d":
+      start.setDate(start.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "last_30d":
+      start.setDate(start.getDate() - 30);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "previous_month": {
+      const prev = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, 1);
+      start.setTime(prev.getTime());
+      start.setHours(0, 0, 0, 0);
+      end.setTime(
+        new Date(baseDate.getFullYear(), baseDate.getMonth(), 0, 23, 59, 59, 999).getTime(),
+      );
+      break;
+    }
+    case "current_month":
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "last_quarter": {
+      const prevMonth = new Date(baseDate.getFullYear(), baseDate.getMonth() - 3, 1);
+      const qStart = Math.floor(prevMonth.getMonth() / 3) * 3;
+      start.setTime(new Date(prevMonth.getFullYear(), qStart, 1).getTime());
+      start.setHours(0, 0, 0, 0);
+      end.setTime(
+        new Date(prevMonth.getFullYear(), qStart + 3, 0, 23, 59, 59, 999).getTime(),
+      );
+      break;
+    }
+    case "last_year":
+      start.setTime(new Date(baseDate.getFullYear() - 1, 0, 1).getTime());
+      start.setHours(0, 0, 0, 0);
+      end.setTime(new Date(baseDate.getFullYear() - 1, 11, 31, 23, 59, 59, 999).getTime());
+      break;
+  }
+  return { startDate: start.toISOString(), endDate: end.toISOString() };
 }
 
 serve(async (req) => {
@@ -68,6 +143,21 @@ serve(async (req) => {
 
     for (const sch of dueList) {
       try {
+        // HU-8.1 — Quando o período é relativo, recalculamos a janela
+        // dinamicamente no momento do disparo e sobrescrevemos as datas
+        // no filters do job. Para 'fixed', preservamos o snapshot original.
+        let effectiveFilters: Record<string, unknown> = { ...(sch.filters ?? {}) };
+        if (sch.period_kind === "relative" && sch.period_relative) {
+          const window = resolveRelativePeriod(sch.period_relative, new Date());
+          if (window) {
+            effectiveFilters = {
+              ...effectiveFilters,
+              startDate: window.startDate,
+              endDate: window.endDate,
+            };
+          }
+        }
+
         // 2) Cria o job em pending.
         const { data: jobIns, error: jobErr } = await supabase
           .from("export_jobs")
@@ -77,7 +167,7 @@ serve(async (req) => {
             format: sch.format,
             fields: sch.fields,
             order_by: sch.order_by,
-            filters: sch.filters,
+            filters: effectiveFilters,
             include_summary: sch.include_summary,
             source: "scheduled",
             scheduled_export_id: sch.id,

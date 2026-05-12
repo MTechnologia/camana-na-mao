@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 import type { ExportDataset } from "@/lib/exportFields";
+import type { RelativePeriodKind } from "@/lib/relativePeriod";
 
 /**
  * HU-7.4 — CRUD dos agendamentos periódicos (scheduled_exports).
@@ -14,6 +15,8 @@ import type { ExportDataset } from "@/lib/exportFields";
 const TABLE = "scheduled_exports" as const;
 
 export type Recurrence = "daily" | "weekly" | "monthly";
+
+export type PeriodKind = "relative" | "fixed";
 
 export interface ScheduledExport {
   id: string;
@@ -30,6 +33,10 @@ export interface ScheduledExport {
   runMinute: number;
   weekday: number | null;
   monthday: number | null;
+  // HU-8.1
+  periodKind: PeriodKind;
+  periodRelative: RelativePeriodKind | null;
+  notifyInApp: boolean;
   enabled: boolean;
   lastRunAt: string | null;
   nextRunAt: string;
@@ -50,6 +57,10 @@ export interface CreateScheduledExportInput {
   runMinute: number;
   weekday?: number;
   monthday?: number;
+  // HU-8.1
+  periodKind?: PeriodKind;
+  periodRelative?: RelativePeriodKind;
+  notifyInApp?: boolean;
 }
 
 export interface UpdateScheduledExportInput {
@@ -64,6 +75,10 @@ export interface UpdateScheduledExportInput {
   orderBy?: { fieldId: string; direction: "asc" | "desc" };
   filters?: Record<string, unknown>;
   includeSummary?: boolean;
+  // HU-8.1
+  periodKind?: PeriodKind;
+  periodRelative?: RelativePeriodKind | null;
+  notifyInApp?: boolean;
 }
 
 export interface UseScheduledExportsResult {
@@ -92,6 +107,9 @@ interface RawRow {
   run_minute: number;
   weekday: number | null;
   monthday: number | null;
+  period_kind: string | null;
+  period_relative: string | null;
+  notify_in_app: boolean | null;
   enabled: boolean;
   last_run_at: string | null;
   next_run_at: string;
@@ -119,6 +137,9 @@ function toModel(row: RawRow): ScheduledExport {
     runMinute: row.run_minute,
     weekday: row.weekday,
     monthday: row.monthday,
+    periodKind: ((row.period_kind ?? "relative") as PeriodKind),
+    periodRelative: (row.period_relative as RelativePeriodKind | null) ?? null,
+    notifyInApp: row.notify_in_app ?? true,
     enabled: row.enabled,
     lastRunAt: row.last_run_at,
     nextRunAt: row.next_run_at,
@@ -183,6 +204,11 @@ export function useScheduledExports(): UseScheduledExportsResult {
             run_minute: input.runMinute,
             weekday: input.weekday ?? null,
             monthday: input.monthday ?? null,
+            // HU-8.1 — defaults sensatos quando o caller não especifica.
+            period_kind: input.periodKind ?? "relative",
+            period_relative:
+              input.periodKind === "fixed" ? null : (input.periodRelative ?? "last_7d"),
+            notify_in_app: input.notifyInApp ?? true,
             // next_run_at é calculado pelo trigger auto_set_scheduled_export_next_run.
             // Passa um placeholder em ISO pra satisfazer a constraint NOT NULL.
             next_run_at: new Date().toISOString(),
@@ -219,6 +245,9 @@ export function useScheduledExports(): UseScheduledExportsResult {
       if (patch.orderBy !== undefined) dbPatch.order_by = patch.orderBy;
       if (patch.filters !== undefined) dbPatch.filters = patch.filters;
       if (patch.includeSummary !== undefined) dbPatch.include_summary = patch.includeSummary;
+      if (patch.periodKind !== undefined) dbPatch.period_kind = patch.periodKind;
+      if (patch.periodRelative !== undefined) dbPatch.period_relative = patch.periodRelative;
+      if (patch.notifyInApp !== undefined) dbPatch.notify_in_app = patch.notifyInApp;
       if (Object.keys(dbPatch).length === 0) return;
 
       const prev = schedules;
@@ -240,6 +269,11 @@ export function useScheduledExports(): UseScheduledExportsResult {
                 ...(patch.includeSummary !== undefined
                   ? { includeSummary: patch.includeSummary }
                   : {}),
+                ...(patch.periodKind !== undefined ? { periodKind: patch.periodKind } : {}),
+                ...(patch.periodRelative !== undefined
+                  ? { periodRelative: patch.periodRelative }
+                  : {}),
+                ...(patch.notifyInApp !== undefined ? { notifyInApp: patch.notifyInApp } : {}),
               }
             : s,
         ),
