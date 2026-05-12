@@ -140,6 +140,8 @@ const N8NMonitoring = lazy(() => import("./pages/admin/settings/N8NMonitoring"))
 const AccessibilitySettings = lazy(() => import("./pages/admin/settings/AccessibilitySettings"));
 const SchedulesManagementPage = lazy(() => import("./pages/admin/settings/SchedulesManagementPage"));
 const PatternsManagementPage = lazy(() => import("./pages/admin/PatternsManagementPage"));
+const ForecastPage = lazy(() => import("./pages/admin/ForecastPage"));
+const AnomaliesPage = lazy(() => import("./pages/admin/AnomaliesPage"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
 const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
@@ -333,6 +335,10 @@ const AppContent = () => {
             <Route path="/admin/configuracoes/agendamentos" element={<ProtectedAdminRoute><SchedulesManagementPage /></ProtectedAdminRoute>} />
             {/* HU-9.1 — Página dedicada de padrões detectados pela IA. */}
             <Route path="/admin/padroes" element={<ProtectedAdminRoute><PatternsManagementPage /></ProtectedAdminRoute>} />
+            {/* HU-9.2 — Previsão de volume de relatos. */}
+            <Route path="/admin/previsoes" element={<ProtectedAdminRoute><ForecastPage /></ProtectedAdminRoute>} />
+            {/* HU-9.3 — Detecção de anomalias de volume. */}
+            <Route path="/admin/anomalias" element={<ProtectedAdminRoute><AnomaliesPage /></ProtectedAdminRoute>} />
             <Route path="/admin/docs" element={<ProtectedAdminRoute><Navigate to="/admin/docs/overview" replace /></ProtectedAdminRoute>} />
             <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><PublicDocumentationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
