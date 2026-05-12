@@ -142,6 +142,7 @@ const SchedulesManagementPage = lazy(() => import("./pages/admin/settings/Schedu
 const PatternsManagementPage = lazy(() => import("./pages/admin/PatternsManagementPage"));
 const ForecastPage = lazy(() => import("./pages/admin/ForecastPage"));
 const AnomaliesPage = lazy(() => import("./pages/admin/AnomaliesPage"));
+const TriageKanbanPage = lazy(() => import("./pages/admin/TriageKanbanPage"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
 const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
@@ -339,6 +340,8 @@ const AppContent = () => {
             <Route path="/admin/previsoes" element={<ProtectedAdminRoute><ForecastPage /></ProtectedAdminRoute>} />
             {/* HU-9.3 — Detecção de anomalias de volume. */}
             <Route path="/admin/anomalias" element={<ProtectedAdminRoute><AnomaliesPage /></ProtectedAdminRoute>} />
+            {/* HU-10.3 — Kanban de triagem ponta a ponta. */}
+            <Route path="/admin/triagem" element={<ProtectedAdminRoute><TriageKanbanPage /></ProtectedAdminRoute>} />
             <Route path="/admin/docs" element={<ProtectedAdminRoute><Navigate to="/admin/docs/overview" replace /></ProtectedAdminRoute>} />
             <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><PublicDocumentationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
