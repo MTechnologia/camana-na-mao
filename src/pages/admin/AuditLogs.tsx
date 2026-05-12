@@ -137,6 +137,7 @@ const AuditLogs = () => {
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selected, setSelected] = useState<AuditLogRow | null>(null);
+  const [exportFile, setExportFile] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
     if (!roleLoading && !hasRole("admin")) {
@@ -187,6 +188,14 @@ const AuditLogs = () => {
   useEffect(() => {
     void loadLogs();
   }, [loadLogs]);
+
+  useEffect(() => {
+    return () => {
+      if (exportFile?.url) {
+        window.URL.revokeObjectURL(exportFile.url);
+      }
+    };
+  }, [exportFile?.url]);
 
   const actorById = useMemo(() => {
     const m = new Map<string, (typeof actors)[number]>();
@@ -242,6 +251,7 @@ const AuditLogs = () => {
     ) {
       try {
         await navigator.share(shareData);
+        setExportFile(null);
         toast({
           title: "CSV pronto para compartilhar",
           description: "No celular, escolha Salvar em Arquivos, Drive ou outro app.",
@@ -255,6 +265,8 @@ const AuditLogs = () => {
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
+    setExportFile({ url, filename });
+
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
@@ -262,15 +274,11 @@ const AuditLogs = () => {
     a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-
-    window.setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-      a.remove();
-    }, 1000);
+    a.remove();
 
     toast({
-      title: "CSV gerado",
-      description: "Se o celular não mostrar download, confira a pasta Downloads/Arquivos.",
+      title: "CSV pronto",
+      description: "Se o celular não baixou automaticamente, toque em Baixar CSV abaixo.",
     });
   };
 
@@ -307,6 +315,44 @@ const AuditLogs = () => {
             Exportar CSV
           </Button>
         </div>
+
+        {exportFile && (
+          <Card className="p-3 border-primary/30 bg-primary/5 space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">CSV pronto para baixar</p>
+              <p className="text-xs text-muted-foreground">
+                Se o download automático não abriu no celular, toque no botão abaixo.
+                Em alguns navegadores móveis, o arquivo abre em uma nova aba antes de
+                salvar.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Button asChild className="w-full gap-2">
+                <a
+                  href={exportFile.url}
+                  download={exportFile.filename}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar CSV
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="w-full">
+                <a href={exportFile.url} target="_blank" rel="noopener noreferrer">
+                  Abrir CSV
+                </a>
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setExportFile(null)}
+              >
+                Dispensar
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Filtros */}
         <Card className="p-3 space-y-3">
