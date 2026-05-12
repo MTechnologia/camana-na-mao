@@ -1,0 +1,28 @@
+-- Exemplo opcional: pg_cron + pg_net para chamar a Edge Function 2x/dia.
+-- Só aplicável se o projeto Supabase tiver as extensões e permissões necessárias.
+-- Substituir PROJECT_REF, ANON_OR_PUBLISHABLE_KEY e CRON_SECRET.
+--
+-- Horários em UTC (ajustar): 8h America/Sao_Paulo ≈ 11h UTC; 14h BRT ≈ 17h UTC.
+--
+-- select cron.schedule(
+--   'process-pending-visits-08-brt',
+--   '0 11 * * *',
+--   $$
+--   select net.http_post(
+--     url := 'https://PROJECT_REF.supabase.co/functions/v1/process-pending-visits',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'Authorization', 'Bearer ANON_OR_PUBLISHABLE_KEY',
+--       'apikey', 'ANON_OR_PUBLISHABLE_KEY',
+--       'x-cron-secret', 'CRON_SECRET'
+--     ),
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+--
+-- select cron.schedule(
+--   'process-pending-visits-14-brt',
+--   '0 17 * * *',
+--   $$ ... mesmo corpo ... $$
+-- );

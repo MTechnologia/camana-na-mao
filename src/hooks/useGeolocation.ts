@@ -87,7 +87,8 @@ export const useGeolocation = (options?: UseGeolocationOptions) => {
 
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "Permissão de localização negada";
+            errorMessage =
+              "O navegador bloqueou a localização. Use o ícone de cadeado ou «i» ao lado do endereço, abra «Permissões do site» / «Definições do site» e permita «Localização» para este endereço. Se já tiver escolhido «Bloquear», altere para «Permitir» e volte a clicar em «Minha posição».";
             break;
           case error.POSITION_UNAVAILABLE:
             errorMessage = "Localização indisponível no momento";

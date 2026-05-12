@@ -162,7 +162,7 @@ export const tools = [
     type: "function",
     function: {
       name: "create_transport_report",
-      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (min 10 chars), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
+      description: "Registra problema no transporte público. CHAMAR APENAS quando tiver: 1) descrição (mínimo 20 caracteres), 2) data da ocorrência. NÃO CHAMAR para mensagens genéricas. Se não conseguir classificar o tipo, usar 'outro' e gerar subcategory_label intuitivo.",
       parameters: {
         type: "object",
         properties: {
@@ -175,24 +175,62 @@ export const tools = [
             type: "string",
             description: "Label INTUITIVO em português. SEMPRE gerar. Exemplos: 'Atraso de Veículo', 'Veículo Lotado', 'Problema com Motorista', 'Veículo Não Parou', 'Porta com Defeito', etc."
           },
-          description: { type: "string", description: "Descrição do problema (mínimo 10 caracteres)" },
+          sub_category: {
+            type: "string",
+            description: "Subcategoria estruturada do transporte, escolhida pelo usuário no picker [SUBCATEGORY_PICKER:report_type]. Ex.: nao_passou, superlotado, assedio."
+          },
+          description: { type: "string", description: "Descrição do problema (mínimo 20 caracteres)" },
           occurrence_date: { type: "string", description: "Data YYYY-MM-DD (inferir 'hoje' se contexto indicar)" },
-          occurrence_time: { type: "string", description: "Horário HH:MM (perguntar horário aproximado)" },
+          occurrence_time: { type: "string", description: "Horário exato HH:MM (aceitar formatos variados e normalizar)" },
+          direction: {
+            type: "string",
+            enum: ["ida", "volta", "circular"],
+            description: "Sentido da viagem: ida, volta ou circular"
+          },
+          recurrence_frequency: {
+            type: "string",
+            enum: ["primeira_vez", "algumas_vezes_mes", "toda_semana", "todos_os_dias"],
+            description: "Frequência de recorrência: primeira_vez, algumas_vezes_mes, toda_semana ou todos_os_dias"
+          },
           line_code: { type: "string", description: "Código da linha de ônibus/metrô" },
+          line_id: {
+            type: "string",
+            description: "UUID da linha em transport_lines quando o usuário selecionou na lista ([LINE_SELECTED]). Opcional; se ausente, resolve-se por line_code.",
+          },
           location: { type: "string", description: "Ponto, estação ou trecho" },
+          stop_name: {
+            type: "string",
+            description: "HU-6.4: nome do ponto, terminal ou estação (opcional, até ~200 caracteres).",
+          },
+          stop_location: {
+            type: "string",
+            description:
+              "HU-6.4: referência textual do local ou coordenadas lat,lng. Se GPS estiver fora de São Paulo, o registro é bloqueado.",
+          },
+          accessibility_details: {
+            type: "object",
+            description:
+              "HU-6.5: objeto JSON com detalhes de acessibilidade (ex.: rampa_livre: true, elevador: false). Opcional.",
+          },
           severity: {
             type: "string",
             enum: ["baixa", "media", "alta", "critica"],
             description: "Gravidade: critica (acidente, agressão), alta (atraso >30min), media (atraso 15-30min), baixa (desconforto)"
           },
-          impact_description: { type: "string", description: "Como afetou a rotina do cidadão" },
+          impact_description: { type: "string", description: "Como afetou a rotina do cidadão (texto livre; opcional se personal_impact vier do picker)" },
+          personal_impact: {
+            type: "integer",
+            description: "Impacto na rotina (2–5), normalmente preenchido pelo app via [IMPACT_SELECTED] após o ImpactPicker",
+            minimum: 2,
+            maximum: 5,
+          },
           photos: {
             type: "array",
             items: { type: "string" },
             description: "URLs das fotos anexadas pelo usuário (até 3). Preenchido pelo sistema quando o usuário anexa imagens no chat."
           }
         },
-        required: ["report_type", "description", "occurrence_date"]
+        required: ["report_type", "sub_category", "description", "occurrence_date", "occurrence_time", "direction", "recurrence_frequency"]
       }
     }
   },
@@ -200,11 +238,11 @@ export const tools = [
     type: "function",
     function: {
       name: "create_service_rating",
-      description: "Registra avaliação de serviço público. Nota: rating_stars 1-5 (avaliação geral). Opcional rating_dimensions (legado). Dois modos: 1) COM visit_id: visit_id + rating_stars + rating_text + sentiment. 2) SEM visit_id: service_type, service_name, service_address_confirmed, rating_stars, rating_text, sentiment. NUNCA rating_text vazio.",
+      description: "Registra avaliação de serviço público. rating_stars 1-5 é a média arredondada das quatro dimensões (tempo_espera, atendimento, infraestrutura, limpeza) quando o fluxo coleta scores. Dois modos: 1) COM visit_id — visita já identificada; 2) SEM visit_id — localizar serviço (tipo, nome, endereço) e depois [FIELD_REQUEST:rating_dimensions] + [MULTI_DIMENSION_RATING_PICKER] (quatro notas num passo), comentário e confirmação de pré-visualização antes de gravar. NUNCA rating_text vazio.",
       parameters: {
         type: "object",
         properties: {
-          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem - só pedir avaliação multidimensional e comentário." },
+          visit_id: { type: "string", description: "ID da visita (service_visits). Quando informado, serviço e visita já existem — coletar nota geral, tempo de espera, dimensões e comentário (paridade com o modo sem visit_id após identificar o serviço)." },
           service_id: { type: "string", description: "ID do serviço (public_services). Usado junto com visit_id para evitar lookup." },
           service_type: {
             type: "string",
@@ -224,7 +262,13 @@ export const tools = [
               tempo_espera: { type: "integer", minimum: 1, maximum: 5 },
             },
           },
-          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "Avaliação geral 1-5 (obrigatória se não houver rating_dimensions completas)" },
+          rating_stars: { type: "integer", minimum: 1, maximum: 5, description: "OBRIGATÓRIO quando aplicável: nota 1-5 estrelas. NUNCA usar 0. Obrigatória se não houver rating_dimensions completas." },
+          wait_time_score: {
+            type: "integer",
+            minimum: 2,
+            maximum: 5,
+            description: "Opcional: nota da faixa de tempo de espera (RN-EVAL-001: só 2–5). N/A (null) vem dos campos acumulados na conversa, não precisa repetir aqui."
+          },
           rating_text: { type: "string", description: "OBRIGATÓRIO: Comentário da avaliação - MÍNIMO 10 caracteres" },
           sentiment: {
             type: "string",
@@ -397,6 +441,57 @@ export const tools = [
         required: ["tema"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "subscribe_service",
+      description:
+        "Registra que o cidadão quer acompanhar um equipamento público (UBS, escola, parque, etc.) e receber notificações quando houver nova avaliação publicada. Usar quando pedir para seguir, acompanhar ou ser avisado sobre um serviço específico já identificado na conversa. Pode usar service_id (UUID) ou service_name (nome do equipamento). Requer login.",
+      parameters: {
+        type: "object",
+        properties: {
+          service_id: {
+            type: "string",
+            description:
+              "UUID do equipamento em public_services (mesmo id usado na URL /servico/:id ou retornado por find_nearby_services).",
+          },
+          service_name: {
+            type: "string",
+            description:
+              "Nome do equipamento quando o UUID não estiver disponível (ex.: UBS Vila Mariana, CEU Parelheiros, EMEF João XXIII).",
+          },
+          district: {
+            type: "string",
+            description:
+              "Bairro/distrito do equipamento, se o usuário mencionar, para reduzir ambiguidade (ex.: Vila Mariana, Butantã, Capão Redondo).",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "subscribe_transport_line",
+      description:
+        "Registra que o cidadão quer acompanhar uma linha de ônibus/metrô e receber notificações quando houver novos relatos ou padrões naquela linha. Usar quando pedir para seguir linha, acompanhar ônibus ou ser avisado sobre problemas numa linha. Informar line_id (UUID) OU line_code (ex.: 8000-10). Requer login.",
+      parameters: {
+        type: "object",
+        properties: {
+          line_id: {
+            type: "string",
+            description: "UUID da linha em transport_lines, se conhecido.",
+          },
+          line_code: {
+            type: "string",
+            description: "Código oficial da linha (ex.: 8000-10, LINHA-1-AZUL) quando não houver UUID.",
+          },
+        },
+        required: [],
+      },
+    },
   },
   {
     type: "function",

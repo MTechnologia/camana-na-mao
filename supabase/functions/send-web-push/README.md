@@ -2,6 +2,12 @@
 
 Envia notificações por **Push** (navegador), **E-mail** (Resend) e **SMS** (Twilio) quando uma linha é inserida em `notifications`. Respeita `notification_settings.push_enabled`, `email_enabled` e `sms_enabled`; e-mail usa o e-mail do usuário (auth); SMS usa o telefone em `profiles.phone` (E.164, ex. Brasil +55).
 
+**Horário de silêncio (RN-NOT-001):** se `quiet_hours_start` / `quiet_hours_end` estiverem definidos e o horário local (fuso padrão `America/Sao_Paulo`, override com secret `NOTIFICATION_QUIET_HOURS_TZ`) estiver no intervalo, a função **não envia**: atualiza `notifications.scheduled_for` para o fim do silêncio + 1 minuto e responde com `deferred: true`. **RN-NOT-003:** `priority = 'critical'` ignora silêncio.
+
+**Limite diário (RN-NOT-002):** antes de enviar, chama `check_notification_daily_limit`; se a contagem for **≥** `max_daily_notifications` (default 10 em `notification_settings`), grava `discarded_at` e `discard_reason = 'daily_limit'` e responde com `discarded: true`. Críticas ignoram o limite. Após envio OK, define `push_delivered_at` para alimentar a contagem.
+
+**Canais (RN-NOT-004):** lê `push_enabled`, `email_enabled`, `sms_enabled`. Só dispara cada canal se estiver habilitado. Se existir linha em `notification_settings` com **todos** desligados, grava `delivered_in_app_only = true` e `push_delivered_at` (só central no app), sem Resend/Twilio/push.
+
 ## Pré-requisitos
 
 1. **Tabela** `push_subscriptions` (migration `20260204180000_push_subscriptions.sql`).

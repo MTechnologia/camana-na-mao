@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck } from 'lucide-react';
+import { Bus, MapPin, FileText, Star, PlusCircle, CalendarCheck, TrendingUp } from 'lucide-react';
 import PageHeader from '@/components/ui/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -60,6 +60,23 @@ export default function ReportsHub() {
                   <div className="flex-1">
                     <h3 className="font-semibold">Transporte</h3>
                     <p className="text-sm text-muted-foreground">Minhas contribuições de transporte</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="cursor-pointer hover:shadow-md transition-all active:scale-[0.99]"
+              onClick={() => navigate('/transporte/padroes')}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">Padrões de transporte</h3>
+                    <p className="text-sm text-muted-foreground">Veja problemas recorrentes detectados</p>
                   </div>
                 </div>
               </CardContent>

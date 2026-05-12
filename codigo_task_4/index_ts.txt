@@ -1,0 +1,9 @@
+        // 5. Rating text / Sugestão de melhoria (mín. 5 chars, ou pode "pular")
+        if (!fields._rating_text_skipped) {
+          if (fields.rating_text === undefined) {
+            return { field: 'rating_text', picker: null, prompt: 'Você tem alguma **sugestão de melhoria** ou quer deixar um comentário extra? (Digite abaixo ou diga "pular")' };
+          }
+          if (typeof fields.rating_text === 'string' && fields.rating_text.length > 0 && fields.rating_text.length < 5) {
+            return { field: 'rating_text', picker: null, prompt: 'Sua sugestão é um pouco curta. Pode detalhar um pouco mais? (Mín. 5 letras ou diga "pular")' };
+          }
+        }

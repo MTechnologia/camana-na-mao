@@ -1,16 +1,22 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase, supabaseAnonKey } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { CollectionType, CollectedFields } from "@/components/ai/DataCollectionTracker";
 import { normalizeServiceTypeToDbEnum } from "@/lib/publicServiceType";
 import {
   aggregateServiceRatingStars,
+  buildServiceRatingDimensionsUserMessage,
   isCompleteServiceRatingDimensions,
   parseRatingDimensionsFromMessage,
+  SERVICE_RATING_DIMENSION_KEYS,
+  type ServiceRatingDimensions,
 } from "@/lib/serviceRatingDimensions";
 import { compressChatPhoto } from "@/lib/chatPhotoCompression";
 import { URBAN_RISK_COLLECTION_CATEGORIES } from "@/lib/reportFieldConfig";
+import { parseTransportReportPreviewJson } from "@/lib/parseTransportReportPreview";
+import { createClientId } from "@/lib/clientId";
 
 // === PHASE 2: Structured vs Light journey types ===
 const STRUCTURED_JOURNEY_TYPES: CollectionType[] = ['urban_report', 'transport_report', 'service_rating'];
@@ -131,6 +137,28 @@ interface Message {
   attachmentUrls?: string[];
 }
 
+function messageFromSavedRow(msg: Record<string, unknown>): Message {
+  const role: Message["role"] =
+    msg.role === "assistant" || msg.role === "user" ? msg.role : "user";
+  const id = typeof msg.id === "string" && msg.id.trim() ? msg.id : createClientId("chat-message");
+  const content = typeof msg.content === "string" ? msg.content : "";
+  const timestamp = typeof msg.timestamp === "string" ? msg.timestamp : "";
+  const source = typeof msg.source === "string" ? msg.source : undefined;
+  const rawUrls = msg.attachmentUrls;
+  const attachmentUrls =
+    Array.isArray(rawUrls) && rawUrls.every((u) => typeof u === "string")
+      ? (rawUrls as string[])
+      : undefined;
+  return {
+    id,
+    role,
+    content,
+    timestamp,
+    ...(source !== undefined ? { source } : {}),
+    ...(attachmentUrls !== undefined ? { attachmentUrls } : {}),
+  };
+}
+
 interface CreatedReport {
   type: 'urban_report' | 'transport' | 'rating';
   id: string;
@@ -149,6 +177,39 @@ export const useUnifiedAIChat = (
   initialCollectionType?: CollectionType,
   evaluationContext?: EvaluationContext | null
 ) => {
+  const parseOccurrenceTime = (text: string): string | null => {
+    const raw = text.trim().toLowerCase();
+    if (!raw) return null;
+
+    const normalized = raw
+      .replace(/\s+/g, " ")
+      .replace(/horas?/g, "h")
+      .replace(/\bmeia noite\b/g, "00:00")
+      .replace(/\bmeio dia\b/g, "12:00")
+      .replace(/\bmeio-dia\b/g, "12:00");
+
+    const compact = normalized.replace(/\s+/g, "");
+    const hmMatch = compact.match(/\b([01]?\d|2[0-3])(?:h|:)([0-5]?\d)?\b/);
+    if (hmMatch) {
+      const hour = hmMatch[1].padStart(2, "0");
+      const minute = (hmMatch[2] || "00").padStart(2, "0");
+      return `${hour}:${minute}`;
+    }
+
+    if (/^([01]\d|2[0-3])([0-5]\d)$/.test(compact)) {
+      const digits = compact.match(/^([01]\d|2[0-3])([0-5]\d)$/);
+      if (digits) {
+        return `${digits[1]}:${digits[2]}`;
+      }
+    }
+
+    const simple = compact.match(/\b([01]?\d|2[0-3])\b/);
+    if (simple && /\b(h|hora)\b/.test(normalized)) {
+      return `${simple[1].padStart(2, "0")}:00`;
+    }
+
+    return null;
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false);
@@ -262,18 +323,17 @@ export const useUnifiedAIChat = (
         } else {
           // CRITICAL FIX: Preserve RAW content (with markers) for backend correlation
           // Sanitization happens ONLY in ChatMessageBubble for display
-          const messagesWithTimestamp = savedMessages.map(msg => ({
-            ...msg,
-            content: msg.content || '', // Keep raw content WITH markers
-            timestamp: msg.timestamp || ''
-          }));
-          
+          const messagesWithTimestamp: Message[] = savedMessages.map((row) =>
+            messageFromSavedRow(row),
+          );
+
           // Replace state with the loaded conversation messages (no cross-conversation merging).
           setMessages(messagesWithTimestamp);
           
           // Check for report markers in history AND reconstruct tracker state
           for (const msg of savedMessages) {
-            const urbanMatch = msg.content?.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
+            const text = typeof msg.content === "string" ? msg.content : "";
+            const urbanMatch = text.match(/\[REPORT_CREATED:([a-f0-9-]+)\]/);
             if (urbanMatch) {
               setCreatedReport({ type: 'urban_report', id: urbanMatch[1] });
               
@@ -284,32 +344,32 @@ export const useUnifiedAIChat = (
               const reconstructedFields: CollectedFields = {};
               
               // Parse category
-              const catMatch = msg.content?.match(/Categoria:[*]?[*]?\s*([^\n•*]+)/i);
+              const catMatch = text.match(/Categoria:[*]?[*]?\s*([^\n•*]+)/i);
               if (catMatch) {
                 reconstructedFields.category = catMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
               }
               
               // Parse description (from previous user message or summary)
-              const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
+              const descMatch = text.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
               if (descMatch) {
                 reconstructedFields.description = descMatch[1].trim();
               }
               
               // Parse address fields
-              const ruaMatch = msg.content?.match(/Rua:[*]?[*]?\s*([^\n•*]+)/i);
+              const ruaMatch = text.match(/Rua:[*]?[*]?\s*([^\n•*]+)/i);
               if (ruaMatch) reconstructedFields.street = ruaMatch[1].trim();
               
-              const bairroMatch = msg.content?.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
+              const bairroMatch = text.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
               if (bairroMatch) reconstructedFields.neighborhood = bairroMatch[1].trim();
               
-              const cepMatch = msg.content?.match(/CEP:[*]?[*]?\s*(\d{5}-?\d{3})/i);
+              const cepMatch = text.match(/CEP:[*]?[*]?\s*(\d{5}-?\d{3})/i);
               if (cepMatch) reconstructedFields.cep = cepMatch[1].replace('-', '');
               
-              const numMatch = msg.content?.match(/Número:[*]?[*]?\s*([^\n•*]+)/i);
+              const numMatch = text.match(/Número:[*]?[*]?\s*([^\n•*]+)/i);
               if (numMatch) reconstructedFields.street_number = numMatch[1].trim();
               
               // Parse risk fields
-              const riskMatch = msg.content?.match(/Nível de risco:[*]?[*]?\s*(\w+)/i);
+              const riskMatch = text.match(/Nível de risco:[*]?[*]?\s*(\w+)/i);
               if (riskMatch) {
                 const riskMap: Record<string, string> = {
                   'crítico': 'critical', 'critico': 'critical',
@@ -318,7 +378,7 @@ export const useUnifiedAIChat = (
                 reconstructedFields.risk_level = riskMap[riskMatch[1].toLowerCase()] || riskMatch[1];
               }
               
-              const scopeMatch = msg.content?.match(/Escopo[^:]*:[*]?[*]?\s*([^\n•*]+)/i);
+              const scopeMatch = text.match(/Escopo[^:]*:[*]?[*]?\s*([^\n•*]+)/i);
               if (scopeMatch) {
                 const scopeMap: Record<string, string> = {
                   'bairro todo': 'neighborhood', 'bairro': 'neighborhood',
@@ -333,7 +393,7 @@ export const useUnifiedAIChat = (
               setCollectedFields(reconstructedFields);
               break;
             }
-            const transportMatch = msg.content?.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
+            const transportMatch = text.match(/\[TRANSPORT_CREATED:([a-f0-9-]+)\]/);
             if (transportMatch) {
               setCreatedReport({ type: 'transport', id: transportMatch[1] });
               setCollectionType('transport_report');
@@ -342,26 +402,38 @@ export const useUnifiedAIChat = (
               const reconstructedFields: CollectedFields = {};
               
               // Parse report type
-              const tipoMatch = msg.content?.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
+              const tipoMatch = text.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
               if (tipoMatch) reconstructedFields.report_type = tipoMatch[1].trim();
               
               // Parse line
-              const linhaMatch = msg.content?.match(/Linha:[*]?[*]?\s*([^\n•*]+)/i);
+              const linhaMatch = text.match(/Linha:[*]?[*]?\s*([^\n•*]+)/i);
               if (linhaMatch) reconstructedFields.line_code = linhaMatch[1].trim();
               
               // Parse date/time
-              const dataMatch = msg.content?.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
+              const dataMatch = text.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
               if (dataMatch) reconstructedFields.occurrence_date = dataMatch[1].trim();
               
-              const horaMatch = msg.content?.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
+              const horaMatch = text.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
               if (horaMatch) reconstructedFields.occurrence_time = horaMatch[1].trim();
+
+              const directionMatch = text.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              if (directionMatch) reconstructedFields.direction = directionMatch[1].trim().toLowerCase();
+
+              const recurrenceMatch = text.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              if (recurrenceMatch) {
+                const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
+                if (recurrenceRaw.includes('primeira vez')) reconstructedFields.recurrence_frequency = 'primeira_vez';
+                else if (recurrenceRaw.includes('algumas vezes')) reconstructedFields.recurrence_frequency = 'algumas_vezes_mes';
+                else if (recurrenceRaw.includes('toda semana')) reconstructedFields.recurrence_frequency = 'toda_semana';
+                else if (recurrenceRaw.includes('todos os dias')) reconstructedFields.recurrence_frequency = 'todos_os_dias';
+              }
               
               // Parse description
-              const descMatch = msg.content?.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
+              const descMatch = text.match(/Descrição:[*]?[*]?\s*([^\n•*]+)/i);
               if (descMatch) reconstructedFields.description = descMatch[1].trim();
               
               // Parse severity
-              const sevMatch = msg.content?.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
+              const sevMatch = text.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
               if (sevMatch) {
                 const sevMap: Record<string, string> = {
                   'alta': 'high', 'crítica': 'critical', 'critica': 'critical',
@@ -372,14 +444,19 @@ export const useUnifiedAIChat = (
               }
               
               // Parse location
-              const localMatch = msg.content?.match(/Local:[*]?[*]?\s*([^\n•*]+)/i);
+              const localMatch = text.match(/Local:[*]?[*]?\s*([^\n•*]+)/i);
               if (localMatch) reconstructedFields.location = localMatch[1].trim();
+
+              const transportPreview = parseTransportReportPreviewJson(text);
+              if (transportPreview?.personal_impact != null) {
+                reconstructedFields.personal_impact = transportPreview.personal_impact;
+              }
               
               console.log('[useUnifiedAIChat] Reconstructed transport tracker:', reconstructedFields);
               setCollectedFields(reconstructedFields);
               break;
             }
-            const ratingMatch = msg.content?.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
+            const ratingMatch = text.match(/\[RATING_CREATED:([a-f0-9-]+)\]/);
             if (ratingMatch) {
               setCreatedReport({ type: 'rating', id: ratingMatch[1] });
               setCollectionType('service_rating');
@@ -388,7 +465,7 @@ export const useUnifiedAIChat = (
               const reconstructedFields: CollectedFields = {};
               
               // Parse service type
-              const tipoMatch = msg.content?.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
+              const tipoMatch = text.match(/Tipo:[*]?[*]?\s*([^\n•*]+)/i);
               if (tipoMatch) {
                 const typeMap: Record<string, string> = {
                   'ubs': 'ubs', 'posto de saúde': 'ubs', 'unidade básica': 'ubs',
@@ -401,19 +478,19 @@ export const useUnifiedAIChat = (
               }
               
               // Parse service name
-              const nomeMatch = msg.content?.match(/Serviço:[*]?[*]?\s*([^\n•*]+)/i);
+              const nomeMatch = text.match(/Serviço:[*]?[*]?\s*([^\n•*]+)/i);
               if (nomeMatch) reconstructedFields.service_name = nomeMatch[1].trim();
               
               // Parse neighborhood
-              const bairroMatch = msg.content?.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
+              const bairroMatch = text.match(/Bairro:[*]?[*]?\s*([^\n•*]+)/i);
               if (bairroMatch) reconstructedFields.service_neighborhood = bairroMatch[1].trim();
               
               // Parse rating (stars)
-              const notaMatch = msg.content?.match(/Nota:[*]?[*]?\s*(\d)/i);
+              const notaMatch = text.match(/Nota:[*]?[*]?\s*(\d)/i);
               if (notaMatch) reconstructedFields.rating_stars = parseInt(notaMatch[1]);
               
               // Parse comment
-              const comentarioMatch = msg.content?.match(/Comentário:[*]?[*]?\s*([^\n•*]+)/i);
+              const comentarioMatch = text.match(/Comentário:[*]?[*]?\s*([^\n•*]+)/i);
               if (comentarioMatch) reconstructedFields.rating_text = comentarioMatch[1].trim();
               
               console.log('[useUnifiedAIChat] Reconstructed rating tracker:', reconstructedFields);
@@ -440,7 +517,7 @@ export const useUnifiedAIChat = (
   // Adiciona mensagem do usuário de forma otimista (antes da conversa ser criada)
   const addOptimisticMessage = useCallback((content: string) => {
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat-message"),
       role: "user",
       content,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
@@ -833,8 +910,26 @@ export const useUnifiedAIChat = (
         }
       }
       
-      // Detectar linha de ônibus/metrô
-      if (!collectedFields.line_code) {
+      // Linha com UUID da base (lista) — HU-5.2
+      const lineSelUuid = raw.match(
+        /\[LINE_SELECTED:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/i,
+      );
+      if (lineSelUuid) {
+        setCollectedFields((prev) => ({ ...prev, line_id: lineSelUuid[1] }));
+      }
+      const lineFromListMsg = raw.match(/linha:\s*(\S+)\s*-\s*(.+?)\s*\[LINE_SELECTED:/i);
+      if (lineFromListMsg) {
+        setCollectedFields((prev) => ({ ...prev, line_code: lineFromListMsg[1].trim() }));
+      }
+      const lineCustomMsg =
+        raw.match(/linha informada\s*\(fora da lista\):\s*(.+)/i) ||
+        raw.match(/linha não listada:\s*(.+)/i);
+      if (lineCustomMsg) {
+        setCollectedFields((prev) => ({ ...prev, line_code: lineCustomMsg[1].trim(), line_id: undefined }));
+      }
+
+      // Detectar linha de ônibus/metrô (texto livre) — não sobrescrever escolha estruturada desta mensagem
+      if (!lineFromListMsg && !lineCustomMsg && !collectedFields.line_code) {
         const lineMatch = raw.match(/\b(\d{3,4}[A-Za-z]?-?\d*|[A-Z]{1,3}\d{1,2})\b/i);
         if (lineMatch) {
           setCollectedFields(prev => ({ ...prev, line_code: lineMatch[1].toUpperCase() }));
@@ -865,11 +960,18 @@ export const useUnifiedAIChat = (
       
       // Detectar horário
       if (!collectedFields.occurrence_time) {
-        const timeMatch = raw.match(/\b(\d{1,2})[h:](\d{2})?\b/i);
-        if (timeMatch) {
-          const hour = timeMatch[1].padStart(2, '0');
-          const minute = timeMatch[2] || '00';
-          setCollectedFields(prev => ({ ...prev, occurrence_time: `${hour}:${minute}` }));
+        const parsedTime = parseOccurrenceTime(raw);
+        if (parsedTime) setCollectedFields(prev => ({ ...prev, occurrence_time: parsedTime }));
+      }
+
+      // Detectar sentido (ida/volta/circular)
+      if (!collectedFields.direction) {
+        if (/\bida\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'ida' }));
+        } else if (/\bvolta\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'volta' }));
+        } else if (/\bcircular\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, direction: 'circular' }));
         }
       }
       
@@ -891,6 +993,25 @@ export const useUnifiedAIChat = (
             setCollectedFields(prev => ({ ...prev, description: raw }));
           }
         }
+      }
+
+      // Detectar frequência de recorrência
+      if (!collectedFields.recurrence_frequency) {
+        if (/\bprimeira vez\b/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'primeira_vez' }));
+        } else if (/algumas vezes/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'algumas_vezes_mes' }));
+        } else if (/toda semana/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'toda_semana' }));
+        } else if (/todos os dias|todo dia/i.test(rawLower)) {
+          setCollectedFields(prev => ({ ...prev, recurrence_frequency: 'todos_os_dias' }));
+        }
+      }
+
+      const impactSelectedTag = raw.match(/\[IMPACT_SELECTED:([2-5])\]/);
+      if (impactSelectedTag) {
+        const score = parseInt(impactSelectedTag[1], 10);
+        setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
       }
     }
     
@@ -949,6 +1070,36 @@ export const useUnifiedAIChat = (
             if (stars >= 1 && stars <= 5) {
               setCollectedFields(prev => ({ ...prev, rating_stars: stars }));
             }
+          }
+        }
+      }
+
+      if (!('wait_time_score' in collectedFields)) {
+        const wtMatch = raw.match(/\[WAIT_TIME:(\d+|null)\]/i);
+        if (wtMatch) {
+          const token = wtMatch[1].toLowerCase();
+          const v = token === 'null' ? null : parseInt(wtMatch[1], 10);
+          if (v === null || (v >= 2 && v <= 5)) {
+            setCollectedFields(prev => ({ ...prev, wait_time_score: v }));
+          }
+        }
+      }
+
+      // Detect dimension rating (atendimento, infraestrutura, etc.)
+      const dimMatch = raw.match(/\[DIM_RATING:(\w+):(\d)\]/i);
+      if (dimMatch) {
+        const dimKey = dimMatch[1].toLowerCase();
+        const dimScore = parseInt(dimMatch[2], 10);
+        if (dimScore >= 1 && dimScore <= 5) {
+          const fieldKey = `${dimKey}_score`;
+          if (!(fieldKey in collectedFields)) {
+            setCollectedFields((prev) => {
+              const next: Record<string, unknown> = { ...prev, [fieldKey]: dimScore };
+              if (dimKey === "tempo_espera") {
+                next.wait_time_score = Math.min(5, Math.max(2, dimScore));
+              }
+              return next;
+            });
           }
         }
       }
@@ -1047,7 +1198,7 @@ export const useUnifiedAIChat = (
     }
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat-message"),
       role: "user",
       content: trimmedContent,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
@@ -1078,7 +1229,7 @@ export const useUnifiedAIChat = (
           await supabase
             .from('ai_conversations')
             .update({
-              messages: updatedMessages,
+              messages: updatedMessages as Json,
               last_message_at: new Date().toISOString(),
               title: currentConv.title || trimmedContent.slice(0, 50),
             })
@@ -1276,7 +1427,7 @@ export const useUnifiedAIChat = (
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = "";
-      const assistantMessageId = crypto.randomUUID();
+      const assistantMessageId = createClientId("chat-message");
       let textBuffer = "";
 
       if (!reader) throw new Error("No response body");
@@ -1431,6 +1582,21 @@ export const useUnifiedAIChat = (
               
               const dataMatch = assistantMessage.match(/Data:[*]?[*]?\s*([^\n•*]+)/i);
               if (dataMatch) finalFields.occurrence_date = dataMatch[1].trim();
+
+              const timeMatch = assistantMessage.match(/Horário:[*]?[*]?\s*([^\n•*]+)/i);
+              if (timeMatch) finalFields.occurrence_time = timeMatch[1].trim();
+
+              const directionMatch = assistantMessage.match(/Sentido:[*]?[*]?\s*([^\n•*]+)/i);
+              if (directionMatch) finalFields.direction = directionMatch[1].trim().toLowerCase();
+
+              const recurrenceMatch = assistantMessage.match(/Frequência:[*]?[*]?\s*([^\n•*]+)/i);
+              if (recurrenceMatch) {
+                const recurrenceRaw = recurrenceMatch[1].trim().toLowerCase();
+                if (recurrenceRaw.includes('primeira vez')) finalFields.recurrence_frequency = 'primeira_vez';
+                else if (recurrenceRaw.includes('algumas vezes')) finalFields.recurrence_frequency = 'algumas_vezes_mes';
+                else if (recurrenceRaw.includes('toda semana')) finalFields.recurrence_frequency = 'toda_semana';
+                else if (recurrenceRaw.includes('todos os dias')) finalFields.recurrence_frequency = 'todos_os_dias';
+              }
               
               const sevMatch = assistantMessage.match(/Gravidade:[*]?[*]?\s*(\w+)/i);
               if (sevMatch) {
@@ -1439,6 +1605,11 @@ export const useUnifiedAIChat = (
                   'média': 'medium', 'media': 'medium', 'baixa': 'low'
                 };
                 finalFields.severity = sevMap[sevMatch[1].toLowerCase()] || sevMatch[1];
+              }
+
+              const transportPreviewDone = parseTransportReportPreviewJson(assistantMessage);
+              if (transportPreviewDone?.personal_impact != null) {
+                finalFields.personal_impact = transportPreviewDone.personal_impact;
               }
               
               setCollectedFields(finalFields);
@@ -1605,7 +1776,7 @@ export const useUnifiedAIChat = (
             await supabase
               .from('ai_conversations')
               .update({
-                messages: updatedMessages,
+                messages: updatedMessages as Json,
                 last_message_at: new Date().toISOString(),
               })
               .eq('id', conversationIdRef.current);
@@ -1653,7 +1824,7 @@ export const useUnifiedAIChat = (
 
   const addAssistantMessage = (content: string) => {
     const newMessage: Message = {
-      id: crypto.randomUUID(),
+      id: createClientId("chat-message"),
       role: "assistant",
       content,
       timestamp: new Date().toLocaleTimeString("pt-BR", {
@@ -1681,14 +1852,20 @@ export const useUnifiedAIChat = (
       ],
       transport_report: [
         { key: 'report_type', required: true },
+        { key: 'sub_category', required: true },
         { key: 'description', required: true },
         { key: 'occurrence_date', required: true },
+        { key: 'occurrence_time', required: true },
+        { key: 'direction', required: true },
+        { key: 'recurrence_frequency', required: true },
+        { key: 'personal_impact', required: true },
       ],
       service_rating: [
         { key: 'service_type', required: true },
         { key: 'service_name', required: true },
         { key: 'service_address_confirmed', required: true },
         { key: 'rating_stars', required: true },
+        { key: 'wait_time_score', required: true },
         { key: 'rating_text', required: true },
       ]
     };
@@ -1696,13 +1873,17 @@ export const useUnifiedAIChat = (
     const fields = configs[collectionType];
     if (!fields) return [];
     
-    const category = collectedFields.category;
+    const category =
+      typeof collectedFields.category === "string" ? collectedFields.category : undefined;
     const missing: string[] = [];
     
     for (const field of fields) {
       if (field.key === 'rating_stars') {
         const n = Number(collectedFields.rating_stars);
         if (Number.isInteger(n) && n >= 1 && n <= 5) continue;
+      } else if (field.key === 'personal_impact') {
+        const n = Number(collectedFields.personal_impact);
+        if (Number.isInteger(n) && n >= 2 && n <= 5) continue;
       } else if (collectedFields[field.key]) {
         continue;
       }
@@ -1717,7 +1898,10 @@ export const useUnifiedAIChat = (
       // Check conditional requirements (requiredWhen)
       if (!isRequired && field.requiredWhen) {
         const dependentValue = collectedFields[field.requiredWhen.field];
-        if (dependentValue && field.requiredWhen.values.includes(dependentValue)) {
+        if (
+          typeof dependentValue === "string" &&
+          field.requiredWhen.values.includes(dependentValue)
+        ) {
           isRequired = true;
         }
       }
@@ -1770,9 +1954,18 @@ export const useUnifiedAIChat = (
   }, [sendMessage]);
 
   // Handle line selection from inline picker
-  const handleLineSelected = useCallback((lineCode: string, lineName: string) => {
-    setCollectedFields(prev => ({ ...prev, line_code: lineCode }));
-    sendMessage(`Linha selecionada: ${lineCode}${lineName !== lineCode ? ` (${lineName})` : ''}`);
+  const handleLineSelected = useCallback((lineCode: string, lineName: string, lineId?: string) => {
+    setCollectedFields((prev) => {
+      const next: CollectedFields = { ...prev, line_code: lineCode };
+      if (lineId) next.line_id = lineId;
+      else delete next.line_id;
+      return next;
+    });
+    if (lineId) {
+      sendMessage(`Linha: ${lineCode} - ${lineName} [LINE_SELECTED:${lineId}]`);
+    } else {
+      sendMessage(`Linha informada (fora da lista): ${lineCode}`);
+    }
   }, [sendMessage]);
 
   // Handle date selection from inline picker
@@ -1787,11 +1980,102 @@ export const useUnifiedAIChat = (
     sendMessage(`Horário: ${displayText}`);
   }, [sendMessage]);
 
+  const handleDirectionSelected = useCallback((direction: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, direction }));
+    sendMessage(`Sentido: ${displayText}`);
+  }, [sendMessage]);
+
+  const handleSubcategorySelected = useCallback((value: string, label: string, reportType: string) => {
+    setCollectedFields((prev) => ({ ...prev, sub_category: value }));
+    sendMessage(
+      `Subcategoria: ${label} [SUBCATEGORY_SELECTED:${value}] [SUBCATEGORY_REPORT_TYPE:${reportType}]`
+    );
+  }, [sendMessage]);
+
+  const handleRecurrenceFrequencySelected = useCallback((frequency: string, displayText: string) => {
+    setCollectedFields(prev => ({ ...prev, recurrence_frequency: frequency }));
+    sendMessage(`Frequência: ${displayText}`);
+  }, [sendMessage]);
+
+  const handleImpactSelected = useCallback((score: number, label: string) => {
+    setCollectedFields((prev) => ({ ...prev, personal_impact: score }));
+    sendMessage(`Impacto: ${label} [IMPACT_SELECTED:${score}]`);
+  }, [sendMessage]);
+
+  const handleAccessibilityDetailsSelected = useCallback((details: Record<string, unknown>) => {
+    setCollectedFields((prev) => ({ ...prev, accessibility_details: details }));
+    const summary = Object.entries(details)
+      .filter(([, value]) => value === true)
+      .map(([key]) => key.replace(/_/g, " "))
+      .join(", ");
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(details))));
+    const prefix = summary ? `Acessibilidade: ${summary}` : "Acessibilidade informada";
+    sendMessage(`${prefix} [ACCESSIBILITY_DETAILS:${encoded}]`);
+  }, [sendMessage]);
+
   // Handle rating selection from inline picker
   const handleRatingSelected = useCallback((stars: number) => {
     setCollectedFields((prev) => ({ ...prev, rating_stars: stars }));
     sendMessage(`Nota: ${stars} estrelas [RATING_SELECTED:${stars}]`);
   }, [sendMessage]);
+
+  const handleWaitTimeSelected = useCallback((displayLabel: string, score: number | null) => {
+    setCollectedFields(prev => ({ ...prev, wait_time_score: score }));
+    const marker = score === null ? '[WAIT_TIME:null]' : `[WAIT_TIME:${score}]`;
+    sendMessage(`Tempo de espera: ${displayLabel} ${marker}`);
+  }, [sendMessage]);
+
+  // Handle dimension rating selection (atendimento, infraestrutura, etc.)
+  const handleDimensionRatingSelected = useCallback((dimensionKey: string, stars: number) => {
+    const fieldKey = `${dimensionKey}_score`;
+    setCollectedFields(prev => ({ ...prev, [fieldKey]: stars }));
+    const dimLabel = dimensionKey.charAt(0).toUpperCase() + dimensionKey.slice(1);
+    sendMessage(`${dimLabel}: ${stars} estrelas [DIM_RATING:${dimensionKey}:${stars}]`);
+  }, [sendMessage]);
+
+  /** HU-4.1: dim_tempo com [WAIT_TIME_PICKER] — mesma mensagem com DIM_RATING + WAIT_TIME. */
+  const handleRatingDimensionWaitTimeSelected = useCallback((displayLabel: string, score: number | null) => {
+    const tempoForDim = score === null ? 3 : score;
+    setCollectedFields((prev) => ({
+      ...prev,
+      wait_time_score: score,
+      tempo_espera_score: tempoForDim,
+    }));
+    const w = score === null ? "[WAIT_TIME:null]" : `[WAIT_TIME:${score}]`;
+    sendMessage(
+      `Tempo de espera: ${displayLabel} [DIM_RATING:tempo_espera:${tempoForDim}] ${w}`.trim(),
+    );
+  }, [sendMessage]);
+
+  /**
+   * `ChatMessageBubble` + `MultiDimensionRatingPicker` → uma mensagem com `[RATING_DIMENSIONS:{...}]`.
+   * O caminho de parsing no mesmo hook permanece em `sendMessage` (heurística `service_rating` +
+   * `parseRatingDimensionsFromMessage` quando a mensagem do usuário chega de volta).
+   */
+  const handleMultiDimensionRatingComplete = useCallback(
+    (dims: ServiceRatingDimensions, opts?: { waitTimeSemanticNull?: boolean }) => {
+      const perDimFields = SERVICE_RATING_DIMENSION_KEYS.reduce(
+        (acc, k) => {
+          acc[`${k}_score`] = dims[k];
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+      setCollectedFields((prev) => ({
+        ...prev,
+        ...perDimFields,
+        rating_dimensions: dims,
+        rating_stars: aggregateServiceRatingStars(dims),
+        ...(opts?.waitTimeSemanticNull ? { wait_time_score: null as number | null } : {}),
+      }));
+      let msg = buildServiceRatingDimensionsUserMessage(dims);
+      if (opts?.waitTimeSemanticNull) {
+        msg += " [WAIT_TIME:null]";
+      }
+      sendMessage(msg);
+    },
+    [sendMessage],
+  );
 
   // Handle location method selection (GPS / endereço cadastrado / digitar) — envia mensagem; backend acumula
   const handleLocationMethodSelected = useCallback((_method: string, messageToSend: string) => {
@@ -1839,6 +2123,38 @@ export const useUnifiedAIChat = (
     sendMessage(parts.join('. '));
   }, [sendMessage]);
 
+  /** Atualiza o texto de uma mensagem (ex.: editar comentário na mensagem de avaliação registrada). */
+  const patchMessageContent = useCallback(
+    async (messageId: string, newContent: string) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, content: newContent } : m)),
+      );
+      if (!conversationIdRef.current || !user) return;
+      try {
+        const { data: currentConv } = await supabase
+          .from("ai_conversations")
+          .select("messages")
+          .eq("id", conversationIdRef.current)
+          .single();
+        const arr = (currentConv?.messages as Array<{ id?: string; content?: string }> | undefined) ?? [];
+        if (arr.length === 0) return;
+        const updated = arr.map((m) =>
+          m.id === messageId ? { ...m, content: newContent } : m,
+        );
+        await supabase
+          .from("ai_conversations")
+          .update({
+            messages: updated as Json,
+            last_message_at: new Date().toISOString(),
+          })
+          .eq("id", conversationIdRef.current);
+      } catch (e) {
+        console.error("[useUnifiedAIChat] patchMessageContent", e);
+      }
+    },
+    [user],
+  );
+
   return {
     messages,
     isLoading,
@@ -1857,11 +2173,21 @@ export const useUnifiedAIChat = (
     handleLineSelected,
     handleDateSelected,
     handleTimeSelected,
+    handleDirectionSelected,
+    handleSubcategorySelected,
+    handleRecurrenceFrequencySelected,
+    handleImpactSelected,
+    handleAccessibilityDetailsSelected,
     handleRatingSelected,
+    handleWaitTimeSelected,
+    handleDimensionRatingSelected,
+    handleRatingDimensionWaitTimeSelected,
+    handleMultiDimensionRatingComplete,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,
     handleServiceAddressConfirmed,
     handleApplyNearbyFilters,
+    patchMessageContent,
   };
 };

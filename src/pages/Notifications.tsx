@@ -11,6 +11,17 @@ import { useNavigate } from "react-router-dom";
 import { getNotificationType, getNotificationPriority } from "@/constants/notificationTypes";
 import { NOTIFICATION_TYPE_ICONS } from "@/components/icons";
 
+const SUBSCRIPTION_NOTIFICATION_TYPES = new Set([
+  "servico_nova_avaliacao",
+  "transporte_linha_relato",
+  "transporte_linha_padrao",
+  "audiencia_topic_alert",
+  "audiencia_inscricao",
+  "audiencia_lembrete_d1",
+  "audiencia_lembrete_1h",
+  "evaluation_reminder",
+]);
+
 const Notifications = () => {
   const navigate = useNavigate();
   const { 
@@ -22,19 +33,48 @@ const Notifications = () => {
     deleteNotification 
   } = useNotifications();
   
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'subscriptions'>('all');
 
-  const filteredNotifications = filter === 'unread' 
-    ? notifications.filter(n => !n.is_read)
-    : notifications;
+  const subscriptionNotifications = notifications.filter((n) => SUBSCRIPTION_NOTIFICATION_TYPES.has(n.type));
+  const filteredNotifications =
+    filter === 'unread'
+      ? notifications.filter((n) => !n.is_read)
+      : filter === 'subscriptions'
+        ? subscriptionNotifications
+        : notifications;
+
+  const resolveNotificationActionUrl = (notification: typeof notifications[0]) => {
+    const metadata = notification.metadata ?? {};
+    const reportId =
+      typeof metadata.report_id === 'string' ? metadata.report_id : undefined;
+    const patternId =
+      typeof metadata.pattern_id === 'string' ? metadata.pattern_id : undefined;
+    const lineId =
+      typeof metadata.line_id === 'string' ? metadata.line_id : undefined;
+
+    if (notification.type === 'transporte_linha_relato' && reportId) {
+      return `/transporte/meus-relatos?reportId=${encodeURIComponent(reportId)}`;
+    }
+
+    if (notification.type === 'transporte_linha_padrao' && patternId) {
+      const params = new URLSearchParams({ patternId });
+      if (lineId) {
+        params.set('lineId', lineId);
+      }
+      return `/transporte/padroes?${params.toString()}`;
+    }
+
+    return notification.action_url;
+  };
 
   const handleNotificationClick = (notification: typeof notifications[0]) => {
     if (!notification.is_read) {
       markAsRead(notification.id);
     }
     
-    if (notification.action_url) {
-      navigate(notification.action_url);
+    const actionUrl = resolveNotificationActionUrl(notification);
+    if (actionUrl) {
+      navigate(actionUrl);
     }
   };
 
@@ -75,10 +115,11 @@ const Notifications = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread')}>
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread' | 'subscriptions')}>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="all">Todas ({notifications.length})</TabsTrigger>
             <TabsTrigger value="unread">Não Lidas ({unreadCount})</TabsTrigger>
+            <TabsTrigger value="subscriptions">Acompanhamento ({subscriptionNotifications.length})</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -86,14 +127,18 @@ const Notifications = () => {
         {filteredNotifications.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {filter === 'unread' 
-                ? 'Nenhuma notificação não lida' 
-                : 'Nenhuma notificação'}
+              {filter === 'unread'
+                ? 'Nenhuma notificação não lida'
+                : filter === 'subscriptions'
+                  ? 'Nenhuma notificação de acompanhamento'
+                  : 'Nenhuma notificação'}
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredNotifications.map((notification) => (
+            {filteredNotifications.map((notification) => {
+              const isSubscriptionNotification = SUBSCRIPTION_NOTIFICATION_TYPES.has(notification.type);
+              return (
               <div
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
@@ -124,6 +169,12 @@ const Notifications = () => {
                         )}
                         {getNotificationType(notification.type).label}
                       </Badge>
+
+                      {isSubscriptionNotification && (
+                        <Badge variant="outline" className="text-xs">
+                          Acompanhamento
+                        </Badge>
+                      )}
                       
                       {notification.priority === 'high' && (
                         <Badge className={`text-xs ${getNotificationPriority('high').color}`}>
@@ -179,7 +230,8 @@ const Notifications = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

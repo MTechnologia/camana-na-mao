@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -23,18 +23,24 @@ const DEFAULT_PENDING_LIMIT = 3;
 export const usePendingRatings = (options?: { limit?: number }) => {
   const limit = options?.limit ?? DEFAULT_PENDING_LIMIT;
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [pendingRatings, setPendingRatings] = useState<PendingRating[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Evita skeleton em re-fetch: só a primeira carga mostra loading (desmontava o chat em /avaliar). */
+  const hasLoadedOnceRef = useRef(false);
 
   const fetchPendingRatings = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setPendingRatings([]);
       setLoading(false);
+      hasLoadedOnceRef.current = false;
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -54,7 +60,7 @@ export const usePendingRatings = (options?: { limit?: number }) => {
             district
           )
         `)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("status", "pending")
         .gt("expires_at", new Date().toISOString())
         .order("visited_at", { ascending: false })
@@ -69,20 +75,26 @@ export const usePendingRatings = (options?: { limit?: number }) => {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      hasLoadedOnceRef.current = true;
     }
-  }, [user, limit]);
+  }, [userId, limit]);
+
+  useEffect(() => {
+    hasLoadedOnceRef.current = false;
+  }, [userId]);
 
   useEffect(() => {
     fetchPendingRatings();
   }, [fetchPendingRatings]);
 
   const markAsSkipped = async (visitId: string) => {
+    if (!userId) return;
     try {
       const { error: updateError } = await supabase
         .from("service_visits")
         .update({ status: "skipped" })
         .eq("id", visitId)
-        .eq("user_id", user?.id);
+        .eq("user_id", userId);
 
       if (updateError) throw updateError;
 

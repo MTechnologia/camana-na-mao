@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { submitInscricaoToCmsp } from "@/lib/audienciaInscricaoApi";
+import { formatAudienciaApCode } from "@/lib/audienciaDisplay";
 
 const BAIRROS_SP = [
   "Água Rasa", "Aricanduva", "Artur Alvim", "Barra Funda", "Belém", "Bela Vista",
@@ -366,6 +367,12 @@ const ParticipacaoPage = () => {
         ? audienciaData
         : null;
   const confirmContactEmail = audienciaMaisInformacoes?.match(/[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}/)?.[0] ?? null;
+  const confirmApCode = formatAudienciaApCode({
+    ap_code: audienciaApCode,
+    comissao: audienciaComissao,
+    titulo: audienciaTitle,
+    data: audienciaData,
+  });
 
   if (step === 3) {
     return (
@@ -417,7 +424,7 @@ const ParticipacaoPage = () => {
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-1 text-sm">
             <p className="font-medium text-foreground">Audiência Pública:</p>
             <p className="text-foreground">
-              {audienciaApCode ?? "—"} {confirmDataHora ? `| ${confirmDataHora}` : ""}
+              {confirmApCode} {confirmDataHora ? `| ${confirmDataHora}` : ""}
             </p>
             <p className="text-muted-foreground">
               {nome} ({email} | {telefone.replace(/\D/g, "")})

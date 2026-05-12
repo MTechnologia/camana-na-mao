@@ -19,6 +19,7 @@ const PREFETCH_MAP: Record<string, () => Promise<unknown>> = {
   
   // Analytics - PT
   "/paineis": () => import("@/pages/analytics/AnalyticsDashboard"),
+  "/paineis/piores-servicos": () => import("@/pages/analytics/WorstServicesByDimensionPage"),
   "/paineis/avancado": () => import("@/pages/analytics/AdvancedAnalytics"),
   "/paineis/criar": () => import("@/pages/analytics/CreateDashboard"),
   

@@ -1,10 +1,40 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, X, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, ListOrdered } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Users,
+  Download,
+  ChevronLeft,
+  Home,
+  Building2,
+  MessageSquare,
+  Settings,
+  ChevronDown,
+  FileText,
+  Send,
+  BarChart3,
+  PieChart,
+  Bell,
+  ClipboardList,
+  Target,
+  LineChart,
+  Flame,
+  BookOpen,
+  Landmark,
+  Star,
+  Activity,
+  ListOrdered,
+  CalendarClock,
+  Sparkles,
+  TrendingUp,
+  Siren,
+  ClipboardCheck,
+  Shield,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -51,12 +81,17 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       section: 'GESTÃO',
       items: [
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
+        // HU-10.3 — Triagem kanban (admin + gestor).
+        { title: 'Triagem', icon: ClipboardCheck, href: '/admin/triagem' },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
         { title: 'Mapa de calor', icon: Flame, href: '/admin/reports-heatmap' },
         { title: 'Avaliações por dimensão', icon: ListOrdered, href: '/admin/evaluation-analytics' },
+        { title: 'Polarização de avaliações', icon: Star, href: '/admin/avaliacoes-polarizacao' },
+        { title: 'Intensidade de demanda', icon: Activity, href: '/admin/intensidade-demanda' },
         { title: 'Acurácia da classificação', icon: Target, href: '/admin/classification-accuracy' },
         { title: 'Encaminhamentos', icon: Send, href: '/admin/referrals', badge: stats.pendingReferrals },
+        { title: 'Comissões', icon: Landmark, href: '/admin/commissions' },
         ...(canModerateServiceCorrections
           ? [
               {
@@ -73,6 +108,7 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
     {
       section: 'SISTEMA',
       items: [
+        { title: 'Documentação', icon: BookOpen, href: '/admin/docs/overview' },
         ...(canConfigureSystem ? [{
           title: 'Configurações',
           icon: Settings,
@@ -82,7 +118,17 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           ],
         }] : []),
         ...(canViewAuditLogs ? [{ title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' }] : []),
+        // HU-11.2 — Matriz de permissões (admin).
+        ...(canConfigureSystem ? [{ title: 'Permissões', icon: Shield, href: '/admin/permissions' }] : []),
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
+        // HU-8.1 — Acesso direto à gestão de agendamentos de export (admin + gestor).
+        { title: 'Agendamentos', icon: CalendarClock, href: '/admin/configuracoes/agendamentos' },
+        // HU-9.1 — Padrões detectados pela IA (admin + gestor).
+        { title: 'Padrões da IA', icon: Sparkles, href: '/admin/padroes' },
+        // HU-9.2 — Previsões de volume de relatos.
+        { title: 'Previsões', icon: TrendingUp, href: '/admin/previsoes' },
+        // HU-9.3 — Detecção de anomalias.
+        { title: 'Anomalias', icon: Siren, href: '/admin/anomalias' },
         { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: unreadCount > 0 ? unreadCount : null },
       ],
     },
@@ -103,9 +149,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
   const isActive = (href: string) => location.pathname === href;
 
   const SidebarContent = () => (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <div className={cn(
-        "p-4 border-b border-border/50 flex items-center justify-between",
+        "p-4 border-b border-border/50 flex items-center justify-between shrink-0",
         "bg-gradient-to-r from-primary/5 to-primary/10"
       )}>
         {!collapsed && (
@@ -131,19 +177,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
             <ChevronLeft className={cn('h-4 w-4 transition-transform', collapsed && 'rotate-180')} />
           </Button>
         )}
-        {isMobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(false)}
-            className="ml-auto"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
       </div>
 
-      <nav className="p-4 space-y-2 flex-1">
+      <nav className="flex-1 space-y-2 overflow-y-auto overscroll-contain p-4">
         {menuSections.map((section, sectionIdx) => (
           <div key={sectionIdx}>
             {section.section && (
@@ -239,9 +275,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         ))}
       </nav>
 
-      <Separator className="my-2" />
+      <Separator className="my-2 shrink-0" />
 
-      <div className="p-4 space-y-2">
+      <div className="shrink-0 p-4 space-y-2">
         <Button
           variant="outline"
           className={cn(
@@ -257,13 +293,17 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           {!collapsed && <span className="ml-2">Voltar ao App</span>}
         </Button>
       </div>
-    </>
+    </div>
   );
 
   if (isMobile) {
     return (
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="left" className="w-72 p-0 flex flex-col">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Menu administrativo</SheetTitle>
+            <SheetDescription>Navegação do painel de administração</SheetDescription>
+          </SheetHeader>
           <SidebarContent />
         </SheetContent>
       </Sheet>

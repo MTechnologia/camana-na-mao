@@ -3,13 +3,35 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, Hash, MapPin, Plus, Trash2, Info, FileText, Search } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  AlertCircle,
+  Brush,
+  Building2,
+  Calendar,
+  CloudFog,
+  Droplets,
+  FileText,
+  Footprints,
+  Heart,
+  Hash,
+  Info,
+  Landmark,
+  Lightbulb,
+  MapPin,
+  Plus,
+  Rabbit,
+  Route,
+  Search,
+  Sparkles,
+  Trash2,
+  Trees,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -20,9 +42,27 @@ import { ReportInteractions } from "@/components/urban/ReportInteractions";
 import { ReportComments } from "@/components/urban/ReportComments";
 import { DeleteReportConfirmDialog } from "@/components/admin/DeleteReportConfirmDialog";
 import { ReferralDialog } from "@/components/referral/ReferralDialog";
+import { CitizenReportStatusBadge } from "@/components/citizen/CitizenReportStatusBadge";
 import { CitizenSeverityBadge } from "@/components/citizen/CitizenSeverityBadge";
 import { toast } from "@/hooks/use-toast";
 import { CITIZEN_PROTOCOL_LABEL, formatCitizenProtocolForDisplay } from "@/lib/citizenProtocol";
+import { embeddedRelationCount } from "@/lib/citizenReportStatus";
+import { formatShortDate } from "@/lib/dateUtils";
+import { cn } from "@/lib/utils";
+
+const categoryVisual: Record<string, { Icon: LucideIcon; color: string }> = {
+  iluminacao: { Icon: Lightbulb, color: "text-amber-500" },
+  calcada: { Icon: Footprints, color: "text-stone-600" },
+  via_publica: { Icon: Route, color: "text-slate-600" },
+  lixo: { Icon: Brush, color: "text-orange-600" },
+  area_verde: { Icon: Trees, color: "text-green-600" },
+  esgoto: { Icon: Droplets, color: "text-blue-500" },
+  higiene_urbana: { Icon: Sparkles, color: "text-teal-600" },
+  animais: { Icon: Rabbit, color: "text-amber-700" },
+  poluicao: { Icon: CloudFog, color: "text-muted-foreground" },
+  feedback_camara: { Icon: Landmark, color: "text-primary" },
+  outro: { Icon: Building2, color: "text-muted-foreground" },
+};
 
 interface Report {
   id: string;
@@ -31,10 +71,12 @@ interface Report {
   subcategory: string | null;
   description: string | null;
   severity: string | null;
+  status: string | null;
   location_address: string | null;
   created_at: string;
   user_id: string;
   photos?: string[] | null;
+  urban_report_likes?: unknown;
   profiles?: {
     full_name: string;
     avatar_url: string | null;
@@ -117,7 +159,9 @@ export default function ReportHistoryPage() {
     void (async () => {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select(
+          "id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, urban_report_likes(count)",
+        )
         .eq("id", reportId)
         .maybeSingle();
 
@@ -130,13 +174,31 @@ export default function ReportHistoryPage() {
     };
   }, [reportIdFromQuery, myReports, allReports]);
 
+  useEffect(() => {
+    if (!reportIdFromQuery || loading) return;
+    const inList =
+      myReports.some((r) => r.id === reportIdFromQuery) ||
+      allReports.some((r) => r.id === reportIdFromQuery);
+    if (!inList) return;
+    const el = document.querySelector(
+      `[data-urban-report-card="${CSS.escape(reportIdFromQuery)}"]`,
+    );
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  }, [reportIdFromQuery, myReports, allReports, loading]);
+
   const loadReports = async () => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
         .from("urban_reports")
-        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select(
+          "id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, urban_report_likes(count)",
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -167,7 +229,9 @@ export default function ReportHistoryPage() {
     try {
       let query = supabase
         .from("urban_reports")
-        .select("id, protocol_code, category, subcategory, description, severity, location_address, created_at, user_id, photos")
+        .select(
+          "id, protocol_code, category, subcategory, description, severity, status, location_address, created_at, user_id, photos, urban_report_likes(count)",
+        )
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -250,74 +314,96 @@ export default function ReportHistoryPage() {
   const renderReportCard = (
     report: Report,
     showAuthor: boolean = false,
-    canDelete: boolean = false
+    canDelete: boolean = false,
+    isHighlighted: boolean = false,
   ) => {
     const canShowReferralAction =
       canReferToCouncilMember && !!user && report.user_id === user.id;
     const citizenProtocol = formatCitizenProtocolForDisplay(report.protocol_code);
+    const categoryLabel = categoryLabels[report.category] || report.category;
+    const cardTitle = report.subcategory || categoryLabel;
+    const apoiosCount = embeddedRelationCount(report as unknown as Record<string, unknown>, "urban_report_likes");
+    const catVis = categoryVisual[report.category];
+    const CategoryIcon = catVis?.Icon ?? AlertCircle;
+    const categoryIconClass = catVis?.color ?? "text-muted-foreground";
+    const photosMine = Array.isArray(report.photos) ? report.photos : [];
 
     return (
-      <Card key={report.id} className="hover:shadow-md transition-shadow" data-testid="report-card">
+      <Card
+        key={report.id}
+        data-urban-report-card={report.id}
+        data-testid="report-card"
+        className={cn(
+          "hover:shadow-md transition-shadow border-border",
+          isHighlighted && "ring-2 ring-primary border-primary/50",
+        )}
+      >
         <CardContent className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex-1">
-              {report.subcategory && (
-                <h3 className="font-semibold text-foreground mb-1">
-                  {report.subcategory}
-                </h3>
-              )}
-              
-              {showAuthor && report.profiles && (
-                <p className="text-xs text-muted-foreground mb-1">
-                  Por {report.profiles.full_name}
-                </p>
-              )}
-
-              {report.severity && (
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <CitizenSeverityBadge severity={report.severity} size="sm" />
-                </div>
-              )}
-              {citizenProtocol && (
-                <p className="text-xs font-mono font-medium text-primary mt-1 flex items-center gap-1.5">
-                  <Hash className="w-3 h-3 shrink-0" aria-hidden />
-                  <span>
-                    {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
-                  </span>
-                </p>
-              )}
+          <div className="flex items-start justify-between mb-2 gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <MapPin className="w-4 h-4 text-primary shrink-0" aria-hidden />
+              <span className="font-medium line-clamp-2">{cardTitle}</span>
             </div>
-
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-xs">
-                {categoryLabels[report.category] || report.category}
-              </Badge>
-              
-              {canDelete && (
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <CitizenReportStatusBadge status={report.status} />
+              {apoiosCount > 0 ? (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Apoios">
+                  <Heart className="w-3.5 h-3.5 text-red-500/80" aria-hidden />
+                  {apoiosCount}
+                </span>
+              ) : null}
+              <span className="text-xs text-muted-foreground">
+                {formatShortDate(report.created_at)}
+              </span>
+              {canDelete ? (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted"
                   onClick={() => setReportToDelete(report)}
                   disabled={deleting}
+                  aria-label="Excluir contribuição"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
 
-          {report.description && (
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-              {report.description}
-            </p>
-          )}
+          {showAuthor && report.profiles?.full_name ? (
+            <p className="text-xs text-muted-foreground mb-2">Por {report.profiles.full_name}</p>
+          ) : null}
 
-          {report.photos && report.photos.length > 0 && (
+          {citizenProtocol ? (
+            <p className="text-xs font-mono font-medium text-primary mb-2 flex items-center gap-1.5">
+              <Hash className="w-3 h-3 shrink-0" aria-hidden />
+              {CITIZEN_PROTOCOL_LABEL}: {citizenProtocol}
+            </p>
+          ) : null}
+
+          <div className="space-y-2 mb-2">
+            {report.subcategory || report.severity ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <CategoryIcon className={cn("w-4 h-4 shrink-0", categoryIconClass)} aria-hidden />
+                {report.subcategory ? (
+                  <p className="text-sm font-medium">{categoryLabel}</p>
+                ) : null}
+                {report.severity ? (
+                  <CitizenSeverityBadge severity={report.severity} size="sm" />
+                ) : null}
+              </div>
+            ) : null}
+
+            {report.description ? (
+              <p className="text-sm text-muted-foreground line-clamp-2">{report.description}</p>
+            ) : null}
+          </div>
+
+          {photosMine.length > 0 ? (
             <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
-              {report.photos.slice(0, 5).map((url, i) => (
+              {photosMine.slice(0, 5).map((url, i) => (
                 <a
-                  key={i}
+                  key={`${url}-${i}`}
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -326,36 +412,39 @@ export default function ReportHistoryPage() {
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 </a>
               ))}
-              {report.photos.length > 5 && (
-                <span className="flex-shrink-0 text-xs text-muted-foreground self-center">+{report.photos.length - 5}</span>
-              )}
+              {photosMine.length > 5 ? (
+                <span className="flex-shrink-0 text-xs text-muted-foreground self-center">
+                  +{photosMine.length - 5}
+                </span>
+              ) : null}
             </div>
-          )}
+          ) : null}
 
           <div className="space-y-1 mb-3">
-            {report.location_address && (
+            {report.location_address ? (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <MapPin className="w-3 h-3" />
-                <span className="line-clamp-1">{report.location_address}</span>
+                <MapPin className="w-3 h-3 shrink-0" aria-hidden />
+                <span className="line-clamp-2">{report.location_address}</span>
               </div>
-            )}
-
+            ) : null}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3 h-3 shrink-0" aria-hidden />
               <span>
-                {format(new Date(report.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                {format(new Date(report.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", {
+                  locale: ptBR,
+                })}
               </span>
             </div>
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-border/50">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <ReportInteractions
                 reportId={report.id}
                 onCommentClick={() => setSelectedReport(report)}
               />
 
-              {canShowReferralAction && (
+              {canShowReferralAction ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -363,10 +452,7 @@ export default function ReportHistoryPage() {
                     setReferralReport({
                       id: report.id,
                       type: "urban",
-                      title:
-                        report.subcategory ||
-                        categoryLabels[report.category] ||
-                        report.category,
+                      title: report.subcategory || categoryLabel,
                       description: report.description || undefined,
                       category: report.category,
                       location: report.location_address || undefined,
@@ -378,7 +464,7 @@ export default function ReportHistoryPage() {
                 >
                   Encaminhar para vereador
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         </CardContent>
@@ -389,8 +475,8 @@ export default function ReportHistoryPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background pb-24 pt-[60px]">
-        <PageHeader title="Contribuições Urbanas" />
-        <div className="p-4 space-y-3">
+        <PageHeader title="Contribuições Urbanas" backTo="/relatos" />
+        <div className="max-w-7xl mx-auto px-6 py-6 space-y-3">
           {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-32 w-full" />
           ))}
@@ -401,15 +487,14 @@ export default function ReportHistoryPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 pt-[60px]">
-      <PageHeader title="Contribuições Urbanas" />
+      <PageHeader title="Contribuições Urbanas" backTo="/relatos" />
 
-      <div className="p-4">
-        {/* Explicação do propósito */}
-        <Alert className="bg-primary/5 border-primary/20 mb-4">
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-4 animate-fade-in">
+        <Alert className="bg-primary/5 border-primary/20">
           <Info className="h-4 w-4 text-primary" />
           <AlertDescription className="text-sm text-muted-foreground">
-            Suas contribuições sobre problemas urbanos são analisadas em conjunto 
-            para identificar padrões e subsidiar políticas públicas de melhoria da cidade.
+            As contribuições sobre problemas urbanos são analisadas em conjunto com outras experiências para
+            identificar padrões e subsidiar políticas públicas.
           </AlertDescription>
         </Alert>
 
@@ -458,7 +543,9 @@ export default function ReportHistoryPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {allReports.map((report) => renderReportCard(report, true))}
+                {allReports.map((report) =>
+                  renderReportCard(report, true, false, reportIdFromQuery === report.id),
+                )}
               </div>
             )}
           </TabsContent>
@@ -480,24 +567,71 @@ export default function ReportHistoryPage() {
           <DialogHeader>
             <DialogTitle>Comentários</DialogTitle>
           </DialogHeader>
-          {selectedReport && (
-            <div className="space-y-4">
-              <div className="pb-4 border-b border-border">
-                <h4 className="font-semibold mb-1">
-                  {categoryLabels[selectedReport.category] || selectedReport.category}
-                </h4>
-                {formatCitizenProtocolForDisplay(selectedReport.protocol_code) && (
-                  <p className="text-xs font-mono text-primary mb-2">
-                    {CITIZEN_PROTOCOL_LABEL}: {formatCitizenProtocolForDisplay(selectedReport.protocol_code)}
-                  </p>
-                )}
-                {selectedReport.description && (
-                  <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
-                )}
-              </div>
-              <ReportComments reportId={selectedReport.id} />
-            </div>
-          )}
+          {selectedReport &&
+            (() => {
+              const apoiosDialog = embeddedRelationCount(
+                selectedReport as unknown as Record<string, unknown>,
+                "urban_report_likes",
+              );
+              return (
+                <div className="space-y-4">
+                  <div className="pb-4 border-b border-border space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CitizenReportStatusBadge status={selectedReport.status} />
+                      {apoiosDialog > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                          <Heart className="w-4 h-4 text-red-500/80 shrink-0" aria-hidden />
+                          {apoiosDialog} apoio(s)
+                        </span>
+                      ) : null}
+                    </div>
+                    <h4 className="font-semibold mb-1">
+                      {categoryLabels[selectedReport.category] || selectedReport.category}
+                    </h4>
+                    {formatCitizenProtocolForDisplay(selectedReport.protocol_code) && (
+                      <p className="text-xs font-mono text-primary mb-2">
+                        {CITIZEN_PROTOCOL_LABEL}:{" "}
+                        {formatCitizenProtocolForDisplay(selectedReport.protocol_code)}
+                      </p>
+                    )}
+                    {selectedReport.severity ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-muted-foreground">Gravidade:</span>
+                        <CitizenSeverityBadge severity={selectedReport.severity} size="sm" />
+                      </div>
+                    ) : null}
+                    {selectedReport.description && (
+                      <p className="text-sm text-muted-foreground">{selectedReport.description}</p>
+                    )}
+                    {selectedReport.location_address ? (
+                      <p className="text-sm text-muted-foreground flex items-start gap-2">
+                        <MapPin className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+                        <span>{selectedReport.location_address}</span>
+                      </p>
+                    ) : null}
+                    {Array.isArray(selectedReport.photos) && selectedReport.photos.length > 0 ? (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Fotos</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedReport.photos.slice(0, 6).map((url) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block w-20 h-20 rounded-lg overflow-hidden border bg-muted"
+                            >
+                              <img src={url} alt="" className="w-full h-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <ReportComments reportId={selectedReport.id} />
+                </div>
+              );
+            })()}
         </DialogContent>
       </Dialog>
 

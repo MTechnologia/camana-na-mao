@@ -8,30 +8,13 @@ interface InlineTimePickerProps {
 }
 
 export const InlineTimePicker = ({ onSelect }: InlineTimePickerProps) => {
-  const [showCustom, setShowCustom] = useState(false);
   const [customTime, setCustomTime] = useState("");
   const [selected, setSelected] = useState(false);
 
-  const handleQuickSelect = (period: 'manha' | 'tarde' | 'noite') => {
-    const timeMap = {
-      manha: { time: '08:00', display: 'Manhã (6h-12h)' },
-      tarde: { time: '14:00', display: 'Tarde (12h-18h)' },
-      noite: { time: '19:00', display: 'Noite (18h-00h)' }
-    };
-    const { time, display } = timeMap[period];
-    setSelected(true);
-    onSelect(time, display);
-  };
-
   const handleCustomSubmit = () => {
-    const timeMatch = customTime.match(/^(\d{1,2})[h:]?(\d{2})?$/);
-    if (timeMatch) {
-      const hour = timeMatch[1].padStart(2, '0');
-      const minute = timeMatch[2] || '00';
-      const formatted = `${hour}:${minute}`;
-      setSelected(true);
-      onSelect(formatted, formatted);
-    }
+    if (!customTime) return;
+    setSelected(true);
+    onSelect(customTime, customTime);
   };
 
   if (selected) {
@@ -47,57 +30,21 @@ export const InlineTimePicker = ({ onSelect }: InlineTimePickerProps) => {
     <div className="mt-2 w-full">
       <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
         <Clock className="h-3 w-3" />
-        <span>Que horas mais ou menos?</span>
+        <span>Qual foi o horário exato?</span>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleQuickSelect('manha')}
-          className="text-sm"
-        >
-          🌅 Manhã
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="time"
+          aria-label="Horário específico"
+          value={customTime}
+          onChange={(e) => setCustomTime(e.target.value)}
+          className="h-9 w-[140px] text-sm"
+          step={60}
+          onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
+        />
+        <Button size="sm" variant="default" onClick={handleCustomSubmit} disabled={!customTime}>
+          Confirmar horário
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleQuickSelect('tarde')}
-          className="text-sm"
-        >
-          ☀️ Tarde
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleQuickSelect('noite')}
-          className="text-sm"
-        >
-          🌙 Noite
-        </Button>
-        {!showCustom ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowCustom(true)}
-            className="text-sm text-muted-foreground"
-          >
-            Horário específico
-          </Button>
-        ) : (
-          <div className="flex gap-1 items-center">
-            <Input
-              type="text"
-              placeholder="08:30"
-              value={customTime}
-              onChange={(e) => setCustomTime(e.target.value)}
-              className="w-20 h-8 text-sm"
-              onKeyDown={(e) => e.key === 'Enter' && handleCustomSubmit()}
-            />
-            <Button size="sm" variant="default" onClick={handleCustomSubmit}>
-              OK
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -1,0 +1,80 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - button "Voltar" [ref=e5] [cursor=pointer]:
+        - img [ref=e6]
+      - heading "Avaliar Serviço" [level=1] [ref=e8]
+  - generic [ref=e10]:
+    - banner [ref=e11]:
+      - generic [ref=e12]:
+        - button "Voltar" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - heading "Avaliar serviços visitados" [level=1] [ref=e16]
+    - generic [ref=e19]:
+      - img [ref=e20]
+      - paragraph [ref=e22]: Nenhuma avaliação pendente no momento.
+      - button "Voltar ao início" [ref=e23] [cursor=pointer]
+  - generic [ref=e24]:
+    - generic [ref=e25]:
+      - button "Fechar menu" [ref=e26] [cursor=pointer]:
+        - img [ref=e27]
+      - generic [ref=e30]:
+        - generic [ref=e32]: FD
+        - generic [ref=e33]:
+          - heading "Felipe de Melo Souza" [level=2] [ref=e34]
+          - paragraph [ref=e35]: Bom dia!
+    - generic [ref=e36]:
+      - generic [ref=e37]:
+        - heading "Minha Conta" [level=3] [ref=e38]
+        - button "Meu Perfil" [ref=e39] [cursor=pointer]:
+          - img [ref=e41]
+          - generic [ref=e44]: Meu Perfil
+        - button "Conversas" [ref=e45] [cursor=pointer]:
+          - img [ref=e47]
+          - generic [ref=e49]: Conversas
+        - button "Perto de Você" [ref=e50] [cursor=pointer]:
+          - img [ref=e52]
+          - generic [ref=e55]: Perto de Você
+        - button "Minhas inscrições em audiências" [ref=e56] [cursor=pointer]:
+          - img [ref=e58]
+          - generic [ref=e61]: Minhas inscrições em audiências
+      - generic [ref=e63]:
+        - heading "Navegação Institucional" [level=3] [ref=e64]
+        - button "Agenda da Câmara" [ref=e65] [cursor=pointer]:
+          - img [ref=e67]
+          - generic [ref=e69]: Agenda da Câmara
+        - button "Audiências Públicas" [ref=e70] [cursor=pointer]:
+          - img [ref=e72]
+          - generic [ref=e76]: Audiências Públicas
+        - button "Vereadores" [ref=e77] [cursor=pointer]:
+          - img [ref=e79]
+          - generic [ref=e84]: Vereadores
+        - button "Conheça a Câmara" [ref=e85] [cursor=pointer]:
+          - img [ref=e87]
+          - generic [ref=e91]: Conheça a Câmara
+        - button "Comissões" [ref=e92] [cursor=pointer]:
+          - img [ref=e94]
+          - generic [ref=e97]: Comissões
+        - button "Câmara Explica" [ref=e98] [cursor=pointer]:
+          - img [ref=e100]
+          - generic [ref=e102]: Câmara Explica
+        - button "Escola do Parlamento" [ref=e103] [cursor=pointer]:
+          - img [ref=e105]
+          - generic [ref=e108]: Escola do Parlamento
+        - button "Notícias" [ref=e109] [cursor=pointer]:
+          - img [ref=e111]
+          - generic [ref=e114]: Notícias
+    - generic [ref=e115]:
+      - button "Política de privacidade" [ref=e116] [cursor=pointer]:
+        - img [ref=e118]
+        - generic [ref=e120]: Política de privacidade
+      - button "Sair" [ref=e121] [cursor=pointer]:
+        - img [ref=e123]
+        - generic [ref=e126]: Sair
+```

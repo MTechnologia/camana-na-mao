@@ -118,6 +118,12 @@ export const NOTIFICATION_TYPES = {
     icon: '🎤',
     audience: 'all'
   },
+  audiencia_topic_alert: {
+    label: 'Aviso por tema de audiência',
+    color: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+    icon: '🔔',
+    audience: 'citizen'
+  },
   audiencia_inscricao: { 
     label: 'Inscrição em Audiência', 
     color: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
@@ -136,7 +142,31 @@ export const NOTIFICATION_TYPES = {
     icon: '⏰',
     audience: 'citizen'
   },
-  
+  evaluation_reminder: {
+    label: 'Lembrete de avaliação',
+    color: 'bg-green-500/10 text-green-600 border-green-500/20',
+    icon: '⭐',
+    audience: 'citizen'
+  },
+  servico_nova_avaliacao: {
+    label: 'Nova avaliação (equipamento)',
+    color: 'bg-green-500/10 text-green-600 border-green-500/20',
+    icon: '⭐',
+    audience: 'citizen'
+  },
+  transporte_linha_relato: {
+    label: 'Relato na linha',
+    color: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    icon: '🚌',
+    audience: 'citizen'
+  },
+  transporte_linha_padrao: {
+    label: 'Padrão na linha',
+    color: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
+    icon: '📈',
+    audience: 'citizen'
+  },
+
   // Sistema
   info: { 
     label: 'Informação', 

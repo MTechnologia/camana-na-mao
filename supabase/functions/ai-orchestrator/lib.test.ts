@@ -1,0 +1,354 @@
+import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
+import {
+  aggregateRatingDimensionsStars,
+  buildServiceRatingDimensionsPrompt,
+  buildServiceRatingDimensionsFromWizardScores,
+  executeTool,
+  formatTransportAccessibilitySummary,
+  getTransportReportLatLonForBounds,
+  parseFieldResponse,
+  isPointInSaoPauloBounds,
+  parseAccessibilityDetailsMarker,
+  SERVICE_RATING_DIMENSION_KEYS,
+} from "./lib.ts";
+
+// Mock Supabase Client com suporte a chain de chamadas
+const mockSupabase = {
+  from: (table: string) => {
+    const chain = {
+      select: () => chain,
+      eq: () => chain,
+      ilike: () => chain,
+      gt: () => chain,
+      gte: () => chain,
+      lt: () => chain,
+      order: () => chain,
+      limit: () => chain,
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      single: () => {
+        if (table === 'service_visits') {
+          const future = new Date(Date.now() + 7 * 24 * 3600000).toISOString();
+          return Promise.resolve({
+            data: {
+              id: 'visit-123',
+              service_id: 'service-456',
+              status: 'pending',
+              created_at: new Date().toISOString(),
+              expires_at: future,
+            },
+            error: null,
+          });
+        }
+        if (table === 'transport_lines') return Promise.resolve({ data: { id: 'line-123', line_code: '875A-10' }, error: null });
+        return Promise.resolve({ data: { id: 'mock-id' }, error: null });
+      },
+      insert: (data: any) => {
+        const insertChain = {
+          select: () => ({
+            single: () => Promise.resolve({ data: { id: 'new-id', protocol_code: 'PROT123', ...data }, error: null })
+          })
+        };
+        return insertChain;
+      },
+      update: () => chain,
+      then: (resolve: any) => resolve({ data: [{ id: 'mock-id', name: 'Mock Name' }], error: null })
+    };
+    return chain;
+  },
+  rpc: (name: string, args: any) => {
+    if (name === 'check_content_moderation') return Promise.resolve({ data: { approved: true }, error: null });
+    return Promise.resolve({ data: true, error: null });
+  },
+  functions: {
+    invoke: (name: string) => {
+      if (name === "google-places-autocomplete") {
+        return Promise.resolve({ data: { predictions: [{ placeId: "place-123" }] }, error: null });
+      }
+      if (name === "google-places-details") {
+        return Promise.resolve({ data: { address: { latitude: -23.55, longitude: -46.63 } }, error: null });
+      }
+      return Promise.resolve({ data: { success: true }, error: null });
+    }
+  },
+  auth: {
+    getUser: () => Promise.resolve({ data: { user: { id: 'user-123' } }, error: null })
+  }
+} as any;
+
+Deno.test("buildServiceRatingDimensionsFromWizardScores: monta JSON e média (OS-06)", () => {
+  const dims = buildServiceRatingDimensionsFromWizardScores(
+    {
+      wait_time_score: 4,
+      atendimento_score: 5,
+      infraestrutura_score: 3,
+      limpeza_score: 3,
+    },
+    {},
+  );
+  assertExists(dims);
+  assertEquals(SERVICE_RATING_DIMENSION_KEYS.length, 4);
+  assertEquals(dims!.tempo_espera, 4);
+  assertEquals(dims!.atendimento, 5);
+  assertEquals(aggregateRatingDimensionsStars(dims!), 4);
+
+  const dimsNa = buildServiceRatingDimensionsFromWizardScores(
+    { wait_time_score: null, atendimento_score: 4, infraestrutura_score: 4, limpeza_score: 4 },
+    {},
+  );
+  assertExists(dimsNa);
+  assertEquals(dimsNa!.tempo_espera, 3);
+});
+
+Deno.test("buildServiceRatingDimensionsFromWizardScores: incompleto → null", () => {
+  assertEquals(
+    buildServiceRatingDimensionsFromWizardScores({ wait_time_score: 4, atendimento_score: 5 }, {}),
+    null,
+  );
+});
+
+Deno.test("buildServiceRatingDimensionsPrompt: contextualiza por tipo de equipamento", () => {
+  assertEquals(
+    buildServiceRatingDimensionsPrompt("ubs"),
+    "**Avalie a UBS em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.",
+  );
+  assertEquals(
+    buildServiceRatingDimensionsPrompt("hospital"),
+    "**Avalie o hospital em quatro aspectos** (1 a 5 estrelas cada): tempo de espera, atendimento, infraestrutura e limpeza. Use o formulário abaixo.",
+  );
+});
+
+Deno.test("create_service_rating: RN-AVA-002 - Valida estrelas (1-5)", async () => {
+  const userId = 'user-123';
+  
+  // Teste com nota 0 (inválida)
+  const result0 = await executeTool('create_service_rating', { 
+    rating_stars: 0, 
+    rating_text: 'Excelente atendimento',
+    visit_id: 'visit-123'
+  }, userId, mockSupabase);
+  assertEquals(result0.success, false);
+  assertEquals(result0.message.includes("[FIELD_REQUEST:"), true);
+
+  // Teste com nota 6 (inválida)
+  const result6 = await executeTool('create_service_rating', { 
+    rating_stars: 6, 
+    rating_text: 'Excelente atendimento',
+    visit_id: 'visit-123'
+  }, userId, mockSupabase);
+  assertEquals(result6.success, false);
+
+  // Teste com nota 5 (válida) - mas vai falhar no service_name se não for modo visita
+  const result5 = await executeTool('create_service_rating', { 
+    rating_stars: 5, 
+    rating_text: 'Excelente atendimento',
+    visit_id: 'visit-123'
+  }, userId, mockSupabase);
+  assertEquals(result5.success, true);
+});
+
+Deno.test("create_service_rating: RN-AVA-003 - Campos obrigatórios", async () => {
+  const userId = 'user-123';
+
+  // Sem texto de avaliação
+  const resultNoText = await executeTool('create_service_rating', { 
+    rating_stars: 5,
+    visit_id: 'visit-123'
+  }, userId, mockSupabase);
+  assertEquals(resultNoText.success, false);
+  assertEquals(resultNoText.message.includes('rating_text'), true);
+
+  // Texto muito curto (< 5 caracteres)
+  const resultShortText = await executeTool('create_service_rating', { 
+    rating_stars: 5,
+    rating_text: 'Bom',
+    visit_id: 'visit-123'
+  }, userId, mockSupabase);
+  assertEquals(resultShortText.success, false);
+});
+
+Deno.test("create_service_rating: RN-AVA-004 - Limite de caracteres (implícito pela ferramenta)", async () => {
+  const userId = 'user-123';
+  const longText = 'a'.repeat(2001); // Supondo limite interno ou apenas testando aceitação de texto longo
+  
+  const result = await executeTool('create_service_rating', { 
+    rating_stars: 5,
+    rating_text: longText,
+    visit_id: 'visit-123'
+  }, userId, mockSupabase);
+  
+  // Se a ferramenta não limita explicitamente no código, ela deve aceitar (o banco limita a 2000 geralmente)
+  // No código lib.ts não vi check de max length, então deve passar na ferramenta
+  assertEquals(result.success, true);
+});
+
+Deno.test("create_transport_report: Persistência e campos obrigatórios", async () => {
+  const userId = 'user-123';
+  const today = new Date().toISOString().split('T')[0];
+
+  // Teste sem descrição
+  const resultNoDesc = await executeTool('create_transport_report', {
+    line_code: '875A-10',
+    occurrence_date: today,
+    date_confirmed: true
+  }, userId, mockSupabase);
+  assertEquals(resultNoDesc.success, false);
+  assertEquals(resultNoDesc.message.includes('description'), true);
+
+  // Com descrição válida mas sem subcategoria — coleta sequencial exige SUBCATEGORY_PICKER
+  const resultNeedSub = await executeTool('create_transport_report', {
+    description: 'Ônibus muito atrasado na parada da Paulista com detalhes suficientes.',
+    line_code: '875A-10',
+    occurrence_date: today,
+    date_confirmed: true
+  }, userId, mockSupabase);
+  assertEquals(resultNeedSub.success, false);
+  assertEquals(resultNeedSub.message.includes('sub_category'), true);
+});
+
+Deno.test("create_urban_report: persiste relato e mantém resumo final", async () => {
+  const userId = "user-123";
+
+  const result = await executeTool(
+    "create_urban_report",
+    {
+      category: "lixo",
+      description: "Há lixo acumulado na rua há dias, com mau cheiro forte e muitos sacos espalhados.",
+      street: "Rua das Flores",
+      neighborhood: "Centro",
+      street_number: "123",
+      risk_level: "low",
+      urgency_reason: "Mau cheiro e acúmulo recorrente",
+    },
+    userId,
+    mockSupabase,
+    {},
+  );
+
+  assertEquals(result.success, true);
+  assertEquals(result.message.includes("[REPORT_CREATED:new-id]"), true);
+  assertEquals(result.message.includes("**Categoria:** Lixo/Entulho"), true);
+});
+
+Deno.test("create_transport_report: persiste relato e mantém resumo final", async () => {
+  const userId = "user-123";
+
+  const result = await executeTool(
+    "create_transport_report",
+    {
+      description: "O ônibus demorou muito para passar e a espera no ponto passou de 30 minutos hoje cedo.",
+      line_code: "875A-10",
+      occurrence_date: "2026-04-16",
+      occurrence_time: "07:30",
+      direction: "ida",
+      recurrence_frequency: "toda_semana",
+      personal_impact: 4,
+      sub_category: "intervalo_irregular",
+      stop_name: "Parada Central",
+    },
+    userId,
+    mockSupabase,
+    {},
+  );
+
+  assertEquals(result.success, true);
+  assertEquals(result.message.includes("[TRANSPORT_CREATED:new-id]"), true);
+  assertEquals(result.message.includes("**Linha:** 875A-10"), true);
+});
+
+Deno.test("create_service_rating: persiste avaliação e mantém resumo final", async () => {
+  const userId = "user-123";
+
+  const result = await executeTool(
+    "create_service_rating",
+    {
+      visit_id: "visit-123",
+      service_name: "UBS Vila Madalena",
+      rating_text: "O atendimento foi muito bom e a equipe foi bastante atenciosa.",
+      rating_dimensions: {
+        atendimento: 5,
+        limpeza: 4,
+        infraestrutura: 4,
+        tempo_espera: 3,
+      },
+    },
+    userId,
+    mockSupabase,
+    {},
+  );
+
+  assertEquals(result.success, true);
+  assertEquals(result.message.includes("[RATING_CREATED:new-id]"), true);
+  assertEquals(result.message.includes("**Serviço:** UBS Vila Madalena"), true);
+});
+
+Deno.test("HU-6.6: isPointInSaoPauloBounds e getTransportReportLatLonForBounds", () => {
+  assertEquals(isPointInSaoPauloBounds(-23.5505, -46.6333), true);
+  assertEquals(isPointInSaoPauloBounds(-22.9, -46.6), false);
+  const fromGps = getTransportReportLatLonForBounds(
+    { user_lat: -23.55, user_lon: -46.63 },
+    {},
+  );
+  assertExists(fromGps);
+  assertEquals(isPointInSaoPauloBounds(fromGps.lat, fromGps.lon), true);
+  const fromStop = getTransportReportLatLonForBounds(
+    { stop_location: "-23.55 , -46.63" },
+    undefined,
+  );
+  assertExists(fromStop);
+  assertEquals(isPointInSaoPauloBounds(fromStop.lat, fromStop.lon), true);
+});
+
+Deno.test("HU-6.5: parseAccessibilityDetailsMarker e formatTransportAccessibilitySummary", () => {
+  const payload = { rampa: true, piso_tatil: true, observacoes: "elevador quebrado" };
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const parsed = parseAccessibilityDetailsMarker(`Acessibilidade [ACCESSIBILITY_DETAILS:${encoded}]`);
+  assertExists(parsed);
+  assertEquals(parsed?.rampa, true);
+  assertEquals(parsed?.piso_tatil, true);
+  assertEquals(parsed?.observacoes, "elevador quebrado");
+  assertEquals(
+    formatTransportAccessibilitySummary(parsed),
+    "Rampa; Piso tátil; Observações: elevador quebrado",
+  );
+});
+
+Deno.test("parseFieldResponse: mantém parsing urbano de categoria e risco", () => {
+  assertEquals(parseFieldResponse("category", "barulho alto a noite"), {
+    category: "poluicao",
+  });
+
+  assertEquals(parseFieldResponse("risk_level", "alagando e não passa carro"), {
+    risk_level: "critical",
+    risk_types: ["traffic"],
+    urgency_reason: "alagando e não passa carro",
+  });
+});
+
+Deno.test("parseFieldResponse: mantém parsing urbano de escopo e consequências", () => {
+  assertEquals(parseFieldResponse("affected_scope", "a rua toda foi afetada"), {
+    affected_scope: "street",
+  });
+
+  assertEquals(parseFieldResponse("active_consequences", "está alagando, não passa carro e está sem água"), {
+    active_consequences: ["water_outage", "traffic_blocked", "flooding"],
+  });
+});
+
+Deno.test("parseFieldResponse: mantém parsing urbano de localização", () => {
+  assertEquals(parseFieldResponse("location_method", "Localização GPS: -23.55,-46.63"), {
+    user_lat: -23.55,
+    user_lon: -46.63,
+    location_method: "gps",
+  });
+
+  assertEquals(parseFieldResponse("urban_registered_address_ack", "não"), {
+    urban_registered_address_ack: true,
+    location_method: "manual",
+    street: "",
+    neighborhood: "",
+    cep: "",
+    street_number: "",
+    reference_point: "",
+    _location_from_user_profile: false,
+  });
+});

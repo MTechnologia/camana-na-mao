@@ -35,7 +35,7 @@ interface MenuDrawerProps {
 
 const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
   const navigate = useNavigate();
-  const { isAdmin, isGestor, canViewDashboards, canReferToCouncilMember } = useUserRole();
+  const { isAdmin, isGestor, canViewDashboards, canViewGabinete } = useUserRole();
   const { profile, loading: profileLoading, getInitials } = useProfile();
   const { user, signOut } = useAuth();
   const { prefetch } = usePrefetch();
@@ -82,12 +82,18 @@ const MenuDrawer = ({ isOpen, onClose }: MenuDrawerProps) => {
       icon: Bookmark,
       route: "/servicos/favoritos",
     },
-    { 
-      id: 2.3, 
-      label: "Minhas inscrições em audiências", 
-      icon: CalendarCheck,
-      route: "/audiencias/minhas-inscricoes"
+    {
+      id: 2.27,
+      label: "Minhas Inscrições",
+      icon: Bookmark,
+      route: "/perfil/inscricoes",
     },
+    ...(canViewGabinete ? [{
+      id: 2.35,
+      label: "Gabinete",
+      icon: Building2,
+      route: "/gabinete",
+    }] : []),
     { 
       id: 2.5,
       label: "Relatos",

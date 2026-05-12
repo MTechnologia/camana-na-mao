@@ -68,11 +68,21 @@ const AgentChatArea = () => {
     handleLineSelected,
     handleDateSelected,
     handleTimeSelected,
+    handleDirectionSelected,
+    handleSubcategorySelected,
+    handleRecurrenceFrequencySelected,
+    handleImpactSelected,
+    handleAccessibilityDetailsSelected,
     handleRatingSelected,
+    handleWaitTimeSelected,
+    handleDimensionRatingSelected,
+    handleRatingDimensionWaitTimeSelected,
+    handleMultiDimensionRatingComplete,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,
     handleApplyNearbyFilters,
+    patchMessageContent,
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
@@ -100,17 +110,38 @@ const AgentChatArea = () => {
     );
   }, [messages]);
 
-  const showUrbanAttachmentUI = useMemo(() => {
-    return (
-      (collectionType === "urban_report" || collectionType === "transport_report") &&
-      hasReachedAttachPhotosStep
-    );
-  }, [collectionType, hasReachedAttachPhotosStep]);
+  /** Última mensagem do assistente (para não misturar passo "anexar" com resumo final). */
+  const lastAssistantContent = useMemo(() => {
+    const last = [...messages].reverse().find((m) => m.role === "assistant");
+    return last?.content ?? "";
+  }, [messages]);
 
-  // Registrar habilitado só após anexar fotos quando estamos no passo "Pode anexar até 3 fotos"
+  const showUrbanAttachmentUI = useMemo(() => {
+    if (
+      collectionType !== "urban_report" &&
+      collectionType !== "transport_report"
+    ) {
+      return false;
+    }
+    if (!hasReachedAttachPhotosStep) return false;
+    // Resumo final: não mostrar Câmera/Galeria (evita confusão com o Registrar do resumo)
+    if (/resumo do relato de transporte/i.test(lastAssistantContent)) return false;
+    if (
+      /\*\*resumo do relato\*\*/i.test(lastAssistantContent) &&
+      /\[QUICK_REPLY:[^\]]*confirmar/i.test(lastAssistantContent)
+    ) {
+      return false;
+    }
+    return true;
+  }, [collectionType, hasReachedAttachPhotosStep, lastAssistantContent]);
+
+  // Só exige fotos no passo em que a última mensagem ainda é "Pode anexar…".
+  // Depois do envio, chatPhotoPreviews zera — se usássemos só hasReachedAttachPhotosStep,
+  // o Registrar do resumo final ficaria desabilitado para sempre.
   const disableRegistrarUntilPhotosAttached = useMemo(() => {
-    return hasReachedAttachPhotosStep && chatPhotoPreviews.length === 0;
-  }, [hasReachedAttachPhotosStep, chatPhotoPreviews.length]);
+    if (!lastAssistantContent.includes("Pode anexar até 3 fotos")) return false;
+    return chatPhotoPreviews.length === 0;
+  }, [lastAssistantContent, chatPhotoPreviews.length]);
 
   // Força re-render após hydration completa
   useEffect(() => {
@@ -401,7 +432,16 @@ const AgentChatArea = () => {
                         onLineSelected={handleLineSelected}
                         onDateSelected={handleDateSelected}
                         onTimeSelected={handleTimeSelected}
+                        onDirectionSelected={handleDirectionSelected}
+                        onSubcategorySelected={handleSubcategorySelected}
+                        onRecurrenceFrequencySelected={handleRecurrenceFrequencySelected}
+                        onImpactSelected={handleImpactSelected}
+                        onAccessibilityDetailsSelected={handleAccessibilityDetailsSelected}
                         onRatingSelected={handleRatingSelected}
+                        onWaitTimeSelected={handleWaitTimeSelected}
+                        onDimensionRatingSelected={handleDimensionRatingSelected}
+                        onRatingDimensionWaitTimeSelected={handleRatingDimensionWaitTimeSelected}
+                        onMultiDimensionRatingComplete={handleMultiDimensionRatingComplete}
                         onLocationMethodSelected={handleLocationMethodSelected}
                         onServiceTypeSelected={handleServiceTypeSelected}
                         onServiceSelected={handleServiceSelected}
@@ -411,6 +451,7 @@ const AgentChatArea = () => {
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                         onApplyNearbyFilters={handleApplyNearbyFilters}
                         onSendMessage={handleSendMessage}
+                        patchMessageContent={patchMessageContent}
                         disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
                       />
                     </motion.div>

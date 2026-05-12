@@ -5,6 +5,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useExpoPushToken } from "@/hooks/useExpoPushToken";
 import { withPoolRetry } from "@/lib/supabaseRetry";
 
+/** Notificação ainda não deve aparecer na central / toast até scheduled_for (push agendado). */
+function isNotificationVisibleInInbox(scheduledFor: string | null | undefined): boolean {
+  if (scheduledFor == null || scheduledFor === "") return true;
+  const t = new Date(scheduledFor).getTime();
+  if (Number.isNaN(t)) return true;
+  return t <= Date.now();
+}
+
 interface Notification {
   id: string;
   title: string;
@@ -15,6 +23,9 @@ interface Notification {
   priority: string;
   created_at: string;
   read_at?: string;
+  scheduled_for?: string | null;
+  push_delivered_at?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface NotificationsContextType {
@@ -48,6 +59,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
             .from('notifications')
             .select('*')
             .eq('user_id', user.id)
+            .is('discarded_at', null)
             .order('created_at', { ascending: false })
             .limit(50),
         { retries: 1, baseDelayMs: 800 },
@@ -55,8 +67,10 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
       if (error) throw error;
 
-      setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
+      const rows = (data || []) as Notification[];
+      const visible = rows.filter((n) => isNotificationVisibleInInbox(n.scheduled_for));
+      setNotifications(visible);
+      setUnreadCount(visible.filter((n) => !n.is_read).length);
     } catch (error) {
       console.error('Erro ao buscar notificações:', error);
     } finally {
@@ -167,11 +181,16 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
+          const newNotification = payload.new as Notification & { discarded_at?: string | null };
+          if (newNotification.discarded_at) {
+            return;
+          }
+          if (!isNotificationVisibleInInbox(newNotification.scheduled_for)) {
+            return;
+          }
+          setNotifications((prev) => [newNotification, ...prev]);
+          setUnreadCount((prev) => prev + (newNotification.is_read ? 0 : 1));
 
-          // Show toast for new notification
           toast({
             title: newNotification.title,
             description: newNotification.message,
@@ -186,11 +205,8 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
-          const updated = payload.new as Notification;
-          setNotifications(prev => 
-            prev.map(n => n.id === updated.id ? updated : n)
-          );
+        () => {
+          void fetchNotifications();
         }
       )
       .subscribe();

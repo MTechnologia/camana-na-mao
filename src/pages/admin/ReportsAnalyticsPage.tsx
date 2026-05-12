@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KPICard } from '@/components/analytics/KPICard';
@@ -21,11 +21,27 @@ import { HotspotsList } from '@/components/analytics/HotspotsList';
 import { TimeDistributionChart } from '@/components/analytics/TimeDistributionChart';
 import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
+import { DataExportDialog } from '@/components/analytics/DataExportDialog';
+import { ExportJobsPanel } from '@/components/analytics/ExportJobsPanel';
 import { DemographicFilters, DemographicFilterState } from '@/components/analytics/DemographicFilters';
+import { VolumeOverviewTab } from '@/components/analytics/VolumeOverviewTab';
+import { ResponseTimeOverviewTab } from '@/components/analytics/ResponseTimeOverviewTab';
+import { DiagnosticoTab } from '@/components/analytics/DiagnosticoTab';
+import { AudienciasAnalyticsTab } from '@/components/analytics/AudienciasAnalyticsTab';
+import { TerritorialDrillTab } from '@/components/analytics/TerritorialDrillTab';
+import { MultiDrillTab } from '@/components/analytics/MultiDrillTab';
+import { CrossAnalyticsTab } from '@/components/analytics/CrossAnalyticsTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import { useUrlSyncedState, optionalStringSerializer, stringSerializer } from '@/hooks/useUrlSyncedState';
+import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
 import { useCorrelationAnalytics } from '@/hooks/useCorrelationAnalytics';
 import { useDrillInsight } from '@/hooks/useDrillInsight';
+import { ThemeSwitcher } from '@/components/admin/ThemeSwitcher';
+import { PresetsDropdown } from '@/components/admin/PresetsDropdown';
+import { useWidgetTheme } from '@/hooks/useWidgetTheme';
+import { useDashboardPresets } from '@/hooks/useDashboardPresets';
+import { getTheme, DEFAULT_THEME_ID, type AnalyticsTabId } from '@/lib/widgetThemes';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -42,10 +58,85 @@ import {
   Sparkles
 } from 'lucide-react';
 
+// HU-6.1 — Labels e min-widths das tabs em um mapa, para iterar dinamicamente
+// quando reordenarmos por tema.
+const TAB_LABELS: Record<AnalyticsTabId, string> = {
+  volume: 'Volume',
+  eficiencia: 'Eficiência',
+  diagnostico: 'Diagnóstico',
+  audiencias: 'Audiências',
+  territorial: 'Territorial',
+  drill: 'Drill-down',
+  cross: 'Cruzamentos',
+  geral: 'Geral',
+  sentimento: 'Sentimento',
+  demografia: 'Demografia',
+  engajamento: 'Engajamento',
+  criticidade: 'Criticidade',
+};
+
+const TAB_MIN_WIDTH: Record<AnalyticsTabId, string> = {
+  volume: 'min-w-[80px]',
+  eficiencia: 'min-w-[100px]',
+  diagnostico: 'min-w-[100px]',
+  audiencias: 'min-w-[100px]',
+  territorial: 'min-w-[100px]',
+  drill: 'min-w-[100px]',
+  cross: 'min-w-[110px]',
+  geral: 'min-w-[80px]',
+  sentimento: 'min-w-[100px]',
+  demografia: 'min-w-[100px]',
+  engajamento: 'min-w-[110px]',
+  criticidade: 'min-w-[100px]',
+};
+
 // Analytics page for unified reports visualization
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
-  const [demographicFilters, setDemographicFilters] = useState<DemographicFilterState>({});
+  // HU-7.1 — Dialog de export CSV configurável.
+  const [showCsvExport, setShowCsvExport] = useState(false);
+  // HU-7.4 + HU-7.5 — Panel "Minhas exportações".
+  const [showJobsPanel, setShowJobsPanel] = useState(false);
+
+  // HU-3.3 — Aba ativa sincronizada com URL (?tab=)
+  const [tabState, setTabState] = useUrlSyncedState<{ tab: string }>({
+    defaults: { tab: 'volume' },
+    serializers: { tab: stringSerializer('volume') },
+  });
+
+  // HU-3.3 — Filtros demográficos sincronizados com URL (?dem.g, ?dem.r, ?dem.c, ?dem.a)
+  const [demUrlState, setDemUrlState] = useUrlSyncedState<{
+    g: string | null;
+    r: string | null;
+    c: string | null;
+    a: string | null;
+  }>({
+    prefix: 'dem',
+    defaults: { g: null, r: null, c: null, a: null },
+    serializers: {
+      g: optionalStringSerializer(),
+      r: optionalStringSerializer(),
+      c: optionalStringSerializer(),
+      a: optionalStringSerializer(),
+    },
+  });
+  const demographicFilters: DemographicFilterState = useMemo(() => ({
+    gender: demUrlState.g ?? undefined,
+    race: demUrlState.r ?? undefined,
+    socialClass: demUrlState.c ?? undefined,
+    ageGroup: demUrlState.a ?? undefined,
+  }), [demUrlState]);
+  const setDemographicFilters = (
+    next: DemographicFilterState | ((prev: DemographicFilterState) => DemographicFilterState),
+  ) => {
+    const value = typeof next === 'function' ? next(demographicFilters) : next;
+    setDemUrlState({
+      g: value.gender ?? null,
+      r: value.race ?? null,
+      c: value.socialClass ?? null,
+      a: value.ageGroup ?? null,
+    });
+  };
   
   // Combine filters for the analytics hook
   const combinedFilters: ReportsAnalyticsFilters = useMemo(() => ({
@@ -53,9 +144,66 @@ export default function ReportsAnalyticsPage() {
   }), [demographicFilters]);
   
   const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
+  const {
+    alerts: thresholdAlerts,
+    error: thresholdAlertsError,
+    refresh: refreshThresholdAlerts,
+  } = usePatternThresholdEvents();
   const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
   const correlations = useCorrelationAnalytics();
   const drillInsight = useDrillInsight(combinedFilters);
+
+  // HU-6.1 — Aplica tema de atuação: reordena as tabs colocando as `priorityTabs`
+  // do tema selecionado primeiro e destaca-as visualmente.
+  const { theme: themeId, setTheme, setWidgetConfig, isLoading: themeLoading } = useWidgetTheme();
+  const { defaultPreset, isLoading: presetsLoading } = useDashboardPresets();
+
+  // HU-6.2 — Auto-aplica o preset padrão na primeira renderização, se houver,
+  // e se o usuário ainda não tiver tema personalizado (estiver em 'geral').
+  // Só roda 1x por sessão pra não atropelar mudanças manuais subsequentes.
+  const defaultAppliedRef = useRef(false);
+  useEffect(() => {
+    if (defaultAppliedRef.current) return;
+    if (themeLoading || presetsLoading) return;
+    if (!defaultPreset) {
+      defaultAppliedRef.current = true; // sem default; nunca mais tenta nesta sessão
+      return;
+    }
+    if (themeId === DEFAULT_THEME_ID) {
+      setTheme(defaultPreset.theme);
+      setWidgetConfig(defaultPreset.config);
+    }
+    defaultAppliedRef.current = true;
+  }, [themeLoading, presetsLoading, defaultPreset, themeId, setTheme, setWidgetConfig]);
+
+  const activeTheme = useMemo(() => getTheme(themeId), [themeId]);
+  const orderedTabs: AnalyticsTabId[] = useMemo(() => {
+    const all: AnalyticsTabId[] = [
+      'volume', 'eficiencia', 'diagnostico', 'audiencias', 'territorial', 'drill',
+      'cross', 'geral', 'sentimento', 'demografia', 'engajamento', 'criticidade',
+    ];
+    if (activeTheme.id === 'geral') return all;
+    const seen = new Set<AnalyticsTabId>();
+    const ordered: AnalyticsTabId[] = [];
+    for (const t of activeTheme.priorityTabs) {
+      if (!seen.has(t) && all.includes(t)) {
+        ordered.push(t);
+        seen.add(t);
+      }
+    }
+    for (const t of all) {
+      if (!seen.has(t)) ordered.push(t);
+    }
+    return ordered;
+  }, [activeTheme]);
+  const priorityTabSet = useMemo(
+    () => new Set(activeTheme.priorityTabs),
+    [activeTheme],
+  );
+  const refreshAll = () => {
+    void refresh();
+    void refreshThresholdAlerts();
+  };
 
   // Transform peak hours for chart
   const peakHoursData = useMemo(() => {
@@ -98,7 +246,7 @@ export default function ReportsAnalyticsPage() {
           <AlertTriangle className="h-16 w-16 text-destructive opacity-60" />
           <h2 className="text-xl font-semibold text-foreground">Falha ao carregar análises</h2>
           <p className="text-muted-foreground text-center max-w-md">{error}</p>
-          <Button onClick={() => refresh()} variant="default">
+          <Button onClick={refreshAll} variant="default">
             <RefreshCw className="h-4 w-4 mr-2" />
             Tentar novamente
           </Button>
@@ -114,7 +262,7 @@ export default function ReportsAnalyticsPage() {
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <BarChart3 className="h-16 w-16 text-muted-foreground opacity-40" />
           <p className="text-muted-foreground">Nenhum dado disponível</p>
-          <Button onClick={() => refresh()} variant="outline">
+          <Button onClick={refreshAll} variant="outline">
             <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
@@ -131,17 +279,34 @@ export default function ReportsAnalyticsPage() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Análise de Relatos</h1>
             <p className="text-muted-foreground">
-              Relatos urbanos e de transporte • Avaliações de serviço em outra seção
+              Volume, sentimento, demografia e criticidade — relatos urbanos, de transporte e
+              avaliações de serviço
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refresh()} disabled={isLoading}>
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* HU-6.1 — Dropdown de tema de atuação. Persiste por usuário e
+                reordena/destaca as tabs e filtros de cada hook. */}
+            <ThemeSwitcher />
+            {/* HU-6.2 — Presets nomeados (configurações salvas) com default
+                aplicado automaticamente ao abrir a página. */}
+            <PresetsDropdown />
+            <Button variant="outline" size="sm" onClick={refreshAll} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowExport(true)}>
+            {/* HU-7.1 + HU-7.2 — Exportar dados (CSV ou XLSX) configurável.
+                O PDF continua acessível via segundo botão (legacy). */}
+            <Button variant="outline" size="sm" onClick={() => setShowCsvExport(true)}>
               <Download className="h-4 w-4 mr-2" />
-              Exportar
+              Exportar dados
+            </Button>
+            {/* HU-7.4 + HU-7.5 — Acesso ao painel de exportações server-side e
+                agendadas (lista de jobs pendentes/concluídos com link de download). */}
+            <Button variant="ghost" size="sm" onClick={() => setShowJobsPanel(true)}>
+              Minhas exportações
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowExport(true)}>
+              PDF
             </Button>
           </div>
         </div>
@@ -152,7 +317,7 @@ export default function ReportsAnalyticsPage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-destructive" />
               <p className="text-sm text-destructive flex-1">{error}</p>
-              <Button variant="ghost" size="sm" onClick={() => refresh()}>
+              <Button variant="ghost" size="sm" onClick={refreshAll}>
                 Tentar novamente
               </Button>
             </div>
@@ -202,14 +367,71 @@ export default function ReportsAnalyticsPage() {
         </div>
 
         {/* Tabs for detailed analytics */}
-        <Tabs defaultValue="geral" className="w-full">
-          <TabsList className="flex flex-wrap md:grid md:grid-cols-5 w-full h-auto gap-1 p-1">
-            <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
-            <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
-            <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
-            <TabsTrigger value="engajamento" className="flex-1 min-w-[110px]">Engajamento</TabsTrigger>
-            <TabsTrigger value="criticidade" className="flex-1 min-w-[100px]">Criticidade</TabsTrigger>
+        <Tabs value={tabState.tab} onValueChange={(t) => setTabState({ tab: t })} className="w-full">
+          {/* Tabs em flex-wrap puro (mobile-first): quebra naturalmente em 2 linhas sem grid rígido. */}
+          <TabsList className="flex flex-wrap w-full h-auto gap-1 p-1">
+            {/* HU-6.1 — Tabs reordenadas pelas priorityTabs do tema ativo.
+                Tabs do tema ganham um indicador discreto à esquerda (bullet
+                colorido) + leve realce de fundo. Sem ring/borda forte para
+                não competir com o estado de tab ativa do shadcn. */}
+            {orderedTabs.map((id) => {
+              const isPriority = activeTheme.id !== 'geral' && priorityTabSet.has(id);
+              return (
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  className={`flex-1 ${TAB_MIN_WIDTH[id] ?? 'min-w-[100px]'} ${
+                    isPriority
+                      ? 'font-semibold bg-primary/[0.04] data-[state=active]:bg-background'
+                      : 'text-muted-foreground/80'
+                  }`}
+                >
+                  {isPriority && (
+                    <span
+                      className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary/70"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {TAB_LABELS[id]}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
+
+          {/* TAB VOLUME — HU-1.1: visão de volume por período / categoria / região */}
+          <TabsContent value="volume" className="space-y-6">
+            <VolumeOverviewTab />
+          </TabsContent>
+
+          {/* TAB EFICIÊNCIA — HU-1.2: tempo médio de resolução e tendência */}
+          <TabsContent value="eficiencia" className="space-y-6">
+            <ResponseTimeOverviewTab />
+          </TabsContent>
+
+          {/* TAB DIAGNÓSTICO — HU-1.3: sentimento + padrões + criticidade */}
+          <TabsContent value="diagnostico" className="space-y-6">
+            <DiagnosticoTab />
+          </TabsContent>
+
+          {/* TAB AUDIÊNCIAS — HU-1.4: engajamento em audiências */}
+          <TabsContent value="audiencias" className="space-y-6">
+            <AudienciasAnalyticsTab />
+          </TabsContent>
+
+          {/* TAB TERRITORIAL — HU-3.1: drill-down zona › bairro › rua */}
+          <TabsContent value="territorial" className="space-y-6">
+            <TerritorialDrillTab />
+          </TabsContent>
+
+          {/* TAB DRILL-DOWN — HU-3.2: drill multi-dimensional (categoria/tempo/status/audiência) */}
+          <TabsContent value="drill" className="space-y-6">
+            <MultiDrillTab />
+          </TabsContent>
+
+          {/* TAB CRUZAMENTOS — HU-3.4: drill-across categoria × demografia */}
+          <TabsContent value="cross" className="space-y-6">
+            <CrossAnalyticsTab />
+          </TabsContent>
 
           {/* TAB GERAL */}
           <TabsContent value="geral" className="space-y-6">
@@ -506,10 +728,21 @@ export default function ReportsAnalyticsPage() {
                 <TrendingUp className="h-5 w-5 text-primary" />
                 <h3 className="text-lg font-semibold">Alertas de Padrões</h3>
               </div>
-              <PatternAlerts 
-                alerts={stats.criticality.patterns}
-                onAlertClick={(alert) => drillInsight.searchByCategory(alert.title || '')}
-              />
+              {thresholdAlertsError && (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Não foi possível carregar os alertas derivados do pipeline neste momento.
+                </p>
+              )}
+              {thresholdAlerts.length === 0 && !thresholdAlertsError ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum alerta de threshold gerado para a janela atual.
+                </p>
+              ) : (
+                <PatternAlerts
+                  alerts={thresholdAlerts}
+                  onAlertClick={(alert) => drillInsight.searchByCategory(alert.title || '')}
+                />
+              )}
             </Card>
           </TabsContent>
         </Tabs>
@@ -520,8 +753,8 @@ export default function ReportsAnalyticsPage() {
           onClose={drillInsight.close}
         />
 
-        {/* Export Dialog */}
-        <ExportDialog 
+        {/* Export Dialog (PDF — legado, HU-7.1 cobre CSV no diálogo abaixo) */}
+        <ExportDialog
           isOpen={showExport}
           onClose={() => setShowExport(false)}
           exportType="all"
@@ -529,6 +762,22 @@ export default function ReportsAnalyticsPage() {
           analyticsStats={stats}
           sentimentStats={sentimentStats}
         />
+
+        {/* HU-7.1 + HU-7.2 — Export configurável (CSV/XLSX).
+            Filtros herdados: categorias do tema ativo de atuação. */}
+        <DataExportDialog
+          open={showCsvExport}
+          onOpenChange={setShowCsvExport}
+          defaultFilters={{
+            categories:
+              activeTheme.id !== 'geral' && activeTheme.urbanCategories.length > 0
+                ? [...activeTheme.urbanCategories]
+                : undefined,
+          }}
+        />
+
+        {/* HU-7.4 + HU-7.5 — Panel "Minhas exportações". */}
+        <ExportJobsPanel open={showJobsPanel} onOpenChange={setShowJobsPanel} />
       </div>
     </AdminLayout>
   );

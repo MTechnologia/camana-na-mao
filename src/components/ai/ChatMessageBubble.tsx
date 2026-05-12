@@ -2,29 +2,51 @@ import { cn } from "@/lib/utils";
 import { sanitizeMessageContent, getAppActionsFromContent } from "@/lib/sanitizeMarkers";
 import { UserChatBubbleText } from "./UserChatBubbleText";
 import { parseUrbanReportPreview, isUrbanConfirmCorrectQuickReply } from "@/lib/parseUrbanReportPreview";
+import {
+  parseTransportReportPreviewJson,
+} from "@/lib/parseTransportReportPreview";
+import {
+  parseServiceRatingSubmitPreviewJson,
+  stripRatingSubmitPreviewDuplicateMarkdown,
+} from "@/lib/parseServiceRatingSubmitPreview";
 import { UrbanReportPreviewInChat } from "./UrbanReportPreviewInChat";
+import { TransportReportPreviewInChat } from "./TransportReportPreviewInChat";
+import { RatingPreviewCard } from "./RatingPreviewCard";
 import { SimilarUrbanReportsInChat, parseSimilarUrbanReportsB64 } from "./SimilarUrbanReportsInChat";
+import {
+  SimilarTransportReportsInChat,
+  parseSimilarTransportReportsB64,
+} from "./SimilarTransportReportsInChat";
 import { parseServicePickerMarker } from "@/lib/parseServicePickerMarker";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2 } from "lucide-react";
+import { Bot, MapPin, ArrowRight, RotateCcw, Bus, Calendar, Clock, Star, Building2, ChevronDown, ChevronUp, FileText, CheckCircle2, Pencil, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { AddressAutocomplete, StructuredAddress } from "@/components/address";
 import { ZONAS_SAO_PAULO, localParaZona } from "@/lib/audienciaZonas";
 import { extrairEmailDeMaisInformacoes, parseConvidadosItens } from "@/lib/audienciaDisplay";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getServiceTypeLabel } from "@/components/icons";
 import InlineDatePicker from "./InlineDatePicker";
 import InlineTimePicker from "./InlineTimePicker";
+import InlineDirectionPicker from "./InlineDirectionPicker";
+import InlineRecurrenceFrequencyPicker from "./InlineRecurrenceFrequencyPicker";
+import InlineImpactPicker from "./InlineImpactPicker";
+import InlineAccessibilityChecklist from "./InlineAccessibilityChecklist";
 import InlineLinePicker from "./InlineLinePicker";
 import InlineRatingPicker from "./InlineRatingPicker";
+import MultiDimensionRatingPicker from "./MultiDimensionRatingPicker";
+import type { ServiceRatingDimensions } from "@/lib/serviceRatingDimensions";
+import { WaitTimePicker } from "./WaitTimePicker";
 import InlineLocationMethodPicker from "./InlineLocationMethodPicker";
 import InlineServiceTypePicker from "./InlineServiceTypePicker";
 import InlineServicePicker from "./InlineServicePicker";
+import InlineSubcategoryPicker from "./InlineSubcategoryPicker";
 import InlineAddressConfirm from "./InlineAddressConfirm";
 import NearbyServicesFiltersInline, { type NearbyFiltersValues } from "./NearbyServicesFiltersInline";
 import PromptChips, { CollectionTypePreset } from "./PromptChips";
@@ -37,6 +59,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { forceReplaceRatingComment, parseRatingSummaryComment } from "@/lib/ratingSummaryComment";
 
 /** Valor usado no Select para "qualquer"; Radix Select não aceita value="". */
 const AUDIENCIA_CHAT_ANY = "__any__";
@@ -105,10 +130,24 @@ interface ChatMessageBubbleProps {
   onAddressSelected?: (address: StructuredAddress) => void;
   onJourneySwitchDecision?: (decision: 'switch' | 'continue', newJourney?: string) => void;
   // New picker callbacks
-  onLineSelected?: (lineCode: string, lineName: string) => void;
+  onLineSelected?: (lineCode: string, lineName: string, lineId?: string) => void;
   onDateSelected?: (date: string, displayText: string) => void;
   onTimeSelected?: (time: string, displayText: string) => void;
+  onDirectionSelected?: (direction: string, displayText: string) => void;
+  onSubcategorySelected?: (value: string, label: string, reportType: string) => void;
+  onRecurrenceFrequencySelected?: (frequency: string, displayText: string) => void;
+  onImpactSelected?: (score: number, label: string) => void;
+  onAccessibilityDetailsSelected?: (details: Record<string, unknown>) => void;
   onRatingSelected?: (stars: number) => void;
+  onWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
+  onDimensionRatingSelected?: (dimensionKey: string, stars: number) => void;
+  /** Avaliação 4 dimensões de uma vez → `useUnifiedAIChat` envia `[RATING_DIMENSIONS:{...}]`. */
+  onMultiDimensionRatingComplete?: (
+    dims: ServiceRatingDimensions,
+    opts?: { waitTimeSemanticNull?: boolean },
+  ) => void;
+  /** Fluxo atômico dim_tempo + [WAIT_TIME_PICKER] (HU-4.1). */
+  onRatingDimensionWaitTimeSelected?: (displayLabel: string, score: number | null) => void;
   onLocationMethodSelected?: (method: string, messageToSend: string) => void;
   onServiceTypeSelected?: (type: string, displayName: string, otherSpec?: string) => void;
   onServiceSelected?: (name: string, neighborhood: string, address: string, serviceId?: string) => void;
@@ -119,7 +158,11 @@ interface ChatMessageBubbleProps {
   /** Aplicar filtros de raio/avaliação/busca no fluxo Perto de você (envia mensagem e re-busca). */
   onApplyNearbyFilters?: (filters: NearbyFiltersValues) => void;
   /** Envia mensagem como se o usuário tivesse digitado (ex.: botão "Encaminhar para vereador"). */
-  onSendMessage?: (message: string) => void;
+  onSendMessage?: (message: string) => void | Promise<void>;
+  /** Atualiza conteúdo bruto da mensagem (ex.: após editar comentário na avaliação registrada). */
+  patchMessageContent?: (messageId: string, newContent: string) => void | Promise<void>;
+  onChipSelect?: (initialMessage?: string, collectionTypePreset?: CollectionTypePreset) => void | Promise<void>;
+  onOpenDiscovery?: () => void;
   /** Desabilita o botão Registrar até o usuário anexar fotos (fluxo "Pode anexar até 3 fotos"). */
   disableRegistrarUntilPhotosAttached?: boolean;
 }
@@ -133,7 +176,16 @@ const ChatMessageBubble = ({
   onLineSelected,
   onDateSelected,
   onTimeSelected,
+  onDirectionSelected,
+  onSubcategorySelected,
+  onRecurrenceFrequencySelected,
+  onImpactSelected,
+  onAccessibilityDetailsSelected,
   onRatingSelected,
+  onWaitTimeSelected,
+  onDimensionRatingSelected,
+  onMultiDimensionRatingComplete,
+  onRatingDimensionWaitTimeSelected,
   onLocationMethodSelected,
   onServiceTypeSelected,
   onServiceSelected,
@@ -144,6 +196,7 @@ const ChatMessageBubble = ({
   onRequestAudienciasWithFilters,
   onApplyNearbyFilters,
   onSendMessage,
+  patchMessageContent,
   disableRegistrarUntilPhotosAttached = false,
 }: ChatMessageBubbleProps) => {
   const isUser = message.role === "user";
@@ -154,10 +207,23 @@ const ChatMessageBubble = ({
   const [lineSelected, setLineSelected] = useState(false);
   const [dateSelected, setDateSelected] = useState(false);
   const [timeSelected, setTimeSelected] = useState(false);
+  const [directionSelected, setDirectionSelected] = useState(false);
+  const [subcategorySelected, setSubcategorySelected] = useState(false);
+  const [recurrenceFrequencySelected, setRecurrenceFrequencySelected] = useState(false);
+  const [impactSelected, setImpactSelected] = useState(false);
+  const [accessibilityDetailsSelected, setAccessibilityDetailsSelected] = useState(false);
   const [ratingSelected, setRatingSelected] = useState(false);
+  const [waitTimeSelected, setWaitTimeSelected] = useState(false);
+  const [dimensionRatingSelected, setDimensionRatingSelected] = useState(false);
+  const [multiDimensionRatingSubmitted, setMultiDimensionRatingSubmitted] = useState(false);
   const [locationMethodSelected, setLocationMethodSelected] = useState(false);
   const [serviceTypeSelected, setServiceTypeSelected] = useState(false);
   const [serviceSelected, setServiceSelected] = useState(false);
+  const [ratingCommentEditing, setRatingCommentEditing] = useState(false);
+  const [ratingCommentDraft, setRatingCommentDraft] = useState("");
+  const [ratingCommentSaving, setRatingCommentSaving] = useState(false);
+  /** Quando o replace no raw falha, ainda assim atualiza o texto sanitizado exibido. */
+  const [ratingCommentDisplayOverride, setRatingCommentDisplayOverride] = useState<string | null>(null);
   const [serviceAddressConfirmed, setServiceAddressConfirmed] = useState(false);
   const [contentExpanded, setContentExpanded] = useState(false);
   const [showAudienciaInscricaoInline, setShowAudienciaInscricaoInline] = useState(false);
@@ -184,13 +250,44 @@ const ChatMessageBubble = ({
   const hasLinePicker = !isUser && message.content.includes('[LINE_PICKER]');
   const hasDatePicker = !isUser && message.content.includes('[DATE_PICKER]');
   const hasTimePicker = !isUser && message.content.includes('[TIME_PICKER]');
+  const hasDirectionPicker = !isUser && message.content.includes('[DIRECTION_PICKER]');
+  const subcategoryPickerMatch = !isUser ? message.content.match(/\[SUBCATEGORY_PICKER:([a-z_]+)\]/i) : null;
+  const subcategoryPickerReportType = subcategoryPickerMatch?.[1]?.toLowerCase() || null;
+  const hasSubcategoryPicker = !isUser && !!subcategoryPickerReportType;
+  const hasRecurrenceFrequencyPicker = !isUser && message.content.includes('[RECURRENCE_FREQUENCY_PICKER]');
+  const hasImpactPicker = !isUser && message.content.includes('[IMPACT_PICKER]');
+  const hasAccessibilityChecklist = !isUser && message.content.includes('[ACCESSIBILITY_CHECKLIST]');
   const hasRatingPicker = !isUser && message.content.includes('[RATING_PICKER]');
+  const hasMultiDimensionRatingPicker =
+    !isUser && message.content.includes("[MULTI_DIMENSION_RATING_PICKER]");
+  const hasWaitTimePicker = !isUser && message.content.includes('[WAIT_TIME_PICKER]');
   const hasLocationMethodPicker = !isUser && /\[\s*LOCATION_METHOD_PICKER\s*\]/.test(message.content);
   const hasServiceTypePicker = !isUser && message.content.includes('[SERVICE_TYPE_PICKER]');
   const hasServicePicker = !isUser && message.content.includes('[SERVICE_PICKER]');
   const hasServiceAddressConfirm = !isUser && message.content.includes('[SERVICE_ADDRESS_CONFIRM]');
 
-  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5".
+  // Dimensão: [DIMENSION_RATING_PICKER:X] OU [FIELD_REQUEST:dim_X] + [RATING_PICKER] / [WAIT_TIME_PICKER] para tempo (HU-4.1)
+  const dimensionRatingMatch = useMemo(() => {
+    if (isUser || hasMultiDimensionRatingPicker) return null;
+    const legacy = message.content.match(/\[DIMENSION_RATING_PICKER:(\w+)\]/);
+    if (legacy) return legacy[1];
+    const dimFr = message.content.match(/\[FIELD_REQUEST:(dim_\w+)\]/);
+    const hasStarPicker = message.content.includes("[RATING_PICKER]");
+    const hasWaitPicker = message.content.includes("[WAIT_TIME_PICKER]");
+    if (dimFr && (hasStarPicker || (dimFr[1] === "dim_tempo_espera" && hasWaitPicker))) {
+      const map: Record<string, string> = {
+        dim_tempo_espera: "tempo_espera",
+        dim_atendimento: "atendimento",
+        dim_infraestrutura: "infraestrutura",
+        dim_limpeza: "limpeza",
+      };
+      return map[dimFr[1]] || null;
+    }
+    return null;
+  }, [isUser, message.content, hasMultiDimensionRatingPicker]);
+  const hasDimensionRatingPicker = dimensionRatingMatch !== null;
+
+  // Botões de audiências (Inscrever-se ou Inscrições encerradas, Abrir Audiências, Buscar outras): quando a resposta for sobre listagem/agenda de audiências ou "este ano não foram realizadas... últimas 5"; não em texto institucional que só menciona "audiências".
   const shouldShowAudienciasCta = useMemo(() => {
     if (isUser || !isLastAssistantMessage) return false;
     const content = message.content.toLowerCase();
@@ -238,7 +335,7 @@ const ChatMessageBubble = ({
           .order("data", { ascending: true })
           .range(offset, offset + pageSize - 1);
         if (error) throw error;
-        const page = (data || []) as typeof all;
+        const page = (data || []) as unknown as typeof all;
         all.push(...page);
         if (page.length < pageSize) break;
         offset += pageSize;
@@ -396,9 +493,81 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:occurrence_time]') ||
-      (content.includes('que horas') && isLastAssistantMessage)
+      (isLastAssistantMessage &&
+        (content.includes('que horas') ||
+          content.includes('horário exato') ||
+          content.includes('horario exato') ||
+          content.includes('qual foi o horário') ||
+          content.includes('qual foi o horario')))
     );
   }, [isUser, message.content, timeSelected, hasTimePicker, isLastAssistantMessage]);
+
+  // Detect direction question without explicit marker
+  const isAskingForDirection = useMemo(() => {
+    if (isUser || directionSelected || hasDirectionPicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:direction]') ||
+      (isLastAssistantMessage &&
+        (content.includes('qual era o **sentido** da viagem') ||
+          content.includes('qual era o sentido da viagem') ||
+          content.includes('qual o sentido da viagem')))
+    );
+  }, [isUser, message.content, directionSelected, hasDirectionPicker, isLastAssistantMessage]);
+
+  const isAskingForRecurrenceFrequency = useMemo(() => {
+    if (isUser || recurrenceFrequencySelected || hasRecurrenceFrequencyPicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:recurrence_frequency]') ||
+      (isLastAssistantMessage &&
+        (content.includes('com qual frequência isso acontece') ||
+          content.includes('com qual frequencia isso acontece')))
+    );
+  }, [
+    isUser,
+    message.content,
+    recurrenceFrequencySelected,
+    hasRecurrenceFrequencyPicker,
+    isLastAssistantMessage,
+  ]);
+
+  const isAskingForPersonalImpact = useMemo(() => {
+    if (isUser || impactSelected || hasImpactPicker) return false;
+    const lower = message.content.toLowerCase();
+    return (
+      /\[field_request:personal_impact\]/i.test(message.content) ||
+      (isLastAssistantMessage &&
+        ((lower.includes("afetou") && lower.includes("rotina")) ||
+          lower.includes("como isso afetou")))
+    );
+  }, [
+    isUser,
+    message.content,
+    impactSelected,
+    hasImpactPicker,
+    isLastAssistantMessage,
+  ]);
+
+  const isAskingForAccessibilityDetails = useMemo(() => {
+    if (isUser || accessibilityDetailsSelected || hasAccessibilityChecklist) return false;
+    const lower = message.content.toLowerCase();
+    return (
+      /\[field_request:accessibility_details\]/i.test(message.content) ||
+      (isLastAssistantMessage &&
+        (lower.includes("checklist de acessibilidade") ||
+          lower.includes("detalhes de acessibilidade") ||
+          lower.includes("piso tátil") ||
+          lower.includes("piso tatil") ||
+          lower.includes("rampa")))
+    );
+  }, [
+    isUser,
+    accessibilityDetailsSelected,
+    hasAccessibilityChecklist,
+    message.content,
+    isLastAssistantMessage,
+  ]);
   
   // Detect rating question without explicit marker
   const isAskingForRating = useMemo(() => {
@@ -409,6 +578,16 @@ const ChatMessageBubble = ({
       ((content.includes('que nota') || content.includes('de 1 a 5')) && isLastAssistantMessage)
     );
   }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
+
+  const isAskingForWaitTime = useMemo(() => {
+    if (isUser || waitTimeSelected || hasWaitTimePicker) return false;
+    const content = message.content.toLowerCase();
+    return (
+      content.includes('[field_request:wait_time]') ||
+      ((content.includes('tempo você esperou') || content.includes('quanto tempo você esperou')) &&
+        isLastAssistantMessage)
+    );
+  }, [isUser, message.content, waitTimeSelected, hasWaitTimePicker, isLastAssistantMessage]);
   
   // Detect service type question
   const isAskingForServiceType = useMemo(() => {
@@ -457,15 +636,49 @@ const ChatMessageBubble = ({
     treatCepQuestionAsUrbanLocationStep,
   ]);
 
+  useEffect(() => {
+    setRatingCommentDisplayOverride(null);
+  }, [message.id]);
+
+  /** Texto bruto usado só para exibição (resumo pós [RATING_CREATED]); pode divergir se o modelo usar formato exótico. */
+  const assistantRawForDisplay = useMemo(() => {
+    if (
+      !ratingCommentDisplayOverride ||
+      !message.content.includes("[RATING_CREATED:")
+    ) {
+      return message.content;
+    }
+    return forceReplaceRatingComment(message.content, ratingCommentDisplayOverride);
+  }, [message.content, ratingCommentDisplayOverride]);
+
   // Clean content: remove ALL markers so they never show as text (LOCATION_METHOD_PICKER etc.)
   const cleanContent = useMemo(() => {
-    let text = sanitizeMessageContent(message.content);
+    let text = sanitizeMessageContent(assistantRawForDisplay);
     text = text.replace(/\[\s*LOCATION_METHOD_PICKER\s*\]/g, '');
     text = text.replace(/\[LOCATION_METHOD_PICKER\]/g, '');
     // Garantir que o marcador de chips nunca apareça como texto (defesa em profundidade)
     text = text.split('[SHOW_SERVICES_CHIPS]').join('').trim();
+    if (ratingCommentDisplayOverride?.trim()) {
+      const v = ratingCommentDisplayOverride.trim();
+      const afterReplace = forceReplaceRatingComment(text, v);
+      if (afterReplace !== text) {
+        text = afterReplace;
+      } else {
+        const displayPatterns: RegExp[] = [
+          /(📝\s*\*\*Comentário\*\*:\s*)([^\n]+)/u,
+          /(\*\*Comentário\*\*:\s*)([^\n]+)/u,
+          /(Comentário\s*:\s*)([^\n]+)/iu,
+        ];
+        for (const re of displayPatterns) {
+          if (re.test(text)) {
+            text = text.replace(re, `$1${v}`);
+            break;
+          }
+        }
+      }
+    }
     return text.trim();
-  }, [message.content]);
+  }, [assistantRawForDisplay, ratingCommentDisplayOverride]);
 
   const isLongContent = cleanContent.length > 450;
 
@@ -475,6 +688,39 @@ const ChatMessageBubble = ({
     (message.content.includes("[REPORT_CREATED:") ||
       message.content.includes("[TRANSPORT_CREATED:") ||
       message.content.includes("[RATING_CREATED:"));
+
+  const ratingCreatedId = useMemo(
+    () =>
+      !isUser ? message.content.match(/\[RATING_CREATED:([a-f0-9-]+)\]/i)?.[1] ?? null : null,
+    [isUser, message.content],
+  );
+
+  const handleSaveRatingComment = useCallback(async () => {
+    if (!ratingCreatedId || !patchMessageContent) return;
+    const t = ratingCommentDraft.trim();
+    if (t.length < 5) {
+      toast.error("O comentário precisa ter pelo menos 5 caracteres.");
+      return;
+    }
+    setRatingCommentSaving(true);
+    try {
+      const { error } = await supabase
+        .from("service_ratings")
+        .update({ rating_text: t })
+        .eq("id", ratingCreatedId);
+      if (error) throw error;
+      const updated = forceReplaceRatingComment(message.content, t);
+      setRatingCommentDisplayOverride(t);
+      await patchMessageContent(message.id, updated);
+      toast.success("Comentário atualizado.");
+      setRatingCommentEditing(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível salvar o comentário.");
+    } finally {
+      setRatingCommentSaving(false);
+    }
+  }, [ratingCreatedId, patchMessageContent, ratingCommentDraft, message.content, message.id]);
 
   // Ações do app após respostas RAG (ex.: audiências) — botões para ver no chat ou no módulo
   const appActions = useMemo(
@@ -504,8 +750,14 @@ const ChatMessageBubble = ({
     message.content.includes('o intuito deste canal é poder te ajudar com estes serviços')
   );
 
-  // Botão "Encaminhar para vereador" após relato registrado (evita perder contexto com pergunta em texto)
-  const hasEncaminharVereadorCta = !isUser && message.content.includes('[REPORT_CREATED:');
+  // Botão "Encaminhar para vereador" após relato ou oferta pós-avaliação com nota baixa
+  const hasEncaminharVereadorCta =
+    !isUser &&
+    (
+      message.content.includes('[REPORT_CREATED:') ||
+      message.content.includes('[TRANSPORT_CREATED:') ||
+      message.content.includes('[OFFER_REFERRAL]')
+    );
 
   // Botões de resposta rápida (relato urbano: Sim/Não, Registrar, Confirmar/Corrigir)
   const quickReplyButtons = useMemo(() => {
@@ -540,6 +792,27 @@ const ChatMessageBubble = ({
       duvida: 'Dúvida',
       sugestao: 'Sugestão',
       elogio: 'Elogio',
+      tipo: 'Tipo',
+      linha: 'Linha',
+      data: 'Data',
+      horário: 'Horário',
+      sentido: 'Sentido',
+      frequência: 'Frequência',
+      impacto: 'Impacto na rotina',
+      parada: 'Parada / estação',
+      ponto: 'Ponto / referência',
+      referencia: 'Ponto / referência',
+      referência: 'Ponto / referência',
+      detalhes_acessibilidade: 'Acessibilidade',
+      local: 'Local',
+      lotacao: 'Lotação',
+      seguranca: 'Segurança',
+      acessibilidade: 'Acessibilidade',
+      limpeza: 'Limpeza',
+      conducao: 'Condução',
+      outro: 'Outro',
+      publicar: 'Publicar',
+      editar_comentario: 'Editar',
     };
     return values.map((value) => ({
       value,
@@ -553,6 +826,11 @@ const ChatMessageBubble = ({
     [isUser, message.content]
   );
 
+  const similarTransportReportsPayload = useMemo(
+    () => (!isUser ? parseSimilarTransportReportsB64(message.content) : null),
+    [isUser, message.content],
+  );
+
   /** Preview estruturado do relato urbano (PO: melhor UX que parágrafo denso em markdown). */
   const urbanReportPreviewParsed = useMemo(() => parseUrbanReportPreview(cleanContent), [cleanContent]);
   const showUrbanPreviewCard =
@@ -561,9 +839,50 @@ const ChatMessageBubble = ({
     isUrbanConfirmCorrectQuickReply(message.content) &&
     audienciaContentSplit.contentAfter === null;
 
+  const transportPreviewParsed = useMemo(
+    () => (!isUser ? parseTransportReportPreviewJson(message.content) : null),
+    [isUser, message.content],
+  );
+  const showTransportPreviewCard = Boolean(
+    !isUser &&
+      transportPreviewParsed &&
+      /resumo do relato de transporte/i.test(message.content) &&
+      /\[QUICK_REPLY:[^\]]*(?:registrar|confirmar|corrigir)/i.test(message.content),
+  );
+
+  const ratingSubmitPreviewParsed = useMemo(
+    () => (!isUser ? parseServiceRatingSubmitPreviewJson(message.content) : null),
+    [isUser, message.content],
+  );
+  const showRatingSubmitPreviewCard = Boolean(
+    !isUser &&
+      ratingSubmitPreviewParsed &&
+      /\[RATING_SUBMIT_PREVIEW\]/i.test(message.content) &&
+      /\[QUICK_REPLY:[^\]]*publicar/i.test(message.content),
+  );
+  const markdownAfterRatingSubmitPreview = useMemo(() => {
+    if (!showRatingSubmitPreviewCard) return cleanContent;
+    return stripRatingSubmitPreviewDuplicateMarkdown(cleanContent);
+  }, [showRatingSubmitPreviewCard, cleanContent]);
+
+  const markdownAfterTransportCard = useMemo(() => {
+    if (!showTransportPreviewCard) return cleanContent;
+    return cleanContent
+      .replace(
+        /\*\*Resumo do relato de transporte\*\*\s*[\s\S]*?(?=\n\s*Se estiver tudo certo)/i,
+        "",
+      )
+      .trim();
+  }, [showTransportPreviewCard, cleanContent]);
+
   /** Card urbano já é legível; evita "Ver mais" sem sentido se o texto bruto for longo. */
   const showVerMais =
-    !isUser && isLongContent && !showUrbanPreviewCard && !isRegisteredReportSuccessMessage;
+    !isUser &&
+    isLongContent &&
+    !showUrbanPreviewCard &&
+    !showTransportPreviewCard &&
+    !showRatingSubmitPreviewCard &&
+    !isRegisteredReportSuccessMessage;
 
   // Mostrar filtros (raio, avaliação, busca) só quando já tiver lista de resultados (assim temos service_type + localização e "Aplicar filtros" re-busca com os filtros)
   const shouldShowNearbyFilters = !isUser && isLastAssistantMessage && onApplyNearbyFilters && (
@@ -586,10 +905,10 @@ const ChatMessageBubble = ({
     }
   };
   
-  const handleLineSelected = (lineCode: string, lineName: string) => {
+  const handleLineSelected = (lineCode: string, lineName: string, lineId?: string) => {
     setLineSelected(true);
     if (onLineSelected) {
-      onLineSelected(lineCode, lineName);
+      onLineSelected(lineCode, lineName, lineId);
     }
   };
   
@@ -606,12 +925,65 @@ const ChatMessageBubble = ({
       onTimeSelected(time, displayText);
     }
   };
+
+  const handleDirectionSelected = (direction: string, displayText: string) => {
+    setDirectionSelected(true);
+    if (onDirectionSelected) {
+      onDirectionSelected(direction, displayText);
+    }
+  };
+
+  const handleSubcategorySelected = (value: string, label: string, reportType: string) => {
+    setSubcategorySelected(true);
+    if (onSubcategorySelected) {
+      onSubcategorySelected(value, label, reportType);
+    }
+  };
+
+  const handleRecurrenceFrequencySelected = (frequency: string, displayText: string) => {
+    setRecurrenceFrequencySelected(true);
+    if (onRecurrenceFrequencySelected) {
+      onRecurrenceFrequencySelected(frequency, displayText);
+    }
+  };
+
+  const handleImpactSelected = (score: number, label: string) => {
+    setImpactSelected(true);
+    if (onImpactSelected) {
+      onImpactSelected(score, label);
+    }
+  };
+
+  const handleAccessibilityDetailsSelected = (details: Record<string, unknown>) => {
+    setAccessibilityDetailsSelected(true);
+    onAccessibilityDetailsSelected?.(details);
+  };
   
   const handleRatingSelected = (stars: number) => {
     setRatingSelected(true);
     if (onRatingSelected) {
       onRatingSelected(stars);
     }
+  };
+
+  const handleWaitTimeSelected = (displayLabel: string, score: number | null) => {
+    setWaitTimeSelected(true);
+    onWaitTimeSelected?.(displayLabel, score);
+  };
+
+  const handleDimensionRatingSelected = (stars: number) => {
+    setDimensionRatingSelected(true);
+    if (dimensionRatingMatch && onDimensionRatingSelected) {
+      onDimensionRatingSelected(dimensionRatingMatch, stars);
+    }
+  };
+
+  const handleMultiDimensionRatingComplete = (
+    dims: ServiceRatingDimensions,
+    opts?: { waitTimeSemanticNull?: boolean },
+  ) => {
+    setMultiDimensionRatingSubmitted(true);
+    onMultiDimensionRatingComplete?.(dims, opts);
   };
 
   const handleLocationMethodSelected = (method: string, messageToSend: string) => {
@@ -653,11 +1025,13 @@ const ChatMessageBubble = ({
   const servicePickerContext = useMemo(() => {
     let serviceType: string | undefined;
     let district: string | undefined;
+    let hideRatedToday = false;
 
     if (message.content.includes("[SERVICE_PICKER")) {
       const parsed = parseServicePickerMarker(message.content);
       serviceType = parsed.serviceType;
       district = parsed.district;
+      hideRatedToday = Boolean(parsed.hideRatedToday);
     }
     if (!serviceType) {
       const typeMatch = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
@@ -667,8 +1041,49 @@ const ChatMessageBubble = ({
       const neighMatch = message.content.match(/"service_neighborhood"\s*:\s*"([^"]+)"/);
       if (neighMatch) district = neighMatch[1];
     }
-    return { serviceType, district };
+    return { serviceType, district, hideRatedToday };
   }, [message.content]);
+
+  const ratingServiceType = useMemo(() => {
+    const explicit = message.content.match(/"service_type"\s*:\s*"([^"]+)"/);
+    if (explicit?.[1]) return explicit[1].trim().toLowerCase();
+
+    const fieldProgress = message.content.match(/\[COLLECTION_PROGRESS:service_rating:([^\]]+)\]/);
+    if (fieldProgress?.[1]) {
+      try {
+        const parsed = JSON.parse(fieldProgress[1]) as { service_type?: string };
+        if (parsed.service_type) return String(parsed.service_type).trim().toLowerCase();
+      } catch {
+        // ignore malformed progress payload
+      }
+    }
+
+    return null;
+  }, [message.content]);
+
+  const ratingServiceTypeLabel = useMemo(() => {
+    if (!ratingServiceType) return undefined;
+    return getServiceTypeLabel(ratingServiceType);
+  }, [ratingServiceType]);
+
+  const { data: ratingServiceTypeHints = [] } = useQuery({
+    queryKey: ["service-type-rating-hints", ratingServiceType],
+    enabled: Boolean(hasMultiDimensionRatingPicker && isLastAssistantMessage && ratingServiceType),
+    queryFn: async () => {
+      if (!ratingServiceType) return [];
+      const { data, error } = await supabase
+        .from("service_type_rating_questions")
+        .select("hint_text")
+        .eq("service_type", ratingServiceType)
+        .order("sort_order", { ascending: true })
+        .limit(5);
+      if (error || !data?.length) return [];
+      return data
+        .map((row) => row.hint_text?.trim())
+        .filter((value): value is string => Boolean(value));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   
   return (
     <div
@@ -712,6 +1127,120 @@ const ChatMessageBubble = ({
             <div className="w-full">
               {showUrbanPreviewCard && urbanReportPreviewParsed ? (
                 <UrbanReportPreviewInChat preview={urbanReportPreviewParsed} />
+              ) : showTransportPreviewCard && transportPreviewParsed ? (
+              <>
+                <TransportReportPreviewInChat preview={transportPreviewParsed} />
+                <div
+                  className={cn(
+                    "prose prose-sm dark:prose-invert max-w-none mt-2",
+                    showVerMais && !contentExpanded && "line-clamp-6",
+                  )}
+                >
+                  <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                    ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    a: ({ href, children }) => {
+                      const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                      if (isInternal) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(href || '/');
+                            }}
+                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                          >
+                            {children}
+                          </button>
+                        );
+                      }
+                      return (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                        >
+                          {children}
+                        </a>
+                      );
+                    },
+                    code: ({ children }) => (
+                      <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
+                        {children}
+                      </code>
+                    ),
+                  }}
+                >
+                  {audienciaContentSplit.contentAfter === null
+                    ? withStepLineBreaks(markdownAfterTransportCard)
+                    : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                </ReactMarkdown>
+                </div>
+              </>
+              ) : showRatingSubmitPreviewCard && ratingSubmitPreviewParsed ? (
+              <>
+                <RatingPreviewCard preview={ratingSubmitPreviewParsed} />
+                <div
+                  className={cn(
+                    "prose prose-sm dark:prose-invert max-w-none mt-2",
+                    showVerMais && !contentExpanded && "line-clamp-6",
+                  )}
+                >
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="text-sm mb-2 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="text-sm list-disc pl-4 mb-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="text-sm list-decimal pl-4 mb-2">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      em: ({ children }) => <em className="italic">{children}</em>,
+                      a: ({ href, children }) => {
+                        const isInternal = href?.startsWith('/') && !href?.startsWith('//');
+                        if (isInternal) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                navigate(href || '/');
+                              }}
+                              className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer"
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
+                        return (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
+                      code: ({ children }) => (
+                        <code className="bg-background/50 px-1 py-0.5 rounded text-xs">
+                          {children}
+                        </code>
+                      ),
+                    }}
+                  >
+                    {audienciaContentSplit.contentAfter === null
+                      ? withStepLineBreaks(markdownAfterRatingSubmitPreview)
+                      : withStepLineBreaks(audienciaContentSplit.contentBefore)}
+                  </ReactMarkdown>
+                </div>
+              </>
               ) : (
               <div
                 className={cn(
@@ -767,6 +1296,71 @@ const ChatMessageBubble = ({
                 </ReactMarkdown>
               </div>
               )}
+              {ratingCreatedId && patchMessageContent && (
+                  <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
+                    {!ratingCommentEditing ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setRatingCommentDraft(parseRatingSummaryComment(message.content) ?? "");
+                          setRatingCommentEditing(true);
+                        }}
+                        disabled={ratingCommentSaving}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" aria-hidden />
+                        Editar comentário
+                      </Button>
+                    ) : (
+                      <div className="space-y-2">
+                        <label htmlFor={`rating-comment-edit-${message.id}`} className="text-xs font-medium text-foreground">
+                          Comentário público
+                        </label>
+                        <Textarea
+                          id={`rating-comment-edit-${message.id}`}
+                          value={ratingCommentDraft}
+                          onChange={(e) => setRatingCommentDraft(e.target.value)}
+                          rows={4}
+                          className="resize-y min-h-[88px] text-sm bg-background"
+                          disabled={ratingCommentSaving}
+                        />
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              setRatingCommentEditing(false);
+                              setRatingCommentDraft("");
+                            }}
+                            disabled={ratingCommentSaving}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => void handleSaveRatingComment()}
+                            disabled={ratingCommentSaving || ratingCommentDraft.trim().length < 5}
+                          >
+                            {ratingCommentSaving ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" aria-hidden />
+                                Salvando…
+                              </>
+                            ) : (
+                              "Salvar"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               {/* Documentos e materiais de referência + Convidados — acima de "Quer saber mais..." */}
               {audienciaContentSplit.contentAfter !== null && !isUser && shouldShowAudienciasCta && audienciasFiltradasNoChat.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-border/50 space-y-3">
@@ -909,6 +1503,9 @@ const ChatMessageBubble = ({
               {!isUser && similarUrbanReportsPayload && (
                 <SimilarUrbanReportsInChat payload={similarUrbanReportsPayload} className="mt-3" />
               )}
+              {!isUser && similarTransportReportsPayload && (
+                <SimilarTransportReportsInChat payload={similarTransportReportsPayload} className="mt-3" />
+              )}
             </div>
           )}
         </div>
@@ -978,11 +1575,100 @@ const ChatMessageBubble = ({
         {(hasTimePicker || isAskingForTime) && !timeSelected && isLastAssistantMessage && (
           <InlineTimePicker onSelect={handleTimeSelected} />
         )}
+
+        {/* Inline Direction Picker */}
+        {(hasDirectionPicker || isAskingForDirection) && !directionSelected && isLastAssistantMessage && (
+          <InlineDirectionPicker onSelect={handleDirectionSelected} />
+        )}
+
+        {hasSubcategoryPicker &&
+          !subcategorySelected &&
+          isLastAssistantMessage &&
+          subcategoryPickerReportType &&
+          onSubcategorySelected && (
+            <InlineSubcategoryPicker
+              reportType={subcategoryPickerReportType}
+              onSelect={handleSubcategorySelected}
+            />
+          )}
+
+        {(hasRecurrenceFrequencyPicker || isAskingForRecurrenceFrequency) &&
+          !recurrenceFrequencySelected &&
+          isLastAssistantMessage && (
+            <InlineRecurrenceFrequencyPicker onSelect={handleRecurrenceFrequencySelected} />
+          )}
+
+        {(hasImpactPicker || isAskingForPersonalImpact) &&
+          !impactSelected &&
+          isLastAssistantMessage &&
+          onImpactSelected && (
+            <InlineImpactPicker onSelect={handleImpactSelected} />
+          )}
+
+        {(hasAccessibilityChecklist || isAskingForAccessibilityDetails) &&
+          !accessibilityDetailsSelected &&
+          isLastAssistantMessage &&
+          onAccessibilityDetailsSelected && (
+            <InlineAccessibilityChecklist onSelect={handleAccessibilityDetailsSelected} />
+          )}
         
-        {/* Avaliação geral (1–5 estrelas) */}
-        {(hasRatingPicker || isAskingForRating) && !ratingSelected && isLastAssistantMessage && onRatingSelected && (
+        {/* Avaliação geral (1–5 estrelas) — não exibir se for dimensão atômica (FIELD_REQUEST:dim_* + RATING_PICKER) */}
+        {(hasRatingPicker || isAskingForRating) &&
+          !hasDimensionRatingPicker &&
+          !ratingSelected &&
+          isLastAssistantMessage &&
+          onRatingSelected && (
           <InlineRatingPicker onSelect={handleRatingSelected} />
         )}
+
+        {hasMultiDimensionRatingPicker &&
+          !multiDimensionRatingSubmitted &&
+          isLastAssistantMessage &&
+          onMultiDimensionRatingComplete && (
+            <MultiDimensionRatingPicker
+              onComplete={handleMultiDimensionRatingComplete}
+              serviceTypeLabel={ratingServiceTypeLabel}
+              serviceTypeHints={ratingServiceTypeHints}
+            />
+          )}
+
+        {(hasWaitTimePicker || isAskingForWaitTime) &&
+          !(hasDimensionRatingPicker && dimensionRatingMatch === "tempo_espera") &&
+          !waitTimeSelected &&
+          isLastAssistantMessage &&
+          onWaitTimeSelected && (
+            <WaitTimePicker onSelect={handleWaitTimeSelected} />
+          )}
+
+        {/* Dimension Rating Picker (atendimento, infraestrutura, etc.) — tempo: WaitTimePicker se marcador HU-4.1 */}
+        {hasDimensionRatingPicker &&
+          dimensionRatingMatch === "tempo_espera" &&
+          !dimensionRatingSelected &&
+          isLastAssistantMessage &&
+          (onRatingDimensionWaitTimeSelected || onWaitTimeSelected) && (
+            <WaitTimePicker
+              onSelect={(label, score) => {
+                setDimensionRatingSelected(true);
+                if (onRatingDimensionWaitTimeSelected) {
+                  onRatingDimensionWaitTimeSelected(label, score);
+                } else {
+                  onWaitTimeSelected?.(label, score);
+                }
+              }}
+            />
+          )}
+
+        {hasDimensionRatingPicker &&
+          dimensionRatingMatch &&
+          dimensionRatingMatch !== "tempo_espera" &&
+          !dimensionRatingSelected &&
+          isLastAssistantMessage &&
+          onDimensionRatingSelected && (
+            <InlineRatingPicker
+              dimensionKey={dimensionRatingMatch}
+              onSelect={handleDimensionRatingSelected}
+            />
+          )}
         
         {/* Inline Service Type Picker */}
         {(hasServiceTypePicker || isAskingForServiceType) && !serviceTypeSelected && isLastAssistantMessage && (
@@ -994,6 +1680,7 @@ const ChatMessageBubble = ({
           <InlineServicePicker
             serviceType={servicePickerContext.serviceType}
             district={servicePickerContext.district}
+            hideRatedToday={servicePickerContext.hideRatedToday}
             onSelect={handleServiceSelected}
           />
         )}
@@ -1024,17 +1711,27 @@ const ChatMessageBubble = ({
               const disabled = isRegistrar && disableRegistrarUntilPhotosAttached;
               const isCorrigir = btn.value === "corrigir";
               const isConfirmar = btn.value === "confirmar";
+              const isPublicar = btn.value === "publicar";
+              const isEditarComentario = btn.value === "editar_comentario";
               return (
                 <Button
                   key={btn.value}
-                  variant={isCorrigir ? "outline" : "default"}
-                  size={showUrbanPreviewCard ? "default" : "sm"}
+                  variant={isCorrigir || isEditarComentario ? "outline" : "default"}
+                  size={
+                    showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard
+                      ? "default"
+                      : "sm"
+                  }
                   disabled={disabled}
                   onClick={() => !disabled && onSendMessage?.(btn.value)}
                   className={cn(
                     "rounded-lg",
-                    showUrbanPreviewCard && isConfirmar && "min-h-11 px-5",
-                    showUrbanPreviewCard && isCorrigir && "min-h-11 px-5",
+                    (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
+                      (isConfirmar || isPublicar) &&
+                      "min-h-11 px-5",
+                    (showUrbanPreviewCard || showTransportPreviewCard || showRatingSubmitPreviewCard) &&
+                      (isCorrigir || isEditarComentario) &&
+                      "min-h-11 px-5",
                   )}
                 >
                   {btn.label}
@@ -1050,7 +1747,13 @@ const ChatMessageBubble = ({
             <Button
               variant="default"
               size="sm"
-              onClick={() => onSendMessage('Quero encaminhar meu relato para um vereador')}
+              onClick={() =>
+                onSendMessage(
+                  message.content.includes('[OFFER_REFERRAL]')
+                    ? 'Quero encaminhar minha avaliação para um vereador'
+                    : 'Quero encaminhar meu relato para um vereador',
+                )
+              }
               className="w-full justify-between min-h-[40px]"
             >
               <span className="truncate flex-1 text-left">Encaminhar para vereador</span>

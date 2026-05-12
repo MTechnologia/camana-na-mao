@@ -1,15 +1,33 @@
-import { useNavigate } from 'react-router-dom';
 import { TrendingUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import PageHeader from '@/components/ui/page-header';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
+import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
+import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatShortDate } from '@/lib/dateUtils';
+import { cn } from '@/lib/utils';
 export default function PatternsPage() {
-  const navigate = useNavigate();
-  const { patterns, loading } = useReportPatterns();
+  const [searchParams] = useSearchParams();
+  const highlightedPatternId = searchParams.get('patternId');
+  const lineIdFilter = searchParams.get('lineId') ?? undefined;
+  const { patterns, loading } = useReportPatterns(lineIdFilter);
+  const transportFollow = useTransportSubscriptions();
+
+  useEffect(() => {
+    if (!highlightedPatternId || loading) return;
+    const el = document.querySelector(
+      `[data-pattern-card="${CSS.escape(highlightedPatternId)}"]`,
+    );
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  }, [highlightedPatternId, loading, patterns]);
 
   return (
     <>
@@ -31,7 +49,15 @@ export default function PatternsPage() {
             </div>
           ) : (
             patterns.map((pattern) => (
-              <Card key={pattern.id} className="border-2 border-border" data-testid="pattern-card">
+              <Card
+                key={pattern.id}
+                className={cn(
+                  "border-2 border-border",
+                  highlightedPatternId === pattern.id && "ring-2 ring-primary border-primary/50",
+                )}
+                data-testid="pattern-card"
+                data-pattern-card={pattern.id}
+              >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <Badge variant="secondary" className="text-xs">
@@ -74,6 +100,18 @@ export default function PatternsPage() {
                     <p className="text-xs text-amber-900">
                       <strong>Ação sugerida:</strong> {pattern.suggested_action}
                     </p>
+                  </div>
+                )}
+
+                {pattern.line_id && (
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                    <TransportLineFollowButton
+                      lineId={pattern.line_id}
+                      lineLabel={pattern.description}
+                      subscriptions={transportFollow.subscriptions}
+                      loading={transportFollow.loading}
+                      toggleSubscription={transportFollow.toggleSubscription}
+                    />
                   </div>
                 )}
               </CardContent>

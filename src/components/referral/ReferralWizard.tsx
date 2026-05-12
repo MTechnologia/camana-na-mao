@@ -1,20 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CouncilMemberCard } from './CouncilMemberCard';
 import { useCouncilMemberSuggestions } from '@/hooks/useCouncilMemberSuggestions';
 import { Vereador } from '@/hooks/useVereadores';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Send, 
-  CheckCircle2, 
-  MapPin, 
+import { supabase } from '@/integrations/supabase/client';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Send,
+  CheckCircle2,
+  MapPin,
   Calendar,
-  FileText
+  FileText,
+  AlertTriangle,
+  Users,
 } from 'lucide-react';
 import { CitizenSeverityBadge } from '@/components/citizen/CitizenSeverityBadge';
 
@@ -37,7 +40,14 @@ interface ReferralWizardProps {
   onCancel: () => void;
 }
 
-type WizardStep = 'review' | 'select' | 'message' | 'success';
+type WizardStep = 'review' | 'commission' | 'select' | 'message' | 'success';
+
+type LegislativeCommissionRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  match_keywords: string[] | null;
+};
 
 export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardProps) => {
   const [step, setStep] = useState<WizardStep>('review');
@@ -46,22 +56,55 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
     matchScore: number;
     matchReasons: string[];
   } | null>(null);
+  const [selectedCommission, setSelectedCommission] = useState<LegislativeCommissionRow | null>(null);
+  const [commissions, setCommissions] = useState<LegislativeCommissionRow[]>([]);
+  const [commissionsLoading, setCommissionsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { suggestions, loading, getSuggestions, submitReferral } = useCouncilMemberSuggestions();
 
   useEffect(() => {
-    getSuggestions({
+    let cancelled = false;
+    (async () => {
+      setCommissionsLoading(true);
+      const { data, error } = await supabase
+        .from('legislative_commissions')
+        .select('id,name,description,match_keywords')
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
+      if (cancelled) return;
+      if (!error && data) {
+        setCommissions(data as LegislativeCommissionRow[]);
+      } else {
+        setCommissions([]);
+      }
+      setCommissionsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const buildReportData = useCallback(() => {
+    const base = {
       type: report.type,
       category: report.category,
       description: report.description,
       region: report.region,
       severity: report.severity,
       report_type: report.report_type,
-      location: report.location
-    });
-  }, [report, getSuggestions]);
+      location: report.location,
+    };
+    if (selectedCommission) {
+      return {
+        ...base,
+        commission_keywords: selectedCommission.match_keywords ?? [],
+        commission_name: selectedCommission.name,
+      };
+    }
+    return base;
+  }, [report, selectedCommission]);
 
   const handleSubmit = async () => {
     if (!selectedVereador) return;
@@ -73,7 +116,8 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
       vereador: selectedVereador.vereador,
       matchScore: selectedVereador.matchScore,
       matchReasons: selectedVereador.matchReasons,
-      citizenMessage: message || undefined
+      citizenMessage: message || undefined,
+      legislative_commission_id: selectedCommission?.id ?? null,
     });
 
     if (success) {
@@ -135,7 +179,99 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
               <Button variant="outline" onClick={onCancel} className="flex-1">
                 Cancelar
               </Button>
-              <Button onClick={() => setStep('select')} className="flex-1">
+              <Button onClick={() => setStep('commission')} className="flex-1">
+                Continuar
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'commission':
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold">Comissão da Câmara</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                Opcional: escolha a comissão mais relacionada ao tema — melhoramos a sugestão de vereadores.
+              </p>
+            </div>
+
+            {commissionsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : commissions.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                  Lista de comissões indisponível. Você pode seguir sem este filtro.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+                {commissions.map((c) => {
+                  const selected = selectedCommission?.id === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCommission(selected ? null : c)}
+                      className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                        selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Users className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium text-sm">{c.name}</p>
+                          {c.description ? (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.description}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+              <Button variant="outline" onClick={() => setStep('review')} className="flex-1">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
+                disabled={loading}
+                onClick={async () => {
+                  setSelectedCommission(null);
+                  setSelectedVereador(null);
+                  await getSuggestions({
+                    type: report.type,
+                    category: report.category,
+                    description: report.description,
+                    region: report.region,
+                    severity: report.severity,
+                    report_type: report.report_type,
+                    location: report.location,
+                  });
+                  setStep('select');
+                }}
+              >
+                Pular — sugestão automática
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={loading}
+                onClick={async () => {
+                  setSelectedVereador(null);
+                  await getSuggestions(buildReportData());
+                  setStep('select');
+                }}
+              >
                 Continuar
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -180,7 +316,7 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep('review')} className="flex-1">
+              <Button variant="outline" onClick={() => setStep('commission')} className="flex-1">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Voltar
               </Button>
@@ -299,28 +435,32 @@ export const ReferralWizard = ({ report, onComplete, onCancel }: ReferralWizardP
       {/* Progress indicator */}
       {step !== 'success' && (
         <div className="flex items-center justify-center gap-2 mb-6">
-          {['review', 'select', 'message'].map((s, idx) => (
+          {(['review', 'commission', 'select', 'message'] as const).map((s, idx) => {
+            const order = ['review', 'commission', 'select', 'message'] as const;
+            const activeIdx = order.indexOf(step === 'success' ? 'message' : step);
+            return (
             <div key={s} className="flex items-center">
               <div 
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step === s 
                     ? 'bg-primary text-primary-foreground' 
-                    : ['review', 'select', 'message'].indexOf(step) > idx
+                    : activeIdx > idx
                       ? 'bg-primary/20 text-primary'
                       : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {idx + 1}
               </div>
-              {idx < 2 && (
-                <div className={`w-12 h-0.5 mx-1 ${
-                  ['review', 'select', 'message'].indexOf(step) > idx 
+              {idx < 3 && (
+                <div className={`w-8 h-0.5 mx-0.5 sm:w-12 sm:mx-1 ${
+                  activeIdx > idx 
                     ? 'bg-primary/50' 
                     : 'bg-muted'
                 }`} />
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

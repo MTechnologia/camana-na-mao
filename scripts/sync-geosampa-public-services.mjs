@@ -131,6 +131,131 @@ function inferOperationalStatus(rawStatus) {
   return null;
 }
 
+const PRIVATE_SOURCE_LAYERS = new Set([
+  "rede_privada",
+]);
+
+const PUBLIC_SOURCE_LAYERS = new Set([
+  "educacao_infantil",
+  "ensino_fundamental_medio",
+  "ensino_tecnico",
+  "ceu",
+  "ceu_sme",
+  "escola_aberta",
+  "ubs_posto_centro",
+  "equipamento_saude_ubs_posto_centro",
+]);
+
+const MIXED_OR_REVIEW_SOURCE_LAYERS = new Set([
+  "hospital",
+  "urgencia_emergencia",
+  "equipamento_saude_ambulatorios_especializados",
+  "equipamento_saude_saude_mental",
+  "equipamento_ccz",
+  "educacao_outros",
+  "senai_sesi_senac",
+  "teatro_cinema_show",
+  "museus",
+  "espacos_culturais",
+  "equipamento_cultura_outros",
+]);
+
+/** Infraestrutura viária / análise / coberturas: não deve entrar em public_services. */
+const BLOCKED_PUBLIC_SERVICES_SOURCE_LAYERS = new Set([
+  "acidentes",
+  "area_influencia_metro",
+  "area_influencia_trem",
+  "calcadas",
+  "contagem_ciclistas",
+  "cruzamentos_semaforizados",
+  "det",
+  "diagnostico_potencialidades",
+  "diagnostico_riscos",
+  "diretoria_regional_educacao",
+  "get",
+  "hierarquia_pedestre",
+  "junta_servico_militar",
+  "limite_batalhoes_pm",
+  "limite_comandos_pm",
+  "limite_companhias_pm",
+  "limite_delegacias_pc",
+  "limite_seccionais_pc",
+  "ponto_entrega_voluntaria",
+  "quadra_viaria",
+  "restricao_mian",
+  "restricao_zmrc",
+  "restricao_zmrf",
+  "saude_abrangencia_ubs",
+  "saude_coordenadoria_regional",
+  "saude_cobertura_familia",
+  "saude_supervisao_tecnica",
+  "setor_educacional",
+  "vaga_especial",
+  "vaga_especial_estabelecimento",
+  "vigilancia_saude",
+  "zona_origem_destino",
+]);
+
+/**
+ * Mesmo que GEOSAMPA_LAYERS_JSON (secret legado) marque `other`, força o tipo canônico no upsert.
+ */
+const SOURCE_LAYER_SERVICE_TYPE_OVERRIDES = Object.freeze({
+  ponto_onibus: "transit_station",
+  estacao_metro: "transit_station",
+  estacao_trem: "transit_station",
+  terminal_onibus: "transit_station",
+  estacao_metro_projeto: "transit_station",
+  estacao_trem_projeto: "transit_station",
+  bicicletario_paraciclo: "bicycle",
+  aterro_sanitario: "recycling_point",
+  defesa_civil: "social_assistance",
+});
+
+function normalizeText(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+function inferEquipmentNature(props, sourceLayer) {
+  if (PRIVATE_SOURCE_LAYERS.has(sourceLayer)) {
+    return { nature: "privado", source: "source_layer_rule" };
+  }
+  if (PUBLIC_SOURCE_LAYERS.has(sourceLayer)) {
+    return { nature: "publico", source: "source_layer_rule" };
+  }
+
+  const administrativeSphere = getProp(
+    props,
+    "nm_esfera_administrativa_equipamento",
+    "tx_esfera_administrativa_equipamento",
+  );
+  const sphere = normalizeText(administrativeSphere);
+
+  if (sphere) {
+    if (sphere.includes("privad")) {
+      return { nature: "privado", source: "geosampa_esfera_administrativa" };
+    }
+    if (
+      sphere.includes("municipal") ||
+      sphere.includes("estadual") ||
+      sphere.includes("federal")
+    ) {
+      return { nature: "publico", source: "geosampa_esfera_administrativa" };
+    }
+  }
+
+  if (MIXED_OR_REVIEW_SOURCE_LAYERS.has(sourceLayer)) {
+    return { nature: "misto_indefinido", source: "source_layer_rule" };
+  }
+  if (sourceLayer) {
+    return { nature: "publico", source: "source_layer_rule" };
+  }
+  return { nature: null, source: null };
+}
+
 /** Calcula centroide aproximado de um anel [lng, lat][] (média). */
 function ringCentroid(ring) {
   if (!Array.isArray(ring) || ring.length === 0) return null;
@@ -281,6 +406,10 @@ function featureToRow(feature, layerConfig, index) {
   }
 
   const serviceType = SERVICE_TYPES.includes(layerConfig.service_type) ? layerConfig.service_type : "other";
+  const { nature: equipmentNature, source: equipmentNatureSource } = inferEquipmentNature(
+    props,
+    layerConfig.source_layer,
+  );
 
   const capacityParts = [];
   const qtyVaga = props.qt_vaga != null && Number(props.qt_vaga) >= 0 ? Number(props.qt_vaga) : null;
@@ -305,6 +434,8 @@ function featureToRow(feature, layerConfig, index) {
   if (openingHoursRaw != null) row.opening_hours = { text: openingHoursRaw.slice(0, 500) };
   if (capacityInfo != null) row.capacity_info = capacityInfo.slice(0, 200);
   if (operationalStatus != null) row.operational_status = operationalStatus;
+  if (equipmentNature != null) row.equipment_nature = equipmentNature;
+  if (equipmentNatureSource != null) row.equipment_nature_source = equipmentNatureSource;
   if (servicesOffered != null) {
     let text = String(servicesOffered).replace(/, encaminhamentos par\s*$/i, "").trim();
     if (text && !/[.!?]$/.test(text)) text += ".";
@@ -337,7 +468,19 @@ async function fetchGeoJSON(urlOrPath) {
   return JSON.parse(text);
 }
 
-const BATCH = 200;
+const BATCH = Math.max(1, Math.min(Number(process.env.GEOSAMPA_SYNC_BATCH ?? 200), 200));
+
+function getLayerRowRanges() {
+  const raw = process.env.GEOSAMPA_LAYER_ROW_RANGES_JSON;
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (e) {
+    console.warn("GEOSAMPA_LAYER_ROW_RANGES_JSON inválido:", e.message);
+    return {};
+  }
+}
 
 async function main() {
   loadEnv();
@@ -358,6 +501,7 @@ async function main() {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const rowRangesByLayer = getLayerRowRanges();
   let totalInserted = 0;
   let totalUpdated = 0;
   let totalSkipped = 0;
@@ -368,6 +512,12 @@ async function main() {
       console.warn("Camada ignorada (falta url ou source_layer):", layer);
       continue;
     }
+    if (BLOCKED_PUBLIC_SERVICES_SOURCE_LAYERS.has(source_layer)) {
+      console.warn(`[${source_layer}] Camada bloqueada para public_services — ignorada.`);
+      continue;
+    }
+    const effectiveServiceType =
+      SOURCE_LAYER_SERVICE_TYPE_OVERRIDES[source_layer] ?? (service_type ?? "other");
     console.log(`[${source_layer}] Buscando ${url.slice(0, 60)}...`);
 
     let geojson;
@@ -379,10 +529,19 @@ async function main() {
     }
 
     const features = geojson?.features ?? [];
-    const rows = [];
+    let rows = [];
     for (let i = 0; i < features.length; i++) {
-      const row = featureToRow(features[i], { service_type: service_type ?? "other", source_layer }, i);
+      const row = featureToRow(features[i], { service_type: effectiveServiceType, source_layer }, i);
       if (row) rows.push(row);
+    }
+
+    const layerRanges = rowRangesByLayer[source_layer];
+    if (Array.isArray(layerRanges) && layerRanges.length > 0) {
+      rows = layerRanges.flatMap((range) => {
+        const start = Math.max(0, Number(range?.[0] ?? 0));
+        const end = Math.max(start, Number(range?.[1] ?? start));
+        return rows.slice(start, end);
+      });
     }
 
     console.log(`[${source_layer}] ${rows.length} features válidos`);

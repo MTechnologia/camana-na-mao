@@ -10,12 +10,14 @@ import {
 } from "@/components/evaluation/ServiceTypeFilter";
 import { RatingFilter, type MinRatingFilter } from "@/components/evaluation/RatingFilter";
 import { OperationalStatusFilterChips } from "@/components/evaluation/OperationalStatusFilterChips";
+import { EquipmentNatureFilterChips } from "@/components/evaluation/EquipmentNatureFilterChips";
 import { ServiceSortSelect, type ServiceSortOption } from "@/components/evaluation/ServiceSortSelect";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import {
   useNearbyServices,
   NEARBY_FULLTEXT_MIN_LENGTH,
   type NearbyService,
+  type EquipmentNatureFilterValue,
 } from "@/hooks/useNearbyServices";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useReverseGeocodeForServices } from "@/hooks/useReverseGeocodeForServices";
@@ -52,6 +54,8 @@ const DEFAULT_NEARBY_SERVICE_TYPES: ServiceTypeFilterValue[] = [
 ];
 const MAX_REVERSE_GEOCODE_ITEMS = 24;
 
+type NearbyLocationMode = "unset" | "gps" | "profile_address" | "cep_lookup";
+
 export default function NearbyServicesPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -63,6 +67,7 @@ export default function NearbyServicesPage() {
   );
   const [radiusMeters, setRadiusMeters] = useState(() => clampNearbyRadiusMeters(2000));
   const [minRating, setMinRating] = useState<MinRatingFilter>("all");
+  const [equipmentNatureFilter, setEquipmentNatureFilter] = useState<EquipmentNatureFilterValue>("all");
   const [sortBy, setSortBy] = useState<ServiceSortOption>("distance");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [cepCenter, setCepCenter] = useState<CepCenter | null>(null);
@@ -216,6 +221,7 @@ export default function NearbyServicesPage() {
     serviceTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
     fullTextQuery: searchByName,
     minRadiusMeters: minRadiusForHook,
+    equipmentNature: equipmentNatureFilter,
     skipFetch: skipNearbyFetch,
   });
   const isCacheOrOfflineMessage = servicesError != null && (
@@ -421,7 +427,7 @@ export default function NearbyServicesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, operationalStatusFilter, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
+  }, [searchByName, selectedTypes, radiusMeters, minRating, sortBy, operationalStatusFilter, equipmentNatureFilter, onlyWithOpeningHours, openingTimeFilter, closingTimeFilter]);
 
   // Lista estável para o hook de detecção; displayName evita mostrar ID técnico (ex.: ponto_onibus.fid--...) em toast/notificação
   const servicesForVisit = useMemo(
@@ -438,9 +444,15 @@ export default function NearbyServicesPage() {
 
   const visitDetectionEnabled = useVisitDetectionEnabled(user?.id);
 
+  /** Mesmo ponto usado pela lista (GPS, endereço do perfil ou CEP). Só GPS antes impedia detecção para quem abre com endereço cadastrado. */
+  const visitDetectionLat =
+    locationUiPhase === "locked" && searchLat != null && searchLng != null ? searchLat : null;
+  const visitDetectionLng =
+    locationUiPhase === "locked" && searchLat != null && searchLng != null ? searchLng : null;
+
   const { detectedVisit, onAcknowledged, isChecking } = useVisitDetection({
-    latitude: locationMode === "gps" ? latitude : null,
-    longitude: locationMode === "gps" ? longitude : null,
+    latitude: visitDetectionLat,
+    longitude: visitDetectionLng,
     services: servicesForVisit,
     userId: user?.id,
     visitDetectionEnabled,
@@ -568,6 +580,17 @@ export default function NearbyServicesPage() {
         <ServiceTypeFilter selectedTypes={selectedTypes} onTypesChange={setSelectedTypes} />
 
         <RatingFilter value={minRating} onChange={setMinRating} />
+
+        <div className="space-y-2">
+          <EquipmentNatureFilterChips
+            value={equipmentNatureFilter}
+            onChange={setEquipmentNatureFilter}
+            label="Natureza:"
+          />
+          <p className="text-xs text-muted-foreground">
+            Classificação baseada em dados oficiais do GeoSampa e, quando disponível, na esfera administrativa do equipamento.
+          </p>
+        </div>
 
         <div className="space-y-2">
           <OperationalStatusFilterChips
@@ -700,6 +723,8 @@ export default function NearbyServicesPage() {
                 <p className="text-sm text-muted-foreground">
                   {searchByName.trim()
                     ? "Tente outro termo de busca ou relaxe os filtros."
+                    : equipmentNatureFilter !== "all"
+                      ? "Nenhum serviço dessa natureza foi encontrado neste raio. Tente outro filtro ou aumente o raio."
                     : operationalStatusFilter !== "all"
                       ? "Nenhum serviço com esse status operacional neste raio. Tente outro status ou aumente o raio."
                       : onlyWithOpeningHours || openingTimeFilter || closingTimeFilter
@@ -730,6 +755,7 @@ export default function NearbyServicesPage() {
                     openingHours={service.opening_hours}
                     servicesOffered={service.services_offered}
                     operationalStatus={service.operational_status}
+                    equipmentNature={service.equipment_nature}
                     isFavorite={user ? favoriteIds.has(service.id) : false}
                     favoriteDisabled={favoriteBusyId === service.id}
                     onFavoriteClick={async () => {

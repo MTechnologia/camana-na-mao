@@ -1,0 +1,13 @@
+// [index.ts] - Pergunta de infraestrutura no getNextMissingField
+if (!('infraestrutura_score' in fields))
+  return {
+    field: 'infraestrutura',
+    picker: '[DIMENSION_RATING_PICKER:infraestrutura]',
+    prompt: 'Como você avalia a **infraestrutura** (instalações, limpeza e conservação)? De 1 a 5 estrelas.'
+  };
+
+// [index.ts] - Adição dos campos nos argumentos da tool
+if ('infraestrutura_score' in accumulatedFields) {
+  toolArgs.infraestrutura_score = accumulatedFields.infraestrutura_score;
+  toolArgs.limpeza_score = accumulatedFields.limpeza_score;
+}
