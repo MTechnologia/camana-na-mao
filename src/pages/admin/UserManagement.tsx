@@ -5,10 +5,31 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Trash2 } from 'lucide-react';
+import {
+  Building,
+  MoreVertical,
+  Search,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  UserPlus,
+} from 'lucide-react';
 import { useAdminUsers, AdminUser } from '@/hooks/useAdminUsers';
 import { UserRoleModal } from '@/components/admin/UserRoleModal';
 import { DeleteUserDialog } from '@/components/admin/DeleteUserDialog';
+import { InviteUserDialog } from '@/components/admin/InviteUserDialog';
+import { SuspendUserDialog } from '@/components/admin/SuspendUserDialog';
+import { GabineteLinkDialog } from '@/components/admin/GabineteLinkDialog';
+import { PermissionGate } from '@/components/auth/PermissionGate';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ResponsiveTable } from '@/components/admin/ResponsiveTable';
 
@@ -31,9 +52,12 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function UserManagement() {
-  const { users, loading, searchTerm, setSearchTerm, roleFilter, setRoleFilter, updateUserRoles, deleteUser } = useAdminUsers();
+  const { users, loading, searchTerm, setSearchTerm, roleFilter, setRoleFilter, updateUserRoles, deleteUser, refetch } = useAdminUsers();
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
+  const [userToSuspend, setUserToSuspend] = useState<AdminUser | null>(null);
+  const [userForGabinete, setUserForGabinete] = useState<AdminUser | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const handleDeleteUser = async () => {
@@ -49,14 +73,35 @@ export default function UserManagement() {
     }
   };
 
+  const handleReactivate = async (user: AdminUser) => {
+    try {
+      const { error } = await supabase.rpc('reactivate_user', { _target_id: user.id });
+      if (error) throw error;
+      toast.success(`${user.full_name} reativado.`);
+      refetch?.();
+    } catch (err) {
+      console.error('[reactivate]', err);
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido.';
+      toast.error(`Não foi possível reativar: ${msg}`);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Usuários</h1>
-          <p className="text-muted-foreground mt-2 text-sm md:text-base">
-            Gerencie o perfil e as permissões dos usuários do sistema
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Gestão de Usuários</h1>
+            <p className="text-muted-foreground mt-2 text-sm md:text-base">
+              Gerencie o perfil e as permissões dos usuários do sistema
+            </p>
+          </div>
+          <PermissionGate permission="users.invite">
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Convidar usuário
+            </Button>
+          </PermissionGate>
         </div>
 
         {/* Filters */}
@@ -125,6 +170,12 @@ export default function UserManagement() {
                     ) : (
                       <span className="text-sm text-muted-foreground">Sem perfil</span>
                     )}
+                    {user.suspended_at && (
+                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
+                        <ShieldOff className="h-3 w-3 mr-1" />
+                        Suspenso
+                      </Badge>
+                    )}
                   </div>
                 ),
               },
@@ -144,14 +195,46 @@ export default function UserManagement() {
                     >
                       Editar Perfil
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-110 transition-all duration-200"
-                      onClick={() => setUserToDelete(user)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {(user.roles.includes('vereador') || user.roles.includes('assessor')) && (
+                          <PermissionGate permission="users.link_gabinete">
+                            <DropdownMenuItem onClick={() => setUserForGabinete(user)}>
+                              <Building className="h-4 w-4 mr-2" />
+                              {user.council_member_id ? 'Editar gabinete' : 'Vincular a gabinete'}
+                            </DropdownMenuItem>
+                          </PermissionGate>
+                        )}
+                        <PermissionGate permission="users.suspend">
+                          {user.suspended_at ? (
+                            <DropdownMenuItem onClick={() => void handleReactivate(user)}>
+                              <ShieldCheck className="h-4 w-4 mr-2 text-green-600" />
+                              Reativar conta
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => setUserToSuspend(user)}>
+                              <ShieldOff className="h-4 w-4 mr-2 text-destructive" />
+                              Suspender conta
+                            </DropdownMenuItem>
+                          )}
+                        </PermissionGate>
+                        <PermissionGate permission="users.delete">
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setUserToDelete(user)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </PermissionGate>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ),
               },
@@ -224,6 +307,32 @@ export default function UserManagement() {
           onConfirm={handleDeleteUser}
           userName={userToDelete?.full_name || ''}
           loading={deleting}
+        />
+
+        <InviteUserDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          onInvited={() => refetch?.()}
+        />
+
+        <SuspendUserDialog
+          open={!!userToSuspend}
+          onOpenChange={(o) => !o && setUserToSuspend(null)}
+          targetUserId={userToSuspend?.id ?? null}
+          targetUserName={userToSuspend?.full_name ?? null}
+          onSuspended={() => refetch?.()}
+        />
+
+        <GabineteLinkDialog
+          open={!!userForGabinete}
+          onOpenChange={(o) => !o && setUserForGabinete(null)}
+          targetUserId={userForGabinete?.id ?? null}
+          targetUserName={userForGabinete?.full_name ?? null}
+          targetUserRole={
+            userForGabinete?.roles.find((r) => r === 'vereador' || r === 'assessor') ?? null
+          }
+          currentCouncilMemberId={userForGabinete?.council_member_id ?? null}
+          onSaved={() => refetch?.()}
         />
       </div>
     </AdminLayout>

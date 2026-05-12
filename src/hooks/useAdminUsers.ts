@@ -29,6 +29,9 @@ export interface AdminUser {
   email?: string;
   council_member_id?: string | null;
   council_member_role?: Extract<UserRole, 'vereador' | 'assessor'> | null;
+  // HU-11.1 — Suspensão de conta
+  suspended_at?: string | null;
+  suspended_reason?: string | null;
 }
 
 export const useAdminUsers = () => {
@@ -87,6 +90,9 @@ export const useAdminUsers = () => {
           email: emailByUserId.get(profile.id),
           council_member_id: gabineteLink?.council_member_id ?? null,
           council_member_role: (gabineteLink?.role as Extract<UserRole, 'vereador' | 'assessor'> | undefined) ?? null,
+          // HU-11.1 — profiles agora tem suspended_at / suspended_reason
+          suspended_at: (profile as { suspended_at?: string | null }).suspended_at ?? null,
+          suspended_reason: (profile as { suspended_reason?: string | null }).suspended_reason ?? null,
         };
       });
 

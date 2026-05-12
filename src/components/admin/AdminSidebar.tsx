@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock, Sparkles, TrendingUp, Siren, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock, Sparkles, TrendingUp, Siren, ClipboardCheck, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -87,6 +87,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           ],
         }] : []),
         ...(canViewAuditLogs ? [{ title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' }] : []),
+        // HU-11.2 — Matriz de permissões (admin).
+        ...(canConfigureSystem ? [{ title: 'Permissões', icon: Shield, href: '/admin/permissions' }] : []),
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
         // HU-8.1 — Acesso direto à gestão de agendamentos de export (admin + gestor).
         { title: 'Agendamentos', icon: CalendarClock, href: '/admin/configuracoes/agendamentos' },
