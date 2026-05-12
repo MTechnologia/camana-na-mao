@@ -21,6 +21,8 @@ import { HotspotsList } from '@/components/analytics/HotspotsList';
 import { TimeDistributionChart } from '@/components/analytics/TimeDistributionChart';
 import { DrillInsightPanel } from '@/components/analytics/DrillInsightPanel';
 import { ExportDialog } from '@/components/analytics/ExportDialog';
+import { DataExportDialog } from '@/components/analytics/DataExportDialog';
+import { ExportJobsPanel } from '@/components/analytics/ExportJobsPanel';
 import { DemographicFilters, DemographicFilterState } from '@/components/analytics/DemographicFilters';
 import { VolumeOverviewTab } from '@/components/analytics/VolumeOverviewTab';
 import { ResponseTimeOverviewTab } from '@/components/analytics/ResponseTimeOverviewTab';
@@ -91,6 +93,10 @@ const TAB_MIN_WIDTH: Record<AnalyticsTabId, string> = {
 // Analytics page for unified reports visualization
 export default function ReportsAnalyticsPage() {
   const [showExport, setShowExport] = useState(false);
+  // HU-7.1 — Dialog de export CSV configurável.
+  const [showCsvExport, setShowCsvExport] = useState(false);
+  // HU-7.4 + HU-7.5 — Panel "Minhas exportações".
+  const [showJobsPanel, setShowJobsPanel] = useState(false);
 
   // HU-3.3 — Aba ativa sincronizada com URL (?tab=)
   const [tabState, setTabState] = useUrlSyncedState<{ tab: string }>({
@@ -288,9 +294,19 @@ export default function ReportsAnalyticsPage() {
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowExport(true)}>
+            {/* HU-7.1 + HU-7.2 — Exportar dados (CSV ou XLSX) configurável.
+                O PDF continua acessível via segundo botão (legacy). */}
+            <Button variant="outline" size="sm" onClick={() => setShowCsvExport(true)}>
               <Download className="h-4 w-4 mr-2" />
-              Exportar
+              Exportar dados
+            </Button>
+            {/* HU-7.4 + HU-7.5 — Acesso ao painel de exportações server-side e
+                agendadas (lista de jobs pendentes/concluídos com link de download). */}
+            <Button variant="ghost" size="sm" onClick={() => setShowJobsPanel(true)}>
+              Minhas exportações
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowExport(true)}>
+              PDF
             </Button>
           </div>
         </div>
@@ -737,7 +753,7 @@ export default function ReportsAnalyticsPage() {
           onClose={drillInsight.close}
         />
 
-        {/* Export Dialog */}
+        {/* Export Dialog (PDF — legado, HU-7.1 cobre CSV no diálogo abaixo) */}
         <ExportDialog
           isOpen={showExport}
           onClose={() => setShowExport(false)}
@@ -746,6 +762,22 @@ export default function ReportsAnalyticsPage() {
           analyticsStats={stats}
           sentimentStats={sentimentStats}
         />
+
+        {/* HU-7.1 + HU-7.2 — Export configurável (CSV/XLSX).
+            Filtros herdados: categorias do tema ativo de atuação. */}
+        <DataExportDialog
+          open={showCsvExport}
+          onOpenChange={setShowCsvExport}
+          defaultFilters={{
+            categories:
+              activeTheme.id !== 'geral' && activeTheme.urbanCategories.length > 0
+                ? [...activeTheme.urbanCategories]
+                : undefined,
+          }}
+        />
+
+        {/* HU-7.4 + HU-7.5 — Panel "Minhas exportações". */}
+        <ExportJobsPanel open={showJobsPanel} onOpenChange={setShowJobsPanel} />
       </div>
     </AdminLayout>
   );
