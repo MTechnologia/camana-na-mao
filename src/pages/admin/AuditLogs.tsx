@@ -41,6 +41,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { rowsToCsv, type AuditCsvRow } from "@/lib/auditCsv";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * HU-12.2 — Trilha de auditoria com filtros completos.
@@ -115,19 +117,11 @@ function fmtDateTime(iso: string): string {
   }
 }
 
-function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const s = typeof value === "object" ? JSON.stringify(value) : String(value);
-  if (/[",\n;]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
 const AuditLogs = () => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
   const { getAllLogs, getActors } = useAuditLog();
+  const { toast } = useToast();
 
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [actors, setActors] = useState<
@@ -215,46 +209,69 @@ const AuditLogs = () => {
     [logs],
   );
 
-  const exportLogs = () => {
-    const rows = [
-      [
-        "data_hora",
-        "user_id",
-        "usuario",
-        "email",
-        "acao",
-        "entidade",
-        "entidade_id",
-        "ip",
-        "user_agent",
-        "old_values",
-        "new_values",
-      ],
-      ...filteredLogs.map((log) => {
-        const actor = log.user_id ? actorById.get(log.user_id) : null;
-        return [
-          fmtDateTime(log.created_at),
-          log.user_id ?? "",
-          actor?.fullName ?? "",
-          actor?.email ?? "",
-          log.action,
-          log.entity_type,
-          log.entity_id ?? "",
-          log.ip_address ?? "",
-          log.user_agent ?? "",
-          log.old_values ?? "",
-          log.new_values ?? "",
-        ];
-      }),
-    ];
-    const csv = "﻿" + rows.map((r) => r.map(csvEscape).join(",")).join("\n");
+  const exportLogs = async () => {
+    const rows: AuditCsvRow[] = filteredLogs.map((log) => {
+      const actor = log.user_id ? actorById.get(log.user_id) : null;
+      return {
+        data_hora: fmtDateTime(log.created_at),
+        user_id: log.user_id ?? "",
+        usuario: actor?.fullName ?? "",
+        email: actor?.email ?? "",
+        acao: log.action,
+        entidade: log.entity_type,
+        entidade_id: log.entity_id ?? "",
+        ip: log.ip_address ?? "",
+        user_agent: log.user_agent ?? "",
+        old_values: log.old_values ?? null,
+        new_values: log.new_values ?? null,
+      };
+    });
+
+    const csv = rowsToCsv(rows);
+    const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
+    const file = new File([csv], filename, { type: "text/csv;charset=utf-8" });
+    const shareData: ShareData = {
+      files: [file],
+      title: "Logs de Auditoria",
+      text: "Exportação CSV dos logs de auditoria.",
+    };
+
+    if (
+      typeof navigator.share === "function" &&
+      (!navigator.canShare || navigator.canShare(shareData))
+    ) {
+      try {
+        await navigator.share(shareData);
+        toast({
+          title: "CSV pronto para compartilhar",
+          description: "No celular, escolha Salvar em Arquivos, Drive ou outro app.",
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.warn("Falha ao abrir compartilhamento do CSV:", error);
+      }
+    }
+
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
+    a.download = filename;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    }, 1000);
+
+    toast({
+      title: "CSV gerado",
+      description: "Se o celular não mostrar download, confira a pasta Downloads/Arquivos.",
+    });
   };
 
   if (roleLoading) {
