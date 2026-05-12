@@ -45,9 +45,12 @@ const months = [
 
 interface DemographicsFormProps {
   userId: string;
+  /** Callback opcional após save bem-sucedido. Quando passado, substitui o
+   *  redirect default para /perfil. Usado no fluxo pós-convite (HU-11.1). */
+  onSaved?: () => void;
 }
 
-const DemographicsForm = ({ userId }: DemographicsFormProps) => {
+const DemographicsForm = ({ userId, onSaved }: DemographicsFormProps) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [birthDate, setBirthDate] = useState<Date>();
@@ -137,11 +140,15 @@ const DemographicsForm = ({ userId }: DemographicsFormProps) => {
       }
 
       toast.success("Dados demográficos salvos com sucesso!");
-      
-      // Redirect to profile page after successful save
-      setTimeout(() => {
-        navigate("/perfil");
-      }, 500);
+
+      // Se há callback (fluxo pós-convite), delega; senão segue para perfil.
+      if (onSaved) {
+        setTimeout(() => onSaved(), 500);
+      } else {
+        setTimeout(() => {
+          navigate("/perfil");
+        }, 500);
+      }
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
       if (err?.errors) {

@@ -12,6 +12,10 @@ import { lookupCepAddress } from "@/lib/cepLookup";
 
 interface AddressFormProps {
   userId: string;
+  /** Callback opcional após save bem-sucedido. Usado para encadear o fluxo
+   *  de complemento pós-convite (HU-11.1). Sem ele, o form apenas recarrega
+   *  o endereço atual (comportamento legado). */
+  onSaved?: () => void;
 }
 
 interface Coordinates {
@@ -25,7 +29,7 @@ const ESTADOS = [
   "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-const AddressForm = ({ userId }: AddressFormProps) => {
+const AddressForm = ({ userId, onSaved }: AddressFormProps) => {
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
@@ -254,7 +258,11 @@ const AddressForm = ({ userId }: AddressFormProps) => {
       }
 
       toast.success("Endereço salvo com sucesso!");
-      loadAddress();
+      if (onSaved) {
+        onSaved();
+      } else {
+        loadAddress();
+      }
     } catch (error: unknown) {
       const err = error as { errors?: Array<{ message?: string }>; message?: string };
       if (err?.errors) {
