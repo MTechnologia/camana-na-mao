@@ -40,6 +40,7 @@ const ConfirmarEmail = lazy(() => import("./pages/ConfirmarEmail"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const CompleteInvitePage = lazy(() => import("./pages/CompleteInvitePage"));
 
 // ============================================
 // PROFILE PAGES - Lazy loaded
@@ -143,6 +144,7 @@ const PatternsManagementPage = lazy(() => import("./pages/admin/PatternsManageme
 const ForecastPage = lazy(() => import("./pages/admin/ForecastPage"));
 const AnomaliesPage = lazy(() => import("./pages/admin/AnomaliesPage"));
 const TriageKanbanPage = lazy(() => import("./pages/admin/TriageKanbanPage"));
+const PermissionsMatrixPage = lazy(() => import("./pages/admin/PermissionsMatrixPage"));
 const ReferralsManagement = lazy(() => import("./pages/admin/ReferralsManagement"));
 const LegislativeCommissionsPage = lazy(() => import("./pages/admin/LegislativeCommissionsPage"));
 const ServiceCorrectionsManagement = lazy(() => import("./pages/admin/ServiceCorrectionsManagement"));
@@ -217,7 +219,15 @@ const AppContent = () => {
         window.location.replace(`/nova-senha${location.hash}`);
         return;
       }
-      
+
+      // HU-11.1 — Convite: redireciona para a página de completar cadastro
+      // (definir senha + nome + telefone). Se não fizer isso aqui, o usuário
+      // cai direto na home logado.
+      if (accessToken && type === 'invite' && location.pathname !== '/completar-convite') {
+        window.location.replace(`/completar-convite${location.hash}`);
+        return;
+      }
+
       // If it's a signup confirmation and we're on home, let it process normally
       if (accessToken && type === 'signup' && location.pathname === '/') {
         // Supabase will handle this automatically
@@ -238,6 +248,8 @@ const AppContent = () => {
           <Route path="/confirmar-email" element={<ConfirmarEmail />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/nova-senha" element={<UpdatePassword />} />
+          {/* HU-11.1 — Página de complemento de cadastro pós-convite. */}
+          <Route path="/completar-convite" element={<CompleteInvitePage />} />
           <Route path="/privacidade" element={<PrivacyPolicyPage />} />
           {/* Documentação: apenas admin — redireciona URLs antigas */}
           <Route path="/docs" element={<Navigate to="/admin/docs/overview" replace />} />
@@ -342,6 +354,8 @@ const AppContent = () => {
             <Route path="/admin/anomalias" element={<ProtectedAdminRoute><AnomaliesPage /></ProtectedAdminRoute>} />
             {/* HU-10.3 — Kanban de triagem ponta a ponta. */}
             <Route path="/admin/triagem" element={<ProtectedAdminRoute><TriageKanbanPage /></ProtectedAdminRoute>} />
+            {/* HU-11.2 — Matriz de permissões (read-only). */}
+            <Route path="/admin/permissions" element={<ProtectedAdminOnlyRoute><PermissionsMatrixPage /></ProtectedAdminOnlyRoute>} />
             <Route path="/admin/docs" element={<ProtectedAdminRoute><Navigate to="/admin/docs/overview" replace /></ProtectedAdminRoute>} />
             <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><PublicDocumentationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
