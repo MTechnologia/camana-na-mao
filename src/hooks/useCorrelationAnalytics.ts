@@ -20,37 +20,33 @@ interface CrossAnalysisStats {
 
 const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
-export const useCorrelationAnalytics = (filters?: Record<string, unknown>) => {
-  const [stats, setStats] = useState<CrossAnalysisStats>({
-    correlations: {
-      categoryByRegion: [],
-      severityByCategory: [],
-      categoryByDayOfWeek: [],
-      categoryByHour: [],
-      riskByCategory: [],
-    },
-    topCriticalCategories: [],
-    hotspots: [],
-    peakHours: [],
-    weekdayDistribution: [],
-    isLoading: true,
-  });
+const EMPTY_CORRELATION_STATS: CrossAnalysisStats = {
+  correlations: {
+    categoryByRegion: [],
+    severityByCategory: [],
+    categoryByDayOfWeek: [],
+    categoryByHour: [],
+    riskByCategory: [],
+  },
+  topCriticalCategories: [],
+  hotspots: [],
+  peakHours: [],
+  weekdayDistribution: [],
+  isLoading: false,
+};
 
-  useEffect(() => {
-    let isMounted = true;
-    
-    const load = async () => {
-      try {
-        await fetchCorrelations();
-      } catch (e) {
-        console.error('Correlation fetch error:', e);
-      }
-    };
-    
-    load();
-    
-    return () => { isMounted = false; };
-  }, []); // Remover filters para evitar re-renders infinitos
+export type UseCorrelationAnalyticsOptions = {
+  /** Quando false, não dispara fetch (economiza rede em abas que não usam correlações). Default: true. */
+  enabled?: boolean;
+};
+
+export const useCorrelationAnalytics = (opts?: UseCorrelationAnalyticsOptions) => {
+  const enabled = opts?.enabled ?? true;
+
+  const [stats, setStats] = useState<CrossAnalysisStats>(() => ({
+    ...EMPTY_CORRELATION_STATS,
+    isLoading: enabled,
+  }));
 
   const fetchCorrelations = async () => {
     try {
@@ -239,6 +235,14 @@ export const useCorrelationAnalytics = (filters?: Record<string, unknown>) => {
       setStats(prev => ({ ...prev, isLoading: false }));
     }
   };
+
+  useEffect(() => {
+    if (!enabled) {
+      setStats((prev) => ({ ...prev, isLoading: false }));
+      return;
+    }
+    void fetchCorrelations();
+  }, [enabled]);
 
   return stats;
 };

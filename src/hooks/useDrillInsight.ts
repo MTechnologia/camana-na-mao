@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
 
 export type DrillType = 
   | 'keyword' 
@@ -61,6 +62,23 @@ export interface DrillInsightState {
   isLoading: boolean;
 }
 
+/** Converte células Supabase JSON (`unknown`) para campos de `DrillReport`. */
+function drillStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return '';
+}
+
+function drillStrNullable(v: unknown): string | null {
+  if (v == null) return null;
+  return typeof v === 'string' ? v : String(v);
+}
+
+function drillDate(v: unknown): Date {
+  return new Date(drillStr(v));
+}
+
 const INITIAL_STATE: DrillInsightState = {
   open: false,
   context: { type: 'keyword', value: '', label: '' },
@@ -83,7 +101,7 @@ const INITIAL_STATE: DrillInsightState = {
   isLoading: false,
 };
 
-export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
+export const useDrillInsight = (_baseFilters: ReportsAnalyticsFilters = {}) => {
   const [state, setState] = useState<DrillInsightState>(INITIAL_STATE);
 
   const calculateStats = (reports: DrillReport[]): DrillStats => {
@@ -202,33 +220,42 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
   };
 
   const mapUrbanReports = (data: Record<string, unknown>[]): DrillReport[] => {
-    return data.map((r: Record<string, unknown>) => ({
-      id: r.id,
-      category: r.category,
-      description: r.description || '',
-      status: r.status,
-      severity: r.severity,
-      location_address: r.location_address,
-      created_at: r.created_at,
-      user_id: r.user_id,
-      source: 'urban' as const,
-      sentiment: (r.ai_classification as { sentiment?: string } | undefined)?.sentiment,
-    }));
+    return data.map((r) => {
+      const ac = r.ai_classification as { sentiment?: string } | null | undefined;
+      const rawSentiment = ac?.sentiment;
+      return {
+        id: drillStr(r.id),
+        category: drillStr(r.category),
+        description: drillStr(r.description),
+        status: drillStr(r.status),
+        severity: drillStr(r.severity),
+        location_address: drillStrNullable(r.location_address),
+        created_at: drillStr(r.created_at),
+        user_id: drillStr(r.user_id),
+        source: 'urban' as const,
+        sentiment: rawSentiment == null || rawSentiment === '' ? undefined : String(rawSentiment),
+      } satisfies DrillReport;
+    });
   };
 
   const mapTransportReports = (data: Record<string, unknown>[]): DrillReport[] => {
-    return data.map((r: Record<string, unknown>) => ({
-      id: r.id,
-      category: r.report_type || 'Transporte',
-      description: r.description || r.impact_description || '',
-      status: r.status,
-      severity: r.severity,
-      location_address: r.location,
-      created_at: r.created_at,
-      user_id: r.user_id,
-      source: 'transport' as const,
-      sentiment: r.ai_sentiment,
-    }));
+    return data.map((r) => {
+      const cat = drillStr(r.report_type);
+      const desc = drillStr(r.description) || drillStr(r.impact_description);
+      const sent = drillStr(r.ai_sentiment);
+      return {
+        id: drillStr(r.id),
+        category: cat || 'Transporte',
+        description: desc,
+        status: drillStr(r.status),
+        severity: drillStr(r.severity),
+        location_address: drillStrNullable(r.location),
+        created_at: drillStr(r.created_at),
+        user_id: drillStr(r.user_id),
+        source: 'transport' as const,
+        sentiment: sent === '' ? undefined : sent,
+      } satisfies DrillReport;
+    });
   };
 
   const fetchAllReports = async (): Promise<{ urban: Record<string, unknown>[]; transport: Record<string, unknown>[] }> => {
@@ -620,7 +647,7 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
       
       const filterByHour = (reports: Record<string, unknown>[], hourToMatch: number) => {
         return reports.filter(r => {
-          const createdHour = new Date(r.created_at).getHours();
+          const createdHour = drillDate(r.created_at).getHours();
           return createdHour === hourToMatch;
         });
       };
@@ -666,7 +693,7 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
       
       const filterByWeekday = (reports: Record<string, unknown>[], dayToMatch: number) => {
         return reports.filter(r => {
-          const createdDay = new Date(r.created_at).getDay();
+          const createdDay = drillDate(r.created_at).getDay();
           return createdDay === dayToMatch;
         });
       };

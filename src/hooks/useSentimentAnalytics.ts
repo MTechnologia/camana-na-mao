@@ -38,15 +38,27 @@ interface SentimentStats {
   byRegion: { region: string; count: number; sentiment: number }[];
 }
 
-export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
+export type SentimentAnalyticsOptions = SentimentFilters & {
+  /** Quando false, não carrega dados (útil na página pai até abrir aba Sentimento / export). Default: true. */
+  enabled?: boolean;
+};
+
+export const useSentimentAnalytics = (options: SentimentAnalyticsOptions = {}) => {
+  const { enabled = true, ...filterRest } = options;
+  const filters = filterRest;
   const [stats, setStats] = useState<SentimentStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const { toast } = useToast();
 
-  // Serializar filters para comparação estável
-  const filtersKey = JSON.stringify(filters);
+  // Serializar filters para comparação estável (sem `enabled`)
+  const filtersKey = JSON.stringify(filterRest);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
     
     const load = async () => {
@@ -55,11 +67,11 @@ export const useSentimentAnalytics = (filters: SentimentFilters = {}) => {
       }
     };
     
-    load();
+    void load();
     
     return () => { isMounted = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAnalytics uses filters via filtersKey
-  }, [filtersKey]);
+  }, [filtersKey, enabled]);
 
   const getSentimentScore = (sentiment: string | null): number => {
     if (!sentiment) return 50;

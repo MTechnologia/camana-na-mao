@@ -6,9 +6,20 @@ import {
   type ReportPatternThresholdEventRow,
 } from '@/lib/patternThresholdEvents';
 
-export function usePatternThresholdEvents(limit = 8) {
+export type UsePatternThresholdEventsOptions = {
+  limit?: number;
+  /** Quando false, não busca eventos até a aba que usa alertas estar ativa. Default: true. */
+  enabled?: boolean;
+};
+
+export function usePatternThresholdEvents(
+  arg?: number | UsePatternThresholdEventsOptions,
+) {
+  const limit = typeof arg === 'number' ? arg : (arg?.limit ?? 8);
+  const enabled = typeof arg === 'number' ? true : (arg?.enabled ?? true);
+
   const [alerts, setAlerts] = useState<PatternAlert[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAlerts = useCallback(async () => {
@@ -36,8 +47,12 @@ export function usePatternThresholdEvents(limit = 8) {
   }, [limit]);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
     void fetchAlerts();
-  }, [fetchAlerts]);
+  }, [enabled, fetchAlerts]);
 
   return { alerts, isLoading, error, refresh: fetchAlerts };
 }

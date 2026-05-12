@@ -101,17 +101,27 @@ export default function ReportsAnalyticsPage() {
   }), [demographicFilters]);
   
   const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
+
+  const activeTab = tabState.tab;
+  const loadCorrelationData = activeTab === 'geral' || activeTab === 'criticidade';
+  const loadThresholdAlerts = activeTab === 'criticidade';
+  const loadPageSentiment = activeTab === 'sentimento' || showExport;
+
   const {
     alerts: thresholdAlerts,
     error: thresholdAlertsError,
     refresh: refreshThresholdAlerts,
-  } = usePatternThresholdEvents();
-  const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
-  const correlations = useCorrelationAnalytics();
+  } = usePatternThresholdEvents({ enabled: loadThresholdAlerts });
+  const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics({
+    enabled: loadPageSentiment,
+  });
+  const correlations = useCorrelationAnalytics({ enabled: loadCorrelationData });
   const drillInsight = useDrillInsight(combinedFilters);
   const refreshAll = () => {
     void refresh();
-    void refreshThresholdAlerts();
+    if (activeTab === 'criticidade') {
+      void refreshThresholdAlerts();
+    }
   };
 
   // Transform peak hours for chart
@@ -261,20 +271,20 @@ export default function ReportsAnalyticsPage() {
 
         {/* Tabs for detailed analytics */}
         <Tabs value={tabState.tab} onValueChange={(t) => setTabState({ tab: t })} className="w-full">
-          {/* Tabs em flex-wrap puro (mobile-first): quebra naturalmente em 2 linhas sem grid rígido. */}
-          <TabsList className="flex flex-wrap w-full h-auto gap-1 p-1">
-            <TabsTrigger value="volume" className="flex-1 min-w-[80px]">Volume</TabsTrigger>
-            <TabsTrigger value="eficiencia" className="flex-1 min-w-[100px]">Eficiência</TabsTrigger>
-            <TabsTrigger value="diagnostico" className="flex-1 min-w-[100px]">Diagnóstico</TabsTrigger>
-            <TabsTrigger value="audiencias" className="flex-1 min-w-[100px]">Audiências</TabsTrigger>
-            <TabsTrigger value="territorial" className="flex-1 min-w-[100px]">Territorial</TabsTrigger>
-            <TabsTrigger value="drill" className="flex-1 min-w-[100px]">Drill-down</TabsTrigger>
-            <TabsTrigger value="cross" className="flex-1 min-w-[110px]">Cruzamentos</TabsTrigger>
-            <TabsTrigger value="geral" className="flex-1 min-w-[80px]">Geral</TabsTrigger>
-            <TabsTrigger value="sentimento" className="flex-1 min-w-[100px]">Sentimento</TabsTrigger>
-            <TabsTrigger value="demografia" className="flex-1 min-w-[100px]">Demografia</TabsTrigger>
-            <TabsTrigger value="engajamento" className="flex-1 min-w-[110px]">Engajamento</TabsTrigger>
-            <TabsTrigger value="criticidade" className="flex-1 min-w-[100px]">Criticidade</TabsTrigger>
+          {/* Mobile: fila única com scroll horizontal (leitura tática). Desktop: wrap + triggers flexíveis. */}
+          <TabsList className="flex h-auto w-full max-w-full flex-wrap justify-start gap-1 overflow-x-auto overflow-y-hidden p-1 [scrollbar-width:thin] max-md:flex-nowrap">
+            <TabsTrigger value="volume" className="shrink-0 md:min-w-[80px] md:flex-1">Volume</TabsTrigger>
+            <TabsTrigger value="eficiencia" className="shrink-0 md:min-w-[100px] md:flex-1">Eficiência</TabsTrigger>
+            <TabsTrigger value="diagnostico" className="shrink-0 md:min-w-[100px] md:flex-1">Diagnóstico</TabsTrigger>
+            <TabsTrigger value="audiencias" className="shrink-0 md:min-w-[100px] md:flex-1">Audiências</TabsTrigger>
+            <TabsTrigger value="territorial" className="shrink-0 md:min-w-[100px] md:flex-1">Territorial</TabsTrigger>
+            <TabsTrigger value="drill" className="shrink-0 md:min-w-[100px] md:flex-1">Drill-down</TabsTrigger>
+            <TabsTrigger value="cross" className="shrink-0 md:min-w-[110px] md:flex-1">Cruzamentos</TabsTrigger>
+            <TabsTrigger value="geral" className="shrink-0 md:min-w-[80px] md:flex-1">Geral</TabsTrigger>
+            <TabsTrigger value="sentimento" className="shrink-0 md:min-w-[100px] md:flex-1">Sentimento</TabsTrigger>
+            <TabsTrigger value="demografia" className="shrink-0 md:min-w-[100px] md:flex-1">Demografia</TabsTrigger>
+            <TabsTrigger value="engajamento" className="shrink-0 md:min-w-[110px] md:flex-1">Engajamento</TabsTrigger>
+            <TabsTrigger value="criticidade" className="shrink-0 md:min-w-[100px] md:flex-1">Criticidade</TabsTrigger>
           </TabsList>
 
           {/* TAB VOLUME — HU-1.1: visão de volume por período / categoria / região */}
@@ -314,6 +324,10 @@ export default function ReportsAnalyticsPage() {
 
           {/* TAB GERAL */}
           <TabsContent value="geral" className="space-y-6">
+            {correlations.isLoading ? (
+              <Skeleton className="h-[min(32rem,70vh)] w-full rounded-lg" />
+            ) : (
+              <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RegionalHotspots 
                 data={correlations.hotspots || []}
@@ -380,6 +394,8 @@ export default function ReportsAnalyticsPage() {
                 </div>
               </Card>
             </div>
+              </>
+            )}
           </TabsContent>
 
           {/* TAB SENTIMENTO */}
@@ -570,6 +586,10 @@ export default function ReportsAnalyticsPage() {
                   <h3 className="text-lg font-semibold">Categorias Mais Críticas</h3>
                 </div>
                 <div className="space-y-3">
+                  {correlations.isLoading ? (
+                    <Skeleton className="h-48 w-full rounded-lg" />
+                  ) : (
+                    <>
                   {(correlations.topCriticalCategories || []).map((item, index) => (
                     <div 
                       key={item.category}
@@ -597,6 +617,8 @@ export default function ReportsAnalyticsPage() {
                     <div className="text-center py-8 text-muted-foreground">
                       Nenhuma categoria crítica identificada
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               </Card>
