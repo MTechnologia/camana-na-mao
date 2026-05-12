@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Phone, User } from "lucide-react";
+import { INVITE_FLAG } from "@/lib/inviteSetupFlow";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export default function CompleteInvitePage() {
       if (profErr) throw profErr;
 
       toast.success("Cadastro completado. Vamos personalizar sua experiência.");
-      navigate("/onboarding", { replace: true });
+      navigate(`/onboarding?${INVITE_FLAG}=1`, { replace: true });
     } catch (err) {
       console.error("[CompleteInvitePage]", err);
       const msg = err instanceof Error ? err.message : "Erro desconhecido.";
@@ -211,8 +212,8 @@ export default function CompleteInvitePage() {
         </Button>
 
         <p className="text-[11px] text-muted-foreground text-center">
-          Depois de continuar, você poderá complementar endereço e dados
-          demográficos no menu Perfil.
+          Etapa 1 de 4 — Após continuar, vamos escolher seus interesses,
+          confirmar endereço e dados demográficos.
         </p>
       </Card>
     </div>
