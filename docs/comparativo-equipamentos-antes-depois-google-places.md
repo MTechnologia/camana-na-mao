@@ -77,5 +77,62 @@
 
 ---
 
-**OBS** Considerar Marco **C**
+**OBS** Considerar Marco **C**  
 *Valores ilustrativos; não substituem fatura Google.*
+
+---
+
+## 5. Subconjunto para Google Places (por camada / tipo)
+
+Agrupamento explícito para **estimativa de Place Details** só sobre estes POIs (exclui, entre outros, **`ponto_onibus`** e escolas fora das quatro camadas listadas).
+
+### 5.1. Definição das linhas (Marco **C** = estado actual da tabela)
+
+| Linha (rótulo) | Critério em `public_services` |
+|------------------|------------------------------|
+| Estação metrô | `service_type = 'transit_station'` e `source_layer` ∈ `estacao_metro`, `estacao_metro_projeto` |
+| Estação trem | `service_type = 'transit_station'` e `source_layer` ∈ `estacao_trem`, `estacao_trem_projeto` |
+| Terminal de ônibus | `service_type = 'transit_station'` e `source_layer = 'terminal_onibus'` |
+| Rede pública ensino fundamental/médio | `service_type = 'school'` e `source_layer = 'ensino_fundamental_medio'` |
+| Educação infantil rede pública | `service_type = 'school'` e `source_layer = 'educacao_infantil'` |
+| Ensino técnico rede pública | `service_type = 'school'` e `source_layer = 'ensino_tecnico'` |
+| SENAI / SESI / SENAC | `service_type = 'school'` e `source_layer = 'senai_sesi_senac'` |
+| Parque (`park`) | `service_type = 'park'` |
+| Centro esportivo (`sports_center`) | `service_type = 'sports_center'` |
+| CEU (`ceu`) | `service_type = 'ceu'` |
+| Teatro / cinema (`theater`) | `service_type = 'theater'` |
+| Biblioteca (`library`) | `service_type = 'library'` |
+| Museu (`museum`) | `service_type = 'museum'` |
+
+*Nota:* linhas sem `source_layer` compatível (ex.: escolas só vindas da API Escola Aberta com outro `source_layer`) **não entram** nas quatro linhas de escola acima; aparecem no detalhe da query SQL.
+
+### 5.2. Contagens Marco **C** (preencher a partir do SQL)
+
+Os totais por **`service_type`** na secção 3 já batem com o estado **C** para tipos **sem** subdivisão por camada:
+
+| Linha | Marco **C** (N) |
+|-------|----------------:|
+| Parque | 6 125 |
+| Centro esportivo | 620 |
+| CEU | 513 |
+| Teatro / cinema | 410 |
+| Biblioteca | 384 |
+| Museu | 167 |
+
+Para **metrô, trem, terminal** e para as **quatro linhas de escola** por `source_layer`, o valor correcto depende da base: executar **`scripts/sql/diagnostic-google-places-subset-cohort.sql`** no Supabase (primeira `SELECT` = por coorte; segunda = **N** total do subconjunto e custo ilustrativo).
+
+### 5.3. Custo Google Places só neste subconjunto (Marco **C** — resultado SQL)
+
+Mesma regra da secção 4: **`max(0, N − 1 000) × 0,025` USD**; **BRL** = USD × **5,50** (resultado da 2.ª query em `scripts/sql/diagnostic-google-places-subset-cohort.sql`).
+
+| Métrica | Valor |
+|--------|------:|
+| **POIs (N)** | **79 380** |
+| **USD (≈)** | **1 959,50** |
+| **BRL (≈)** | **10 777,25** |
+
+*(79 380 − 1 000) × 0,025 = 1 959,50 USD.*
+
+Documento Word gerado: **`docs/comparativo-google-places-subset-cohort.docx`** (e resumo em **`docs/comparativo-google-places-subset-cohort.md`**). Para atualizar números no futuro, volte a correr o SQL, ajuste o script `scripts/generate_comparativo_google_places_subset_docx.py` e regenere o `.docx`.
+
+*O primeiro milhão de chamadas grátis do Google é por projeto/conta, não por categoria; esta tabela é só para dimensionar este recorte.*
