@@ -355,6 +355,53 @@ serve(async (req) => {
       })
       .eq("id", job.id);
 
+    // HU-8.1 — Notificação in-app quando o job veio de um agendamento e o
+    // dono pediu pra ser avisado.
+    try {
+      // O job pode ter `scheduled_export_id` populado quando source='scheduled'.
+      const { data: jobFresh } = await supabase
+        .from("export_jobs")
+        .select("source, scheduled_export_id")
+        .eq("id", job.id)
+        .single();
+
+      const scheduledExportId = (jobFresh as { source?: string; scheduled_export_id?: string } | null)
+        ?.scheduled_export_id;
+
+      if (scheduledExportId) {
+        const { data: sch } = await supabase
+          .from("scheduled_exports")
+          .select("name, notify_in_app")
+          .eq("id", scheduledExportId)
+          .single();
+        const schedule = sch as { name?: string; notify_in_app?: boolean } | null;
+        if (schedule?.notify_in_app) {
+          const datasetLabel =
+            job.dataset === "urban_reports"
+              ? "relatos urbanos"
+              : job.dataset === "transport_reports"
+                ? "relatos de transporte"
+                : job.dataset;
+          await supabase.from("notifications").insert({
+            user_id: job.user_id,
+            title: `Exportação "${schedule.name ?? "agendada"}" concluída`,
+            message: `Sua exportação de ${datasetLabel} (${rows.length.toLocaleString("pt-BR")} linhas) está disponível para download.`,
+            type: "export_completed",
+            action_url: "/admin/configuracoes/agendamentos",
+            priority: "normal",
+            metadata: {
+              jobId: job.id,
+              scheduledExportId,
+              format: job.format,
+              rowCount: rows.length,
+            },
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.warn("[process-export-job] falha ao criar notificação:", notifErr);
+    }
+
     return new Response(
       JSON.stringify({ ok: true, jobId: job.id, rowCount: rows.length, storagePath }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
