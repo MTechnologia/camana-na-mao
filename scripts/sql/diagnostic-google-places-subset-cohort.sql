@@ -2,11 +2,11 @@
 -- descritos em docs/comparativo-equipamentos-antes-depois-google-places.md (secção 5).
 --
 -- Transporte: só metrô, trem e terminal de ônibus (exclui ponto_onibus e outros transit_station).
--- Escola: só SME/GeoSampa rede pública EF+M, infantil pública, técnico público, SENAI/SESI/SENAC
---         (exclui rede_privada, educacao_outros, escola_aberta sem layer, etc., se não casarem).
+-- Escola: só as quatro camadas GeoSampa SME listadas (exclui rede_privada, educacao_outros, escola_aberta, etc.).
+-- Saúde (mapa como "hospital"): todas as linhas service_type = hospital (UPA/urgência, hospitais, ambulatórios, etc.).
 -- Equipamentos: park, sports_center, ceu, theater, library, museum (service_type).
 --
--- Custo ilustrativo na query: max(0, N_total - 1000) * 0.025 USD (mesmas premissas do comparativo).
+-- Custo ilustrativo: max(0, N_total - 1000) * 0.025 USD; BRL = USD * 5.50 (câmbio ilustrativo).
 
 WITH tagged AS (
   SELECT
@@ -33,6 +33,29 @@ WITH tagged AS (
       WHEN service_type = 'school'
            AND source_layer = 'senai_sesi_senac'
         THEN 'school_senai_sesi_senac'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'urgencia_emergencia'
+        THEN 'hospital_urgencia_emergencia'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'hospital'
+        THEN 'hospital_hospital'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_ambulatorios_especializados'
+        THEN 'hospital_ambulatorios_especializados'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_saude_mental'
+        THEN 'hospital_saude_mental'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_ccz'
+        THEN 'hospital_ccz'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_outros'
+        THEN 'hospital_saude_outros'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_unidades_dst_aids'
+        THEN 'hospital_unidades_dst_aids'
+      WHEN service_type = 'hospital'
+        THEN 'hospital_source_layer_outros'
       WHEN service_type = 'park' THEN 'park'
       WHEN service_type = 'sports_center' THEN 'sports_center'
       WHEN service_type = 'ceu' THEN 'ceu'
@@ -49,7 +72,6 @@ WHERE cohort IS NOT NULL
 GROUP BY cohort
 ORDER BY cohort;
 
--- Total do subconjunto + custo ilustrativo (USD) e BRL a R$ 5,50/USD
 WITH tagged AS (
   SELECT
     id,
@@ -75,6 +97,29 @@ WITH tagged AS (
       WHEN service_type = 'school'
            AND source_layer = 'senai_sesi_senac'
         THEN 'school_senai_sesi_senac'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'urgencia_emergencia'
+        THEN 'hospital_urgencia_emergencia'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'hospital'
+        THEN 'hospital_hospital'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_ambulatorios_especializados'
+        THEN 'hospital_ambulatorios_especializados'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_saude_mental'
+        THEN 'hospital_saude_mental'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_ccz'
+        THEN 'hospital_ccz'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_outros'
+        THEN 'hospital_saude_outros'
+      WHEN service_type = 'hospital'
+           AND source_layer = 'equipamento_saude_unidades_dst_aids'
+        THEN 'hospital_unidades_dst_aids'
+      WHEN service_type = 'hospital'
+        THEN 'hospital_source_layer_outros'
       WHEN service_type = 'park' THEN 'park'
       WHEN service_type = 'sports_center' THEN 'sports_center'
       WHEN service_type = 'ceu' THEN 'ceu'
