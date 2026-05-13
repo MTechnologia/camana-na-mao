@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock, Sparkles, TrendingUp, Siren, ClipboardCheck, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -51,6 +51,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
       section: 'GESTÃO',
       items: [
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
+        // HU-10.3 — Triagem kanban (admin + gestor).
+        { title: 'Triagem', icon: ClipboardCheck, href: '/admin/triagem' },
         { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
         { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
         { title: 'Mapa de calor', icon: Flame, href: '/admin/reports-heatmap' },
@@ -85,7 +87,17 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
           ],
         }] : []),
         ...(canViewAuditLogs ? [{ title: 'Logs de Auditoria', icon: FileText, href: '/admin/audit-logs' }] : []),
+        // HU-11.2 — Matriz de permissões (admin).
+        ...(canConfigureSystem ? [{ title: 'Permissões', icon: Shield, href: '/admin/permissions' }] : []),
         { title: 'Logs de Exportação', icon: Download, href: '/admin/exports' },
+        // HU-8.1 — Acesso direto à gestão de agendamentos de export (admin + gestor).
+        { title: 'Agendamentos', icon: CalendarClock, href: '/admin/configuracoes/agendamentos' },
+        // HU-9.1 — Padrões detectados pela IA (admin + gestor).
+        { title: 'Padrões da IA', icon: Sparkles, href: '/admin/padroes' },
+        // HU-9.2 — Previsões de volume de relatos.
+        { title: 'Previsões', icon: TrendingUp, href: '/admin/previsoes' },
+        // HU-9.3 — Detecção de anomalias.
+        { title: 'Anomalias', icon: Siren, href: '/admin/anomalias' },
         { title: 'Central de Alertas', icon: Bell, href: '/admin/notifications', badge: unreadCount > 0 ? unreadCount : null },
       ],
     },

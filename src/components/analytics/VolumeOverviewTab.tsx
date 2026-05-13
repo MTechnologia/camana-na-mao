@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -20,6 +20,8 @@ import { Card } from "@/components/ui/card";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
 import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   EMPTY_VOLUME_FILTERS,
   type VolumeFiltersValue,
@@ -46,19 +48,24 @@ import { VolumeCompareView } from "@/components/analytics/VolumeCompareView";
 
 export function VolumeOverviewTab() {
   const [filters, setFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+  // HU-5.3 — Debounce nos filtros granulares para multisseleção fluida.
+  // Período não entra (escolha pontual via popover); só categorias/regiões/zonas.
+  const debouncedCategories = useDebouncedValue(filters.categories, 300);
+  const debouncedRegions = useDebouncedValue(filters.regions, 300);
+  const debouncedZones = useDebouncedValue(filters.zones, 300);
 
   const hookFilters: ReportsVolumeFilters = useMemo(
     () => ({
       startDate: filters.period?.from,
       endDate: filters.period?.to,
-      categories: filters.categories,
-      regions: filters.regions,
-      zones: filters.zones,
+      categories: debouncedCategories,
+      regions: debouncedRegions,
+      zones: debouncedZones,
     }),
-    [filters],
+    [filters.period, debouncedCategories, debouncedRegions, debouncedZones],
   );
 
-  const { stats, isLoading, error, refresh } = useReportsVolume(hookFilters);
+  const { stats, isLoading, error, refresh, lastUpdate } = useReportsVolume(hookFilters);
 
   // HU-5.1 — Estado de comparação A vs B (período secundário opcional)
   const [comparePeriods, setComparePeriods] = useState<PeriodComparePickerValue>({
@@ -68,11 +75,10 @@ export function VolumeOverviewTab() {
   });
 
   // Sincroniza periodA quando o filtro de período muda
-  useMemo(() => {
-    if (comparePeriods.periodA !== filters.period) {
-      setComparePeriods((prev) => ({ ...prev, periodA: filters.period }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setComparePeriods((prev) =>
+      prev.periodA === filters.period ? prev : { ...prev, periodA: filters.period },
+    );
   }, [filters.period]);
 
   const compareEnabled = comparePeriods.periodB !== null;
@@ -132,6 +138,15 @@ export function VolumeOverviewTab() {
 
   return (
     <div className="space-y-6">
+      {/* HU-5.3 — Indicador "ao vivo" + refresh manual */}
+      <div className="flex justify-end -mb-2">
+        <AnalyticsLiveBadge
+          lastUpdates={[lastUpdate]}
+          onRefresh={() => void refresh()}
+          refreshing={isLoading}
+        />
+      </div>
+
       <VolumeFilters
         value={filters}
         onChange={setFilters}

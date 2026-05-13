@@ -72,3 +72,36 @@ export const formatRelativeTimeShort = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return formatDistanceToNow(d, { locale: ptBR });
 };
+
+/**
+ * HU-5.2 — Converte "YYYY-MM-DD" em um Date à meia-noite LOCAL.
+ *
+ * `new Date("2026-05-11")` interpreta a string como UTC midnight, o que em
+ * timezones negativos (ex.: -03:00) vira o dia anterior no horário local.
+ * Esta função evita o bug parseando os componentes Y/M/D explicitamente.
+ *
+ * Aceita também strings ISO completas (extrai apenas a parte yyyy-MM-dd).
+ */
+export const parseLocalDate = (s: string | null | undefined): Date | undefined => {
+  if (!s) return undefined;
+  const datePart = s.length >= 10 ? s.slice(0, 10) : s;
+  const parts = datePart.split('-').map((p) => Number(p));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return undefined;
+  const [y, m, d] = parts;
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d); // meia-noite local
+};
+
+/**
+ * HU-5.2 — Formata um Date como "YYYY-MM-DD" usando os componentes LOCAIS.
+ *
+ * Diferente de `date.toISOString().slice(0, 10)`, que converte primeiro para
+ * UTC e pode pular o dia em timezones negativos.
+ */
+export const formatLocalDate = (d: Date | null | undefined): string | undefined => {
+  if (!d) return undefined;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};

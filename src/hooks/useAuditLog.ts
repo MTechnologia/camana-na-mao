@@ -75,10 +75,11 @@ export const useAuditLog = () => {
   };
 
   const getAllLogs = async (filters?: {
-    action?: AuditAction;
+    action?: string;
     entityType?: string;
     startDate?: Date;
     endDate?: Date;
+    userId?: string;
     limit?: number;
   }) => {
     try {
@@ -92,6 +93,9 @@ export const useAuditLog = () => {
       }
       if (filters?.entityType) {
         query = query.eq('entity_type', filters.entityType);
+      }
+      if (filters?.userId) {
+        query = query.eq('user_id', filters.userId);
       }
       if (filters?.startDate) {
         query = query.gte('created_at', filters.startDate.toISOString());
@@ -118,9 +122,41 @@ export const useAuditLog = () => {
     }
   };
 
+  /**
+   * HU-12.2 — Lista de atores únicos que aparecem em audit_logs.
+   * Usada pra popular o select de "Usuário" no filtro da UI.
+   */
+  const getActors = async (): Promise<Array<{
+    userId: string;
+    fullName: string;
+    email: string;
+    logCount: number;
+  }>> => {
+    try {
+      const { data, error } = await supabase.rpc('list_audit_log_actors');
+      if (error) throw error;
+      const rows = (data ?? []) as Array<{
+        user_id: string;
+        full_name: string;
+        email: string;
+        log_count: number;
+      }>;
+      return rows.map((r) => ({
+        userId: r.user_id,
+        fullName: r.full_name,
+        email: r.email,
+        logCount: Number(r.log_count),
+      }));
+    } catch (error) {
+      console.error('Erro ao listar atores:', error);
+      return [];
+    }
+  };
+
   return {
     log,
     getMyLogs,
     getAllLogs,
+    getActors,
   };
 };

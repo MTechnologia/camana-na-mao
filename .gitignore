@@ -30,6 +30,10 @@ crawl-output/
 *-firebase-adminsdk-*.json
 *service-account*.json
 
+# Firebase Android client (google-services.json; não commitar)
+mobile/google-services.json
+mobile/google-services*.json
+
 # Variáveis de ambiente — nunca commitar segredos (modelo: .env.example, .env.e2e.example)
 .env
 .env.*

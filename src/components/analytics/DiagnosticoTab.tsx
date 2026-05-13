@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   AlertTriangle,
-  Clock,
   Frown,
   Gauge,
   MapPin,
@@ -16,12 +15,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AIInsightsCard } from "@/components/analytics/AIInsightsCard";
-import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
+import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   useDiagnosticoCriticidade,
   type CategoryDiagnostic,
@@ -60,18 +61,49 @@ export function DiagnosticoTab() {
     defaults: { p: null },
     serializers: { p: dateRangeSerializer() },
   });
-  const period: DateRangeValue | undefined = periodState.p ? { startDate: periodState.p.startDate, endDate: periodState.p.endDate } : undefined;
-  const setPeriod = (next: DateRangeValue | undefined) => setPeriodState({ p: next ? { startDate: next.startDate, endDate: next.endDate } : null });
+  // HU-5.2 fix — URL state guarda strings "YYYY-MM-DD"; DateRangeValue exige Dates locais.
+  // IMPORTANTE: usar componentes locais (Y/M/D) para evitar bug do D-1: `new Date("2026-05-11")`
+  // é interpretado como UTC e em -03:00 vira 10/maio 21:00. E `toISOString().slice(0,10)` em
+  // -03:00 também pode adiantar/atrasar o dia. Usamos parsing/formatação puramente local.
+  const period: DateRangeValue | undefined = useMemo(
+    () =>
+      periodState.p
+        ? {
+            from: parseLocalDate(periodState.p.startDate),
+            to: parseLocalDate(periodState.p.endDate),
+          }
+        : undefined,
+    [periodState.p?.startDate, periodState.p?.endDate],
+  );
+  const setPeriod = (next: DateRangeValue | undefined) =>
+    setPeriodState({
+      p: next
+        ? {
+            startDate: formatLocalDate(next.from),
+            endDate: formatLocalDate(next.to),
+          }
+        : null,
+    });
 
   // HU-5.2 — Filtros granulares (categorias, bairros, zonas)
   const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+  // HU-5.3 — Debounce de 300ms nas seleções rápidas (multisseleção em sequência)
+  // pra evitar disparar fetchData a cada checkbox marcado. O período não entra no
+  // debounce porque o usuário escolhe e fecha o popover de uma vez.
+  const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
   const filters = useMemo(
-    () => ({ startDate: period?.from, endDate: period?.to }),
-    [period],
+    () => ({
+      startDate: period?.from,
+      endDate: period?.to,
+      categories: debouncedGranularFilters.categories,
+      regions: debouncedGranularFilters.regions,
+      zones: debouncedGranularFilters.zones,
+    }),
+    [period, debouncedGranularFilters],
   );
 
-  const { stats, isLoading, error, refresh } = useDiagnosticoCriticidade(filters);
+  const { stats, isLoading, error, refresh, lastUpdate } = useDiagnosticoCriticidade(filters);
 
   // Reaproveita insights da IA já gerados pelo hook de sentimento.
   const { stats: sentimentStats } = useSentimentAnalytics({
@@ -96,6 +128,15 @@ export function DiagnosticoTab() {
 
   return (
     <div className="space-y-6">
+      {/* HU-5.3 — Indicador "ao vivo" + refresh manual */}
+      <div className="flex justify-end -mb-2">
+        <AnalyticsLiveBadge
+          lastUpdates={[lastUpdate]}
+          onRefresh={() => void refresh()}
+          refreshing={isLoading}
+        />
+      </div>
+
       {/* HU-5.2 — Filtros granulares: período + categorias + bairros + zonas */}
       <VolumeFilters
         value={{ ...granularFilters, period }}
@@ -103,8 +144,8 @@ export function DiagnosticoTab() {
           setPeriod(next.period);
           setGranularFilters({ ...next, period: next.period });
         }}
-        availableCategories={[]}
-        availableRegions={[]}
+        availableCategories={stats.availableCategories ?? []}
+        availableRegions={stats.availableRegions ?? []}
         loading={isLoading}
       />
 
