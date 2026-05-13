@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useReferralsAdmin } from '@/hooks/useReferralsAdmin';
+import { useReferralsAdmin, type Referral } from '@/hooks/useReferralsAdmin';
 
 const ReferralsManagement = () => {
   const {
@@ -51,12 +51,12 @@ const ReferralsManagement = () => {
     refetch,
   } = useReferralsAdmin();
 
-  const [selectedReferral, setSelectedReferral] = useState<Record<string, unknown> | null>(null);
+  const [selectedReferral, setSelectedReferral] = useState<Referral | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [responseText, setResponseText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [referralToDelete, setReferralToDelete] = useState<Record<string, unknown> | null>(null);
+  const [referralToDelete, setReferralToDelete] = useState<Referral | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const getStatusColor = (status: string) => {
@@ -79,16 +79,16 @@ const ReferralsManagement = () => {
     }
   };
 
-  const getReportType = (referral: Record<string, unknown>) => {
+  const getReportType = (referral: Referral) => {
     if (referral.transport_report_id) return { type: 'transport', label: 'Transporte', icon: Bus };
     if (referral.urban_report_id) return { type: 'urban', label: 'Urbano', icon: MapPin };
     if (referral.service_rating_id) return { type: 'service', label: 'Serviço', icon: Star };
     return { type: 'unknown', label: 'Desconhecido', icon: MessageSquare };
   };
 
-  const handleViewDetails = (referral: Record<string, unknown>) => {
+  const handleViewDetails = (referral: Referral) => {
     setSelectedReferral(referral);
-    setResponseText(referral.response_text || '');
+    setResponseText(typeof referral.response_text === 'string' ? referral.response_text : '');
     setDetailsOpen(true);
   };
 
@@ -101,7 +101,7 @@ const ReferralsManagement = () => {
   };
 
   const handleDeleteReferral = async () => {
-    if (!referralToDelete) return;
+    if (!referralToDelete || typeof referralToDelete.id !== 'string') return;
     setDeleting(true);
     await deleteReferral(referralToDelete.id);
     setDeleting(false);
@@ -332,8 +332,10 @@ const ReferralsManagement = () => {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-semibold text-lg">{selectedReferral.council_member_name}</h3>
-                    {selectedReferral.council_member_party && (
+                    <h3 className="font-semibold text-lg">
+                      {typeof selectedReferral.council_member_name === 'string' ? selectedReferral.council_member_name : ''}
+                    </h3>
+                    {typeof selectedReferral.council_member_party === 'string' && (
                       <p className="text-sm text-muted-foreground">{selectedReferral.council_member_party}</p>
                     )}
                   </div>
@@ -431,7 +433,7 @@ const ReferralsManagement = () => {
               <AlertDialogDescription className="space-y-3">
                 <p>
                   Esta ação não pode ser desfeita. O encaminhamento para{' '}
-                  <strong>{referralToDelete?.council_member_name}</strong> será excluído permanentemente.
+                  <strong>{typeof referralToDelete?.council_member_name === 'string' ? referralToDelete.council_member_name : ''}</strong> será excluído permanentemente.
                 </p>
                 {referralToDelete?.citizen_message && (
                   <div className="p-3 bg-muted rounded-md border">
