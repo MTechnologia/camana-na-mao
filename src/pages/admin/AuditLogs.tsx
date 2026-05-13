@@ -238,35 +238,31 @@ const AuditLogs = () => {
 
     const csv = rowsToCsv(rows);
     const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
-    const file = new File([csv], filename, { type: "text/csv;charset=utf-8" });
-    const shareData: ShareData = {
-      files: [file],
-      title: "Logs de Auditoria",
-      text: "Exportação CSV dos logs de auditoria.",
-    };
-
-    if (
-      typeof navigator.share === "function" &&
-      (!navigator.canShare || navigator.canShare(shareData))
-    ) {
-      try {
-        await navigator.share(shareData);
-        setExportFile(null);
-        toast({
-          title: "CSV pronto para compartilhar",
-          description: "No celular, escolha Salvar em Arquivos, Drive ou outro app.",
-        });
-        return;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.warn("Falha ao abrir compartilhamento do CSV:", error);
-      }
-    }
-
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
-    setExportFile({ url, filename });
 
+    // Heurística de mobile: hover:none + pointer:coarse é o melhor sinal.
+    // userAgentData/mobile é mais novo mas ainda não universal.
+    const isMobile =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+
+    if (isMobile) {
+      // Em mobile, o `<a download>` programatico geralmente NAO dispara o
+      // download. Em vez disso, mostramos um card com um link real que o
+      // usuario toca — a interacao direta com o `<a>` faz o navegador
+      // respeitar o atributo download (ou abrir o CSV em nova aba para que
+      // o user salve manualmente).
+      setExportFile({ url, filename });
+      toast({
+        title: "CSV pronto",
+        description: "Toque em 'Baixar CSV' para salvar no celular.",
+      });
+      return;
+    }
+
+    // Desktop: download automatico via <a> sintetico. Funciona em todos os
+    // navegadores principais. Nao mostra card.
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
@@ -275,10 +271,13 @@ const AuditLogs = () => {
     document.body.appendChild(a);
     a.click();
     a.remove();
+    // Libera a URL apos um tempo (Chrome precisa de alguns ms para iniciar o
+    // download antes de revogar).
+    setTimeout(() => window.URL.revokeObjectURL(url), 1500);
 
     toast({
-      title: "CSV pronto",
-      description: "Se o celular não baixou automaticamente, toque em Baixar CSV abaixo.",
+      title: "Download iniciado",
+      description: `${filteredLogs.length} registros exportados.`,
     });
   };
 
