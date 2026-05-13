@@ -313,6 +313,15 @@ Deno.test("HU-6.5: parseAccessibilityDetailsMarker e formatTransportAccessibilit
   );
 });
 
+Deno.test("parseFieldResponse: correção de categoria com texto curto não-padrão cai em fallback (outro + subcategoria)", () => {
+  const result = parseFieldResponse("category", "Risco de morte");
+  assertEquals(result?.category, "outro");
+  assertEquals(typeof result?.subcategory, "string");
+  assertEquals(String(result?.subcategory).toLowerCase().includes("risco"), true);
+  assertEquals(result?._fallback_category, true);
+  assertEquals(result?.description, undefined);
+});
+
 Deno.test("parseFieldResponse: mantém parsing urbano de categoria e risco", () => {
   assertEquals(parseFieldResponse("category", "barulho alto a noite"), {
     category: "poluicao",

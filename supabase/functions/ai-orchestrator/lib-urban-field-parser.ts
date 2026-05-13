@@ -178,21 +178,24 @@ export function parseUrbanFieldResponse(
         }
       }
 
-      if (!result.category && response.length >= 20) {
-        console.log("[parseFieldResponse] Category recovery: treating as description");
-        result.description = response;
-
+      if (!result.category && response.length >= 3) {
         const autoClass = deps.autoClassifyCategory(response);
         if (autoClass.category && autoClass.confidence >= 0.5) {
           result.category = autoClass.category;
           result.subcategory = autoClass.suggestedLabel || deps.generateLabelFromDescription(response);
           result._auto_classified = true;
           result._classification_confidence = autoClass.confidence;
+          if (response.length >= 20) {
+            result.description = response;
+          }
           console.log("[parseFieldResponse] Auto-classified category:", autoClass.category, "subcategory:", result.subcategory);
         } else {
           result.category = "outro";
           result.subcategory = deps.generateLabelFromDescription(response);
           result._fallback_category = true;
+          if (response.length >= 20) {
+            result.description = response;
+          }
           console.log("[parseFieldResponse] Fallback to outro with subcategory:", result.subcategory);
         }
       }
