@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { rowsToCsv, type AuditCsvRow } from "@/lib/auditCsv";
 import { downloadCsv } from "@/lib/csvSerialize";
 import { useToast } from "@/hooks/use-toast";
+import { usePerformanceMark } from "@/hooks/usePerformanceMark";
 
 /**
  * HU-12.2 — Trilha de auditoria com filtros completos.
@@ -138,6 +139,9 @@ const AuditLogs = () => {
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selected, setSelected] = useState<AuditLogRow | null>(null);
+
+  // HU-13.2 — Mede tempo de carga inicial da página (SLA 3s).
+  usePerformanceMark("audit_logs_load", !isLoading);
 
   useEffect(() => {
     if (!roleLoading && !hasRole("admin")) {

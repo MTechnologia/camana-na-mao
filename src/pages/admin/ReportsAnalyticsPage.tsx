@@ -32,6 +32,7 @@ import { TerritorialDrillTab } from '@/components/analytics/TerritorialDrillTab'
 import { MultiDrillTab } from '@/components/analytics/MultiDrillTab';
 import { CrossAnalyticsTab } from '@/components/analytics/CrossAnalyticsTab';
 import { useReportsAnalytics, ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import { usePerformanceMark } from '@/hooks/usePerformanceMark';
 import { useUrlSyncedState, optionalStringSerializer, stringSerializer } from '@/hooks/useUrlSyncedState';
 import { usePatternThresholdEvents } from '@/hooks/usePatternThresholdEvents';
 import { useSentimentAnalytics } from '@/hooks/useSentimentAnalytics';
@@ -144,6 +145,9 @@ export default function ReportsAnalyticsPage() {
   }), [demographicFilters]);
   
   const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
+
+  // HU-13.2 — Medição de performance: tempo da carga inicial da página.
+  usePerformanceMark("analytics_load", !isLoading && stats != null);
 
   const activeTab = tabState.tab;
   const loadCorrelationData = activeTab === 'geral' || activeTab === 'criticidade';
