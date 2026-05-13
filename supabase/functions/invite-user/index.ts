@@ -133,10 +133,22 @@ serve(async (req: Request) => {
 
     if (inviteErr) {
       console.error('[invite-user] inviteUserByEmail error', inviteErr);
-      // Detecta usuário duplicado.
       const msg = inviteErr.message ?? '';
-      const status = msg.toLowerCase().includes('already') ? 409 : 500;
-      return json({ error: msg || 'Falha ao enviar convite.' }, status);
+      const lower = msg.toLowerCase();
+      // Mapeia erros conhecidos do Supabase Auth para status HTTP claros.
+      let status = 500;
+      let friendly = msg || 'Falha ao enviar convite.';
+      if (lower.includes('already') || lower.includes('user already registered')) {
+        status = 409;
+        friendly = 'Este email já tem cadastro no sistema.';
+      } else if (lower.includes('rate limit') || (inviteErr as { code?: string }).code === 'over_email_send_rate_limit') {
+        status = 429;
+        friendly = 'Limite de envio de emails atingido. Aguarde alguns minutos antes de tentar novamente, ou configure SMTP customizado no Supabase.';
+      } else if (lower.includes('invalid') && lower.includes('email')) {
+        status = 400;
+        friendly = 'Email inválido segundo o provedor de autenticação.';
+      }
+      return json({ error: friendly, raw: msg }, status);
     }
 
     const newUserId = inviteData?.user?.id;
