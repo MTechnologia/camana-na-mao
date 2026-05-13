@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { rowsToCsv, type AuditCsvRow } from "@/lib/auditCsv";
+import { downloadCsv } from "@/lib/csvSerialize";
 import { useToast } from "@/hooks/use-toast";
 
 /**
@@ -137,7 +138,6 @@ const AuditLogs = () => {
   const [customStart, setCustomStart] = useState<string>("");
   const [customEnd, setCustomEnd] = useState<string>("");
   const [selected, setSelected] = useState<AuditLogRow | null>(null);
-  const [exportFile, setExportFile] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
     if (!roleLoading && !hasRole("admin")) {
@@ -189,14 +189,6 @@ const AuditLogs = () => {
     void loadLogs();
   }, [loadLogs]);
 
-  useEffect(() => {
-    return () => {
-      if (exportFile?.url) {
-        window.URL.revokeObjectURL(exportFile.url);
-      }
-    };
-  }, [exportFile?.url]);
-
   const actorById = useMemo(() => {
     const m = new Map<string, (typeof actors)[number]>();
     for (const a of actors) m.set(a.userId, a);
@@ -218,7 +210,7 @@ const AuditLogs = () => {
     [logs],
   );
 
-  const exportLogs = async () => {
+  const exportLogs = () => {
     const rows: AuditCsvRow[] = filteredLogs.map((log) => {
       const actor = log.user_id ? actorById.get(log.user_id) : null;
       return {
@@ -236,63 +228,12 @@ const AuditLogs = () => {
       };
     });
 
-    const csv = rowsToCsv(rows);
+    // Usa o mesmo helper `downloadCsv` que é usado em
+    // /admin/analytics (Análise de Relatos). Ele faz appendChild → click →
+    // removeChild SEM display:none e SEM rel="noopener", que é a forma que
+    // funciona consistentemente em desktop E mobile (incluindo PWA standalone).
     const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-
-    // Heurística de mobile robusta: combina vários sinais. Alguns Androids em
-    // PWA standalone mode reportam hover/pointer como desktop, então só o
-    // matchMedia não basta. Considera mobile se QUALQUER um for verdadeiro:
-    //   - User-Agent Client Hints diz isMobile
-    //   - User-Agent classico bate com regex de dispositivo movel
-    //   - matchMedia pointer:coarse (toque)
-    //   - presença de window.ontouchstart (touch support)
-    const isMobile = (() => {
-      if (typeof window === "undefined") return false;
-      const uaData = (navigator as Navigator & {
-        userAgentData?: { mobile?: boolean };
-      }).userAgentData;
-      if (uaData?.mobile === true) return true;
-      if (
-        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          navigator.userAgent,
-        )
-      ) {
-        return true;
-      }
-      if (window.matchMedia("(pointer: coarse)").matches) return true;
-      if ("ontouchstart" in window) return true;
-      return false;
-    })();
-
-    if (isMobile) {
-      // Em mobile, o `<a download>` programatico geralmente NAO dispara o
-      // download. Em vez disso, mostramos um card com um link real que o
-      // usuario toca — a interacao direta com o `<a>` faz o navegador
-      // respeitar o atributo download (ou abrir o CSV em nova aba para que
-      // o user salve manualmente).
-      setExportFile({ url, filename });
-      toast({
-        title: "CSV pronto",
-        description: "Toque em 'Baixar CSV' para salvar no celular.",
-      });
-      return;
-    }
-
-    // Desktop: download automatico via <a> sintetico. Funciona em todos os
-    // navegadores principais. Nao mostra card.
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.rel = "noopener";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // Libera a URL apos um tempo (Chrome precisa de alguns ms para iniciar o
-    // download antes de revogar).
-    setTimeout(() => window.URL.revokeObjectURL(url), 1500);
+    downloadCsv(rowsToCsv(rows), filename);
 
     toast({
       title: "Download iniciado",
@@ -333,44 +274,6 @@ const AuditLogs = () => {
             Exportar CSV
           </Button>
         </div>
-
-        {exportFile && (
-          <Card className="p-3 border-primary/30 bg-primary/5 space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">CSV pronto para baixar</p>
-              <p className="text-xs text-muted-foreground">
-                Se o download automático não abriu no celular, toque no botão abaixo.
-                Em alguns navegadores móveis, o arquivo abre em uma nova aba antes de
-                salvar.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <Button asChild className="w-full gap-2">
-                <a
-                  href={exportFile.url}
-                  download={exportFile.filename}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Download className="w-4 h-4" />
-                  Baixar CSV
-                </a>
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <a href={exportFile.url} target="_blank" rel="noopener noreferrer">
-                  Abrir CSV
-                </a>
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full"
-                onClick={() => setExportFile(null)}
-              >
-                Dispensar
-              </Button>
-            </div>
-          </Card>
-        )}
 
         {/* Filtros */}
         <Card className="p-3 space-y-3">
