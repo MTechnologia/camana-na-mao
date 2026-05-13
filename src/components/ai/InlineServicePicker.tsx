@@ -46,6 +46,38 @@ function normalizeBrazilSpellings(term: string): string[] {
   return [...out];
 }
 
+/**
+ * Gera variantes tolerantes para bairros/nomes com acento, cedilha e til.
+ * Exemplos:
+ * - Jaçanã -> Jacana
+ * - Jacana -> Jaçana, Jacanã, Jaçanã
+ * - Butantã -> Butanta
+ */
+function buildFuzzySearchVariants(term: string): string[] {
+  const t = term.trim();
+  if (!t) return [];
+
+  const variants = new Set<string>([t, foldAccents(t), ...normalizeBrazilSpellings(t)]);
+
+  const snapshot = [...variants];
+  for (const value of snapshot) {
+    // c <-> ç (ex.: Jacana <-> Jaçana)
+    if (/[cç]/i.test(value)) {
+      variants.add(value.replace(/ç/gi, "c"));
+      variants.add(value.replace(/c(?=[aouAOU])/g, "ç"));
+      variants.add(value.replace(/C(?=[AOU])/g, "Ç"));
+    }
+
+    // última letra "a" -> "ã" (ex.: Jacana -> Jacanã)
+    variants.add(value.replace(/a\b/g, "ã"));
+    variants.add(value.replace(/A\b/g, "Ã"));
+  }
+
+  return [...variants]
+    .map((v) => sanitizeSearchTerm(v))
+    .filter((v, i, arr) => v.length >= 2 && arr.indexOf(v) === i);
+}
+
 /** Palavras com 3+ letras (ex.: "Vital") para busca quando o ILIKE composto não retorna */
 function distinctiveTokens(term: string): string[] {
   return term
@@ -106,7 +138,7 @@ async function validateManualEntryNotRatedToday(
   if (term.length < 2) return { blocked: false };
 
   const applyType = (strict: boolean) => {
-    let q = supabase.from("public_services").select("id, name, district").limit(40);
+    let q = supabase.from("public_services").select("id, name, district").is("duplicate_of", null).limit(40);
     if (!st) return q;
     if (strict) return q.eq("service_type", st);
     if (st === "hospital") return q.in("service_type", ["hospital", "other"] as string[]);
@@ -124,9 +156,7 @@ async function validateManualEntryNotRatedToday(
   };
 
   const runNameVariants = async (strict: boolean) => {
-    const variants = [...new Set([term, foldAccents(term), ...normalizeBrazilSpellings(term)])].filter(
-      (t) => t.length >= 2,
-    );
+    const variants = buildFuzzySearchVariants(term);
     for (const variant of variants) {
       await collectFromIlike(strict, variant);
       if (candidates.size > 0) return;
@@ -204,7 +234,7 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
       setIsLoading(true);
       try {
         const baseSelect = () =>
-          supabase.from("public_services").select("id, name, service_type, district, address").limit(80);
+          supabase.from("public_services").select("id, name, service_type, district, address").is("duplicate_of", null).limit(80);
 
         const applyType = (
           q: ReturnType<typeof baseSelect>,
@@ -227,10 +257,7 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
         let rows: PublicService[] = [];
 
         const runPrimary = async (term: string, strictType: boolean) => {
-          const attempts = [term, foldAccents(term)].filter((t, i, arr) => {
-            if (t.length < 2) return false;
-            return arr.findIndex((x) => x === t) === i;
-          });
+          const attempts = buildFuzzySearchVariants(term);
           for (const t of attempts) {
             let q = applyType(baseSelect(), strictType);
             q = bootstrap ? q.or(orNeighborhood(t)) : q.or(orRefine(t));
@@ -244,10 +271,7 @@ export const InlineServicePicker = ({ serviceType, district, hideRatedToday, onS
 
         /** Busca só na coluna `name` — mais próximo do filtro por texto do Perto de você */
         const runNameOnly = async (term: string, strictType: boolean) => {
-          const attempts = [term, foldAccents(term)].filter((t, i, arr) => {
-            if (t.length < 2) return false;
-            return arr.findIndex((x) => x === t) === i;
-          });
+          const attempts = buildFuzzySearchVariants(term);
           for (const t of attempts) {
             let q = applyType(baseSelect(), strictType);
             q = q.ilike("name", `%${t}%`);

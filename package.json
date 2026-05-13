@@ -13,6 +13,7 @@
     "format:check": "prettier --check . --ignore-path prettierignore",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "crawl:camara": "node scripts/crawl-camara-site.mjs",
     "import:geosampa": "node scripts/import-geosampa-education.mjs",
@@ -26,7 +27,10 @@
     "test:quiet-hours": "deno test supabase/functions/_shared/quiet-hours_test.ts",
     "test:daily-limit": "deno test supabase/functions/_shared/daily-limit_test.ts",
     "test:notification-channels": "deno test supabase/functions/_shared/notification-channels_test.ts",
-    "test:visit-reminder": "deno test supabase/functions/_shared/visit-reminder-windows_test.ts"
+    "test:visit-reminder": "deno test supabase/functions/_shared/visit-reminder-windows_test.ts",
+    "audit": "npm audit",
+    "audit:high": "npm audit --audit-level=high",
+    "backlog:xlsx": "node scripts/export-backlog-teste-xlsx.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -64,7 +68,7 @@
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.24",
     "html2canvas": "^1.4.1",
-    "jspdf": "^4.0.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.462.0",
     "mermaid": "^11.12.2",
     "next-themes": "^0.3.0",
@@ -74,13 +78,14 @@
     "react-easy-crop": "^5.5.5",
     "react-hook-form": "^7.61.1",
     "react-markdown": "^10.1.0",
-    "react-router-dom": "^6.30.1",
+    "react-router-dom": "^6.30.3",
     "recharts": "^2.15.4",
     "remark-gfm": "^4.0.1",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -105,6 +110,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "exceljs": "^4.4.0",
     "globals": "^15.15.0",
     "jsdom": "^29.0.2",
     "lovable-tagger": "^1.1.13",

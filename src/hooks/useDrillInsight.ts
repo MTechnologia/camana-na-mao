@@ -699,6 +699,169 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
     }
   }, []);
 
+  /**
+   * HU-3.4 fix — drill-into a partir do heatmap de cruzamento.
+   * Recebe categoria macro (Urbano/Transporte/Avaliação) + eixo demográfico
+   * + valor selecionado e busca somente os relatos que cruzam ambos.
+   */
+  const searchByCrossDemographic = useCallback(async (
+    category: 'Urbano' | 'Transporte' | 'Avaliação',
+    demoAxis: 'gender' | 'race' | 'social_class' | 'age_group',
+    demoValue: string,
+    demoLabel: string,
+  ) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    const ctxLabel = `${category} × ${demoLabel}`;
+
+    try {
+      // 1) user_ids que casam com o filtro demográfico
+      let userIds: string[] = [];
+
+      if (demoAxis === 'age_group') {
+        const { data } = await supabase.from('user_demographics').select('user_id, birth_date');
+        const target = demoValue;
+        userIds = (data ?? [])
+          .filter((d) => {
+            const bd = (d as { birth_date: string | null }).birth_date;
+            if (!bd) return target === 'not_informed';
+            const age = Math.floor(
+              (Date.now() - new Date(bd).getTime()) / (365.25 * 24 * 3600 * 1000),
+            );
+            const group =
+              age < 18 ? 'under_18' :
+              age <= 24 ? '18_24' :
+              age <= 34 ? '25_34' :
+              age <= 44 ? '35_44' :
+              age <= 54 ? '45_54' :
+              age <= 64 ? '55_64' : '65_plus';
+            return group === target;
+          })
+          .map((d) => (d as { user_id: string }).user_id);
+      } else {
+        const { data } = await supabase
+          .from('user_demographics')
+          .select('user_id')
+          .eq(demoAxis, demoValue);
+        userIds = (data ?? []).map((d) => (d as { user_id: string }).user_id);
+      }
+
+      if (userIds.length === 0) {
+        setState({
+          open: true,
+          context: { type: 'category', value: ctxLabel, label: ctxLabel },
+          reports: [],
+          stats: calculateStats([]),
+          insight: `Sem relatos de ${category} para o perfil ${demoLabel}.`,
+          isLoading: false,
+        });
+        return;
+      }
+
+      // 2) Buscar relatos da categoria macro restrito aos user_ids
+      let allReports: DrillReport[] = [];
+      if (category === 'Urbano') {
+        const { data } = await supabase
+          .from('urban_reports')
+          .select('*')
+          .in('user_id', userIds);
+        allReports = mapUrbanReports(data || []);
+      } else if (category === 'Transporte') {
+        const { data } = await supabase
+          .from('transport_reports')
+          .select('*')
+          .in('user_id', userIds);
+        allReports = mapTransportReports(data || []);
+      } else {
+        // Avaliação: service_ratings têm estrutura distinta de DrillReport.
+        // Por ora indicamos a contagem agregada e direcionamos para a aba dedicada.
+        const { count } = await supabase
+          .from('service_ratings')
+          .select('*', { count: 'exact', head: true })
+          .in('user_id', userIds);
+        const stats = calculateStats([]);
+        stats.total = count || 0;
+        setState({
+          open: true,
+          context: { type: 'category', value: ctxLabel, label: ctxLabel },
+          reports: [],
+          stats,
+          insight: `${count || 0} avaliações de serviço cruzam ${category} com ${demoLabel}. Detalhe individual indisponível neste painel — use a aba de Drill-down (dimensão Audiências/Categoria) para mais informações.`,
+          isLoading: false,
+        });
+        return;
+      }
+
+      const stats = calculateStats(allReports);
+      const context: DrillContext = { type: 'category', value: ctxLabel, label: ctxLabel };
+      const insight = generateInsight(context, stats);
+      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+    } catch (error) {
+      console.error('Error in searchByCrossDemographic:', error);
+      toast.error('Erro ao carregar cruzamento demográfico');
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+
+  /**
+   * HU-3.5 — drill-into a partir do heatmap N×N de cruzamento.
+   * Recebe os IDs das duas tabelas de relatos já filtrados pelo CrossAnalyticsTab
+   * (urban + transport). Faz fetch direto desses IDs e popula o painel.
+   */
+  const searchByCrossDimensions = useCallback(async (
+    rowDim: string,
+    rowValue: string,
+    rowLabel: string,
+    colDim: string,
+    colValue: string,
+    colLabel: string,
+    reportIds: string[],
+  ) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+    const ctxLabel = `${rowLabel} × ${colLabel}`;
+
+    try {
+      if (reportIds.length === 0) {
+        setState({
+          open: true,
+          context: { type: 'category', value: ctxLabel, label: ctxLabel },
+          reports: [],
+          stats: calculateStats([]),
+          insight: `Sem relatos no cruzamento ${rowLabel} × ${colLabel}.`,
+          isLoading: false,
+        });
+        return;
+      }
+
+      // Fazemos lookup paralelo nas duas fontes de DrillReport
+      const [{ data: urbanData }, { data: transportData }] = await Promise.all([
+        supabase.from('urban_reports').select('*').in('id', reportIds),
+        supabase.from('transport_reports').select('*').in('id', reportIds),
+      ]);
+
+      const allReports = [
+        ...mapUrbanReports(urbanData || []),
+        ...mapTransportReports(transportData || []),
+      ];
+      const stats = calculateStats(allReports);
+      const context: DrillContext = { type: 'category', value: ctxLabel, label: ctxLabel };
+      // Insight com info adicional: quando houver IDs sem retorno (ex: service_ratings),
+      // explicamos a discrepância para o usuário.
+      const missingCount = reportIds.length - allReports.length;
+      const baseInsight = generateInsight(context, stats);
+      const insight = missingCount > 0
+        ? `${baseInsight} ${missingCount} avaliação(ões) de serviço também cruzam este filtro — não aparecem listadas individualmente aqui.`
+        : baseInsight;
+      // metadata extra para depuração futura — não usada na UI agora
+      void rowDim; void rowValue; void colDim; void colValue;
+      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+    } catch (error) {
+      console.error('Error in searchByCrossDimensions:', error);
+      toast.error('Erro ao carregar cruzamento');
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+
   const close = useCallback(() => {
     setState(prev => ({ ...prev, open: false }));
   }, []);
@@ -725,6 +888,8 @@ export const useDrillInsight = (baseFilters: Record<string, unknown> = {}) => {
     searchByPeriod,
     searchByHour,
     searchByWeekday,
+    searchByCrossDemographic,
+    searchByCrossDimensions,
     close,
     reset,
   };

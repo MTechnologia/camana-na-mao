@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { INTEREST_ICONS } from "@/components/icons";
+import { isInInviteSetupFlow, nextInviteStep } from "@/lib/inviteSetupFlow";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -20,8 +21,10 @@ const INTEREST_CATEGORIES = [
 const Onboarding = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const inInviteFlow = isInInviteSetupFlow(searchParams);
 
   const toggleInterest = (interestId: string) => {
     setSelectedInterests(prev =>
@@ -53,7 +56,8 @@ const Onboarding = () => {
       if (error) throw error;
 
       toast.success("Interesses salvos com sucesso!");
-      navigate("/");
+      const next = inInviteFlow ? nextInviteStep("/onboarding") : null;
+      navigate(next ?? "/", { replace: true });
     } catch (error: unknown) {
       toast.error(error.message || "Erro ao salvar interesses");
     } finally {
@@ -64,6 +68,11 @@ const Onboarding = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col p-6">
       <div className="flex-1">
+        {inInviteFlow && (
+          <p className="text-xs text-muted-foreground mb-2">
+            Etapa 2 de 4
+          </p>
+        )}
         <h1 className="text-2xl font-bold text-foreground mb-2">
           Personalize sua experiência
         </h1>

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getGoogleMapsApiKey, getGoogleMapsNotConfiguredMessage } from "@/lib/googleMapsKey";
 import { lookupCepAddress } from "@/lib/cepLookup";
 import { getServiceDisplayName } from "@/lib/mapUtils";
+import { createClientId } from "@/lib/clientId";
 import type { NearbyService } from "@/hooks/useNearbyServices";
 import type { CepCenter } from "@/components/map/CepSearchCard";
 import {
@@ -118,7 +119,7 @@ export function NearbyEquipmentSearchInput({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const sessionTokenRef = useRef<string>(crypto.randomUUID());
+  const sessionTokenRef = useRef<string>(createClientId("places-session"));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const equipmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const equipmentRequestIdRef = useRef(0);
@@ -381,7 +382,7 @@ export function NearbyEquipmentSearchInput({
             sessionToken: sessionTokenRef.current,
           },
         });
-        sessionTokenRef.current = crypto.randomUUID();
+        sessionTokenRef.current = createClientId("places-session");
 
         if (fnError || !data?.address) {
           toast.error("Não foi possível obter o endereço completo");

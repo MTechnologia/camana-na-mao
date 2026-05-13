@@ -72,13 +72,17 @@ const AgentChatArea = () => {
     handleSubcategorySelected,
     handleRecurrenceFrequencySelected,
     handleImpactSelected,
+    handleAccessibilityDetailsSelected,
     handleRatingSelected,
     handleWaitTimeSelected,
     handleDimensionRatingSelected,
+    handleRatingDimensionWaitTimeSelected,
+    handleMultiDimensionRatingComplete,
     handleLocationMethodSelected,
     handleServiceTypeSelected,
     handleServiceSelected,
     handleApplyNearbyFilters,
+    patchMessageContent,
   } = useUnifiedAIChat(activeConversationId, presetCollectionType);
   
   const { createConversation } = useAIConversations();
@@ -432,9 +436,12 @@ const AgentChatArea = () => {
                         onSubcategorySelected={handleSubcategorySelected}
                         onRecurrenceFrequencySelected={handleRecurrenceFrequencySelected}
                         onImpactSelected={handleImpactSelected}
+                        onAccessibilityDetailsSelected={handleAccessibilityDetailsSelected}
                         onRatingSelected={handleRatingSelected}
                         onWaitTimeSelected={handleWaitTimeSelected}
                         onDimensionRatingSelected={handleDimensionRatingSelected}
+                        onRatingDimensionWaitTimeSelected={handleRatingDimensionWaitTimeSelected}
+                        onMultiDimensionRatingComplete={handleMultiDimensionRatingComplete}
                         onLocationMethodSelected={handleLocationMethodSelected}
                         onServiceTypeSelected={handleServiceTypeSelected}
                         onServiceSelected={handleServiceSelected}
@@ -444,6 +451,7 @@ const AgentChatArea = () => {
                         onRequestAudienciasWithFilters={handleRequestAudienciasWithFilters}
                         onApplyNearbyFilters={handleApplyNearbyFilters}
                         onSendMessage={handleSendMessage}
+                        patchMessageContent={patchMessageContent}
                         disableRegistrarUntilPhotosAttached={disableRegistrarUntilPhotosAttached}
                       />
                     </motion.div>

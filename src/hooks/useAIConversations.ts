@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cleanInternalMarkers } from '@/lib/sanitizeMarkers';
+import { createClientId } from '@/lib/clientId';
 
 export interface AIConversation {
   id: string;
@@ -204,7 +205,7 @@ export const useAIConversations = () => {
       const messages = [];
       if (initialMessage) {
         messages.push({
-          id: crypto.randomUUID(),
+          id: createClientId("chat-message"),
           role: "assistant",
           content: initialMessage,
           timestamp: new Date().toLocaleTimeString("pt-BR", {

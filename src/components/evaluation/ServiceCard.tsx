@@ -32,6 +32,8 @@ interface ServiceCardProps {
   servicesOffered?: string | null;
   /** Status operacional vindo do banco */
   operationalStatus?: "open" | "closed" | "maintenance" | null;
+  /** Natureza do equipamento vinda do banco */
+  equipmentNature?: "publico" | "privado" | "misto_indefinido" | "nao_aplicavel" | null;
   onClick?: () => void;
   /** Favorito (lista Perto de você) */
   isFavorite?: boolean;
@@ -50,6 +52,20 @@ const operationalStatusStyles: Record<"open" | "closed" | "maintenance", string>
   open: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   closed: "border-rose-500/40 bg-rose-500/15 text-rose-700 dark:text-rose-300",
   maintenance: "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+};
+
+const equipmentNatureLabels: Record<"publico" | "privado" | "misto_indefinido" | "nao_aplicavel", string> = {
+  publico: "Público",
+  privado: "Privado",
+  misto_indefinido: "Misto/indefinido",
+  nao_aplicavel: "Não aplicável",
+};
+
+const equipmentNatureStyles: Record<"publico" | "privado" | "misto_indefinido" | "nao_aplicavel", string> = {
+  publico: "border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  privado: "border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  misto_indefinido: "border-muted-foreground/30 bg-muted/60 text-muted-foreground",
+  nao_aplicavel: "border-muted-foreground/30 bg-muted/60 text-muted-foreground",
 };
 
 const serviceLabels: Record<string, string> = {
@@ -94,6 +110,7 @@ export const ServiceCard = ({
   openingHours,
   servicesOffered,
   operationalStatus,
+  equipmentNature,
   onClick,
   isFavorite = false,
   onFavoriteClick,
@@ -164,14 +181,24 @@ export const ServiceCard = ({
               {serviceLabels[serviceType] || "Serviço Público"}
             </p>
 
-            {operationalStatus && (
-              <div className="mb-2">
-                <Badge
-                  variant="outline"
-                  className={cn("text-[11px]", operationalStatusStyles[operationalStatus])}
-                >
-                  {operationalStatusLabels[operationalStatus]}
-                </Badge>
+            {(equipmentNature || operationalStatus) && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {equipmentNature && (
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[11px]", equipmentNatureStyles[equipmentNature])}
+                  >
+                    {equipmentNatureLabels[equipmentNature]}
+                  </Badge>
+                )}
+                {operationalStatus && (
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[11px]", operationalStatusStyles[operationalStatus])}
+                  >
+                    {operationalStatusLabels[operationalStatus]}
+                  </Badge>
+                )}
               </div>
             )}
             

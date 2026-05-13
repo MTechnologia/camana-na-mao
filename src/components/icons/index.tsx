@@ -27,6 +27,7 @@ import {
   BookOpen,
   TreePine,
   Landmark,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SERVICE_TYPE_ICONS, getServiceTypeMarkerChar } from "./serviceTypeIcons";
@@ -75,9 +76,13 @@ export const NOTIFICATION_TYPE_ICONS: Record<string, LucideIcon> = {
   referral: Mail,
   referral_update: RefreshCw,
   audiencia: Mic,
+  audiencia_topic_alert: Bell,
   audiencia_inscricao: CheckCircle,
   audiencia_lembrete_d1: Calendar,
   audiencia_lembrete_1h: Clock,
+  servico_nova_avaliacao: Star,
+  transporte_linha_relato: Bus,
+  transporte_linha_padrao: TrendingUp,
   info: Bell,
   success: CheckCircle,
   warning: AlertCircle,

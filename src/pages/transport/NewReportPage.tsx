@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Camera, ImageIcon, X } from 'lucide-react';
+import { ArrowRight, Camera, ImageIcon, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { LineSearchInput } from '@/components/transport/LineSearchInput';
@@ -14,9 +14,13 @@ import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
 import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
+import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
+import { useTransportLines } from '@/hooks/useTransportLines';
+import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const MAX_PHOTOS = 3;
 const MAX_PHOTO_MB = 50;
@@ -27,6 +31,8 @@ export default function NewReportPage() {
   const { user } = useAuth();
   const { submitReport, submitting } = useTransportReport();
   const { patterns } = useReportPatterns();
+  const transportFollow = useTransportSubscriptions();
+  const { searchLinesRemote } = useTransportLines({ loadCatalog: false });
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [reportData, setReportData] = useState<Record<string, unknown>>({});
@@ -35,6 +41,8 @@ export default function NewReportPage() {
   const [success, setSuccess] = useState(false);
   const [reportId, setReportId] = useState('');
   const [relatedPattern, setRelatedPattern] = useState<{ id: string; [key: string]: unknown } | null>(null);
+  const [followableLine, setFollowableLine] = useState<{ id: string; label: string } | null>(null);
+  const [resolvingFollowLine, setResolvingFollowLine] = useState(false);
 
   useEffect(() => {
     if (reportData.line_id && reportData.report_type) {
@@ -48,6 +56,64 @@ export default function NewReportPage() {
 
   const totalSteps = 5;
   const progress = (step / totalSteps) * 100;
+  const selectedLineCode =
+    typeof reportData.line_code === 'string' && reportData.line_code.trim().length > 0
+      ? reportData.line_code.trim()
+      : '';
+  const selectedLineLabel =
+    followableLine?.label ||
+    [
+      typeof reportData.line_code === 'string' ? reportData.line_code : '',
+      typeof reportData.line_name === 'string' && reportData.line_name !== 'Linha informada manualmente'
+        ? reportData.line_name
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' - ') ||
+    undefined;
+  const canFollowSelectedLine = Boolean(followableLine?.id);
+
+  const resolveLineForFollow = async (line: {
+    id?: string | null;
+    line_code: string;
+    line_name: string;
+  }) => {
+    if (line.id) {
+      return {
+        id: line.id,
+        label: `${line.line_code} - ${line.line_name}`,
+      };
+    }
+
+    const searchTerm = line.line_code.trim();
+    if (searchTerm.length < 2) {
+      return null;
+    }
+
+    setResolvingFollowLine(true);
+    try {
+      const matches = await searchLinesRemote(searchTerm, 8);
+      const normalized = searchTerm.toLowerCase();
+      const exactMatch =
+        matches.find((item) => item.line_code.trim().toLowerCase() === normalized) ??
+        matches.find((item) => item.line_name.trim().toLowerCase() === normalized) ??
+        (matches.length === 1 ? matches[0] : null);
+
+      if (!exactMatch) {
+        return null;
+      }
+
+      return {
+        id: exactMatch.id,
+        label: `${exactMatch.line_code} - ${exactMatch.line_name}`,
+      };
+    } catch (error) {
+      console.error('Erro ao resolver linha para acompanhamento:', error);
+      return null;
+    } finally {
+      setResolvingFollowLine(false);
+    }
+  };
 
   const handleNext = () => {
     if (step < totalSteps) setStep(step + 1);
@@ -91,6 +157,8 @@ export default function NewReportPage() {
     setSuccess(false);
     setReportId('');
     setRelatedPattern(null);
+    setFollowableLine(null);
+    setResolvingFollowLine(false);
   };
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,9 +216,36 @@ export default function NewReportPage() {
             <ReportSuccessCard
               reportId={reportId}
               variant="transport"
-              onViewPatterns={() => navigate('/transporte/padroes')}
+              onViewPatterns={() =>
+                navigate(
+                  canFollowSelectedLine
+                    ? `/transporte/padroes?lineId=${encodeURIComponent(followableLine!.id)}`
+                    : '/transporte/padroes',
+                )
+              }
+              subscribeContent={
+                canFollowSelectedLine ? (
+                  <TransportLineFollowButton
+                    lineId={followableLine!.id}
+                    lineLabel={selectedLineLabel}
+                    subscriptions={transportFollow.subscriptions}
+                    loading={transportFollow.loading}
+                    toggleSubscription={transportFollow.toggleSubscription}
+                    className="w-full"
+                  />
+                ) : undefined
+              }
               onNewReport={handleNewReport}
             />
+            {!canFollowSelectedLine && selectedLineCode ? (
+              <Alert className="mt-3">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Não foi possível vincular essa linha ao cadastro oficial, então o acompanhamento automático não está
+                  disponível para este relato.
+                </AlertDescription>
+              </Alert>
+            ) : null}
           </div>
         </div>
       </>
@@ -173,6 +268,32 @@ export default function NewReportPage() {
           {relatedPattern && (
             <PatternAlert pattern={relatedPattern} />
           )}
+
+          {step >= 2 &&
+            canFollowSelectedLine && (
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Quer ser avisado quando houver novos relatos ou padrões nesta linha?
+                </p>
+                <TransportLineFollowButton
+                  lineId={followableLine!.id}
+                  lineLabel={selectedLineLabel}
+                  subscriptions={transportFollow.subscriptions}
+                  loading={transportFollow.loading}
+                  toggleSubscription={transportFollow.toggleSubscription}
+                  className="shrink-0 self-start sm:self-center"
+                />
+              </div>
+            )}
+          {step >= 2 && !canFollowSelectedLine && selectedLineCode && !resolvingFollowLine ? (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Você pode continuar com o relato, mas o acompanhamento da linha só fica disponível quando conseguimos
+                identificar a linha no cadastro oficial.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           
           {step === 1 && (
           <div className="space-y-4">
@@ -181,8 +302,15 @@ export default function NewReportPage() {
               <p className="text-muted-foreground">Busque a linha de ônibus ou metrô</p>
             </div>
             <LineSearchInput
-              onSelectLine={(line) => {
-                setReportData({ ...reportData, line_id: line.id, line_code: line.line_code, line_name: line.line_name });
+              onSelectLine={async (line) => {
+                const resolvedLine = await resolveLineForFollow(line);
+                setFollowableLine(resolvedLine);
+                setReportData({
+                  ...reportData,
+                  line_id: resolvedLine?.id ?? line.id ?? null,
+                  line_code: line.line_code,
+                  line_name: line.line_name,
+                });
                 handleNext();
               }}
             />

@@ -1,0 +1,5 @@
+-- VACUUM nao pode rodar dentro de transacao; o `supabase db query` agrupa varias
+-- instrucoes numa transacao e falha com 25001.
+-- Rode um ficheiro por chamada, por exemplo:
+--   supabase db query --linked -f scripts/sql/vacuum-service-visits.sql
+-- Ver tambem: vacuum-public-services.sql, vacuum-service-*.sql nesta pasta.

@@ -68,6 +68,10 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[REPORT_CREATED:[a-f0-9-]+\]/g, '')
     .replace(/\[TRANSPORT_CREATED:[a-f0-9-]+\]/g, '')
     .replace(/\[RATING_CREATED:[a-f0-9-]+\]/g, '')
+    .replace(/\s*\[LINE_SELECTED:[^\]]+\]\s*/gi, ' ')
+    .replace(/\[OFFER_REFERRAL\]/g, '')
+    .replace(/\[RATING_SUBMIT_PREVIEW\]/g, '')
+    .replace(/\[RATING_SUBMIT_PREVIEW_JSON:[^\]]+\]/g, '')
     .replace(/\[FIELD_REQUEST:\w+\]/g, '')
     .replace(/\[ADDRESS_PICKER\]/g, '')
     .replace(/\[LINE_PICKER\]/g, '')
@@ -78,6 +82,8 @@ export const sanitizeMessageContent = (content: string): string => {
     .replace(/\[RECURRENCE_FREQUENCY_PICKER\]/g, '')
     .replace(/\[IMPACT_PICKER\]/g, '')
     .replace(/\[IMPACT_SELECTED:[2-5]\]/g, '')
+    .replace(/\[ACCESSIBILITY_CHECKLIST\]/g, '')
+    .replace(/\[ACCESSIBILITY_DETAILS:[^\]]+\]/g, '')
     .replace(/\[TRANSPORT_PREVIEW_JSON:[^\]]+\]/g, '')
     .replace(/\[RATING_PICKER\]/g, '')
     .replace(/\[WAIT_TIME_PICKER\]/g, '')
@@ -105,7 +111,7 @@ export const sanitizeMessageContent = (content: string): string => {
     // Hide raw DB timeout text when leaked by backend/provider.
     .replace(/canceling statement due to statement timeout/gi, '');
   // Remove marker for "serviços" chips (string literal so it always matches)
-  result = result.split('[SHOW_SERVICES_CHIPS]').join('').trim();
+  result = result.split('[SHOW_SERVICES_CHIPS]').join('').replace(/\s{2,}/g, ' ').trim();
   
   return result;
 };

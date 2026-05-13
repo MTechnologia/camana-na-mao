@@ -29,6 +29,7 @@ import { DrillInsightState, DrillReport } from '@/hooks/useDrillInsight';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState } from 'react';
+import { useReportDetailModal } from "@/contexts/ReportDetailContext";
 
 interface DrillInsightPanelProps {
   state: DrillInsightState;
@@ -46,6 +47,7 @@ export const DrillInsightPanel = ({
   onViewOnMap,
 }: DrillInsightPanelProps) => {
   const { open, context, reports, stats, insight, isLoading } = state;
+  const { open: openReport } = useReportDetailModal();
   const [expandedReport, setExpandedReport] = useState<string | null>(null);
 
   const getContextIcon = () => {
@@ -272,6 +274,16 @@ export const DrillInsightPanel = ({
                                   <Clock className="w-3 h-3" />
                                   {format(new Date(report.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
                                 </div>
+                                <button
+                                  type="button"
+                                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openReport(report.id, report.source);
+                                  }}
+                                >
+                                  Abrir detalhes do relato →
+                                </button>
                               </motion.div>
                             )}
                           </AnimatePresence>

@@ -11,23 +11,26 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { AdminReportsHeatmap } from "@/components/admin/AdminReportsHeatmap";
 import {
-  useReportsHeatmap,
-  type ReportsHeatmapPeriod,
-  type ReportsHeatmapTypeFilter,
-} from "@/hooks/useReportsHeatmap";
+  useUsageHeatmap,
+  type UsageHeatmapPeriod,
+  type UsageHeatmapTypeFilter,
+} from "@/hooks/useUsageHeatmap";
 import { SAO_PAULO_HEATMAP_BOUNDS } from "@/lib/reportsHeatmapData";
 import { Flame, RefreshCw, AlertTriangle, Info } from "lucide-react";
 
 export default function ReportsHeatmapPage() {
-  const [typeFilter, setTypeFilter] = useState<ReportsHeatmapTypeFilter>("all");
-  const [period, setPeriod] = useState<ReportsHeatmapPeriod>("30d");
+  const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>("all_usage");
+  const [period, setPeriod] = useState<UsageHeatmapPeriod>("30d");
 
-  const { data, isLoading, error, refresh } = useReportsHeatmap({
+  const { data, isLoading, error, refresh } = useUsageHeatmap({
     typeFilter,
     period,
   });
+
+  const breakdown = data?.breakdown;
 
   return (
     <AdminLayout>
@@ -38,10 +41,12 @@ export default function ReportsHeatmapPage() {
               <Flame className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Mapa de calor geográfico</h1>
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Mapa de calor de uso da plataforma
+              </h1>
               <p className="text-sm text-muted-foreground">
-                Densidade de relatos urbanos georreferenciados e de avaliações (por local do equipamento), apenas
-                dentro de São Paulo.
+                Densidade geográfica de uso real: relatos urbanos, avaliações de serviços,
+                visitas detectadas e relatos de transporte (geocoded por bairro).
               </p>
             </div>
           </div>
@@ -54,33 +59,37 @@ export default function ReportsHeatmapPage() {
         <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Filtro <strong>Transporte</strong>: relatos sem coordenadas no banco não aparecem no mapa. Tipos{" "}
-            <strong>Todos</strong>, <strong>Urbanos</strong> e <strong>Avaliações</strong> usam pontos válidos no
-            retângulo aproximado do município (lat {SAO_PAULO_HEATMAP_BOUNDS.minLat} a{" "}
-            {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng {SAO_PAULO_HEATMAP_BOUNDS.minLng} a{" "}
-            {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
+            Mostra apenas pontos válidos dentro do município de São Paulo (lat{" "}
+            {SAO_PAULO_HEATMAP_BOUNDS.minLat} a {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng{" "}
+            {SAO_PAULO_HEATMAP_BOUNDS.minLng} a {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
+            Transporte sem coordenadas é geocoded para o centroide da zona.
           </span>
         </div>
 
         <Card className="p-4 md:p-6">
           <div className="mb-4 grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="heatmap-type">Tipo</Label>
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ReportsHeatmapTypeFilter)}>
+              <Label htmlFor="heatmap-type">Fonte de dados</Label>
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => setTypeFilter(v as UsageHeatmapTypeFilter)}
+              >
                 <SelectTrigger id="heatmap-type">
-                  <SelectValue placeholder="Tipo" />
+                  <SelectValue placeholder="Fonte" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos (urbano + avaliações)</SelectItem>
+                  <SelectItem value="all_usage">Uso total (todas as fontes)</SelectItem>
+                  <SelectItem value="all_reports">Apenas relatos (urbano + avaliações)</SelectItem>
                   <SelectItem value="urban">Relatos urbanos</SelectItem>
-                  <SelectItem value="transport">Relatos de transporte</SelectItem>
                   <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
+                  <SelectItem value="visits">Visitas a equipamentos públicos</SelectItem>
+                  <SelectItem value="transport">Relatos de transporte (por zona)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="heatmap-period">Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as ReportsHeatmapPeriod)}>
+              <Select value={period} onValueChange={(v) => setPeriod(v as UsageHeatmapPeriod)}>
                 <SelectTrigger id="heatmap-period">
                   <SelectValue placeholder="Período" />
                 </SelectTrigger>
@@ -108,11 +117,23 @@ export default function ReportsHeatmapPage() {
           )}
 
           {data && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {data.points.length} células no mapa
-              {data.truncated ? " (resultado truncado para performance)" : ""}.
-              {data.start_at ? ` Dados desde ${new Date(data.start_at).toLocaleString("pt-BR")}.` : ""}
-            </p>
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                {data.points.length} células no mapa
+                {data.truncated ? " (resultado truncado para performance)" : ""}.
+                {data.start_at
+                  ? ` Dados desde ${new Date(data.start_at).toLocaleString("pt-BR")}.`
+                  : ""}
+              </p>
+              {breakdown && (
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="outline">Urbano: {breakdown.urban}</Badge>
+                  <Badge variant="outline">Avaliações: {breakdown.evaluation}</Badge>
+                  <Badge variant="outline">Visitas: {breakdown.visits}</Badge>
+                  <Badge variant="outline">Transporte: {breakdown.transport}</Badge>
+                </div>
+              )}
+            </div>
           )}
         </Card>
       </div>

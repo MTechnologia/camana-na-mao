@@ -25,6 +25,7 @@ interface Notification {
   read_at?: string;
   scheduled_for?: string | null;
   push_delivered_at?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface NotificationsContextType {

@@ -10,9 +10,18 @@ import type { Database } from './types';
 // - VITE_SUPABASE_URL
 // - VITE_SUPABASE_PUBLISHABLE_KEY
 const SUPABASE_URL =
-  import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL;
+  import.meta.env.CAMARA_URL ?? import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_PUBLISHABLE_KEY =
-  import.meta.env.CAMARA_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  import.meta.env.CAMARA_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  "";
+
+if (!SUPABASE_URL?.trim() || !SUPABASE_PUBLISHABLE_KEY?.trim()) {
+  throw new Error(
+    "[Supabase] Defina CAMARA_URL e CAMARA_PUBLISHABLE_KEY no arquivo .env na raiz do projeto " +
+      "(ou VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY). Copie .env.example para .env e preencha com a URL e a chave anon do projeto Supabase. Reinicie o npm run dev após alterar o .env.",
+  );
+}
 
 // Exportados para chamadas que precisam da anon key (ex.: complete-registration pós-cadastro sem sessão)
 export const supabaseUrl = SUPABASE_URL;

@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import AgentHeader from "./AgentHeader";
 import ChatSidebar from "./ChatSidebar";
 import AgentChatArea from "./AgentChatArea";
@@ -25,6 +31,10 @@ const AgentChatLayout = () => {
         {/* Mobile Conversations Sheet */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="right" className="w-[280px] p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Conversas</SheetTitle>
+              <SheetDescription>Histórico de conversas com o assistente</SheetDescription>
+            </SheetHeader>
             <ChatSidebar onConversationClick={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>

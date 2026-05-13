@@ -3,6 +3,13 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  clearEmailConfirmationPending,
+  hasEmailConfirmationCallback,
+  isAutoConfirmedEmailPending,
+  markEmailConfirmationPending,
+} from "@/lib/emailConfirmationGuard";
+import { getAuthRedirectUrl } from "@/lib/authRedirect";
 
 const getErrorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : (typeof e === 'object' && e !== null && 'message' in e)
@@ -12,6 +19,7 @@ const translateError = (message: string): string => {
   const translations: Record<string, string> = {
     "Invalid login credentials": "E-mail ou senha incorretos",
     "Email not confirmed": "E-mail não confirmado. Verifique sua caixa de entrada",
+    "Email confirmation pending": "Confirme seu e-mail antes de acessar o app",
     "User already registered": "Este e-mail já está cadastrado",
     "Password should be at least 6 characters": "A senha deve ter no mínimo 6 caracteres",
     "Invalid email": "E-mail inválido",
@@ -23,6 +31,9 @@ const translateError = (message: string): string => {
   };
   const normalized = message.trim();
   if (translations[normalized]) return translations[normalized];
+  if (normalized.toLowerCase().includes("password should contain at least one character of each")) {
+    return "A senha deve ter pelo menos 8 caracteres, incluindo letra maiúscula, letra minúscula, número e caractere especial.";
+  }
   // Supabase pode enviar "email rate limit exceeded" com outra capitalização
   if (normalized.toLowerCase().includes("email rate limit") || normalized.toLowerCase().includes("rate limit exceeded")) {
     return "Limite de e-mails excedido. Aguarde cerca de 1 hora para tentar de novo";
@@ -46,6 +57,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  resendEmailConfirmation: (email: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,14 +73,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      // Após login, ir sempre para home (personalização já está no cadastro; não redirecionar para /onboarding)
+      if (session?.user?.email_confirmed_at && hasEmailConfirmationCallback()) {
+        clearEmailConfirmationPending(session.user.email);
+      }
       if (event === 'SIGNED_IN' && window.location.pathname === '/login') {
-        navigate('/');
+        if (isAutoConfirmedEmailPending(session?.user?.email)) {
+          navigate('/confirmar-email', { replace: true, state: { email: session?.user?.email } });
+        } else if (session?.user?.email_confirmed_at) {
+          navigate('/');
+        } else {
+          navigate('/confirmar-email', { replace: true, state: { email: session?.user?.email } });
+        }
       }
     });
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email_confirmed_at && hasEmailConfirmationCallback()) {
+        clearEmailConfirmationPending(session.user.email);
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -79,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = useCallback(async (email: string, password: string, fullName: string, phone: string) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = getAuthRedirectUrl();
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -104,7 +127,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      toast.success("Conta criada com sucesso!");
+      if (data.user) {
+        const confirmationReason =
+          data.session || data.user.email_confirmed_at ? "supabase_auto_confirmed" : "awaiting_email";
+        markEmailConfirmationPending(email, confirmationReason);
+      }
+
+      if (data.session || data.user?.email_confirmed_at) {
+        toast.warning("O Supabase marcou este e-mail como confirmado automaticamente. Verifique se a confirmação de e-mail está ativa no Dashboard.");
+      } else {
+        toast.success("Enviamos um link para confirmar seu e-mail.");
+      }
       return { data: { user: data.user }, error: null };
     } catch (error: unknown) {
       const msg = getErrorMessage(error);
@@ -125,6 +158,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
+      if (isAutoConfirmedEmailPending(email)) {
+        throw new Error("Email confirmation pending");
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -194,6 +231,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const resendEmailConfirmation = useCallback(async (email: string) => {
+    try {
+      const redirectUrl = getAuthRedirectUrl();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: redirectUrl,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("E-mail de confirmação reenviado!");
+      return { error: null };
+    } catch (error: unknown) {
+      const translatedMessage = translateError(getErrorMessage(error));
+      toast.error(translatedMessage || "Erro ao reenviar confirmação");
+      return { error: error as Error };
+    }
+  }, []);
+
   const value = useMemo(() => ({ 
     user, 
     session, 
@@ -201,8 +260,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signUp, 
     signIn, 
     signOut, 
-    resetPassword 
-  }), [user, session, loading, signUp, signIn, signOut, resetPassword]);
+    resetPassword,
+    resendEmailConfirmation,
+  }), [user, session, loading, signUp, signIn, signOut, resetPassword, resendEmailConfirmation]);
 
   return (
     <AuthContext.Provider value={value}>

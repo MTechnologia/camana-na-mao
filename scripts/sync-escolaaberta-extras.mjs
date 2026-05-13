@@ -13,6 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+import { fetchWithRetry, formatFetchError } from "./escola-aberta-http.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -48,7 +49,13 @@ function apiHeaders(token) {
 
 async function apiGet(path, token) {
   const url = `${ESCOLA_ABERTA_BASE}${path}`;
-  const res = await fetch(url, { headers: apiHeaders(token) });
+  let res;
+  try {
+    res = await fetchWithRetry(url, { headers: apiHeaders(token) });
+  } catch (e) {
+    console.warn("   Rede:", path, "—", formatFetchError(e));
+    return { ok: false, status: 0, data: null };
+  }
   if (!res.ok) return { ok: false, status: res.status, data: null };
   const data = await res.json();
   return { ok: true, data };

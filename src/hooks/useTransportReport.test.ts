@@ -1,8 +1,22 @@
+import { vi, describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: vi.fn(),
+}));
+
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    from: vi.fn(),
+    auth: {
+      getUser: vi.fn(),
+    },
+  },
+}));
+
 import { useTransportReport } from "./useTransportReport";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { vi, describe, it, expect, beforeEach } from "vitest";
 
 describe("useTransportReport", () => {
   const mockUser = { id: "user-123" };
@@ -37,9 +51,11 @@ describe("useTransportReport", () => {
     });
 
     expect(response).toEqual(mockResponse);
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Relato enviado!",
-    }));
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Relato enviado!",
+      }),
+    );
   });
 
   it("deve buscar meus relatos com sucesso", async () => {
@@ -73,14 +89,16 @@ describe("useTransportReport", () => {
     await act(async () => {
       try {
         await result.current.submitReport({ report_type: "delay", occurrence_date: "2024-01-01" });
-      } catch (e) {
+      } catch {
         // Expected
       }
     });
 
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
-      variant: "destructive",
-      title: "Erro ao enviar relato",
-    }));
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "destructive",
+        title: "Erro ao enviar relato",
+      }),
+    );
   });
 });

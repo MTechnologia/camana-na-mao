@@ -18,8 +18,8 @@ A avaliação conversacional pode ser usada de duas formas:
 
 | Modo | Rota | Comportamento |
 |------|------|---------------|
-| **Com visita** | `/avaliar/:visitId` | O assistente já sabe o serviço (visit_id, service_name, etc.). Pede apenas nota e comentário. Pode iniciar com "Olá, quero avaliar o [nome do serviço]". |
-| **Modo livre** | `/avaliar` | O assistente pergunta tipo e nome do serviço, depois nota e comentário. |
+| **Com visita** | `/avaliar/:visitId` | O assistente já sabe o serviço (`visit_id`, nome, tipo). Inicia com *"Olá, quero avaliar o [nome]"* e segue o mesmo roteiro atômico do modo livre: nota geral, tempo de espera, dimensões (atendimento, infraestrutura) e comentário/sugestão. |
+| **Modo livre** | `/avaliar` | Lista visitas pendentes (se houver) e, abaixo, chat **modo livre**: pergunta tipo, bairro, nome e confirmação de endereço; em seguida o **mesmo** fluxo de dimensões do caminho com visita. A avaliação grava uma visita virtual `completed` na base. |
 
 ---
 
@@ -29,14 +29,14 @@ A avaliação conversacional pode ser usada de duas formas:
 
 1. Faça login no app.
 2. Acesse: **`http://localhost:5173/avaliar`** (ou a URL base do ambiente).
-3. O chat inicia em branco. Escreva algo como:
+3. Role até **Modo livre** (ou *Ou avalie outro serviço* se houver visitas pendentes). O chat inicia em branco. Escreva algo como:
    - *"Quero avaliar a UBS do Centro"*
    - *"Quero avaliar o CEU Aricanduva"*
    - *"Quero avaliar a biblioteca que visitei"*
 4. O assistente vai:
-   - pedir tipo e nome do serviço (se ainda não tiver);
-   - pedir nota (estrelas) e comentário;
-   - registrar a avaliação via ferramenta `create_service_rating`.
+   - pedir tipo, bairro e nome do serviço (e confirmar endereço), se ainda não tiver;
+   - em seguida, nota geral, tempo de espera, dimensões e comentário (igual ao fluxo com `visit_id`);
+   - registrar a avaliação via ferramenta `create_service_rating` (com visita virtual `completed` quando não há visita prévia).
 
 ### 2. Teste com visita (contexto completo)
 
@@ -63,7 +63,7 @@ Neste modo, o assistente já sabe o serviço e pode começar com:
 
 > *"Olá, quero avaliar o [nome do serviço]"*
 
-E em seguida pede nota e comentário.
+E em seguida segue o mesmo roteiro de dimensões (nota geral, espera, atendimento, infraestrutura, comentário).
 
 ### 3. Teste via fluxo completo (detecção de visita)
 

@@ -1,8 +1,19 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AdminLayout } from '@/layouts/AdminLayout';
-import { useAuditLog, AuditAction } from '@/hooks/useAuditLog';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  Calendar as CalendarIcon,
+  Download,
+  Eye,
+  Filter,
+  Lock,
+  Search,
+  Users,
+} from "lucide-react";
+import { AdminLayout } from "@/layouts/AdminLayout";
+import { useAuditLog } from "@/hooks/useAuditLog";
+import { useUserRole } from "@/hooks/useUserRole";
 import {
   Table,
   TableBody,
@@ -10,92 +21,271 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Download, Search, Filter } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+import { rowsToCsv, type AuditCsvRow } from "@/lib/auditCsv";
+import { useToast } from "@/hooks/use-toast";
+
+/**
+ * HU-12.2 — Trilha de auditoria com filtros completos.
+ *
+ * Filtros:
+ *   - Busca textual (action/entity/usuário) — client-side
+ *   - Período via presets (24h, 7d, 30d, custom) — server-side
+ *   - Usuário (autocomplete de atores que já aparecem nos logs) — server-side
+ *   - Ação e entidade — server-side
+ *
+ * UX:
+ *   - Clicar em linha abre Sheet com diff old vs new (HU-12.2)
+ *   - Botão Exportar CSV gera arquivo com o filtro aplicado
+ *   - Badge "Imutável" no header reforça compliance (HU-12.3)
+ */
+
+type RangePreset = "24h" | "7d" | "30d" | "custom" | "all";
+
+interface AuditLogRow {
+  id: string;
+  user_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+const ALL_VALUE = "__all__";
+
+const ACTION_OPTIONS = [
+  { value: ALL_VALUE, label: "Todas as ações" },
+  { value: "login", label: "Login" },
+  { value: "logout", label: "Logout" },
+  { value: "create", label: "Criar" },
+  { value: "update", label: "Atualizar" },
+  { value: "delete", label: "Deletar" },
+  { value: "export", label: "Exportar" },
+  { value: "role_changed", label: "Mudança de papel" },
+  { value: "triage_changed", label: "Triagem alterada" },
+  { value: "commission_referral_changed", label: "Encaminhamento alterado" },
+  { value: "anomaly_changed", label: "Anomalia alterada" },
+  { value: "user_suspension_changed", label: "Suspensão de usuário" },
+];
+
+function rangeForPreset(preset: RangePreset): {
+  start?: Date;
+  end?: Date;
+} {
+  const now = new Date();
+  if (preset === "24h") {
+    return { start: new Date(now.getTime() - 24 * 60 * 60 * 1000), end: now };
+  }
+  if (preset === "7d") {
+    return { start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), end: now };
+  }
+  if (preset === "30d") {
+    return { start: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), end: now };
+  }
+  return {};
+}
+
+function fmtDateTime(iso: string): string {
+  try {
+    return format(new Date(iso), "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
+  } catch {
+    return iso;
+  }
+}
 
 const AuditLogs = () => {
   const navigate = useNavigate();
   const { hasRole, loading: roleLoading } = useUserRole();
-  const { getAllLogs } = useAuditLog();
-  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const { getAllLogs, getActors } = useAuditLog();
+  const { toast } = useToast();
+
+  const [logs, setLogs] = useState<AuditLogRow[]>([]);
+  const [actors, setActors] = useState<
+    Array<{ userId: string; fullName: string; email: string; logCount: number }>
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState<AuditAction | 'all'>('all');
-  const [entityFilter, setEntityFilter] = useState<string>('all');
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [actionFilter, setActionFilter] = useState<string>(ALL_VALUE);
+  const [entityFilter, setEntityFilter] = useState<string>(ALL_VALUE);
+  const [userFilter, setUserFilter] = useState<string>(ALL_VALUE);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("7d");
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
+  const [selected, setSelected] = useState<AuditLogRow | null>(null);
+  const [exportFile, setExportFile] = useState<{ url: string; filename: string } | null>(null);
 
   useEffect(() => {
-    if (!roleLoading && !hasRole('admin')) {
-      navigate('/');
+    if (!roleLoading && !hasRole("admin")) {
+      navigate("/");
     }
   }, [hasRole, roleLoading, navigate]);
 
-  useEffect(() => {
-    loadLogs();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadLogs runs when filters change
-  }, [actionFilter, entityFilter]);
+  const loadActors = useCallback(async () => {
+    const result = await getActors();
+    setActors(result);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setIsLoading(true);
-    const filters: Record<string, unknown> = { limit: 100 };
-    
-    if (actionFilter !== 'all') {
-      filters.action = actionFilter;
-    }
-    if (entityFilter !== 'all') {
-      filters.entityType = entityFilter;
+    const filters: Record<string, unknown> = { limit: 500 };
+
+    if (actionFilter !== ALL_VALUE) filters.action = actionFilter;
+    if (entityFilter !== ALL_VALUE) filters.entityType = entityFilter;
+    if (userFilter !== ALL_VALUE) filters.userId = userFilter;
+
+    if (rangePreset === "custom") {
+      if (customStart) filters.startDate = new Date(customStart);
+      if (customEnd) filters.endDate = new Date(`${customEnd}T23:59:59`);
+    } else if (rangePreset !== "all") {
+      const { start, end } = rangeForPreset(rangePreset);
+      if (start) filters.startDate = start;
+      if (end) filters.endDate = end;
     }
 
-    const data = await getAllLogs(filters);
-    setLogs(data);
+    const data = (await getAllLogs(filters)) as unknown as AuditLogRow[];
+    setLogs(data ?? []);
     setIsLoading(false);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    actionFilter,
+    entityFilter,
+    userFilter,
+    rangePreset,
+    customStart,
+    customEnd,
+  ]);
 
-  const filteredLogs = logs.filter(log =>
-    log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (log.user_id && log.user_id.toLowerCase().includes(searchTerm.toLowerCase()))
+  useEffect(() => {
+    void loadActors();
+  }, [loadActors]);
+
+  useEffect(() => {
+    void loadLogs();
+  }, [loadLogs]);
+
+  useEffect(() => {
+    return () => {
+      if (exportFile?.url) {
+        window.URL.revokeObjectURL(exportFile.url);
+      }
+    };
+  }, [exportFile?.url]);
+
+  const actorById = useMemo(() => {
+    const m = new Map<string, (typeof actors)[number]>();
+    for (const a of actors) m.set(a.userId, a);
+    return m;
+  }, [actors]);
+
+  const filteredLogs = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return logs;
+    return logs.filter((log) => {
+      const actor = log.user_id ? actorById.get(log.user_id) : null;
+      const hay = `${log.action} ${log.entity_type} ${log.entity_id ?? ""} ${actor?.fullName ?? ""} ${actor?.email ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [logs, searchTerm, actorById]);
+
+  const entityTypes = useMemo(
+    () => Array.from(new Set(logs.map((log) => log.entity_type))).sort(),
+    [logs],
   );
 
-  const exportLogs = () => {
-    const csv = [
-      ['Data', 'Usuário', 'Ação', 'Tipo de Entidade', 'ID da Entidade', 'IP', 'User Agent'],
-      ...filteredLogs.map(log => [
-        format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR }),
-        log.user_id,
-        log.action,
-        log.entity_type,
-        log.entity_id || '-',
-        log.ip_address || '-',
-        log.user_agent || '-',
-      ])
-    ].map(row => row.join(',')).join('\n');
+  const exportLogs = async () => {
+    const rows: AuditCsvRow[] = filteredLogs.map((log) => {
+      const actor = log.user_id ? actorById.get(log.user_id) : null;
+      return {
+        data_hora: fmtDateTime(log.created_at),
+        user_id: log.user_id ?? "",
+        usuario: actor?.fullName ?? "",
+        email: actor?.email ?? "",
+        acao: log.action,
+        entidade: log.entity_type,
+        entidade_id: log.entity_id ?? "",
+        ip: log.ip_address ?? "",
+        user_agent: log.user_agent ?? "",
+        old_values: log.old_values ?? null,
+        new_values: log.new_values ?? null,
+      };
+    });
 
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = rowsToCsv(rows);
+    const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+
+    // Heurística de mobile: hover:none + pointer:coarse é o melhor sinal.
+    // userAgentData/mobile é mais novo mas ainda não universal.
+    const isMobile =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+
+    if (isMobile) {
+      // Em mobile, o `<a download>` programatico geralmente NAO dispara o
+      // download. Em vez disso, mostramos um card com um link real que o
+      // usuario toca — a interacao direta com o `<a>` faz o navegador
+      // respeitar o atributo download (ou abrir o CSV em nova aba para que
+      // o user salve manualmente).
+      setExportFile({ url, filename });
+      toast({
+        title: "CSV pronto",
+        description: "Toque em 'Baixar CSV' para salvar no celular.",
+      });
+      return;
+    }
+
+    // Desktop: download automatico via <a> sintetico. Funciona em todos os
+    // navegadores principais. Nao mostra card.
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `audit-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.download = filename;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
+    a.remove();
+    // Libera a URL apos um tempo (Chrome precisa de alguns ms para iniciar o
+    // download antes de revogar).
+    setTimeout(() => window.URL.revokeObjectURL(url), 1500);
+
+    toast({
+      title: "Download iniciado",
+      description: `${filteredLogs.length} registros exportados.`,
+    });
   };
 
-  const entityTypes = [...new Set(logs.map(log => log.entity_type))];
-
-  if (roleLoading || isLoading) {
+  if (roleLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-96">
-          <div className="text-muted-foreground">Carregando logs...</div>
+          <div className="text-muted-foreground">Carregando...</div>
         </div>
       </AdminLayout>
     );
@@ -104,59 +294,158 @@ const AuditLogs = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Logs de Auditoria</h1>
-            <p className="text-muted-foreground">
-              Histórico completo de ações no sistema
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              Logs de Auditoria
+              <Badge variant="outline" className="text-[10px] h-5 px-2 gap-1">
+                <Lock className="h-3 w-3" />
+                Imutável
+              </Badge>
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Histórico completo de ações administrativas no sistema.
+              Registros não podem ser editados ou apagados (somente arquivados
+              após 12 meses).
             </p>
           </div>
-          <Button onClick={exportLogs} className="gap-2">
+          <Button onClick={exportLogs} className="gap-2" variant="outline">
             <Download className="w-4 h-4" />
-            Exportar
+            Exportar CSV
           </Button>
         </div>
 
-        <div className="flex gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar logs..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+        {exportFile && (
+          <Card className="p-3 border-primary/30 bg-primary/5 space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">CSV pronto para baixar</p>
+              <p className="text-xs text-muted-foreground">
+                Se o download automático não abriu no celular, toque no botão abaixo.
+                Em alguns navegadores móveis, o arquivo abre em uma nova aba antes de
+                salvar.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Button asChild className="w-full gap-2">
+                <a
+                  href={exportFile.url}
+                  download={exportFile.filename}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar CSV
+                </a>
+              </Button>
+              <Button asChild variant="outline" className="w-full">
+                <a href={exportFile.url} target="_blank" rel="noopener noreferrer">
+                  Abrir CSV
+                </a>
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => setExportFile(null)}
+              >
+                Dispensar
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Filtros */}
+        <Card className="p-3 space-y-3">
+          <div className="flex flex-col lg:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar (ação, entidade, usuário, ID)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <Select value={rangePreset} onValueChange={(v) => setRangePreset(v as RangePreset)}>
+              <SelectTrigger className="w-full lg:w-[180px]">
+                <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="24h">Últimas 24h</SelectItem>
+                <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                <SelectItem value="custom">Personalizado...</SelectItem>
+                <SelectItem value="all">Todos os períodos</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="w-full lg:w-[200px]">
+                <Users className="w-3.5 h-3.5 mr-1" />
+                <SelectValue placeholder="Usuário" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>Todos os usuários</SelectItem>
+                {actors.map((a) => (
+                  <SelectItem key={a.userId} value={a.userId}>
+                    {a.fullName} ({a.logCount})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Select value={actionFilter} onValueChange={(value: string) => setActionFilter(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar ação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as ações</SelectItem>
-              <SelectItem value="login">Login</SelectItem>
-              <SelectItem value="logout">Logout</SelectItem>
-              <SelectItem value="create">Criar</SelectItem>
-              <SelectItem value="update">Atualizar</SelectItem>
-              <SelectItem value="delete">Deletar</SelectItem>
-              <SelectItem value="export">Exportar</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col lg:flex-row gap-2">
+            <Select value={actionFilter} onValueChange={setActionFilter}>
+              <SelectTrigger className="w-full lg:w-[220px]">
+                <Filter className="w-3.5 h-3.5 mr-1" />
+                <SelectValue placeholder="Ação" />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={entityFilter} onValueChange={setEntityFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar entidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as entidades</SelectItem>
-              {entityTypes.map(type => (
-                <SelectItem key={type} value={type}>{type}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <Select value={entityFilter} onValueChange={setEntityFilter}>
+              <SelectTrigger className="w-full lg:w-[220px]">
+                <SelectValue placeholder="Entidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>Todas as entidades</SelectItem>
+                {entityTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-        <div className="rounded-md border">
+            {rangePreset === "custom" && (
+              <>
+                <Input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-full lg:w-[180px]"
+                />
+                <Input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-full lg:w-[180px]"
+                />
+              </>
+            )}
+          </div>
+        </Card>
+
+        {/* Tabela */}
+        <div className="rounded-md border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -165,50 +454,182 @@ const AuditLogs = () => {
                 <TableHead>Ação</TableHead>
                 <TableHead>Entidade</TableHead>
                 <TableHead>ID</TableHead>
-                <TableHead>IP</TableHead>
+                <TableHead className="w-8"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLogs.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Nenhum log encontrado
+                    Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : filteredLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Nenhum log encontrado com os filtros atuais.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {log.user_id?.slice(0, 8)}...
-                    </TableCell>
-                    <TableCell>
-                      <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
-                        {log.action}
-                      </span>
-                    </TableCell>
-                    <TableCell>{log.entity_type}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {log.entity_id ? `${log.entity_id.slice(0, 8)}...` : '-'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {log.ip_address || '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredLogs.map((log) => {
+                  const actor = log.user_id ? actorById.get(log.user_id) : null;
+                  return (
+                    <TableRow
+                      key={log.id}
+                      onClick={() => setSelected(log)}
+                      className="cursor-pointer hover:bg-muted/40"
+                    >
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {fmtDateTime(log.created_at)}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {actor?.fullName ?? (
+                          <span className="font-mono text-muted-foreground">
+                            {log.user_id?.slice(0, 8) ?? "—"}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px]">
+                          {log.action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{log.entity_type}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {log.entity_id ? `${log.entity_id.slice(0, 8)}...` : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </div>
 
-        <div className="text-sm text-muted-foreground text-center">
-          Exibindo {filteredLogs.length} de {logs.length} logs
+        <div className="text-xs text-muted-foreground text-center">
+          Exibindo {filteredLogs.length} de {logs.length} registros
+          {logs.length >= 500 && (
+            <span> · Limite 500 — refine os filtros para ver mais.</span>
+          )}
         </div>
       </div>
+
+      <AuditLogDetailSheet
+        log={selected}
+        onOpenChange={(o) => !o && setSelected(null)}
+        actor={selected?.user_id ? actorById.get(selected.user_id) ?? null : null}
+      />
     </AdminLayout>
   );
 };
+
+// ============================================================================
+// Sheet de detalhes com diff old vs new
+// ============================================================================
+
+interface AuditLogDetailSheetProps {
+  log: AuditLogRow | null;
+  onOpenChange: (open: boolean) => void;
+  actor: { fullName: string; email: string } | null;
+}
+
+function AuditLogDetailSheet({ log, onOpenChange, actor }: AuditLogDetailSheetProps) {
+  if (!log) return null;
+
+  const oldKeys = log.old_values ? Object.keys(log.old_values) : [];
+  const newKeys = log.new_values ? Object.keys(log.new_values) : [];
+  const allKeys = Array.from(new Set([...oldKeys, ...newKeys])).sort();
+
+  return (
+    <Sheet open={!!log} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{log.action}</SheetTitle>
+          <SheetDescription>
+            {log.entity_type}
+            {log.entity_id && (
+              <span className="font-mono text-xs ml-1">· {log.entity_id}</span>
+            )}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-4 py-4">
+          <Card className="p-3 text-xs space-y-1">
+            <p>
+              <span className="text-muted-foreground">Quando: </span>
+              {fmtDateTime(log.created_at)}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Quem: </span>
+              {actor?.fullName ?? log.user_id ?? "—"}
+              {actor?.email && (
+                <span className="text-muted-foreground"> ({actor.email})</span>
+              )}
+            </p>
+            {log.ip_address && (
+              <p>
+                <span className="text-muted-foreground">IP: </span>
+                {log.ip_address}
+              </p>
+            )}
+            {log.user_agent && (
+              <p className="truncate" title={log.user_agent}>
+                <span className="text-muted-foreground">Agent: </span>
+                {log.user_agent}
+              </p>
+            )}
+          </Card>
+
+          {allKeys.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              Sem dados de antes/depois para este registro.
+            </p>
+          ) : (
+            <Card className="p-3">
+              <p className="text-xs font-semibold mb-2">Diff (antes → depois)</p>
+              <div className="text-[11px] font-mono space-y-1 max-h-96 overflow-y-auto">
+                {allKeys.map((key) => {
+                  const oldVal = log.old_values?.[key];
+                  const newVal = log.new_values?.[key];
+                  const changed = JSON.stringify(oldVal) !== JSON.stringify(newVal);
+                  if (!changed) return null;
+                  return (
+                    <div
+                      key={key}
+                      className={cn(
+                        "p-1.5 rounded border-l-2 break-all",
+                        oldVal === undefined && "border-green-500 bg-green-50",
+                        newVal === undefined && "border-red-500 bg-red-50",
+                        oldVal !== undefined && newVal !== undefined && "border-amber-500 bg-amber-50",
+                      )}
+                    >
+                      <p className="font-semibold">{key}</p>
+                      <p className="text-muted-foreground line-through">
+                        {JSON.stringify(oldVal) ?? "—"}
+                      </p>
+                      <p>{JSON.stringify(newVal) ?? "—"}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {log.metadata && Object.keys(log.metadata).length > 0 && (
+            <Card className="p-3">
+              <p className="text-xs font-semibold mb-2">Metadata</p>
+              <pre className="text-[11px] font-mono max-h-40 overflow-y-auto bg-muted p-2 rounded">
+                {JSON.stringify(log.metadata, null, 2)}
+              </pre>
+            </Card>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 export default AuditLogs;

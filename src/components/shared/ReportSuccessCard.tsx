@@ -1,4 +1,5 @@
-import { CheckCircle2, FileText, Plus, MapPin, TrendingUp, Bell } from "lucide-react";
+import type { ReactNode } from "react";
+import { CheckCircle2, FileText, Plus, TrendingUp, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +12,7 @@ export interface ReportSuccessCardProps {
   onNewReport?: () => void;
   onViewPatterns?: () => void;
   onSubscribe?: () => void;
+  subscribeContent?: ReactNode;
 }
 
 export const ReportSuccessCard = ({
@@ -19,6 +21,7 @@ export const ReportSuccessCard = ({
   onNewReport,
   onViewPatterns,
   onSubscribe,
+  subscribeContent,
 }: ReportSuccessCardProps) => {
   const navigate = useNavigate();
 
@@ -123,12 +126,12 @@ export const ReportSuccessCard = ({
                     </Button>
                   )}
 
-                  {onSubscribe && (
+                  {subscribeContent ?? (onSubscribe && (
                     <Button variant="outline" onClick={onSubscribe} className="w-full">
                       <Bell className="w-4 h-4 mr-2" />
                       Receber atualizações
                     </Button>
-                  )}
+                  ))}
                 </>
               )}
             </div>

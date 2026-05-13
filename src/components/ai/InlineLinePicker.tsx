@@ -3,14 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bus, Search, Train, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-
-interface TransportLine {
-  id: string;
-  line_code: string;
-  line_name: string;
-  line_type: string;
-}
+import { useTransportLines, type TransportLineSearchRow } from "@/hooks/useTransportLines";
 
 interface InlineLinePickerProps {
   /** lineId definido quando a linha veio da tabela transport_lines (HU-5.2). */
@@ -18,43 +11,41 @@ interface InlineLinePickerProps {
 }
 
 export const InlineLinePicker = ({ onSelect }: InlineLinePickerProps) => {
+  const { searchLinesRemote } = useTransportLines({ loadCatalog: false });
   const [query, setQuery] = useState("");
-  const [lines, setLines] = useState<TransportLine[]>([]);
+  const [lines, setLines] = useState<TransportLineSearchRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selected, setSelected] = useState(false);
 
-  const searchLines = useCallback(async (searchQuery: string) => {
-    if (!searchQuery || searchQuery.length < 2) {
-      setLines([]);
-      return;
-    }
+  const runRemoteSearch = useCallback(
+    async (searchQuery: string) => {
+      if (!searchQuery || searchQuery.length < 2) {
+        setLines([]);
+        return;
+      }
 
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('transport_lines')
-        .select('id, line_code, line_name, line_type')
-        .or(`line_code.ilike.%${searchQuery}%,line_name.ilike.%${searchQuery}%`)
-        .limit(8);
-
-      if (error) throw error;
-      setLines(data || []);
-    } catch (error) {
-      console.error('Error searching lines:', error);
-      setLines([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      setIsLoading(true);
+      try {
+        const data = await searchLinesRemote(searchQuery, 8);
+        setLines(data);
+      } catch (error) {
+        console.error("Error searching lines:", error);
+        setLines([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [searchLinesRemote],
+  );
 
   useEffect(() => {
     const debounce = setTimeout(() => {
-      searchLines(query);
+      void runRemoteSearch(query);
     }, 300);
     return () => clearTimeout(debounce);
-  }, [query, searchLines]);
+  }, [query, runRemoteSearch]);
 
-  const handleSelect = (line: TransportLine) => {
+  const handleSelect = (line: TransportLineSearchRow) => {
     setSelected(true);
     onSelect(line.line_code, line.line_name, line.id);
   };
