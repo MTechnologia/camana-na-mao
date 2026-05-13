@@ -288,8 +288,8 @@ export function AddressAutocomplete({
         <Input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
-          autoComplete="postal-code"
+          inputMode="text"
+          autoComplete="street-address"
           value={query}
           onChange={(e) => {
             const raw = e.target.value;

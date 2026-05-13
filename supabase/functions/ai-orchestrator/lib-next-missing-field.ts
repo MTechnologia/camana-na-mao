@@ -327,19 +327,19 @@ export async function getNextMissingField(
             inferred.confidence,
           );
         } else {
-          return {
-            field: "risk_level",
-            picker: null,
-            prompt:
-              "Qual o **nível de gravidade** deste relato? Toque em uma opção abaixo (ou descreva em uma frase, se preferir).[QUICK_REPLY:critical,moderate,low,none]",
-          };
+          fields.risk_level = "low";
+          fields._risk_default_low = true;
+          console.log(
+            "[getNextMissingField] No risk patterns matched; defaulting risk_level to 'low' (avoids redundant question; user can adjust via correction menu)",
+          );
         }
       }
-      if (["critical", "moderate"].includes(String(fields.risk_level || "")) && !fields.affected_scope) {
+      if (!fields.affected_scope) {
         return {
           field: "affected_scope",
           picker: null,
-          prompt: "Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?",
+          prompt:
+            "[FIELD_REQUEST:affected_scope]Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?[QUICK_REPLY:somente eu,toda a rua,bairro todo]",
         };
       }
     }

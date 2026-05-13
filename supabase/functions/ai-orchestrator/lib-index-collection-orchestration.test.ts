@@ -45,6 +45,59 @@ Deno.test("orchestrateCollectionTurn retorna resposta de auto-create com markers
   assertEquals(text.includes("[COLLECTION_PROGRESS:urban_report:{}]"), true);
 });
 
+Deno.test("orchestrateCollectionTurn retorna mensagem terminal (field=null, prompt!=null) sem chamar auto-create", async () => {
+  let autoCreateCalled = false;
+  const result = await orchestrateCollectionTurn({
+    accumulatedFields: {
+      report_nature: "reclamacao",
+      description: "Buraco na rua",
+      category: "via_publica",
+      street: "Rua Salvador D'Agostinho",
+      neighborhood: "Jardim Rosa de Franca",
+      city: "Guarulhos",
+      cep: "07081310",
+    },
+    attachmentUrls: [],
+    chatMessages: [],
+    collectionIntent: { type: "urban_report", fields: {} },
+    conversationId: "conv-1",
+    dynamicSystemPrompt: "BASE_PROMPT",
+    getMessageText: () => "",
+    lastAssistantLower: "",
+    lastAssistantMessage: "",
+    lastUserMessage: "Endereço selecionado: Rua Salvador D'Agostinho - Jardim Rosa de Franca, Guarulhos - CEP: 07081310",
+    lightJourneyMarker: "",
+    msgLower: "endereço selecionado",
+    requestStartTime: Date.now(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    // deno-lint-ignore no-explicit-any
+    supabaseClassificationFeedbackRead: null as any,
+    userId: "user-1",
+    deps: {
+      getNextMissingField: async () => ({
+        field: null,
+        picker: null,
+        prompt: "Entendemos que o endereço informado é na **Guarulhos**. No entanto, este canal é exclusivo para atendimentos realizados na cidade de São Paulo.",
+      }),
+      handleDeterministicUrbanAutoCreate: async () => {
+        autoCreateCalled = true;
+        // deno-lint-ignore no-explicit-any
+        return { toolResult: { success: true, message: "should not be called" } } as any;
+      },
+    },
+    // deno-lint-ignore no-explicit-any
+    lib: createBaseLib() as any,
+  });
+
+  assertExists(result.response);
+  assertEquals(autoCreateCalled, false);
+  const text = await result.response!.text();
+  assertEquals(text.includes("Guarulhos"), true);
+  assertEquals(text.includes("exclusivo para atendimentos"), true);
+  assertEquals(text.includes("[COLLECTION_PROGRESS:urban_report:{}]"), true);
+});
+
 Deno.test("orchestrateCollectionTurn injeta contexto de coleta quando há campos", async () => {
   const result = await orchestrateCollectionTurn({
     accumulatedFields: { description: "há um incêndio no local", category: "iluminacao" },

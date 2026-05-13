@@ -91,6 +91,22 @@ export async function orchestrateCollectionTurn(
     );
     console.log("[ai-orchestrator] Deterministic next field:", nextFieldInfo.field);
 
+    if (!nextFieldInfo.field && nextFieldInfo.prompt) {
+      let terminalContent = nextFieldInfo.prompt;
+      if (lightJourneyMarker && !terminalContent.includes("[LIGHT_JOURNEY:")) {
+        terminalContent = lightJourneyMarker + terminalContent;
+      }
+      if (!terminalContent.includes("[COLLECTION_PROGRESS:")) {
+        terminalContent = `[COLLECTION_PROGRESS:${collectionIntent.type}:{}]${terminalContent}`;
+      }
+      console.log("[ai-orchestrator] Deterministic terminal message returned directly (field=null, prompt set)");
+      return {
+        dynamicSystemPrompt: finalDynamicSystemPrompt,
+        nextFieldInfo,
+        response: createSseResponse(terminalContent, lib.corsHeaders),
+      };
+    }
+
     if (!nextFieldInfo.field && accumulatedFields) {
       console.log("[ai-orchestrator] All fields collected, auto-calling create function for:", collectionIntent.type);
 
@@ -100,7 +116,9 @@ export async function orchestrateCollectionTurn(
           const urbanAutoResult = await handleUrbanAutoImpl({
             accumulatedFields,
             attachmentUrls,
+            chatMessages,
             conversationId: typeof conversationId === "string" ? conversationId : undefined,
+            getMessageText,
             lastAssistantLower,
             lastAssistantMessage,
             lastUserMessage,
