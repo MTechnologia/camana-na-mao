@@ -144,13 +144,21 @@ export default function ReportsAnalyticsPage() {
   }), [demographicFilters]);
   
   const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
+
+  const activeTab = tabState.tab;
+  const loadCorrelationData = activeTab === 'geral' || activeTab === 'criticidade';
+  const loadThresholdAlerts = activeTab === 'criticidade';
+  const loadPageSentiment = activeTab === 'sentimento' || showExport;
+
   const {
     alerts: thresholdAlerts,
     error: thresholdAlertsError,
     refresh: refreshThresholdAlerts,
-  } = usePatternThresholdEvents();
-  const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics();
-  const correlations = useCorrelationAnalytics();
+  } = usePatternThresholdEvents({ enabled: loadThresholdAlerts });
+  const { stats: sentimentStats, isLoading: sentimentLoading } = useSentimentAnalytics({
+    enabled: loadPageSentiment,
+  });
+  const correlations = useCorrelationAnalytics({ enabled: loadCorrelationData });
   const drillInsight = useDrillInsight(combinedFilters);
 
   // HU-6.1 — Aplica tema de atuação: reordena as tabs colocando as `priorityTabs`
@@ -202,7 +210,9 @@ export default function ReportsAnalyticsPage() {
   );
   const refreshAll = () => {
     void refresh();
-    void refreshThresholdAlerts();
+    if (activeTab === 'criticidade') {
+      void refreshThresholdAlerts();
+    }
   };
 
   // Transform peak hours for chart
@@ -435,6 +445,10 @@ export default function ReportsAnalyticsPage() {
 
           {/* TAB GERAL */}
           <TabsContent value="geral" className="space-y-6">
+            {correlations.isLoading ? (
+              <Skeleton className="h-[min(32rem,70vh)] w-full rounded-lg" />
+            ) : (
+              <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RegionalHotspots 
                 data={correlations.hotspots || []}
@@ -501,6 +515,8 @@ export default function ReportsAnalyticsPage() {
                 </div>
               </Card>
             </div>
+              </>
+            )}
           </TabsContent>
 
           {/* TAB SENTIMENTO */}
@@ -691,6 +707,10 @@ export default function ReportsAnalyticsPage() {
                   <h3 className="text-lg font-semibold">Categorias Mais Críticas</h3>
                 </div>
                 <div className="space-y-3">
+                  {correlations.isLoading ? (
+                    <Skeleton className="h-48 w-full rounded-lg" />
+                  ) : (
+                    <>
                   {(correlations.topCriticalCategories || []).map((item, index) => (
                     <div 
                       key={item.category}
@@ -718,6 +738,8 @@ export default function ReportsAnalyticsPage() {
                     <div className="text-center py-8 text-muted-foreground">
                       Nenhuma categoria crítica identificada
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               </Card>

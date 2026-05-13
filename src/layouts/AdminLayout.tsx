@@ -29,7 +29,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             onMenuClick={() => setMobileOpen(true)}
             isMobile={isMobile}
           />
-          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto overflow-x-auto">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 lg:p-8">
             <div className="max-w-screen-2xl mx-auto w-full min-w-0">
               {children}
             </div>
