@@ -228,16 +228,23 @@ const AuditLogs = () => {
       };
     });
 
-    // Usa o mesmo helper `downloadCsv` que é usado em
-    // /admin/analytics (Análise de Relatos). Ele faz appendChild → click →
-    // removeChild SEM display:none e SEM rel="noopener", que é a forma que
-    // funciona consistentemente em desktop E mobile (incluindo PWA standalone).
+    // Usa o mesmo helper `downloadCsv` que é usado em /admin/analytics.
+    // Em PWA standalone (Android instalado), o helper abre o CSV em uma
+    // nova aba para que o user salve via menu nativo. Em desktop, baixa
+    // direto.
     const filename = `audit-logs-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
     downloadCsv(rowsToCsv(rows), filename);
 
+    const isStandalonePwa =
+      typeof window !== "undefined" &&
+      (window.matchMedia?.("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true);
+
     toast({
-      title: "Download iniciado",
-      description: `${filteredLogs.length} registros exportados.`,
+      title: isStandalonePwa ? "CSV aberto em nova aba" : "Download iniciado",
+      description: isStandalonePwa
+        ? `${filteredLogs.length} registros — use o menu do navegador para salvar.`
+        : `${filteredLogs.length} registros exportados.`,
     });
   };
 

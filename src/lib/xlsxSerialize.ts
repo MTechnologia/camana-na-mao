@@ -107,6 +107,11 @@ export function buildXlsxWorkbook(input: XlsxBuildInput): ArrayBuffer {
 
 /**
  * Helper para download no navegador.
+ *
+ * Em PWA standalone (Android instalado / iOS Add to Home Screen) o
+ * `<a download>` programático é frequentemente bloqueado pelo browser.
+ * Nesse caso abre em nova aba — o user salva via menu nativo. Em desktop
+ * e em browsers mobile comuns, usa o caminho padrão.
  */
 export function downloadXlsx(buffer: ArrayBuffer, filename: string): void {
   if (typeof window === "undefined") return;
@@ -114,6 +119,17 @@ export function downloadXlsx(buffer: ArrayBuffer, filename: string): void {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const url = URL.createObjectURL(blob);
+
+  const isStandalonePwa =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  if (isStandalonePwa) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;

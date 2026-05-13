@@ -78,11 +78,38 @@ export function serializeCsv(
 
 /**
  * Helper para acionar o download de um CSV no navegador.
+ *
+ * Estratégia adaptativa:
+ *   - Em navegadores desktop: cria `<a download>` programático e clica.
+ *   - Em PWA standalone (Android instalado): o `<a download>` é
+ *     frequentemente bloqueado pelo browser engine. Usa `window.open`
+ *     em nova aba — o user salva via menu nativo do navegador.
+ *   - Em browser mobile comum (Chrome/Safari em aba normal): também usa
+ *     `<a download>` porque funciona bem.
+ *
+ * Detecta PWA standalone via `display-mode: standalone` matchMedia + flag
+ * iOS `navigator.standalone`. Esses dois cobrem 100% dos casos de PWA
+ * instalado tanto Android quanto iOS.
  */
 export function downloadCsv(csv: string, filename: string): void {
   if (typeof window === "undefined") return;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
+
+  const isStandalonePwa =
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+  if (isStandalonePwa) {
+    // PWA bloqueia <a download> programático. Abre em nova aba — o user
+    // salva pelo menu do navegador (Compartilhar > Salvar em Arquivos / Drive).
+    window.open(url, "_blank", "noopener,noreferrer");
+    // Mantém a URL viva mais tempo pois o user pode demorar a salvar.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return;
+  }
+
+  // Caminho padrão: download direto via <a download>.
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
