@@ -87,6 +87,13 @@ export interface UseReportDetailResult {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  /**
+   * HU-5.3 — Optimistic updates: aplica mudança local imediatamente para
+   * feedback instantâneo. Em caso de erro na persistência, o caller deve
+   * chamar com o valor anterior para reverter.
+   */
+  applyOptimisticDetail: (patch: Partial<ReportDetail>) => void;
+  applyOptimisticComment: (comment: ReportComment) => void;
 }
 
 const URBAN_FIELDS =
@@ -336,5 +343,24 @@ export function useReportDetail(
     void fetchAll();
   }, [fetchAll]);
 
-  return { detail, author, comments, auditLog, isLoading, error, refresh: fetchAll };
+  // HU-5.3 — Optimistic updates
+  const applyOptimisticDetail = useCallback((patch: Partial<ReportDetail>) => {
+    setDetail((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
+  const applyOptimisticComment = useCallback((comment: ReportComment) => {
+    setComments((prev) => [comment, ...prev]);
+  }, []);
+
+  return {
+    detail,
+    author,
+    comments,
+    auditLog,
+    isLoading,
+    error,
+    refresh: fetchAll,
+    applyOptimisticDetail,
+    applyOptimisticComment,
+  };
 }

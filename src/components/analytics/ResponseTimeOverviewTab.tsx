@@ -30,12 +30,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
-import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
 import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
+import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
 import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   useResponseTimeAnalytics,
   type ResponseTimeFilters,
@@ -83,24 +85,46 @@ export function ResponseTimeOverviewTab() {
     defaults: { p: null },
     serializers: { p: dateRangeSerializer() },
   });
-  const period: DateRangeValue | undefined = periodState.p ? { startDate: periodState.p.startDate, endDate: periodState.p.endDate } : undefined;
-  const setPeriod = (next: DateRangeValue | undefined) => setPeriodState({ p: next ? { startDate: next.startDate, endDate: next.endDate } : null });
+  // HU-5.2 fix — URL state guarda strings "YYYY-MM-DD"; DateRangeValue exige Dates locais.
+  // Usa parseLocalDate/formatLocalDate para evitar o bug do D-1 em timezones negativos
+  // (`new Date("YYYY-MM-DD")` é interpretado como UTC midnight e em -03:00 vira o dia anterior).
+  const period: DateRangeValue | undefined = useMemo(
+    () =>
+      periodState.p
+        ? {
+            from: parseLocalDate(periodState.p.startDate),
+            to: parseLocalDate(periodState.p.endDate),
+          }
+        : undefined,
+    [periodState.p?.startDate, periodState.p?.endDate],
+  );
+  const setPeriod = (next: DateRangeValue | undefined) =>
+    setPeriodState({
+      p: next
+        ? {
+            startDate: formatLocalDate(next.from),
+            endDate: formatLocalDate(next.to),
+          }
+        : null,
+    });
 
   // HU-5.2 — Filtros granulares (categorias, bairros, zonas)
   const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+  // HU-5.3 — Debounce nos filtros granulares (multisseleção rápida).
+  const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
   const filters: ResponseTimeFilters = useMemo(
     () => ({
       startDate: period?.from,
       endDate: period?.to,
-      categories: granularFilters.categories,
-      regions: granularFilters.regions,
-      zones: granularFilters.zones,
+      categories: debouncedGranularFilters.categories,
+      regions: debouncedGranularFilters.regions,
+      zones: debouncedGranularFilters.zones,
     }),
-    [period, granularFilters],
+    [period, debouncedGranularFilters],
   );
 
-  const { stats, isLoading, error, refresh } = useResponseTimeAnalytics(filters);
+  const { stats, isLoading, error, refresh, lastUpdate } = useResponseTimeAnalytics(filters);
 
   const trendData = useMemo(
     () =>
@@ -155,23 +179,38 @@ export function ResponseTimeOverviewTab() {
 
   return (
     <div className="space-y-6">
-      {/* Filtro de período */}
-      <div className="rounded-lg border border-border bg-card p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Clock className="h-4 w-4" aria-hidden="true" />
-          <span>Período de análise</span>
-        </div>
-        <FilterDatePicker
-          value={period}
-          onChange={setPeriod}
-          placeholder="Todos os períodos"
+      {/* HU-5.3 — Indicador "ao vivo" + refresh manual */}
+      <div className="flex justify-end -mb-2">
+        <AnalyticsLiveBadge
+          lastUpdates={[lastUpdate]}
+          onRefresh={() => void refresh()}
+          refreshing={isLoading}
         />
-        {(period?.from || period?.to) && (
-          <span className="text-xs text-muted-foreground">
-            Comparação automática com período anterior de mesma duração.
-          </span>
-        )}
       </div>
+
+      {/* HU-5.2 — Eficiência usa apenas período + partido político (categoria
+          aqui é populada a partir de council_member_party em encaminhamentos). */}
+      <VolumeFilters
+        value={{ ...granularFilters, period }}
+        onChange={(next) => {
+          setPeriod(next.period);
+          setGranularFilters({ ...next, period: next.period });
+        }}
+        availableCategories={stats.availableCategories ?? []}
+        availableRegions={stats.availableRegions ?? []}
+        loading={isLoading}
+        title="Filtros de eficiência"
+        ariaLabel="Filtros de eficiência de resolução"
+        categoryLabel="Partido político"
+        categorySearchPlaceholder="Buscar partido..."
+        showRegions={false}
+        showZones={false}
+      />
+      {(period?.from || period?.to) && (
+        <p className="text-xs text-muted-foreground -mt-3">
+          Comparação automática com período anterior de mesma duração.
+        </p>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

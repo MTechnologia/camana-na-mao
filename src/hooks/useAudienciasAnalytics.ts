@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { localParaZona, type ZonaSP } from "@/lib/audienciaZonas";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
  * HU-1.4 — Como gestor, quero visualizar engajamento em audiências no mesmo
@@ -406,15 +407,16 @@ export function aggregate(
 
 export function useAudienciasAnalytics(filters: AudienciasFilters) {
   const [stats, setStats] = useState<AudienciasStats>(EMPTY_STATS);
-  const [isLoading, setIsLoading] = useState(true);
+  // HU-5.3 — refetch silencioso (initial vs realtime).
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   const periodKey = useMemo(() => {
     return `${toIsoDate(filters.startDate) || ""}|${toIsoDate(filters.endDate) || ""}`;
   }, [filters.startDate, filters.endDate]);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
     try {
       const startDate = toIsoDate(filters.startDate);
@@ -426,12 +428,13 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
         fetchParticipacoes(ids),
       ]);
       setStats(aggregate(audiencias, inscricoes, participacoes));
+      setLastUpdate(new Date());
     } catch (err) {
       console.error("[useAudienciasAnalytics] fetch error", err);
       setError("Não foi possível carregar o engajamento em audiências. Tente novamente.");
-      setStats(EMPTY_STATS);
+      // HU-5.3 — não resetar stats: mantém último resultado bom visível.
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   }, [filters.startDate, filters.endDate]);
 
@@ -439,8 +442,25 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
     void fetchData();
   }, [fetchData, periodKey]);
 
-  return { stats, isLoading, error, refresh: fetchData };
+  // HU-5.3 — realtime: novas audiências, inscrições e participações.
+  useRealtimeRefresh(REALTIME_TABLES, fetchData);
+
+  return {
+    stats,
+    isLoading: isInitialLoading,
+    isInitialLoading,
+    error,
+    refresh: fetchData,
+    lastUpdate,
+  };
 }
+
+// HU-5.3 — tabelas observadas (referência estável).
+const REALTIME_TABLES = [
+  "audiencias",
+  "audiencia_inscricoes",
+  "audiencia_participacoes",
+] as const;
 
 export const __test__ = {
   aggregate,

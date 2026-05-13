@@ -5,6 +5,7 @@ import {
   ZONA_DESCONHECIDA,
   type ZonaVolumeOuDesconhecida,
 } from "@/lib/regionMapping";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 /**
  * HU-1.1 — Como gestor, quero visualizar volume de relatos por período,
@@ -347,8 +348,11 @@ function aggregate(
 
 export function useReportsVolume(filters: ReportsVolumeFilters) {
   const [stats, setStats] = useState<ReportsVolumeStats>(EMPTY_STATS);
-  const [isLoading, setIsLoading] = useState(true);
+  // HU-5.3 — distinção entre carga inicial (mostra skeleton) e refetch silencioso
+  // (ao vivo, mantém valores anteriores enquanto a nova consulta carrega).
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   // Chave estável para refetch quando o período muda. Categoria/região/zona são
   // aplicados em memória sobre os dados do período corrente — evita round-trip.
@@ -361,7 +365,6 @@ export function useReportsVolume(filters: ReportsVolumeFilters) {
   const [rawRows, setRawRows] = useState<RawReport[]>([]);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
     setError(null);
     try {
       const startIso = toIso(filters.startDate);
@@ -372,12 +375,14 @@ export function useReportsVolume(filters: ReportsVolumeFilters) {
         fetchServiceRatings(startIso, endIso),
       ]);
       setRawRows([...urban, ...transport, ...ratings]);
+      setLastUpdate(new Date());
     } catch (err) {
       console.error("[useReportsVolume] fetch error", err);
       setError("Não foi possível carregar o volume de relatos. Tente novamente.");
-      setRawRows([]);
+      // HU-5.3 — não resetar rawRows em refetches: mantém dados visíveis enquanto investiga.
+      // Em carga inicial (rawRows ainda vazio) não há o que perder.
     } finally {
-      setIsLoading(false);
+      setIsInitialLoading(false);
     }
   }, [filters.startDate, filters.endDate]);
 
@@ -385,17 +390,47 @@ export function useReportsVolume(filters: ReportsVolumeFilters) {
     void fetchData();
   }, [fetchData, periodKey]);
 
+  // HU-5.3 — auto-refresh quando dados upstream mudam (novos relatos, mudanças
+  // de status). Debounce de 600ms já está dentro do useRealtimeRefresh.
+  useRealtimeRefresh(REALTIME_TABLES, fetchData);
+
   // Re-agrega sempre que filtros derivados (categoria/região/zona/tipo) mudam.
   // O fetch só roda quando o período muda — agregação é barata e roda em memória.
+  // HU-5.2 fix — depender da chave estável JSON.stringify em vez da referência do objeto
+  // `filters`, que muda em todo render quando o caller passa objeto literal (ex.: o hook
+  // useReportsVolumeCompare). Sem isso, há loop infinito: novo filters → useEffect refaz →
+  // setStats → re-render → novo filters.
+  const filtersKey = useMemo(
+    () =>
+      JSON.stringify({
+        c: filters.categories ?? [],
+        r: filters.regions ?? [],
+        z: filters.zones ?? [],
+        t: filters.types ?? [],
+      }),
+    [filters.categories, filters.regions, filters.zones, filters.types],
+  );
   useEffect(() => {
     setStats(aggregate(rawRows, filters));
-  }, [
-    rawRows,
-    filters,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawRows, filtersKey]);
 
-  return { stats, isLoading, error, refresh: fetchData };
+  return {
+    stats,
+    // HU-5.3 — isLoading agora reflete apenas a primeira carga. Refetches por
+    // realtime/filtros são silenciosos. Componentes que precisam de spinner em
+    // refetch manual podem usar `refresh()` + estado próprio.
+    isLoading: isInitialLoading,
+    isInitialLoading,
+    error,
+    refresh: fetchData,
+    lastUpdate,
+  };
 }
+
+// HU-5.3 — tabelas que disparam refetch automático em mudanças. Lista
+// constante (fora do hook) para preservar referência estável entre renders.
+const REALTIME_TABLES = ["urban_reports", "transport_reports", "service_ratings"] as const;
 
 // Helpers exportados para reúso em testes.
 export const __test__ = { aggregate };
