@@ -7,10 +7,10 @@
 export const URBAN_REPORT_TRAMITE_AFTER_REGISTRATION = `
 📚 **Como funciona depois do registro**
 
-• **Onde fica:** seu relato fica registrado na plataforma **Câmara na Mão**, com protocolo.
-• **Quem analisa primeiro:** passa por **triagem** — equipe da Câmara e processos internos (incluindo fluxos automatizados) conferem tipo, local e prioridade.
-• **Para onde pode ir:** conforme o tema, pode ser encaminhado a **comissões temáticas** da Câmara e/ou a **órgãos do Executivo municipal** (Prefeitura e secretarias), que costumam ser os responsáveis pela execução na rua (iluminação, limpeza, vias, esgoto etc.).
-• **Prazos:** **não há um prazo único** para todas as demandas — dependem da complexidade, da área competente e da prioridade. Acompanhe o **status** em **Meus relatos** no app.
+- **Onde fica:** seu relato fica registrado na plataforma **Câmara na Mão**, com protocolo.
+- **Quem analisa primeiro:** passa por **triagem** — equipe da Câmara e processos internos (incluindo fluxos automatizados) conferem tipo, local e prioridade.
+- **Para onde pode ir:** conforme o tema, pode ser encaminhado a **comissões temáticas** da Câmara e/ou a **órgãos do Executivo municipal** (Prefeitura e secretarias), que costumam ser os responsáveis pela execução na rua (iluminação, limpeza, vias, esgoto etc.).
+- **Prazos:** **não há um prazo único** para todas as demandas — dependem da complexidade, da área competente e da prioridade. Acompanhe o **status** em **Meus relatos** no app.
 
 _Em caso de **risco imediato** na rua, use também os canais de emergência e o **156** da Prefeitura._
 `.trim();

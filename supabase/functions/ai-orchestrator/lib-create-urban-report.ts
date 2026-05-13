@@ -221,15 +221,16 @@ function buildUrbanSuccessMessage(
   const cepLine = eff.cep ? `CEP ${eff.cep}` : "";
   const urbanSeveritySummaryLines = buildUrbanSeveritySummaryLines(eff, acc, urbanRiskCollectionCategories);
   const photosSection = Array.isArray(eff.photos) && eff.photos.length > 0
-    ? `\n\n📷 **Fotos anexadas:** ${eff.photos.length} imagem(ns)\n`
-    : "";
+    ? `📷 **Fotos anexadas:** ${eff.photos.length} imagem(ns)`
+    : null;
 
-  return [
+  const lines: (string | null)[] = [
     `[REPORT_CREATED:${data.id}]`,
     "",
     "✅ **Relato registrado com sucesso!**",
     "",
-    data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`\n` : "",
+    data.protocol_code ? `🔖 **Protocolo:** \`${data.protocol_code}\`` : null,
+    data.protocol_code ? "" : null,
     "**Resumo do seu relato:**",
     "",
     `📋 **Categoria:** ${categoryLabel}${eff.subcategory ? ` - ${eff.subcategory}` : ""}`,
@@ -238,10 +239,11 @@ function buildUrbanSuccessMessage(
     ...(urbanSeveritySummaryLines.length > 0 ? ["", ...urbanSeveritySummaryLines] : []),
     "",
     "📍 **Endereço:**",
-    addressLine ? `- ${addressLine}` : "",
-    neighborhoodLine ? `- ${neighborhoodLine}` : "",
-    cepLine ? `- ${cepLine}` : "",
-    eff.reference_point ? `- Referência: ${eff.reference_point}` : "",
+    addressLine ? `- ${addressLine}` : null,
+    neighborhoodLine ? `- ${neighborhoodLine}` : null,
+    cepLine ? `- ${cepLine}` : null,
+    eff.reference_point ? `- Referência: ${eff.reference_point}` : null,
+    photosSection ? "" : null,
     photosSection,
     "",
     "---",
@@ -255,7 +257,9 @@ function buildUrbanSuccessMessage(
     "**Quer que eu encaminhe esse relato para algum vereador?**",
     "",
     "Posso ajudar com mais alguma coisa?",
-  ].filter((line) => line !== "").join("\n");
+  ];
+
+  return lines.filter((line): line is string => line !== null).join("\n");
 }
 
 export async function handleCreateUrbanReport(
@@ -335,10 +339,11 @@ export async function handleCreateUrbanReport(
       };
     }
 
-    if (["critical", "moderate"].includes(String(eff.risk_level)) && !eff.affected_scope) {
+    if (!eff.affected_scope) {
       return {
         success: false,
-        message: "[FIELD_REQUEST:affected_scope]Entendi que há risco. Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?",
+        message:
+          "[FIELD_REQUEST:affected_scope]Isso está afetando **só você**, **toda a rua** ou **o bairro todo**?[QUICK_REPLY:somente eu,toda a rua,bairro todo]",
       };
     }
   }

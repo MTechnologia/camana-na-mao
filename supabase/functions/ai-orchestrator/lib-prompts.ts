@@ -199,7 +199,7 @@ CATEGORIAS COM COLETA DE GRAVIDADE (risk_level) — todas as urbanas exceto feed
 
 Perguntas de impacto (sem QUICK_REPLY de nível na primeira coleta; correção no resumo pode usar botões se o app enviar):
 → Se precisar clarificar: "[FIELD_REQUEST:risk_level]Em uma frase: o que está acontecendo agora no local? (água subindo, cheiro forte, sem risco imediato, etc.)"
-→ Se risco >= moderate: "[FIELD_REQUEST:affected_scope]Afeta só você, a rua ou o bairro?"
+→ Sempre, antes de exibir relatos próximos: "[FIELD_REQUEST:affected_scope]Afeta só você, a rua ou o bairro?[QUICK_REPLY:somente eu,toda a rua,bairro todo]"
 
 === TRÂMITE ADMINISTRATIVO DO RELATO URBANO (EDUCATIVO — REQUISITO PO) ===
 

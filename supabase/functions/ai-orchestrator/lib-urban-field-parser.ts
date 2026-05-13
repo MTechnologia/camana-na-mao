@@ -310,15 +310,22 @@ export function parseUrbanFieldResponse(
     }
 
     case "affected_scope": {
-      const individualKeywords = ["só eu", "so eu", "minha casa", "meu", "apenas eu", "só minha"];
-      const streetKeywords = ["rua toda", "toda a rua", "rua inteira", "vizinhos", "quarteirão", "a rua", "toda rua"];
-      const neighborhoodKeywords = ["bairro", "região", "região toda", "várias ruas", "varias ruas"];
+      const normalized = responseLower
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "");
 
-      if (neighborhoodKeywords.some((k) => responseLower.includes(k))) {
+      const neighborhoodRegex =
+        /\b(bairro|regiao|regiao\s+toda|varias\s+ruas|comunidade|vila|condominio\s+todo|conjunto\s+habitacional|todo\s+o\s+bairro|bairro\s+inteiro|bairro\s+todo)\b/i;
+      const streetRegex =
+        /\b(rua\s+toda|toda\s+a?\s*rua|rua\s+inteira|toda\s+rua|vizinhos|os?\s+vizinhos|quarteirao|minha\s+rua|nossa\s+rua|a\s+rua|predio\s+todo|condominio|quadra)\b/i;
+      const individualRegex =
+        /\b(so\s+eu|somente\s+eu|apenas\s+eu|so\s+a\s+mim|apenas\s+a\s+mim|somente\s+a\s+mim|a\s+mim|para\s+mim|pra\s+mim|so\s+comigo|comigo|so\s+minha?|minha\s+casa|na\s+minha\s+casa|minha\s+residencia|meu\s+apartamento|meu\s+apto|meu\s+predio|na\s+minha\s+familia|so\s+a\s+minha\s+familia)\b/i;
+
+      if (neighborhoodRegex.test(normalized)) {
         result.affected_scope = "neighborhood";
-      } else if (streetKeywords.some((k) => responseLower.includes(k))) {
+      } else if (streetRegex.test(normalized)) {
         result.affected_scope = "street";
-      } else if (individualKeywords.some((k) => responseLower.includes(k))) {
+      } else if (individualRegex.test(normalized)) {
         result.affected_scope = "individual";
       }
       break;
