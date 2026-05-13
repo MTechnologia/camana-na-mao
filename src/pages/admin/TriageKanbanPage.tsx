@@ -27,6 +27,7 @@ import {
   useTriageKanban,
   type KanbanItem,
 } from "@/hooks/useTriageKanban";
+import { usePerformanceMark } from "@/hooks/usePerformanceMark";
 import {
   useTriageAssignees,
 } from "@/hooks/useReportTriage";
@@ -74,6 +75,9 @@ export default function TriageKanbanPage() {
     refresh,
   } = useTriageKanban(filters);
   const { assignees } = useTriageAssignees();
+
+  // HU-13.2 — Mede tempo de carga do kanban (SLA 3s).
+  usePerformanceMark("triage_kanban_load", !isLoading && totalItems >= 0);
 
   const stats = useMemo(() => {
     const all = Object.values(itemsByStatus).flat();
