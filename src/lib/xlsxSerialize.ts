@@ -108,18 +108,32 @@ export function buildXlsxWorkbook(input: XlsxBuildInput): ArrayBuffer {
 /**
  * Helper para download no navegador.
  *
- * Em PWA standalone (Android instalado / iOS Add to Home Screen) o
- * `<a download>` programático é frequentemente bloqueado pelo browser.
- * Nesse caso abre em nova aba — o user salva via menu nativo. Em desktop
- * e em browsers mobile comuns, usa o caminho padrão.
+ * Estratégia adaptativa:
+ *   1. Dentro do APK Android (WebView): envia o buffer via postMessage para
+ *      o nativo, que salva e abre o menu de Compartilhar (expo-sharing).
+ *   2. Em PWA standalone (Android instalado / iOS Add to Home Screen):
+ *      `<a download>` é bloqueado; abre em nova aba para o user salvar.
+ *   3. Em qualquer outro contexto: `<a download>` programático.
  */
+import { isInsideNativeApp, postFileToNative } from "./nativeBridge";
+
+const XLSX_MIME =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
 export function downloadXlsx(buffer: ArrayBuffer, filename: string): void {
   if (typeof window === "undefined") return;
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+
+  // 1. Dentro do APK — envia pro nativo.
+  if (isInsideNativeApp()) {
+    const sent = postFileToNative(buffer, filename, XLSX_MIME);
+    if (sent) return;
+    // Fallback web se a bridge falhar.
+  }
+
+  const blob = new Blob([buffer], { type: XLSX_MIME });
   const url = URL.createObjectURL(blob);
 
+  // 2. PWA standalone — abre em nova aba.
   const isStandalonePwa =
     window.matchMedia?.("(display-mode: standalone)").matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
@@ -130,6 +144,7 @@ export function downloadXlsx(buffer: ArrayBuffer, filename: string): void {
     return;
   }
 
+  // 3. Caminho padrão.
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;

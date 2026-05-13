@@ -4,8 +4,10 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import * as Sharing from 'expo-sharing';
 import * as TaskManager from 'expo-task-manager';
 import { AUTH_STORAGE_KEY, VISIT_DETECTION_TASK } from '../tasks/visitDetectionTask';
 
@@ -58,6 +60,53 @@ function resolveNotificationTargetUrl(pathOrUrl: string, baseWebUrl: string): st
 
 const EXPO_PUSH_MESSAGE_TYPE = 'getExpoPushToken';
 const CAMARA_AUTH_STATE_TYPE = 'CAMARA_AUTH_STATE';
+const CAMARA_DOWNLOAD_FILE_TYPE = 'CAMARA_DOWNLOAD_FILE';
+
+/**
+ * Sanitiza nome de arquivo para evitar caracteres inválidos no filesystem.
+ * Mantém letras, números, ponto, hífen, underscore. Substitui o resto por _.
+ */
+function sanitizeFilename(name: string): string {
+  const trimmed = String(name ?? '').trim();
+  if (!trimmed) return `download-${Date.now()}`;
+  return trimmed.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+}
+
+/**
+ * Recebe um arquivo do WebView (via postMessage) codificado em base64,
+ * salva no diretório de cache do app e dispara o menu de compartilhamento
+ * nativo para o usuário escolher destino (Salvar em Arquivos, Drive,
+ * enviar por email, etc).
+ */
+async function handleDownloadFromWeb(
+  filename: string,
+  base64Content: string,
+  mime?: string,
+): Promise<void> {
+  const safeName = sanitizeFilename(filename);
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) {
+    console.warn('[FrontendWebView] cacheDirectory indisponível');
+    return;
+  }
+  const path = `${cacheDir}${safeName}`;
+
+  await FileSystem.writeAsStringAsync(path, base64Content, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const available = await Sharing.isAvailableAsync();
+  if (!available) {
+    console.warn('[FrontendWebView] expo-sharing indisponível neste dispositivo');
+    return;
+  }
+
+  await Sharing.shareAsync(path, {
+    mimeType: mime ?? 'application/octet-stream',
+    dialogTitle: 'Salvar ou compartilhar arquivo',
+    UTI: undefined,
+  });
+}
 
 export function FrontendWebView() {
   const [reloadKey, setReloadKey] = useState(0);
@@ -246,6 +295,18 @@ export function FrontendWebView() {
           } else {
             AsyncStorage.removeItem(AUTH_STORAGE_KEY).catch(() => {});
           }
+          return;
+        }
+        if (data?.type === CAMARA_DOWNLOAD_FILE_TYPE) {
+          const filename = typeof data?.filename === 'string' ? data.filename : null;
+          const base64 = typeof data?.base64 === 'string' ? data.base64 : null;
+          const mime = typeof data?.mime === 'string' ? data.mime : undefined;
+          if (filename && base64) {
+            handleDownloadFromWeb(filename, base64, mime).catch((err) => {
+              console.warn('[FrontendWebView] download failed:', err);
+            });
+          }
+          return;
         }
       } catch {
         // Ignore parse errors from invalid postMessage payload
