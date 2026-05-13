@@ -241,11 +241,30 @@ const AuditLogs = () => {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = window.URL.createObjectURL(blob);
 
-    // Heurística de mobile: hover:none + pointer:coarse é o melhor sinal.
-    // userAgentData/mobile é mais novo mas ainda não universal.
-    const isMobile =
-      typeof window !== "undefined" &&
-      window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+    // Heurística de mobile robusta: combina vários sinais. Alguns Androids em
+    // PWA standalone mode reportam hover/pointer como desktop, então só o
+    // matchMedia não basta. Considera mobile se QUALQUER um for verdadeiro:
+    //   - User-Agent Client Hints diz isMobile
+    //   - User-Agent classico bate com regex de dispositivo movel
+    //   - matchMedia pointer:coarse (toque)
+    //   - presença de window.ontouchstart (touch support)
+    const isMobile = (() => {
+      if (typeof window === "undefined") return false;
+      const uaData = (navigator as Navigator & {
+        userAgentData?: { mobile?: boolean };
+      }).userAgentData;
+      if (uaData?.mobile === true) return true;
+      if (
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent,
+        )
+      ) {
+        return true;
+      }
+      if (window.matchMedia("(pointer: coarse)").matches) return true;
+      if ("ontouchstart" in window) return true;
+      return false;
+    })();
 
     if (isMobile) {
       // Em mobile, o `<a download>` programatico geralmente NAO dispara o

@@ -29,6 +29,31 @@ const routeNames: Record<string, string> = {
   '/admin/reports': 'Gestão de Relatos',
   '/admin/referrals': 'Encaminhamentos',
   '/admin/commissions': 'Comissões (encaminhamento)',
+  // HU-12 — auditoria
+  '/admin/audit-logs': 'Logs de Auditoria',
+  // HU-9 — analytics avançadas
+  '/admin/trends': 'Tendência temporal',
+  '/admin/reports-heatmap': 'Mapa de calor',
+  '/admin/avaliacoes-polarizacao': 'Polarização de avaliações',
+  '/admin/intensidade-demanda': 'Intensidade de demanda',
+  '/admin/classification-accuracy': 'Acurácia da classificação',
+  '/admin/padroes': 'Padrões da IA',
+  '/admin/previsoes': 'Previsões',
+  '/admin/anomalias': 'Anomalias',
+  // HU-10 — triagem
+  '/admin/triagem': 'Triagem',
+  // HU-11 — permissões
+  '/admin/permissions': 'Permissões',
+  // HU-8 — agendamentos
+  '/admin/configuracoes': 'Configurações',
+  '/admin/configuracoes/agendamentos': 'Agendamentos',
+  // Demais admin pages
+  '/admin/audit-logs/': 'Logs de Auditoria',
+  '/admin/service-corrections': 'Correções de equipamentos',
+  '/admin/settings': 'Configurações',
+  '/admin/settings/n8n': 'Automação de Workflows',
+  '/admin/settings/n8n-monitoring': 'Monitoramento de Workflows',
+  '/admin/settings/accessibility': 'Acessibilidade',
 };
 
 interface AdminHeaderProps {
