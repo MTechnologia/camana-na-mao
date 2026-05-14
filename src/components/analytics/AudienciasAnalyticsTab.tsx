@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   Bar,
   BarChart,
@@ -31,9 +31,20 @@ import { Badge } from "@/components/ui/badge";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
-import { FilterDatePicker } from "@/components/filters/FilterDatePicker";
+import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
+import { AudienciasFacetPicker } from "@/components/analytics/facets/AudienciasFacetPicker";
+import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
+import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
+import { useUrlSyncedState, dateRangeSerializer } from "@/hooks/useUrlSyncedState";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useFacetUrlState } from "@/hooks/useFacetUrlState";
+import {
+  EMPTY_AUDIENCIAS_FACET,
+  countActiveAudienciasFacet,
+  type AudienciasFacet,
+} from "@/lib/analyticsFilters";
 import {
   useAudienciasAnalytics,
   type AudienciasFilters,
@@ -78,14 +89,72 @@ function formatDateLong(iso: string): string {
 }
 
 export function AudienciasAnalyticsTab() {
-  const [period, setPeriod] = useState<DateRangeValue | undefined>(undefined);
+  // HU-3.3 — período sincronizado com URL.
+  const [periodState, setPeriodState] = useUrlSyncedState<{
+    p: { startDate?: string; endDate?: string } | null;
+  }>({
+    prefix: "aud",
+    defaults: { p: null },
+    serializers: { p: dateRangeSerializer() },
+  });
+  const period: DateRangeValue | undefined = useMemo(
+    () =>
+      periodState.p
+        ? {
+            from: parseLocalDate(periodState.p.startDate),
+            to: parseLocalDate(periodState.p.endDate),
+          }
+        : undefined,
+    [periodState.p?.startDate, periodState.p?.endDate],
+  );
+  const setPeriod = useCallback(
+    (next: DateRangeValue | undefined) =>
+      setPeriodState({
+        p: next
+          ? {
+              startDate: formatLocalDate(next.from),
+              endDate: formatLocalDate(next.to),
+            }
+          : null,
+      }),
+    [setPeriodState],
+  );
+
+  // VolumeFilters precisa de granularFilters mesmo que o tab oculte categorias/regiões/zonas
+  // — mantemos o objeto cheio pra preservar a API do componente.
+  const [granularFilters, setGranularFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
+
+  // HU-14.5 — Facet da aba Audiências (comissões + status) sincronizado com URL.
+  const [audFacet, setAudFacet] = useFacetUrlState<AudienciasFacet>(
+    "aud",
+    EMPTY_AUDIENCIAS_FACET,
+  );
+  const debouncedAudFacet = useDebouncedValue(audFacet, 300);
+  const facetActiveCount = countActiveAudienciasFacet(audFacet);
 
   const filters: AudienciasFilters = useMemo(
-    () => ({ startDate: period?.from, endDate: period?.to }),
-    [period],
+    () => ({
+      startDate: period?.from,
+      endDate: period?.to,
+      facet: debouncedAudFacet,
+    }),
+    [period, debouncedAudFacet],
   );
 
   const { stats, isLoading, error, refresh, lastUpdate } = useAudienciasAnalytics(filters);
+
+  // Lista de comissões para o picker (derivada do agregado byComissao).
+  const availableComissoes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          stats.byComissao
+            .map((c) => c.label)
+            .filter((l) => !!l && l !== "Sem comissão"),
+        ),
+      ).sort(),
+    [stats.byComissao],
+  );
 
   const timelineData = useMemo(
     () =>
@@ -120,18 +189,34 @@ export function AudienciasAnalyticsTab() {
         />
       </div>
 
-      {/* Filtro de período */}
-      <div className="rounded-lg border border-border bg-card p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <Calendar className="h-4 w-4" aria-hidden="true" />
-          <span>Período (data da audiência)</span>
-        </div>
-        <FilterDatePicker
-          value={period}
-          onChange={setPeriod}
-          placeholder="Todos os períodos"
-        />
-      </div>
+      {/* HU-14.5 — Tronco (período) + facet Audiências (comissões + status). */}
+      <AnalyticsFiltersBar
+        volumeProps={{
+          value: { ...granularFilters, period },
+          onChange: (next) => {
+            setPeriod(next.period);
+            setGranularFilters({ ...next, period: next.period });
+          },
+          availableCategories: [],
+          availableRegions: [],
+          loading: isLoading,
+          title: "Filtros de audiências",
+          ariaLabel: "Filtros de audiências",
+          showCategory: false,
+          showRegions: false,
+          showZones: false,
+        }}
+        facetLabel="Comissões & status"
+        facetActiveCount={facetActiveCount}
+        facet={
+          <AudienciasFacetPicker
+            value={audFacet}
+            onChange={setAudFacet}
+            availableComissoes={availableComissoes}
+            disabled={isLoading}
+          />
+        }
+      />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

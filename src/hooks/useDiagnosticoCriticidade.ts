@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { applyAnalyticsFilters } from "@/lib/analyticsFilterHelpers";
+import { applyCriticidadeFacet } from "@/lib/applyFacets";
 import { bairroParaZona, type ZonaVolumeOuDesconhecida } from "@/lib/regionMapping";
 import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
@@ -26,6 +27,8 @@ export interface DiagnosticoFilters {
   categories?: string[];
   regions?: string[];
   zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
+  /** HU-14.3 — facet específico da aba Diagnóstico/Criticidade. */
+  facet?: import("@/lib/analyticsFilters").CriticidadeFacet;
 }
 
 export interface ScoreBreakdown {
@@ -111,6 +114,9 @@ interface RawReport {
   zone: ZonaVolumeOuDesconhecida;
   isNegative: boolean;
   isCritical: boolean;
+  // HU-14.3 — campos crus pra aplicação do CriticidadeFacet.
+  severity?: string | null;
+  active_consequences?: string | null;
 }
 
 const PAGE_SIZE = 1000;
@@ -148,7 +154,9 @@ async function fetchUrbanForDiagnostico(
   for (let page = 0; page < MAX_PAGES; page += 1) {
     let q = supabase
       .from("urban_reports")
-      .select("category, neighborhood, severity, ai_classification, created_at")
+      .select(
+        "category, neighborhood, severity, active_consequences, ai_classification, created_at",
+      )
       .order("created_at", { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (startIso) q = q.gte("created_at", startIso);
@@ -159,6 +167,7 @@ async function fetchUrbanForDiagnostico(
       category: string | null;
       neighborhood: string | null;
       severity: string | null;
+      active_consequences: string | null;
       ai_classification: { sentiment?: string } | null;
     }>;
     rows.forEach((r) => {
@@ -169,6 +178,9 @@ async function fetchUrbanForDiagnostico(
         zone: bairroParaZona(region === "Não informada" ? "" : region),
         isNegative: isNegativeSentiment(r.ai_classification?.sentiment),
         isCritical: isCriticalSeverity(r.severity),
+        // HU-14.3 — crus pra facet
+        severity: r.severity,
+        active_consequences: r.active_consequences,
       });
     });
     if (rows.length < PAGE_SIZE) break;
@@ -209,6 +221,9 @@ async function fetchTransportForDiagnostico(
         zone: bairroParaZona(region === "Não informada" ? "" : region),
         isNegative: isNegativeSentiment(r.ai_sentiment),
         isCritical: isCriticalSeverity(r.severity),
+        // HU-14.3 — crus pra facet (transport não tem active_consequences)
+        severity: r.severity,
+        active_consequences: null,
       });
     });
     if (rows.length < PAGE_SIZE) break;
@@ -496,7 +511,9 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
         ),
       ).sort();
       const filtered = applyAnalyticsFilters(allRecords, analyticsFilter);
-      setStats(aggregate(filtered, patterns, allAvailableCategories, allAvailableRegions));
+      // HU-14.3 — aplica facet específico da aba Diagnóstico/Criticidade.
+      const facetFiltered = applyCriticidadeFacet(filtered, filters.facet);
+      setStats(aggregate(facetFiltered, patterns, allAvailableCategories, allAvailableRegions));
       setLastUpdate(new Date());
     } catch (err) {
       console.error("[useDiagnosticoCriticidade] fetch error", err);
@@ -508,7 +525,11 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
     // HU-5.2 fix — incluir categories/regions/zones nas deps; sem isso o
     // fetchData fica com closure dos filtros da 1ª render e mudanças em
     // categorias/bairros/zonas nunca disparam re-fetch/re-filter.
-  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones]);
+    // HU-14.3 — incluir facet também (JSON.stringify estabiliza identidade).
+    // TODO: separar fetch (período+base) de re-agregação (facet) para evitar
+    // re-fetch quando só o facet mudou.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, filters.categories, filters.regions, filters.zones, JSON.stringify(filters.facet)]);
 
   useEffect(() => {
     void fetchData();

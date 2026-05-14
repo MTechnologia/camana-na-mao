@@ -53,6 +53,9 @@ interface VolumeFiltersProps {
   showRegions?: boolean;
   /** Quando false, oculta a MultiSelect de Zonas (default true). */
   showZones?: boolean;
+  /** HU-14 — Quando false, oculta a MultiSelect de Categorias (default true).
+   *  Audiências, por exemplo, não usa categorias. */
+  showCategory?: boolean;
 }
 
 export function VolumeFilters({
@@ -68,15 +71,16 @@ export function VolumeFilters({
   ariaLabel = "Filtros de volume de relatos",
   showRegions = true,
   showZones = true,
+  showCategory = true,
 }: VolumeFiltersProps) {
   const activeCount = useMemo(() => {
     let count = 0;
     if (value.period?.from || value.period?.to) count += 1;
-    count += value.categories.length;
+    if (showCategory) count += value.categories.length;
     if (showRegions) count += value.regions.length;
     if (showZones) count += value.zones.length;
     return count;
-  }, [value, showRegions, showZones]);
+  }, [value, showCategory, showRegions, showZones]);
 
   const handleClearAll = () => onChange(EMPTY_VOLUME_FILTERS);
 
@@ -127,15 +131,17 @@ export function VolumeFilters({
         {/* HU-5.2 — não passar `loading` para `disabled` das MultiSelects:
             cada clique re-dispara fetch (isLoading=true) e desabilitar o trigger
             no meio da interação fecha o popover, quebrando a multisseleção. */}
-        <MultiSelectPopover
-          icon={<Tag className="h-3.5 w-3.5" aria-hidden="true" />}
-          label={categoryLabel}
-          options={availableCategories}
-          selected={value.categories}
-          onChange={(categories) => onChange({ ...value, categories })}
-          searchPlaceholder={categorySearchPlaceholder}
-          disabled={availableCategories.length === 0}
-        />
+        {showCategory && (
+          <MultiSelectPopover
+            icon={<Tag className="h-3.5 w-3.5" aria-hidden="true" />}
+            label={categoryLabel}
+            options={availableCategories}
+            selected={value.categories}
+            onChange={(categories) => onChange({ ...value, categories })}
+            searchPlaceholder={categorySearchPlaceholder}
+            disabled={availableCategories.length === 0}
+          />
+        )}
 
         {showRegions && (
           <MultiSelectPopover
