@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
-import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
@@ -147,12 +147,17 @@ export function VolumeOverviewTab() {
         />
       </div>
 
-      <VolumeFilters
-        value={filters}
-        onChange={setFilters}
-        availableCategories={stats.availableCategories}
-        availableRegions={stats.availableRegions}
-        loading={isLoading}
+      {/* HU-14 polish — padroniza o cabeçalho de filtros entre as 4 abas. Volume
+          não tem facet específica, então só o bloco "FILTROS GERAIS" é renderizado. */}
+      <AnalyticsFiltersBar
+        volumeProps={{
+          value: filters,
+          onChange: setFilters,
+          availableCategories: stats.availableCategories,
+          availableRegions: stats.availableRegions,
+          loading: isLoading,
+        }}
+        volumeHint="Filtros gerais — recortam todos os KPIs e gráficos desta aba (Volume). Se você navegar para outras abas, eles continuam ativos."
       />
 
       {/* KPIs */}
@@ -386,22 +391,4 @@ export function VolumeOverviewTab() {
             )}
           </div>
         </ChartCard>
-      </div>
-    </div>
-  );
-}
-
-function EmptyChartState({
-  message,
-  icon,
-}: {
-  message: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-      {icon ?? <BarChart3 className="h-8 w-8" />}
-      <p className="text-sm text-center max-w-xs">{message}</p>
-    </div>
-  );
-}
+  

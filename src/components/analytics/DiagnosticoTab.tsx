@@ -15,9 +15,16 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { KPICard } from "@/components/analytics/KPICard";
 import { AIInsightsCard } from "@/components/analytics/AIInsightsCard";
-import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
+import { CriticidadeFacetPicker } from "@/components/analytics/facets/CriticidadeFacetPicker";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
+import {
+  EMPTY_CRITICIDADE_FACET,
+  countActiveCriticidadeFacet,
+  type CriticidadeFacet,
+} from "@/lib/analyticsFilters";
+import { useFacetUrlState } from "@/hooks/useFacetUrlState";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
@@ -92,6 +99,14 @@ export function DiagnosticoTab() {
   // debounce porque o usuário escolhe e fecha o popover de uma vez.
   const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
+  // HU-14.3 — Facet da aba Diagnóstico (severidade + flags) sincronizado com URL.
+  const [critFacet, setCritFacet] = useFacetUrlState<CriticidadeFacet>(
+    "crit",
+    EMPTY_CRITICIDADE_FACET,
+  );
+  const debouncedCritFacet = useDebouncedValue(critFacet, 300);
+  const facetActiveCount = countActiveCriticidadeFacet(critFacet);
+
   const filters = useMemo(
     () => ({
       startDate: period?.from,
@@ -99,8 +114,9 @@ export function DiagnosticoTab() {
       categories: debouncedGranularFilters.categories,
       regions: debouncedGranularFilters.regions,
       zones: debouncedGranularFilters.zones,
+      facet: debouncedCritFacet,
     }),
-    [period, debouncedGranularFilters],
+    [period, debouncedGranularFilters, debouncedCritFacet],
   );
 
   const { stats, isLoading, error, refresh, lastUpdate } = useDiagnosticoCriticidade(filters);
@@ -137,16 +153,28 @@ export function DiagnosticoTab() {
         />
       </div>
 
-      {/* HU-5.2 — Filtros granulares: período + categorias + bairros + zonas */}
-      <VolumeFilters
-        value={{ ...granularFilters, period }}
-        onChange={(next) => {
-          setPeriod(next.period);
-          setGranularFilters({ ...next, period: next.period });
+      {/* HU-5.2 + HU-14.3 — Filtros base (tronco) + facet Criticidade */}
+      <AnalyticsFiltersBar
+        volumeProps={{
+          value: { ...granularFilters, period },
+          onChange: (next) => {
+            setPeriod(next.period);
+            setGranularFilters({ ...next, period: next.period });
+          },
+          availableCategories: stats.availableCategories ?? [],
+          availableRegions: stats.availableRegions ?? [],
+          loading: isLoading,
         }}
-        availableCategories={stats.availableCategories ?? []}
-        availableRegions={stats.availableRegions ?? []}
-        loading={isLoading}
+        facetLabel="Criticidade"
+        facetHint="Filtros específicos da aba Diagnóstico — refinam por severidade do relato e presença de consequências em andamento. Aplicam-se apenas a este corte."
+        facetActiveCount={facetActiveCount}
+        facet={
+          <CriticidadeFacetPicker
+            value={critFacet}
+            onChange={setCritFacet}
+            disabled={isLoading}
+          />
+        }
       />
 
       {/* KPIs */}
@@ -400,12 +428,4 @@ function PatternRow({ pattern }: { pattern: PatternEntry }) {
           )}
           {pattern.peakHours && pattern.peakHours.length > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              <strong className="text-foreground">Horários de pico:</strong>{" "}
-              {pattern.peakHours.map((h) => `${h}h`).join(", ")}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+              <strong className="text-foreground">Horário

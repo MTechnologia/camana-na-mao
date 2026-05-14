@@ -30,9 +30,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChartCard } from "@/components/analytics/ChartCard";
 import { KPICard } from "@/components/analytics/KPICard";
-import { VolumeFilters } from "@/components/analytics/VolumeFilters";
+import { AnalyticsFiltersBar } from "@/components/analytics/AnalyticsFiltersBar";
+import { EficienciaFacetPicker } from "@/components/analytics/facets/EficienciaFacetPicker";
 import { AnalyticsLiveBadge } from "@/components/analytics/AnalyticsLiveBadge";
 import { EMPTY_VOLUME_FILTERS, type VolumeFiltersValue } from "@/components/analytics/volumeFiltersConstants";
+import {
+  EMPTY_EFICIENCIA_FACET,
+  countActiveEficienciaFacet,
+  type EficienciaFacet,
+} from "@/lib/analyticsFilters";
+import { useFacetUrlState } from "@/hooks/useFacetUrlState";
 import type { DateRangeValue } from "@/components/filters/types";
 import { cn } from "@/lib/utils";
 import { parseLocalDate, formatLocalDate } from "@/lib/dateUtils";
@@ -113,6 +120,14 @@ export function ResponseTimeOverviewTab() {
   // HU-5.3 — Debounce nos filtros granulares (multisseleção rápida).
   const debouncedGranularFilters = useDebouncedValue(granularFilters, 300);
 
+  // HU-14.4 — Facet da aba Eficiência (SLA + range + status) sincronizado com URL.
+  const [efiFacet, setEfiFacet] = useFacetUrlState<EficienciaFacet>(
+    "efi",
+    EMPTY_EFICIENCIA_FACET,
+  );
+  const debouncedEfiFacet = useDebouncedValue(efiFacet, 300);
+  const facetActiveCount = countActiveEficienciaFacet(efiFacet);
+
   const filters: ResponseTimeFilters = useMemo(
     () => ({
       startDate: period?.from,
@@ -120,8 +135,9 @@ export function ResponseTimeOverviewTab() {
       categories: debouncedGranularFilters.categories,
       regions: debouncedGranularFilters.regions,
       zones: debouncedGranularFilters.zones,
+      facet: debouncedEfiFacet,
     }),
-    [period, debouncedGranularFilters],
+    [period, debouncedGranularFilters, debouncedEfiFacet],
   );
 
   const { stats, isLoading, error, refresh, lastUpdate } = useResponseTimeAnalytics(filters);
@@ -188,23 +204,34 @@ export function ResponseTimeOverviewTab() {
         />
       </div>
 
-      {/* HU-5.2 — Eficiência usa apenas período + partido político (categoria
-          aqui é populada a partir de council_member_party em encaminhamentos). */}
-      <VolumeFilters
-        value={{ ...granularFilters, period }}
-        onChange={(next) => {
-          setPeriod(next.period);
-          setGranularFilters({ ...next, period: next.period });
+      {/* HU-5.2 + HU-14.4 — Tronco (período + partido) + facet Eficiência (SLA/range). */}
+      <AnalyticsFiltersBar
+        volumeProps={{
+          value: { ...granularFilters, period },
+          onChange: (next) => {
+            setPeriod(next.period);
+            setGranularFilters({ ...next, period: next.period });
+          },
+          availableCategories: stats.availableCategories ?? [],
+          availableRegions: stats.availableRegions ?? [],
+          loading: isLoading,
+          title: "Filtros de eficiência",
+          ariaLabel: "Filtros de eficiência de resolução",
+          categoryLabel: "Partido político",
+          categorySearchPlaceholder: "Buscar partido...",
+          showRegions: false,
+          showZones: false,
         }}
-        availableCategories={stats.availableCategories ?? []}
-        availableRegions={stats.availableRegions ?? []}
-        loading={isLoading}
-        title="Filtros de eficiência"
-        ariaLabel="Filtros de eficiência de resolução"
-        categoryLabel="Partido político"
-        categorySearchPlaceholder="Buscar partido..."
-        showRegions={false}
-        showZones={false}
+        facetLabel="SLA & tempo de resposta"
+        facetHint="Filtros específicos da aba Eficiência — limita a janela de SLA e a faixa de tempo de resolução considerada. Aplicam-se apenas a este corte."
+        facetActiveCount={facetActiveCount}
+        facet={
+          <EficienciaFacetPicker
+            value={efiFacet}
+            onChange={setEfiFacet}
+            disabled={isLoading}
+          />
+        }
       />
       {(period?.from || period?.to) && (
         <p className="text-xs text-muted-foreground -mt-3">
@@ -437,9 +464,4 @@ function BreakdownPanel({ title, subtitle, items, isLoading }: BreakdownPanelPro
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-      <Clock className="h-8 w-8" />
-      <p className="text-sm text-center max-w-xs">{message}</p>
-    </div>
-  );
-}
+    <div className="h-full w-full flex flex-col item

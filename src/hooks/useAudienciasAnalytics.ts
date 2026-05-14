@@ -33,6 +33,8 @@ export interface AudienciasFilters {
   categories?: string[];
   regions?: string[];
   zones?: import("@/lib/regionMapping").ZonaVolumeOuDesconhecida[];
+  /** HU-14.5 — facet específico da aba Audiências. */
+  facet?: import("@/lib/analyticsFilters").AudienciasFacet;
 }
 
 export interface BreakdownItem {
@@ -421,7 +423,26 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
     try {
       const startDate = toIsoDate(filters.startDate);
       const endDate = toIsoDate(filters.endDate);
-      const audiencias = await fetchAudiencias(startDate, endDate);
+      const audienciasRaw = await fetchAudiencias(startDate, endDate);
+      // HU-14.5 — aplicar facet (comissões + status) ANTES de buscar inscrições
+      // para reduzir volume de dados consultados.
+      const facet = filters.facet;
+      const audiencias = facet
+        ? audienciasRaw.filter((a) => {
+            if (facet.comissoes && facet.comissoes.length > 0) {
+              const c = (a.comissao ?? "").toLowerCase().trim();
+              if (!c) return false;
+              const wanted = new Set(facet.comissoes.map((s) => s.toLowerCase()));
+              if (!wanted.has(c)) return false;
+            }
+            if (facet.statuses && facet.statuses.length > 0) {
+              const s = (a.status ?? "").toLowerCase().trim();
+              const wanted = new Set(facet.statuses.map((x) => x.toLowerCase()));
+              if (!wanted.has(s)) return false;
+            }
+            return true;
+          })
+        : audienciasRaw;
       const ids = audiencias.map((a) => a.id);
       const [inscricoes, participacoes] = await Promise.all([
         fetchInscricoes(ids),
@@ -436,7 +457,9 @@ export function useAudienciasAnalytics(filters: AudienciasFilters) {
     } finally {
       setIsInitialLoading(false);
     }
-  }, [filters.startDate, filters.endDate]);
+    // HU-14.5 — facet serializado para estabilizar identidade do objeto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.startDate, filters.endDate, JSON.stringify(filters.facet)]);
 
   useEffect(() => {
     void fetchData();
