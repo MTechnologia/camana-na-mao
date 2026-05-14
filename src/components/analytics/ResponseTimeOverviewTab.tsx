@@ -222,7 +222,8 @@ export function ResponseTimeOverviewTab() {
           showRegions: false,
           showZones: false,
         }}
-        facetLabel="SLA / Janela"
+        facetLabel="SLA & tempo de resposta"
+        facetHint="Filtros específicos da aba Eficiência — limita a janela de SLA e a faixa de tempo de resolução considerada. Aplicam-se apenas a este corte."
         facetActiveCount={facetActiveCount}
         facet={
           <EficienciaFacetPicker
@@ -463,9 +464,4 @@ function BreakdownPanel({ title, subtitle, items, isLoading }: BreakdownPanelPro
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-      <Clock className="h-8 w-8" />
-      <p className="text-sm text-center max-w-xs">{message}</p>
-    </div>
-  );
-}
+    <div className="h-full w-full flex flex-col item

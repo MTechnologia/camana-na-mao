@@ -1,7 +1,7 @@
 import { AlertTriangle, Activity, ShieldAlert } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { FilterHint } from "@/components/analytics/FilterHint";
 import { cn } from "@/lib/utils";
 import {
   EMPTY_CRITICIDADE_FACET,
@@ -9,6 +9,13 @@ import {
   type CriticidadeFacet,
   type Severity,
 } from "@/lib/analyticsFilters";
+
+const HINT_SEVERITY =
+  "Nível de criticidade classificado automaticamente pela IA. Combina urgência, escopo e consequências descritas no relato.";
+const HINT_CRITICAL_ONLY =
+  "Atalho: mantém apenas relatos com severidade 'Crítica'. Útil para auditoria rápida do que exige ação imediata.";
+const HINT_CONSEQUENCES =
+  "Mantém apenas relatos onde o cidadão descreveu consequências em andamento (ex: alagamento ativo, risco de queda). Indica situação real, não apenas potencial.";
 
 /**
  * HU-14.3 — Picker do facet de Criticidade/Diagnóstico.
@@ -64,6 +71,7 @@ export function CriticidadeFacetPicker({
         <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
           <AlertTriangle className="h-3 w-3" />
           Severidade do relato
+          <FilterHint text={HINT_SEVERITY} />
         </Label>
         <div className="flex flex-wrap gap-2">
           {SEVERITIES.map((s) => {
@@ -107,6 +115,7 @@ export function CriticidadeFacetPicker({
           <span className="text-xs flex items-center gap-1">
             <ShieldAlert className="h-3 w-3 text-destructive" />
             Apenas críticos
+            <FilterHint text={HINT_CRITICAL_ONLY} />
           </span>
         </label>
 
@@ -117,23 +126,4 @@ export function CriticidadeFacetPicker({
           )}
         >
           <Checkbox
-            checked={!!value.hasActiveConsequences}
-            onCheckedChange={(checked) =>
-              onChange({ ...value, hasActiveConsequences: checked === true })
-            }
-            disabled={disabled}
-          />
-          <span className="text-xs flex items-center gap-1">
-            <Activity className="h-3 w-3 text-amber-600" />
-            Com consequências ativas
-          </span>
-        </label>
-      </div>
-    </div>
-  );
-}
-
-/** Helper para resetar o facet (usado pelo botão "Limpar" da UI). */
-export function resetCriticidadeFacet(): CriticidadeFacet {
-  return { ...EMPTY_CRITICIDADE_FACET };
-}
+            checked

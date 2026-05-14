@@ -207,6 +207,7 @@ export function AudienciasAnalyticsTab() {
           showZones: false,
         }}
         facetLabel="Comissões & status"
+        facetHint="Filtros específicos da aba Audiências — filtra por comissão legislativa pautadora e estado atual da audiência. Aplicam-se apenas a este corte."
         facetActiveCount={facetActiveCount}
         facet={
           <AudienciasFacetPicker
@@ -523,9 +524,4 @@ function AudienciaRow({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
-      <Megaphone className="h-8 w-8" />
-      <p className="text-sm text-center max-w-xs">{message}</p>
-    </div>
-  );
-}
+    <div className="h-full w-full flex flex-col items-center jus

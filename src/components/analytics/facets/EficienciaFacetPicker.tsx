@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FilterHint } from "@/components/analytics/FilterHint";
 import { cn } from "@/lib/utils";
 import {
   EMPTY_EFICIENCIA_FACET,
@@ -17,6 +18,13 @@ import {
   type ReportStatus,
   type SlaWindow,
 } from "@/lib/analyticsFilters";
+
+const HINT_SLA =
+  "Janela de tempo aceitável para a resolução do relato. 24h = atendimento de urgência; 7 dias = SLA padrão; 30 dias = casos longos. Quando ativo, mantém apenas relatos resolvidos DENTRO dessa janela.";
+const HINT_RANGE =
+  "Mostra apenas relatos cujo tempo entre abertura e resolução cai nessa faixa (em dias). Útil para investigar outliers (ex: 'resolvidos entre 15 e 30 dias').";
+const HINT_STATUS =
+  "Estado atual do relato. Nas abas que só agregam resolvidos (KPIs de tempo médio), este filtro não tem efeito.";
 
 /**
  * HU-14.4 — Picker do facet de Eficiência (tempo de resposta).
@@ -79,6 +87,7 @@ export function EficienciaFacetPicker({
           <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
             <Hourglass className="h-3 w-3" />
             Janela de SLA
+            <FilterHint text={HINT_SLA} />
           </Label>
           <Select
             value={value.slaWindow ?? "all"}
@@ -105,6 +114,7 @@ export function EficienciaFacetPicker({
           <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
             <Clock className="h-3 w-3" />
             Tempo de resposta (dias)
+            <FilterHint text={HINT_RANGE} />
           </Label>
           <div className="flex items-center gap-2">
             <Input
@@ -137,34 +147,11 @@ export function EficienciaFacetPicker({
         <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
           <ClipboardCheck className="h-3 w-3" />
           Status do relato
+          <FilterHint text={HINT_STATUS} />
         </Label>
         <div className="flex flex-wrap gap-2">
           {STATUSES.map((s) => {
             const active = selectedStatuses.has(s);
             return (
               <button
-                key={s}
-                type="button"
-                onClick={() => toggleStatus(s)}
-                disabled={disabled}
-                className={cn(
-                  "rounded-md border px-2.5 py-1 text-xs transition-colors",
-                  active
-                    ? "bg-primary/10 text-primary border-primary/30"
-                    : "bg-card hover:bg-muted text-muted-foreground border-border",
-                  disabled && "opacity-50 cursor-not-allowed",
-                )}
-              >
-                {REPORT_STATUS_LABELS[s]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function resetEficienciaFacet(): EficienciaFacet {
-  return { ...EMPTY_EFICIENCIA_FACET };
-}
+                key=

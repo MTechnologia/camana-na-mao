@@ -24,8 +24,26 @@ import { slaWindowToHours } from "./analyticsFilters";
 export interface CriticidadeFacetTarget {
   /** Severidade textual ("low" | "medium" | "high" | "critical" | null). */
   severity?: string | null;
-  /** Texto descritivo de consequências ativas (não-vazio = tem). */
-  active_consequences?: string | null;
+  /**
+   * Consequências ativas. Pode vir como:
+   *   - `string[]` (formato do banco: jsonb array de strings — urban_reports)
+   *   - `string` (legado / texto livre)
+   *   - `null` / `undefined` (sem consequências)
+   * "Tem consequências ativas" = array com algum item não-vazio OU string não-vazia.
+   */
+  active_consequences?: string | string[] | null;
+}
+
+/** True se há alguma consequência ativa registrada. */
+function hasActiveConsequencesValue(
+  value: string | string[] | null | undefined,
+): boolean {
+  if (value == null) return false;
+  if (Array.isArray(value)) {
+    return value.some((v) => typeof v === "string" && v.trim().length > 0);
+  }
+  if (typeof value === "string") return value.trim().length > 0;
+  return false;
 }
 
 function normalizeSeverity(raw: string | null | undefined): Severity | null {
@@ -57,8 +75,7 @@ export function applyCriticidadeFacet<T extends CriticidadeFacetTarget>(
       if (sev !== "critical") return false;
     }
     if (facet.hasActiveConsequences) {
-      const c = (r.active_consequences ?? "").trim();
-      if (!c) return false;
+      if (!hasActiveConsequencesValue(r.active_consequences)) return false;
     }
     return true;
   });
@@ -117,23 +134,3 @@ export interface AudienciasFacetTarget {
 export function applyAudienciasFacet<T extends AudienciasFacetTarget>(
   rows: T[],
   facet: AudienciasFacet | undefined,
-): T[] {
-  if (!facet) return rows;
-  const wantedComissoes = facet.comissoes && facet.comissoes.length > 0
-    ? new Set(facet.comissoes.map((s) => s.toLowerCase()))
-    : null;
-  const wantedStatuses = facet.statuses && facet.statuses.length > 0
-    ? new Set(facet.statuses)
-    : null;
-  return rows.filter((r) => {
-    if (wantedComissoes) {
-      const c = (r.comissao ?? "").toLowerCase().trim();
-      if (!c || !wantedComissoes.has(c)) return false;
-    }
-    if (wantedStatuses) {
-      const s = (r.status ?? "").toLowerCase().trim();
-      if (!wantedStatuses.has(s as never)) return false;
-    }
-    return true;
-  });
-}

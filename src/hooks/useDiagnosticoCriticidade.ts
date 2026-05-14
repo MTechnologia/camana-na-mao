@@ -116,7 +116,8 @@ interface RawReport {
   isCritical: boolean;
   // HU-14.3 — campos crus pra aplicação do CriticidadeFacet.
   severity?: string | null;
-  active_consequences?: string | null;
+  /** Banco grava como jsonb array de strings em urban_reports; transport não tem. */
+  active_consequences?: string | string[] | null;
 }
 
 const PAGE_SIZE = 1000;
@@ -167,7 +168,8 @@ async function fetchUrbanForDiagnostico(
       category: string | null;
       neighborhood: string | null;
       severity: string | null;
-      active_consequences: string | null;
+      /** urban_reports.active_consequences é jsonb (geralmente array de strings). */
+      active_consequences: string[] | string | null;
       ai_classification: { sentiment?: string } | null;
     }>;
     rows.forEach((r) => {
@@ -549,12 +551,4 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
 }
 
 // HU-5.3 — tabelas observadas (referência estável).
-const REALTIME_TABLES = ["urban_reports", "transport_reports", "report_patterns"] as const;
-
-export const __test__ = {
-  aggregate,
-  computeScore,
-  buildBreakdown,
-  countPatternsForKey,
-  normalizeVolumePercentile,
-};
+const REALTIME_TABLES = ["urban_

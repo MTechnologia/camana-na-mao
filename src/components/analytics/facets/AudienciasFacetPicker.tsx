@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { ChevronDown, X } from "lucide-react";
+import { FilterHint } from "@/components/analytics/FilterHint";
 import { cn } from "@/lib/utils";
 import {
   AUDIENCIA_STATUS_LABELS,
@@ -25,6 +26,11 @@ import {
   type AudienciaStatus,
   type AudienciasFacet,
 } from "@/lib/analyticsFilters";
+
+const HINT_COMISSOES =
+  "Comissões legislativas que pautaram a audiência (ex: Saúde, Educação, Trânsito). Multi-seleção: selecione várias para ver o conjunto.";
+const HINT_STATUS =
+  "Estado atual da audiência: Agendada (futura), Realizada (já aconteceu), Cancelada ou Adiada. Multi-seleção.";
 
 /**
  * HU-14.5 — Picker do facet de Audiências.
@@ -94,6 +100,7 @@ export function AudienciasFacetPicker({
         <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
           <Building2 className="h-3 w-3" />
           Comissões
+          <FilterHint text={HINT_COMISSOES} />
         </Label>
         <div className="flex items-center gap-2">
           <Popover open={open} onOpenChange={setOpen}>
@@ -184,6 +191,7 @@ export function AudienciasFacetPicker({
         <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1.5">
           <CheckSquare className="h-3 w-3" />
           Status da audiência
+          <FilterHint text={HINT_STATUS} />
         </Label>
         <div className="flex flex-wrap gap-2">
           {STATUSES.map((s) => {
@@ -197,21 +205,4 @@ export function AudienciasFacetPicker({
                 className={cn(
                   "rounded-md border px-2.5 py-1 text-xs transition-colors",
                   active
-                    ? "bg-primary/10 text-primary border-primary/30"
-                    : "bg-card hover:bg-muted text-muted-foreground border-border",
-                  disabled && "opacity-50 cursor-not-allowed",
-                )}
-              >
-                {AUDIENCIA_STATUS_LABELS[s]}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function resetAudienciasFacet(): AudienciasFacet {
-  return { ...EMPTY_AUDIENCIAS_FACET };
-}
+                    ? "bg-primar

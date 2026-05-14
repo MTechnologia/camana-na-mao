@@ -166,6 +166,7 @@ export function DiagnosticoTab() {
           loading: isLoading,
         }}
         facetLabel="Criticidade"
+        facetHint="Filtros específicos da aba Diagnóstico — refinam por severidade do relato e presença de consequências em andamento. Aplicam-se apenas a este corte."
         facetActiveCount={facetActiveCount}
         facet={
           <CriticidadeFacetPicker
@@ -427,12 +428,4 @@ function PatternRow({ pattern }: { pattern: PatternEntry }) {
           )}
           {pattern.peakHours && pattern.peakHours.length > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              <strong className="text-foreground">Horários de pico:</strong>{" "}
-              {pattern.peakHours.map((h) => `${h}h`).join(", ")}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+              <strong className="text-foreground">Horário
