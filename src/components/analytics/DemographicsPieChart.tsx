@@ -2,6 +2,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 import { motion } from 'framer-motion';
 
 export interface DemographicData {
+  /** Chave canônica no banco (ex.: masculino, branca, not_informed). */
+  key: string;
   label: string;
   count: number;
   percentage: number;
@@ -11,7 +13,7 @@ interface DemographicsPieChartProps {
   data: DemographicData[];
   title: string;
   colors?: string[];
-  onSegmentClick?: (label: string) => void;
+  onSegmentClick?: (key: string, label: string) => void;
 }
 
 const DEFAULT_COLORS = [
@@ -55,7 +57,7 @@ export const DemographicsPieChart = ({
                 key={`cell-${index}`} 
                 fill={colors[index % colors.length]}
                 className={onSegmentClick ? 'cursor-pointer transition-opacity hover:opacity-80' : ''}
-                onClick={() => onSegmentClick?.(entry.label)}
+                onClick={() => onSegmentClick?.(entry.key ?? entry.label, entry.label)}
               />
             ))}
           </Pie>

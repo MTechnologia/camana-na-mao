@@ -4,6 +4,12 @@ import type { DemographicData } from '@/components/analytics/DemographicsPieChar
 import type { FunnelStep } from '@/components/analytics/EngagementFunnel';
 import type { TopReport } from '@/components/analytics/TopReportsList';
 import type { PatternAlert } from '@/components/analytics/PatternAlerts';
+import {
+  AGE_GROUP_LABELS,
+  GENDER_LABELS,
+  RACE_LABELS,
+  SOCIAL_CLASS_LABELS,
+} from "@/lib/demographicDrill";
 
 export interface ReportsAnalyticsFilters {
   startDate?: string;
@@ -81,44 +87,6 @@ interface ReportsAnalyticsStats {
     criticalPendingReports: PatternAlert[];
   };
 }
-
-// Mapeamento de labels para exibição
-const GENDER_LABELS: Record<string, string> = {
-  masculino: 'Masculino',
-  feminino: 'Feminino',
-  outro: 'Outro',
-  prefiro_nao_dizer: 'Prefiro não dizer',
-  not_informed: 'Não informado',
-};
-
-const RACE_LABELS: Record<string, string> = {
-  branca: 'Branca',
-  preta: 'Preta',
-  parda: 'Parda',
-  amarela: 'Amarela',
-  indigena: 'Indígena',
-  not_informed: 'Não informado',
-};
-
-const SOCIAL_CLASS_LABELS: Record<string, string> = {
-  A: 'Classe A',
-  B: 'Classe B',
-  C: 'Classe C',
-  D: 'Classe D',
-  E: 'Classe E',
-  not_informed: 'Não informado',
-};
-
-const AGE_GROUP_LABELS: Record<string, string> = {
-  under_18: '< 18',
-  '18_24': '18-24',
-  '25_34': '25-34',
-  '35_44': '35-44',
-  '45_54': '45-54',
-  '55_64': '55-64',
-  '65_plus': '65+',
-  not_informed: 'Não informado',
-};
 
 const emptyStats: ReportsAnalyticsStats = {
   total: 0,
@@ -243,6 +211,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       
       const byGender: DemographicData[] = Object.entries(demoData.gender || {})
         .map(([key, count]) => ({
+          key,
           label: GENDER_LABELS[key] || key,
           count: count as number,
           percentage: total > 0 ? ((count as number) / total) * 100 : 0,
@@ -252,6 +221,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
       const byRace: DemographicData[] = Object.entries(demoData.race || {})
         .map(([key, count]) => ({
+          key,
           label: RACE_LABELS[key] || key,
           count: count as number,
           percentage: total > 0 ? ((count as number) / total) * 100 : 0,
@@ -261,6 +231,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
       const bySocialClass: DemographicData[] = Object.entries(demoData.social_class || {})
         .map(([key, count]) => ({
+          key,
           label: SOCIAL_CLASS_LABELS[key] || key,
           count: count as number,
           percentage: total > 0 ? ((count as number) / total) * 100 : 0,
@@ -270,6 +241,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
 
       const byAgeGroup: DemographicData[] = Object.entries(demoData.age_group || {})
         .map(([key, count]) => ({
+          key,
           label: AGE_GROUP_LABELS[key] || key,
           count: count as number,
           percentage: total > 0 ? ((count as number) / total) * 100 : 0,

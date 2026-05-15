@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 
 interface AgeGroupData {
   ageGroup: string;
+  /** Chave canônica (ex.: 35_44, not_informed) para drill-down. */
+  key?: string;
   count: number;
   percentage: number;
 }
@@ -66,7 +68,7 @@ export const AgePyramid = ({ data, onBarClick }: AgePyramidProps) => {
             dataKey="percentage" 
             fill="hsl(var(--chart-1))"
             radius={[0, 4, 4, 0]}
-            onClick={(data) => onBarClick?.(data.ageGroup)}
+            onClick={(data) => onBarClick?.(data.key ?? data.ageGroup)}
             className={onBarClick ? 'cursor-pointer' : ''}
           >
             {sortedData.map((entry, index) => (

@@ -33,6 +33,7 @@ import {
 } from "@/components/filters/PeriodComparePicker";
 import { useReportsVolumeCompare } from "@/hooks/useReportsVolumeCompare";
 import { VolumeCompareView } from "@/components/analytics/VolumeCompareView";
+import { cn } from "@/lib/utils";
 
 /**
  * Conteúdo da aba "Volume" do dashboard administrativo de relatos (HU-1.1).
@@ -46,7 +47,11 @@ import { VolumeCompareView } from "@/components/analytics/VolumeCompareView";
  * período muda; categoria/bairro/zona são aplicados em memória.
  */
 
-export function VolumeOverviewTab() {
+type VolumeOverviewTabProps = {
+  onDrillDown?: () => void;
+};
+
+export function VolumeOverviewTab({ onDrillDown }: VolumeOverviewTabProps = {}) {
   const [filters, setFilters] = useState<VolumeFiltersValue>(EMPTY_VOLUME_FILTERS);
   // HU-5.3 — Debounce nos filtros granulares para multisseleção fluida.
   // Período não entra (escolha pontual via popover); só categorias/regiões/zonas.
@@ -177,77 +182,20 @@ export function VolumeOverviewTab() {
       <ChartCard
         title="Volume por período"
         subtitle="Evolução diária — urbanos, transporte e avaliações"
+        onDrillDown={onDrillDown}
+        exportConfig={{
+          filename: "volume-por-periodo.csv",
+          headers: [
+            { key: "date", label: "Data" },
+            { key: "urbano", label: "Urbanos" },
+            { key: "transporte", label: "Transporte" },
+            { key: "avaliacao", label: "Avaliações" },
+            { key: "total", label: "Total" },
+          ],
+          rows: stats.timeline.map((d) => ({ ...d })),
+        }}
       >
-        <div className="h-72">
-          {isLoading && timelineData.length === 0 ? (
-            <div className="h-full w-full bg-muted/40 rounded animate-pulse" />
-          ) : timelineData.length === 0 ? (
-            <EmptyChartState message="Nenhum dado no período selecionado." />
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={timelineData}
-                margin={{ top: 8, right: 16, left: 0, bottom: 4 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                <XAxis
-                  dataKey="label"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={11}
-                  tickMargin={6}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={11}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: "hsl(var(--foreground))" }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line
-                  type="monotone"
-                  dataKey="urbano"
-                  name="Urbanos"
-                  stroke="hsl(var(--chart-2))"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="transporte"
-                  name="Transporte"
-                  stroke="hsl(var(--chart-4))"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="avaliacao"
-                  name="Avaliações"
-                  stroke="hsl(var(--chart-6))"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="total"
-                  name="Total"
-                  stroke="hsl(var(--foreground))"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        <VolumeTimelineChart data={timelineData} isLoading={isLoading} />
       </ChartCard>
 
       {/* Categoria + Região lado a lado */}
@@ -255,6 +203,15 @@ export function VolumeOverviewTab() {
         <ChartCard
           title="Volume por categoria"
           subtitle="Top 10 categorias no recorte"
+          onDrillDown={onDrillDown}
+          exportConfig={{
+            filename: "volume-por-categoria.csv",
+            headers: [
+              { key: "category", label: "Categoria" },
+              { key: "count", label: "Quantidade" },
+            ],
+            rows: topCategories.map((d) => ({ ...d })),
+          }}
         >
           <div className="h-80">
             {isLoading && topCategories.length === 0 ? (
@@ -315,6 +272,16 @@ export function VolumeOverviewTab() {
         <ChartCard
           title="Volume por região"
           subtitle="Top 10 bairros + distribuição por zona"
+          onDrillDown={onDrillDown}
+          exportConfig={{
+            filename: "volume-por-regiao.csv",
+            headers: [
+              { key: "region", label: "Região" },
+              { key: "zone", label: "Zona" },
+              { key: "count", label: "Quantidade" },
+            ],
+            rows: topRegions.map((d) => ({ ...d })),
+          }}
         >
           <div className="h-80 flex flex-col gap-3">
             {isLoading && topRegions.length === 0 ? (
@@ -391,6 +358,157 @@ export function VolumeOverviewTab() {
             )}
           </div>
         </ChartCard>
+      </div>
+    </div>
+  );
+}
+
+const TIMELINE_SERIES = [
+  { key: "urbano", label: "Urbanos", stroke: "hsl(var(--chart-2))", dashed: false },
+  { key: "transporte", label: "Transporte", stroke: "hsl(var(--chart-4))", dashed: false },
+  { key: "avaliacao", label: "Avaliações", stroke: "hsl(var(--chart-6))", dashed: false },
+  { key: "total", label: "Total", stroke: "hsl(var(--foreground))", dashed: true },
+] as const;
+
+type TimelineSeriesKey = (typeof TIMELINE_SERIES)[number]["key"];
+
+const ALL_TIMELINE_KEYS = TIMELINE_SERIES.map((s) => s.key);
+
+function VolumeTimelineChart({
+  data,
+  isLoading,
+}: {
+  data: Array<{ label: string } & Record<TimelineSeriesKey, number>>;
+  isLoading: boolean;
+}) {
+  const [visibleSeries, setVisibleSeries] = useState<Set<TimelineSeriesKey>>(
+    () => new Set(ALL_TIMELINE_KEYS),
+  );
+
+  const toggleSeries = (key: TimelineSeriesKey) => {
+    setVisibleSeries((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        if (next.size <= 1) return prev;
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleLegendClick = (payload: { dataKey?: string | number }) => {
+    const key = payload.dataKey;
+    if (typeof key === "string" && ALL_TIMELINE_KEYS.includes(key as TimelineSeriesKey)) {
+      toggleSeries(key as TimelineSeriesKey);
+    }
+  };
+
+  if (isLoading && data.length === 0) {
+    return <div className="h-72 w-full bg-muted/40 rounded animate-pulse" />;
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="h-72">
+        <EmptyChartState message="Nenhum dado no período selecionado." />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="flex flex-wrap items-center gap-2"
+        role="group"
+        aria-label="Filtrar séries do gráfico"
+      >
+        <span className="text-xs text-muted-foreground shrink-0">Exibir:</span>
+        {TIMELINE_SERIES.map((series) => {
+          const active = visibleSeries.has(series.key);
+          return (
+            <button
+              key={series.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => toggleSeries(series.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                active
+                  ? "border-border bg-background text-foreground shadow-sm"
+                  : "border-transparent bg-muted/40 text-muted-foreground opacity-70",
+              )}
+            >
+              <span
+                className={cn(
+                  "h-2 w-2 shrink-0 rounded-full",
+                  series.dashed && "ring-1 ring-offset-1 ring-foreground/40",
+                )}
+                style={{
+                  backgroundColor: active ? series.stroke : "hsl(var(--muted-foreground))",
+                }}
+                aria-hidden
+              />
+              {series.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+            <XAxis
+              dataKey="label"
+              stroke="hsl(var(--muted-foreground))"
+              fontSize={11}
+              tickMargin={6}
+            />
+            <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
+            <Tooltip
+              contentStyle={{
+                background: "hsl(var(--popover))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                fontSize: 12,
+              }}
+              labelStyle={{ color: "hsl(var(--foreground))" }}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 12, cursor: "pointer" }}
+              onClick={handleLegendClick}
+              formatter={(value, entry) => {
+                const key = entry.dataKey as TimelineSeriesKey | undefined;
+                const active = key ? visibleSeries.has(key) : true;
+                return (
+                  <span
+                    style={{
+                      opacity: active ? 1 : 0.35,
+                      textDecoration: active ? "none" : "line-through",
+                    }}
+                  >
+                    {value}
+                  </span>
+                );
+              }}
+            />
+            {TIMELINE_SERIES.map((series) => (
+              <Line
+                key={series.key}
+                type="monotone"
+                dataKey={series.key}
+                name={series.label}
+                stroke={series.stroke}
+                strokeWidth={2}
+                strokeDasharray={series.dashed ? "4 2" : undefined}
+                dot={false}
+                hide={!visibleSeries.has(series.key)}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
