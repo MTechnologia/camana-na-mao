@@ -551,4 +551,12 @@ export function useDiagnosticoCriticidade(filters: DiagnosticoFilters) {
 }
 
 // HU-5.3 — tabelas observadas (referência estável).
-const REALTIME_TABLES = ["urban_
+const REALTIME_TABLES = ["urban_reports", "transport_reports", "report_patterns"] as const;
+
+export const __test__ = {
+  aggregate,
+  computeScore,
+  buildBreakdown,
+  countPatternsForKey,
+  normalizeVolumePercentile,
+};

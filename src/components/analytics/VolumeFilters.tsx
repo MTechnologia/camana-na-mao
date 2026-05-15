@@ -259,4 +259,73 @@ function MultiSelectPopover({
     }
   };
 
-  
+  const clear = () => onChange([]);
+
+  return (
+    <div className="flex items-center gap-1">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            className={cn(
+              "h-9 gap-2 text-xs font-normal",
+              selected.length > 0 && "border-primary text-foreground",
+            )}
+            aria-label={`Filtrar por ${label.toLowerCase()}`}
+          >
+            {icon}
+            <span className="truncate max-w-[160px]">{triggerLabel}</span>
+            {selected.length > 0 && (
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                {selected.length}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+      <PopoverContent className="w-64 p-0 z-50 bg-popover" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} className="h-9" />
+          <CommandList>
+            <CommandEmpty>Nenhum resultado.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => {
+                const isSelected = selected.includes(option);
+                return (
+                  <CommandItem
+                    key={option}
+                    value={option}
+                    onSelect={() => toggle(option)}
+                    className="cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      className="mr-2 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{option}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+            {selected.length > 0 && (
+              <div className="border-t border-border p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clear}
+                  className="w-full justify-center text-xs h-7"
+                >
+                  Limpar seleção
+                </Button>
+              </div>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+      </Popover>
+      {hintText && <FilterHint text={hintText} />}
+    </div>
+  );
+}

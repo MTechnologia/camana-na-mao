@@ -76,4 +76,54 @@ export function AnalyticsFiltersBar({
       <div>
         <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-foreground/80 uppercase tracking-wide">
           <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          <span>F
+          <span>Filtros gerais</span>
+          <FilterHint text={volumeHint} />
+          <span className="text-[10px] font-normal normal-case text-muted-foreground ml-1">
+            aplicam-se a tudo nesta aba
+          </span>
+        </div>
+        <VolumeFilters {...volumePropsForRender} />
+      </div>
+
+      {/* === Bloco facet (acordeão) === */}
+      {facet && (
+        <div className="border-t border-border/40 pt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded((v) => !v)}
+            className={cn(
+              "w-full justify-between text-xs font-medium",
+              expanded && "mb-2",
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span className="font-semibold uppercase tracking-wide text-foreground/80">
+                Filtros específicos
+              </span>
+              {facetLabel && (
+                <span className="text-muted-foreground normal-case font-normal">
+                  : {facetLabel}
+                </span>
+              )}
+              <FilterHint text={facetHint} />
+              {facetActiveCount > 0 && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                  {facetActiveCount} ativo{facetActiveCount > 1 ? "s" : ""}
+                </Badge>
+              )}
+            </span>
+            {expanded ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </Button>
+          {expanded && <div className="pt-1">{facet}</div>}
+        </div>
+      )}
+    </Card>
+  );
+}

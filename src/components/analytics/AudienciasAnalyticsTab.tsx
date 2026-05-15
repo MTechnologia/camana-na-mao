@@ -524,4 +524,9 @@ function AudienciaRow({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="h-full w-full flex flex-col items-center jus
+    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+      <Megaphone className="h-8 w-8" />
+      <p className="text-sm text-center max-w-xs">{message}</p>
+    </div>
+  );
+}

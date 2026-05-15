@@ -428,4 +428,12 @@ function PatternRow({ pattern }: { pattern: PatternEntry }) {
           )}
           {pattern.peakHours && pattern.peakHours.length > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              <strong className="text-foreground">Horário
+              <strong className="text-foreground">Horários de pico:</strong>{" "}
+              {pattern.peakHours.map((h) => `${h}h`).join(", ")}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -205,4 +205,21 @@ export function AudienciasFacetPicker({
                 className={cn(
                   "rounded-md border px-2.5 py-1 text-xs transition-colors",
                   active
-                    ? "bg-primar
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "bg-card hover:bg-muted text-muted-foreground border-border",
+                  disabled && "opacity-50 cursor-not-allowed",
+                )}
+              >
+                {AUDIENCIA_STATUS_LABELS[s]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function resetAudienciasFacet(): AudienciasFacet {
+  return { ...EMPTY_AUDIENCIAS_FACET };
+}
