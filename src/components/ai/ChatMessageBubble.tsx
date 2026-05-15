@@ -575,7 +575,14 @@ const ChatMessageBubble = ({
     const content = message.content.toLowerCase();
     return (
       content.includes('[field_request:rating_stars]') ||
-      ((content.includes('que nota') || content.includes('de 1 a 5')) && isLastAssistantMessage)
+      content.includes('[field_request:channel_rating]') ||
+      (
+        (content.includes('que nota') ||
+          content.includes('de 1 a 5') ||
+          content.includes('atendimento aqui no câmara') ||
+          content.includes('atendimento neste canal')) &&
+        isLastAssistantMessage
+      )
     );
   }, [isUser, message.content, ratingSelected, hasRatingPicker, isLastAssistantMessage]);
 

@@ -1,7 +1,10 @@
 import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { handleCouncilShortcuts } from "./lib-index-council-shortcuts.ts";
+import {
+  extractCouncilSelectionFromAssistantList,
+  handleCouncilShortcuts,
+} from "./lib-index-council-shortcuts.ts";
 
 Deno.test("handleCouncilShortcuts sugere vereadores sem criar novo relato", async () => {
   let suggestArgs: { description: string; district?: string; issueType: string } | null = null;
@@ -180,6 +183,80 @@ Deno.test("handleCouncilShortcuts registra encaminhamento quando usuário escolh
   const text = await result.response!.text();
   assertEquals(text.includes("Amanda Paschoal"), true);
   assertEquals(text.includes("Encaminhamento registrado"), true);
+});
+
+Deno.test("extractCouncilSelectionFromAssistantList: linguagem natural com nome do vereador", () => {
+  const assistantList = [
+    "1. Adrilles Jorge (UNIAO)",
+    "2. Alessandro Guedes (PT)",
+    "3. Amanda Paschoal (PSOL)",
+    "4. Amanda Vettorazzo (UNIAO)",
+    "",
+    "Deseja que eu encaminhe sua demanda para algum deles?",
+  ].join("\n");
+
+  const result = extractCouncilSelectionFromAssistantList(
+    assistantList,
+    "Pode encaminhar para a Amanda Paschoal, por favor",
+  );
+
+  assertEquals(result, { councilName: "Amanda Paschoal", councilParty: "PSOL" });
+});
+
+Deno.test("handleCouncilShortcuts registra encaminhamento com linguagem natural sem relato prévio", async () => {
+  let insertedRow: Record<string, unknown> | null = null;
+  const supabase = {
+    from: (table: string) => {
+      assertEquals(table, "council_member_referrals");
+      return {
+        insert: async (row: Record<string, unknown>) => {
+          insertedRow = row;
+          return { error: null };
+        },
+      };
+    },
+  } as unknown as SupabaseClient;
+
+  const assistantList = [
+    "Para questões de urbanismo, você pode procurar:",
+    "",
+    "1. Adrilles Jorge (UNIAO)",
+    "2. Alessandro Guedes (PT)",
+    "3. Amanda Paschoal (PSOL)",
+    "",
+    "Deseja que eu encaminhe sua demanda para algum deles?",
+  ].join("\n");
+
+  const result = await handleCouncilShortcuts({
+    chatMessages: [
+      { role: "user", content: "Seria bom se tivéssemos mais policiamento nos parques" },
+      { role: "assistant", content: assistantList },
+      { role: "user", content: "Pode encaminhar para a Amanda Paschoal, por favor" },
+    ],
+    corsHeaders: {},
+    lastAssistantContent: assistantList,
+    lastAssistantText: assistantList,
+    lastAssistantTextEarly: assistantList.toLowerCase(),
+    lastUserTextEarly: "Pode encaminhar para a Amanda Paschoal, por favor",
+    supabase,
+    userId: "user-sugestao",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      executeTool: async () => ({
+        success: true,
+        message: "Relato criado [REPORT_CREATED:223e4567-e89b-12d3-a456-426614174099]",
+      }),
+    } as any,
+  });
+
+  assertExists(result.response);
+  assertEquals(insertedRow?.council_member_name, "Amanda Paschoal");
+  assertEquals(insertedRow?.urban_report_id, "223e4567-e89b-12d3-a456-426614174099");
+  const text = await result.response!.text();
+  assertEquals(text.includes("Encaminhamento registrado"), true);
+  assertEquals(text.includes("Amanda Paschoal"), true);
+  assertEquals(text.includes("[RATING_PICKER]"), true);
+  assertEquals(text.includes("sugestão"), true);
 });
 
 Deno.test("handleCouncilShortcuts bloqueia perguntas ofensivas sobre vereadores", async () => {

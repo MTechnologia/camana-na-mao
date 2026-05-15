@@ -51,6 +51,19 @@ export function applySelectedAddressFieldsFromHistory(
   }
 }
 
+function detectReportNatureFromHistory(
+  messages: HistoryMessageLike[],
+  normalizeReportNature: (raw: string | undefined | null) => string | null,
+): string | null {
+  for (const msg of messages) {
+    if (msg.role !== "user") continue;
+    const content = getHistoryMessageText(msg).trim();
+    const nature = normalizeReportNature(content);
+    if (nature) return nature;
+  }
+  return null;
+}
+
 export function detectLatestDomainDescriptionFromHistory(
   messages: HistoryMessageLike[],
   collectionType: StructuredJourneyType,
@@ -58,6 +71,8 @@ export function detectLatestDomainDescriptionFromHistory(
     isGenericIntentText: (text: string) => boolean;
     isValidDomainDescription: (text: string, domain: string) => boolean;
     isBareUrbanReportNatureReply: (text: string) => boolean;
+    isSubstantiveUrbanNatureDescription?: (text: string) => boolean;
+    normalizeReportNature?: (raw: string | undefined | null) => string | null;
   },
 ): string | null {
   const domain =
@@ -66,6 +81,11 @@ export function detectLatestDomainDescriptionFromHistory(
       : collectionType === "service_rating"
         ? "service"
         : "urban";
+
+  const reportNature =
+    collectionType === "urban_report" && deps.normalizeReportNature
+      ? detectReportNatureFromHistory(messages, deps.normalizeReportNature)
+      : null;
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
@@ -88,10 +108,23 @@ export function detectLatestDomainDescriptionFromHistory(
       contentLower.includes("data:") ||
       /^\d+$/.test(content);
 
-    const isGeneric = deps.isGenericIntentText(content);
     const bareNature = collectionType === "urban_report" && deps.isBareUrbanReportNatureReply(content);
 
-    if (!isStructured && !isGeneric && !bareNature && deps.isValidDomainDescription(content, domain)) {
+    const isValidDescription = (() => {
+      if (bareNature) return false;
+      if (
+        collectionType === "urban_report" &&
+        reportNature &&
+        ["duvida", "sugestao", "elogio"].includes(reportNature) &&
+        deps.isSubstantiveUrbanNatureDescription
+      ) {
+        return deps.isSubstantiveUrbanNatureDescription(content);
+      }
+      if (deps.isGenericIntentText(content)) return false;
+      return deps.isValidDomainDescription(content, domain);
+    })();
+
+    if (!isStructured && isValidDescription) {
       return content;
     }
   }

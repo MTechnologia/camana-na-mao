@@ -861,9 +861,25 @@ export const useUnifiedAIChat = (
           return genericPhrases.some(pattern => pattern.test(text.trim().toLowerCase()));
         };
           
-        // Accept any non-empty, non-generic text as description
-        if (askedForDescription && raw.trim().length > 0 && !isGenericIntent(raw)) {
-          setCollectedFields(prev => ({ ...prev, description: raw }));
+        const natureKey = String(collectedFields.report_nature ?? '').toLowerCase();
+        const isNonComplaintNature = ['duvida', 'sugestao', 'elogio'].includes(natureKey);
+        const isSubstantiveNatureAnswer = (text: string): boolean => {
+          const t = text.trim();
+          if (t.length < 12) return false;
+          if (/^(reclamacao|duvida|sugestao|elogio)$/i.test(t.normalize('NFD').replace(/\p{M}/gu, ''))) {
+            return false;
+          }
+          if (/^quero\s+falar\s+sobre\s+a\s+cidade\b/i.test(t)) return false;
+          return true;
+        };
+
+        // Accept any non-empty, non-generic text as description (dúvida/sugestão/elogio: regras mais permissivas)
+        if (askedForDescription && raw.trim().length > 0) {
+          const accept =
+            isNonComplaintNature ? isSubstantiveNatureAnswer(raw) : !isGenericIntent(raw);
+          if (accept) {
+            setCollectedFields(prev => ({ ...prev, description: raw }));
+          }
         }
         
         // Detect description from first/second user message if not generic

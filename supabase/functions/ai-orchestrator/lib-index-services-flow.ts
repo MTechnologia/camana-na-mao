@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isServicesJourneyFarewellPending } from "./lib-conversation-closing.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import type { NextFieldInfo } from "./lib-next-missing-field.ts";
 
@@ -10,6 +11,9 @@ type ExecuteToolResult = {
 
 type ServicesFlowArgs = {
   accumulatedFields: Record<string, unknown>;
+  chatMessages?: Array<Record<string, unknown>>;
+  lastAssistantText?: string;
+  lastUserMessage?: string;
   lightJourneyMarker: string;
   nextFieldInfo: NextFieldInfo;
   supabase: SupabaseClient;
@@ -45,12 +49,20 @@ export async function handleDeterministicServicesFlow(
 ): Promise<ServicesFlowResult> {
   const {
     accumulatedFields,
+    chatMessages = [],
+    lastAssistantText = "",
+    lastUserMessage = "",
     lightJourneyMarker,
     nextFieldInfo,
     supabase,
     userId,
     lib,
   } = args;
+
+  if (isServicesJourneyFarewellPending("services", accumulatedFields, lastUserMessage, lastAssistantText, chatMessages)) {
+    console.log("[ai-orchestrator] Services: skip find_nearby — farewell pending (handled upstream)");
+    return {};
+  }
 
   if (nextFieldInfo.field && nextFieldInfo.prompt) {
     let responseContent = lightJourneyMarker + buildServicesProgressContent(accumulatedFields, nextFieldInfo.prompt);

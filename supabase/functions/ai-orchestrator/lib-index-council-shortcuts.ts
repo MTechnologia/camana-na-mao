@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { findCouncilMemberMatches } from "./lib-chamber-feedback.ts";
+import {
+  buildConversationClosingMessage,
+  extractReportNatureFromChat,
+} from "./lib-conversation-closing.ts";
 import { createSseResponse } from "./lib-index-sse.ts";
 import { getContentText } from "./lib-index-bootstrap.ts";
 
@@ -90,10 +95,100 @@ function extractLatestCreatedReportIds(
   return { transportReportId, urbanReportId };
 }
 
-function extractCouncilSelectionFromAssistantList(
+type CouncilListOption = {
+  index: number;
+  councilName: string;
+  councilParty: string;
+};
+
+function normalizeForCouncilMatch(text: string): string {
+  return text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/\s+/g, " ").trim();
+}
+
+export function parseCouncilOptionsFromAssistantText(assistantText: string): CouncilListOption[] {
+  return [...assistantText.matchAll(/^\s*(\d+)\.\s+(.+?)\s*\(([^)]+)\)\s*$/gim)]
+    .map((match) => ({
+      index: parseInt(match[1], 10),
+      councilName: match[2].trim(),
+      councilParty: match[3].trim(),
+    }))
+    .filter((option) => Number.isFinite(option.index));
+}
+
+function matchCouncilOptionInUserText(
+  userText: string,
+  options: CouncilListOption[],
+): { councilName: string; councilParty: string } | null {
+  if (options.length === 0) return null;
+
+  const userNorm = normalizeForCouncilMatch(userText);
+  for (const option of options) {
+    const nameNorm = normalizeForCouncilMatch(option.councilName);
+    if (userNorm.includes(nameNorm)) {
+      return { councilName: option.councilName, councilParty: option.councilParty };
+    }
+    const parts = nameNorm.split(" ").filter((part) => part.length >= 3);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      if (userNorm.includes(first) && userNorm.includes(last)) {
+        return { councilName: option.councilName, councilParty: option.councilParty };
+      }
+    }
+    if (parts.length === 1 && userNorm.includes(parts[0])) {
+      const sameFirst = options.filter((o) =>
+        normalizeForCouncilMatch(o.councilName).split(" ").includes(parts[0])
+      );
+      if (sameFirst.length === 1) {
+        return { councilName: sameFirst[0].councilName, councilParty: sameFirst[0].councilParty };
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractCouncilNameFromNaturalLanguage(
+  userText: string,
+  options: CouncilListOption[],
+): { councilName: string; councilParty: string } | null {
+  const fromList = matchCouncilOptionInUserText(userText, options);
+  if (fromList) return fromList;
+
+  const patterns = [
+    /(?:encaminhar|enviar|mandar)\s+(?:para\s+)?(?:[oa]\s+)?(?:vereador(?:a)?\s+)?([^.,!?]+)/i,
+    /(?:pode\s+)?(?:encaminhar|enviar)\s+(?:para\s+)?(?:[oa]\s+)?(?:vereador(?:a)?\s+)?([^.,!?]+)/i,
+    /(?:escolho|quero|prefiro)\s+(?:[oa]\s+)?(?:vereador(?:a)?\s+)?([^.,!?]+)/i,
+    /(?:vereador(?:a)?)\s+([^.,!?]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = userText.match(pattern);
+    if (!match?.[1]) continue;
+    let raw = match[1].trim().replace(/^(o|a)\s+/i, "").replace(/\s+por favor$/i, "").trim();
+    if (!raw || raw.length < 3) continue;
+
+    const listHit = matchCouncilOptionInUserText(raw, options);
+    if (listHit) return listHit;
+
+    const validation = findCouncilMemberMatches(raw);
+    if (validation.found && validation.matches.length === 1) {
+      return {
+        councilName: validation.matches[0].name,
+        councilParty: validation.matches[0].party,
+      };
+    }
+  }
+
+  return matchCouncilOptionInUserText(userText, options);
+}
+
+export function extractCouncilSelectionFromAssistantList(
   lastAssistantText: string,
   lastUserTextEarly: string,
 ): { councilName: string; councilParty: string } | null {
+  const options = parseCouncilOptionsFromAssistantText(lastAssistantText);
+
   const namedSelectionMatch = lastUserTextEarly.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   if (namedSelectionMatch) {
     return {
@@ -103,26 +198,119 @@ function extractCouncilSelectionFromAssistantList(
   }
 
   const numericSelectionMatch = lastUserTextEarly.match(/^(?:op[cç][aã]o\s*)?([1-9]\d*)$/i);
-  if (!numericSelectionMatch) return null;
+  if (numericSelectionMatch) {
+    const selectedIndex = parseInt(numericSelectionMatch[1], 10);
+    if (Number.isFinite(selectedIndex) && selectedIndex >= 1) {
+      const selectedOption = options.find((option) => option.index === selectedIndex);
+      if (selectedOption) {
+        return {
+          councilName: selectedOption.councilName,
+          councilParty: selectedOption.councilParty,
+        };
+      }
+    }
+  }
 
-  const selectedIndex = parseInt(numericSelectionMatch[1], 10);
-  if (!Number.isFinite(selectedIndex) || selectedIndex < 1) return null;
+  return extractCouncilNameFromNaturalLanguage(lastUserTextEarly, options);
+}
 
-  const options = [...lastAssistantText.matchAll(/^\s*(\d+)\.\s+(.+?)\s*\(([^)]+)\)\s*$/gim)]
-    .map((match) => ({
-      index: parseInt(match[1], 10),
-      councilName: match[2].trim(),
-      councilParty: match[3].trim(),
-    }))
-    .filter((option) => Number.isFinite(option.index));
+function assistantRecentlyAskedCouncilForward(chatMessages: Array<Record<string, unknown>>): boolean {
+  const recentAssistants = chatMessages
+    .filter((message) => message.role === "assistant")
+    .slice(-4);
+  return recentAssistants.some((message) =>
+    /deseja que eu encaminhe sua demanda para algum deles/i.test(getContentText(message.content))
+  );
+}
 
-  const selectedOption = options.find((option) => option.index === selectedIndex);
-  if (!selectedOption) return null;
+function getAssistantTextWithCouncilList(chatMessages: Array<Record<string, unknown>>): string {
+  const recentAssistants = chatMessages
+    .filter((message) => message.role === "assistant")
+    .slice(-4)
+    .map((message) => getContentText(message.content));
+  const withNumberedList = recentAssistants.find((text) => /^\s*\d+\.\s+.+\([^)]+\)/m.test(text));
+  return withNumberedList ?? recentAssistants.join("\n");
+}
 
-  return {
-    councilName: selectedOption.councilName,
-    councilParty: selectedOption.councilParty,
-  };
+function extractDemandDescriptionFromChat(
+  chatMessages: Array<Record<string, unknown>>,
+): string | null {
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    const text = getContentText(chatMessages[i].content);
+    const progressMatch = text.match(/\[COLLECTION_PROGRESS:urban_report:(\{[\s\S]*?\})\]/);
+    if (progressMatch) {
+      try {
+        const fields = JSON.parse(progressMatch[1]) as { description?: string };
+        if (fields.description && String(fields.description).trim().length >= 12) {
+          return String(fields.description).trim();
+        }
+      } catch {
+        /* ignore malformed progress */
+      }
+    }
+  }
+
+  let best: string | null = null;
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    if (chatMessages[i].role !== "user") continue;
+    const text = getContentText(chatMessages[i].content).trim();
+    if (text.length < 12) continue;
+    if (/^(reclamacao|duvida|sugestao|elogio)$/i.test(text.normalize("NFD").replace(/\p{M}/gu, ""))) {
+      continue;
+    }
+    if (/^(sim|n[aã]o|nao|ok|\d+)$/i.test(text)) continue;
+    if (!best || text.length > best.length) best = text;
+  }
+  return best;
+}
+
+async function resolveUrbanReportIdForReferral(
+  chatMessages: Array<Record<string, unknown>>,
+  supabase: SupabaseClient,
+  userId: string,
+  lib: typeof import("./lib.ts"),
+): Promise<string | null> {
+  const { urbanReportId } = extractLatestCreatedReportIds(chatMessages);
+  if (urbanReportId) return urbanReportId;
+
+  if (typeof lib.executeTool !== "function") return null;
+
+  const description = extractDemandDescriptionFromChat(chatMessages);
+  if (!description) return null;
+
+  try {
+    const toolResult = await lib.executeTool(
+      "create_urban_report",
+      {
+        category: "outro",
+        report_nature: "sugestao",
+        description,
+        street: "Cidade de São Paulo",
+        neighborhood: "São Paulo",
+        city: "São Paulo",
+        risk_level: "low",
+        affected_scope: "citywide",
+        subcategory: "Sugestão via chat",
+      },
+      userId,
+      supabase,
+      {},
+    ) as { success: boolean; message: string };
+
+    if (!toolResult.success) {
+      console.warn(
+        "[ai-orchestrator] Auto urban report for council referral failed:",
+        toolResult.message?.slice(0, 200),
+      );
+      return null;
+    }
+
+    const createdMatch = toolResult.message.match(/\[REPORT_CREATED:([0-9a-f-]{36})\]/i);
+    return createdMatch?.[1] ?? null;
+  } catch (error) {
+    console.warn("[ai-orchestrator] resolveUrbanReportIdForReferral error:", error);
+    return null;
+  }
 }
 
 export async function handleCouncilShortcuts(
@@ -171,11 +359,19 @@ export async function handleCouncilShortcuts(
     }
   }
 
-  const botJustShowedCouncilList = /deseja que eu encaminhe sua demanda para algum deles\?/i.test(lastAssistantText);
-  const parsedSelection = extractCouncilSelectionFromAssistantList(lastAssistantText, lastUserTextEarly);
+  const assistantCouncilContext = getAssistantTextWithCouncilList(chatMessages) || lastAssistantText;
+  const botJustShowedCouncilList = assistantRecentlyAskedCouncilForward(chatMessages) ||
+    /deseja que eu encaminhe sua demanda para algum deles\?/i.test(lastAssistantText);
+  const parsedSelection = extractCouncilSelectionFromAssistantList(
+    assistantCouncilContext,
+    lastUserTextEarly,
+  );
   if (botJustShowedCouncilList && parsedSelection && chatMessages.length > 0) {
     const { councilName, councilParty } = parsedSelection;
-    const { transportReportId, urbanReportId } = extractLatestCreatedReportIds(chatMessages);
+    const { transportReportId } = extractLatestCreatedReportIds(chatMessages);
+    const urbanReportId = await resolveUrbanReportIdForReferral(chatMessages, supabase, userId, lib);
+
+    const demandDescription = extractDemandDescriptionFromChat(chatMessages);
     const councilId = councilName.toLowerCase()
       .normalize("NFD")
       .replace(/\p{M}/gu, "")
@@ -189,17 +385,33 @@ export async function handleCouncilShortcuts(
       council_member_party: councilParty,
       status: "pending",
     };
+    if (demandDescription) referralRow.citizen_message = demandDescription;
     if (urbanReportId) referralRow.urban_report_id = urbanReportId;
     else if (transportReportId) referralRow.transport_report_id = transportReportId;
 
+    const reportNature = extractReportNatureFromChat(chatMessages);
     if (urbanReportId || transportReportId) {
       const { error: refError } = await supabase.from("council_member_referrals").insert(referralRow);
       if (!refError) {
-        const reply =
-          `✅ **Encaminhamento registrado!** Seu relato foi encaminhado para **${councilName}** (${councilParty}). O gabinete poderá entrar em contato. Posso ajudar com mais alguma coisa?`;
-        console.log("[ai-orchestrator] User selected council member: referral recorded (no new report)");
+        const reply = buildConversationClosingMessage({
+          kind: "council_referral_full",
+          councilName,
+          councilParty,
+          reportNature,
+        });
+        console.log("[ai-orchestrator] User selected council member: referral recorded");
         return { response: createSseResponse(reply, corsHeaders) };
       }
+      console.error("[ai-orchestrator] council_member_referrals insert failed:", refError);
+    } else {
+      const reply = buildConversationClosingMessage({
+        kind: "council_referral_partial",
+        councilName,
+        councilParty,
+        reportNature,
+      });
+      console.log("[ai-orchestrator] User selected council member without linked report id");
+      return { response: createSseResponse(reply, corsHeaders) };
     }
   }
 

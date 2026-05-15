@@ -1,4 +1,5 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { appendConversationClosingIfNeeded } from "./lib-conversation-closing.ts";
 import { URBAN_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
@@ -259,7 +260,11 @@ function buildUrbanSuccessMessage(
     "Posso ajudar com mais alguma coisa?",
   ];
 
-  return lines.filter((line): line is string => line !== null).join("\n");
+  const body = lines.filter((line): line is string => line !== null).join("\n");
+  return appendConversationClosingIfNeeded(body, {
+    kind: "urban_report_created",
+    reportNature: eff.report_nature != null ? String(eff.report_nature) : null,
+  });
 }
 
 export async function handleCreateUrbanReport(

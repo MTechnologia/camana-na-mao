@@ -64,6 +64,9 @@ Deno.test("getNextMissingField não pergunta gravidade quando descrição não d
       isGenericIntentText: () => false,
       isBareUrbanReportNatureReply: () => false,
       isValidDomainDescription: () => true,
+      isValidUrbanReportDescription: (_text: string, _nature?: string) => true,
+      applyUrbanNatureCategoryDefaults: () => {},
+      generateLabelFromDescription: (d: string) => d,
       isCitySaoPaulo: () => true,
       autoInferRisk: () => ({ risk_level: null, confidence: 0 }),
       // deno-lint-ignore no-explicit-any

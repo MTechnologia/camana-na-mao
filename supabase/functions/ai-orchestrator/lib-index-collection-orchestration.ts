@@ -107,7 +107,11 @@ export async function orchestrateCollectionTurn(
       };
     }
 
-    if (!nextFieldInfo.field && accumulatedFields) {
+    const urbanNonComplaintLlmMode =
+      collectionIntent.type === "urban_report" &&
+      lib.isUrbanNonComplaintReadyForLlmTurn(accumulatedFields);
+
+    if (!nextFieldInfo.field && accumulatedFields && !urbanNonComplaintLlmMode) {
       console.log("[ai-orchestrator] All fields collected, auto-calling create function for:", collectionIntent.type);
 
       let toolResult: ExecuteToolResult | undefined;
@@ -234,11 +238,25 @@ export async function orchestrateCollectionTurn(
     const hasUrgentContent =
       /(armado|arma|armas|drogas?|tráfico|trafico|violência|violencia|agressão|agressao|baderna|funkeiros?|perigo|risco iminente|incêndio|incendio|fogo|queimando|chamas)/i
         .test(descLower) || lastUserUrgent;
-    const empathyNote = hasUrgentContent
+    const urbanNonComplaintLlmMode =
+      collectionIntent.type === "urban_report" &&
+      lib.isUrbanNonComplaintReadyForLlmTurn(accumulatedFields);
+
+    const empathyNote = hasUrgentContent && !urbanNonComplaintLlmMode
       ? "\n\n⚠️ **ATENÇÃO - CONTEÚDO URGENTE / GRAVE:**\nReconheça a gravidade com empatia e eficiência.\n" +
         '**Localização:** NUNCA peça só "digite o CEP". O próximo passo correto é **location_method** com opções GPS / endereço cadastrado / CEP (o app mostra botões quando o backend envia `[LOCATION_METHOD_PICKER]`).\n' +
         "NÃO pergunte de novo por dados já listados em \"Campos JÁ COLETADOS\".\n"
       : "";
+
+    const nonComplaintLlmNote = urbanNonComplaintLlmMode
+      ? lib.buildUrbanNonComplaintLlmInstruction(accumulatedFields)
+      : "";
+
+    const statusLine = nextFieldInfo.field
+      ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n**PERGUNTA SUGERIDA:** ${nextFieldInfo.prompt || ""}`
+      : urbanNonComplaintLlmMode
+      ? lib.urbanNonComplaintLlmStatusLine(accumulatedFields)
+      : "\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta de criação para finalizar.";
 
     const collectionContext = `
 
@@ -247,7 +265,8 @@ export async function orchestrateCollectionTurn(
 **Jornada ativa:** ${collectionIntent.type}
 **Campos JÁ COLETADOS (NÃO PERGUNTAR NOVAMENTE):**
 ${fieldsList}
-${nextFieldInfo.field ? `\n**PRÓXIMO CAMPO A PEDIR:** ${nextFieldInfo.field}\n**PERGUNTA SUGERIDA:** ${nextFieldInfo.prompt || ""}` : "\n**STATUS:** Todos os campos obrigatórios foram coletados. Chame a ferramenta de criação para finalizar."}
+${statusLine}
+${nonComplaintLlmNote}
 ${empathyNote}
 **REGRAS CRÍTICAS:**
 1. NUNCA pergunte por campos já listados acima (cep, street, neighborhood, category, line_code, etc.)

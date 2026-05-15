@@ -40,6 +40,51 @@ Deno.test("buildPromptContextAndTools injeta KB da Câmara e remove search_knowl
   );
 });
 
+Deno.test("buildPromptContextAndTools: dúvida urbana sem KB relevante injeta anti-dump e remove search_knowledge_base", async () => {
+  const result = await buildPromptContextAndTools({
+    accumulatedFields: {
+      report_nature: "duvida",
+      description:
+        "Gostaria de saber como é feito o planejamento para o policiamento em eventos na cidade de São Paulo",
+      category: "outro",
+    },
+    aiChatModel: "google/gemini-test",
+    collectionIntent: { type: "urban_report", fields: {} },
+    dynamicSystemPrompt: "base",
+    finalAiApiKey: "",
+    finalAiBaseUrl: "https://example.com/projects/p1/locations/us-central1",
+    lastUserMessage: "Gostaria de saber como é feito o planejamento para o policiamento em eventos",
+    // deno-lint-ignore no-explicit-any
+    lib: {
+      corsHeaders: {},
+      executeTool: async () => ({ message: "" }),
+      getUltimasNoticias: async () => "",
+      isQuestionAboutProximasOuQuaisAudiencias: () => false,
+      isCamaraFuncionamentoInternoQuery: () => false,
+      searchKnowledgeBase: async () => "não deve ser chamado",
+      searchKnowledgeBaseForUrbanDuvida: async () => ({ text: "", hasRelevantHits: false }),
+      isBusInformationalQuery: () => false,
+      tools: [
+        { function: { name: "search_knowledge_base" } },
+        { function: { name: "other_tool" } },
+      ],
+    } as any,
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    userId: "user-1",
+    vertexRagCorpus: "",
+    vertexRagDatastore: "",
+  });
+
+  assertStringIncludes(result.dynamicSystemPrompt, "[Contexto dúvida urbana — sem trecho na base]");
+  assertStringIncludes(result.dynamicSystemPrompt, "Proibido");
+  assertEquals(
+    // deno-lint-ignore no-explicit-any
+    (result.effectiveTools as any[]).map((tool) => tool.function?.name),
+    ["other_tool"],
+  );
+});
+
 Deno.test("buildPromptContextAndTools normaliza modelo Vertex para generateContent sem prefixo google", async () => {
   let capturedUrl = "";
 
