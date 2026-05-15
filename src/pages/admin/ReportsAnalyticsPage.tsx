@@ -43,56 +43,50 @@ import { PresetsDropdown } from '@/components/admin/PresetsDropdown';
 import { useWidgetTheme } from '@/hooks/useWidgetTheme';
 import { useDashboardPresets } from '@/hooks/useDashboardPresets';
 import { getTheme, DEFAULT_THEME_ID, type AnalyticsTabId } from '@/lib/widgetThemes';
+import {
+  DEMOGRAPHIC_TAB_IDS,
+  GENERAL_TAB_IDS,
+  PAGE_COPY,
+  TAB_LABELS,
+  TAB_MIN_WIDTH,
+  type ReportsAnalyticsMode,
+} from '@/pages/admin/reports-analytics/config';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   BarChart3, 
   TrendingUp, 
   AlertTriangle, 
   CheckCircle2, 
+  ChevronDown,
   Download,
+  FileText,
   RefreshCw,
   Clock,
   Users,
   Activity,
-  Sparkles
+  Sparkles,
+  Table,
 } from 'lucide-react';
 
-// HU-6.1 — Labels e min-widths das tabs em um mapa, para iterar dinamicamente
-// quando reordenarmos por tema.
-const TAB_LABELS: Record<AnalyticsTabId, string> = {
-  volume: 'Volume',
-  eficiencia: 'Eficiência',
-  diagnostico: 'Diagnóstico',
-  audiencias: 'Audiências',
-  territorial: 'Territorial',
-  drill: 'Drill-down',
-  cross: 'Cruzamentos',
-  geral: 'Geral',
-  sentimento: 'Sentimento',
-  demografia: 'Demografia',
-  engajamento: 'Engajamento',
-  criticidade: 'Criticidade',
+type ReportsAnalyticsPageProps = {
+  mode: ReportsAnalyticsMode;
 };
 
-const TAB_MIN_WIDTH: Record<AnalyticsTabId, string> = {
-  volume: 'min-w-[80px]',
-  eficiencia: 'min-w-[100px]',
-  diagnostico: 'min-w-[100px]',
-  audiencias: 'min-w-[100px]',
-  territorial: 'min-w-[100px]',
-  drill: 'min-w-[100px]',
-  cross: 'min-w-[110px]',
-  geral: 'min-w-[80px]',
-  sentimento: 'min-w-[100px]',
-  demografia: 'min-w-[100px]',
-  engajamento: 'min-w-[110px]',
-  criticidade: 'min-w-[100px]',
-};
-
-// Analytics page for unified reports visualization
-export default function ReportsAnalyticsPage() {
+/** Análises de relatos — modo geral (filtros por aba) ou demográfico (filtros no topo). */
+export function ReportsAnalyticsPageContent({ mode }: ReportsAnalyticsPageProps) {
+  const pageCopy = PAGE_COPY[mode];
+  const allowedTabSet = useMemo(
+    () => new Set<AnalyticsTabId>(mode === "demographic" ? DEMOGRAPHIC_TAB_IDS : GENERAL_TAB_IDS),
+    [mode],
+  );
   const [showExport, setShowExport] = useState(false);
   // HU-7.1 — Dialog de export CSV configurável.
   const [showCsvExport, setShowCsvExport] = useState(false);
@@ -101,8 +95,8 @@ export default function ReportsAnalyticsPage() {
 
   // HU-3.3 — Aba ativa sincronizada com URL (?tab=)
   const [tabState, setTabState] = useUrlSyncedState<{ tab: string }>({
-    defaults: { tab: 'volume' },
-    serializers: { tab: stringSerializer('volume') },
+    defaults: { tab: pageCopy.defaultTab },
+    serializers: { tab: stringSerializer(pageCopy.defaultTab) },
   });
 
   // HU-3.3 — Filtros demográficos sincronizados com URL (?dem.g, ?dem.r, ?dem.c, ?dem.a)
@@ -139,10 +133,12 @@ export default function ReportsAnalyticsPage() {
     });
   };
   
-  // Combine filters for the analytics hook
-  const combinedFilters: ReportsAnalyticsFilters = useMemo(() => ({
-    ...demographicFilters,
-  }), [demographicFilters]);
+  const combinedFilters: ReportsAnalyticsFilters = useMemo(() => {
+    if (mode === "demographic") {
+      return { ...demographicFilters };
+    }
+    return {};
+  }, [mode, demographicFilters]);
   
   const { stats, isLoading, error, refresh } = useReportsAnalytics(combinedFilters);
 
@@ -190,11 +186,10 @@ export default function ReportsAnalyticsPage() {
 
   const activeTheme = useMemo(() => getTheme(themeId), [themeId]);
   const orderedTabs: AnalyticsTabId[] = useMemo(() => {
-    const all: AnalyticsTabId[] = [
-      'volume', 'eficiencia', 'diagnostico', 'audiencias', 'territorial', 'drill',
-      'cross', 'geral', 'sentimento', 'demografia', 'engajamento', 'criticidade',
-    ];
-    if (activeTheme.id === 'geral') return all;
+    const all = (mode === "demographic" ? DEMOGRAPHIC_TAB_IDS : GENERAL_TAB_IDS).filter((id) =>
+      allowedTabSet.has(id),
+    );
+    if (activeTheme.id === "geral") return all;
     const seen = new Set<AnalyticsTabId>();
     const ordered: AnalyticsTabId[] = [];
     for (const t of activeTheme.priorityTabs) {
@@ -207,7 +202,13 @@ export default function ReportsAnalyticsPage() {
       if (!seen.has(t)) ordered.push(t);
     }
     return ordered;
-  }, [activeTheme]);
+  }, [activeTheme, allowedTabSet, mode]);
+
+  useEffect(() => {
+    if (!allowedTabSet.has(tabState.tab as AnalyticsTabId)) {
+      setTabState({ tab: pageCopy.defaultTab });
+    }
+  }, [allowedTabSet, pageCopy.defaultTab, setTabState, tabState.tab]);
   const priorityTabSet = useMemo(
     () => new Set(activeTheme.priorityTabs),
     [activeTheme],
@@ -291,36 +292,37 @@ export default function ReportsAnalyticsPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Análise de Relatos</h1>
-            <p className="text-muted-foreground">
-              Volume, sentimento, demografia e criticidade — relatos urbanos, de transporte e
-              avaliações de serviço
-            </p>
+            <h1 className="text-3xl font-bold text-foreground">{pageCopy.title}</h1>
+            <p className="text-muted-foreground">{pageCopy.description}</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            {/* HU-6.1 — Dropdown de tema de atuação. Persiste por usuário e
-                reordena/destaca as tabs e filtros de cada hook. */}
-            <ThemeSwitcher />
-            {/* HU-6.2 — Presets nomeados (configurações salvas) com default
-                aplicado automaticamente ao abrir a página. */}
-            <PresetsDropdown />
-            <Button variant="outline" size="sm" onClick={refreshAll} disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Atualizar
-            </Button>
-            {/* HU-7.1 + HU-7.2 — Exportar dados (CSV ou XLSX) configurável.
-                O PDF continua acessível via segundo botão (legacy). */}
-            <Button variant="outline" size="sm" onClick={() => setShowCsvExport(true)}>
-              <Download className="h-4 w-4 mr-2" />
-              Exportar dados
-            </Button>
-            {/* HU-7.4 + HU-7.5 — Acesso ao painel de exportações server-side e
-                agendadas (lista de jobs pendentes/concluídos com link de download). */}
+            {mode === "general" && (
+              <>
+                <ThemeSwitcher />
+                <PresetsDropdown />
+              </>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar dados
+                  <ChevronDown className="h-4 w-4 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onClick={() => setShowCsvExport(true)}>
+                  <Table className="h-4 w-4 mr-2" />
+                  CSV ou Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowExport(true)}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Relatório PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" size="sm" onClick={() => setShowJobsPanel(true)}>
               Minhas exportações
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowExport(true)}>
-              PDF
             </Button>
           </div>
         </div>
@@ -338,7 +340,8 @@ export default function ReportsAnalyticsPage() {
           </Card>
         )}
 
-        {/* Demographic Filters */}
+        {mode === "demographic" && (
+          <>
         <Card className="p-4">
           <DemographicFilters
             filters={demographicFilters}
@@ -379,6 +382,8 @@ export default function ReportsAnalyticsPage() {
             onClick={() => drillInsight.searchByStatus('resolvido')}
           />
         </div>
+          </>
+        )}
 
         {/* Tabs for detailed analytics */}
         <Tabs value={tabState.tab} onValueChange={(t) => setTabState({ tab: t })} className="w-full">

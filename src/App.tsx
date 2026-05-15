@@ -126,7 +126,8 @@ const WorstServicesByDimensionPage = lazy(() => import("./pages/analytics/WorstS
 // ============================================
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminNotifications = lazy(() => import("./pages/admin/AdminNotifications"));
-const ReportsAnalyticsPage = lazy(() => import("./pages/admin/ReportsAnalyticsPage"));
+const ReportsGeneralAnalyticsPage = lazy(() => import("./pages/admin/ReportsGeneralAnalyticsPage"));
+const ReportsDemographicAnalyticsPage = lazy(() => import("./pages/admin/ReportsDemographicAnalyticsPage"));
 const TrendDashboardPage = lazy(() => import("./pages/admin/TrendDashboardPage"));
 const ReportsHeatmapPage = lazy(() => import("./pages/admin/ReportsHeatmapPage"));
 const RatingsConcentrationPage = lazy(() => import("./pages/admin/RatingsConcentrationPage"));
@@ -326,7 +327,9 @@ const AppContent = () => {
             <Route path="/relato-urbano/historico" element={<ReportHistoryPage />} />
             <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
             <Route path="/admin/notifications" element={<ProtectedAdminRoute><AdminNotifications /></ProtectedAdminRoute>} />
-            <Route path="/admin/analytics" element={<ProtectedAdminRoute><ReportsAnalyticsPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/analytics" element={<Navigate to="/admin/analytics/general" replace />} />
+            <Route path="/admin/analytics/general" element={<ProtectedAdminRoute><ReportsGeneralAnalyticsPage /></ProtectedAdminRoute>} />
+            <Route path="/admin/analytics/demograficos" element={<ProtectedAdminRoute><ReportsDemographicAnalyticsPage /></ProtectedAdminRoute>} />
             <Route path="/admin/trends" element={<ProtectedAdminRoute><TrendDashboardPage /></ProtectedAdminRoute>} />
             <Route path="/admin/reports-heatmap" element={<ProtectedAdminRoute><ReportsHeatmapPage /></ProtectedAdminRoute>} />
             <Route path="/admin/avaliacoes-polarizacao" element={<ProtectedAdminRoute><RatingsConcentrationPage /></ProtectedAdminRoute>} />
@@ -359,9 +362,9 @@ const AppContent = () => {
             <Route path="/admin/docs" element={<ProtectedAdminRoute><Navigate to="/admin/docs/overview" replace /></ProtectedAdminRoute>} />
             <Route path="/admin/docs/overview" element={<ProtectedAdminRoute><PublicDocumentationPage /></ProtectedAdminRoute>} />
             <Route path="/admin/executive" element={<Navigate to="/admin" replace />} />
-            <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics" replace />} />
-            <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
-            <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
+            <Route path="/admin/reports-analytics" element={<Navigate to="/admin/analytics/general" replace />} />
+            <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics/general" replace />} />
+            <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics/general" replace />} />
             <Route path="/debug/rbac" element={<DebugRBAC />} />
             <Route path="/test-dimension-rating" element={<TestDimensionRating />} />
             <Route path="/test-wait-time" element={<TestWaitTimePicker />} />

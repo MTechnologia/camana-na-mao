@@ -21,6 +21,8 @@ const routeNames: Record<string, string> = {
   '/admin/docs/overview': 'Documentação da plataforma',
   '/admin/notifications': 'Central de Alertas',
   '/admin/analytics': 'Análise de Relatos',
+  '/admin/analytics/general': 'Análise de Relatos Gerais',
+  '/admin/analytics/demograficos': 'Análise de Relatos Demográficos',
   '/admin/analytics/advanced': 'Análise Avançada',
   '/admin/users': 'Gestão de Usuários',
   '/admin/exports': 'Logs de Exportação',

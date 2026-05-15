@@ -188,7 +188,7 @@ export default function AdminDashboard() {
             captionVariant="default"
             icon={BarChart3}
             isLoading={volumeLoading && volumeStats.total === 0}
-            onClick={() => navigate("/admin/analytics")}
+            onClick={() => navigate("/admin/analytics/general")}
           />
 
           <ConsolidatedKPICard
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
             captionVariant={responseCaptionVariant}
             icon={responseDirectionIcon ?? Clock}
             isLoading={responseLoading && responseStats.count === 0}
-            onClick={() => navigate("/admin/analytics")}
+            onClick={() => navigate("/admin/analytics/general")}
           />
 
           <ConsolidatedKPICard
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
             captionVariant={criticidadeVariant}
             icon={Gauge}
             isLoading={diagLoading && diagStats.totalRecords === 0}
-            onClick={() => navigate("/admin/analytics")}
+            onClick={() => navigate("/admin/analytics/general")}
           />
 
           <ConsolidatedKPICard
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
             captionVariant={audVariant}
             icon={Megaphone}
             isLoading={audLoading && audStats.totalAudiencias === 0}
-            onClick={() => navigate("/admin/analytics")}
+            onClick={() => navigate("/admin/analytics/general")}
           />
         </div>
 
@@ -250,7 +250,7 @@ export default function AdminDashboard() {
                     variant="link"
                     size="sm"
                     className="px-0 h-auto text-xs mt-2"
-                    onClick={() => navigate("/admin/analytics")}
+                    onClick={() => navigate("/admin/analytics/general")}
                   >
                     Ver diagnóstico →
                   </Button>
@@ -280,7 +280,7 @@ export default function AdminDashboard() {
                     variant="link"
                     size="sm"
                     className="px-0 h-auto text-xs mt-2"
-                    onClick={() => navigate("/admin/analytics")}
+                    onClick={() => navigate("/admin/analytics/general")}
                   >
                     Ver audiências →
                   </Button>
