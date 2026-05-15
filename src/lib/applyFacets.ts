@@ -134,3 +134,23 @@ export interface AudienciasFacetTarget {
 export function applyAudienciasFacet<T extends AudienciasFacetTarget>(
   rows: T[],
   facet: AudienciasFacet | undefined,
+): T[] {
+  if (!facet) return rows;
+  const wantedComissoes = facet.comissoes && facet.comissoes.length > 0
+    ? new Set(facet.comissoes.map((s) => s.toLowerCase()))
+    : null;
+  const wantedStatuses = facet.statuses && facet.statuses.length > 0
+    ? new Set(facet.statuses)
+    : null;
+  return rows.filter((r) => {
+    if (wantedComissoes) {
+      const c = (r.comissao ?? "").toLowerCase().trim();
+      if (!c || !wantedComissoes.has(c)) return false;
+    }
+    if (wantedStatuses) {
+      const s = (r.status ?? "").toLowerCase().trim();
+      if (!wantedStatuses.has(s as never)) return false;
+    }
+    return true;
+  });
+}

@@ -391,4 +391,22 @@ export function VolumeOverviewTab() {
             )}
           </div>
         </ChartCard>
-  
+      </div>
+    </div>
+  );
+}
+
+function EmptyChartState({
+  message,
+  icon,
+}: {
+  message: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+      {icon ?? <BarChart3 className="h-8 w-8" />}
+      <p className="text-sm text-center max-w-xs">{message}</p>
+    </div>
+  );
+}

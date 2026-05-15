@@ -126,4 +126,24 @@ export function CriticidadeFacetPicker({
           )}
         >
           <Checkbox
-            checked
+            checked={!!value.hasActiveConsequences}
+            onCheckedChange={(checked) =>
+              onChange({ ...value, hasActiveConsequences: checked === true })
+            }
+            disabled={disabled}
+          />
+          <span className="text-xs flex items-center gap-1">
+            <Activity className="h-3 w-3 text-amber-600" />
+            Com consequências ativas
+            <FilterHint text={HINT_CONSEQUENCES} />
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/** Helper para resetar o facet (usado pelo botão "Limpar" da UI). */
+export function resetCriticidadeFacet(): CriticidadeFacet {
+  return { ...EMPTY_CRITICIDADE_FACET };
+}
