@@ -1,4 +1,5 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { appendConversationClosingIfNeeded } from "./lib-conversation-closing.ts";
 import { TRANSPORT_REPORT_TRAMITE_AFTER_REGISTRATION } from "./lib-urban-tramite.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
@@ -124,7 +125,7 @@ function buildTransportSuccessMessage(
   const descPreview = String(args.description ?? "");
   const accessibilitySummary = deps.formatTransportAccessibilitySummary(accessibilityInsert);
 
-  return [
+  const body = [
     `[TRANSPORT_CREATED:${data.id}]`,
     "",
     "✅ **Relato de transporte registrado!**",
@@ -159,6 +160,8 @@ function buildTransportSuccessMessage(
     "",
     "Posso ajudar com mais alguma coisa?",
   ].filter((line) => line !== "").join("\n");
+
+  return appendConversationClosingIfNeeded(body, { kind: "transport_report_created" });
 }
 
 export async function handleCreateTransportReport(

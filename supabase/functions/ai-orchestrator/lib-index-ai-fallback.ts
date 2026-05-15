@@ -116,6 +116,18 @@ export async function handleAiStreamFallback(
     responseContent += "\n\n[APP_ACTIONS:audiencias]";
   }
 
+  const urbanNonComplaintLlmMode = collectionIntent?.type === "urban_report" &&
+    lib.isUrbanNonComplaintReadyForLlmTurn(accumulatedFields);
+  const generalCamaraInfoMode = collectionIntent?.type === "general" &&
+    responseContent.replace(/\[COLLECTION_PROGRESS:[^\]]+\]/g, "").trim().length >= 80;
+  if (urbanNonComplaintLlmMode || generalCamaraInfoMode) {
+    responseContent = responseContent.replace(/\n*\[SHOW_SERVICES_CHIPS\]\s*/g, "\n");
+    responseContent = responseContent.replace(
+      /\n*(?:Posso ajudar com mais alguma coisa\?|Se precisar de mais alguma informação[^.]*\.|Tenha um ótimo dia!?)\s*$/i,
+      "",
+    ).trimEnd();
+  }
+
   console.log("[ai-orchestrator] Request completed in", Date.now() - requestStartTime, "ms (stream)");
   return createSseResponse(responseContent, lib.corsHeaders);
 }

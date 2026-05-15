@@ -19,6 +19,9 @@ dev-dist
 supabase/.temp/
 supabase/.branches/
 
+# Deno lock na pasta da Edge Function (gerado localmente com Deno 2.x; quebra deploy do Supabase CLI)
+supabase/functions/**/deno.lock
+
 # VAPID keys (Web Push) – não commitar
 vapid.json
 vapid_public.txt

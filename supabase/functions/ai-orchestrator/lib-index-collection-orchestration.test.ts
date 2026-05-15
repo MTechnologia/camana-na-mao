@@ -2,11 +2,19 @@ import { assertEquals, assertExists } from "https://deno.land/std@0.168.0/testin
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { orchestrateCollectionTurn } from "./lib-index-collection-orchestration.ts";
+import {
+  buildUrbanNonComplaintLlmInstruction,
+  isUrbanNonComplaintReadyForLlmTurn,
+  urbanNonComplaintLlmStatusLine,
+} from "./lib-urban-rules.ts";
 
 function createBaseLib(overrides: Record<string, unknown> = {}) {
   return {
     corsHeaders: {},
     systemPrompt: "BASE_PROMPT",
+    isUrbanNonComplaintReadyForLlmTurn,
+    buildUrbanNonComplaintLlmInstruction,
+    urbanNonComplaintLlmStatusLine,
     ...overrides,
   };
 }
@@ -128,6 +136,141 @@ Deno.test("orchestrateCollectionTurn injeta contexto de coleta quando há campos
   assertEquals(result.response, undefined);
   assertEquals(result.dynamicSystemPrompt.includes("=== CONTEXTO ATUAL DA COLETA ==="), true);
   assertEquals(result.dynamicSystemPrompt.includes("ATENÇÃO - CONTEÚDO URGENTE / GRAVE"), true);
+});
+
+Deno.test("orchestrateCollectionTurn: duvida pronta não dispara auto-create e injeta modo resposta", async () => {
+  let autoCreateCalled = false;
+  const result = await orchestrateCollectionTurn({
+    accumulatedFields: {
+      report_nature: "duvida",
+      description: "Quero saber sobre os serviços disponíveis na cidade de SP",
+      category: "outro",
+      subcategory: "Serviços da cidade",
+    },
+    attachmentUrls: [],
+    chatMessages: [],
+    collectionIntent: { type: "urban_report", fields: {} },
+    conversationId: null,
+    dynamicSystemPrompt: "BASE_PROMPT",
+    getMessageText: () => "",
+    lastAssistantLower: "",
+    lastAssistantMessage: "",
+    lastUserMessage: "Me fale sobre os serviços da cidade de SP",
+    lightJourneyMarker: "",
+    msgLower: "me fale sobre os serviços da cidade de sp",
+    requestStartTime: Date.now(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    // deno-lint-ignore no-explicit-any
+    supabaseClassificationFeedbackRead: null as any,
+    userId: "user-1",
+    deps: {
+      getNextMissingField: async () => ({ field: null, picker: null, prompt: null }),
+      handleDeterministicUrbanAutoCreate: async () => {
+        autoCreateCalled = true;
+        // deno-lint-ignore no-explicit-any
+        return { toolResult: { success: true, message: "should not run" } } as any;
+      },
+    },
+    // deno-lint-ignore no-explicit-any
+    lib: createBaseLib() as any,
+  });
+
+  assertEquals(result.response, undefined);
+  assertEquals(autoCreateCalled, false);
+  assertEquals(result.dynamicSystemPrompt.includes("MODO DÚVIDA URBANA"), true);
+  assertEquals(result.dynamicSystemPrompt.includes("Responda à dúvida do cidadão"), true);
+  assertEquals(result.dynamicSystemPrompt.includes("create_urban_report"), true);
+});
+
+Deno.test("orchestrateCollectionTurn: sugestao pronta não dispara auto-create e injeta modo sugestão", async () => {
+  let autoCreateCalled = false;
+  const result = await orchestrateCollectionTurn({
+    accumulatedFields: {
+      report_nature: "sugestao",
+      description: "Seria bom se tivéssemos mais policiamento nos parques",
+      category: "outro",
+      subcategory: "Policiamento em parques",
+    },
+    attachmentUrls: [],
+    chatMessages: [],
+    collectionIntent: { type: "urban_report", fields: {} },
+    conversationId: null,
+    dynamicSystemPrompt: "BASE_PROMPT",
+    getMessageText: () => "",
+    lastAssistantLower: "",
+    lastAssistantMessage: "",
+    lastUserMessage: "Seria bom se tivéssemos mais policiamento nos parques",
+    lightJourneyMarker: "",
+    msgLower: "seria bom se tivéssemos mais policiamento nos parques",
+    requestStartTime: Date.now(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    // deno-lint-ignore no-explicit-any
+    supabaseClassificationFeedbackRead: null as any,
+    userId: "user-1",
+    deps: {
+      getNextMissingField: async () => ({ field: null, picker: null, prompt: null }),
+      handleDeterministicUrbanAutoCreate: async () => {
+        autoCreateCalled = true;
+        // deno-lint-ignore no-explicit-any
+        return { toolResult: { success: true, message: "should not run" } } as any;
+      },
+    },
+    // deno-lint-ignore no-explicit-any
+    lib: createBaseLib() as any,
+  });
+
+  assertEquals(result.response, undefined);
+  assertEquals(autoCreateCalled, false);
+  assertEquals(result.dynamicSystemPrompt.includes("MODO SUGESTÃO URBANA"), true);
+  assertEquals(result.dynamicSystemPrompt.includes("Reconheça e converse sobre a sugestão"), true);
+});
+
+Deno.test("orchestrateCollectionTurn: elogio pronto injeta modo elogio e não dispara auto-create", async () => {
+  let autoCreateCalled = false;
+  const result = await orchestrateCollectionTurn({
+    accumulatedFields: {
+      report_nature: "elogio",
+      description:
+        "Gostaria de elogiar o policiamento e segurança na cidade de SP, sabemos que ainda há muito a melhorar, porém está evoluindo muito bem!",
+      category: "outro",
+      subcategory: "Policiamento e segurança",
+    },
+    attachmentUrls: [],
+    chatMessages: [],
+    collectionIntent: { type: "urban_report", fields: {} },
+    conversationId: null,
+    dynamicSystemPrompt: "BASE_PROMPT",
+    getMessageText: () => "",
+    lastAssistantLower: "",
+    lastAssistantMessage: "",
+    lastUserMessage:
+      "Gostaria de elogiar o policiamento e segurança na cidade de SP, sabemos que ainda há muito a melhorar, porém está evoluindo muito bem!",
+    lightJourneyMarker: "",
+    msgLower: "gostaria de elogiar o policiamento",
+    requestStartTime: Date.now(),
+    // deno-lint-ignore no-explicit-any
+    supabase: {} as any,
+    // deno-lint-ignore no-explicit-any
+    supabaseClassificationFeedbackRead: null as any,
+    userId: "user-1",
+    deps: {
+      getNextMissingField: async () => ({ field: null, picker: null, prompt: null }),
+      handleDeterministicUrbanAutoCreate: async () => {
+        autoCreateCalled = true;
+        // deno-lint-ignore no-explicit-any
+        return { toolResult: { success: true, message: "should not run" } } as any;
+      },
+    },
+    // deno-lint-ignore no-explicit-any
+    lib: createBaseLib() as any,
+  });
+
+  assertEquals(result.response, undefined);
+  assertEquals(autoCreateCalled, false);
+  assertEquals(result.dynamicSystemPrompt.includes("MODO ELOGIO URBANO"), true);
+  assertEquals(result.dynamicSystemPrompt.includes("Agradeça e converse sobre o elogio"), true);
 });
 
 Deno.test("orchestrateCollectionTurn preserva falha terminal de service_rating", async () => {

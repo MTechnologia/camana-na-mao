@@ -1,8 +1,14 @@
 import { inferServiceTypeFromText } from "./lib-service-discovery.ts";
 import {
+  applyUrbanNatureCategoryDefaults,
   extractUrbanFields,
   isBareUrbanReportNatureReply,
+  buildUrbanNonComplaintLlmInstruction,
+  isUrbanDuvidaReadyForAnswer,
+  isUrbanNonComplaintReadyForLlmTurn,
   normalizeReportNature,
+  urbanNatureSkipsLocationCollection,
+  urbanNonComplaintLlmStatusLine,
 } from "./lib-urban-rules.ts";
 import {
   applyCompleteRatingDimensionsToAccumulated,
@@ -45,7 +51,9 @@ import {
 import {
   hasTransportKeywords,
   isGenericIntentText,
+  isSubstantiveUrbanNatureDescription,
   isValidDomainDescription,
+  isValidUrbanReportDescription,
   normalizeTextForMatching,
 } from "./lib-nlp-utils.ts";
 
@@ -71,7 +79,10 @@ export {
   getServiceOccupancyStatusByServiceId,
   getUltimasNoticias,
   isCamaraFuncionamentoInternoQuery,
+  extractUrbanDuvidaSearchTerms,
+  isUrbanDuvidaKbResultRelevant,
   searchKnowledgeBase,
+  searchKnowledgeBaseForUrbanDuvida,
   suggestCouncilMember,
 } from "./lib-citizen-support.ts";
 export {
@@ -111,10 +122,16 @@ export {
   formatUrbanReportPreviewAfterCategory,
   formatUrbanReportPreviewAfterDescription,
   insertReportSeverityAuditLog,
+  applyUrbanNatureCategoryDefaults,
   isBareUrbanReportNatureReply,
+  buildUrbanNonComplaintLlmInstruction,
+  isUrbanDuvidaReadyForAnswer,
+  isUrbanNonComplaintReadyForLlmTurn,
   mapUrbanRiskLevelToSeverity,
   messageLooksLikeUrbanIncidentStarter,
   normalizeReportNature,
+  urbanNatureSkipsLocationCollection,
+  urbanNonComplaintLlmStatusLine,
 } from "./lib-urban-rules.ts";
 export type { UrbanReportNature } from "./lib-urban-rules.ts";
 export type { CitizenLearningProfile } from "./lib-citizen-learning.ts";
@@ -168,7 +185,9 @@ export {
   isAffirmativeResponse,
   isGenericIntentText,
   isNegativeResponse,
+  isSubstantiveUrbanNatureDescription,
   isValidDomainDescription,
+  isValidUrbanReportDescription,
   normalizeTextForMatching,
 } from "./lib-nlp-utils.ts";
 export {
@@ -274,6 +293,8 @@ export function accumulateFieldsFromHistory(
       isGenericIntentText,
       isValidDomainDescription,
       isBareUrbanReportNatureReply,
+      isSubstantiveUrbanNatureDescription,
+      normalizeReportNature,
     });
     if (detectedDescription) {
       accumulated.description = detectedDescription;

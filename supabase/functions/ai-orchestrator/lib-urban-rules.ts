@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isValidUrbanReportDescription } from "./lib-nlp-utils.ts";
+
 export const VALID_URBAN_CATEGORIES = [
   "iluminacao", "calcada", "via_publica", "pavimentacao", "sinalizacao", "drenagem", "lixo", "esgoto",
   "area_verde", "higiene_urbana", "animais", "poluicao", "feedback_camara", "outro",
@@ -112,6 +114,124 @@ export function isBareUrbanReportNatureReply(text: string): boolean {
   if (!t || t.length > 28) return false;
   if (/\s/.test(t)) return false;
   return normalizeReportNature(t) !== null;
+}
+
+const URBAN_NON_COMPLAINT_NATURES: UrbanReportNature[] = ["duvida", "sugestao", "elogio"];
+
+/** Dúvida, sugestão e elogio não exigem endereço nem coleta de "problema" no local. */
+export function urbanNatureSkipsLocationCollection(
+  reportNature: string | undefined | null,
+): boolean {
+  const nature = normalizeReportNature(reportNature);
+  return nature != null && URBAN_NON_COMPLAINT_NATURES.includes(nature);
+}
+
+/** Dúvida/sugestão/elogio com descrição e categoria → turno conversacional via LLM, sem auto-registro. */
+export function isUrbanNonComplaintReadyForLlmTurn(
+  fields: Record<string, unknown>,
+): boolean {
+  const nature = normalizeReportNature(
+    fields.report_nature != null ? String(fields.report_nature) : null,
+  );
+  if (!nature || !URBAN_NON_COMPLAINT_NATURES.includes(nature)) return false;
+  if (!fields.category) return false;
+  const desc = String(fields.description ?? "").trim();
+  if (!desc) return false;
+  return isValidUrbanReportDescription(desc, nature);
+}
+
+/** @deprecated Use isUrbanNonComplaintReadyForLlmTurn — mantido para compatibilidade de testes. */
+export function isUrbanDuvidaReadyForAnswer(fields: Record<string, unknown>): boolean {
+  const nature = normalizeReportNature(
+    fields.report_nature != null ? String(fields.report_nature) : null,
+  );
+  return nature === "duvida" && isUrbanNonComplaintReadyForLlmTurn(fields);
+}
+
+export function buildUrbanNonComplaintLlmInstruction(
+  fields: Record<string, unknown>,
+): string {
+  const nature = normalizeReportNature(
+    fields.report_nature != null ? String(fields.report_nature) : null,
+  );
+  const description = String(fields.description ?? "").trim();
+  const excerpt = description.slice(0, 300) + (description.length > 300 ? "…" : "");
+
+  if (nature === "sugestao") {
+    return `\n\n**MODO SUGESTÃO URBANA:** O cidadão compartilhou uma **ideia de melhoria** (não um problema pontual em endereço).
+- **RECONHEÇA** a sugestão com empatia e objetividade.
+- Se útil, oriente canais (Câmara, Prefeitura, 156, etc.) usando \`search_knowledge_base\` quando aplicável.
+- **NÃO** peça CEP, GPS, "onde fica o problema", gravidade, afetação nem relatos próximos.
+- **NÃO** chame \`create_urban_report\` nesta resposta — converse sobre a ideia; registro formal só se o cidadão pedir depois.
+- **NÃO** sugira encaminhamento para vereador neste fluxo informativo.
+- Encerre com frase curta; **sem** \`[SHOW_SERVICES_CHIPS]\` nem pedido de avaliação (o app oferece estrelas após agradecimento).
+- Sugestão do cidadão: "${excerpt}"`;
+  }
+
+  if (nature === "elogio") {
+    return `\n\n**MODO ELOGIO URBANO:** O cidadão compartilhou um **reconhecimento positivo** (não um problema a registrar em endereço).
+- **AGRADEÇA** o elogio com calor humano e objetividade.
+- Valorize o que está funcionando bem; se fizer sentido, mencione como a Câmara pode dar visibilidade a boas práticas.
+- **NÃO** peça CEP, GPS, "onde fica o problema", gravidade, afetação nem relatos próximos.
+- **NÃO** chame \`create_urban_report\` nesta resposta — converse sobre o elogio; registro formal só se o cidadão pedir depois.
+- **NÃO** sugira encaminhamento para vereador neste fluxo informativo.
+- Encerre com frase curta; **sem** \`[SHOW_SERVICES_CHIPS]\` nem pedido de avaliação (o app oferece estrelas após agradecimento).
+- Elogio do cidadão: "${excerpt}"`;
+  }
+
+  return `\n\n**MODO DÚVIDA URBANA (OBRIGATÓRIO):** O cidadão fez uma **pergunta** (não um relato de problema em endereço fixo).
+- **RESPONDA PRIMEIRO E DIRETAMENTE** à pergunta literal abaixo, em 2–4 parágrafos curtos e linguagem simples.
+- Se existir bloco \`[Contexto da base (dúvida urbana)]\` no sistema, use **somente** trechos que respondem à pergunta; não repita lista genérica da Câmara.
+- Se existir bloco \`[Contexto dúvida urbana — sem trecho na base]\`, diga com honestidade que a base da Câmara não tem detalhe operacional sobre o tema; explique **brevemente** o papel da Câmara (fiscalizar, propor leis, audiências) e oriente canais oficiais adequados (Prefeitura/156, PM/190, secretarias municipais) **sem inventar** procedimentos.
+- **PROIBIDO** nesta resposta: listar Portal da Câmara, Presidência, vereadores, transparência, biblioteca ou estrutura institucional — **salvo** se a pergunta for especificamente sobre a Câmara.
+- **NÃO** invoque \`search_knowledge_base\` com termos genéricos ("câmara", "vereadores", "estrutura"); a busca já foi feita pelo sistema.
+- **NÃO** peça CEP, GPS, "onde fica o problema", gravidade, afetação nem relatos próximos.
+- **NÃO** chame \`create_urban_report\` nesta resposta — só esclareça a dúvida.
+- **NÃO** sugira encaminhamento para vereador nem liste vereadores neste fluxo.
+- Ao terminar a resposta, encerre com **uma frase curta** (ex.: "Se quiser aprofundar algum ponto, é só perguntar.") — **sem** despedida longa, **sem** \`[SHOW_SERVICES_CHIPS]\` e **sem** pedir avaliação (o app oferece estrelas quando o cidadão agradecer).
+- Pergunta do cidadão: "${excerpt}"`;
+}
+
+export function urbanNonComplaintLlmStatusLine(
+  fields: Record<string, unknown>,
+): string {
+  const nature = normalizeReportNature(
+    fields.report_nature != null ? String(fields.report_nature) : null,
+  );
+  if (nature === "sugestao") {
+    return "\n**STATUS:** Reconheça e converse sobre a sugestão (modo informativo). Não finalize registro de relato.";
+  }
+  if (nature === "elogio") {
+    return "\n**STATUS:** Agradeça e converse sobre o elogio (modo informativo). Não finalize registro de relato.";
+  }
+  return "\n**STATUS:** Responda à dúvida do cidadão (modo informativo). Não finalize registro de relato.";
+}
+
+/** Dúvida, sugestão e elogio não passam pelo menu de tema de reclamação (buraco, iluminação…). */
+export function applyUrbanNatureCategoryDefaults(
+  fields: Record<string, unknown>,
+  generateLabelFromDescription: (description: string) => string,
+): void {
+  const nature = normalizeReportNature(
+    fields.report_nature != null ? String(fields.report_nature) : null,
+  );
+  if (!nature || nature === "reclamacao" || fields.category) return;
+
+  const description = String(fields.description ?? "").trim();
+  if (!description) return;
+
+  const dl = description.toLowerCase();
+  if (
+    nature === "duvida" &&
+    /c[âa]mara|vereador|legislativ|plen[aá]rio|comiss[ãa]o|infraestrutura\s+da\s+c[âa]mara/i.test(dl)
+  ) {
+    fields.category = "feedback_camara";
+  } else {
+    fields.category = "outro";
+  }
+  fields.subcategory = generateLabelFromDescription(description);
+  fields._auto_classified = true;
+  fields._nature_non_complaint = true;
 }
 
 const URBAN_INCIDENT_STARTER_PATTERNS: RegExp[] = [

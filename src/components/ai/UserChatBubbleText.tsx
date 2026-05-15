@@ -3,6 +3,20 @@ import { sanitizeMessageContent } from "@/lib/sanitizeMarkers";
 import { formatUserMessageHidingGpsLine } from "@/lib/formatUserMessageHidingGpsLine";
 import { reverseGeocodeLatLngClient } from "@/lib/reverseGeocodeLatLngClient";
 
+/** Valores enviados por [QUICK_REPLY:reclamacao,duvida,...] — exibir rótulo PT na bolha do usuário. */
+function displayUrbanReportNatureToken(text: string): string | null {
+  const raw = text.trim();
+  if (!raw || raw.length > 24 || /\s/.test(raw)) return null;
+  const key = raw.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  const map: Record<string, string> = {
+    reclamacao: "Reclamação",
+    duvida: "Dúvida",
+    sugestao: "Sugestão",
+    elogio: "Elogio",
+  };
+  return map[key] ?? null;
+}
+
 /** Valores enviados pelos botões de gravidade ([QUICK_REPLY:critical,...]) — exibir em PT na bolha. */
 function displayUrbanRiskLevelToken(text: string): string | null {
   const raw = text.trim();
@@ -66,17 +80,19 @@ export function UserChatBubbleText({ content }: { content: string }) {
   const sanitized = sanitizeMessageContent(content);
   const { visibleText, coordsOnly } = formatUserMessageHidingGpsLine(sanitized);
 
-  const riskAsPt = displayUrbanRiskLevelToken(visibleText || sanitized);
+  const displayText = visibleText || sanitized;
+  const natureAsPt = displayUrbanReportNatureToken(displayText);
+  const riskAsPt = displayUrbanRiskLevelToken(displayText);
 
   if (visibleText) {
     return (
-      <p className="text-sm whitespace-pre-wrap">{riskAsPt ?? visibleText}</p>
+      <p className="text-sm whitespace-pre-wrap">{natureAsPt ?? riskAsPt ?? visibleText}</p>
     );
   }
   if (coordsOnly) {
     return <UserGpsFallback lat={coordsOnly.lat} lon={coordsOnly.lon} />;
   }
   return (
-    <p className="text-sm whitespace-pre-wrap">{riskAsPt ?? sanitized}</p>
+    <p className="text-sm whitespace-pre-wrap">{natureAsPt ?? riskAsPt ?? sanitized}</p>
   );
 }

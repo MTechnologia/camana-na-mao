@@ -108,6 +108,41 @@ export async function buildPromptContextAndTools(
     );
   }
 
+  const urbanReportNature = String(accumulatedFields?.report_nature ?? "").toLowerCase();
+  const urbanDuvidaDescription = String(accumulatedFields?.description ?? "").trim();
+  const isUrbanDuvidaLlmTurn = collectionIntent?.type === "urban_report" &&
+    urbanReportNature === "duvida" &&
+    urbanDuvidaDescription.length >= 12 &&
+    !lib.isCamaraFuncionamentoInternoQuery(urbanDuvidaDescription);
+
+  if (isUrbanDuvidaLlmTurn) {
+    try {
+      const kb = await lib.searchKnowledgeBaseForUrbanDuvida(supabase, urbanDuvidaDescription);
+      if (kb.hasRelevantHits && kb.text.trim()) {
+        dynamicSystemPrompt = dynamicSystemPrompt +
+          "\n\n[Contexto da base (dúvida urbana)]:\n" +
+          kb.text.trim() +
+          "\n\nInstrução: Responda **primeiro** à pergunta do cidadão usando apenas trechos acima que forem pertinentes. Não liste estrutura genérica da Câmara (portal, presidência, vereadores, transparência) se não for o tema da pergunta.";
+        console.log(
+          "[ai-orchestrator] Injected Supabase KB for urban duvida, chars:",
+          kb.text.length,
+        );
+      } else {
+        const excerpt = urbanDuvidaDescription.slice(0, 220);
+        dynamicSystemPrompt = dynamicSystemPrompt +
+          `\n\n[Contexto dúvida urbana — sem trecho na base]: A base da Câmara não trouxe trecho específico sobre: "${excerpt}".\n\nInstrução: Responda **diretamente** à pergunta com honestidade. Explique o papel da Câmara Municipal no tema (fiscalização, leis, audiências) sem inventar etapas operacionais do Executivo. Indique canais oficiais adequados (Prefeitura 156, PM 190, portais municipais). **Proibido** listar portal, presidência, vereadores, transparência ou biblioteca da Câmara nesta resposta.`;
+        console.log(
+          "[ai-orchestrator] Urban duvida sem trecho relevante na KB; instrução anti-dump institucional",
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[ai-orchestrator] Pré-busca searchKnowledgeBaseForUrbanDuvida falhou:",
+        (e as Error).message,
+      );
+    }
+  }
+
   if (collectionIntent?.type === "general" && isCamaraFuncionamentoQuery && !isZoneamentoQuery) {
     try {
       const kbText = await lib.searchKnowledgeBase(supabase, lastUserMessage);
@@ -225,7 +260,10 @@ export async function buildPromptContextAndTools(
   const supabaseCamaraKbInjected = dynamicSystemPrompt.includes(
     "[Contexto da base de conhecimento da Câmara (Supabase)]",
   );
-  const suppressSearchKnowledgeBase = vertexRagInjected || supabaseCamaraKbInjected;
+  const urbanDuvidaKbInjected = dynamicSystemPrompt.includes("[Contexto da base (dúvida urbana)]") ||
+    dynamicSystemPrompt.includes("[Contexto dúvida urbana — sem trecho na base]");
+  const suppressSearchKnowledgeBase = vertexRagInjected || supabaseCamaraKbInjected ||
+    urbanDuvidaKbInjected;
   const effectiveTools = suppressSearchKnowledgeBase
     ? (lib.tools as Array<{ type?: string; function?: { name?: string } }>).filter((t) =>
       t?.function?.name !== "search_knowledge_base"
@@ -239,6 +277,11 @@ export async function buildPromptContextAndTools(
   if (supabaseCamaraKbInjected) {
     console.log(
       "[ai-orchestrator] Supabase KB (Câmara) injected → search_knowledge_base excluded from tools",
+    );
+  }
+  if (urbanDuvidaKbInjected) {
+    console.log(
+      "[ai-orchestrator] Urban duvida KB/context injected → search_knowledge_base excluded from tools",
     );
   }
 

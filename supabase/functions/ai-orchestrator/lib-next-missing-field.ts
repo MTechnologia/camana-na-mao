@@ -30,14 +30,13 @@ export async function getNextMissingField(
     }
 
     const description = String(fields.description ?? "");
-    const isGeneric = lib.isGenericIntentText(description);
     const isBareNature = lib.isBareUrbanReportNatureReply(String(description));
-    const descToCheck = isGeneric || isBareNature ? "" : description;
-    const isValidDesc = lib.isValidDomainDescription(descToCheck, "urban");
+    const descToCheck = isBareNature ? "" : description;
+    const isValidDesc = lib.isValidUrbanReportDescription(descToCheck, natureStr);
 
     console.log("[getNextMissingField] Urban description check:", {
       description: description.substring(0, 40),
-      isGeneric,
+      report_nature: natureStr,
       isValidDesc,
     });
 
@@ -63,6 +62,8 @@ export async function getNextMissingField(
     if (hasLocationEarly && cityEarly && !lib.isCitySaoPaulo(cityEarly)) {
       return { field: null, picker: null, prompt: lib.MESSAGE_OUTSIDE_SAO_PAULO(cityEarly) };
     }
+
+    lib.applyUrbanNatureCategoryDefaults(fields, lib.generateLabelFromDescription);
 
     if (!fields.category) {
       const descriptionLower = description.toLowerCase();
@@ -173,6 +174,11 @@ export async function getNextMissingField(
           autoClass.suggestedLabel || lib.generateLabelFromDescription(String(fields.description ?? ""));
       }
       console.log("[getNextMissingField] Set subcategory:", fields.subcategory);
+    }
+
+    if (lib.urbanNatureSkipsLocationCollection(natureStr)) {
+      console.log("[getNextMissingField] Urban non-complaint nature: skipping location/risk collection");
+      return { field: null, picker: null, prompt: null };
     }
 
     if (!fields.location_method) {

@@ -89,6 +89,37 @@ export function isValidDomainDescription(text: string, _domain: string): boolean
   return true;
 }
 
+/** Respostas substantivas a "qual é sua dúvida/sugestão/elogio" (não são abertura de jornada). */
+export function isSubstantiveUrbanNatureDescription(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 12) return false;
+  if (/^(reclamacao|duvida|sugestao|elogio)$/i.test(t.normalize("NFD").replace(/\p{M}/gu, ""))) {
+    return false;
+  }
+  const journeyOnly = [
+    /^quero\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^preciso\s+falar\s+sobre\s+a\s+cidade\b/i,
+    /^quero\s+falar\s+da\s+cidade\b/i,
+    /^quero\s+falar\s+(de|do|sobre)\s*(transporte|avalia)/i,
+    /falar\s*(de|do|sobre)\s*(transporte|avalia[çc][ãa]o|servi[çc]o|urbano|cidade)\s*$/i,
+  ];
+  if (journeyOnly.some((p) => p.test(t))) return false;
+  return true;
+}
+
+export function isValidUrbanReportDescription(
+  text: string,
+  reportNature: string | undefined | null,
+): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  const nature = String(reportNature ?? "reclamacao").trim().toLowerCase();
+  if (["duvida", "sugestao", "elogio"].includes(nature)) {
+    return isSubstantiveUrbanNatureDescription(t);
+  }
+  return isValidDomainDescription(t, "urban");
+}
+
 export function extractImplicitData(
   userMessage: string,
   lastAssistantQuestion: string,

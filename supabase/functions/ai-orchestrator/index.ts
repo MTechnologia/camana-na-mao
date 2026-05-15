@@ -5,7 +5,11 @@ import { buildAccumulatedContext } from "./lib-index-accumulated-context.ts";
 import { runAiPipeline } from "./lib-index-ai-pipeline.ts";
 import { initializeRequestBootstrap } from "./lib-index-bootstrap.ts";
 import { orchestrateCollectionTurn } from "./lib-index-collection-orchestration.ts";
+import { handleChannelRatingShortcut } from "./lib-index-channel-rating-shortcut.ts";
 import { handleCouncilShortcuts } from "./lib-index-council-shortcuts.ts";
+import { handleGeneralJourneyClosingShortcut } from "./lib-index-general-closing.ts";
+import { handleServicesJourneyClosingShortcut } from "./lib-index-services-closing.ts";
+import { handleUrbanNonComplaintClosingShortcut } from "./lib-index-urban-non-complaint-closing.ts";
 import { resolveCollectionIntent } from "./lib-index-collection-intent.ts";
 import {
   handleAiFatalError,
@@ -82,6 +86,19 @@ serve(async (req) => {
       return councilShortcutResult.response;
     }
 
+    const channelRatingResult = await handleChannelRatingShortcut({
+      chatMessages,
+      conversationId: typeof conversationId === "string" ? conversationId : undefined,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+      supabase,
+      userId: user.id,
+    });
+    if (channelRatingResult.response) {
+      return channelRatingResult.response;
+    }
+
     const resolvedIntent = await resolveCollectionIntent({
       chatHistoryTyped,
       chatMessages,
@@ -109,6 +126,41 @@ serve(async (req) => {
       lib,
     });
     let accumulatedFields: Record<string, unknown> = accumulatedContext.accumulatedFields;
+
+    const urbanNonComplaintClosingResult = await handleUrbanNonComplaintClosingShortcut({
+      accumulatedFields,
+      chatMessages,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+      lib,
+    });
+    if (urbanNonComplaintClosingResult.response) {
+      return urbanNonComplaintClosingResult.response;
+    }
+
+    const servicesClosingResult = await handleServicesJourneyClosingShortcut({
+      accumulatedFields,
+      chatMessages,
+      collectionIntent,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+    });
+    if (servicesClosingResult.response) {
+      return servicesClosingResult.response;
+    }
+
+    const generalClosingResult = await handleGeneralJourneyClosingShortcut({
+      chatMessages,
+      collectionIntent,
+      corsHeaders: lib.corsHeaders,
+      lastAssistantText,
+      lastUserTextEarly,
+    });
+    if (generalClosingResult.response) {
+      return generalClosingResult.response;
+    }
     
     // Build dynamic system prompt with collected fields context
     let dynamicSystemPrompt = lib.systemPrompt;
@@ -165,6 +217,9 @@ serve(async (req) => {
     if (collectionIntent?.type === 'services') {
       const servicesFlowResult = await handleDeterministicServicesFlow({
         accumulatedFields,
+        chatMessages,
+        lastAssistantText,
+        lastUserMessage,
         lightJourneyMarker,
         nextFieldInfo,
         supabase,
