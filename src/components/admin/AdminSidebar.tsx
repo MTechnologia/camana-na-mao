@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock, Sparkles, TrendingUp, Siren, ClipboardCheck, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, Download, ChevronLeft, Home, Building2, MessageSquare, Settings, ChevronDown, FileText, Send, BarChart3, PieChart, Bell, ClipboardList, Target, LineChart, Flame, BookOpen, Landmark, Star, Activity, CalendarClock, Sparkles, TrendingUp, Siren, ClipboardCheck, Shield, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -53,7 +53,8 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
         { title: 'Relatos', icon: MessageSquare, href: '/admin/reports', badge: stats.pendingReports },
         // HU-10.3 — Triagem kanban (admin + gestor).
         { title: 'Triagem', icon: ClipboardCheck, href: '/admin/triagem' },
-        { title: 'Análise de Relatos', icon: PieChart, href: '/admin/analytics' },
+        { title: 'Análise de Relatos Gerais', icon: BarChart3, href: '/admin/analytics/general' },
+        { title: 'Análise de Relatos Demográficos', icon: UserRound, href: '/admin/analytics/demograficos' },
         { title: 'Tendência temporal', icon: LineChart, href: '/admin/trends' },
         { title: 'Mapa de calor', icon: Flame, href: '/admin/reports-heatmap' },
         { title: 'Polarização de avaliações', icon: Star, href: '/admin/avaliacoes-polarizacao' },
@@ -115,7 +116,9 @@ export const AdminSidebar = ({ mobileOpen, setMobileOpen, isMobile }: AdminSideb
     );
   };
 
-  const isActive = (href: string) => location.pathname === href;
+  const isActive = (href: string) =>
+    location.pathname === href ||
+    (href === '/admin/analytics/general' && location.pathname === '/admin/analytics');
 
   const SidebarContent = () => (
     <div className="flex h-full min-h-0 flex-col">
