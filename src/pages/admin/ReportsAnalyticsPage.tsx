@@ -419,7 +419,7 @@ export function ReportsAnalyticsPageContent({ mode }: ReportsAnalyticsPageProps)
 
           {/* TAB VOLUME — HU-1.1: visão de volume por período / categoria / região */}
           <TabsContent value="volume" className="space-y-6">
-            <VolumeOverviewTab />
+            <VolumeOverviewTab onDrillDown={() => setTabState({ tab: 'drill' })} />
           </TabsContent>
 
           {/* TAB EFICIÊNCIA — HU-1.2: tempo médio de resolução e tendência */}
@@ -611,7 +611,7 @@ export function ReportsAnalyticsPageContent({ mode }: ReportsAnalyticsPageProps)
                   <DemographicsPieChart 
                     data={stats.demographics.byGender}
                     title="Por Gênero"
-                    onSegmentClick={(gender) => drillInsight.searchByGender(gender)}
+                    onSegmentClick={(key, label) => drillInsight.searchByGender(key ?? label)}
                   />
                 </div>
               </Card>
@@ -621,7 +621,7 @@ export function ReportsAnalyticsPageContent({ mode }: ReportsAnalyticsPageProps)
                   <DemographicsPieChart 
                     data={stats.demographics.byRace}
                     title="Por Raça"
-                    onSegmentClick={(race) => drillInsight.searchByRace(race)}
+                    onSegmentClick={(key, label) => drillInsight.searchByRace(key ?? label)}
                   />
                 </div>
               </Card>
@@ -632,10 +632,11 @@ export function ReportsAnalyticsPageContent({ mode }: ReportsAnalyticsPageProps)
                   <AgePyramid 
                     data={stats.demographics.byAgeGroup.map(g => ({
                       ageGroup: g.label,
+                      key: g.key,
                       count: g.count,
                       percentage: g.percentage
                     }))}
-                    onBarClick={(ageGroup) => drillInsight.searchByAge(ageGroup)}
+                    onBarClick={(key) => drillInsight.searchByAge(key)}
                   />
                 </div>
               </Card>
@@ -645,7 +646,7 @@ export function ReportsAnalyticsPageContent({ mode }: ReportsAnalyticsPageProps)
                   <DemographicsPieChart 
                     data={stats.demographics.bySocialClass}
                     title="Por Classe Social"
-                    onSegmentClick={(socialClass) => drillInsight.searchBySocialClass(socialClass)}
+                    onSegmentClick={(key, label) => drillInsight.searchBySocialClass(key ?? label)}
                   />
                 </div>
               </Card>

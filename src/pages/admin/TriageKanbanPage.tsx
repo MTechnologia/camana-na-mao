@@ -187,7 +187,7 @@ export default function TriageKanbanPage() {
           />
           <KPICard
             title="P0 abertos"
-            subtitle="Críticos não resolvidos"
+            subtitle={`Prioridade ${TRIAGE_PRIORITIES.P0.shortLabel} — em aberto`}
             value={stats.p0Open}
             icon={AlertTriangle}
             className={stats.p0Open > 0 ? "border-destructive/40" : undefined}

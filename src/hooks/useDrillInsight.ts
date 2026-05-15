@@ -1,7 +1,60 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { ReportsAnalyticsFilters } from '@/hooks/useReportsAnalytics';
+import {
+  ageGroupLabel,
+  genderLabel,
+  raceLabel,
+  resolveAgeGroupKey,
+  resolveGenderKey,
+  resolveRaceKey,
+  resolveSocialClassKey,
+  socialClassLabel,
+} from '@/lib/demographicDrill';
+import {
+  appendEvaluationNote,
+  fetchDrillReportsByAgeGroup,
+  fetchDrillReportsByGender,
+  fetchDrillReportsByRace,
+  fetchDrillReportsBySocialClass,
+  type DemographicDrillFilters,
+} from '@/lib/demographicDrillQueries';
+import {
+  citizenReportStatusLabel,
+  normalizeCitizenReportStatus,
+} from '@/lib/citizenReportStatus';
+import type { Severity } from '@/lib/analyticsFilters';
+import { SEVERITY_LABELS } from '@/lib/analyticsFilters';
+
+/** Alinha UI (PT/EN) aos valores da coluna `severity` (urban: EN, transporte: PT). */
+function normalizeSeverityForDrill(raw: string): Severity | null {
+  const s = (raw ?? '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (s === 'low' || s === 'baixa' || s === 'baixo') return 'low';
+  if (s === 'medium' || s === 'media' || s === 'medio') return 'medium';
+  if (s === 'high' || s === 'alta' || s === 'alto') return 'high';
+  if (s === 'critical' || s === 'critica' || s === 'critico') return 'critical';
+  return null;
+}
+
+function severityColumnValues(sev: Severity): string[] {
+  switch (sev) {
+    case 'critical':
+      return ['critical', 'critica'];
+    case 'high':
+      return ['high', 'alta'];
+    case 'medium':
+      return ['medium', 'media'];
+    case 'low':
+      return ['low', 'baixa'];
+    default:
+      return [];
+  }
+}
 
 export type DrillType = 
   | 'keyword' 
@@ -101,8 +154,16 @@ const INITIAL_STATE: DrillInsightState = {
   isLoading: false,
 };
 
-export const useDrillInsight = (_baseFilters: ReportsAnalyticsFilters = {}) => {
+export const useDrillInsight = (baseFilters: ReportsAnalyticsFilters = {}) => {
   const [state, setState] = useState<DrillInsightState>(INITIAL_STATE);
+
+  const drillFilters: DemographicDrillFilters = useMemo(
+    () => ({
+      startDate: baseFilters.startDate,
+      endDate: baseFilters.endDate,
+    }),
+    [baseFilters.startDate, baseFilters.endDate],
+  );
 
   const calculateStats = (reports: DrillReport[]): DrillStats => {
     const stats: DrillStats = {
@@ -375,13 +436,24 @@ export const useDrillInsight = (_baseFilters: ReportsAnalyticsFilters = {}) => {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const statusLower = status.toLowerCase();
-      const { data: urbanData } = await supabase.from('urban_reports').select('*').eq('status', statusLower);
-      const { data: transportData } = await supabase.from('transport_reports').select('*').eq('status', statusLower);
+      const canonicalStatus = normalizeCitizenReportStatus(status);
+      const displayLabel = citizenReportStatusLabel(canonicalStatus);
+      const { data: urbanData } = await supabase
+        .from('urban_reports')
+        .select('*')
+        .eq('status', canonicalStatus);
+      const { data: transportData } = await supabase
+        .from('transport_reports')
+        .select('*')
+        .eq('status', canonicalStatus);
 
       const allReports = [...mapUrbanReports(urbanData || []), ...mapTransportReports(transportData || [])];
       const stats = calculateStats(allReports);
-      const context: DrillContext = { type: 'status', value: status, label: `Status: ${status}` };
+      const context: DrillContext = {
+        type: 'status',
+        value: displayLabel,
+        label: `Status: ${displayLabel}`,
+      };
       const insight = generateInsight(context, stats);
 
       setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
@@ -396,13 +468,30 @@ export const useDrillInsight = (_baseFilters: ReportsAnalyticsFilters = {}) => {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const severityLower = severity.toLowerCase();
-      const { data: urbanData } = await supabase.from('urban_reports').select('*').eq('severity', severityLower);
-      const { data: transportData } = await supabase.from('transport_reports').select('*').eq('severity', severityLower);
+      const canonicalSeverity = normalizeSeverityForDrill(severity);
+      const columnValues = canonicalSeverity
+        ? severityColumnValues(canonicalSeverity)
+        : [severity.toLowerCase()];
+      const displayLabel = canonicalSeverity
+        ? SEVERITY_LABELS[canonicalSeverity]
+        : severity;
+
+      const { data: urbanData } = await supabase
+        .from('urban_reports')
+        .select('*')
+        .in('severity', columnValues);
+      const { data: transportData } = await supabase
+        .from('transport_reports')
+        .select('*')
+        .in('severity', columnValues);
 
       const allReports = [...mapUrbanReports(urbanData || []), ...mapTransportReports(transportData || [])];
       const stats = calculateStats(allReports);
-      const context: DrillContext = { type: 'severity', value: severity, label: `Severidade: ${severity}` };
+      const context: DrillContext = {
+        type: 'severity',
+        value: displayLabel,
+        label: `Severidade: ${displayLabel}`,
+      };
       const insight = generateInsight(context, stats);
 
       setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
@@ -433,131 +522,134 @@ export const useDrillInsight = (_baseFilters: ReportsAnalyticsFilters = {}) => {
     }
   }, []);
 
-  const searchByGender = useCallback(async (gender: string) => {
-    setState(prev => ({ ...prev, isLoading: true }));
-
-    try {
-      // Get user IDs with this gender
-      const { data: demographics } = await supabase.from('user_demographics').select('user_id').eq('gender', gender);
-      const userIds = demographics?.map(d => d.user_id) || [];
-
-      if (userIds.length === 0) {
+  const applyDemographicDrillResult = useCallback(
+    (
+      allReports: DrillReport[],
+      evaluationCount: number,
+      context: DrillContext,
+      emptyInsight: string,
+    ) => {
+      if (allReports.length === 0 && evaluationCount === 0) {
         setState({
           open: true,
-          context: { type: 'gender', value: gender, label: `Gênero: ${gender}` },
+          context,
           reports: [],
           stats: calculateStats([]),
-          insight: `Nenhum relato encontrado para o gênero ${gender}.`,
+          insight: emptyInsight,
           isLoading: false,
         });
         return;
       }
 
-      const { data: urbanData } = await supabase.from('urban_reports').select('*').in('user_id', userIds);
-      const { data: transportData } = await supabase.from('transport_reports').select('*').in('user_id', userIds);
-
-      const allReports = [...mapUrbanReports(urbanData || []), ...mapTransportReports(transportData || [])];
       const stats = calculateStats(allReports);
-      const context: DrillContext = { type: 'gender', value: gender, label: `Gênero: ${gender}` };
-      const insight = generateInsight(context, stats);
-
+      stats.total = allReports.length + evaluationCount;
+      let insight = generateInsight(context, stats);
+      insight = appendEvaluationNote(insight, evaluationCount);
       setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+    },
+    [],
+  );
+
+  const searchByGender = useCallback(async (gender: string) => {
+    setState(prev => ({ ...prev, isLoading: true }));
+
+    try {
+      const genderKey = resolveGenderKey(gender);
+      const displayLabel = genderLabel(genderKey);
+      const { urban, transport, evaluationCount } = await fetchDrillReportsByGender(
+        gender,
+        drillFilters,
+      );
+      const allReports = [...mapUrbanReports(urban), ...mapTransportReports(transport)];
+      const context: DrillContext = { type: 'gender', value: genderKey, label: `Gênero: ${displayLabel}` };
+      applyDemographicDrillResult(
+        allReports,
+        evaluationCount,
+        context,
+        `Nenhum relato encontrado para o gênero ${displayLabel}.`,
+      );
     } catch (error) {
       console.error('Error searching by gender:', error);
       toast.error('Erro ao buscar relatos por gênero');
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, []);
+  }, [applyDemographicDrillResult, drillFilters]);
 
   const searchByAge = useCallback(async (ageGroup: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      // This would require more complex logic to calculate age from birth_date
-      // For now, we'll fetch all and filter
-      const { urban, transport } = await fetchAllReports();
+      const ageKey = resolveAgeGroupKey(ageGroup);
+      const displayLabel = ageGroupLabel(ageKey);
+      const { urban, transport, evaluationCount } = await fetchDrillReportsByAgeGroup(
+        ageGroup,
+        drillFilters,
+      );
       const allReports = [...mapUrbanReports(urban), ...mapTransportReports(transport)];
-      const stats = calculateStats(allReports);
-      const context: DrillContext = { type: 'age', value: ageGroup, label: `Faixa Etária: ${ageGroup}` };
-      const insight = generateInsight(context, stats);
-
-      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+      const context: DrillContext = { type: 'age', value: ageKey, label: `Faixa Etária: ${displayLabel}` };
+      applyDemographicDrillResult(
+        allReports,
+        evaluationCount,
+        context,
+        `Nenhum relato encontrado para a faixa etária ${displayLabel}.`,
+      );
     } catch (error) {
       console.error('Error searching by age:', error);
       toast.error('Erro ao buscar relatos por faixa etária');
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, []);
+  }, [applyDemographicDrillResult, drillFilters]);
 
   const searchByRace = useCallback(async (race: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const { data: demographics } = await supabase.from('user_demographics').select('user_id').eq('race', race);
-      const userIds = demographics?.map(d => d.user_id) || [];
-
-      if (userIds.length === 0) {
-        setState({
-          open: true,
-          context: { type: 'race', value: race, label: `Raça/Cor: ${race}` },
-          reports: [],
-          stats: calculateStats([]),
-          insight: `Nenhum relato encontrado para raça/cor ${race}.`,
-          isLoading: false,
-        });
-        return;
-      }
-
-      const { data: urbanData } = await supabase.from('urban_reports').select('*').in('user_id', userIds);
-      const { data: transportData } = await supabase.from('transport_reports').select('*').in('user_id', userIds);
-
-      const allReports = [...mapUrbanReports(urbanData || []), ...mapTransportReports(transportData || [])];
-      const stats = calculateStats(allReports);
-      const context: DrillContext = { type: 'race', value: race, label: `Raça/Cor: ${race}` };
-      const insight = generateInsight(context, stats);
-
-      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+      const raceKey = resolveRaceKey(race);
+      const displayLabel = raceLabel(raceKey);
+      const { urban, transport, evaluationCount } = await fetchDrillReportsByRace(race, drillFilters);
+      const allReports = [...mapUrbanReports(urban), ...mapTransportReports(transport)];
+      const context: DrillContext = { type: 'race', value: raceKey, label: `Raça/Cor: ${displayLabel}` };
+      applyDemographicDrillResult(
+        allReports,
+        evaluationCount,
+        context,
+        `Nenhum relato encontrado para raça/cor ${displayLabel}.`,
+      );
     } catch (error) {
       console.error('Error searching by race:', error);
       toast.error('Erro ao buscar relatos por raça');
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, []);
+  }, [applyDemographicDrillResult, drillFilters]);
 
   const searchBySocialClass = useCallback(async (socialClass: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
-      const { data: demographics } = await supabase.from('user_demographics').select('user_id').eq('social_class', socialClass);
-      const userIds = demographics?.map(d => d.user_id) || [];
-
-      if (userIds.length === 0) {
-        setState({
-          open: true,
-          context: { type: 'socialClass', value: socialClass, label: `Classe Social: ${socialClass}` },
-          reports: [],
-          stats: calculateStats([]),
-          insight: `Nenhum relato encontrado para classe social ${socialClass}.`,
-          isLoading: false,
-        });
-        return;
-      }
-
-      const { data: urbanData } = await supabase.from('urban_reports').select('*').in('user_id', userIds);
-      const { data: transportData } = await supabase.from('transport_reports').select('*').in('user_id', userIds);
-
-      const allReports = [...mapUrbanReports(urbanData || []), ...mapTransportReports(transportData || [])];
-      const stats = calculateStats(allReports);
-      const context: DrillContext = { type: 'socialClass', value: socialClass, label: `Classe Social: ${socialClass}` };
-      const insight = generateInsight(context, stats);
-
-      setState({ open: true, context, reports: allReports, stats, insight, isLoading: false });
+      const classKey = resolveSocialClassKey(socialClass);
+      const displayLabel = socialClassLabel(classKey);
+      const { urban, transport, evaluationCount } = await fetchDrillReportsBySocialClass(
+        socialClass,
+        drillFilters,
+      );
+      const allReports = [...mapUrbanReports(urban), ...mapTransportReports(transport)];
+      const context: DrillContext = {
+        type: 'socialClass',
+        value: classKey,
+        label: `Classe Social: ${displayLabel}`,
+      };
+      applyDemographicDrillResult(
+        allReports,
+        evaluationCount,
+        context,
+        `Nenhum relato encontrado para classe social ${displayLabel}.`,
+      );
     } catch (error) {
       console.error('Error searching by social class:', error);
       toast.error('Erro ao buscar relatos por classe social');
       setState(prev => ({ ...prev, isLoading: false }));
     }
-  }, []);
+  }, [applyDemographicDrillResult, drillFilters]);
 
   const searchByEngagement = useCallback(async (level: string) => {
     setState(prev => ({ ...prev, isLoading: true }));
