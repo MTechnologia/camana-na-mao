@@ -6,10 +6,14 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { olhoVivoSearchLines } from "../_shared/olho-vivo.ts";
 import {
-  dedupeOlhoVivoLines,
-  olhoVivoSearchLines,
-} from "../_shared/olho-vivo.ts";
+  buildCatalogSearchOr,
+  mergeOlhoWithCatalog,
+  pickCanonicalLineCode,
+  stripSptransLineSuffix,
+  type DbTransportLine,
+} from "../_shared/transport-line-catalog.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -65,8 +69,36 @@ serve(async (req) => {
       return json({ lines: [], source: "none" });
     }
 
+    const admin = createClient(supabaseUrl, serviceRoleKey);
     const olho = await olhoVivoSearchLines(query);
-    if (!olho.success) {
+    const olhoLines = olho.success ? (olho.lines ?? []) : [];
+    const olhoBases = [
+      ...new Set(
+        olhoLines.map((l) => stripSptransLineSuffix(String(l.lt ?? "").trim())).filter(Boolean),
+      ),
+    ];
+
+    const orClause = buildCatalogSearchOr(query, olhoBases);
+    let dbRows: DbTransportLine[] = [];
+
+    if (orClause) {
+      const { data, error: dbErr } = await admin
+        .from("transport_lines")
+        .select("id, line_code, line_name, line_type, sptrans_codigo_linha")
+        .or(orClause)
+        .order("line_code")
+        .limit(Math.max(limit * 3, 40));
+
+      if (dbErr) {
+        console.error("[transport-lines] catalog search", dbErr);
+      } else {
+        dbRows = (data ?? []) as DbTransportLine[];
+      }
+    }
+
+    const lines = mergeOlhoWithCatalog(olhoLines, dbRows, limit);
+
+    if (lines.length === 0 && !olho.success) {
       return json({
         lines: [],
         source: "olho_vivo",
@@ -75,34 +107,10 @@ serve(async (req) => {
       });
     }
 
-    const catalog = dedupeOlhoVivoLines(olho.lines ?? []).slice(0, limit);
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-
-    const codes = catalog.map((c) => c.line_code);
-    const { data: existing } = codes.length
-      ? await admin
-        .from("transport_lines")
-        .select("id, line_code, line_name, line_type, sptrans_codigo_linha")
-        .in("line_code", codes)
-      : { data: [] };
-
-    const byCode = new Map(
-      (existing ?? []).map((row) => [String(row.line_code), row]),
-    );
-
-    const lines = catalog.map((item) => {
-      const row = byCode.get(item.line_code);
-      return {
-        id: row?.id ?? null,
-        line_code: item.line_code,
-        line_name: row?.line_name ?? item.line_name,
-        line_type: row?.line_type ?? item.line_type,
-        sptrans_codigo_linha: item.sptrans_codigo_linha,
-        direction_label: item.direction_label,
-      };
+    return json({
+      lines,
+      source: dbRows.length > 0 ? "catalog_gtfs" : "olho_vivo",
     });
-
-    return json({ lines, source: "olho_vivo" });
   }
 
   if (body.action === "resolve") {
@@ -116,33 +124,62 @@ serve(async (req) => {
       ? body.sptrans_codigo_linha
       : null;
 
-    const { data: existingByCode } = await admin
+    const base = stripSptransLineSuffix(lineCode);
+    const { data: exactRow } = await admin
       .from("transport_lines")
       .select("id, line_code, line_name, line_type, sptrans_codigo_linha")
       .eq("line_code", lineCode)
       .maybeSingle();
 
-    if (existingByCode?.id) {
-      if (sptransCodigo && !existingByCode.sptrans_codigo_linha) {
+    const prefixPattern = base ? `${base}-%` : `${lineCode}-%`;
+    const { data: prefixRows } = await admin
+      .from("transport_lines")
+      .select("id, line_code, line_name, line_type, sptrans_codigo_linha")
+      .ilike("line_code", prefixPattern)
+      .order("line_code");
+
+    const catalogCandidates = [
+      ...(exactRow ? [exactRow] : []),
+      ...((prefixRows ?? []).filter(
+        (r) => r.line_code?.toLowerCase() !== lineCode.toLowerCase(),
+      )),
+    ] as DbTransportLine[];
+
+    const canonical = pickCanonicalLineCode(lineCode, catalogCandidates);
+
+    if (canonical?.id) {
+      if (sptransCodigo && !canonical.sptrans_codigo_linha) {
         await admin
           .from("transport_lines")
           .update({ sptrans_codigo_linha: sptransCodigo })
-          .eq("id", existingByCode.id);
+          .eq("id", canonical.id);
       }
-      return json({ line: existingByCode, created: false });
+      return json({ line: canonical, created: false });
     }
 
-    let lineName = typeof body.line_name === "string" ? body.line_name.trim() : "";
-    let lineType = typeof body.line_type === "string" ? body.line_type.trim() : "bus";
-    let resolvedSptrans = sptransCodigo;
+    let resolvedCode = canonical?.line_code ?? lineCode;
+    let lineName = canonical?.line_name
+      ?? (typeof body.line_name === "string" ? body.line_name.trim() : "");
+    let lineType = canonical?.line_type
+      ?? (typeof body.line_type === "string" ? body.line_type.trim() : "bus");
+    let resolvedSptrans = sptransCodigo ?? canonical?.sptrans_codigo_linha ?? null;
 
-    if (!lineName || !resolvedSptrans) {
-      const olho = await olhoVivoSearchLines(lineCode);
+    if (!canonical) {
+      const olho = await olhoVivoSearchLines(base || lineCode);
       if (olho.success && olho.lines?.length) {
-        const match = dedupeOlhoVivoLines(olho.lines).find(
+        const merged = mergeOlhoWithCatalog(
+          olho.lines,
+          (catalogCandidates ?? []) as DbTransportLine[],
+          5,
+        );
+        const match = merged.find(
           (l) => l.line_code.toLowerCase() === lineCode.toLowerCase(),
-        ) ?? dedupeOlhoVivoLines(olho.lines)[0];
+        ) ?? merged[0];
+        if (match?.id) {
+          return json({ line: match, created: false });
+        }
         if (match) {
+          resolvedCode = match.line_code;
           lineName = lineName || match.line_name;
           lineType = match.line_type;
           resolvedSptrans = resolvedSptrans ?? match.sptrans_codigo_linha;
@@ -151,13 +188,13 @@ serve(async (req) => {
     }
 
     if (!lineName) {
-      lineName = lineCode;
+      lineName = resolvedCode;
     }
 
     const { data: inserted, error: insertErr } = await admin
       .from("transport_lines")
       .insert({
-        line_code: lineCode,
+        line_code: resolvedCode,
         line_name: lineName,
         line_type: lineType || "bus",
         sptrans_codigo_linha: resolvedSptrans,

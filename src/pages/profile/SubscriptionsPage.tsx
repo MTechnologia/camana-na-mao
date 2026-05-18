@@ -357,8 +357,8 @@ export default function SubscriptionsPage() {
                             return (
                             <div key={`${line.line_code}-${line.sptrans_codigo_linha ?? "x"}`} className="flex items-center justify-between p-3">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium">{line.line_code} - {line.line_name}</p>
-                                <p className="text-[10px] text-muted-foreground uppercase">{line.line_type}</p>
+                                <p className="text-sm font-medium">{line.line_code}</p>
+                                <p className="text-xs text-muted-foreground truncate">{line.line_name}</p>
                               </div>
                               <Button
                                 type="button"
@@ -410,7 +410,10 @@ export default function SubscriptionsPage() {
                             <div key={sub.id} className="flex items-center justify-between p-4">
                               <div className="flex-1 min-w-0 mr-4">
                                 <p className="font-medium text-sm">
-                                  {sub.transport_lines?.line_code} - {sub.transport_lines?.line_name}
+                                  {sub.transport_lines?.line_code}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {sub.transport_lines?.line_name}
                                 </p>
                                 <p className="text-xs text-muted-foreground capitalize">
                                   {sub.transport_lines?.line_type}
