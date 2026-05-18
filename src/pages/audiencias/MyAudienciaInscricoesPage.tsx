@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Bell, Video, FileText, Loader2 } from "lucide-react";
+import { Calendar, Bell, Video, FileText, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import PageHeader from "@/components/ui/page-header";
@@ -168,9 +168,20 @@ export default function MyAudienciaInscricoesPage() {
                 Inscrições para lembretes
               </h2>
               {lembretes.length === 0 ? (
-                <Card>
-                  <CardContent className="p-4 text-center text-muted-foreground text-sm">
-                    Você ainda não se inscreveu para receber lembretes de audiências.
+                <Card className="border-dashed">
+                  <CardContent className="p-4 text-center space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Você ainda não se inscreveu para receber lembretes de audiências.
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Nas audiências públicas, use o botão{" "}
+                      <strong className="font-medium text-foreground">Receber lembretes desta audiência</strong>{" "}
+                      em cada evento de seu interesse.
+                    </p>
+                    <Button className="w-full gap-2" onClick={() => navigate("/audiencias")}>
+                      Ver audiências e inscrever em lembretes
+                      <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+                    </Button>
                   </CardContent>
                 </Card>
               ) : (
@@ -201,9 +212,17 @@ export default function MyAudienciaInscricoesPage() {
               )}
             </section>
 
-            <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full">
-              Ver todas as audiências
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {lembretes.length > 0 && (
+                <Button variant="default" className="w-full gap-2 sm:flex-1" onClick={() => navigate("/audiencias")}>
+                  Inscrever em mais lembretes
+                  <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => navigate("/audiencias")} className="w-full sm:flex-1">
+                Ver todas as audiências
+              </Button>
+            </div>
           </>
         )}
       </div>

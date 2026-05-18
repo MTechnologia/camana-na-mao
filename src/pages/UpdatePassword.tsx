@@ -47,22 +47,44 @@ const UpdatePassword = () => {
     // Check if there's already a valid session (user might have clicked the link and session is already established)
     const checkExistingSession = async () => {
       try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenHash = urlParams.get("token_hash");
+        const queryType = urlParams.get("type");
+
+        if (tokenHash && queryType === "recovery") {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+
+          if (!mounted) return;
+
+          if (verifyError) {
+            console.error("Recovery verifyOtp failed:", verifyError);
+            toast.error("Link de recuperação inválido ou expirado. Solicite um novo.");
+            setTimeout(() => navigate("/reset-password"), 2000);
+            return;
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setSessionReady(true);
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (!mounted) return;
-        
+
         if (session && !error) {
-          console.log('Existing session found');
+          console.log("Existing session found");
           setSessionReady(true);
         } else {
-          // Check URL for recovery token - Supabase should process it automatically
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const accessToken = hashParams.get('access_token');
-          const type = hashParams.get('type');
-          
-          if (accessToken && type === 'recovery') {
-            console.log('Recovery token found in URL, waiting for session...');
-            // Give Supabase a moment to process the token
+          const accessToken = hashParams.get("access_token");
+          const type = hashParams.get("type");
+
+          if (accessToken && type === "recovery") {
+            console.log("Recovery token found in URL hash, waiting for session...");
             setTimeout(async () => {
               const { data: { session: newSession } } = await supabase.auth.getSession();
               if (mounted && newSession) {
@@ -72,14 +94,11 @@ const UpdatePassword = () => {
             }, 1000);
             return;
           }
-          
-          // Also check for token in query params (some redirects use query params)
-          const urlParams = new URLSearchParams(window.location.search);
-          const tokenFromQuery = urlParams.get('access_token') || urlParams.get('token');
-          
+
+          const tokenFromQuery = urlParams.get("access_token") || urlParams.get("token");
+
           if (!accessToken && !tokenFromQuery) {
-            console.log('No recovery token found');
-            // No token in URL and no session - invalid access
+            console.log("No recovery token found");
             if (mounted) {
               toast.error("Link de recuperação inválido ou expirado. Solicite um novo.");
               setTimeout(() => navigate("/reset-password"), 2000);
@@ -87,7 +106,7 @@ const UpdatePassword = () => {
           }
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error("Error checking session:", error);
       } finally {
         if (mounted) {
           setCheckingSession(false);

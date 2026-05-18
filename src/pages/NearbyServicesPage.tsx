@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFavoriteServiceIds } from "@/hooks/useServiceFavorites";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StandardTimeInput } from "@/components/ui/standard-time-input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, AlertCircle, Map, List, ChevronLeft, ChevronRight, Clock, WifiOff, Database, Loader2 } from "lucide-react";
@@ -627,12 +628,11 @@ export default function NearbyServicesPage() {
               <label htmlFor="opening-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
                 Abertura a partir de
               </label>
-              <Input
+              <StandardTimeInput
                 id="opening-time-filter"
-                type="time"
                 value={openingTimeFilter}
                 onChange={(e) => setOpeningTimeFilter(e.target.value)}
-                className="w-[8rem]"
+                containerClassName="w-[8.5rem]"
                 title="Mostrar equipamentos que abrem ou já estão abertos neste horário (vale para todos os tipos selecionados)"
               />
             </div>
@@ -640,12 +640,11 @@ export default function NearbyServicesPage() {
               <label htmlFor="closing-time-filter" className="text-sm text-muted-foreground whitespace-nowrap">
                 Fechamento até
               </label>
-              <Input
+              <StandardTimeInput
                 id="closing-time-filter"
-                type="time"
                 value={closingTimeFilter}
                 onChange={(e) => setClosingTimeFilter(e.target.value)}
-                className="w-[8rem]"
+                containerClassName="w-[8.5rem]"
                 title="Mostrar equipamentos que ainda estão abertos neste horário (vale para todos os tipos selecionados)"
               />
             </div>

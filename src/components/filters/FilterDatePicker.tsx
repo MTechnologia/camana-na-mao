@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { subDays, subMonths, startOfYear } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import { StandardCalendarPanel } from '@/components/ui/standard-calendar-panel';
 import {
   Popover,
   PopoverContent,
@@ -40,6 +39,7 @@ export function FilterDatePicker({
   className,
 }: FilterDatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [displayMonth, setDisplayMonth] = useState<Date>(value?.from ?? new Date());
 
   const hasValue = value?.from || value?.to;
 
@@ -90,7 +90,9 @@ export function FilterDatePicker({
                   size="sm"
                   className="w-full justify-start text-xs h-7"
                   onClick={() => {
-                    onChange(preset.getValue());
+                    const next = preset.getValue();
+                    onChange(next);
+                    if (next.from) setDisplayMonth(next.from);
                     setOpen(false);
                   }}
                 >
@@ -99,18 +101,21 @@ export function FilterDatePicker({
               ))}
             </div>
           )}
-          <Calendar
+          <StandardCalendarPanel
+            displayMonth={displayMonth}
+            onDisplayMonthChange={setDisplayMonth}
+            minYear={2000}
+            maxYear={new Date().getFullYear() + 1}
             mode="range"
             selected={value ? { from: value.from, to: value.to } : undefined}
             onSelect={(range) => {
               onChange(range ? { from: range.from, to: range.to } : undefined);
+              if (range?.from) setDisplayMonth(range.from);
               if (range?.from && range?.to) {
                 setOpen(false);
               }
             }}
-            locale={ptBR}
             numberOfMonths={1}
-            className="p-3 pointer-events-auto"
           />
         </div>
       </PopoverContent>

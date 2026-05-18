@@ -82,7 +82,7 @@ const PersonalInfoPage = () => {
       <PageHeader title="Informações Pessoais" backTo="/perfil" />
 
       <div className="p-4 space-y-4">
-        <ProfilePageHeader subtitle="Dados de contato" />
+        <ProfilePageHeader subtitle="Informações pessoais" />
 
         <Card>
           <CardHeader className="pb-4">
@@ -91,7 +91,7 @@ const PersonalInfoPage = () => {
               Dados de Contato
             </CardTitle>
             <CardDescription>
-              Informações básicas para identificação
+              Informações pessoais para identificação
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

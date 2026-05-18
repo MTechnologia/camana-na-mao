@@ -28,7 +28,7 @@ const AddressPage = () => {
       <PageHeader title="Endereço" backTo={inInviteFlow ? undefined : "/perfil"} />
 
       <div className="p-4 space-y-4">
-        <ProfilePageHeader subtitle="Seu endereço" />
+        <ProfilePageHeader subtitle="CEP, rua e complemento" />
         {inInviteFlow && (
           <p className="text-xs text-muted-foreground">
             Etapa 3 de 4 — Após salvar, completaremos seus dados demográficos.

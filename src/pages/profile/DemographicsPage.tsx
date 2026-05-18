@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import PageHeader from "@/components/ui/page-header";
+import ProfilePageHeader from "@/components/profile/ProfilePageHeader";
 import DemographicsForm from "@/components/profile/DemographicsForm";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -29,11 +30,12 @@ const DemographicsPage = () => {
         backTo={inInviteFlow ? undefined : "/perfil"}
       />
 
-      <div className="p-6">
+      <div className="p-4 space-y-4">
+        <ProfilePageHeader subtitle="Gênero, idade e classe social" />
         {inInviteFlow && (
-          <p className="text-xs text-muted-foreground mb-4">
+          <p className="text-xs text-muted-foreground px-1">
             Etapa 4 de 4 — Última! Estes dados ajudam a análise agregada do
-            sistema. Você pode pular pular campos opcionais e completar depois.
+            sistema. Você pode pular campos opcionais e completar depois.
           </p>
         )}
         <DemographicsForm userId={user.id} onSaved={handleSaved} />
