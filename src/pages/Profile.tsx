@@ -32,7 +32,11 @@ import {
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { status: profileStatus, checkCompletion } = useProfileCompletion();
+  const {
+    status: profileStatus,
+    loading: profileCompletionLoading,
+    checkCompletion,
+  } = useProfileCompletion();
   const { canViewGabinete } = useUserRole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -159,6 +163,7 @@ const Profile = () => {
 
   // Determinar status de completude de cada seção
   const getCompletionStatus = (cardId: string): boolean | null => {
+    if (profileCompletionLoading) return null;
     switch (cardId) {
       case 'address':
         return profileStatus.address;
@@ -351,7 +356,7 @@ const Profile = () => {
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 {/* Avatar com botão de upload */}
-                <div 
+                <div
                   className="relative flex-shrink-0 group"
                   onClick={handleAvatarClick}
                 >
@@ -385,13 +390,14 @@ const Profile = () => {
                   </p>
                 </div>
                 
-                {/* Status de completude */}
+                {/* Status de completude — só após carregar (evita flash amarelo → verde) */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {profileStatus.basic ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <div className="h-2 w-2 rounded-full bg-amber-400" />
-                  )}
+                  {!profileCompletionLoading &&
+                    (profileStatus.basic ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <div className="h-2 w-2 rounded-full bg-amber-400" />
+                    ))}
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
@@ -399,8 +405,8 @@ const Profile = () => {
           </Card>
         )}
 
-        {/* Profile Completion Card */}
-        {profileStatus.percentage < 100 && (
+        {/* Profile Completion Card — oculto até carregar (evita flash "Complete seu perfil") */}
+        {!profileCompletionLoading && profileStatus.percentage < 100 && (
           <div className="mb-2">
             <ProfileCompletionCard status={profileStatus} />
           </div>
