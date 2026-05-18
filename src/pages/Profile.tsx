@@ -195,7 +195,7 @@ const Profile = () => {
     {
       id: 'favorites',
       title: 'Meus Favoritos',
-      description: 'Equipamentos públicos salvos',
+      description: 'Atalhos salvos com o coração (não são alertas de avaliação)',
       icon: Bookmark,
       iconColor: 'text-amber-600',
       iconBg: 'bg-amber-100',

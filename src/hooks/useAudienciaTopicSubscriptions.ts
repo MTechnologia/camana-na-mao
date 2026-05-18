@@ -50,7 +50,7 @@ export function useAudienciaTopicSubscriptions() {
         .from("audiencia_topic_alerts")
         .upsert(
           { user_id: user.id, tema },
-          { onConflict: 'user_id,tema' }
+          { onConflict: "user_id,tema", ignoreDuplicates: true },
         );
 
       if (error) {

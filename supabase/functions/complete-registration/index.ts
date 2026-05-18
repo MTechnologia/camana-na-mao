@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { interestCategoriesToAudienciaTemas } from "../_shared/interest-audiencia-mapping.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -185,6 +186,17 @@ serve(async (req) => {
           JSON.stringify({ error: "Não foi possível salvar interesses", details: intErr.message }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      const alertTemas = interestCategoriesToAudienciaTemas(interests);
+      if (alertTemas.length > 0) {
+        const alertRows = alertTemas.map((tema) => ({ user_id: userId, tema }));
+        const { error: alertErr } = await admin
+          .from("audiencia_topic_alerts")
+          .upsert(alertRows, { onConflict: "user_id,tema" });
+        if (alertErr) {
+          console.error("complete-registration audiencia_topic_alerts:", alertErr);
+        }
       }
     }
 
