@@ -16,6 +16,7 @@ import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
 import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
 import { useTransportLines } from '@/hooks/useTransportLines';
+import { resolveTransportLine } from '@/lib/transportLinesApi';
 import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -100,12 +101,32 @@ export default function NewReportPage() {
         (matches.length === 1 ? matches[0] : null);
 
       if (!exactMatch) {
-        return null;
+        const resolved = await resolveTransportLine({
+          line_code: line.line_code,
+          line_name: line.line_name,
+        });
+        return {
+          id: resolved.id,
+          label: `${resolved.line_code} - ${resolved.line_name}`,
+        };
       }
 
+      if (exactMatch.id) {
+        return {
+          id: exactMatch.id,
+          label: `${exactMatch.line_code} - ${exactMatch.line_name}`,
+        };
+      }
+
+      const resolved = await resolveTransportLine({
+        line_code: exactMatch.line_code,
+        line_name: exactMatch.line_name,
+        sptrans_codigo_linha: exactMatch.sptrans_codigo_linha,
+        line_type: exactMatch.line_type,
+      });
       return {
-        id: exactMatch.id,
-        label: `${exactMatch.line_code} - ${exactMatch.line_name}`,
+        id: resolved.id,
+        label: `${resolved.line_code} - ${resolved.line_name}`,
       };
     } catch (error) {
       console.error('Erro ao resolver linha para acompanhamento:', error);

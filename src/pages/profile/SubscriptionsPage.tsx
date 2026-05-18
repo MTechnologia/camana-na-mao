@@ -26,7 +26,7 @@ import PageHeader from "@/components/ui/page-header";
 import { useServiceSubscriptions } from "@/hooks/useServiceSubscriptions";
 import { useTransportSubscriptions } from "@/hooks/useTransportSubscriptions";
 import { useAudienciaTopicSubscriptions } from "@/hooks/useAudienciaTopicSubscriptions";
-import { useTransportLines } from "@/hooks/useTransportLines";
+import { useTransportLines, type TransportLineSearchRow } from "@/hooks/useTransportLines";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -78,7 +78,8 @@ export default function SubscriptionsPage() {
   const { 
     subscriptions: transportSubs, 
     loading: loadingTransport, 
-    toggleSubscription: toggleTransport 
+    toggleSubscription: toggleTransport,
+    subscribeToLine,
   } = useTransportSubscriptions();
   
   const { 
@@ -87,24 +88,62 @@ export default function SubscriptionsPage() {
     toggleSubscription: toggleTopic 
   } = useAudienciaTopicSubscriptions();
 
-  const { lines: allLines, loading: loadingLines } = useTransportLines();
+  const { searchLinesRemote } = useTransportLines({ loadCatalog: false });
 
   const [transportSearch, setTransportSearch] = useState("");
+  const [transportSearchResults, setTransportSearchResults] = useState<TransportLineSearchRow[]>([]);
+  const [loadingTransportSearch, setLoadingTransportSearch] = useState(false);
   const activeTab = searchParams.get("aba") === "audiencias" ? "audiencias" : "alertas";
-  
-  const filteredLines = useMemo(() => {
-    if (!transportSearch || transportSearch.length < 2) return [];
-    
-    // Filtra para não mostrar linhas que o usuário já segue, evitando duplicidade em tela
-    const subscribedLineIds = new Set(transportSubs.map(s => s.line_id));
-    
-    return allLines.filter(line => 
-      !subscribedLineIds.has(line.id) && (
-        line.line_code.toLowerCase().includes(transportSearch.toLowerCase()) ||
-        line.line_name.toLowerCase().includes(transportSearch.toLowerCase())
-      )
-    ).slice(0, 5);
-  }, [allLines, transportSearch, transportSubs]);
+
+  const subscribedLineIds = useMemo(
+    () => new Set(transportSubs.map((s) => s.line_id).filter(Boolean)),
+    [transportSubs],
+  );
+  const subscribedLineCodes = useMemo(
+    () =>
+      new Set(
+        transportSubs
+          .map((s) => s.transport_lines?.line_code?.trim().toLowerCase())
+          .filter(Boolean) as string[],
+      ),
+    [transportSubs],
+  );
+
+  useEffect(() => {
+    const q = transportSearch.trim();
+    if (q.length < 2) {
+      setTransportSearchResults([]);
+      setLoadingTransportSearch(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingTransportSearch(true);
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const rows = await searchLinesRemote(q, 10);
+          if (cancelled) return;
+          const filtered = rows.filter(
+            (line) =>
+              !subscribedLineIds.has(line.id ?? "") &&
+              !subscribedLineCodes.has(line.line_code.trim().toLowerCase()),
+          );
+          setTransportSearchResults(filtered);
+        } catch (err) {
+          console.error("[SubscriptionsPage] transport search", err);
+          if (!cancelled) setTransportSearchResults([]);
+        } finally {
+          if (!cancelled) setLoadingTransportSearch(false);
+        }
+      })();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [transportSearch, searchLinesRemote, subscribedLineIds, subscribedLineCodes]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -175,7 +214,7 @@ export default function SubscriptionsPage() {
     );
   }
 
-  const isLoading = loadingServices || loadingTransport || loadingTopics || loadingLines;
+  const isLoading = loadingServices || loadingTransport || loadingTopics;
 
   const isServiceSubscribed = (serviceId: string) => serviceSubs.some(s => s.service_id === serviceId);
   const isTransportSubscribed = (lineId: string) =>
@@ -292,29 +331,51 @@ export default function SubscriptionsPage() {
                     <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Buscar linha para seguir (ex: 8500-10 ou Jabaquara)"
-                        className="pl-9 text-sm"
+                        placeholder="Buscar linha SPTrans (ex: 875A-10 ou Lapa)"
+                        className="pl-9 pr-9 text-sm"
                         value={transportSearch}
                         onChange={(e) => setTransportSearch(e.target.value)}
                       />
+                      {loadingTransportSearch && (
+                        <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
                     </div>
 
-                    {filteredLines.length > 0 && (
+                    {transportSearch.trim().length >= 2 && !loadingTransportSearch && transportSearchResults.length === 0 && (
+                      <p className="mt-2 px-1 text-xs text-muted-foreground">
+                        Nenhuma linha encontrada na SPTrans para este termo.
+                      </p>
+                    )}
+
+                    {transportSearchResults.length > 0 && (
                       <Card className="mt-2 shadow-sm">
                         <CardContent className="p-0 divide-y">
-                          {filteredLines.map((line) => (
-                            <div key={line.id} className="flex items-center justify-between p-3">
+                          {transportSearchResults.map((line) => {
+                            const following = line.id
+                              ? isTransportSubscribed(line.id)
+                              : subscribedLineCodes.has(line.line_code.trim().toLowerCase());
+                            return (
+                            <div key={`${line.line_code}-${line.sptrans_codigo_linha ?? "x"}`} className="flex items-center justify-between p-3">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium">{line.line_code} - {line.line_name}</p>
-                                <p className="text-[10px] text-muted-foreground uppercase">{line.line_type}</p>
+                                <p className="text-sm font-medium">{line.line_code}</p>
+                                <p className="text-xs text-muted-foreground truncate">{line.line_name}</p>
                               </div>
                               <Button
                                 type="button"
                                 variant="outline"
-                                className={getTransportButtonClasses(isTransportSubscribed(line.id))}
-                                onClick={() => toggleTransport(line.id, !isTransportSubscribed(line.id))}
+                                disabled={following}
+                                className={getTransportButtonClasses(following)}
+                                onClick={() =>
+                                  void subscribeToLine({
+                                    id: line.id,
+                                    line_code: line.line_code,
+                                    line_name: line.line_name,
+                                    line_type: line.line_type,
+                                    sptrans_codigo_linha: line.sptrans_codigo_linha,
+                                  })
+                                }
                               >
-                                {isTransportSubscribed(line.id) ? (
+                                {following ? (
                                   <>
                                     <Check className="mr-1.5 h-3.5 w-3.5" />
                                     Seguindo
@@ -327,7 +388,8 @@ export default function SubscriptionsPage() {
                                 )}
                               </Button>
                             </div>
-                          ))}
+                            );
+                          })}
                         </CardContent>
                       </Card>
                     )}
@@ -348,7 +410,10 @@ export default function SubscriptionsPage() {
                             <div key={sub.id} className="flex items-center justify-between p-4">
                               <div className="flex-1 min-w-0 mr-4">
                                 <p className="font-medium text-sm">
-                                  {sub.transport_lines?.line_code} - {sub.transport_lines?.line_name}
+                                  {sub.transport_lines?.line_code}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {sub.transport_lines?.line_name}
                                 </p>
                                 <p className="text-xs text-muted-foreground capitalize">
                                   {sub.transport_lines?.line_type}
