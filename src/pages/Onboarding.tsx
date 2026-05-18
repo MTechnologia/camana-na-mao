@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { INTEREST_ICONS } from "@/components/icons";
 import { isInInviteSetupFlow, nextInviteStep } from "@/lib/inviteSetupFlow";
+import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -54,6 +55,8 @@ const Onboarding = () => {
         .insert(interests);
 
       if (error) throw error;
+
+      await syncInterestAudienciaAlerts(user.id, selectedInterests);
 
       toast.success("Interesses salvos com sucesso!");
       const next = inInviteFlow ? nextInviteStep("/onboarding") : null;

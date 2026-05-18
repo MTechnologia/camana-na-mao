@@ -34,11 +34,14 @@ interface AudienciaFiltersProps {
 }
 
 const temas = [
+  { id: "Legislativo", label: "Legislativo" },
   { id: "Mobilidade", label: "Mobilidade" },
   { id: "Educação", label: "Educação" },
   { id: "Saúde", label: "Saúde" },
   { id: "Meio Ambiente", label: "Meio Ambiente" },
   { id: "Cultura", label: "Cultura" },
+  { id: "Urbanismo", label: "Urbanismo" },
+  { id: "Economia", label: "Economia" },
   { id: "Segurança", label: "Segurança" },
 ];
 

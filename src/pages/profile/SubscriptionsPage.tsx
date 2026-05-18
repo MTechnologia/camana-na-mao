@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   Building2,
   Bus,
-  MessageSquare,
   Calendar,
   Bell,
   Video,
@@ -16,6 +15,7 @@ import {
   Search,
   Plus,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,21 +25,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PageHeader from "@/components/ui/page-header";
 import { useServiceSubscriptions } from "@/hooks/useServiceSubscriptions";
 import { useTransportSubscriptions } from "@/hooks/useTransportSubscriptions";
-import { useAudienciaTopicSubscriptions } from "@/hooks/useAudienciaTopicSubscriptions";
 import { useTransportLines, type TransportLineSearchRow } from "@/hooks/useTransportLines";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-
-const COMMON_TOPICS = [
-  "Mobilidade", 
-  "Educação", 
-  "Saúde", 
-  "Meio Ambiente", 
-  "Cultura", 
-  "Segurança",
-  "Urbanismo",
-  "Esportes"
-];
+import {
+  buildAudienciaTopicsForUi,
+  buildAudienciasInterestOrFilter,
+  interestCategoriesToSearchTerms,
+} from "@/lib/interestAudienciaMapping";
+import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 
 type AudienciaRef = {
   id: string;
@@ -61,14 +55,24 @@ type Participacao = {
   audiencia: AudienciaRef | null;
 };
 
+type AudienciaRecomendada = AudienciaRef & {
+  tema?: string | null;
+  descricao?: string | null;
+};
+
 export default function SubscriptionsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [lembretesAudiencia, setLembretesAudiencia] = useState<InscricaoLembrete[]>([]);
   const [participacoesAudiencia, setParticipacoesAudiencia] = useState<Participacao[]>([]);
   const [loadingAudiencias, setLoadingAudiencias] = useState(true);
-  
+  const [profileInterestCategories, setProfileInterestCategories] = useState<string[]>([]);
+  const [loadingProfileInterests, setLoadingProfileInterests] = useState(true);
+  const [recommendedAudiencias, setRecommendedAudiencias] = useState<AudienciaRecomendada[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
   const { 
     subscriptions: serviceSubs, 
     loading: loadingServices, 
@@ -82,18 +86,17 @@ export default function SubscriptionsPage() {
     subscribeToLine,
   } = useTransportSubscriptions();
   
-  const { 
-    subscriptions: topicSubs, 
-    loading: loadingTopics, 
-    toggleSubscription: toggleTopic 
-  } = useAudienciaTopicSubscriptions();
-
   const { searchLinesRemote } = useTransportLines({ loadCatalog: false });
 
   const [transportSearch, setTransportSearch] = useState("");
   const [transportSearchResults, setTransportSearchResults] = useState<TransportLineSearchRow[]>([]);
   const [loadingTransportSearch, setLoadingTransportSearch] = useState(false);
   const activeTab = searchParams.get("aba") === "audiencias" ? "audiencias" : "alertas";
+
+  const profileSearchTerms = useMemo(
+    () => interestCategoriesToSearchTerms(profileInterestCategories),
+    [profileInterestCategories],
+  );
 
   const subscribedLineIds = useMemo(
     () => new Set(transportSubs.map((s) => s.line_id).filter(Boolean)),
@@ -144,6 +147,86 @@ export default function SubscriptionsPage() {
       clearTimeout(timer);
     };
   }, [transportSearch, searchLinesRemote, subscribedLineIds, subscribedLineCodes]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setProfileInterestCategories([]);
+      setLoadingProfileInterests(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingProfileInterests(true);
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from("user_interests")
+        .select("interest_category")
+        .eq("user_id", user.id);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("[SubscriptionsPage] user_interests", error);
+        setProfileInterestCategories([]);
+      } else {
+        setProfileInterestCategories((data ?? []).map((row) => row.interest_category));
+      }
+      setLoadingProfileInterests(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, location.pathname]);
+
+  useEffect(() => {
+    if (!user?.id || loadingProfileInterests || profileInterestCategories.length === 0) {
+      setRecommendedAudiencias([]);
+      setLoadingRecommendations(false);
+      return;
+    }
+    if (profileSearchTerms.length === 0) {
+      setRecommendedAudiencias([]);
+      setLoadingRecommendations(false);
+      return;
+    }
+
+    const orFilter = buildAudienciasInterestOrFilter(profileSearchTerms);
+    if (!orFilter) {
+      setRecommendedAudiencias([]);
+      setLoadingRecommendations(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingRecommendations(true);
+    const today = new Date().toISOString().slice(0, 10);
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from("audiencias")
+        .select("id, titulo, data, status, tema, descricao, comissao")
+        .gte("data", today)
+        .or(orFilter)
+        .order("data", { ascending: true })
+        .limit(20);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("[SubscriptionsPage] recommended audiencias", error);
+        setRecommendedAudiencias([]);
+      } else {
+        setRecommendedAudiencias((data ?? []) as AudienciaRecomendada[]);
+      }
+      setLoadingRecommendations(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, loadingProfileInterests, profileInterestCategories, profileSearchTerms]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -214,12 +297,12 @@ export default function SubscriptionsPage() {
     );
   }
 
-  const isLoading = loadingServices || loadingTransport || loadingTopics;
+  const isLoading = loadingServices || loadingTransport;
 
   const isServiceSubscribed = (serviceId: string) => serviceSubs.some(s => s.service_id === serviceId);
   const isTransportSubscribed = (lineId: string) =>
     transportSubs.some((s) => s.line_id === lineId && s.subscription_type === "alert");
-  const isTopicSubscribed = (tema: string) => topicSubs.some(s => s.tema === tema);
+
   const getTransportButtonClasses = (active: boolean) =>
     cn(
       "min-w-24 justify-center rounded-full border px-4 py-2 text-xs font-medium transition-colors",
@@ -238,7 +321,7 @@ export default function SubscriptionsPage() {
       <div className="pt-[70px] px-4 max-w-2xl mx-auto space-y-8">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            Gerencie aqui todos os alertas e notificações que você recebe sobre serviços, transporte e temas legislativos.
+            Gerencie alertas de serviços e transporte e veja audiências recomendadas conforme seus interesses no perfil.
           </p>
         </div>
         <Tabs
@@ -254,7 +337,7 @@ export default function SubscriptionsPage() {
               value="alertas"
               className="rounded-lg py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none"
             >
-              Alertas e temas
+              Alertas
             </TabsTrigger>
             <TabsTrigger
               value="audiencias"
@@ -437,60 +520,71 @@ export default function SubscriptionsPage() {
                 </section>
 
                 <section className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <MessageSquare className="h-5 w-5 text-primary" />
-                    <h2 className="font-semibold text-lg">Temas de Audiência</h2>
+                  <div className="flex items-start justify-between gap-3 px-1">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <div className="space-y-1 min-w-0">
+                        <h2 className="font-semibold text-lg">Audiências recomendadas</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Lista futura com base nos interesses definidos em Meu Perfil.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-primary text-xs h-8 shrink-0"
+                      onClick={() => navigate("/perfil/interesses")}
+                    >
+                      Interesses
+                    </Button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 px-1">
-                    {COMMON_TOPICS.map((tema) => {
-                      const active = isTopicSubscribed(tema);
-                      return (
-                        <Button
-                          key={tema}
-                          variant={active ? "default" : "outline"}
-                          className={cn(
-                            "justify-between h-auto py-3 px-4 font-normal text-sm border-muted-foreground/20",
-                            active && "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
-                          )}
-                          onClick={() => toggleTopic(tema, !active)}
-                        >
-                          {tema}
-                          {active ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4 text-muted-foreground" />}
+                  {loadingProfileInterests || loadingRecommendations ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : profileInterestCategories.length === 0 ? (
+                    <Card className="border-dashed">
+                      <CardContent className="p-4 text-center space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Selecione pelo menos 3 interesses no perfil para ver audiências recomendadas.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/perfil/interesses")}>
+                          Definir interesses
                         </Button>
-                      );
-                    })}
-                  </div>
-
-                  <Card>
-                    <CardContent className="p-0">
-                      {topicSubs.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <p className="text-sm text-muted-foreground">
-                            Você não tem temas de interesse cadastrados para alertas.
-                            Selecione temas acima para ser notificado sobre novas audiências.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="divide-y">
-                          {topicSubs.map((sub) => (
-                            <div key={sub.id} className="flex items-center justify-between p-4">
-                              <div className="flex-1 min-w-0 mr-4">
-                                <p className="font-medium text-sm">{sub.tema}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Avisar quando houver audiências sobre este tema
-                                </p>
-                              </div>
-                              <Switch
-                                checked={true}
-                                onCheckedChange={() => toggleTopic(sub.tema, false)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  ) : recommendedAudiencias.length === 0 ? (
+                    <Card className="border-dashed">
+                      <CardContent className="p-4 text-center space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Nenhuma audiência futura no calendário combina com seus interesses neste momento.
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/audiencias")}>
+                          Ver todas as audiências
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <ul className="space-y-2 px-1">
+                      {recommendedAudiencias.map((audiencia) => (
+                        <Card
+                          key={audiencia.id}
+                          className="cursor-pointer hover:shadow-md transition-all"
+                          onClick={() => navigate(`/audiencias/${audiencia.id}`)}
+                        >
+                          <CardContent className="p-3">
+                            <p className="font-medium text-sm truncate">{audiencia.titulo}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {audiencia.tema ? `${audiencia.tema} · ` : ""}
+                              {audiencia.data ? formatData(audiencia.data) : "—"}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               </>
             )}

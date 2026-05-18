@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Heart } from "lucide-react";
 import { INTEREST_ICONS } from "@/components/icons";
+import { syncInterestAudienciaAlerts } from "@/lib/syncInterestAudienciaAlerts";
 
 const INTEREST_CATEGORIES = [
   { id: "legislativo", label: "Legislativo", icon: "📜", description: "Projetos de lei e votações" },
@@ -86,7 +87,14 @@ const InterestsForm = ({ userId, onSuccess }: InterestsFormProps) => {
 
       if (insertError) throw insertError;
 
-      toast.success("Interesses salvos com sucesso!");
+      const { synced, error: syncError } = await syncInterestAudienciaAlerts(userId, selectedInterests);
+      if (syncError) {
+        console.warn("[InterestsForm] sync audiencia alerts:", syncError);
+      } else if (synced.length > 0) {
+        toast.success(`Interesses salvos! Alertas de audiência ativados para: ${synced.join(", ")}.`);
+      } else {
+        toast.success("Interesses salvos com sucesso!");
+      }
       onSuccess?.();
     } catch (error: unknown) {
       console.error("Error saving interests:", error);
