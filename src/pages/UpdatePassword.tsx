@@ -5,15 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Lock, ChevronLeft, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { z } from "zod";
-
-const passwordSchema = z.object({
-  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
+import { updatePasswordSchema, validatePasswordPolicy } from "@/lib/validations";
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
@@ -26,7 +19,7 @@ const UpdatePassword = () => {
   const [sessionReady, setSessionReady] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  const isPasswordValid = password.length >= 6;
+  const isPasswordValid = validatePasswordPolicy(password);
   const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   useEffect(() => {
@@ -121,7 +114,7 @@ const UpdatePassword = () => {
     }
 
     try {
-      passwordSchema.parse({ password, confirmPassword });
+      updatePasswordSchema.parse({ password, confirmPassword });
       setLoading(true);
 
       const { error } = await supabase.auth.updateUser({ 
@@ -239,7 +232,7 @@ const UpdatePassword = () => {
           senha
         </h1>
         <p className="text-gray-600 mt-4">
-          Digite sua nova senha abaixo. Ela deve ter no mínimo 6 caracteres.
+          Digite sua nova senha abaixo. Use as mesmas regras do cadastro (8+ caracteres, maiúscula, minúscula, número e caractere especial).
         </p>
       </div>
 
@@ -291,17 +284,20 @@ const UpdatePassword = () => {
             )}
           </div>
 
-          {/* Password requirements hint */}
-          <div className="text-sm text-gray-500 space-y-1">
-            <p className={`flex items-center gap-2 ${isPasswordValid ? 'text-green-600' : ''}`}>
-              {isPasswordValid ? <Check size={14} /> : <span className="w-3.5" />}
-              Mínimo de 6 caracteres
-            </p>
-            <p className={`flex items-center gap-2 ${doPasswordsMatch ? 'text-green-600' : ''}`}>
+          <PasswordRequirementsChecklist
+            password={password}
+            className="border-gray-200 bg-gray-50"
+          />
+          {confirmPassword.length > 0 && (
+            <p
+              className={`flex items-center gap-2 text-sm ${
+                doPasswordsMatch ? "text-green-600" : "text-gray-500"
+              }`}
+            >
               {doPasswordsMatch ? <Check size={14} /> : <span className="w-3.5" />}
               As senhas coincidem
             </p>
-          </div>
+          )}
 
           <Button
             type="submit"
