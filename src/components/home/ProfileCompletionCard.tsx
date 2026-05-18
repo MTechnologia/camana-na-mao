@@ -19,9 +19,9 @@ const ProfileCompletionCard = ({ status }: ProfileCompletionCardProps) => {
   if (status.percentage === 100) return null;
 
   const steps = [
-    { key: 'basic', label: 'Informações básicas', completed: status.basic, path: '/perfil/dados-pessoais' },
+    { key: 'basic', label: 'Informações Pessoais', completed: status.basic, path: '/perfil/dados-pessoais' },
     { key: 'interests', label: 'Interesses', completed: status.interests, path: '/perfil/interesses' },
-    { key: 'demographics', label: 'Dados demográficos', completed: status.demographics, path: '/perfil/dados-demograficos' },
+    { key: 'demographics', label: 'Dados Demográficos', completed: status.demographics, path: '/perfil/dados-demograficos' },
     { key: 'address', label: 'Endereço', completed: status.address, path: '/perfil/endereco' },
   ];
 

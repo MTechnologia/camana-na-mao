@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ServiceTypeIcon } from "@/components/icons";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
+import { formatVisitDurationMs } from "@/lib/closeServiceVisitDeparture";
 import { getVisitHistoryUiStatus } from "@/lib/visitHistoryStatus";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import { MapPin, Clock, Timer, AlertCircle } from "lucide-react";
@@ -21,15 +22,6 @@ function formatVisitDateTime(iso: string): { date: string; time: string } {
   };
 }
 
-function formatDurationMs(ms: number): string {
-  if (ms < 0) return "—";
-  const m = Math.floor(ms / 60_000);
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  const rest = m % 60;
-  return rest > 0 ? `${h} h ${rest} min` : `${h} h`;
-}
-
 export default function VisitHistoryPage() {
   const navigate = useNavigate();
   const { visits, loading, error } = useVisitHistory();
@@ -39,6 +31,11 @@ export default function VisitHistoryPage() {
       <PageHeader title="Histórico de visitas" backTo="/perfil" />
       <div className="px-4 pb-6 space-y-4">
         <ProfilePageHeader subtitle="Equipamentos públicos detectados pelo app" />
+
+        <p className="text-sm text-muted-foreground leading-relaxed px-1">
+          A <strong>entrada</strong> é registrada após permanência mínima no local. A <strong>saída</strong> pode ser
+          detectada pelo GPS (com o app rastreando localização) ou registrada ao avaliar, dispensar ou expirar a visita.
+        </p>
 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
@@ -155,7 +152,7 @@ export default function VisitHistoryPage() {
                             Duração
                           </p>
                           <p className="mt-0.5 pl-4 tabular-nums">
-                            {durationMs != null ? formatDurationMs(durationMs) : "—"}
+                            {durationMs != null ? formatVisitDurationMs(durationMs) : "—"}
                           </p>
                         </div>
                       </div>

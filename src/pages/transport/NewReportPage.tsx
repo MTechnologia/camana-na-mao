@@ -9,6 +9,9 @@ import { ReportSummaryCard } from '@/components/transport/ReportSummaryCard';
 import { ReportSuccessCard } from '@/components/shared/ReportSuccessCard';
 import { PatternAlert } from '@/components/transport/PatternAlert';
 import { Input } from '@/components/ui/input';
+import { StandardDatePicker } from '@/components/ui/standard-date-picker';
+import { StandardTimeInput } from '@/components/ui/standard-time-input';
+import { formatDateLocal, parseDateLocal } from '@/lib/datePickerConstants';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
@@ -363,19 +366,29 @@ export default function NewReportPage() {
             <div className="space-y-4">
               <div>
                 <Label>Data</Label>
-                <Input
-                  type="date"
-                  value={reportData.occurrence_date || ''}
-                  onChange={(e) => setReportData({ ...reportData, occurrence_date: e.target.value })}
-                  max={new Date().toISOString().split('T')[0]}
+                <StandardDatePicker
+                  value={
+                    reportData.occurrence_date
+                      ? parseDateLocal(reportData.occurrence_date)
+                      : undefined
+                  }
+                  onChange={(date) =>
+                    setReportData({
+                      ...reportData,
+                      occurrence_date: date ? formatDateLocal(date) : '',
+                    })
+                  }
+                  maxYear={new Date().getFullYear()}
+                  disabled={(date) => date > new Date()}
                 />
               </div>
               <div>
                 <Label>Horário (opcional)</Label>
-                <Input
-                  type="time"
+                <StandardTimeInput
                   value={reportData.occurrence_time || ''}
-                  onChange={(e) => setReportData({ ...reportData, occurrence_time: e.target.value })}
+                  onChange={(e) =>
+                    setReportData({ ...reportData, occurrence_time: e.target.value })
+                  }
                 />
               </div>
               <div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { closeServiceVisitWithDeparture } from "@/lib/closeServiceVisitDeparture";
 
 interface PendingRating {
   id: string;
@@ -90,11 +91,11 @@ export const usePendingRatings = (options?: { limit?: number }) => {
   const markAsSkipped = async (visitId: string) => {
     if (!userId) return;
     try {
-      const { error: updateError } = await supabase
-        .from("service_visits")
-        .update({ status: "skipped" })
-        .eq("id", visitId)
-        .eq("user_id", userId);
+      const { error: updateError } = await closeServiceVisitWithDeparture(supabase, {
+        visitId,
+        userId,
+        status: "skipped",
+      });
 
       if (updateError) throw updateError;
 

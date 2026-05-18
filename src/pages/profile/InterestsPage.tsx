@@ -15,7 +15,7 @@ const InterestsPage = () => {
       <PageHeader title="Interesses" backTo="/perfil" />
 
       <div className="p-4 space-y-4">
-        <ProfilePageHeader subtitle="Áreas de interesse" />
+        <ProfilePageHeader subtitle="Áreas de interesse e preferências" />
         <InterestsForm 
           userId={user.id} 
           onSuccess={() => navigate("/perfil")}

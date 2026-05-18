@@ -19,6 +19,7 @@ Objetivo: assim como o Google pede avaliação após visitar um restaurante, o s
   - Verificação a cada 1 minuto
   - Cria `service_visit` automaticamente ao detectar
   - Se o usuário se afasta (>50 m) de uma visita `pending` sem `departed_at`, preenche `departed_at` (duração ≈ `departed_at - created_at`)
+  - **NREF012:** se a saída por GPS não ocorrer, `departed_at` é preenchido ao **avaliar**, **dispensar** ou **expirar** a visita (sem sobrescrever saída já registrada pelo GPS). Ver `src/lib/closeServiceVisitDeparture.ts`.
   - Desativa em modo simulado (localização Centro SP)
 
 - **Integração em "Perto de Você"** (`src/pages/NearbyServicesPage.tsx`)
