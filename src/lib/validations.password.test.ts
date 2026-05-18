@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { updatePasswordSchema, validatePasswordPolicy } from "./validations";
+import {
+  registerCredentialsSchema,
+  updatePasswordSchema,
+  validatePasswordPolicy,
+} from "./validations";
 
 describe("validatePasswordPolicy", () => {
   it("aceita senha que atende todos os requisitos", () => {
@@ -10,6 +14,19 @@ describe("validatePasswordPolicy", () => {
     expect(validatePasswordPolicy("abcdef1!")).toBe(false);
     expect(validatePasswordPolicy("Abcdef1")).toBe(false);
     expect(validatePasswordPolicy("Ab1!")).toBe(false);
+  });
+});
+
+describe("registerCredentialsSchema", () => {
+  it("valida e-mail, telefone e senha juntos", () => {
+    const result = registerCredentialsSchema.safeParse({
+      fullName: "Maria Silva",
+      email: "maria@exemplo.com.br",
+      phone: "11987654321",
+      password: "Abcdef1!",
+      confirmPassword: "Abcdef1!",
+    });
+    expect(result.success).toBe(true);
   });
 });
 
