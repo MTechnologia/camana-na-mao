@@ -118,6 +118,17 @@ export const registerStep2Schema = z.object({
   path: ["confirmPassword"],
 });
 
+/** NREF002 — dados pessoais + senha na mesma etapa do cadastro. */
+export const registerCredentialsSchema = registerStep1Schema
+  .extend({
+    password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
 // Complete registration schema
 export const registerSchema = z.object({
   fullName: z.string()
