@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { parseEdgeFunctionError } from "@/lib/edgeFunctionError";
 import { ROLE_LABELS } from "@/lib/permissions";
 import type { UserRole } from "@/hooks/useUserRole";
 
@@ -117,19 +118,35 @@ export function InviteUserDialog({
           councilMemberId: needsGabinete ? councilMemberId : undefined,
         },
       });
-      if (error) throw error;
-      const message =
-        (data as { error?: string })?.error
-          ? `Aviso: ${(data as { error: string }).error}`
-          : `Convite enviado para ${email.trim()}.`;
-      toast.success(message);
+
+      const payload = (data ?? {}) as {
+        error?: string;
+        warning?: string;
+        status?: string;
+      };
+
+      if (error) {
+        const friendly = await parseEdgeFunctionError(error, data);
+        throw new Error(friendly);
+      }
+
+      if (payload.error) {
+        throw new Error(payload.error);
+      }
+
+      if (payload.warning) {
+        toast.warning(payload.warning);
+      } else if (payload.status === "resent") {
+        toast.success(`Convite reenviado para ${email.trim()}.`);
+      } else {
+        toast.success(`Convite enviado para ${email.trim()}.`);
+      }
       onInvited?.();
       onOpenChange(false);
     } catch (err) {
       console.error("[InviteUserDialog] error", err);
-      const msg =
-        err instanceof Error ? err.message : "Erro desconhecido.";
-      toast.error(`Não foi possível convidar: ${msg}`);
+      const msg = err instanceof Error ? err.message : "Erro desconhecido.";
+      toast.error(msg.startsWith("Não foi possível") ? msg : `Não foi possível convidar: ${msg}`);
     } finally {
       setSubmitting(false);
     }
