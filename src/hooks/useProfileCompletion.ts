@@ -88,7 +88,8 @@ export const useProfileCompletion = () => {
       setLoading(false);
       return;
     }
-    checkCompletion();
+    setLoading(true);
+    void checkCompletion();
   }, [user, checkCompletion]);
 
   const markStepCompleted = async (step: string) => {
