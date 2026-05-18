@@ -231,7 +231,7 @@ export default function SubscriptionsPage() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <PageHeader 
-        title="Central de Inscrições" 
+        title="Minhas Inscrições" 
         backTo="/perfil"
       />
       
