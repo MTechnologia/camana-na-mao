@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePendingRatings } from "@/hooks/usePendingRatings";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { buildVisitCloseUpdate } from "@/lib/closeServiceVisitDeparture";
 import { getServiceDisplayName } from "@/lib/mapUtils";
 import { Star, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 export default function EvaluationPage() {
   type VisitWithService = {
     id: string;
+    departed_at?: string | null;
     service_id?: string;
     service: {
       name: string;
@@ -94,7 +96,7 @@ export default function EvaluationPage() {
       // A avaliação já foi salva pelo create_service_rating (IA). Só atualizamos o status da visita.
       const { error: visitError } = await supabase
         .from("service_visits")
-        .update({ status: "completed" })
+        .update(buildVisitCloseUpdate("completed", visit.departed_at ?? null))
         .eq("id", visitId);
 
       if (visitError) throw visitError;

@@ -9,6 +9,9 @@ import { ReportSummaryCard } from '@/components/transport/ReportSummaryCard';
 import { ReportSuccessCard } from '@/components/shared/ReportSuccessCard';
 import { PatternAlert } from '@/components/transport/PatternAlert';
 import { Input } from '@/components/ui/input';
+import { StandardDatePicker } from '@/components/ui/standard-date-picker';
+import { StandardTimeInput } from '@/components/ui/standard-time-input';
+import { formatDateLocal, parseDateLocal } from '@/lib/datePickerConstants';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import PageHeader from '@/components/ui/page-header';
@@ -16,6 +19,7 @@ import { useTransportReport } from '@/hooks/useTransportReport';
 import { useReportPatterns } from '@/hooks/useReportPatterns';
 import { useTransportSubscriptions } from '@/hooks/useTransportSubscriptions';
 import { useTransportLines } from '@/hooks/useTransportLines';
+import { resolveTransportLine } from '@/lib/transportLinesApi';
 import { TransportLineFollowButton } from '@/components/transport/TransportLineFollowButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -100,12 +104,32 @@ export default function NewReportPage() {
         (matches.length === 1 ? matches[0] : null);
 
       if (!exactMatch) {
-        return null;
+        const resolved = await resolveTransportLine({
+          line_code: line.line_code,
+          line_name: line.line_name,
+        });
+        return {
+          id: resolved.id,
+          label: `${resolved.line_code} - ${resolved.line_name}`,
+        };
       }
 
+      if (exactMatch.id) {
+        return {
+          id: exactMatch.id,
+          label: `${exactMatch.line_code} - ${exactMatch.line_name}`,
+        };
+      }
+
+      const resolved = await resolveTransportLine({
+        line_code: exactMatch.line_code,
+        line_name: exactMatch.line_name,
+        sptrans_codigo_linha: exactMatch.sptrans_codigo_linha,
+        line_type: exactMatch.line_type,
+      });
       return {
-        id: exactMatch.id,
-        label: `${exactMatch.line_code} - ${exactMatch.line_name}`,
+        id: resolved.id,
+        label: `${resolved.line_code} - ${resolved.line_name}`,
       };
     } catch (error) {
       console.error('Erro ao resolver linha para acompanhamento:', error);
@@ -342,19 +366,29 @@ export default function NewReportPage() {
             <div className="space-y-4">
               <div>
                 <Label>Data</Label>
-                <Input
-                  type="date"
-                  value={reportData.occurrence_date || ''}
-                  onChange={(e) => setReportData({ ...reportData, occurrence_date: e.target.value })}
-                  max={new Date().toISOString().split('T')[0]}
+                <StandardDatePicker
+                  value={
+                    reportData.occurrence_date
+                      ? parseDateLocal(reportData.occurrence_date)
+                      : undefined
+                  }
+                  onChange={(date) =>
+                    setReportData({
+                      ...reportData,
+                      occurrence_date: date ? formatDateLocal(date) : '',
+                    })
+                  }
+                  maxYear={new Date().getFullYear()}
+                  disabled={(date) => date > new Date()}
                 />
               </div>
               <div>
                 <Label>Horário (opcional)</Label>
-                <Input
-                  type="time"
+                <StandardTimeInput
                   value={reportData.occurrence_time || ''}
-                  onChange={(e) => setReportData({ ...reportData, occurrence_time: e.target.value })}
+                  onChange={(e) =>
+                    setReportData({ ...reportData, occurrence_time: e.target.value })
+                  }
                 />
               </div>
               <div>

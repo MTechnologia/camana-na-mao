@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveTransportLine } from "@/lib/transportLinesApi";
 import { toast } from "sonner";
 
 export type TransportSubscriptionWithLine = {
@@ -58,7 +59,11 @@ export function useTransportSubscriptions() {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
 
-  const toggleSubscription = async (lineId: string, active: boolean, type: string = "alert") => {
+  const toggleSubscription = async (
+    lineId: string,
+    active: boolean,
+    type: string = "alert",
+  ) => {
     if (!user?.id) return;
     if (!lineId?.trim()) {
       toast.error("Não foi possível identificar a linha para acompanhar.");
@@ -97,5 +102,42 @@ export function useTransportSubscriptions() {
     await fetchSubscriptions();
   };
 
-  return { subscriptions, loading, toggleSubscription, refresh: fetchSubscriptions };
+  /** Resolve linha na Olho Vivo / transport_lines e inscreve (NREF005). */
+  const subscribeToLine = async (
+    line: {
+      id?: string | null;
+      line_code: string;
+      line_name: string;
+      line_type?: string;
+      sptrans_codigo_linha?: number | null;
+    },
+    type: string = "alert",
+  ) => {
+    if (!user?.id) return;
+
+    try {
+      let lineId = line.id?.trim() || "";
+      if (!lineId) {
+        const resolved = await resolveTransportLine({
+          line_code: line.line_code,
+          line_name: line.line_name,
+          sptrans_codigo_linha: line.sptrans_codigo_linha,
+          line_type: line.line_type,
+        });
+        lineId = resolved.id;
+      }
+      await toggleSubscription(lineId, true, type);
+    } catch (err) {
+      console.error("[useTransportSubscriptions] subscribeToLine", err);
+      toast.error("Não foi possível seguir esta linha. Tente novamente.");
+    }
+  };
+
+  return {
+    subscriptions,
+    loading,
+    toggleSubscription,
+    subscribeToLine,
+    refresh: fetchSubscriptions,
+  };
 }

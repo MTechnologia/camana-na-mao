@@ -101,7 +101,7 @@ const UserRightsPage = () => {
     },
     {
       id: 'export',
-      title: 'Portabilidade',
+      title: 'Exportar Dados',
       description: 'Exportar seus dados em formato JSON',
       icon: Download,
       iconColor: 'text-purple-600',
@@ -121,7 +121,7 @@ const UserRightsPage = () => {
     },
     {
       id: 'consents',
-      title: 'Gestão de Consentimentos',
+      title: 'Consentimentos',
       description: 'Gerenciar seus consentimentos LGPD',
       icon: Shield,
       iconColor: 'text-indigo-600',

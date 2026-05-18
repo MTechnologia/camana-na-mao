@@ -45,6 +45,9 @@ verify_jwt = false
 [functions.google-places-autocomplete]
 verify_jwt = false
 
+[functions.transport-lines]
+verify_jwt = false
+
 [functions.google-places-details]
 verify_jwt = false
 

@@ -79,11 +79,22 @@ export const passwordRequirements = [
   },
 ];
 
-const validatePasswordPolicy = (password: string) =>
+export const validatePasswordPolicy = (password: string) =>
   passwordRequirements.every((requirement) => requirement.test(password));
 
-const passwordPolicyMessage =
+export const passwordPolicyMessage =
   "A senha deve ter pelo menos 8 caracteres, incluindo letra maiúscula, letra minúscula, número e caractere especial.";
+
+/** Redefinição / troca de senha — mesmas regras do cadastro (registerStep2). */
+export const updatePasswordSchema = z
+  .object({
+    password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
 // Auth validations - Step 1 (Personal Data)
 export const registerStep1Schema = z.object({
@@ -106,6 +117,17 @@ export const registerStep2Schema = z.object({
   message: "As senhas não coincidem",
   path: ["confirmPassword"],
 });
+
+/** NREF002 — dados pessoais + senha na mesma etapa do cadastro. */
+export const registerCredentialsSchema = registerStep1Schema
+  .extend({
+    password: z.string().refine(validatePasswordPolicy, passwordPolicyMessage),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
 
 // Complete registration schema
 export const registerSchema = z.object({

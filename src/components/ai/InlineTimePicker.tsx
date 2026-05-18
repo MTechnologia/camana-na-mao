@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { StandardTimeInput } from "@/components/ui/standard-time-input";
 
 interface InlineTimePickerProps {
   onSelect: (time: string, displayText: string) => void;
@@ -33,13 +33,11 @@ export const InlineTimePicker = ({ onSelect }: InlineTimePickerProps) => {
         <span>Qual foi o horário exato?</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          type="time"
+        <StandardTimeInput
           aria-label="Horário específico"
           value={customTime}
           onChange={(e) => setCustomTime(e.target.value)}
-          className="h-9 w-[140px] text-sm"
-          step={60}
+          containerClassName="w-[10.5rem]"
           onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
         />
         <Button size="sm" variant="default" onClick={handleCustomSubmit} disabled={!customTime}>

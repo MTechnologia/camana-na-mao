@@ -32,6 +32,10 @@ const ROUTE_TITLES: Record<string, string> = {
   "/perfil/preferencias": "Preferências",
   "/perfil/interesses": "Interesses",
   "/perfil/visitas": "Histórico de visitas",
+  "/perfil/inscricoes": "Minhas Inscrições",
+  "/perfil/consentimentos": "Consentimentos",
+  "/perfil/exportar-dados": "Exportar Dados",
+  "/perfil/direitos": "Meus Direitos LGPD",
   // Configurações - PT
   "/configuracoes/acessibilidade": "Acessibilidade",
   // Cidadão - PT
@@ -45,7 +49,7 @@ const ROUTE_TITLES: Record<string, string> = {
   "/paineis/criar": "Criar Painel",
   // Demais rotas
   "/audiencias": "Audiências Públicas",
-  "/audiencias/minhas-inscricoes": "Minhas inscrições em audiências",
+  "/audiencias/minhas-inscricoes": "Minhas Inscrições",
   "/servicos-proximos": "Serviços Próximos",
   "/servicos/favoritos": "Meus Favoritos",
   "/avaliar": "Avaliar Serviço",

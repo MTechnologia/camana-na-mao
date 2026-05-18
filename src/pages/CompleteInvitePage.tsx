@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
+import { updatePasswordSchema, validatePasswordPolicy } from "@/lib/validations";
 
 /**
  * HU-11.1 — Página de complemento de cadastro após convite por email.
@@ -63,7 +65,7 @@ export default function CompleteInvitePage() {
 
   const passwordsMatch =
     password.length > 0 && password === confirmPassword;
-  const passwordValid = password.length >= 8;
+  const passwordValid = validatePasswordPolicy(password);
   const fullNameValid = fullName.trim().length >= 3;
   const formValid = passwordValid && passwordsMatch && fullNameValid;
 
@@ -71,6 +73,8 @@ export default function CompleteInvitePage() {
     if (!formValid) return;
     setSubmitting(true);
     try {
+      updatePasswordSchema.parse({ password, confirmPassword });
+
       // Atualiza senha
       const { error: pwErr } = await supabase.auth.updateUser({ password });
       if (pwErr) throw pwErr;
@@ -120,7 +124,7 @@ export default function CompleteInvitePage() {
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Mínimo 8 caracteres"
+                placeholder="Crie uma senha segura"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-8 pr-9"
@@ -139,10 +143,8 @@ export default function CompleteInvitePage() {
                 )}
               </button>
             </div>
-            {password && !passwordValid && (
-              <p className="text-[11px] text-destructive mt-1">
-                A senha precisa ter pelo menos 8 caracteres.
-              </p>
+            {password.length > 0 && (
+              <PasswordRequirementsChecklist password={password} className="mt-2" />
             )}
           </div>
 

@@ -1,4 +1,5 @@
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { buildVisitCloseUpdate } from "../_shared/close-service-visit-departure.ts";
 
 type ToolResult = { success: boolean; message: string; data?: unknown };
 
@@ -102,12 +103,13 @@ export async function handleCreateServiceRating(
 
   let serviceId: string | null = null;
   let visitId: string | null = null;
+  let visitDepartedAt: string | null = null;
   let serviceNameForMessage = args.service_name || "";
 
   if (args.visit_id) {
     const { data: visitData, error: visitLoadError } = await supabase
       .from("service_visits")
-      .select("id, service_id, created_at, expires_at, status")
+      .select("id, service_id, created_at, expires_at, status, departed_at")
       .eq("id", args.visit_id)
       .eq("user_id", userId)
       .single();
@@ -132,7 +134,14 @@ export async function handleCreateServiceRating(
     if (visitStatus === "pending" && deps.isVisitRatingWindowClosed(String(visitData.created_at), String(visitData.expires_at), nowMs)) {
       const { error: expireErr } = await supabase
         .from("service_visits")
-        .update({ status: "expired", updated_at: new Date(nowMs).toISOString() })
+        .update({
+          ...buildVisitCloseUpdate(
+            "expired",
+            (visitData.departed_at as string | null) ?? null,
+            new Date(nowMs).toISOString(),
+          ),
+          updated_at: new Date(nowMs).toISOString(),
+        })
         .eq("id", visitData.id)
         .eq("user_id", userId)
         .eq("status", "pending");
@@ -147,6 +156,7 @@ export async function handleCreateServiceRating(
     }
 
     visitId = visitData.id;
+    visitDepartedAt = (visitData.departed_at as string | null) ?? null;
     serviceId = visitData.service_id;
     serviceNameForMessage = args.service_name || accumulatedFields?.service_name || "serviço";
     console.log("[create_service_rating] Using existing visit:", visitId, "service:", serviceId);
@@ -398,8 +408,12 @@ export async function handleCreateServiceRating(
     };
   }
 
-  if (args.visit_id) {
-    await supabase.from("service_visits").update({ status: "completed" }).eq("id", visitId);
+  if (args.visit_id && visitId) {
+    await supabase
+      .from("service_visits")
+      .update(buildVisitCloseUpdate("completed", visitDepartedAt))
+      .eq("id", visitId)
+      .eq("user_id", userId);
   }
 
   if (isNegativeRating) {

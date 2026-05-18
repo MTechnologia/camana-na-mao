@@ -9,7 +9,7 @@ import {
   isAutoConfirmedEmailPending,
   markEmailConfirmationPending,
 } from "@/lib/emailConfirmationGuard";
-import { getAuthRedirectUrl } from "@/lib/authRedirect";
+import { getAuthRedirectUrl, getPasswordRecoveryRedirectUrl } from "@/lib/authRedirect";
 
 const getErrorMessage = (e: unknown): string =>
   e instanceof Error ? e.message : (typeof e === 'object' && e !== null && 'message' in e)
@@ -212,10 +212,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = useCallback(async (email: string) => {
     try {
-      // Get the correct origin (handle both dev and production)
-      const origin = window.location.origin;
-      const redirectUrl = `${origin}/nova-senha`;
-      
+      const redirectUrl = getPasswordRecoveryRedirectUrl();
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
       });

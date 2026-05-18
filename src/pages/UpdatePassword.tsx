@@ -5,15 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Lock, ChevronLeft, Check, Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { z } from "zod";
-
-const passwordSchema = z.object({
-  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas não coincidem",
-  path: ["confirmPassword"],
-});
+import { PasswordRequirementsChecklist } from "@/components/auth/PasswordRequirementsChecklist";
+import { updatePasswordSchema, validatePasswordPolicy } from "@/lib/validations";
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
@@ -26,7 +19,7 @@ const UpdatePassword = () => {
   const [sessionReady, setSessionReady] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  const isPasswordValid = password.length >= 6;
+  const isPasswordValid = validatePasswordPolicy(password);
   const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   useEffect(() => {
@@ -54,22 +47,44 @@ const UpdatePassword = () => {
     // Check if there's already a valid session (user might have clicked the link and session is already established)
     const checkExistingSession = async () => {
       try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenHash = urlParams.get("token_hash");
+        const queryType = urlParams.get("type");
+
+        if (tokenHash && queryType === "recovery") {
+          const { error: verifyError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+
+          if (!mounted) return;
+
+          if (verifyError) {
+            console.error("Recovery verifyOtp failed:", verifyError);
+            toast.error("Link de recuperação inválido ou expirado. Solicite um novo.");
+            setTimeout(() => navigate("/reset-password"), 2000);
+            return;
+          }
+
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setSessionReady(true);
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (!mounted) return;
-        
+
         if (session && !error) {
-          console.log('Existing session found');
+          console.log("Existing session found");
           setSessionReady(true);
         } else {
-          // Check URL for recovery token - Supabase should process it automatically
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const accessToken = hashParams.get('access_token');
-          const type = hashParams.get('type');
-          
-          if (accessToken && type === 'recovery') {
-            console.log('Recovery token found in URL, waiting for session...');
-            // Give Supabase a moment to process the token
+          const accessToken = hashParams.get("access_token");
+          const type = hashParams.get("type");
+
+          if (accessToken && type === "recovery") {
+            console.log("Recovery token found in URL hash, waiting for session...");
             setTimeout(async () => {
               const { data: { session: newSession } } = await supabase.auth.getSession();
               if (mounted && newSession) {
@@ -79,14 +94,11 @@ const UpdatePassword = () => {
             }, 1000);
             return;
           }
-          
-          // Also check for token in query params (some redirects use query params)
-          const urlParams = new URLSearchParams(window.location.search);
-          const tokenFromQuery = urlParams.get('access_token') || urlParams.get('token');
-          
+
+          const tokenFromQuery = urlParams.get("access_token") || urlParams.get("token");
+
           if (!accessToken && !tokenFromQuery) {
-            console.log('No recovery token found');
-            // No token in URL and no session - invalid access
+            console.log("No recovery token found");
             if (mounted) {
               toast.error("Link de recuperação inválido ou expirado. Solicite um novo.");
               setTimeout(() => navigate("/reset-password"), 2000);
@@ -94,7 +106,7 @@ const UpdatePassword = () => {
           }
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error("Error checking session:", error);
       } finally {
         if (mounted) {
           setCheckingSession(false);
@@ -121,7 +133,7 @@ const UpdatePassword = () => {
     }
 
     try {
-      passwordSchema.parse({ password, confirmPassword });
+      updatePasswordSchema.parse({ password, confirmPassword });
       setLoading(true);
 
       const { error } = await supabase.auth.updateUser({ 
@@ -239,7 +251,7 @@ const UpdatePassword = () => {
           senha
         </h1>
         <p className="text-gray-600 mt-4">
-          Digite sua nova senha abaixo. Ela deve ter no mínimo 6 caracteres.
+          Digite sua nova senha abaixo. Use as mesmas regras do cadastro (8+ caracteres, maiúscula, minúscula, número e caractere especial).
         </p>
       </div>
 
@@ -291,17 +303,20 @@ const UpdatePassword = () => {
             )}
           </div>
 
-          {/* Password requirements hint */}
-          <div className="text-sm text-gray-500 space-y-1">
-            <p className={`flex items-center gap-2 ${isPasswordValid ? 'text-green-600' : ''}`}>
-              {isPasswordValid ? <Check size={14} /> : <span className="w-3.5" />}
-              Mínimo de 6 caracteres
-            </p>
-            <p className={`flex items-center gap-2 ${doPasswordsMatch ? 'text-green-600' : ''}`}>
+          <PasswordRequirementsChecklist
+            password={password}
+            className="border-gray-200 bg-gray-50"
+          />
+          {confirmPassword.length > 0 && (
+            <p
+              className={`flex items-center gap-2 text-sm ${
+                doPasswordsMatch ? "text-green-600" : "text-gray-500"
+              }`}
+            >
               {doPasswordsMatch ? <Check size={14} /> : <span className="w-3.5" />}
               As senhas coincidem
             </p>
-          </div>
+          )}
 
           <Button
             type="submit"
