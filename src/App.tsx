@@ -396,8 +396,14 @@ const AppContent = () => {
           <Route path="/admin/analytics/demograficos" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/analytics/advanced" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/sentiment-analysis" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/avaliacoes-polarizacao" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/admin/intensidade-demanda" element={<Navigate to="/admin/analytics" replace />} />
+          <Route
+            path="/admin/avaliacoes-polarizacao"
+            element={<Navigate to="/admin/reports-heatmap?metric=avaliacoes" replace />}
+          />
+          <Route
+            path="/admin/intensidade-demanda"
+            element={<Navigate to="/admin/reports-heatmap?metric=demanda" replace />}
+          />
           <Route path="/admin/padroes" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/previsoes" element={<Navigate to="/admin/analytics" replace />} />
           <Route path="/admin/anomalias" element={<Navigate to="/admin/analytics" replace />} />

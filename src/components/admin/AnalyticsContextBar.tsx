@@ -95,7 +95,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   trends: 'Tendências',
   'reports-heatmap': 'Mapa de calor',
   'classification-accuracy': 'Acurácia da classificação',
-  exports: 'Exportações',
+  exports: 'Exportações de dados',
   reports: 'Gestão de relatos urbanos',
   referrals: 'Análise de Encaminhamentos',
   commissions: 'Análise de Encaminhamentos',

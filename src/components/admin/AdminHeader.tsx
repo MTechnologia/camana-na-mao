@@ -27,7 +27,7 @@ const routeNames: Record<string, string> = {
   '/admin/analytics/demograficos': 'Análise de Relatos Demográficos',
   '/admin/analytics/advanced': 'Análise Avançada',
   '/admin/users': 'Gestão de Usuários',
-  '/admin/exports': 'Logs de Exportação',
+  '/admin/exports': 'Exportações',
   '/admin/urban-reports': 'Relatos Urbanos',
   '/admin/transport-reports': 'Relatos de Transporte',
   '/admin/reports': 'Gestão de Relatos',

@@ -1,142 +1,64 @@
-import { useState } from "react";
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageShell } from '@/components/ui/PageShell';
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { AdminReportsHeatmap } from "@/components/admin/AdminReportsHeatmap";
-import {
-  useUsageHeatmap,
-  type UsageHeatmapPeriod,
-  type UsageHeatmapTypeFilter,
-} from "@/hooks/useUsageHeatmap";
-import { SAO_PAULO_HEATMAP_BOUNDS } from "@/lib/reportsHeatmapData";
-import { Flame, RefreshCw, AlertTriangle, Info } from "lucide-react";
+  HEATMAP_METRICS,
+  RN_MAP_001_HEATMAP_PAGE_LEGEND,
+  type HeatmapMetricId,
+} from '@/lib/analyticsParameterLegends';
+import { UsageHeatmapPanel } from '@/components/admin/heatmap/UsageHeatmapPanel';
+import { RatingsConcentrationPanel } from '@/components/admin/heatmap/RatingsConcentrationPanel';
+import { IntensityDemandPanel } from '@/components/admin/heatmap/IntensityDemandPanel';
+import { WaitTimeHeatmapPanel } from '@/components/admin/heatmap/WaitTimeHeatmapPanel';
+
+const DEFAULT_METRIC: HeatmapMetricId = 'uso';
+
+function isHeatmapMetricId(value: string | null): value is HeatmapMetricId {
+  return HEATMAP_METRICS.some((m) => m.id === value);
+}
 
 export function ReportsHeatmapPage() {
-  const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>("all_usage");
-  const [period, setPeriod] = useState<UsageHeatmapPeriod>("30d");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const metricParam = searchParams.get('metric');
+  const activeMetric = isHeatmapMetricId(metricParam) ? metricParam : DEFAULT_METRIC;
 
-  const { data, isLoading, error, refresh } = useUsageHeatmap({
-    typeFilter,
-    period,
-  });
-
-  const breakdown = data?.breakdown;
+  useEffect(() => {
+    if (metricParam && !isHeatmapMetricId(metricParam)) {
+      setSearchParams({ metric: DEFAULT_METRIC }, { replace: true });
+    }
+  }, [metricParam, setSearchParams]);
 
   return (
-    <PageShell title="Mapa de calor" description="Densidade geográfica de uso da plataforma.">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <Flame className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Mapa de calor de uso da plataforma
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Densidade geográfica de uso real: relatos urbanos, avaliações de serviços,
-                visitas detectadas e relatos de transporte (geocoded por bairro).
-              </p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
-        </div>
-
-        <div className="flex items-start gap-2 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            Mostra apenas pontos válidos dentro do município de São Paulo (lat{" "}
-            {SAO_PAULO_HEATMAP_BOUNDS.minLat} a {SAO_PAULO_HEATMAP_BOUNDS.maxLat}, lng{" "}
-            {SAO_PAULO_HEATMAP_BOUNDS.minLng} a {SAO_PAULO_HEATMAP_BOUNDS.maxLng}).
-            Transporte sem coordenadas é geocoded para o centroide da zona.
-          </span>
-        </div>
-
-        <Card className="p-4 md:p-6">
-          <div className="mb-4 grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="heatmap-type">Fonte de dados</Label>
-              <Select
-                value={typeFilter}
-                onValueChange={(v) => setTypeFilter(v as UsageHeatmapTypeFilter)}
+    <PageShell title="Mapa de calor" titleInfo={RN_MAP_001_HEATMAP_PAGE_LEGEND}>
+      <Tabs
+        value={activeMetric}
+        onValueChange={(value) => setSearchParams({ metric: value }, { replace: true })}
+        className="w-full"
+      >
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList className="inline-flex h-auto w-max min-w-full flex-nowrap gap-1 p-1">
+            {HEATMAP_METRICS.map((m) => (
+              <TabsTrigger
+                key={m.id}
+                value={m.id}
+                className="shrink-0 whitespace-nowrap px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <SelectTrigger id="heatmap-type">
-                  <SelectValue placeholder="Fonte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all_usage">Uso total (todas as fontes)</SelectItem>
-                  <SelectItem value="all_reports">Apenas relatos (urbano + avaliações)</SelectItem>
-                  <SelectItem value="urban">Relatos urbanos</SelectItem>
-                  <SelectItem value="evaluation">Avaliações de serviços</SelectItem>
-                  <SelectItem value="visits">Visitas a equipamentos públicos</SelectItem>
-                  <SelectItem value="transport">Relatos de transporte (por zona)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="heatmap-period">Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as UsageHeatmapPeriod)}>
-                <SelectTrigger id="heatmap-period">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
-                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
-                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
-                  <SelectItem value="12m">Últimos 12 meses</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                {m.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
-          {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
-
-          {isLoading && !data ? (
-            <Skeleton className="h-[min(70vh,560px)] min-h-[400px] w-full rounded-lg" />
-          ) : (
-            <AdminReportsHeatmap points={data?.points ?? []} />
-          )}
-
-          {data && (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                {data.points.length} células no mapa
-                {data.truncated ? " (resultado truncado para performance)" : ""}.
-                {data.start_at
-                  ? ` Dados desde ${new Date(data.start_at).toLocaleString("pt-BR")}.`
-                  : ""}
-              </p>
-              {breakdown && (
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <Badge variant="outline">Urbano: {breakdown.urban}</Badge>
-                  <Badge variant="outline">Avaliações: {breakdown.evaluation}</Badge>
-                  <Badge variant="outline">Visitas: {breakdown.visits}</Badge>
-                  <Badge variant="outline">Transporte: {breakdown.transport}</Badge>
-                </div>
-              )}
-            </div>
-          )}
-        </Card>
-      </div>
+        {HEATMAP_METRICS.map((m) => (
+          <TabsContent key={m.id} value={m.id} className="mt-4 min-h-[280px] focus-visible:outline-none">
+            {m.id === 'uso' && <UsageHeatmapPanel />}
+            {m.id === 'avaliacoes' && <RatingsConcentrationPanel />}
+            {m.id === 'demanda' && <IntensityDemandPanel colorBy="volume" />}
+            {m.id === 'espera' && <WaitTimeHeatmapPanel />}
+          </TabsContent>
+        ))}
+      </Tabs>
     </PageShell>
   );
 }

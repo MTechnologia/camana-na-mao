@@ -335,6 +335,12 @@ export const HEATMAP_METRIC_LEGENDS: Record<HeatmapMetricId, ParameterLegendItem
   },
 };
 
+export const EXPORTS_PAGE_LEGEND: ParameterLegendItem = {
+  term: 'Exportações de dados',
+  description:
+    'Exportações em CSV, XLS e XLSX com recorte, granularidade, campos e ordenação (RN-EXP-001). Jobs agendados com histórico de execuções (RN-EXP-002).',
+};
+
 export const RN_MAP_001_HEATMAP_PAGE_LEGEND: ParameterLegendItem = {
   term: 'Quatro métricas territoriais',
   description:

@@ -88,6 +88,7 @@ export async function fetchSectionChartExtras(
     accuracyRes,
     referralsRes,
     exportRes,
+    scheduledExportRes,
     auditRes,
     rolesRes,
     prefsRes,
@@ -109,6 +110,12 @@ export async function fetchSectionChartExtras(
       .select('format, created_at')
       .gte('created_at', startIso ?? '1970-01-01')
       .lte('created_at', endIso ?? '2099-12-31'),
+    supabase
+      .from('scheduled_exports')
+      .select('last_run_at')
+      .not('last_run_at', 'is', null)
+      .gte('last_run_at', startIso ?? '1970-01-01')
+      .lte('last_run_at', endIso ?? '2099-12-31'),
     supabase
       .from('audit_logs')
       .select('created_at, entity_type')
@@ -193,19 +200,29 @@ export async function fetchSectionChartExtras(
     .map(([label, v]) => ({ label: formatDayLabel(label), ...v }));
 
   const formatCounts = new Map<string, number>();
-  const exportDay = new Map<string, number>();
   for (const e of exportRes.data ?? []) {
     const fmt = String(e.format ?? 'outro').toUpperCase();
     formatCounts.set(fmt, (formatCounts.get(fmt) ?? 0) + 1);
-    const day = (e.created_at as string).slice(0, 10);
-    exportDay.set(day, (exportDay.get(day) ?? 0) + 1);
   }
+
+  const now = new Date();
+  const scheduledRuns = scheduledExportRes.data ?? [];
+  const weeklyJobs: LabeledValue[] = [];
+  for (let w = 11; w >= 0; w -= 1) {
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() - w * 7);
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekStart.getDate() - 7);
+    const count = scheduledRuns.filter((row) => {
+      const runAt = new Date(row.last_run_at as string);
+      return runAt >= weekStart && runAt < weekEnd;
+    }).length;
+    weeklyJobs.push({ label: `Sem ${12 - w}`, value: count });
+  }
+
   const exportActivity = {
     byFormat: [...formatCounts.entries()].map(([label, value]) => ({ label, value })),
-    timeline: [...exportDay.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-12)
-      .map(([label, jobs]) => ({ label: formatDayLabel(label), jobs })),
+    timeline: weeklyJobs.map((row) => ({ label: row.label, jobs: row.value })),
   };
 
   const corrCounts = new Map<string, number>();
