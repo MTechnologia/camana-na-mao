@@ -722,21 +722,6 @@ export const UnifiedReportDrawer = ({
                   )}
                 </div>
               )}
-
-              {/* Automated Processing */}
-              {manifest.n8n_processed && (
-                <div className="p-4 rounded-lg border bg-muted/30">
-                  <h4 className="text-sm font-medium mb-2">Análise Automatizada</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {manifest.n8n_priority && (
-                      <Badge variant="outline">Prioridade: {manifest.n8n_priority}</Badge>
-                    )}
-                    {manifest.n8n_tags?.map((tag, i) => (
-                      <Badge key={i} variant="secondary">{tag}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
             </TabsContent>
 
             {/* Location Tab */}

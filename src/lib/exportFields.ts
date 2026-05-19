@@ -163,6 +163,29 @@ export function getBasicPresetFieldIds(dataset: DatasetMeta): string[] {
   return dataset.fields.filter((f) => f.inBasicPreset).map((f) => f.id);
 }
 
+/** Configuração padrão para agendar exportação fora do DataExportDialog. */
+export type ExportScheduleConfig = {
+  dataset: ExportDataset;
+  format: 'csv' | 'xlsx';
+  fieldIds: string[];
+  orderBy: { fieldId: string; direction: 'asc' | 'desc' };
+  filters?: Record<string, unknown>;
+  includeSummary?: boolean;
+};
+
+export function getDefaultExportScheduleConfig(
+  datasetId: ExportDataset = 'urban_reports',
+): ExportScheduleConfig {
+  const ds = getDataset(datasetId);
+  return {
+    dataset: datasetId,
+    format: 'csv',
+    fieldIds: getBasicPresetFieldIds(ds),
+    orderBy: { fieldId: ds.defaultOrderColumn, direction: 'desc' },
+    includeSummary: false,
+  };
+}
+
 export function getAllFieldIds(dataset: DatasetMeta): string[] {
   return dataset.fields.map((f) => f.id);
 }

@@ -73,7 +73,7 @@ Adicione logs temporários no código para debugar (não recomendado para produ�
 ```typescript
 console.log('[DEBUG] AI_CHAT_BASE_URL:', Deno.env.get('AI_CHAT_BASE_URL'));
 console.log('[DEBUG] AI_API_KEY:', Deno.env.get('AI_API_KEY'));
-console.log('[DEBUG] LOVABLE_API_KEY:', Deno.env.get('LOVABLE_API_KEY') ? 'EXISTS' : 'MISSING');
+console.log('[DEBUG] AI_CHAT_MODEL:', Deno.env.get('AI_CHAT_MODEL'));
 ```
 
 ---
@@ -119,11 +119,7 @@ Execute este checklist:
 
 ## 🚨 Se Nada Funcionar
 
-### Opção A: Usar apenas Lovable AI (temporário)
-
-Se o `LOVABLE_API_KEY` estiver configurado, o sistema deve usar como fallback. Verifique se está funcionando.
-
-### Opção B: Verificar código da Edge Function
+### Opção A: Verificar código da Edge Function
 
 Pode haver um bug na lógica de verificação. Verifique o arquivo:
 - `supabase/functions/ai-orchestrator/index.ts` (linha ~5151)
