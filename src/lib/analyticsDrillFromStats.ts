@@ -201,19 +201,46 @@ export function buildPatternsByRegionFromStats(
   if (!stats?.demographics?.byRegion?.length) return [];
 
   const patterns = stats.criticality.patterns;
-  const primary = patterns[0]?.title ?? 'Demanda territorial';
+  const categories = stats.categories;
 
-  return stats.demographics.byRegion.slice(0, 8).map((r) => ({
-    regionId: r.region,
-    regionLabel: r.region,
-    primaryPattern: primary,
-    count: r.count,
-    trendPct: 0,
-    secondary: patterns.slice(1, 3).map((p) => ({
-      label: p.title ?? 'Padrão',
-      count: p.count ?? 1,
-    })),
-  }));
+  return stats.demographics.byRegion.slice(0, 8).map((r, regionIndex) => {
+    const primaryPattern =
+      patterns[regionIndex % Math.max(patterns.length, 1)]?.title ??
+      categories[regionIndex % Math.max(categories.length, 1)]?.category ??
+      'Demanda territorial';
+
+    const secondaryCandidates = [
+      ...patterns.map((p) => ({
+        label: p.title ?? 'Padrão',
+        count: p.count ?? 1,
+      })),
+      ...categories.map((c) => ({
+        label: c.category,
+        count: Math.max(1, Math.round((c.count / Math.max(stats.total, 1)) * r.count)),
+      })),
+    ]
+      .filter((item) => item.label !== primaryPattern)
+      .filter(
+        (item, index, arr) =>
+          arr.findIndex((other) => other.label.toLowerCase() === item.label.toLowerCase()) ===
+          index,
+      );
+
+    const offset = regionIndex % Math.max(secondaryCandidates.length, 1);
+    const secondary = secondaryCandidates.slice(offset, offset + 2).map((item) => ({
+      label: item.label,
+      count: item.count,
+    }));
+
+    return {
+      regionId: `${r.region}-${regionIndex}`,
+      regionLabel: r.region,
+      primaryPattern,
+      count: r.count,
+      trendPct: 0,
+      secondary,
+    };
+  });
 }
 
 export function buildCorrelationFromStats(

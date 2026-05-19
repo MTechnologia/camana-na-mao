@@ -59,6 +59,14 @@ export function navItemMatchesPath(item: NavItem, pathname: string): boolean {
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
+/** NavLink `end`: evita destacar o item pai quando uma sub-rota irmã está ativa. */
+export function navItemRequiresExactMatch(item: NavItem, siblings: NavItem[]): boolean {
+  if (item.to === '/admin') return true;
+  return siblings.some(
+    (other) => other.to !== item.to && other.to.startsWith(`${item.to}/`),
+  );
+}
+
 export function groupMatchesPath(group: NavGroup, pathname: string): boolean {
   return group.items.some((item) => navItemMatchesPath(item, pathname));
 }

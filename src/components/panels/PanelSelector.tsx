@@ -47,11 +47,19 @@ export function PanelSelector({ compact }: { compact?: boolean }) {
         const active = panel.id === activePanelId;
         return (
           <li key={panel.id}>
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
+              aria-pressed={active}
               onClick={() => setActivePanelId(panel.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActivePanelId(panel.id);
+                }
+              }}
               className={cn(
-                'flex w-full flex-col rounded-xl border p-4 text-left transition-all',
+                'flex w-full cursor-pointer flex-col rounded-xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 active
                   ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
                   : 'border-border bg-card hover:border-primary/30 hover:bg-muted/30',
@@ -107,7 +115,7 @@ export function PanelSelector({ compact }: { compact?: boolean }) {
                   Excluir
                 </Button>
               </span>
-            </button>
+            </div>
           </li>
         );
       })}

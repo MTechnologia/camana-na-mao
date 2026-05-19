@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { groupMatchesPath } from '@/lib/adminNavFilter';
+import { groupMatchesPath, navItemRequiresExactMatch } from '@/lib/adminNavFilter';
 import { cn } from '@/lib/utils';
 
 const navItemBase = cn(
@@ -112,7 +112,7 @@ function SidebarNavGroup({
           <li key={item.to} className="relative">
             <SidebarNavItem
               to={item.to}
-              end={item.to === '/admin'}
+              end={navItemRequiresExactMatch(item, group.items)}
               label={item.label}
               icon={group.Icon}
               collapsed
@@ -161,26 +161,39 @@ function SidebarNavGroup({
         id={panelId}
         role="region"
         aria-labelledby={`${panelId}-trigger`}
+        aria-hidden={!open}
         className={cn(
           'grid transition-[grid-template-rows] duration-200 ease-out',
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
       >
-        <ul className="min-h-0 overflow-hidden space-y-0.5 border-t border-sidebar-border/50 px-1 py-1.5">
-          {group.items.map((item) => (
-            <li key={item.to}>
-              <SidebarNavItem
-                to={item.to}
-                end={item.to === '/admin'}
-                label={item.label}
-                icon={item.Icon}
-                collapsed={false}
-                onNavigate={onNavigate}
-                nested
-              />
-            </li>
-          ))}
-        </ul>
+        <div
+          className={cn(
+            'min-h-0 overflow-hidden transition-opacity duration-200',
+            open ? 'opacity-100' : 'pointer-events-none opacity-0',
+          )}
+        >
+          <ul
+            className={cn(
+              'space-y-0.5 px-1',
+              open ? 'border-t border-sidebar-border/50 py-1.5' : 'py-0',
+            )}
+          >
+            {group.items.map((item) => (
+              <li key={item.to}>
+                <SidebarNavItem
+                  to={item.to}
+                  end={navItemRequiresExactMatch(item, group.items)}
+                  label={item.label}
+                  icon={item.Icon}
+                  collapsed={false}
+                  onNavigate={onNavigate}
+                  nested
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -232,7 +245,7 @@ export function SidebarNavSection({
             <li key={item.to}>
               <SidebarNavItem
                 to={item.to}
-                end={item.to === '/admin'}
+                end={navItemRequiresExactMatch(item, items)}
                 label={item.label}
                 icon={item.Icon}
                 collapsed={collapsed}

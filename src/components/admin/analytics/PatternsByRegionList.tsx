@@ -61,9 +61,9 @@ export function PatternsByRegionList({ items, className }: PatternsByRegionListP
             </div>
             {region.secondary.length > 0 ? (
               <ul className="mt-3 space-y-1.5 border-t border-border/70 pt-2">
-                {region.secondary.map((item) => (
+                {region.secondary.map((item, secIdx) => (
                   <li
-                    key={`${region.regionId}-${item.label}`}
+                    key={`${region.regionId}-sec-${secIdx}`}
                     className="flex items-start justify-between gap-2 text-[11px]"
                   >
                     <span className="leading-snug text-muted-foreground">{item.label}</span>

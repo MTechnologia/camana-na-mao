@@ -22,11 +22,22 @@ export function ReportsWorkflowKpis({
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((item) => (
-        <button
+        <div
           key={item.tab}
-          type="button"
-          className={cn('text-left', queueTab === item.tab && 'ring-2 ring-primary ring-offset-2 rounded-xl')}
+          role="button"
+          tabIndex={0}
+          aria-pressed={queueTab === item.tab}
+          className={cn(
+            'cursor-pointer rounded-xl text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            queueTab === item.tab && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+          )}
           onClick={() => onSelectTab(item.tab)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelectTab(item.tab);
+            }
+          }}
         >
           <KpiCard
             label={item.label}
@@ -34,7 +45,7 @@ export function ReportsWorkflowKpis({
             parameter={REPORTS_WORKFLOW_KPI_LEGENDS[item.legend]}
             stopParameterPropagation
           />
-        </button>
+        </div>
       ))}
     </div>
   );
