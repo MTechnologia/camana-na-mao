@@ -9,6 +9,7 @@ import type {
   TimeSeriesPoint,
 } from '@/types/analyticsDrill';
 import { buildDrillKpisFromStats, buildCorrelationFromStats, buildPatternsByRegionFromStats, buildSentimentPolarityFromStats } from '@/lib/analyticsDrillFromStats';
+import { formatTimelineDayLabel } from '@/lib/reportsAnalyticsAggregates';
 
 const emptyKpis: DrillKpis = {
   volume: 0,
@@ -30,11 +31,19 @@ export function buildAnalyticsChartBundle(
     stats && stats.total > 0 ? stats.resolved / stats.total : 0;
   const volumeTimeSeries: TimeSeriesPoint[] = stats?.timeline?.length
     ? stats.timeline.map((p) => ({
-        label: p.date,
+        label: formatTimelineDayLabel(p.date),
         volume: p.total,
-        resolved: Math.round(p.total * resolvedRatio),
+        resolved: p.resolved ?? Math.round(p.total * resolvedRatio),
       }))
-    : [];
+    : stats && stats.total > 0
+      ? [
+          {
+            label: 'Total no período',
+            volume: stats.total,
+            resolved: stats.resolved,
+          },
+        ]
+      : [];
 
   const volumeByCategory: ChartBarPoint[] = stats?.categories?.length
     ? stats.categories.map((c) => ({

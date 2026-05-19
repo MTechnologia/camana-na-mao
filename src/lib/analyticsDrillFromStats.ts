@@ -40,7 +40,10 @@ export function buildDrillKpisFromStats(
     volume: Math.round(stats.total * depthFactor),
     responseHours: Math.min(99, responseHours),
     sentimentPct: Math.min(99, Math.round(avgSentiment * depthFactor)),
-    patterns: Math.max(0, Math.round(stats.criticality.patterns.length * depthFactor)),
+    patterns: Math.max(
+      0,
+      Math.round((stats.criticality.patterns.length || stats.categories.length) * depthFactor),
+    ),
   };
 }
 

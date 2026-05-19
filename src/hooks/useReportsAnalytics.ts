@@ -10,6 +10,13 @@ import {
   RACE_LABELS,
   SOCIAL_CLASS_LABELS,
 } from "@/lib/demographicDrill";
+import {
+  buildTimelineFromUrbanReports,
+  filterUrbanReportsByRegion,
+  mapReportPatternsToAlerts,
+  patternsFromCategories,
+  type UrbanReportRow,
+} from '@/lib/reportsAnalyticsAggregates';
 
 export interface ReportsAnalyticsFilters {
   startDate?: string;
@@ -25,12 +32,14 @@ export interface ReportsAnalyticsFilters {
   ageGroup?: string;
 }
 
-interface TimelineDataPoint {
+export interface TimelineDataPoint {
   date: string;
   urban: number;
   transport: number;
   evaluation: number;
   total: number;
+  /** Resolvidos no dia (relatos urbanos). */
+  resolved?: number;
 }
 
 export interface ReportsAnalyticsStats {
@@ -283,20 +292,58 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         { severity: 'Baixo', count: 0, percentage: 0, color: 'hsl(var(--chart-1))' },
       ];
 
-      // Buscar dados de engajamento separadamente (urban reports com likes/comments)
+      // Relatos urbanos no recorte (timeline, engajamento e padrões)
       let urbanReports: Record<string, unknown>[] = [];
+      let timeline: TimelineDataPoint[] = [];
+      let patternAlerts: PatternAlert[] = [];
+
       try {
-        const { data: urbanData } = await supabase
+        let urbanQuery = supabase
           .from('urban_reports')
           .select(`
-            id, description, category, location_address, status, created_at, severity,
+            id, description, category, location_address, status, created_at, severity, neighborhood,
             urban_report_likes(count),
             urban_report_comments(count)
           `)
-          .limit(500);
+          .neq('category', 'feedback_camara')
+          .order('created_at', { ascending: true })
+          .limit(3000);
+
+        if (filters.startDate) {
+          urbanQuery = urbanQuery.gte('created_at', `${filters.startDate}T00:00:00`);
+        }
+        if (filters.endDate) {
+          urbanQuery = urbanQuery.lte('created_at', `${filters.endDate}T23:59:59`);
+        }
+        if (filters.category) {
+          urbanQuery = urbanQuery.eq('category', filters.category);
+        }
+
+        const { data: urbanData } = await urbanQuery;
         urbanReports = urbanData || [];
+
+        const urbanForTimeline = filterUrbanReportsByRegion(
+          urbanReports as UrbanReportRow[],
+          filters.region,
+        );
+        timeline = buildTimelineFromUrbanReports(urbanForTimeline);
+
+        const { data: patternRows } = await supabase
+          .from('report_patterns')
+          .select(
+            'id, pattern_type, description, occurrence_count, suggested_action, avg_severity',
+          )
+          .eq('status', 'active')
+          .order('occurrence_count', { ascending: false })
+          .limit(10);
+
+        patternAlerts =
+          patternRows && patternRows.length > 0
+            ? mapReportPatternsToAlerts(patternRows)
+            : patternsFromCategories(categories);
       } catch (err) {
-        console.log('Could not fetch engagement data');
+        console.warn('Could not fetch urban reports timeline/patterns', err);
+        patternAlerts = patternsFromCategories(categories);
       }
 
       const totalLikes = urbanReports.reduce((sum, r: Record<string, unknown>) => 
@@ -345,7 +392,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           resolvedTrend: 0,
           criticalTrend: 0,
           pendingTrend: 0,
-          timeline: [],
+          timeline,
           byStatus,
           categories,
           demographics: {
@@ -368,7 +415,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           criticality: {
             criticalScore,
             bySeverity,
-            patterns: [],
+            patterns: patternAlerts,
             criticalPendingReports: [],
           },
         });

@@ -30,6 +30,11 @@ import { SentimentPolarityPiesGrid } from '@/components/admin/analytics/Sentimen
 import { SENTIMENT_POLARITY_PREPEND_SECTION } from '@/lib/analyticsParameterLegends';
 import { CHART_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
 import type { ParameterLegendItem } from '@/lib/analyticsParameterLegends';
+import { buildAiInsightsFromStats } from '@/lib/reportsAnalyticsAggregates';
+import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
+import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
+import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
+import { useMemo } from 'react';
 
 function ChartCard({
   title,
@@ -78,7 +83,7 @@ function ChartHeight({ children }: { children: ReactNode }) {
 }
 
 export function VolumeTabPanel() {
-  const { volumeTimeSeries, volumeByCategory, statusBreakdown } = useAnalyticsChartData();
+  const { volumeTimeSeries, volumeByCategory, statusBreakdown, isLoading } = useAnalyticsChartData();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -89,6 +94,11 @@ export function VolumeTabPanel() {
         className="lg:col-span-2"
       >
         <ChartHeight>
+          {!isLoading && volumeTimeSeries.length === 0 ? (
+            <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Sem relatos urbanos no período selecionado.
+            </p>
+          ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={volumeTimeSeries} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
@@ -121,6 +131,7 @@ export function VolumeTabPanel() {
               />
             </ComposedChart>
           </ResponsiveContainer>
+          )}
         </ChartHeight>
       </ChartCard>
 
@@ -204,7 +215,7 @@ export function SentimentTabPanel() {
 }
 
 export function PatternsTabPanel() {
-  const { topPatterns, patternsByRegion } = useAnalyticsChartData();
+  const { topPatterns, patternsByRegion, isLoading } = useAnalyticsChartData();
   const chartData = topPatterns.map((p) => ({ ...p, name: p.label }));
 
   return (
@@ -217,29 +228,35 @@ export function PatternsTabPanel() {
       ]}
     >
         <ChartHeight>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              layout="vertical"
-              data={chartData}
-              margin={{ top: 8, right: 16, left: 4, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                width={140}
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={chartTooltipStyle}
-                formatter={(v) => [formatChartNumber(Number(v)), 'Ocorrências']}
-              />
-              <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={CHART_COLORS[2]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {!isLoading && chartData.length === 0 ? (
+            <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Nenhum padrão ou categoria recorrente no recorte.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={chartData}
+                margin={{ top: 8, right: 16, left: 4, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={140}
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={chartTooltipStyle}
+                  formatter={(v) => [formatChartNumber(Number(v)), 'Ocorrências']}
+                />
+                <Bar dataKey="count" radius={[0, 4, 4, 0]} fill={CHART_COLORS[2]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </ChartHeight>
 
       <PatternsByRegionList
@@ -405,8 +422,21 @@ export function TerritoryTabPanel() {
   );
 }
 
+const AI_INSIGHT_KIND_LABELS: Record<string, string> = {
+  pattern: 'Padrão',
+  anomaly: 'Anomalia',
+  forecast: 'Tendência',
+};
+
 export function AiInsightsPanel() {
-  const { topPatterns, kpis } = useAnalyticsChartData();
+  const { topPatterns, kpis, isLoading } = useAnalyticsChartData();
+  const { period, region, category } = useGlobalFilters();
+  const filters = useMemo(
+    () => globalFiltersToReportsAnalytics(period, region, category),
+    [period, region, category],
+  );
+  const { stats } = useReportsAnalytics(filters);
+  const insights = useMemo(() => buildAiInsightsFromStats(stats), [stats]);
   const top = topPatterns[0];
 
   return (
@@ -423,31 +453,40 @@ export function AiInsightsPanel() {
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Origem dos dados</p>
-          <p className="mt-1 text-xs text-muted-foreground">Agregado relatos + SLA</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            urban_reports, report_patterns e RPC demografia
+          </p>
         </div>
       </div>
 
       <div className="space-y-3 rounded-xl border border-primary/20 bg-accent p-4">
         <p className="text-sm font-medium text-accent-foreground">Análise assistida por IA</p>
         <p className="text-sm text-muted-foreground">
-          Padrões, previsões e anomalias exibem origem dos dados e filtros vigentes (RN-IA-001).
+          Insights derivados dos agregados do recorte ativo (RN-IA-001).
         </p>
-        <ul className="space-y-2 text-sm text-foreground/90">
-          <li className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-            <strong className="text-foreground">Padrão:</strong> pico em Mobilidade — Zona Leste
-            <span className="mt-1 block text-xs text-muted-foreground">
-              Fonte: agregado relatos 30d · confiança 0,82
-            </span>
-          </li>
-          <li className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-            <strong className="text-foreground">Anomalia:</strong> queda de 40% no tempo de resposta em Saúde
-            <span className="mt-1 block text-xs text-muted-foreground">Fonte: SLA por categoria</span>
-          </li>
-          <li className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-            <strong className="text-foreground">Previsão:</strong> volume +12% na próxima semana
-            <span className="mt-1 block text-xs text-muted-foreground">Modelo preditivo de volume</span>
-          </li>
-        </ul>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando insights…</p>
+        ) : insights.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Sem insights suficientes para o período. Amplie o recorte ou aguarde mais relatos.
+          </p>
+        ) : (
+          <ul className="space-y-2 text-sm text-foreground/90">
+            {insights.map((item) => (
+              <li
+                key={`${item.kind}-${item.title}`}
+                className="rounded-lg border border-border/60 bg-background/60 px-3 py-2"
+              >
+                <strong className="text-foreground">
+                  {AI_INSIGHT_KIND_LABELS[item.kind] ?? item.kind}:
+                </strong>{' '}
+                {item.title}
+                <span className="mt-1 block text-xs text-muted-foreground">{item.detail}</span>
+                <span className="mt-0.5 block text-[10px] text-muted-foreground">Fonte: {item.source}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <ParameterLegend items={CHART_PARAMETER_LEGENDS.aiInsights} className="mt-3 bg-background/50" />
       </div>
     </div>
