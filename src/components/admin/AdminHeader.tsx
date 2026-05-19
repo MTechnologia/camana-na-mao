@@ -2,8 +2,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChevronRight, Menu } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AdminMobileMenuButton } from '@/components/admin/AdminSidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,17 +55,19 @@ const routeNames: Record<string, string> = {
   '/admin/audit-logs/': 'Logs de Auditoria',
   '/admin/service-corrections': 'Correções de equipamentos',
   '/admin/settings': 'Configurações',
-  '/admin/settings/n8n': 'Automação de Workflows',
-  '/admin/settings/n8n-monitoring': 'Monitoramento de Workflows',
   '/admin/settings/accessibility': 'Acessibilidade',
 };
 
 interface AdminHeaderProps {
-  onMenuClick: () => void;
-  isMobile: boolean;
+  hideMobileMenu?: boolean;
+  hideBreadcrumbs?: boolean;
 }
 
-export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
+export const AdminHeader = ({
+  hideMobileMenu = false,
+  hideBreadcrumbs = false,
+}: AdminHeaderProps) => {
+  const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const { profile } = useProfile();
@@ -89,37 +93,34 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
   return (
     <header
       className={cn(
-        'bg-card/80 backdrop-blur-sm px-4 md:px-6 py-3 md:py-4 sticky top-0 z-40',
-        !hideHeaderDivider && 'border-b border-border/50',
-        hideHeaderDivider && 'shadow-none border-b-0',
+        'sticky top-0 z-40 bg-analytics-bar px-4 py-3 text-analytics-bar-foreground backdrop-blur-sm md:px-6 md:py-4',
+        !hideHeaderDivider && 'border-b border-analytics-bar-border',
+        hideHeaderDivider && 'border-b-0 shadow-none',
       )}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onMenuClick}
-              className="lg:hidden flex-shrink-0"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+          {isMobile && !hideMobileMenu && (
+            <AdminMobileMenuButton className="shrink-0 text-analytics-bar-foreground hover:bg-analytics-bar-surface/20" />
           )}
-          
-          <div className="flex items-center gap-2 text-sm text-muted-foreground overflow-hidden">
+
+          {!hideBreadcrumbs && (
+          <div className="flex items-center gap-2 overflow-hidden text-sm text-analytics-bar-muted">
             {displayBreadcrumbs.map((crumb, index) => (
               <div key={crumb.path} className="flex items-center gap-2 truncate">
                 {index > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0" />}
                 <span className={cn(
                   "truncate",
-                  index === displayBreadcrumbs.length - 1 ? 'text-foreground font-medium' : ''
+                  index === displayBreadcrumbs.length - 1
+                    ? 'font-medium text-analytics-bar-foreground'
+                    : ''
                 )}>
                   {crumb.name}
                 </span>
               </div>
             ))}
           </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
@@ -130,8 +131,8 @@ export const AdminHeader = ({ onMenuClick, isMobile }: AdminHeaderProps) => {
               <Button variant="ghost" className="gap-2 px-2">
                 {!isMobile && (
                   <div className="text-right hidden md:block">
-                    <p className="text-sm font-medium text-foreground">{profile?.full_name}</p>
-                    <p className="text-xs text-muted-foreground">Administrador</p>
+                    <p className="text-sm font-medium text-analytics-bar-foreground">{profile?.full_name}</p>
+                    <p className="text-xs text-analytics-bar-muted">Administrador</p>
                   </div>
                 )}
                 <Avatar className="h-8 w-8 md:h-9 md:w-9">

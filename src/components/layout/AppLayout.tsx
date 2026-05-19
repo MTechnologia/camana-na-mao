@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "@/components/ui/page-header";
 import { useMenu } from "@/contexts/MenuContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import MenuDrawer from "@/components/MenuDrawer";
 import { PageSkeleton } from "@/components/skeletons/PageSkeleton";
 
@@ -76,7 +77,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const navigate = useNavigate();
   const { isMenuOpen, closeMenu } = useMenu();
 
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const { isAdmin, isGestor } = useUserRole();
+  const isGestorPaineis =
+    (isAdmin || isGestor) &&
+    location.pathname.startsWith("/paineis") &&
+    !location.pathname.startsWith("/paineis/piores-servicos");
+  const isAdminRoute = location.pathname.startsWith("/admin") || isGestorPaineis;
 
   const isHeaderlessRoute = HEADERLESS_ROUTES.some(
     (route) => location.pathname === route || location.pathname.startsWith("/admin")

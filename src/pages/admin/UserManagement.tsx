@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
+import { AdminPageShell } from '@/components/admin/AdminPageShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -51,7 +51,7 @@ const roleLabels: Record<string, string> = {
   cidadao: 'Cidadão',
 };
 
-export default function UserManagement() {
+export default function UserManagement({ embedded }: { embedded?: boolean } = {}) {
   const { users, loading, searchTerm, setSearchTerm, roleFilter, setRoleFilter, updateUserRoles, deleteUser, refetch } = useAdminUsers();
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null);
@@ -87,7 +87,7 @@ export default function UserManagement() {
   };
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
@@ -335,6 +335,6 @@ export default function UserManagement() {
           onSaved={() => refetch?.()}
         />
       </div>
-    </AdminLayout>
+    </AdminPageShell>
   );
 }

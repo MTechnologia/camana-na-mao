@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AdminLayout } from "@/layouts/AdminLayout";
+import { PageShell } from '@/components/ui/PageShell';
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,7 +21,7 @@ import {
 import { SAO_PAULO_HEATMAP_BOUNDS } from "@/lib/reportsHeatmapData";
 import { Flame, RefreshCw, AlertTriangle, Info } from "lucide-react";
 
-export default function ReportsHeatmapPage() {
+export function ReportsHeatmapPage() {
   const [typeFilter, setTypeFilter] = useState<UsageHeatmapTypeFilter>("all_usage");
   const [period, setPeriod] = useState<UsageHeatmapPeriod>("30d");
 
@@ -33,7 +33,7 @@ export default function ReportsHeatmapPage() {
   const breakdown = data?.breakdown;
 
   return (
-    <AdminLayout>
+    <PageShell title="Mapa de calor" description="Densidade geográfica de uso da plataforma.">
       <div className="space-y-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
@@ -137,6 +137,6 @@ export default function ReportsHeatmapPage() {
           )}
         </Card>
       </div>
-    </AdminLayout>
+    </PageShell>
   );
 }

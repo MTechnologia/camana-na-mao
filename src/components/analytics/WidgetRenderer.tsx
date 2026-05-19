@@ -20,6 +20,7 @@ import { KPICard } from './KPICard';
 import { HeatmapChart } from './HeatmapChart';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WidgetConfig } from './DashboardPreview';
+import { processWidgetChartData } from '@/lib/widgetChartData';
 
 const COLORS = [
   'hsl(var(--chart-1))',
@@ -29,103 +30,76 @@ const COLORS = [
   'hsl(var(--chart-5))',
 ];
 
+const DATA_LIMIT = 500;
+
 interface WidgetRendererProps {
   widget: WidgetConfig;
+}
+
+function EmptyChartMessage({ message }: { message: string }) {
+  return (
+    <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center">
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
 }
 
 export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
   const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadWidgetData = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Fetch data based on dataSource
-      const query = supabase.from(widget.dataSource).select('*');
-      
-      const { data: fetchedData, error } = await query.limit(10);
-      
-      if (error) throw error;
-      
-      // Process data based on widget type
-      const processedData = processDataForWidget(fetchedData || [], widget);
+      setError(null);
+
+      const { data: fetchedData, error: queryError } = await supabase
+        .from(widget.dataSource)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(DATA_LIMIT);
+
+      if (queryError) throw queryError;
+
+      const processedData = processWidgetChartData(fetchedData ?? [], widget);
       setData(processedData);
-    } catch (error) {
-      console.error('Error loading widget data:', error);
-      // Use mock data on error
-      setData(getMockData(widget.type));
+    } catch (err) {
+      console.error('Error loading widget data:', err);
+      const msg = err instanceof Error ? err.message : 'Não foi possível carregar os dados';
+      setError(msg);
+      setData([]);
     } finally {
       setLoading(false);
     }
   }, [widget]);
 
   useEffect(() => {
-    loadWidgetData();
+    void loadWidgetData();
   }, [loadWidgetData]);
 
-  const processDataForWidget = (rawData: Record<string, unknown>[], widget: WidgetConfig) => {
-    switch (widget.type) {
-      case 'kpi-card':
-        return [{ value: rawData.length, label: widget.title }];
-      case 'bar-chart':
-      case 'pie-chart':
-      case 'line-chart': {
-        // Group by dimension and count
-        const grouped = rawData.reduce((acc: Record<string, number>, item: Record<string, unknown>) => {
-          const key = String(widget.dimension ? item[widget.dimension] ?? 'Total' : 'Total');
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {});
-        return Object.entries(grouped).map(([name, value]) => ({ name, value }));
-      }
-      default:
-        return rawData;
-    }
-  };
-
-  const getMockData = (type: string) => {
-    switch (type) {
-      case 'bar-chart':
-        return [
-          { name: 'Centro', value: 856 },
-          { name: 'Norte', value: 732 },
-          { name: 'Sul', value: 648 },
-          { name: 'Leste', value: 592 },
-          { name: 'Oeste', value: 521 },
-        ];
-      case 'pie-chart':
-        return [
-          { name: 'Saúde', value: 4200 },
-          { name: 'Educação', value: 3100 },
-          { name: 'Transporte', value: 2800 },
-          { name: 'Segurança', value: 1900 },
-        ];
-      case 'line-chart':
-        return [
-          { name: 'Jan', value: 1200 },
-          { name: 'Fev', value: 1400 },
-          { name: 'Mar', value: 1100 },
-          { name: 'Abr', value: 1600 },
-          { name: 'Mai', value: 1800 },
-        ];
-      case 'heatmap':
-        return [
-          { x: 'Centro', y: 'Seg', value: 45 },
-          { x: 'Centro', y: 'Ter', value: 52 },
-          { x: 'Norte', y: 'Seg', value: 32 },
-          { x: 'Sul', y: 'Seg', value: 28 },
-        ];
-      default:
-        return [];
-    }
-  };
-
   if (loading) {
-    return <Skeleton className="h-full w-full" />;
+    return <Skeleton className="h-full w-full min-h-[200px]" />;
   }
 
+  const emptyMessage = error
+    ? `Erro ao carregar: ${error}`
+    : 'Sem dados no período ou na fonte selecionada.';
+
   const renderChart = () => {
+    if (data.length === 0 && widget.type !== 'kpi-card') {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{widget.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EmptyChartMessage message={emptyMessage} />
+          </CardContent>
+        </Card>
+      );
+    }
+
     switch (widget.type) {
       case 'kpi-card': {
         const icons = [TrendingUp, Users, AlertTriangle, MapPin];
@@ -133,9 +107,9 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
         return (
           <KPICard
             title={widget.title}
-            value={data[0]?.value || 0}
+            value={data[0]?.value ?? 0}
             icon={IconComponent}
-            subtitle="Dados do painel"
+            subtitle={error ? 'Erro ao carregar' : 'Registros na fonte'}
           />
         );
       }
@@ -234,7 +208,10 @@ export const WidgetRenderer = ({ widget }: WidgetRendererProps) => {
               <CardTitle className="text-base">{widget.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <HeatmapChart data={data} onCellClick={() => {}} />
+              <HeatmapChart
+                data={data as { x: string; y: string; value: number }[]}
+                onCellClick={() => {}}
+              />
             </CardContent>
           </Card>
         );

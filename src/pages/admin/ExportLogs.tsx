@@ -1,4 +1,4 @@
-import { AdminLayout } from '@/layouts/AdminLayout';
+import { AdminPageShell } from '@/components/admin/AdminPageShell';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ interface ExportLog {
   };
 }
 
-export default function ExportLogs() {
+export default function ExportLogs({ embedded }: { embedded?: boolean } = {}) {
   const [logs, setLogs] = useState<ExportLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,7 +73,7 @@ export default function ExportLogs() {
   };
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Logs de Exportação</h1>
@@ -165,6 +165,6 @@ export default function ExportLogs() {
           />
         )}
       </div>
-    </AdminLayout>
+    </AdminPageShell>
   );
 }

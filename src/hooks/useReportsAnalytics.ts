@@ -33,7 +33,7 @@ interface TimelineDataPoint {
   total: number;
 }
 
-interface ReportsAnalyticsStats {
+export interface ReportsAnalyticsStats {
   // Geral
   total: number;
   urban: number;
