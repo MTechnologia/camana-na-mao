@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -19,19 +20,16 @@ import { useAudienciasAnalytics } from '@/hooks/useAudienciasAnalytics';
 export function PublicHearingsPage() {
   const { period, region } = useGlobalFilters();
   const filters = useMemo(() => globalFiltersToAudiencias(period, region), [period, region]);
-  const { stats, isLoading, error, refresh } = useAudienciasAnalytics(filters);
-
-  const openCount = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return stats.topAudiencias.filter((a) => a.data >= today).length;
-  }, [stats.topAudiencias]);
+  const { stats, isLoading, isRefreshing, error, refresh, lastUpdate } =
+    useAudienciasAnalytics(filters);
+  const busy = isLoading || isRefreshing;
 
   return (
     <PageShell title="Audiências públicas" titleInfo={PUBLIC_HEARINGS_PAGE_LEGEND}>
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard
           label="Audiências abertas"
-          value={isLoading ? '—' : String(openCount)}
+          value={isLoading ? '—' : String(stats.audienciasAbertas)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.open}
         />
         <KpiCard
@@ -46,9 +44,15 @@ export function PublicHearingsPage() {
         />
       </div>
 
-      <div className="mt-4 flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={isLoading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+        {lastUpdate && (
+          <p className="text-xs text-muted-foreground">
+            Atualizado às{' '}
+            {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+        <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={busy}>
+          <RefreshCw className={cn('mr-2 h-4 w-4', busy && 'animate-spin')} />
           Atualizar
         </Button>
       </div>

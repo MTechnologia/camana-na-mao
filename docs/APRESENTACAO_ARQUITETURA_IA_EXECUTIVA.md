@@ -12,7 +12,7 @@
 - ✅ **vLLM Self-hosted** (GCP) - Chat em tempo real
 - ✅ **n8n Cloud Run** (GCP) - Processamento assíncrono
 - ✅ **Embeddings Self-hosted** (GCP) - Busca semântica
-- ✅ **Fallback SaaS** (Lovable AI) - Contingência
+- ✅ **Provedor LLM** configurável (vLLM / OpenAI-compatible)
 
 **Por que Híbrido?**
 - **LGPD**: Dados processados no Brasil (southamerica-east1)
@@ -40,7 +40,7 @@
 
 | Serviço | Uso Estimado | Custo Mensal |
 |---------|--------------|--------------|
-| **Lovable AI** | Apenas contingência | ~R$ 200-500 |
+| **Provedor SaaS alternativo** | Contingência (se configurado) | Variável |
 | **Subtotal Fallback** | | **~R$ 200-500** |
 
 ### **TOTAL ESTIMADO: R$ 2.050 - R$ 2.350/mês**
@@ -251,7 +251,7 @@ n8n é uma plataforma de automação de workflows que permite criar fluxos de tr
 
 | Risco | Mitigação |
 |-------|-----------|
-| **Falha de VM GPU** | ✅ Fallback automático para Lovable AI |
+| **Falha de VM GPU** | ✅ Trocar `AI_CHAT_BASE_URL` para provedor de contingência |
 | **Custo inesperado** | ✅ Preemptible VMs (80% desconto) |
 | **Alta demanda** | ✅ Auto-scaling (Cloud Run) |
 | **Manutenção** | ✅ Rolling updates (zero downtime) |

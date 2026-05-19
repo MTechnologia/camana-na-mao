@@ -595,7 +595,8 @@ export const EQUIPMENT_RATINGS_KPI_LEGENDS = {
 export const PUBLIC_HEARINGS_KPI_LEGENDS = {
   open: {
     term: 'Audiências abertas',
-    description: 'Eventos com inscrições ou manifestações aceitas no período.',
+    description:
+      'Audiências agendadas no recorte com inscrições abertas e data de hoje ou futura (mesmo critério do app cidadão).',
   },
   registrations: {
     term: 'Inscrições confirmadas',

@@ -1,13 +1,7 @@
-import { RefreshCw, RotateCcw } from 'lucide-react';
-import { toast } from 'sonner';
+import { RotateCcw } from 'lucide-react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { ParameterInfoListTrigger } from '@/components/admin/analytics/ParameterInfoTrigger';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { FILTER_PARAMETER_LEGENDS } from '@/lib/analyticsParameterLegends';
 import {
   CATEGORY_FILTER_OPTIONS,
@@ -35,15 +29,9 @@ export function UnifiedAnalyticsContextBar() {
     setRegion,
     setCategory,
     reset,
-    lastRecalcAt,
-    touchRecalc,
   } = useGlobalFilters();
 
   const recorteSummary = globalFilterChipLabels(period, region, category).join(' · ');
-  const updatedAt = new Intl.DateTimeFormat('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(lastRecalcAt);
 
   return (
     <div className="sticky top-0 z-20 border-b border-analytics-bar-border bg-analytics-bar px-4 py-2 shadow-sm md:px-6">
@@ -109,34 +97,6 @@ export function UnifiedAnalyticsContextBar() {
               <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               <span className="sr-only sm:not-sr-only sm:ml-1">Redefinir</span>
             </Button>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1 border-l border-analytics-bar-border pl-2">
-            <span className="hidden text-[11px] tabular-nums text-analytics-bar-muted sm:inline">
-              {updatedAt}
-            </span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 bg-analytics-bar-surface text-analytics-bar-control hover:bg-analytics-bar-surface/90 hover:text-analytics-bar-control"
-                  onClick={() => {
-                    touchRecalc();
-                    toast.success('Indicadores atualizados', {
-                      description: 'Recorte recalculado.',
-                    });
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4" aria-hidden />
-                  <span className="sr-only">Atualizar indicadores</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="end" className="text-xs">
-                Atualizar · última vez às {updatedAt}
-              </TooltipContent>
-            </Tooltip>
           </div>
         </div>
 

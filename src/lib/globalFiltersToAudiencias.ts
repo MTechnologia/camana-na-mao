@@ -6,7 +6,6 @@ export function globalFiltersToAudiencias(
   region: string,
 ): AudienciasFilters {
   const now = new Date();
-  const end = now;
   let start: Date;
 
   switch (period) {
@@ -27,7 +26,8 @@ export function globalFiltersToAudiencias(
 
   return {
     startDate: start,
-    endDate: end,
+    // Não limitar por data máxima: audiências futuras entram no painel (como no app cidadão).
+    endDate: null,
     ...(region !== 'all' ? { regions: [region] } : {}),
   };
 }

@@ -19,7 +19,7 @@ O projeto já possuía frontend em **React + Vite + TypeScript** (SPA), com nece
 
 - Hospedar em Vercel/Netlify
 - Rodar como Web Service (Node) no Render
-- Hospedar apenas via Lovable publish
+- Hospedar apenas via plataforma de prototipagem externa (descartado)
 
 ## Consequências
 
