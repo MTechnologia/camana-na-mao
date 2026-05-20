@@ -16,6 +16,15 @@ import {
   resolveGlobalCategoryFilter,
 } from '@/lib/globalCategoryFilter';
 import {
+  applyVolumeTerritoryZones,
+  buildResponseTimeDrillStats,
+  EMPTY_RESPONSE_TIME_DRILL,
+  fetchTriageResolvedAtMap,
+  filterResponseTimeRecords,
+  recordsFromTerritoryGeoRows,
+  type ResponseTimeDrillStats,
+} from '@/lib/responseTimeAggregates';
+import {
   buildNeighborhoodBreakdownFromGeoRows,
   buildTimelineFromUrbanReports,
   buildVolumeByZoneFromGeoRows,
@@ -24,6 +33,7 @@ import {
   mapReportPatternsToAlerts,
   patternsFromCategories,
   type GeoReportRow,
+  type TerritoryGeoRow,
   type UrbanReportRow,
 } from '@/lib/reportsAnalyticsAggregates';
 
@@ -100,6 +110,12 @@ export interface ReportsAnalyticsStats {
   /** Volume por zona (coords + bairro dos relatos no recorte). */
   volumeByZone: { zone: string; count: number }[];
 
+  /** Bairros/locais por zona — base do drill-down por distrito (volume). */
+  neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[];
+
+  /** HU-2.2 — tempo médio até resposta/resolução (relatos resolvidos no recorte). */
+  responseTime: ResponseTimeDrillStats;
+
   // Criticidade
   criticality: {
     criticalScore: number;
@@ -149,6 +165,7 @@ const emptyStats: ReportsAnalyticsStats = {
     patterns: [],
     criticalPendingReports: [],
   },
+  responseTime: EMPTY_RESPONSE_TIME_DRILL,
 };
 
 export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
@@ -325,8 +342,11 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       let volumeByZone: { zone: string; count: number }[] = [];
       let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
 
+      let responseTime: ResponseTimeDrillStats = EMPTY_RESPONSE_TIME_DRILL;
+
       try {
         const geoRows: GeoReportRow[] = [];
+        const territoryGeoRows: TerritoryGeoRow[] = [];
         const includeUrban =
           categorySlice.isAll || categorySlice.urbanCategories.length > 0;
         const includeTransport =
@@ -338,7 +358,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           let urbanQuery = supabase
             .from('urban_reports')
             .select(`
-            id, description, category, location_address, status, created_at, severity, neighborhood,
+            id, description, category, location_address, status, created_at, updated_at, severity, neighborhood,
             latitude, longitude,
             urban_report_likes(count),
             urban_report_comments(count)
@@ -367,18 +387,30 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         timeline = buildTimelineFromUrbanReports(urbanForTimeline);
 
         urbanForTimeline.forEach((r) => {
-          geoRows.push({
+          const geo = {
             neighborhood: r.neighborhood,
             location: r.location_address ?? null,
             latitude: r.latitude ?? null,
             longitude: r.longitude ?? null,
+          };
+          geoRows.push(geo);
+          territoryGeoRows.push({
+            ...geo,
+            id: r.id,
+            source: 'urbano',
+            status: r.status,
+            category: r.category,
+            created_at: r.created_at,
+            updated_at: r.updated_at ?? null,
           });
         });
 
         if (includeTransport) {
           let transportQuery = supabase
             .from('transport_reports')
-            .select('location, stop_location, sub_category, report_type')
+            .select(
+              'id, location, stop_location, stop_name, sub_category, report_type, status, created_at, updated_at, responded_at',
+            )
             .order('created_at', { ascending: true })
             .limit(3000);
           if (filters.startDate) {
@@ -396,9 +428,25 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           }
           const { data: transportData } = await transportQuery;
           (transportData ?? []).forEach((t) => {
-            geoRows.push({
-              neighborhood: null,
-              location: (t.location as string) || (t.stop_location as string) || null,
+            const location =
+              [(t.stop_name as string), (t.location as string), (t.stop_location as string)]
+                .filter(Boolean)
+                .join(' — ') || null;
+            const geo = {
+              neighborhood: (t.stop_name as string) || null,
+              location,
+            };
+            geoRows.push(geo);
+            territoryGeoRows.push({
+              ...geo,
+              id: t.id as string,
+              source: 'transporte',
+              status: t.status as string,
+              category: (t.sub_category as string) || (t.report_type as string),
+              reportType: t.report_type as string,
+              created_at: t.created_at as string,
+              updated_at: (t.updated_at as string) ?? null,
+              responded_at: (t.responded_at as string) ?? null,
             });
           });
         }
@@ -451,6 +499,17 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           zone: r.zone,
           count: r.count,
         }));
+
+        const territoryForTime = filterGeoRowsByRegion(
+          territoryGeoRows,
+          filters.region,
+        ) as TerritoryGeoRow[];
+        const triageResolvedAt = await fetchTriageResolvedAtMap();
+        let rtRecords = recordsFromTerritoryGeoRows(territoryForTime, triageResolvedAt);
+        rtRecords = applyVolumeTerritoryZones(rtRecords, neighborhoodBreakdown);
+        responseTime = buildResponseTimeDrillStats(
+          filterResponseTimeRecords(rtRecords, filters),
+        );
 
         const { data: patternRows } = await supabase
           .from('report_patterns')
@@ -521,6 +580,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           categories,
           volumeByZone,
           neighborhoodBreakdown,
+          responseTime,
           demographics: {
             byGender,
             byRace,

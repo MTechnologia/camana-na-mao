@@ -1,9 +1,8 @@
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
+import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
 import { DISTRICT_LABEL_FALLBACK } from '@/lib/reportsAnalyticsAggregates';
 import { bairroParaZona, ZONA_DESCONHECIDA, ZONAS_FILTRO } from '@/lib/regionMapping';
-
-const DISTRICT_FALLBACK_ID = '__sem_bairro__';
-import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
+import { EMPTY_RESPONSE_TIME_DRILL } from '@/lib/responseTimeAggregates';
 import type {
   AnalyticsMetric,
   ChartBarPoint,
@@ -13,6 +12,8 @@ import type {
   RegionSentimentBreakdown,
   SentimentSlice,
 } from '@/types/analyticsDrill';
+
+const DISTRICT_FALLBACK_ID = '__sem_bairro__';
 
 const EMPTY_KPIS: DrillKpis = {
   volume: 0,
@@ -85,6 +86,36 @@ function sentimentKpiFromStats(stats: ReportsAnalyticsStats, grain: DrillGrain, 
   return Math.min(99, Math.round(weighted / totalCount));
 }
 
+function avgHoursForZoneFromRt(
+  rt: NonNullable<ReportsAnalyticsStats['responseTime']>,
+  zoneLabel: string,
+): number {
+  const zoneRow = rt.byZone.find((z) => z.zone === zoneLabel);
+  if (zoneRow && zoneRow.count > 0) return zoneRow.avgHours;
+  const districts = rt.byNeighborhood.filter((r) => r.zone === zoneLabel && r.count > 0);
+  if (districts.length === 0) return 0;
+  const total = districts.reduce((s, r) => s + r.count, 0);
+  const weighted = districts.reduce((s, r) => s + r.avgHours * r.count, 0);
+  return total > 0 ? Math.round((weighted / total) * 10) / 10 : 0;
+}
+
+function responseTimeKpiFromStats(
+  stats: ReportsAnalyticsStats,
+  grain: DrillGrain,
+  activeRegion?: string,
+  category?: string,
+): number {
+  const rt = stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL;
+  if (grain === 'region' && activeRegion) {
+    return avgHoursForZoneFromRt(rt, regionLabel(activeRegion));
+  }
+  if (category && category !== 'all') {
+    const row = rt.byCategory.find((c) => c.category === category);
+    if (row && row.count > 0) return row.avgHours;
+  }
+  return rt.avgHours;
+}
+
 export function buildDrillKpisFromStats(
   stats: ReportsAnalyticsStats | null,
   grain: DrillGrain,
@@ -97,7 +128,7 @@ export function buildDrillKpisFromStats(
 
   return {
     volume: volumeKpiFromStats(stats, grain, activeRegion, category),
-    responseHours: responseHoursFromStats(stats),
+    responseHours: responseTimeKpiFromStats(stats, grain, activeRegion, category),
     sentimentPct: sentimentKpiFromStats(stats, grain, activeRegion),
     patterns: Math.max(0, patternsCount),
   };
@@ -147,11 +178,9 @@ function groupByZone(stats: ReportsAnalyticsStats): Map<string, { count: number;
   return zones;
 }
 
-function responseHoursFromStats(stats: ReportsAnalyticsStats): number {
-  const pending = stats.byStatus.find((s) => s.status === 'Pendente')?.count ?? stats.pending;
-  const resolved = stats.resolved || 0;
-  if (stats.total <= 0 || resolved <= 0) return 0;
-  return Math.min(99, Math.round((pending / Math.max(resolved, 1)) * 24 * 10) / 10);
+function responseHoursForZone(stats: ReportsAnalyticsStats, zone: string): number {
+  const rt = stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL;
+  return avgHoursForZoneFromRt(rt, zone);
 }
 
 function metricFromZone(
@@ -159,12 +188,13 @@ function metricFromZone(
   metric: AnalyticsMetric,
   patternsCount: number,
   stats: ReportsAnalyticsStats,
+  zone: string,
 ): number {
   switch (metric) {
     case 'sentiment':
       return data.n > 0 ? Math.round(data.sentiment / data.n) : 0;
     case 'response_time':
-      return responseHoursFromStats(stats);
+      return responseHoursForZone(stats, zone);
     case 'patterns':
       return patternsCount;
     default:
@@ -195,13 +225,41 @@ export function buildChartSeriesFromStats(
         label: zone,
         filterKey: 'region' as const,
         filterValue: zoneToFilterId(zone),
-        value: metricFromZone(data, metric, stats.criticality.patterns.length, stats),
+        value: metricFromZone(data, metric, stats.criticality.patterns.length, stats, zone),
       };
     });
   }
 
   if (grain === 'region' && activeRegion) {
     const zoneLabel = regionLabel(activeRegion);
+
+    if (metric === 'response_time') {
+      const rtRows = (stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL).byNeighborhood.filter(
+        (r) => r.zone === zoneLabel && r.count > 0,
+      );
+      if (rtRows.length === 0 && responseHoursForZone(stats, zoneLabel) > 0) {
+        return [
+          {
+            id: DISTRICT_FALLBACK_ID,
+            label: DISTRICT_LABEL_FALLBACK,
+            filterKey: 'district' as const,
+            filterValue: DISTRICT_FALLBACK_ID,
+            value: responseHoursForZone(stats, zoneLabel),
+          },
+        ];
+      }
+      return rtRows
+        .map((r) => ({
+          id: r.neighborhood,
+          label: r.neighborhood,
+          filterKey: 'district' as const,
+          filterValue: r.neighborhood,
+          value: r.avgHours,
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12);
+    }
+
     const rows = districtRowsForZone(stats, zoneLabel);
     if (rows.length === 0 && zoneVolumeFromStats(stats, zoneLabel) > 0) {
       return [
@@ -221,6 +279,26 @@ export function buildChartSeriesFromStats(
         filterKey: 'district' as const,
         filterValue: r.neighborhood,
         value: r.count,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 12);
+  }
+
+  if (metric === 'response_time') {
+    const rtCats =
+      category === 'all'
+        ? (stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL).byCategory
+        : (stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL).byCategory.filter(
+            (c) => c.category === category,
+          );
+    return rtCats
+      .filter((c) => c.count > 0)
+      .map((c) => ({
+        id: c.category,
+        label: c.category,
+        filterKey: 'category' as const,
+        filterValue: c.category,
+        value: c.avgHours,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 12);
