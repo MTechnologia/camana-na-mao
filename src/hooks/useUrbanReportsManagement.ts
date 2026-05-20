@@ -1,27 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { countByStage } from '@/lib/urbanReportLabels';
+import {
+  dbStatusToWorkflowStage,
+  stageToDbStatus,
+} from '@/lib/urbanReportPersistence';
 import { useReportsAdmin, type UnifiedManifest } from '@/hooks/useReportsAdmin';
-import type { ReportQueueTab, ReportWorkflowStage, UrbanReportRecord } from '@/types/urbanReportManagement';
-
-function mapStatusToStage(status: string): ReportWorkflowStage {
-  switch (status) {
-    case 'pending':
-      return 'awaiting_triage';
-    case 'triaged':
-      return 'triaged';
-    case 'referred':
-      return 'referred';
-    case 'in_analysis':
-    case 'in_progress':
-      return 'in_analysis';
-    case 'resolved':
-    case 'closed':
-      return 'resolved';
-    default:
-      return 'awaiting_triage';
-  }
-}
+import type {
+  ReportQueueTab,
+  UrbanReportRecord,
+} from '@/types/urbanReportManagement';
 
 function manifestToUrbanRecord(m: UnifiedManifest): UrbanReportRecord {
   const u = m.urban_data;
@@ -33,7 +22,7 @@ function manifestToUrbanRecord(m: UnifiedManifest): UrbanReportRecord {
     category: u?.category ?? '—',
     region: m.location ?? u?.neighborhood ?? '—',
     district: u?.neighborhood ?? '—',
-    stage: mapStatusToStage(m.status),
+    stage: dbStatusToWorkflowStage(m.status),
     createdAt: m.created_at,
     updatedAt: m.updated_at ?? m.created_at,
     timeline: [],
@@ -49,11 +38,13 @@ export function useUrbanReportsManagement() {
     setTypeFilter,
     setCategoryFilter,
     setRegionFilter,
+    updateManifestStatus,
   } = useReportsAdmin();
   const [overrides, setOverrides] = useState<Record<string, UrbanReportRecord>>({});
   const [queueTab, setQueueTab] = useState<ReportQueueTab>('triage');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     setTypeFilter('urban');
@@ -107,9 +98,43 @@ export function useUrbanReportsManagement() {
     [reports, selectedId],
   );
 
-  const updateReport = (updated: UrbanReportRecord) => {
-    setOverrides((prev) => ({ ...prev, [updated.id]: updated }));
-  };
+  const updateReport = useCallback(
+    async (updated: UrbanReportRecord) => {
+      const previous =
+        overrides[updated.id] ?? baseReports.find((r) => r.id === updated.id) ?? null;
+      const dbStatus = stageToDbStatus(updated.stage);
+
+      setOverrides((prev) => ({
+        ...prev,
+        [updated.id]: { ...updated, updatedAt: new Date().toISOString() },
+      }));
+      setSavingId(updated.id);
+
+      try {
+        await updateManifestStatus(updated.id, 'urban', dbStatus);
+        setOverrides((prev) => {
+          const next = { ...prev };
+          delete next[updated.id];
+          return next;
+        });
+      } catch {
+        if (previous) {
+          setOverrides((prev) => ({ ...prev, [updated.id]: previous }));
+        } else {
+          setOverrides((prev) => {
+            const next = { ...prev };
+            delete next[updated.id];
+            return next;
+          });
+        }
+        toast.error('Não foi possível salvar a alteração no relato.');
+        throw new Error('update_failed');
+      } finally {
+        setSavingId(null);
+      }
+    },
+    [baseReports, overrides, updateManifestStatus],
+  );
 
   return {
     reports,
@@ -123,8 +148,9 @@ export function useUrbanReportsManagement() {
     selectedId,
     setSelectedId,
     updateReport,
+    savingId,
     isLoading: loading,
     error: null as string | null,
     period,
   };
-}
+};
