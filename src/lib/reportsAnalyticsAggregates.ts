@@ -1,8 +1,26 @@
 import type { PatternAlert } from '@/components/analytics/PatternAlerts';
 import type { ReportsAnalyticsStats, TimelineDataPoint } from '@/hooks/useReportsAnalytics';
 import type { PatternRankRow } from '@/types/analyticsDrill';
+import type { SeriesPoint } from '@/lib/chartTypes';
 import { regionLabel } from '@/lib/analyticsLabels';
-import { bairroParaZona } from '@/lib/regionMapping';
+import {
+  bairroParaZona,
+  ZONA_DESCONHECIDA,
+  ZONAS_FILTRO,
+  type ZonaVolumeOuDesconhecida,
+} from '@/lib/regionMapping';
+
+export function filterGeoRowsByRegion(
+  rows: GeoReportRow[],
+  region?: string,
+): GeoReportRow[] {
+  if (!region || region === 'all') return rows;
+  const zoneLabel = regionLabel(region);
+  return rows.filter((row) => {
+    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    return bairroParaZona(text, row.latitude, row.longitude) === zoneLabel;
+  });
+}
 
 export type UrbanReportRow = {
   id: string;
@@ -10,7 +28,119 @@ export type UrbanReportRow = {
   status: string | null;
   category: string | null;
   neighborhood: string | null;
+  location_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
+
+export type GeoReportRow = {
+  neighborhood?: string | null;
+  location?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+/** Contagem por zona canônica usando coords (prioridade) + texto de localização. */
+export function buildVolumeByZoneFromGeoRows(
+  rows: GeoReportRow[],
+): { zone: ZonaVolumeOuDesconhecida; count: number }[] {
+  const counts = new Map<ZonaVolumeOuDesconhecida, number>();
+  for (const zona of ZONAS_FILTRO) counts.set(zona, 0);
+
+  for (const row of rows) {
+    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    const zone = bairroParaZona(text, row.latitude, row.longitude);
+    const key = counts.has(zone) ? zone : ZONA_DESCONHECIDA;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return ZONAS_FILTRO.map((zone) => ({ zone, count: counts.get(zone) ?? 0 }));
+}
+
+export const DISTRICT_LABEL_FALLBACK = 'Sem bairro definido';
+
+/** Rótulo de bairro/local para drill-down territorial. */
+export function districtLabelFromGeoRow(row: GeoReportRow): string {
+  const nb = row.neighborhood?.trim();
+  if (nb) return nb;
+  const loc = row.location?.trim();
+  if (loc) {
+    const part = loc.split(',')[0]?.trim();
+    if (part && part.length <= 80) return part;
+    return loc.slice(0, 80);
+  }
+  return DISTRICT_LABEL_FALLBACK;
+}
+
+/** Contagem por bairro dentro de cada zona (mesma base do gráfico por região). */
+export function buildNeighborhoodBreakdownFromGeoRows(
+  rows: GeoReportRow[],
+): { neighborhood: string; zone: ZonaVolumeOuDesconhecida; count: number }[] {
+  const map = new Map<string, { zone: ZonaVolumeOuDesconhecida; count: number }>();
+
+  for (const row of rows) {
+    const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+    const zone = bairroParaZona(text, row.latitude, row.longitude);
+    const label = districtLabelFromGeoRow(row);
+    const key = `${zone}\u0000${label}`;
+    const cur = map.get(key) ?? { zone, count: 0 };
+    cur.count += 1;
+    map.set(key, cur);
+  }
+
+  return [...map.entries()]
+    .map(([key, v]) => ({
+      neighborhood: key.split('\u0000')[1] ?? DISTRICT_LABEL_FALLBACK,
+      zone: v.zone,
+      count: v.count,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Série para o gráfico "Quatro indicadores no tempo" a partir da timeline real. */
+export function buildMetricTrendsFromStats(stats: ReportsAnalyticsStats | null): SeriesPoint[] {
+  if (!stats) return [];
+
+  const patterns = stats.criticality.patterns.length || 0;
+  const regionRows = stats.demographics.byRegion;
+  const regionTotal = regionRows.reduce((s, r) => s + r.count, 0);
+  const sentiment =
+    regionTotal > 0
+      ? Math.round(
+          regionRows.reduce((s, r) => s + (r.sentiment ?? 50) * r.count, 0) / regionTotal,
+        )
+      : 50;
+  const pending = stats.byStatus.find((s) => s.status === 'Pendente')?.count ?? stats.pending;
+  const resolved = stats.resolved || 0;
+  const response =
+    stats.total > 0 && resolved > 0
+      ? Math.min(99, Math.round((pending / Math.max(resolved, 1)) * 24 * 10) / 10)
+      : 0;
+
+  if (stats.timeline.length > 0) {
+    return stats.timeline.map((p) => ({
+      label: formatTimelineDayLabel(p.date),
+      volume: p.total,
+      sentiment,
+      patterns,
+      response,
+    }));
+  }
+
+  if (stats.total > 0) {
+    return [
+      {
+        label: 'Total no período',
+        volume: stats.total,
+        sentiment,
+        patterns,
+        response,
+      },
+    ];
+  }
+
+  return [];
+}
 
 export function formatTimelineDayLabel(isoDate: string): string {
   const d = new Date(isoDate);
@@ -53,7 +183,11 @@ export function filterUrbanReportsByRegion(
   if (!region || region === 'all') return reports;
   const zoneLabel = regionLabel(region);
   return reports.filter((r) => {
-    const zone = bairroParaZona(r.neighborhood ?? '') ?? r.neighborhood;
+    const zone = bairroParaZona(
+      [r.neighborhood, r.location_address].filter(Boolean).join(' '),
+      r.latitude,
+      r.longitude,
+    );
     return zone === zoneLabel || r.neighborhood === region || r.neighborhood === zoneLabel;
   });
 }

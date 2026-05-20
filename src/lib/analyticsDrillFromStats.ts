@@ -1,5 +1,8 @@
 import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
-import { bairroParaZona, ZONA_DESCONHECIDA } from '@/lib/regionMapping';
+import { DISTRICT_LABEL_FALLBACK } from '@/lib/reportsAnalyticsAggregates';
+import { bairroParaZona, ZONA_DESCONHECIDA, ZONAS_FILTRO } from '@/lib/regionMapping';
+
+const DISTRICT_FALLBACK_ID = '__sem_bairro__';
 import { regionLabel, zoneToFilterId } from '@/lib/analyticsLabels';
 import type {
   AnalyticsMetric,
@@ -18,10 +21,31 @@ const EMPTY_KPIS: DrillKpis = {
   patterns: 0,
 };
 
-/** Relatos no total que não entram na distribuição por bairro (RPC top 20 ou bairro nulo). */
+/** Relatos no total que não entram na distribuição territorial exibida no gráfico. */
 export function unallocatedVolumeFromStats(stats: ReportsAnalyticsStats): number {
+  if (stats.volumeByZone?.length) {
+    const zoneSum = stats.volumeByZone.reduce((s, z) => s + z.count, 0);
+    return Math.max(0, stats.total - zoneSum);
+  }
   const distributed = stats.demographics.byRegion.reduce((s, r) => s + r.count, 0);
   return Math.max(0, stats.total - distributed);
+}
+
+function zoneVolumeFromStats(stats: ReportsAnalyticsStats, zoneLabel: string): number {
+  const fromGeo = stats.volumeByZone?.find((z) => z.zone === zoneLabel)?.count;
+  if (fromGeo != null) return fromGeo;
+  return stats.demographics.byRegion
+    .filter((r) => bairroParaZona(r.region) === zoneLabel)
+    .reduce((s, r) => s + r.count, 0);
+}
+
+function districtRowsForZone(stats: ReportsAnalyticsStats, zoneLabel: string) {
+  if (stats.neighborhoodBreakdown?.length) {
+    return stats.neighborhoodBreakdown.filter((r) => r.zone === zoneLabel);
+  }
+  return stats.demographics.byRegion
+    .filter((r) => bairroParaZona(r.region) === zoneLabel)
+    .map((r) => ({ neighborhood: r.region, zone: zoneLabel, count: r.count }));
 }
 
 function volumeKpiFromStats(
@@ -34,9 +58,7 @@ function volumeKpiFromStats(
 
   if (grain === 'region' && activeRegion) {
     const zoneLabel = regionLabel(activeRegion);
-    return stats.demographics.byRegion
-      .filter((r) => (bairroParaZona(r.region) ?? r.region) === zoneLabel || r.region === activeRegion)
-      .reduce((s, r) => s + r.count, 0);
+    return zoneVolumeFromStats(stats, zoneLabel);
   }
 
   const cats =
@@ -49,10 +71,11 @@ function volumeKpiFromStats(
 function sentimentKpiFromStats(stats: ReportsAnalyticsStats, grain: DrillGrain, activeRegion?: string): number {
   const rows =
     grain === 'region' && activeRegion
-      ? stats.demographics.byRegion.filter((r) => {
-          const zoneLabel = regionLabel(activeRegion);
-          return (bairroParaZona(r.region) ?? r.region) === zoneLabel || r.region === activeRegion;
-        })
+      ? districtRowsForZone(stats, regionLabel(activeRegion)).map((r) => ({
+          region: r.neighborhood,
+          count: r.count,
+          sentiment: 50,
+        }))
       : stats.demographics.byRegion;
 
   if (rows.length === 0) return 0;
@@ -80,22 +103,45 @@ export function buildDrillKpisFromStats(
   };
 }
 
+function emptyZoneBucket(): { count: number; sentiment: number; n: number } {
+  return { count: 0, sentiment: 0, n: 0 };
+}
+
+/** Agrega por zona canônica da capital; sempre inclui as 6 zonas do filtro (5 + Não informada). */
 function groupByZone(stats: ReportsAnalyticsStats): Map<string, { count: number; sentiment: number; n: number }> {
   const zones = new Map<string, { count: number; sentiment: number; n: number }>();
+  for (const zona of ZONAS_FILTRO) {
+    zones.set(zona, emptyZoneBucket());
+  }
+
+  if (stats.volumeByZone?.length) {
+    for (const row of stats.volumeByZone) {
+      const zone = zones.has(row.zone) ? row.zone : ZONA_DESCONHECIDA;
+      const cur = zones.get(zone)!;
+      cur.count = row.count;
+    }
+    const gap = unallocatedVolumeFromStats(stats);
+    if (gap > 0) {
+      const cur = zones.get(ZONA_DESCONHECIDA)!;
+      cur.count += gap;
+    }
+    return zones;
+  }
+
   for (const row of stats.demographics.byRegion) {
-    const zone = bairroParaZona(row.region) ?? row.region;
-    const cur = zones.get(zone) ?? { count: 0, sentiment: 0, n: 0 };
+    const mapped = bairroParaZona(row.region);
+    const zone =
+      mapped !== ZONA_DESCONHECIDA && zones.has(mapped) ? mapped : ZONA_DESCONHECIDA;
+    const cur = zones.get(zone)!;
     cur.count += row.count;
     cur.sentiment += row.sentiment ?? 50;
     cur.n += 1;
-    zones.set(zone, cur);
   }
 
   const gap = unallocatedVolumeFromStats(stats);
   if (gap > 0) {
-    const cur = zones.get(ZONA_DESCONHECIDA) ?? { count: 0, sentiment: 0, n: 0 };
+    const cur = zones.get(ZONA_DESCONHECIDA)!;
     cur.count += gap;
-    zones.set(ZONA_DESCONHECIDA, cur);
   }
 
   return zones;
@@ -142,27 +188,39 @@ export function buildChartSeriesFromStats(
 
   if (grain === 'overview') {
     const zones = groupByZone(stats);
-    return [...zones.entries()]
-      .map(([zone, data]) => ({
+    return ZONAS_FILTRO.map((zone) => {
+      const data = zones.get(zone) ?? emptyZoneBucket();
+      return {
         id: zoneToFilterId(zone),
         label: zone,
         filterKey: 'region' as const,
         filterValue: zoneToFilterId(zone),
         value: metricFromZone(data, metric, stats.criticality.patterns.length, stats),
-      }))
-      .sort((a, b) => b.value - a.value);
+      };
+    });
   }
 
   if (grain === 'region' && activeRegion) {
     const zoneLabel = regionLabel(activeRegion);
-    return stats.demographics.byRegion
-      .filter((r) => (bairroParaZona(r.region) ?? r.region) === zoneLabel || r.region === activeRegion)
+    const rows = districtRowsForZone(stats, zoneLabel);
+    if (rows.length === 0 && zoneVolumeFromStats(stats, zoneLabel) > 0) {
+      return [
+        {
+          id: DISTRICT_FALLBACK_ID,
+          label: DISTRICT_LABEL_FALLBACK,
+          filterKey: 'district' as const,
+          filterValue: DISTRICT_FALLBACK_ID,
+          value: zoneVolumeFromStats(stats, zoneLabel),
+        },
+      ];
+    }
+    return rows
       .map((r) => ({
-        id: r.region,
-        label: r.region,
+        id: r.neighborhood,
+        label: r.neighborhood,
         filterKey: 'district' as const,
-        filterValue: r.region,
-        value: metric === 'sentiment' ? Math.round(r.sentiment ?? 50) : r.count,
+        filterValue: r.neighborhood,
+        value: r.count,
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 12);
@@ -202,7 +260,8 @@ export function buildSentimentPolarityFromStats(
 
   if (grain === 'overview') {
     const zones = groupByZone(stats);
-    return [...zones.entries()].map(([zone, data]) => {
+    return ZONAS_FILTRO.map((zone) => {
+      const data = zones.get(zone) ?? emptyZoneBucket();
       const pct = data.n > 0 ? data.sentiment / data.n : 50;
       const pos = Math.round((pct / 100) * data.count);
       const neg = Math.round(((100 - pct) / 200) * data.count);
@@ -217,16 +276,14 @@ export function buildSentimentPolarityFromStats(
 
   if (grain === 'region' && activeRegion) {
     const zoneLabel = regionLabel(activeRegion);
-    return stats.demographics.byRegion
-      .filter((r) => (bairroParaZona(r.region) ?? r.region) === zoneLabel || r.region === activeRegion)
+    return districtRowsForZone(stats, zoneLabel)
       .map((r) => {
-        const pct = r.sentiment ?? 50;
-        const pos = Math.round((pct / 100) * r.count);
-        const neg = Math.round(((100 - pct) / 200) * r.count);
+        const pos = Math.round(r.count * 0.4);
+        const neg = Math.round(r.count * 0.25);
         const neu = Math.max(0, r.count - pos - neg);
         return {
-          id: r.region,
-          label: r.region,
+          id: r.neighborhood,
+          label: r.neighborhood,
           slices: sentimentSlicesFromCounts(pos, neu, neg),
         };
       })

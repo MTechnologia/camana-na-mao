@@ -11,10 +11,19 @@ import {
   SOCIAL_CLASS_LABELS,
 } from "@/lib/demographicDrill";
 import {
+  categoryDbValuesForRpc,
+  hasCategoryFilterTargets,
+  resolveGlobalCategoryFilter,
+} from '@/lib/globalCategoryFilter';
+import {
+  buildNeighborhoodBreakdownFromGeoRows,
   buildTimelineFromUrbanReports,
+  buildVolumeByZoneFromGeoRows,
+  filterGeoRowsByRegion,
   filterUrbanReportsByRegion,
   mapReportPatternsToAlerts,
   patternsFromCategories,
+  type GeoReportRow,
   type UrbanReportRow,
 } from '@/lib/reportsAnalyticsAggregates';
 
@@ -88,6 +97,9 @@ export interface ReportsAnalyticsStats {
     conversionFunnel: FunnelStep[];
   };
   
+  /** Volume por zona (coords + bairro dos relatos no recorte). */
+  volumeByZone: { zone: string; count: number }[];
+
   // Criticidade
   criticality: {
     criticalScore: number;
@@ -112,6 +124,8 @@ const emptyStats: ReportsAnalyticsStats = {
   timeline: [],
   byStatus: [],
   categories: [],
+  volumeByZone: [],
+  neighborhoodBreakdown: [],
   demographics: {
     byGender: [],
     byRace: [],
@@ -183,6 +197,17 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       const startDateISO = filters.startDate ? new Date(filters.startDate).toISOString() : null;
       const endDateISO = filters.endDate ? new Date(filters.endDate).toISOString() : null;
 
+      const categorySlice = resolveGlobalCategoryFilter(filters.category);
+      const pCategories = categorySlice.isAll ? null : categoryDbValuesForRpc(categorySlice);
+
+      if (!categorySlice.isAll && !hasCategoryFilterTargets(categorySlice)) {
+        if (isMounted) {
+          setStats(emptyStats);
+          setIsLoading(false);
+        }
+        return;
+      }
+
       // Tentar buscar dados demográficos via função segura (SECURITY DEFINER)
       const { data: rpcResult, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
         p_gender: mappedGender,
@@ -192,6 +217,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         p_report_type: null,
         p_start_date: startDateISO,
         p_end_date: endDateISO,
+        p_categories: pCategories,
       });
 
       if (rpcError) {
@@ -296,37 +322,135 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
       let urbanReports: Record<string, unknown>[] = [];
       let timeline: TimelineDataPoint[] = [];
       let patternAlerts: PatternAlert[] = [];
+      let volumeByZone: { zone: string; count: number }[] = [];
+      let neighborhoodBreakdown: { neighborhood: string; zone: string; count: number }[] = [];
 
       try {
-        let urbanQuery = supabase
-          .from('urban_reports')
-          .select(`
+        const geoRows: GeoReportRow[] = [];
+        const includeUrban =
+          categorySlice.isAll || categorySlice.urbanCategories.length > 0;
+        const includeTransport =
+          categorySlice.isAll || categorySlice.transportSubcategories.length > 0;
+        const includeEvaluations =
+          categorySlice.isAll || categorySlice.publicServiceTypes.length > 0;
+
+        if (includeUrban) {
+          let urbanQuery = supabase
+            .from('urban_reports')
+            .select(`
             id, description, category, location_address, status, created_at, severity, neighborhood,
+            latitude, longitude,
             urban_report_likes(count),
             urban_report_comments(count)
           `)
-          .neq('category', 'feedback_camara')
-          .order('created_at', { ascending: true })
-          .limit(3000);
+            .order('created_at', { ascending: true })
+            .limit(3000);
 
-        if (filters.startDate) {
-          urbanQuery = urbanQuery.gte('created_at', `${filters.startDate}T00:00:00`);
-        }
-        if (filters.endDate) {
-          urbanQuery = urbanQuery.lte('created_at', `${filters.endDate}T23:59:59`);
-        }
-        if (filters.category) {
-          urbanQuery = urbanQuery.eq('category', filters.category);
-        }
+          if (filters.startDate) {
+            urbanQuery = urbanQuery.gte('created_at', `${filters.startDate}T00:00:00`);
+          }
+          if (filters.endDate) {
+            urbanQuery = urbanQuery.lte('created_at', `${filters.endDate}T23:59:59`);
+          }
+          if (!categorySlice.isAll) {
+            urbanQuery = urbanQuery.in('category', categorySlice.urbanCategories);
+          }
 
-        const { data: urbanData } = await urbanQuery;
-        urbanReports = urbanData || [];
+          const { data: urbanData } = await urbanQuery;
+          urbanReports = urbanData || [];
+        }
 
         const urbanForTimeline = filterUrbanReportsByRegion(
           urbanReports as UrbanReportRow[],
           filters.region,
         );
         timeline = buildTimelineFromUrbanReports(urbanForTimeline);
+
+        urbanForTimeline.forEach((r) => {
+          geoRows.push({
+            neighborhood: r.neighborhood,
+            location: r.location_address ?? null,
+            latitude: r.latitude ?? null,
+            longitude: r.longitude ?? null,
+          });
+        });
+
+        if (includeTransport) {
+          let transportQuery = supabase
+            .from('transport_reports')
+            .select('location, stop_location, sub_category, report_type')
+            .order('created_at', { ascending: true })
+            .limit(3000);
+          if (filters.startDate) {
+            transportQuery = transportQuery.gte('created_at', `${filters.startDate}T00:00:00`);
+          }
+          if (filters.endDate) {
+            transportQuery = transportQuery.lte('created_at', `${filters.endDate}T23:59:59`);
+          }
+          if (!categorySlice.isAll) {
+            const orParts = categorySlice.transportSubcategories.flatMap((sc) => [
+              `sub_category.eq.${sc}`,
+              `report_type.eq.${sc}`,
+            ]);
+            transportQuery = transportQuery.or(orParts.join(','));
+          }
+          const { data: transportData } = await transportQuery;
+          (transportData ?? []).forEach((t) => {
+            geoRows.push({
+              neighborhood: null,
+              location: (t.location as string) || (t.stop_location as string) || null,
+            });
+          });
+        }
+
+        if (includeEvaluations) {
+          let evalQuery = supabase
+            .from('service_ratings')
+            .select(
+              'created_at, public_services!inner(district, latitude, longitude, address, service_type)',
+            )
+            .eq('publication_status', 'published')
+            .order('created_at', { ascending: true })
+            .limit(3000);
+          if (filters.startDate) {
+            evalQuery = evalQuery.gte('created_at', `${filters.startDate}T00:00:00`);
+          }
+          if (filters.endDate) {
+            evalQuery = evalQuery.lte('created_at', `${filters.endDate}T23:59:59`);
+          }
+          if (!categorySlice.isAll) {
+            evalQuery = evalQuery.in(
+              'public_services.service_type',
+              categorySlice.publicServiceTypes,
+            );
+          }
+          const { data: evalData } = await evalQuery;
+          (evalData ?? []).forEach((row) => {
+            const ps = row.public_services as {
+              district?: string | null;
+              latitude?: number | null;
+              longitude?: number | null;
+              address?: string | null;
+            } | null;
+            geoRows.push({
+              neighborhood: ps?.district ?? null,
+              location: ps?.address ?? null,
+              latitude: ps?.latitude ?? null,
+              longitude: ps?.longitude ?? null,
+            });
+          });
+        }
+
+        const geoForTerritory = filterGeoRowsByRegion(geoRows, filters.region);
+        volumeByZone = buildVolumeByZoneFromGeoRows(geoForTerritory).map((z) => ({
+          zone: z.zone,
+          count: z.count,
+        }));
+        neighborhoodBreakdown = buildNeighborhoodBreakdownFromGeoRows(geoForTerritory).map((r) => ({
+          neighborhood: r.neighborhood,
+          zone: r.zone,
+          count: r.count,
+        }));
 
         const { data: patternRows } = await supabase
           .from('report_patterns')
@@ -395,6 +519,8 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           timeline,
           byStatus,
           categories,
+          volumeByZone,
+          neighborhoodBreakdown,
           demographics: {
             byGender,
             byRace,
@@ -430,7 +556,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
     } finally {
       if (isMounted) setIsLoading(false);
     }
-  }, [filters.ageGroup, filters.gender, filters.race, filters.socialClass, filters.startDate, filters.endDate]);
+  }, [filtersKey]);
 
   useEffect(() => {
     let isMounted = true;
