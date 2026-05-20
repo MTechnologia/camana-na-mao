@@ -24,14 +24,15 @@ const selectClass =
 type ReportDetailSheetProps = {
   report: UrbanReportRecord | null;
   onClose: () => void;
-  onUpdate: (report: UrbanReportRecord) => void;
+  onUpdate: (report: UrbanReportRecord) => Promise<void>;
+  saving?: boolean;
 };
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailSheetProps) {
+export function ReportDetailSheet({ report, onClose, onUpdate, saving = false }: ReportDetailSheetProps) {
   const { rules } = useReferralRoutingRules();
   const { commissions, councilMembers } = useReferralDestinations();
   const [priority, setPriority] = useState<ReportPriority>('normal');
@@ -89,7 +90,7 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
     ],
   });
 
-  const handleTriage = () => {
+  const handleTriage = async () => {
     const updated = appendTimeline(
       {
         ...report,
@@ -102,8 +103,12 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
       'Triagem concluída',
       `Prioridade ${PRIORITY_LABELS[priority]}${triageNote ? ` · ${triageNote}` : ''}`,
     );
-    onUpdate(updated);
-    toast.success('Triagem registrada — encaminhamento liberado');
+    try {
+      await onUpdate(updated);
+      toast.success('Triagem registrada — encaminhamento liberado');
+    } catch {
+      /* toast no hook */
+    }
   };
 
   const resolveReferralTargets = () => {
@@ -116,7 +121,7 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
     return { commission, councillor };
   };
 
-  const handleRefer = (isUpdate = false) => {
+  const handleRefer = async (isUpdate = false) => {
     const { commission, councillor } = resolveReferralTargets();
     if (!commission || !councillor) {
       toast.error('Selecione a comissão e o vereador para encaminhar');
@@ -140,15 +145,23 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
       isUpdate ? 'Encaminhamento atualizado' : 'Encaminhamento registrado',
       `${commission.name} · ${councillor.name} (${matchScore}%)`,
     );
-    onUpdate(updated);
-    setEditingReferral(false);
-    toast.success(isUpdate ? 'Destinos atualizados' : 'Encaminhamento registrado');
+    try {
+      await onUpdate(updated);
+      setEditingReferral(false);
+      toast.success(isUpdate ? 'Destinos atualizados' : 'Encaminhamento registrado');
+    } catch {
+      /* toast no hook */
+    }
   };
 
-  const handleStatusChange = (stage: ReportWorkflowStage) => {
+  const handleStatusChange = async (stage: ReportWorkflowStage) => {
     const updated = appendTimeline({ ...report, stage }, STAGE_LABELS[stage]);
-    onUpdate(updated);
-    toast.message(`Status atualizado: ${STAGE_LABELS[stage]}`);
+    try {
+      await onUpdate(updated);
+      toast.success(`Status atualizado: ${STAGE_LABELS[stage]}`);
+    } catch {
+      /* toast no hook */
+    }
   };
 
   return (
@@ -257,7 +270,7 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
                     placeholder="Contexto para a comissão…"
                   />
                 </div>
-                <Button type="button" className="w-full" onClick={handleTriage}>
+                <Button type="button" className="w-full" disabled={saving} onClick={handleTriage}>
                   Concluir triagem
                 </Button>
               </div>
@@ -323,6 +336,7 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
                     <Button
                       type="button"
                       className="w-full gap-2"
+                      disabled={saving}
                       onClick={() => handleRefer(editingReferral)}
                     >
                       <Send className="h-4 w-4" />
@@ -370,7 +384,7 @@ export function ReportDetailSheet({ report, onClose, onUpdate }: ReportDetailShe
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={report.stage === stage}
+                    disabled={saving || report.stage === stage}
                     onClick={() => handleStatusChange(stage)}
                   >
                     {STAGE_LABELS[stage]}

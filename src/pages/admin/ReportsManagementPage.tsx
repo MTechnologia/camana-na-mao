@@ -23,6 +23,7 @@ export function ReportsManagementPage() {
     selectedId,
     setSelectedId,
     updateReport,
+    savingId,
   } = useUrbanReportsManagement();
 
   return (
@@ -64,10 +65,9 @@ export function ReportsManagementPage() {
 
       <ReportDetailSheet
         report={selected}
+        saving={Boolean(selected && savingId === selected.id)}
         onClose={() => setSelectedId(null)}
-        onUpdate={(updated) => {
-          updateReport(updated);
-        }}
+        onUpdate={updateReport}
       />
     </PageShell>
   );
