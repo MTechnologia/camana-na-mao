@@ -358,6 +358,7 @@ export const SECTION_CHART_LEGENDS = {
     KPI_PARAMETER_LEGENDS.volume,
     KPI_PARAMETER_LEGENDS.sentiment,
     KPI_PARAMETER_LEGENDS.patterns,
+    KPI_PARAMETER_LEGENDS.response_time,
     {
       term: 'Eixo temporal',
       description: 'Pontos alinhados ao período dos filtros globais (dias ou semanas).',

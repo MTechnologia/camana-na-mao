@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { globalFiltersToReportsAnalytics } from '@/lib/globalFiltersToAnalytics';
 import { useReportsAnalytics } from '@/hooks/useReportsAnalytics';
+import { buildMetricTrendsFromStats } from '@/lib/reportsAnalyticsAggregates';
 import {
   buildVolumeSeriesFromStats,
   fetchSectionChartExtras,
@@ -49,8 +50,14 @@ export function useSectionChartData() {
     };
   }, [period, region, category]);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const metricTrends =
+      extras.metricTrends.length > 0
+        ? extras.metricTrends
+        : buildMetricTrendsFromStats(stats);
+
+    return {
+      ...extras,
       volumeTimeSeries: buildVolumeSeriesFromStats(stats),
       volumeByCategory: (stats?.categories ?? []).map((c) => ({
         label: c.category,
@@ -64,18 +71,7 @@ export function useSectionChartData() {
         label: r.region,
         value: r.count,
       })),
-      metricTrends:
-        extras.metricTrends.length > 0
-          ? extras.metricTrends
-          : buildVolumeSeriesFromStats(stats).map((p) => ({
-              label: p.label,
-              volume: Number(p.volume),
-              response: 0,
-              sentiment: stats?.demographics?.byRegion?.[0]?.sentiment ?? 50,
-              patterns: stats?.criticality?.patterns?.length ?? 0,
-            })),
-      ...extras,
-    }),
-    [stats, extras],
-  );
+      metricTrends,
+    };
+  }, [stats, extras]);
 }

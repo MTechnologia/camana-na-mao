@@ -35,6 +35,11 @@ export function ReportDrillSheet() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {throughReports.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum relato encontrado para este recorte no período selecionado.
+            </p>
+          ) : null}
           <ul className="space-y-2">
             {throughReports.map((r) => (
               <li

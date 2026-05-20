@@ -5,6 +5,7 @@ import { AnalyticsDrillBreadcrumb } from '@/components/admin/analytics/Analytics
 import { ExecutiveKpiSection } from '@/components/admin/analytics/ExecutiveKpiSection';
 import { MetricSwitcher } from '@/components/admin/analytics/MetricSwitcher';
 import { VolumeByRegionChart } from '@/components/admin/analytics/VolumeByRegionChart';
+import { ExecutiveDashboardCharts } from '@/components/admin/charts/SectionChartPanels';
 
 export function AdminDashboard() {
   return (
@@ -23,6 +24,8 @@ export function AdminDashboard() {
       <div className="mt-4">
         <VolumeByRegionChart />
       </div>
+
+      <ExecutiveDashboardCharts />
 
       <DashboardHelpSection />
     </PageShell>
