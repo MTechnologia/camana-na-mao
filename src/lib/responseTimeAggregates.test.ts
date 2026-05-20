@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildResponseTimeDrillStats,
   EMPTY_RESPONSE_TIME_DRILL,
+  enrichZonesFromNeighborhoodBreakdown,
   filterResponseTimeRecords,
+  recordsFromUrbanRows,
   type ResponseTimeRecord,
 } from '@/lib/responseTimeAggregates';
+import type { UrbanReportRow } from '@/lib/reportsAnalyticsAggregates';
 
 function rec(overrides: Partial<ResponseTimeRecord> = {}): ResponseTimeRecord {
   return {
@@ -54,6 +57,56 @@ describe('buildResponseTimeDrillStats', () => {
     expect(tatuape?.count).toBe(2);
     expect(stats.byCategory.some((c) => c.category === 'Mobilidade')).toBe(true);
     expect(stats.byCategory.some((c) => c.category === 'atraso')).toBe(true);
+  });
+});
+
+describe('recordsFromUrbanRows', () => {
+  it('usa coords e bairro como o volume territorial', () => {
+    const rows: UrbanReportRow[] = [
+      {
+        id: '1',
+        created_at: '2026-04-01T10:00:00Z',
+        updated_at: '2026-04-02T10:00:00Z',
+        status: 'resolved',
+        category: 'Mobilidade',
+        neighborhood: 'Jardim Everest',
+        location_address: null,
+        latitude: -23.61,
+        longitude: -46.72,
+      },
+      {
+        id: '2',
+        created_at: '2026-04-01T10:00:00Z',
+        updated_at: '2026-04-01T14:00:00Z',
+        status: 'pending',
+        category: 'Mobilidade',
+        neighborhood: 'Centro',
+      },
+    ];
+    const records = recordsFromUrbanRows(rows);
+    expect(records).toHaveLength(1);
+    expect(records[0].hours).toBe(24);
+    expect(records[0].neighborhood).toBe('Jardim Everest');
+  });
+});
+
+describe('enrichZonesFromNeighborhoodBreakdown', () => {
+  it('reclassifica Não informada quando o bairro existe no breakdown de volume', () => {
+    const records: ResponseTimeRecord[] = [
+      {
+        source: 'urbano',
+        category: 'X',
+        neighborhood: 'Jardim Everest',
+        zone: 'Não informada',
+        hours: 10,
+        createdAt: '2026-04-01T10:00:00Z',
+        closedAt: '2026-04-01T20:00:00Z',
+      },
+    ];
+    const enriched = enrichZonesFromNeighborhoodBreakdown(records, [
+      { neighborhood: 'Jardim Everest', zone: 'Zona Oeste' },
+    ]);
+    expect(enriched[0].zone).toBe('Zona Oeste');
   });
 });
 

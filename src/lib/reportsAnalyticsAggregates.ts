@@ -25,6 +25,7 @@ export function filterGeoRowsByRegion(
 export type UrbanReportRow = {
   id: string;
   created_at: string | null;
+  updated_at?: string | null;
   status: string | null;
   category: string | null;
   neighborhood: string | null;

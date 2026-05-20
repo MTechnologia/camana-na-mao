@@ -86,6 +86,19 @@ function sentimentKpiFromStats(stats: ReportsAnalyticsStats, grain: DrillGrain, 
   return Math.min(99, Math.round(weighted / totalCount));
 }
 
+function avgHoursForZoneFromRt(
+  rt: NonNullable<ReportsAnalyticsStats['responseTime']>,
+  zoneLabel: string,
+): number {
+  const zoneRow = rt.byZone.find((z) => z.zone === zoneLabel);
+  if (zoneRow && zoneRow.count > 0) return zoneRow.avgHours;
+  const districts = rt.byNeighborhood.filter((r) => r.zone === zoneLabel && r.count > 0);
+  if (districts.length === 0) return 0;
+  const total = districts.reduce((s, r) => s + r.count, 0);
+  const weighted = districts.reduce((s, r) => s + r.avgHours * r.count, 0);
+  return total > 0 ? Math.round((weighted / total) * 10) / 10 : 0;
+}
+
 function responseTimeKpiFromStats(
   stats: ReportsAnalyticsStats,
   grain: DrillGrain,
@@ -94,8 +107,7 @@ function responseTimeKpiFromStats(
 ): number {
   const rt = stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL;
   if (grain === 'region' && activeRegion) {
-    const zoneLabel = regionLabel(activeRegion);
-    return rt.byZone.find((z) => z.zone === zoneLabel)?.avgHours ?? 0;
+    return avgHoursForZoneFromRt(rt, regionLabel(activeRegion));
   }
   if (category && category !== 'all') {
     const row = rt.byCategory.find((c) => c.category === category);
@@ -168,7 +180,7 @@ function groupByZone(stats: ReportsAnalyticsStats): Map<string, { count: number;
 
 function responseHoursForZone(stats: ReportsAnalyticsStats, zone: string): number {
   const rt = stats.responseTime ?? EMPTY_RESPONSE_TIME_DRILL;
-  return rt.byZone.find((z) => z.zone === zone)?.avgHours ?? 0;
+  return avgHoursForZoneFromRt(rt, zone);
 }
 
 function metricFromZone(

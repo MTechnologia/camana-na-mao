@@ -16,8 +16,8 @@ import {
   resolveGlobalCategoryFilter,
 } from '@/lib/globalCategoryFilter';
 import {
+  computeResponseTimeDrillStats,
   EMPTY_RESPONSE_TIME_DRILL,
-  loadResponseTimeDrillStats,
   type ResponseTimeDrillStats,
 } from '@/lib/responseTimeAggregates';
 import {
@@ -160,6 +160,7 @@ const emptyStats: ReportsAnalyticsStats = {
     patterns: [],
     criticalPendingReports: [],
   },
+  responseTime: EMPTY_RESPONSE_TIME_DRILL,
 };
 
 export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
@@ -219,8 +220,6 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
-      const responseTimePromise = loadResponseTimeDrillStats(filters);
-
       // Tentar buscar dados demográficos via função segura (SECURITY DEFINER)
       const { data: rpcResult, error: rpcError } = await supabase.rpc('get_reports_with_demographics', {
         p_gender: mappedGender,
@@ -243,7 +242,6 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         return;
       }
 
-      const responseTime = await responseTimePromise;
       const demographicsFromRpc = rpcResult as Record<string, unknown>;
       
       // Usar dados da função segura
@@ -352,7 +350,7 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
           let urbanQuery = supabase
             .from('urban_reports')
             .select(`
-            id, description, category, location_address, status, created_at, severity, neighborhood,
+            id, description, category, location_address, status, created_at, updated_at, severity, neighborhood,
             latitude, longitude,
             urban_report_likes(count),
             urban_report_comments(count)
@@ -483,6 +481,11 @@ export const useReportsAnalytics = (filters: ReportsAnalyticsFilters = {}) => {
         console.warn('Could not fetch urban reports timeline/patterns', err);
         patternAlerts = patternsFromCategories(categories);
       }
+
+      const responseTime = await computeResponseTimeDrillStats(filters, {
+        urbanRows: urbanReports as UrbanReportRow[],
+        neighborhoodBreakdown,
+      });
 
       const totalLikes = urbanReports.reduce((sum, r: Record<string, unknown>) => 
         sum + ((r.urban_report_likes as { count?: number }[])?.[0]?.count || 0), 0);

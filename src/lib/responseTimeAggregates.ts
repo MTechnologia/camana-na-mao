@@ -5,8 +5,17 @@ import {
   resolveGlobalCategoryFilter,
 } from '@/lib/globalCategoryFilter';
 import { regionLabel } from '@/lib/analyticsLabels';
-import { bairroParaZona, ZONAS_FILTRO, type ZonaVolumeOuDesconhecida } from '@/lib/regionMapping';
-import { districtLabelFromGeoRow, type GeoReportRow } from '@/lib/reportsAnalyticsAggregates';
+import {
+  bairroParaZona,
+  ZONA_DESCONHECIDA,
+  ZONAS_FILTRO,
+  type ZonaVolumeOuDesconhecida,
+} from '@/lib/regionMapping';
+import {
+  districtLabelFromGeoRow,
+  type GeoReportRow,
+  type UrbanReportRow,
+} from '@/lib/reportsAnalyticsAggregates';
 
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 5;
@@ -58,13 +67,6 @@ export const EMPTY_RESPONSE_TIME_DRILL: ResponseTimeDrillStats = {
   byCategory: [],
 };
 
-function toIsoRange(start?: string, end?: string): { startIso: string | null; endIso: string | null } {
-  return {
-    startIso: start ? new Date(`${start}T00:00:00`).toISOString() : null,
-    endIso: end ? new Date(`${end}T23:59:59`).toISOString() : null,
-  };
-}
-
 function diffHours(start: string, end: string): number {
   const ms = new Date(end).getTime() - new Date(start).getTime();
   return ms > 0 ? ms / 36e5 : 0;
@@ -75,55 +77,76 @@ function safeText(value: unknown, fallback = 'Não informado'): string {
   return text && text.length > 0 ? text : fallback;
 }
 
-function zoneFromRow(
-  neighborhood: string | null | undefined,
-  location: string | null | undefined,
-  lat?: number | null,
-  lng?: number | null,
-): ZonaVolumeOuDesconhecida {
-  const text = [neighborhood, location].filter(Boolean).join(' ');
-  return bairroParaZona(text, lat, lng);
+function normalizeDistrictKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 }
 
-async function fetchResolvedUrban(startIso: string | null, endIso: string | null): Promise<ResponseTimeRecord[]> {
+function normalizeCategory(value: string): string {
+  return normalizeDistrictKey(value);
+}
+
+function zoneFromGeoRow(row: GeoReportRow): ZonaVolumeOuDesconhecida {
+  const text = [row.neighborhood, row.location].filter(Boolean).join(' ');
+  return bairroParaZona(text, row.latitude, row.longitude);
+}
+
+/** Mesma base geográfica do gráfico de volume (coords + bairro/local). */
+export function recordsFromUrbanRows(rows: UrbanReportRow[]): ResponseTimeRecord[] {
   const out: ResponseTimeRecord[] = [];
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    let q = supabase
-      .from('urban_reports')
-      .select('created_at, updated_at, status, category, neighborhood, location_address, latitude, longitude')
-      .eq('status', 'resolved')
-      .order('updated_at', { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-    if (startIso) q = q.gte('updated_at', startIso);
-    if (endIso) q = q.lte('updated_at', endIso);
-    const { data, error } = await q;
-    if (error) throw error;
-    const rows = data ?? [];
-    for (const r of rows) {
-      if (!r.created_at || !r.updated_at) continue;
-      const neighborhood = safeText(r.neighborhood, '');
-      out.push({
-        source: 'urbano',
-        category: safeText(r.category, 'Sem categoria'),
-        neighborhood: neighborhood || districtLabelFromGeoRow({
-          neighborhood: r.neighborhood,
-          location: r.location_address,
-        }),
-        zone: zoneFromRow(r.neighborhood, r.location_address, r.latitude, r.longitude),
-        hours: diffHours(r.created_at, r.updated_at),
-        createdAt: r.created_at,
-        closedAt: r.updated_at,
-      });
-    }
-    if (rows.length < PAGE_SIZE) break;
+  for (const row of rows) {
+    if (row.status !== 'resolved' && row.status !== 'closed') continue;
+    if (!row.created_at || !row.updated_at) continue;
+    const geo: GeoReportRow = {
+      neighborhood: row.neighborhood,
+      location: row.location_address ?? null,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+    };
+    out.push({
+      source: 'urbano',
+      category: safeText(row.category, 'Sem categoria'),
+      neighborhood: districtLabelFromGeoRow(geo),
+      zone: zoneFromGeoRow(geo),
+      hours: diffHours(row.created_at, row.updated_at),
+      createdAt: row.created_at,
+      closedAt: row.updated_at,
+    });
   }
   return out;
 }
 
-async function fetchResolvedTransport(
-  startIso: string | null,
-  endIso: string | null,
+/**
+ * Quando coords/texto não classificam a zona, reaproveita o mapa bairro→zona
+ * já calculado para o volume territorial no mesmo recorte.
+ */
+export function enrichZonesFromNeighborhoodBreakdown(
+  records: ResponseTimeRecord[],
+  breakdown: { neighborhood: string; zone: string }[],
+): ResponseTimeRecord[] {
+  if (!breakdown.length) return records;
+  const map = new Map<string, ZonaVolumeOuDesconhecida>();
+  for (const row of breakdown) {
+    map.set(normalizeDistrictKey(row.neighborhood), row.zone as ZonaVolumeOuDesconhecida);
+  }
+  return records.map((r) => {
+    if (r.zone !== ZONA_DESCONHECIDA) return r;
+    const zone = map.get(normalizeDistrictKey(r.neighborhood));
+    return zone ? { ...r, zone } : r;
+  });
+}
+
+async function fetchResolvedTransportForFilters(
+  filters: ReportsAnalyticsFilters,
 ): Promise<ResponseTimeRecord[]> {
+  const slice = resolveGlobalCategoryFilter(filters.category);
+  if (!slice.isAll && slice.transportSubcategories.length === 0) {
+    return [];
+  }
+
   const out: ResponseTimeRecord[] = [];
   for (let page = 0; page < MAX_PAGES; page += 1) {
     let q = supabase
@@ -132,10 +155,24 @@ async function fetchResolvedTransport(
         'created_at, updated_at, responded_at, status, report_type, sub_category, location, stop_location',
       )
       .eq('status', 'resolved')
-      .order('updated_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-    if (startIso) q = q.gte('updated_at', startIso);
-    if (endIso) q = q.lte('updated_at', endIso);
+
+    if (filters.startDate) {
+      q = q.gte('created_at', `${filters.startDate}T00:00:00`);
+    }
+    if (filters.endDate) {
+      q = q.lte('created_at', `${filters.endDate}T23:59:59`);
+    }
+    if (!slice.isAll) {
+      const orParts = slice.transportSubcategories.flatMap((sc) => [
+        `sub_category.eq.${sc}`,
+        `report_type.eq.${sc}`,
+      ]);
+      if (orParts.length === 0) return out;
+      q = q.or(orParts.join(','));
+    }
+
     const { data, error } = await q;
     if (error) throw error;
     const rows = data ?? [];
@@ -143,13 +180,13 @@ async function fetchResolvedTransport(
       const closedAt = r.responded_at ?? r.updated_at;
       if (!r.created_at || !closedAt) continue;
       const location = (r.location as string) || (r.stop_location as string) || '';
-      const neighborhood = safeText(location, '');
+      const geo: GeoReportRow = { neighborhood: null, location: location || null };
       out.push({
         source: 'transporte',
         category: safeText(r.sub_category || r.report_type, 'Sem categoria'),
         reportType: safeText(r.report_type, ''),
-        neighborhood: neighborhood || 'Sem local',
-        zone: zoneFromRow(null, location),
+        neighborhood: districtLabelFromGeoRow(geo),
+        zone: zoneFromGeoRow(geo),
         hours: diffHours(r.created_at, closedAt),
         createdAt: r.created_at,
         closedAt,
@@ -158,14 +195,6 @@ async function fetchResolvedTransport(
     if (rows.length < PAGE_SIZE) break;
   }
   return out;
-}
-
-function normalizeCategory(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
 }
 
 /** Aplica recorte global (período já veio na query; aqui região + categoria temática). */
@@ -240,9 +269,10 @@ export function buildResponseTimeDrillStats(records: ResponseTimeRecord[]): Resp
 
   const categoryBuckets = new Map<string, { sum: number; count: number }>();
   for (const r of records) {
-    const key = r.reportType && normalizeCategory(r.reportType) !== normalizeCategory(r.category)
-      ? r.reportType
-      : r.category;
+    const key =
+      r.reportType && normalizeCategory(r.reportType) !== normalizeCategory(r.category)
+        ? r.reportType
+        : r.category;
     const cur = categoryBuckets.get(key) ?? { sum: 0, count: 0 };
     cur.sum += r.hours;
     cur.count += 1;
@@ -265,19 +295,34 @@ export function buildResponseTimeDrillStats(records: ResponseTimeRecord[]): Resp
   };
 }
 
+export type ComputeResponseTimeOptions = {
+  /** Relatos urbanos já carregados para volume/timeline (mesmo recorte por created_at). */
+  urbanRows?: UrbanReportRow[];
+  /** Mapa bairro→zona do volume territorial no recorte ativo. */
+  neighborhoodBreakdown?: { neighborhood: string; zone: string }[];
+};
+
+export async function computeResponseTimeDrillStats(
+  filters: ReportsAnalyticsFilters,
+  options: ComputeResponseTimeOptions = {},
+): Promise<ResponseTimeDrillStats> {
+  try {
+    const urban = options.urbanRows ? recordsFromUrbanRows(options.urbanRows) : [];
+    const transport = await fetchResolvedTransportForFilters(filters);
+    let merged = [...urban, ...transport];
+    if (options.neighborhoodBreakdown?.length) {
+      merged = enrichZonesFromNeighborhoodBreakdown(merged, options.neighborhoodBreakdown);
+    }
+    return buildResponseTimeDrillStats(filterResponseTimeRecords(merged, filters));
+  } catch (err) {
+    console.warn('[computeResponseTimeDrillStats]', err);
+    return EMPTY_RESPONSE_TIME_DRILL;
+  }
+}
+
+/** @deprecated Use computeResponseTimeDrillStats — mantido para compatibilidade. */
 export async function loadResponseTimeDrillStats(
   filters: ReportsAnalyticsFilters,
 ): Promise<ResponseTimeDrillStats> {
-  const { startIso, endIso } = toIsoRange(filters.startDate, filters.endDate);
-  try {
-    const [urban, transport] = await Promise.all([
-      fetchResolvedUrban(startIso, endIso),
-      fetchResolvedTransport(startIso, endIso),
-    ]);
-    const filtered = filterResponseTimeRecords([...urban, ...transport], filters);
-    return buildResponseTimeDrillStats(filtered);
-  } catch (err) {
-    console.warn('[loadResponseTimeDrillStats]', err);
-    return EMPTY_RESPONSE_TIME_DRILL;
-  }
+  return computeResponseTimeDrillStats(filters);
 }
