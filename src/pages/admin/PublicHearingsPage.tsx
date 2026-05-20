@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -16,13 +16,34 @@ import {
 import { useGlobalFilters } from '@/contexts/AnalyticsFiltersContext';
 import { globalFiltersToAudiencias } from '@/lib/globalFiltersToAudiencias';
 import { useAudienciasAnalytics } from '@/hooks/useAudienciasAnalytics';
+import { useUserRole } from '@/hooks/useUserRole';
+import { formatAudienciaTitulo } from '@/lib/audienciaDisplay';
+import {
+  PublicHearingsKpiSheet,
+  type PublicHearingsKpiMode,
+} from '@/components/admin/public-hearings/PublicHearingsKpiSheet';
+import { AudienciaEngagementDetailSheet } from '@/components/admin/public-hearings/AudienciaEngagementDetailSheet';
+import type { AudienciaRanking } from '@/hooks/useAudienciasAnalytics';
 
 export function PublicHearingsPage() {
   const { period, region } = useGlobalFilters();
   const filters = useMemo(() => globalFiltersToAudiencias(period, region), [period, region]);
   const { stats, isLoading, isRefreshing, error, refresh, lastUpdate } =
     useAudienciasAnalytics(filters);
+  const { isAdmin, isGestor } = useUserRole();
+  const canViewEngagement = isAdmin || isGestor;
+
+  const [kpiMode, setKpiMode] = useState<PublicHearingsKpiMode>(null);
+  const [detailAudiencia, setDetailAudiencia] = useState<AudienciaRanking | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
   const busy = isLoading || isRefreshing;
+  const listItems = stats.allAudiencias.length > 0 ? stats.allAudiencias : stats.topAudiencias;
+
+  const openDetail = (audiencia: AudienciaRanking) => {
+    setDetailAudiencia(audiencia);
+    setDetailOpen(true);
+  };
 
   return (
     <PageShell title="Audiências públicas" titleInfo={PUBLIC_HEARINGS_PAGE_LEGEND}>
@@ -31,16 +52,22 @@ export function PublicHearingsPage() {
           label="Audiências abertas"
           value={isLoading ? '—' : String(stats.audienciasAbertas)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.open}
+          hint="Clique para ver a lista de audiências abertas"
+          onOpenDetail={() => setKpiMode('open')}
         />
         <KpiCard
           label="Inscrições confirmadas"
           value={isLoading ? '—' : String(stats.totalInscricoes)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.registrations}
+          hint="Clique para ver inscrições por audiência"
+          onOpenDetail={() => setKpiMode('registrations')}
         />
         <KpiCard
           label="Manifestações recebidas"
           value={isLoading ? '—' : String(stats.totalEscritas)}
           parameter={PUBLIC_HEARINGS_KPI_LEGENDS.statements}
+          hint="Clique para ver manifestações por audiência"
+          onOpenDetail={() => setKpiMode('manifestations')}
         />
       </div>
 
@@ -77,38 +104,72 @@ export function PublicHearingsPage() {
               <Skeleton key={i} className="h-14 w-full" />
             ))}
           </div>
-        ) : stats.topAudiencias.length === 0 ? (
+        ) : listItems.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma audiência no período.</p>
         ) : (
           <ul className="divide-y divide-border">
-            {stats.topAudiencias.map((a) => (
-              <li
-                key={a.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between hover:bg-muted/30"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{a.titulo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {a.comissao ?? 'Sem comissão'} · {format(new Date(a.data), 'dd/MM/yyyy', { locale: ptBR })} ·{' '}
-                    {a.zona}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Badge variant="secondary">
-                    {a.inscricoes} {a.inscricoes === 1 ? 'inscrição' : 'inscrições'}
-                  </Badge>
-                  {a.ocupacaoPct != null && (
-                    <Badge variant="outline">{a.ocupacaoPct}% vagas</Badge>
-                  )}
-                  <Button variant="link" size="sm" className="h-auto p-0" asChild>
-                    <Link to={`/audiencias/${a.id}`}>Ver detalhe</Link>
-                  </Button>
-                </div>
-              </li>
-            ))}
+            {listItems.map((a) => {
+              const titulo = formatAudienciaTitulo({
+                titulo: a.titulo,
+                ap_code: a.ap_code,
+                tema: a.tema,
+                comissao: a.comissao,
+              });
+              return (
+                <li
+                  key={a.id}
+                  className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between hover:bg-muted/30"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{titulo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {a.comissao ?? 'Sem comissão'} ·{' '}
+                      {format(new Date(a.data), 'dd/MM/yyyy', { locale: ptBR })} · {a.zona}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Badge variant="secondary">
+                      {a.inscricoes} {a.inscricoes === 1 ? 'inscrição' : 'inscrições'}
+                    </Badge>
+                    {a.aberta && <Badge variant="default">Aberta</Badge>}
+                    {a.ocupacaoPct != null && (
+                      <Badge variant="outline">{a.ocupacaoPct}% vagas</Badge>
+                    )}
+                    {canViewEngagement ? (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0"
+                        onClick={() => openDetail(a)}
+                      >
+                        Ver inscritos e manifestações
+                      </Button>
+                    ) : (
+                      <Button variant="link" size="sm" className="h-auto p-0" asChild>
+                        <Link to={`/audiencias/${a.id}`}>Ver detalhe</Link>
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
+
+      <PublicHearingsKpiSheet
+        mode={kpiMode}
+        items={stats.allAudiencias}
+        open={kpiMode !== null}
+        onOpenChange={(open) => !open && setKpiMode(null)}
+      />
+
+      <AudienciaEngagementDetailSheet
+        audiencia={detailAudiencia}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        canViewEngagement={canViewEngagement}
+      />
     </PageShell>
   );
 }
