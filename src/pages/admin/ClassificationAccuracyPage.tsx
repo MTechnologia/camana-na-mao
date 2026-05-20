@@ -1,4 +1,4 @@
-import { AdminLayout } from '@/layouts/AdminLayout';
+import { PageShell } from '@/components/ui/PageShell';
 import { useClassificationAccuracyMetrics } from '@/hooks/useClassificationAccuracyMetrics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,12 +17,12 @@ import { AlertTriangle, RefreshCw, Target, CheckCircle2, XCircle, Database, Info
 const reportTypeLabel = (t: string | null) =>
   t === 'urban' ? 'Urbano' : t === 'transport' ? 'Transporte' : t ?? '—';
 
-export default function ClassificationAccuracyPage() {
+export function ClassificationAccuracyPage() {
   const { accuracyBySource, recentEvaluations, predictionsPending, summary, isLoading, error, refresh } =
     useClassificationAccuracyMetrics();
 
   return (
-    <AdminLayout>
+    <PageShell title="Acurácia da classificação" description="Predições da IA comparadas com correções no painel ou N8N.">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -322,6 +322,6 @@ export default function ClassificationAccuracyPage() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </PageShell>
   );
 }

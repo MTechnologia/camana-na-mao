@@ -11,7 +11,7 @@
 - ✅ vLLM Self-hosted (GCP) - Chat em tempo real
 - ✅ n8n Cloud Run (GCP) - Processamento assíncrono  
 - ✅ Embeddings Self-hosted (GCP) - Busca semântica
-- ✅ Fallback SaaS (Lovable) - Contingência
+- ✅ Provedor de IA configurável (vLLM / OpenAI-compatible)
 
 **Por que Híbrido?**
 - LGPD: Dados no Brasil (southamerica-east1)

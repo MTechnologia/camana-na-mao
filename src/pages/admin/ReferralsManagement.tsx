@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AdminLayout } from '@/layouts/AdminLayout';
+import { AdminPageShell } from '@/components/admin/AdminPageShell';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useReferralsAdmin, type Referral } from '@/hooks/useReferralsAdmin';
 
-const ReferralsManagement = () => {
+const ReferralsManagement = ({ embedded }: { embedded?: boolean } = {}) => {
   const {
     referrals,
     loading,
@@ -111,7 +111,7 @@ const ReferralsManagement = () => {
   };
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -457,7 +457,7 @@ const ReferralsManagement = () => {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </AdminLayout>
+    </AdminPageShell>
   );
 };
 

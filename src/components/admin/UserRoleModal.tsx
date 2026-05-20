@@ -80,15 +80,15 @@ export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleMo
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(90dvh,720px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[500px]">
+        <DialogHeader className="shrink-0 space-y-1.5 px-6 pt-6 text-left">
           <DialogTitle>Editar Perfil de {user.full_name}</DialogTitle>
           <DialogDescription>
             Selecione o único perfil que este usuário deve ter no sistema.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
           <RadioGroup
             value={selectedRole ?? ''}
             onValueChange={(value) => setSelectedRole(value as UserRole)}
@@ -146,7 +146,7 @@ export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleMo
           )}
         </div>
 
-        <div className="border-t border-border pt-4">
+        <div className="shrink-0 border-t border-border px-6 py-4">
           <p className="text-sm font-medium mb-2">Perfil selecionado:</p>
           <div className="flex flex-wrap gap-2">
             {selectedRole ? (
@@ -159,7 +159,7 @@ export const UserRoleModal = ({ user, open, onClose, onUpdateRoles }: UserRoleMo
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>

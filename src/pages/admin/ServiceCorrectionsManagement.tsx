@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AdminLayout } from "@/layouts/AdminLayout";
+import { AdminPageShell } from '@/components/admin/AdminPageShell';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -275,7 +275,7 @@ function PendingQueueTable({
   );
 }
 
-export default function ServiceCorrectionsManagement() {
+export default function ServiceCorrectionsManagement({ embedded }: { embedded?: boolean } = {}) {
   const {
     rows,
     loading,
@@ -354,7 +354,7 @@ export default function ServiceCorrectionsManagement() {
   };
 
   return (
-    <AdminLayout>
+    <AdminPageShell embedded={embedded}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -775,6 +775,6 @@ export default function ServiceCorrectionsManagement() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </AdminLayout>
+    </AdminPageShell>
   );
 }

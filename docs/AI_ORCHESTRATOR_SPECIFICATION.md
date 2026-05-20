@@ -40,7 +40,7 @@
     - 24.5 [SP Legis API - Vereadores](#245-sp-legis-api---vereadores)
     - 24.6 [Portal CMSP - Notícias](#246-portal-cmsp---notícias-wordpress)
     - 24.7 [Portal CMSP - Agenda](#247-portal-cmsp---agenda-e-audiências-wordpress)
-    - 24.8 [Lovable AI Gateway](#248-lovable-ai-gateway)
+    - 24.8 [Provedor LLM (OpenAI-compatible)](#248-provedor-llm-openai-compatible)
     - 24.9 [Estratégia de Cache e Fallback](#249-estratégia-de-cache-e-fallback)
 25. [Segurança e Auditoria](#25-segurança-e-auditoria)
 26. [Testes E2E Obrigatórios](#26-testes-e2e-obrigatórios)
@@ -74,7 +74,7 @@ O AI Orchestrator é um **assistente conversacional único** que gerencia todas 
 │       ↓                                                         │
 │  System Prompt + Tools + Context                                │
 │       ↓                                                         │
-│  Lovable AI Gateway (Google Gemini / OpenAI GPT)                │
+│  Provedor LLM (AI_CHAT_BASE_URL — vLLM / OpenAI-compatible)     │
 │       ↓                                                         │
 │  Tool Execution (12 tools disponíveis)                          │
 │       ↓                                                         │
@@ -2651,7 +2651,7 @@ flowchart TB
         WPA[WordPress API - Agenda<br/>Portal CMSP]
         GP[Google Places API<br/>places.googleapis.com]
         VC[ViaCEP<br/>viacep.com.br]
-        LAI[Lovable AI Gateway<br/>ai.gateway.lovable.dev]
+        LAI[Provedor LLM<br/>AI_CHAT_BASE_URL]
     end
     
     subgraph "Edge Functions"
@@ -2706,7 +2706,7 @@ flowchart TB
 | WordPress Agenda | ✅ Produção | `fetch-agenda` | `agenda_cache` | `useAgenda` |
 | Google Places | ✅ Produção | `google-places-*` | Nenhuma | Componentes |
 | ViaCEP | ✅ Produção | inline no orquestrador | Nenhuma | - |
-| Lovable AI Gateway | ✅ Produção | `ai-orchestrator`, etc. | Nenhuma | `useUnifiedAIChat` |
+| Provedor LLM (OpenAI-compatible) | ✅ Produção | `ai-orchestrator`, etc. | Nenhuma | `useUnifiedAIChat` |
 | N8N Workflow | ✅ Produção | `notify-n8n`, `n8n-callback` | Logs apenas | - |
 
 ---
@@ -3174,7 +3174,7 @@ const { agendaItem, isLoading } = useAgendaById("xyz");    // Específico
 
 ---
 
-### 24.8 Lovable AI Gateway
+### 24.8 Provedor LLM (OpenAI-compatible)
 
 **Propósito**: Acesso a modelos de IA para o AI Orchestrator e demais funcionalidades.
 
@@ -3183,9 +3183,9 @@ const { agendaItem, isLoading } = useAgendaById("xyz");    // Específico
 **API**:
 | Campo | Valor |
 |-------|-------|
-| **URL** | `https://ai.gateway.lovable.dev/v1/chat/completions` |
+| **URL** | `${AI_CHAT_BASE_URL}/chat/completions` |
 | **Método** | POST |
-| **Autenticação** | `Authorization: Bearer ${LOVABLE_API_KEY}` |
+| **Autenticação** | `Authorization: Bearer ${AI_API_KEY}` |
 | **Streaming** | SSE (Server-Sent Events) |
 
 **Edge Functions que Utilizam**:
@@ -3210,10 +3210,10 @@ const { agendaItem, isLoading } = useAgendaById("xyz");    // Específico
 
 **Exemplo de Request**:
 ```typescript
-const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+const response = await fetch(`${Deno.env.get('AI_CHAT_BASE_URL')}/chat/completions`, {
   method: 'POST',
   headers: {
-    'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+    'Authorization': `Bearer ${Deno.env.get('AI_API_KEY')}`,
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
@@ -3795,7 +3795,7 @@ graph TB
     end
     
     subgraph External
-        J[Lovable AI Gateway]
+        J[Provedor LLM]
         K[Google Places API]
         L[ViaCEP]
         M[N8N Workflows]
@@ -3933,7 +3933,7 @@ flowchart TB
         WPA["📅 WordPress - Agenda<br/>saopaulo.sp.leg.br/wp-json/wp/v2/agenda_cerimonial"]
         GP["📍 Google Places API<br/>places.googleapis.com/v1/places"]
         VC["📮 ViaCEP<br/>viacep.com.br/ws/{cep}/json"]
-        LAI["🤖 Lovable AI Gateway<br/>ai.gateway.lovable.dev/v1"]
+        LAI["🤖 Provedor LLM<br/>AI_CHAT_BASE_URL"]
         N8N["⚙️ N8N Workflow<br/>Self-hosted"]
     end
     
@@ -4005,7 +4005,7 @@ flowchart TB
 **Legenda:**
 - 🏛️ APIs Institucionais (SP Legis, Portal CMSP)
 - 📍 APIs de Geolocalização (Google Places, ViaCEP)
-- 🤖 APIs de IA (Lovable AI Gateway)
+- 🤖 APIs de IA (provedor LLM configurável)
 - ⚙️ Automação (N8N)
 - 💾 Cache em memória (volátil)
 - 🗃️ Cache em banco (persistente)
@@ -5076,7 +5076,7 @@ sequenceDiagram
 |--------|------|-------|------------|
 | 1.0.0 | Jan 2026 | Equipe CMSP | Versão inicial completa |
 | 1.1.0 | Jan 2026 | Equipe CMSP | Adicionada PARTE 9: CMS Administrativo (seções 27-41) |
-| 1.2.0 | Jan 2026 | Equipe CMSP | Seção 24 expandida: documentação completa de APIs externas (SP Legis, WordPress, Google Places, Lovable AI Gateway), estratégias de cache/fallback e diagramas de fluxo |
+| 1.2.0 | Jan 2026 | Equipe CMSP | Seção 24 expandida: documentação completa de APIs externas (SP Legis, WordPress, Google Places, provedor LLM), estratégias de cache/fallback e diagramas de fluxo |
 
 ---
 

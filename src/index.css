@@ -64,6 +64,33 @@ All colors MUST be HSL.
     --chart-6: 187 96% 42%;    /* Cyan - #06b6d4 */
     --chart-7: 330 81% 60%;    /* Pink - #ec4899 */
     --chart-8: 45 93% 47%;     /* Gold - #eab308 */
+
+    /* Painel admin — shell lateral (#760409) */
+    --shell-h: 357;
+    --shell-s: 93%;
+    --sidebar-l: 24%;
+    --shell-tone-step: 2%;
+    --analytics-bar-l-offset: calc(var(--shell-tone-step) * 2);
+
+    --highlight: 0 47% 93%;
+    --highlight-foreground: 357 93% 24%;
+
+    --sidebar: var(--shell-h) var(--shell-s) var(--sidebar-l);
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-muted: var(--shell-h) 25% 72%;
+    --sidebar-border: var(--shell-h) 55% calc(var(--sidebar-l) + 10%);
+    --sidebar-surface: var(--shell-h) 48% calc(var(--sidebar-l) + 6%);
+    --sidebar-accent: var(--shell-h) 42% calc(var(--sidebar-l) + 10%);
+    --sidebar-primary: 0 47% 93%;
+    --sidebar-primary-foreground: 357 93% 24%;
+    --sidebar-ring: 0 47% 93%;
+
+    --analytics-bar: var(--shell-h) var(--shell-s) calc(var(--sidebar-l) - var(--analytics-bar-l-offset));
+    --analytics-bar-foreground: 0 0% 98%;
+    --analytics-bar-border: var(--shell-h) 90% calc(var(--sidebar-l) - var(--analytics-bar-l-offset) - 6%);
+    --analytics-bar-muted: 0 20% 88%;
+    --analytics-bar-surface: 0 47% 93%;
+    --analytics-bar-control-foreground: 357 93% 24%;
   }
 }
 

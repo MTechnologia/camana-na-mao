@@ -205,10 +205,10 @@ mobile/
 #### Configuração de LLM
 
 - **Provider**: Configurável via secrets
-  - `AI_CHAT_BASE_URL`: URL do vLLM ou Lovable AI Gateway
+  - `AI_CHAT_BASE_URL`: URL do provedor LLM (vLLM ou API OpenAI-compatible)
   - `AI_CHAT_API_KEY`: Chave de API
   - `AI_CHAT_MODEL`: Modelo a usar (ex: `Qwen/Qwen2.5-7B-Instruct`)
-- **Fallback**: Lovable AI Gateway (se vLLM não disponível)
+- **Provedor**: configurável via secrets (`AI_CHAT_BASE_URL`, `AI_API_KEY`, `AI_CHAT_MODEL`)
 
 ### 3.2 n8n Workflows (Assíncrono)
 
@@ -344,7 +344,7 @@ mobile/
        │
        ▼
 ┌─────────────────────┐
-│  LLM (vLLM/Lovable) │
+│  LLM (vLLM / OpenAI-compatible) │
 │  (Tool Calling)     │
 └──────┬──────────────┘
        │
@@ -464,7 +464,7 @@ mobile/
 - `SUPABASE_URL`: URL do Supabase
 - `SUPABASE_ANON_KEY`: Chave anon do Supabase
 - `SUPABASE_SERVICE_ROLE_KEY`: Chave de service role
-- `AI_CHAT_BASE_URL`: URL do vLLM ou Lovable
+- `AI_CHAT_BASE_URL`: URL do provedor LLM
 - `AI_CHAT_API_KEY`: Chave de API do LLM
 - `AI_CHAT_MODEL`: Modelo a usar
 - `AI_EMBEDDING_BASE_URL`: URL do serviço de embeddings

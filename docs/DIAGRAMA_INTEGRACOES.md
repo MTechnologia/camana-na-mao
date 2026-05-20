@@ -127,7 +127,7 @@ flowchart LR
     A[Frontend] -->|Mensagem| B[AI Orchestrator]
     B -->|Tool Calling| C{LLM Provider}
     C -->|vLLM| D[Self-hosted GCP]
-    C -->|Fallback| E[Lovable Gateway]
+    C -->|Fallback| E[Provedor LLM alternativo]
     D -->|Resposta| B
     E -->|Resposta| B
     B -->|SSE Stream| A
@@ -140,8 +140,8 @@ flowchart LR
 - **Modelo**: `Qwen/Qwen2.5-7B-Instruct`
 - **API**: OpenAI-compatible
 
-**Provider Fallback (Lovable):**
-- **URL**: `https://ai.gateway.lovable.dev/v1`
+**Provedor LLM (configurável):**
+- **URL**: `AI_CHAT_BASE_URL` (Supabase Secrets)
 - **Modelo**: `google/gemini-2.5-flash`
 - **API**: OpenAI-compatible
 

@@ -1,0 +1,216 @@
+import { describe, expect, it } from 'vitest';
+import type { ReportsAnalyticsStats } from '@/hooks/useReportsAnalytics';
+import {
+  buildChartSeriesFromStats,
+  buildDrillKpisFromStats,
+  sumChartBarValues,
+  unallocatedVolumeFromStats,
+} from '@/lib/analyticsDrillFromStats';
+import { EMPTY_RESPONSE_TIME_DRILL } from '@/lib/responseTimeAggregates';
+
+function mockStats(overrides: Partial<ReportsAnalyticsStats> = {}): ReportsAnalyticsStats {
+  return {
+    total: 36,
+    urban: 30,
+    transport: 4,
+    evaluation: 2,
+    pending: 10,
+    resolved: 20,
+    critical: 2,
+    trend: 0,
+    resolvedTrend: 0,
+    criticalTrend: 0,
+    pendingTrend: 0,
+    timeline: [],
+    byStatus: [
+      { status: 'Pendente', count: 10, color: '' },
+      { status: 'Resolvido', count: 20, color: '' },
+    ],
+    categories: [{ category: 'Mobilidade', count: 20 }],
+    demographics: {
+      byGender: [],
+      byRace: [],
+      bySocialClass: [],
+      byAgeGroup: [],
+      byRegion: [
+        { region: 'Sé', count: 15, sentiment: 60 },
+        { region: 'Tatuapé', count: 5, sentiment: 40 },
+        { region: 'Pinheiros', count: 5, sentiment: 55 },
+      ],
+    },
+    engagement: {
+      totalLikes: 0,
+      totalComments: 0,
+      avgLikesPerReport: 0,
+      avgCommentsPerReport: 0,
+      likesTrend: 0,
+      commentsTrend: 0,
+      topReports: [],
+      conversionFunnel: [],
+    },
+    volumeByZone: [],
+    neighborhoodBreakdown: [],
+    criticality: {
+      criticalScore: 0,
+      bySeverity: [],
+      patterns: [{ id: '1', title: 'Padrão A', count: 3 } as never],
+      criticalPendingReports: [],
+    },
+    responseTime: EMPTY_RESPONSE_TIME_DRILL,
+    ...overrides,
+  };
+}
+
+const mockResponseTime = {
+  avgHours: 18.5,
+  resolvedCount: 4,
+  byZone: [
+    { zone: 'Centro', avgHours: 10, count: 1 },
+    { zone: 'Zona Norte', avgHours: 0, count: 0 },
+    { zone: 'Zona Sul', avgHours: 0, count: 0 },
+    { zone: 'Zona Leste', avgHours: 24, count: 2 },
+    { zone: 'Zona Oeste', avgHours: 30, count: 1 },
+    { zone: 'Não informada', avgHours: 0, count: 0 },
+  ],
+  byNeighborhood: [
+    { neighborhood: 'Tatuapé', zone: 'Zona Leste', avgHours: 20, count: 1 },
+    { neighborhood: 'Mooca', zone: 'Zona Leste', avgHours: 28, count: 1 },
+    { neighborhood: 'Pinheiros', zone: 'Zona Oeste', avgHours: 30, count: 1 },
+  ],
+  byCategory: [
+    { category: 'Mobilidade', avgHours: 18.5, count: 4 },
+    { category: 'Iluminação', avgHours: 10, count: 1 },
+  ],
+} as const;
+
+describe('analyticsDrillFromStats volume parity', () => {
+  it('detecta relatos fora da distribuição por bairro', () => {
+    const stats = mockStats();
+    expect(unallocatedVolumeFromStats(stats)).toBe(11);
+  });
+
+  it('KPI de volume no overview iguala o total de relatos', () => {
+    const stats = mockStats();
+    const kpis = buildDrillKpisFromStats(stats, 'overview');
+    expect(kpis.volume).toBe(36);
+  });
+
+  it('soma das barras de volume no overview iguala o KPI', () => {
+    const stats = mockStats();
+    const kpis = buildDrillKpisFromStats(stats, 'overview');
+    const chart = buildChartSeriesFromStats(stats, 'overview', 'volume');
+    expect(sumChartBarValues(chart)).toBe(kpis.volume);
+  });
+
+  it('overview lista todas as zonas canônicas da capital', () => {
+    const stats = mockStats();
+    const chart = buildChartSeriesFromStats(stats, 'overview', 'volume');
+    expect(chart).toHaveLength(6);
+    expect(chart.map((b) => b.label)).toEqual([
+      'Centro',
+      'Zona Norte',
+      'Zona Sul',
+      'Zona Leste',
+      'Zona Oeste',
+      'Não informada',
+    ]);
+  });
+
+  it('usa volumeByZone geolocalizado quando disponível', () => {
+    const stats = mockStats({
+      total: 10,
+      volumeByZone: [
+        { zone: 'Centro', count: 4 },
+        { zone: 'Zona Norte', count: 2 },
+        { zone: 'Zona Sul', count: 1 },
+        { zone: 'Zona Leste', count: 2 },
+        { zone: 'Zona Oeste', count: 1 },
+        { zone: 'Não informada', count: 0 },
+      ],
+    });
+    const chart = buildChartSeriesFromStats(stats, 'overview', 'volume');
+    expect(chart.find((b) => b.label === 'Centro')?.value).toBe(4);
+    expect(chart.find((b) => b.label === 'Não informada')?.value).toBe(0);
+    expect(sumChartBarValues(chart)).toBe(10);
+  });
+
+  it('volumeByZone incompleto aloca gap em Não informada para bater com o KPI', () => {
+    const stats = mockStats({
+      total: 36,
+      volumeByZone: [
+        { zone: 'Centro', count: 1 },
+        { zone: 'Zona Norte', count: 1 },
+        { zone: 'Zona Sul', count: 0 },
+        { zone: 'Zona Leste', count: 0 },
+        { zone: 'Zona Oeste', count: 13 },
+        { zone: 'Não informada', count: 13 },
+      ],
+    });
+    const kpis = buildDrillKpisFromStats(stats, 'overview');
+    const chart = buildChartSeriesFromStats(stats, 'overview', 'volume');
+    expect(kpis.volume).toBe(36);
+    expect(chart.find((b) => b.label === 'Não informada')?.value).toBe(21);
+    expect(sumChartBarValues(chart)).toBe(kpis.volume);
+  });
+
+  it('drill por zona usa neighborhoodBreakdown e volumeByZone', () => {
+    const stats = mockStats({
+      total: 5,
+      volumeByZone: [
+        { zone: 'Zona Norte', count: 3 },
+        { zone: 'Zona Leste', count: 2 },
+        { zone: 'Centro', count: 0 },
+        { zone: 'Zona Sul', count: 0 },
+        { zone: 'Zona Oeste', count: 0 },
+        { zone: 'Não informada', count: 0 },
+      ],
+      neighborhoodBreakdown: [
+        { neighborhood: 'Santana', zone: 'Zona Norte', count: 2 },
+        { neighborhood: 'Casa Verde', zone: 'Zona Norte', count: 1 },
+        { neighborhood: 'Tatuapé', zone: 'Zona Leste', count: 2 },
+      ],
+    });
+    const kpis = buildDrillKpisFromStats(stats, 'region', 'north');
+    const chart = buildChartSeriesFromStats(stats, 'region', 'volume', 'north');
+    expect(kpis.volume).toBe(3);
+    expect(chart).toHaveLength(2);
+    expect(chart.map((b) => b.label)).toEqual(expect.arrayContaining(['Santana', 'Casa Verde']));
+    expect(sumChartBarValues(chart)).toBe(3);
+  });
+});
+
+describe('analyticsDrillFromStats response time (HU-2.2)', () => {
+  it('KPI de tempo no overview usa média real, não proxy pendente/resolvido', () => {
+    const stats = mockStats({
+      pending: 10,
+      resolved: 20,
+      responseTime: mockResponseTime,
+    });
+    const kpis = buildDrillKpisFromStats(stats, 'overview');
+    expect(kpis.responseHours).toBe(18.5);
+    expect(kpis.responseHours).not.toBe(99);
+  });
+
+  it('barras de tempo no overview variam por zona', () => {
+    const stats = mockStats({ responseTime: mockResponseTime });
+    const chart = buildChartSeriesFromStats(stats, 'overview', 'response_time');
+    expect(chart.find((b) => b.label === 'Centro')?.value).toBe(10);
+    expect(chart.find((b) => b.label === 'Zona Leste')?.value).toBe(24);
+    expect(chart.find((b) => b.label === 'Zona Norte')?.value).toBe(0);
+    const values = chart.map((b) => b.value);
+    expect(new Set(values).size).toBeGreaterThan(1);
+  });
+
+  it('KPI de tempo no drill de região usa média da zona ativa', () => {
+    const stats = mockStats({ responseTime: mockResponseTime });
+    const kpis = buildDrillKpisFromStats(stats, 'region', 'east');
+    expect(kpis.responseHours).toBe(24);
+  });
+
+  it('gráfico de tempo no drill de região lista bairros com avgHours', () => {
+    const stats = mockStats({ responseTime: mockResponseTime });
+    const chart = buildChartSeriesFromStats(stats, 'region', 'response_time', 'east');
+    expect(chart.map((b) => b.label)).toEqual(expect.arrayContaining(['Tatuapé', 'Mooca']));
+    expect(chart.find((b) => b.label === 'Tatuapé')?.value).toBe(20);
+  });
+});

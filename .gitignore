@@ -52,6 +52,9 @@ coverage/
 playwright-report/
 test-results/
 
+# Vite cache local
+vite.config.ts.timestamp-*.mjs
+
 # Editor directories and files
 .cursor/
 .vscode/*

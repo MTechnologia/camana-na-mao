@@ -35,14 +35,41 @@ export type ZonaVolumeOuDesconhecida = ZonaVolume | typeof ZONA_DESCONHECIDA;
  * @param lat Latitude do relato (opcional). Se fornecida, tem prioridade.
  * @param lng Longitude do relato (opcional). Necessária junto com `lat`.
  */
+/** Normaliza lat/lng vindos do banco (string, sinal invertido ou eixos trocados). */
+export function normalizeReportCoordinates(
+  lat: number | string | null | undefined,
+  lng: number | string | null | undefined,
+): { lat: number | null; lng: number | null } {
+  const la = lat == null || lat === '' ? NaN : Number(lat);
+  const lo = lng == null || lng === '' ? NaN : Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) {
+    return { lat: null, lng: null };
+  }
+  let normLat = la;
+  let normLng = lo;
+  if (normLat > 0) normLat = -normLat;
+  if (normLng > 0 && Math.abs(normLat) < 10) {
+    normLng = normLng > 0 ? -normLng : normLng;
+  }
+  // latitude no campo longitude (comum em APIs que retornam lng,lat)
+  if (Math.abs(normLat) > 10 && Math.abs(normLng) < 10) {
+    const swappedLat = normLng > 0 ? -normLng : normLng;
+    const swappedLng = normLat;
+    normLat = swappedLat;
+    normLng = swappedLng;
+  }
+  return { lat: normLat, lng: normLng };
+}
+
 export function bairroParaZona(
   texto: string | null | undefined,
-  lat?: number | null,
-  lng?: number | null,
+  lat?: number | string | null,
+  lng?: number | string | null,
 ): ZonaVolumeOuDesconhecida {
+  const { lat: normLat, lng: normLng } = normalizeReportCoordinates(lat, lng);
   // 1) Geolocalização tem prioridade — mais precisa
-  if (lat != null && lng != null) {
-    const fromCoords = coordinatesToZone(lat, lng);
+  if (normLat != null && normLng != null) {
+    const fromCoords = coordinatesToZone(normLat, normLng);
     if (fromCoords) return fromCoords;
   }
 

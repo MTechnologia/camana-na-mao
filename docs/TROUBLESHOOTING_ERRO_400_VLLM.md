@@ -22,21 +22,15 @@ O erro 400 (Bad Request) do vLLM pode ser causado por:
 Adicionei tratamento específico para erro 400 que:
 
 1. **Loga detalhes do erro** para debugging
-2. **Tenta fallback automático** para Lovable AI (se configurado)
+2. **Tenta retry** com contexto reduzido
 3. **Retorna mensagem amigável** ao usuário ao invés de crashar
 
 ### Código Adicionado
 
 ```typescript
-// Handle 400 Bad Request - try fallback to Lovable if available
 if (response.status === 400) {
-  console.error('[ai-orchestrator] Bad Request (400) from vLLM:', errorText);
-  console.log('[ai-orchestrator] Attempting fallback to Lovable AI...');
-  
-  // Try fallback to Lovable if available
-  if (lovableApiKey && finalAiBaseUrl !== 'https://ai.gateway.lovable.dev/v1') {
-    // ... fallback logic
-  }
+  console.error('[ai-orchestrator] Bad Request (400) from LLM:', errorText);
+  // Retry com menos mensagens / prompt menor, ou mensagem amigável ao usuário
 }
 ```
 
@@ -92,7 +86,7 @@ Procure por `[ai-orchestrator] API request:` nos logs do Supabase.
 O vLLM pode não suportar tool calling da mesma forma que OpenAI. Se o erro 400 ocorrer frequentemente com tool calling, considere:
 
 **Opção A**: Desabilitar tool calling temporariamente para testar
-**Opção B**: Usar apenas Lovable AI para tool calling
+**Opção B**: Usar provedor com suporte nativo a tool calling
 **Opção C**: Verificar se o vLLM suporta tool calling (pode precisar de versão específica)
 
 ---
@@ -105,7 +99,7 @@ O vLLM pode não suportar tool calling da mesma forma que OpenAI. Se o erro 400 
 2. Procure por:
    - `[ai-orchestrator] Bad Request (400) from vLLM:` - mostra o erro completo
    - `[ai-orchestrator] API request:` - mostra detalhes da requisição
-   - `[ai-orchestrator] Attempting fallback to Lovable AI...` - indica fallback
+   - `[ai-orchestrator] Context too long, attempting with reduced context...` - indica retry
 
 ### Testar vLLM Diretamente
 
@@ -135,8 +129,8 @@ Se isso funcionar, o problema pode ser com:
 
 Com a correção implementada:
 
-1. **Se vLLM retornar 400**: Sistema tenta automaticamente Lovable AI
-2. **Se Lovable também falhar**: Retorna mensagem amigável ao usuário
+1. **Se vLLM retornar 400**: Sistema tenta retry com contexto reduzido
+2. **Se ainda falhar**: Retorna mensagem amigável ao usuário
 3. **Logs detalhados**: Ajudam a identificar a causa raiz
 
 ---
@@ -153,7 +147,7 @@ Com a correção implementada:
 
 O vLLM pode ter limitações com tool calling. Se o erro 400 ocorrer principalmente quando tools são chamados, considere:
 
-- Usar Lovable AI apenas para tool calling
+- Usar provedor com tool calling nativo
 - Ou verificar se o vLLM suporta tool calling (pode precisar de configuração especial)
 
 ---

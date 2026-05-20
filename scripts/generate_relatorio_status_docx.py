@@ -158,9 +158,9 @@ def main() -> None:
         doc,
         [
             "Edge Function principal: supabase/functions/ai-orchestrator.",
-            "Gateway: Lovable AI Gateway (endpoint https://ai.gateway.lovable.dev/v1/chat/completions).",
-            "Modelos (config): google/gemini-2.5-flash (streaming) e google/gemini-2.5-flash-lite (tarefas curtas como rótulos).",
-            "Credencial: LOVABLE_API_KEY (variável de ambiente no Supabase).",
+            "Provedor: endpoint OpenAI-compatible configurado em AI_CHAT_BASE_URL (Supabase Secrets).",
+            "Modelo: AI_CHAT_MODEL (ex.: Qwen/Qwen2.5-3B-Instruct ou equivalente no provedor).",
+            "Credencial: AI_API_KEY (variável de ambiente no Supabase).",
         ],
     )
 

@@ -357,7 +357,7 @@ sequenceDiagram
 
 5. **Independência**
    - Não depende de serviços externos
-   - Funciona mesmo se Lovable/n8n estiver offline
+   - Funciona mesmo se n8n ou provedores externos estiverem offline
    - Sem vendor lock-in
 
 6. **RAG Otimizado**
@@ -469,7 +469,7 @@ sequenceDiagram
 
 ### 6.1 Baixo Volume (< 100 conversas/dia)
 
-**Recomendação**: **N8N apenas** (com Lovable AI como fallback)
+**Recomendação**: **N8N apenas** (com provedor SaaS opcional como fallback)
 
 **Justificativa:**
 - Custo variável é mais econômico
@@ -478,7 +478,7 @@ sequenceDiagram
 
 **Configuração:**
 - N8N para processamento assíncrono
-- Lovable AI Gateway para chat (via `LOVABLE_API_KEY`)
+- Provedor de chat via `AI_CHAT_BASE_URL` (SaaS ou vLLM remoto)
 - Sem VMs no GCP
 
 **Custo estimado**: $20-50/mês
@@ -495,7 +495,7 @@ sequenceDiagram
 **Configuração:**
 - 1 VM GCP (vLLM) para chat síncrono
 - N8N para enriquecimento assíncrono
-- Lovable AI como fallback
+- Provedor alternativo via `AI_CHAT_BASE_URL` (se necessário)
 
 **Custo estimado**: $200-250/mês
 
@@ -511,7 +511,7 @@ sequenceDiagram
 **Configuração:**
 - 2 VMs GCP (vLLM + TEI) para chat e embeddings
 - N8N para enriquecimento assíncrono
-- Lovable AI como fallback secundário
+- Provedor alternativo via `AI_CHAT_BASE_URL` (se necessário) secundário
 
 **Custo estimado**: $250-350/mês
 
@@ -575,7 +575,7 @@ Use esta matriz para decidir qual abordagem usar:
                         │
                         ▼
               ┌──────────────────┐
-              │  Lovable AI      │
+              │  Provedor LLM    │
               │  (Fallback)      │
               └──────────────────┘
 ```
@@ -596,7 +596,7 @@ Use esta matriz para decidir qual abordagem usar:
 - ✅ Integração com APIs externas
 - ✅ Notificações e alertas
 
-#### Fallback (Lovable AI)
+#### Fallback (provedor alternativo)
 - ✅ Backup quando vLLM está offline
 - ✅ Redundância para alta disponibilidade
 - ✅ Desenvolvimento/testes
@@ -673,7 +673,7 @@ Use esta matriz para decidir qual abordagem usar:
    - Priorização automática
    - Integrações com APIs externas
 
-3. **Lovable AI** como:
+3. **Provedor alternativo** (opcional) como:
    - Fallback quando vLLM está offline
    - Redundância para alta disponibilidade
    - Ambiente de desenvolvimento/testes
@@ -683,14 +683,14 @@ Use esta matriz para decidir qual abordagem usar:
 1. **Performance**: Chat em tempo real requer latência baixa (vLLM)
 2. **Custo**: Alto volume justifica custo fixo das VMs
 3. **Flexibilidade**: N8N facilita automações e integrações
-4. **Redundância**: Lovable AI como fallback garante disponibilidade
+4. **Redundância**: segundo endpoint em `AI_CHAT_BASE_URL` garante disponibilidade
 5. **Escalabilidade**: Híbrido permite escalar cada componente independentemente
 
 ### 10.4 Próximos Passos
 
 1. ✅ **Manter 2 VMs GCP** (já configuradas)
 2. ✅ **Manter N8N** (já configurado)
-3. ✅ **Configurar Lovable AI** como fallback (seguir guia)
+3. ✅ **Configurar fallback** de provedor LLM (se necessário)
 4. ⚠️ **Monitorar custos** mensalmente
 5. ⚠️ **Ajustar conforme volume** (escalar VMs ou N8N conforme necessário)
 
@@ -701,7 +701,7 @@ Use esta matriz para decidir qual abordagem usar:
 - [Documento de Arquitetura](./DOCUMENTO_ARQUITETURA.md)
 - [Diagrama de Integrações](./DIAGRAMA_INTEGRACOES.md)
 - [Guia de Configuração N8N](./GUIA_CONFIGURACAO_N8N_PASSO_A_PASSO.md)
-- [Guia de Configuração Lovable AI](./GUIA_CONFIGURACAO_LOVABLE_AI.md)
+- [Configuração rápida vLLM](./CONFIGURACAO_RAPIDA_VLLM.md)
 - [Especificação do AI Orchestrator](./AI_ORCHESTRATOR_SPECIFICATION.md)
 
 ---
